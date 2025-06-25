@@ -87,6 +87,7 @@ const CollapsibleNavigation = ({
   isStaffView = false,
   devMode = false,
   lessonAccessibility = {},
+  isDeveloperModeActive = false,
 }) => {
   const { user, currentUser } = useAuth();
   
@@ -116,8 +117,9 @@ const CollapsibleNavigation = ({
 
   // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
@@ -163,8 +165,9 @@ const CollapsibleNavigation = ({
   const allCourseItems = useMemo(() => {
     const items = [];
 
-    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
@@ -437,7 +440,7 @@ const CollapsibleNavigation = ({
             {!isAccessible && (
               <>
                 <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
-                {accessInfo.requiredPercentage && (
+                {accessInfo.requiredPercentage && accessInfo.requiredPercentage > 0 && (
                   <p className="text-xs text-red-500">
                     Requires {accessInfo.requiredPercentage}% to unlock
                   </p>
@@ -465,17 +468,53 @@ const CollapsibleNavigation = ({
             {!isCompleted && isAccessible && (
               <p className="text-sm text-gray-600">Not yet completed</p>
             )}
-            {/* Show percentage requirements for course progression */}
+            {/* Show progression requirements for course progression */}
             {course?.Gradebook?.courseConfig?.progressionRequirements?.enabled && (
               <>
                 {(() => {
                   const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
                   const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId];
-                  const requiredPercentage = lessonOverride?.minimumPercentage || progressionRequirements.defaultMinimumPercentage || 80;
+                  const defaultCriteria = progressionRequirements.defaultCriteria || {};
+                  
+                  // Get criteria for this lesson
+                  const criteria = {
+                    minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                                      defaultCriteria.minimumPercentage ?? 
+                                      progressionRequirements.defaultMinimumPercentage ?? 
+                                      80,
+                    requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                                        defaultCriteria.requireAllQuestions ?? 
+                                        false,
+                    questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
+                                                 defaultCriteria.questionCompletionPercentage ?? 
+                                                 null
+                  };
+                  
+                  // Generate requirement text
+                  let requirementParts = [];
+                  
+                  // Only show score requirement if minimumPercentage > 0
+                  if (criteria.minimumPercentage > 0) {
+                    requirementParts.push(`${criteria.minimumPercentage}% score`);
+                  }
+                  
+                  if (criteria.requireAllQuestions) {
+                    requirementParts.push('all questions');
+                  } else if (criteria.questionCompletionPercentage && criteria.questionCompletionPercentage > 0) {
+                    requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
+                  }
+                  
+                  // If no score requirement and only completion requirement, use simpler text
+                  const requirementText = requirementParts.length > 0 
+                    ? requirementParts.join(' + ')
+                    : 'completion';
                   
                   return (
                     <p className="text-xs text-blue-600 mt-1">
-                      📊 Need {requiredPercentage}% to unlock next lesson
+                      {criteria.minimumPercentage > 0 
+                        ? `📊 Need ${requirementText} to unlock next lesson`
+                        : `✅ Answer ${requirementText} to unlock next lesson`
+                      }
                     </p>
                   );
                 })()}
@@ -489,7 +528,8 @@ const CollapsibleNavigation = ({
   
   // Find current lesson for collapsed view
   const currentLesson = useMemo(() => {
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
@@ -563,13 +603,24 @@ const CollapsibleNavigation = ({
   const NavigationContent = () => (
     <>
       {/* Developer Access Indicator */}
-      {isAuthorizedDeveloper && (
+      {isAuthorizedDeveloper && isDeveloperModeActive && (
         <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-medium flex items-center gap-2">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span>DEVELOPER MODE</span>
+            <span>DEVELOPER MODE ACTIVE</span>
           </div>
           <span className="opacity-80">• All lessons unlocked • Access restrictions bypassed</span>
+        </div>
+      )}
+      
+      {/* Developer Available Indicator */}
+      {isAuthorizedDeveloper && !isDeveloperModeActive && (
+        <div className="bg-gray-100 text-gray-600 px-3 py-2 text-xs flex items-center gap-2 border-b border-gray-200">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+            <span className="font-medium">Developer Access Available</span>
+          </div>
+          <span className="opacity-80">• Enable Dev Mode in header to bypass restrictions</span>
         </div>
       )}
       

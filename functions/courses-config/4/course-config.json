@@ -30,15 +30,66 @@
   },
   "progressionRequirements": {
     "enabled": true,
-    "defaultMinimumPercentage": 80,
+    "defaultCriteria": {
+      "minimumPercentage": 0,
+      "questionCompletionPercentage": null,
+      "requireAllQuestions": true
+    },
     "lessonOverrides": {
       "lesson_welcome_rtd_academy": {
-        "minimumPercentage": 50,
-        "note": "Higher standard for introductory lesson"
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
       },
       "lesson_learning_plans_completion_policies": {
-        "minimumPercentage": 90,
-        "note": "Critical policy understanding required"
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_time_management_staying_active": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_conduct_expectations_responsibilities": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_digital_citizenship_online_safety": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_technology_readiness_assistive_tools": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_cell_phone_policy_exam_proctoring": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_academic_integrity_violation_consequences": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "lesson_exams_rewrites_student_support": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "exam_mid_course_test": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
+      },
+      "exam_final_comprehensive": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": true,
+        "note": "Must answer all questions (no minimum score required)"
       }
     }
   },

@@ -107,7 +107,7 @@ const formatASN = (value) => {
 
 const ParentDashboard = () => {
   const navigate = useNavigate();
-  const { currentUser, signOut } = useAuth();
+  const { currentUser, signOut, parentLoginProgress, setParentLoginProgress } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [parentData, setParentData] = useState(null);
@@ -153,13 +153,58 @@ const ParentDashboard = () => {
       return;
     }
 
+    // Check if user's email is verified
+    if (!currentUser.emailVerified) {
+      console.log("Parent email not verified, signing out");
+      setError("Please verify your email before accessing the parent dashboard.");
+      toast.error("Please verify your email before accessing the parent dashboard.");
+      try {
+        await signOut();
+        navigate('/parent-login', {
+          state: {
+            message: "Please verify your email before signing in. Check your inbox for a verification link."
+          }
+        });
+      } catch (signOutError) {
+        console.error("Error signing out:", signOutError);
+        navigate('/parent-login');
+      }
+      return;
+    }
+
     try {
+      // Set loading progress for cloud function call
+      setParentLoginProgress({
+        isLoading: true,
+        step: 'loading_dashboard',
+        message: 'Loading your parent dashboard...'
+      });
+
       const functions = getFunctions();
       const getParentDashboardData = httpsCallable(functions, 'getParentDashboardData');
       
       const result = await getParentDashboardData();
       
       if (result.data.success) {
+        // Additional check: verify emailVerified status from database
+        if (result.data.parentProfile && result.data.parentProfile.emailVerified === false) {
+          console.log("Parent email verification status false in database, signing out");
+          setError("Please verify your email before accessing the parent dashboard.");
+          toast.error("Please verify your email before accessing the parent dashboard.");
+          try {
+            await signOut();
+            navigate('/parent-login', {
+              state: {
+                message: "Please verify your email before signing in. Check your inbox for a verification link."
+              }
+            });
+          } catch (signOutError) {
+            console.error("Error signing out:", signOutError);
+            navigate('/parent-login');
+          }
+          return;
+        }
+
         setParentData(result.data);
         
         // Debug: Log the raw student data to console
@@ -188,6 +233,12 @@ const ParentDashboard = () => {
     } finally {
       setLoading(false);
       setIsRefreshing(false);
+      // Clear parent login progress when dashboard loading completes
+      setParentLoginProgress({
+        isLoading: false,
+        step: '',
+        message: ''
+      });
     }
   };
 

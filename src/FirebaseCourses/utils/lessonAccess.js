@@ -76,7 +76,7 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     // Check if previous lesson has assessment attempts/completion
     const isPreviousCompleted = hasCompletedAssessments(previousItem.itemId, assessmentData, courseGradebook);
     
-    // Get required percentage info for better error messages
+    // Get required criteria info for better error messages
     let requiredPercentage = null;
     let detailedReason = isPreviousCompleted 
       ? 'Previous lesson assessments completed'
@@ -85,13 +85,52 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     if (!isPreviousCompleted && courseGradebook?.courseConfig?.progressionRequirements?.enabled) {
       const progressionRequirements = courseGradebook.courseConfig.progressionRequirements;
       const lessonOverride = progressionRequirements.lessonOverrides?.[previousItem.itemId];
-      requiredPercentage = lessonOverride?.minimumPercentage || progressionRequirements.defaultMinimumPercentage || 80;
+      const defaultCriteria = progressionRequirements.defaultCriteria || {};
+      
+      // Get criteria for previous lesson
+      const criteria = {
+        minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                          defaultCriteria.minimumPercentage ?? 
+                          progressionRequirements.defaultMinimumPercentage ?? 
+                          80,
+        requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                            defaultCriteria.requireAllQuestions ?? 
+                            false,
+        questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
+                                     defaultCriteria.questionCompletionPercentage ?? 
+                                     null
+      };
+      
+      requiredPercentage = criteria.minimumPercentage;
       
       const courseStructureItems = courseGradebook.courseStructureItems || {};
       const previousLessonData = courseStructureItems[previousItem.itemId];
       const currentPercentage = previousLessonData?.percentage || 0;
       
-      detailedReason = `Need ${requiredPercentage}% in "${previousItem.title}" (currently ${currentPercentage}%)`;
+      // Generate detailed reason based on criteria
+      let requirementParts = [];
+      
+      // Only include score requirement if minimumPercentage > 0
+      if (criteria.minimumPercentage > 0) {
+        requirementParts.push(`${criteria.minimumPercentage}% score`);
+      }
+      
+      if (criteria.requireAllQuestions) {
+        requirementParts.push('all questions');
+      } else if (criteria.questionCompletionPercentage && criteria.questionCompletionPercentage > 0) {
+        requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
+      }
+      
+      const requirementText = requirementParts.length > 0 
+        ? requirementParts.join(' + ')
+        : 'completion';
+      
+      // Adjust the message based on whether we have score requirements
+      if (criteria.minimumPercentage > 0) {
+        detailedReason = `Need ${requirementText} in "${previousItem.title}" (currently ${currentPercentage}%)`;
+      } else {
+        detailedReason = `Answer ${requirementText} in "${previousItem.title}" to unlock`;
+      }
     }
     
     accessibility[currentItem.itemId] = {
@@ -105,7 +144,7 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
 };
 
 /**
- * Checks if a lesson has completed assessments with minimum percentage requirements
+ * Checks if a lesson has completed assessments with flexible progression requirements
  * @param {string} lessonId - The lesson item ID
  * @param {Object} assessmentData - Assessment/gradebook data from Firebase
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
@@ -120,7 +159,7 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   const courseConfig = courseGradebook.courseConfig;
   const progressionRequirements = courseConfig?.progressionRequirements;
   
-  // If percentage-based progression is not enabled, use basic completion check
+  // If progression requirements are not enabled, use basic completion check
   if (!progressionRequirements?.enabled) {
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
@@ -134,18 +173,55 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
-  // Get the minimum percentage required for this lesson
+  // Get progression criteria for this lesson (with fallback to defaults)
   const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId];
-  const requiredPercentage = lessonOverride?.minimumPercentage || progressionRequirements.defaultMinimumPercentage || 80;
+  const defaultCriteria = progressionRequirements.defaultCriteria || {};
   
-  // Check if lesson percentage meets or exceeds the requirement
+  // Determine criteria to use (lesson override takes precedence, then defaults, then legacy fallback)
+  const criteria = {
+    minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                      defaultCriteria.minimumPercentage ?? 
+                      progressionRequirements.defaultMinimumPercentage ?? 
+                      80,
+    requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                        defaultCriteria.requireAllQuestions ?? 
+                        false,
+    questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
+                                 defaultCriteria.questionCompletionPercentage ?? 
+                                 null
+  };
+  
+  // Check percentage requirement
   const lessonPercentage = lessonData.percentage || 0;
-  const meetsRequirement = lessonPercentage >= requiredPercentage;
+  const meetsPercentageRequirement = lessonPercentage >= criteria.minimumPercentage;
+  
+  // Check question completion requirements
+  let meetsQuestionRequirement = true;
+  
+  if (criteria.requireAllQuestions) {
+    // Must answer ALL questions
+    const totalQuestions = getTotalQuestionsForLesson(lessonId, courseConfig);
+    const attemptedQuestions = getAttemptedQuestionsForLesson(lessonId, assessmentData);
+    meetsQuestionRequirement = attemptedQuestions >= totalQuestions;
+    
+    console.log(`📊 ${lessonId} Question Requirement (ALL): ${attemptedQuestions}/${totalQuestions} - ${meetsQuestionRequirement ? 'MET' : 'NOT MET'}`);
+  } else if (criteria.questionCompletionPercentage !== null && criteria.questionCompletionPercentage > 0) {
+    // Must answer specified percentage of questions
+    const totalQuestions = getTotalQuestionsForLesson(lessonId, courseConfig);
+    const attemptedQuestions = getAttemptedQuestionsForLesson(lessonId, assessmentData);
+    const questionCompletionPercentage = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
+    meetsQuestionRequirement = questionCompletionPercentage >= criteria.questionCompletionPercentage;
+    
+    console.log(`📊 ${lessonId} Question Requirement (${criteria.questionCompletionPercentage}%): ${attemptedQuestions}/${totalQuestions} (${Math.round(questionCompletionPercentage)}%) - ${meetsQuestionRequirement ? 'MET' : 'NOT MET'}`);
+  }
+  
+  // Must meet ALL criteria (AND logic)
+  const meetsAllRequirements = meetsPercentageRequirement && meetsQuestionRequirement;
   
   // Log for debugging
-  console.log(`📊 Lesson ${lessonId}: ${lessonPercentage}% (required: ${requiredPercentage}%) - ${meetsRequirement ? 'UNLOCKED' : 'LOCKED'}`);
+  console.log(`📊 Lesson ${lessonId}: Score ${lessonPercentage}% (required: ${criteria.minimumPercentage}%) & Questions ${meetsQuestionRequirement ? 'MET' : 'NOT MET'} - ${meetsAllRequirements ? 'UNLOCKED' : 'LOCKED'}`);
   
-  return meetsRequirement;
+  return meetsAllRequirements;
 };
 
 /**
@@ -296,4 +372,51 @@ export const shouldBypassAccessControl = (isStaffView, devMode) => {
  */
 export const shouldBypassAccessControlEnhanced = (isStaffView, devMode, currentUser, course) => {
   return shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course);
+};
+
+/**
+ * Gets the total number of questions for a lesson from course config
+ * @param {string} lessonId - The lesson item ID
+ * @param {Object} courseConfig - Course configuration object
+ * @returns {number} - Total number of questions in the lesson
+ */
+const getTotalQuestionsForLesson = (lessonId, courseConfig) => {
+  const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+  if (!gradebookStructure || !gradebookStructure[lessonId]) {
+    return 0;
+  }
+  
+  const lessonStructure = gradebookStructure[lessonId];
+  return lessonStructure.questions ? lessonStructure.questions.length : 0;
+};
+
+/**
+ * Gets the number of attempted questions for a lesson from assessment data
+ * @param {string} lessonId - The lesson item ID
+ * @param {Object} assessmentData - Assessment/gradebook data from Firebase
+ * @returns {number} - Number of questions attempted (with at least one attempt)
+ */
+const getAttemptedQuestionsForLesson = (lessonId, assessmentData) => {
+  if (!assessmentData) {
+    return 0;
+  }
+  
+  // Find all assessment keys that belong to this lesson
+  const lessonQuestionKeys = Object.keys(assessmentData).filter(key => {
+    // Match patterns like "course4_01_welcome_rtd_academy_knowledge_check"
+    // where lessonId is "lesson_welcome_rtd_academy"
+    const lessonPart = lessonId.replace('lesson_', '').replace('exam_', '');
+    return key.includes(lessonPart);
+  });
+  
+  // Count questions that have been attempted (have attempts > 0 or score > 0)
+  let attemptedCount = 0;
+  lessonQuestionKeys.forEach(key => {
+    const questionData = assessmentData[key];
+    if (questionData && (questionData.attempts > 0 || questionData.score > 0)) {
+      attemptedCount++;
+    }
+  });
+  
+  return attemptedCount;
 };

@@ -36,8 +36,9 @@ export const shouldBypassAllRestrictions = (isStaffView, devMode, currentUser, c
     return true;
   }
   
-  // New developer authorization bypass
-  return isUserAuthorizedDeveloper(currentUser, course);
+  // Developers must explicitly enable dev mode via toggle
+  // No automatic bypass for authorized developers
+  return false;
 };
 
 /**
@@ -51,6 +52,5 @@ export const shouldBypassAllRestrictions = (isStaffView, devMode, currentUser, c
 export const getBypassReason = (isStaffView, devMode, currentUser, course) => {
   if (isStaffView) return 'Staff view mode';
   if (devMode) return 'Developer mode';
-  if (isUserAuthorizedDeveloper(currentUser, course)) return 'Authorized developer';
   return 'Access control bypassed';
 };

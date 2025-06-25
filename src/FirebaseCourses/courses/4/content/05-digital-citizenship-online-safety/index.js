@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-import { useProgress } from '../../../../context/CourseProgressContext';
+// useProgress removed - completion tracking is now handled automatically
 
 const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) => {
-  const { markCompleted } = useProgress();
+  // markCompleted removed - completion tracking is now handled automatically
   const [activeSection, setActiveSection] = useState('importance');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionsCompleted, setQuestionsCompleted] = useState({

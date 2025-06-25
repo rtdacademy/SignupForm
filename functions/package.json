@@ -24,6 +24,7 @@
     "compromise": "^14.14.4",
     "compromise-numbers": "^1.4.0",
     "cors": "^2.8.5",
+    "csv": "^6.3.11",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "firebase-admin": "^13.2.0",

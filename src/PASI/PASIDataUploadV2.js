@@ -15,7 +15,8 @@ import {
   Database,
   RefreshCw,
   FileSpreadsheet,
-  CloudUpload
+  CloudUpload,
+  Users
 } from 'lucide-react';
 import { functions, auth } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -23,6 +24,7 @@ import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import PasiRecordsSimplified from './PasiRecordsSimplified';
+import BlacklistSheet from '../components/BlacklistSheet';
 
 const PASIDataUploadV2 = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -33,6 +35,7 @@ const PASIDataUploadV2 = () => {
   const [uploadHistory, setUploadHistory] = useState([]);
   const [lastSystemUpload, setLastSystemUpload] = useState(null);
   const [selectedYear, setSelectedYear] = useState('');
+  const [showBlacklistSheet, setShowBlacklistSheet] = useState(false);
   const { preferences } = useUserPreferences();
   const { refreshStudentSummaries } = useSchoolYear();
 
@@ -231,11 +234,22 @@ const PASIDataUploadV2 = () => {
               <Database className="h-5 w-5 text-blue-600" />
               <span>PASI Data Upload</span>
             </div>
-            {uploadHistory.length > 0 && (
-              <Badge variant="outline" className="text-xs">
-                Last upload: {formatDate(uploadHistory[0]?.startTime)}
-              </Badge>
-            )}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBlacklistSheet(true)}
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Manage Blacklist
+              </Button>
+              {uploadHistory.length > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  Last upload: {formatDate(uploadHistory[0]?.startTime)}
+                </Badge>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -355,6 +369,12 @@ const PASIDataUploadV2 = () => {
 
       {/* PASI Records Table */}
       <PasiRecordsSimplified />
+
+      {/* Blacklist Sheet Modal */}
+      <BlacklistSheet 
+        isOpen={showBlacklistSheet}
+        onClose={() => setShowBlacklistSheet(false)}
+      />
     </div>
   );
 };

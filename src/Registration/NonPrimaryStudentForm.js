@@ -1448,8 +1448,8 @@ const NonPrimaryStudentForm = forwardRef(({
             const allowedEmails = courseData.allowedEmails || [];
             const isDeveloperAccess = userEmail && allowedEmails.includes(userEmail);
             
-            // Only include courses with Active status set to "Current" OR if user has developer access
-            if (courseData.Active !== "Current" && !isDeveloperAccess) {
+            // Only include courses with OnRegistration set to true OR if user has developer access
+            if (courseData.OnRegistration !== true && !isDeveloperAccess) {
               return;
             }
 
@@ -1461,7 +1461,7 @@ const NonPrimaryStudentForm = forwardRef(({
               recommendedCompletionMonths: courseData.recommendedCompletionMonths || null,
               minCompletionMonths: courseData.minCompletionMonths || null,
               isDeveloperAccess: isDeveloperAccess,
-              activeStatus: courseData.Active
+              onRegistrationStatus: courseData.OnRegistration
             });
           });
 
@@ -2596,7 +2596,9 @@ const NonPrimaryStudentForm = forwardRef(({
 
                     // Add developer access messaging
                     if (course.isDeveloperAccess) {
-                      statusText += ` [DEV ACCESS - Status: ${course.activeStatus || 'Unknown'}]`;
+                      const regStatus = course.onRegistrationStatus === true ? 'Available' : 
+                                      course.onRegistrationStatus === false ? 'Not Available' : 'Unknown';
+                      statusText += ` [DEV ACCESS - Registration: ${regStatus}]`;
                     }
 
                     return (
@@ -2632,9 +2634,12 @@ const NonPrimaryStudentForm = forwardRef(({
                       <AlertDescription className="text-sm text-yellow-700">
                         <div className="font-semibold mb-1">Developer Access Course</div>
                         You have access to this course because your email is listed in the allowedEmails. 
-                        Current course status: <span className="font-mono font-semibold">{selectedCourse.activeStatus || 'Unknown'}</span>
+                        Registration status: <span className="font-mono font-semibold">
+                          {selectedCourse.onRegistrationStatus === true ? 'Available' : 
+                           selectedCourse.onRegistrationStatus === false ? 'Not Available' : 'Unknown'}
+                        </span>
                         <br />
-                        <span className="text-xs">This course may not be visible to regular students.</span>
+                        <span className="text-xs">This course may not be visible to regular students if registration is not available.</span>
                       </AlertDescription>
                     </Alert>
                   );

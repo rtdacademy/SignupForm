@@ -63,241 +63,30 @@ const FirebaseCourseWrapperContent = ({
 }) => {
   const { currentUser } = useAuth();
   
-  // Check if current user is an authorized developer
-  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
-  const [activeTab, setActiveTab] = useState('content');
-  // Initialize activeItemId from URL or localStorage
-  const [activeItemId, setActiveItemId] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const lessonFromUrl = urlParams.get('lesson');
-    
-    // If URL has lesson, use it
-    if (lessonFromUrl) {
-      console.log('🔍 Wrapper initializing from URL:', lessonFromUrl);
-      return lessonFromUrl;
-    }
-    
-    // Otherwise, try localStorage
-    const courseId = course?.CourseID || course?.courseId;
-    if (courseId) {
-      const storageKey = `lastLesson_${courseId}`;
-      const lessonFromStorage = localStorage.getItem(storageKey);
-      console.log('🔍 Wrapper initializing from localStorage:', lessonFromStorage);
-      return lessonFromStorage || null;
-    }
-    
-    return null;
-  });
-  const [progress, setProgress] = useState({});
-  const [navExpanded, setNavExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const [reviewQuestion, setReviewQuestion] = useState(null);
-  const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
-  const [selectedCourseItem, setSelectedCourseItem] = useState(null);
-  const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
-  const [isContentReady, setIsContentReady] = useState(false);
-  const [courseModuleLoaded, setCourseModuleLoaded] = useState(false);
-  
-  // Ref for navigation container to detect outside clicks
-  const navigationRef = useRef(null);
-  
-  // Flag to temporarily disable scroll-based auto-collapse
-  const [disableScrollCollapse, setDisableScrollCollapse] = useState(false);
-  
-  // Check if current user is authorized to see debug info
-  const isDebugAuthorized = useMemo(() => {
-    if (!currentUser?.email || !course?.courseDetails?.allowedEmails) {
-      return false;
-    }
-    
-    const userEmail = currentUser.email.toLowerCase();
-    const allowedEmails = course.courseDetails.allowedEmails;
-    
-    // Check if user email is in the allowed emails array
-    return allowedEmails.some(email => 
-      email.toLowerCase() === userEmail
-    );
-  }, [currentUser, course]);
-
-  // Debug logging
-  console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
-  console.log("👤 Current User in wrapper:", currentUser);
-  console.log("!!!!!!!!!!!!!!!!!!Course:",course)
-  
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-  
-  // Check if device is mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  // Handle click outside navigation to collapse it (desktop only)
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Only handle on desktop when navigation is expanded
-      if (!isMobile && navExpanded && navigationRef.current && !navigationRef.current.contains(event.target)) {
-        setNavExpanded(false);
-      }
-    };
-
-    // Add event listener
-    document.addEventListener('mousedown', handleClickOutside);
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isMobile, navExpanded]);
-  
-  // Handle scroll-based navigation auto-collapse (desktop only)
-  useEffect(() => {
-    const handleScroll = () => {
-      // Only handle on desktop when navigation is expanded and auto-collapse is not disabled
-      if (!isMobile && navExpanded && navigationRef.current && !disableScrollCollapse) {
-        const navigationRect = navigationRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const headerHeight = 60; // Sticky header height
-        
-        // Calculate how much of the navigation is still visible
-        const visibleNavHeight = Math.max(0, navigationRect.bottom - headerHeight);
-        const navigationFullHeight = navigationRect.height;
-        
-        // If less than 50% of the navigation is visible, collapse it
-        const visibilityThreshold = 0.4; // 60% visibility threshold
-        const visibilityRatio = visibleNavHeight / navigationFullHeight;
-        
-        if (visibilityRatio < visibilityThreshold) {
-          setNavExpanded(false);
-        }
-      }
-    };
-
-    // Add scroll listener with throttling for better performance
-    let ticking = false;
-    const throttledHandleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    // Add scroll listener
-    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
-    
-    return () => {
-      window.removeEventListener('scroll', throttledHandleScroll);
-    };
-  }, [isMobile, navExpanded, disableScrollCollapse]);
-  
-  // Sync with external state if provided
-  useEffect(() => {
-    if (externalActiveItemId && externalActiveItemId !== activeItemId) {
-      setActiveItemId(externalActiveItemId);
-    }
-  }, [externalActiveItemId, activeItemId]);
-
-  // Handle internal item selection and propagate to parent if needed
-  const handleItemSelect = useCallback((itemId) => {
-    setActiveItemId(itemId);
-    
-    // Update URL parameter to persist lesson selection
-    const url = new URL(window.location);
-    url.searchParams.set('lesson', itemId);
-    window.history.replaceState({}, '', url);
-    
-    // Also save to localStorage for reliable persistence
-    const courseId = course?.CourseID || course?.courseId;
-    if (courseId) {
-      const storageKey = `lastLesson_${courseId}`;
-      localStorage.setItem(storageKey, itemId);
-      console.log('🔍 Saved to localStorage:', storageKey, '=', itemId);
-    }
-    
-    // Scroll to top when selecting a new item
-    window.scrollTo(0, 0);
-
-    if (externalItemSelect) {
-      externalItemSelect(itemId);
-    }
-  }, [externalItemSelect, course]);
-
-  // Handle scroll to top and expand navigation
-  const handleScrollToTopAndExpand = useCallback(() => {
-    // Temporarily disable scroll-based auto-collapse
-    setDisableScrollCollapse(true);
-    
-    // Expand navigation first
-    setNavExpanded(true);
-    
-    // Scroll to top smoothly
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-    
-    // Re-enable scroll-based auto-collapse after scroll completes
-    setTimeout(() => {
-      setDisableScrollCollapse(false);
-    }, 1000); // Give enough time for smooth scroll to complete
-  }, []);
-
-  // Handle gradebook recalculation
-  const handleRecalculateGradebook = useCallback(async () => {
-    try {
-      // Check if user is authenticated
-      if (!currentUser || !currentUser.email) {
-        console.error('User not authenticated');
-        return;
-      }
-      
-      setIsRecalculating(true);
-      console.log('🔄 Recalculating gradebook for user:', currentUser.email);
-      
-      const functions = getFunctions();
-      const recalculateMyGradebook = httpsCallable(functions, 'recalculateMyGradebook');
-      
-      const result = await recalculateMyGradebook({
-        courseId: course?.CourseID?.toString() || course?.courseId?.toString(),
-        studentEmail: currentUser.email
-      });
-      
-      console.log('✅ Gradebook recalculated:', result);
-      
-      // Force page refresh to reload course data with updated gradebook structure
-      window.location.reload();
-    } catch (error) {
-      console.error('❌ Error recalculating gradebook:', error);
-      setIsRecalculating(false);
-      alert('Error recalculating gradebook: ' + error.message);
-    }
-  }, [currentUser, course]);
-  
-  // Get course data from the course object - now prioritizes database structure
+  // Get course data first to check for errors
   const getCourseData = () => {
     console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
     console.log("🔍 Course structure paths:", {
       "course.Gradebook?.courseStructure": course.Gradebook?.courseStructure,
+      "course.Gradebook?.courseConfig?.courseStructure": course.Gradebook?.courseConfig?.courseStructure,
       "course.courseStructure": course.courseStructure,
       "course.courseStructure?.structure": course.courseStructure?.structure,
       "course.courseStructure?.units": course.courseStructure?.units
     });
 
-    // First priority: check gradebook courseStructure (database-driven from backend config)
-    if (course.Gradebook?.courseStructure) {
-      console.log("✅ Using course structure from gradebook (database-driven from backend config)");
+    // First priority: check gradebook courseConfig courseStructure (database-driven from backend config)
+    if (course.Gradebook?.courseConfig?.courseStructure) {
+      console.log("✅ Using course structure from gradebook courseConfig (database-driven from backend config)");
+      return {
+        title: course.Gradebook.courseConfig.courseStructure.title || course.Course?.Value || '',
+        structure: course.Gradebook.courseConfig.courseStructure.units || [],
+        courseWeights: course.Gradebook.courseConfig.weights || course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
+      };
+    }
+    
+    // Second priority: check gradebook courseStructure (legacy database path)
+    else if (course.Gradebook?.courseStructure) {
+      console.log("✅ Using course structure from gradebook (legacy database path)");
       return {
         title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
         structure: course.Gradebook.courseStructure.units || [],
@@ -335,9 +124,196 @@ const FirebaseCourseWrapperContent = ({
   };
 
   const courseData = getCourseData();
+  
+  // Show error state if no course structure available - BEFORE any hooks
+  if (courseData.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Course Structure Loading</h2>
+          <p className="text-gray-600 mb-4">{courseData.error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Check if current user is an authorized developer
+  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
+  const [activeTab, setActiveTab] = useState('content');
+  
+  // Developer mode toggle state - only active if user is authorized
+  const [isDeveloperModeActive, setIsDeveloperModeActive] = useState(false);
+  
+  // Initialize activeItemId from URL or localStorage
+  const [activeItemId, setActiveItemId] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lessonFromUrl = urlParams.get('lesson');
+    
+    // If URL has lesson, use it
+    if (lessonFromUrl) {
+      console.log('🔍 Wrapper initializing from URL:', lessonFromUrl);
+      return lessonFromUrl;
+    }
+    
+    // Otherwise, try localStorage
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      const storageKey = `lastLesson_${courseId}`;
+      const lessonFromStorage = localStorage.getItem(storageKey);
+      console.log('🔍 Wrapper initializing from localStorage:', lessonFromStorage);
+      return lessonFromStorage || null;
+    }
+    
+    return null;
+  });
+  const [progress, setProgress] = useState({});
+  const [navExpanded, setNavExpanded] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [reviewQuestion, setReviewQuestion] = useState(null);
+  const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
+  const [selectedCourseItem, setSelectedCourseItem] = useState(null);
+  const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [courseModuleLoaded, setCourseModuleLoaded] = useState(false);
+  
+  // Ref for navigation container to detect outside clicks
+  const navigationRef = useRef(null);
+  
+  // Check if current user is authorized to see debug info
+  const isDebugAuthorized = useMemo(() => {
+    if (!currentUser?.email || !course?.courseDetails?.allowedEmails) {
+      return false;
+    }
+    
+    const userEmail = currentUser.email.toLowerCase();
+    const allowedEmails = course.courseDetails.allowedEmails;
+    
+    // Check if user email is in the allowed emails array
+    return allowedEmails.some(email => 
+      email.toLowerCase() === userEmail
+    );
+  }, [currentUser, course]);
+
   const courseTitle = courseData.title;
   const unitsList = courseData.structure || [];
   const courseWeights = courseData.courseWeights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
+
+  // Debug logging
+  console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
+  console.log("👤 Current User in wrapper:", currentUser);
+  console.log("!!!!!!!!!!!!!!!!!!Course:",course)
+  
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
+  // Initialize developer mode state from localStorage when course loads
+  useEffect(() => {
+    if (isAuthorizedDeveloper && course) {
+      const courseId = course?.CourseID || course?.courseId;
+      if (courseId) {
+        const stored = localStorage.getItem(`devMode_${courseId}`);
+        // Only set to true if not explicitly set to false
+        setIsDeveloperModeActive(stored !== 'false');
+      }
+    }
+  }, [isAuthorizedDeveloper, course]);
+  
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  // Handle click outside navigation to collapse it (desktop only)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Only handle on desktop when navigation is expanded
+      if (!isMobile && navExpanded && navigationRef.current && !navigationRef.current.contains(event.target)) {
+        setNavExpanded(false);
+      }
+    };
+
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, navExpanded]);
+  
+  
+  // Sync with external state if provided
+  useEffect(() => {
+    if (externalActiveItemId && externalActiveItemId !== activeItemId) {
+      setActiveItemId(externalActiveItemId);
+    }
+  }, [externalActiveItemId, activeItemId]);
+
+  // Handle developer mode toggle
+  const handleDeveloperModeToggle = useCallback((enabled) => {
+    setIsDeveloperModeActive(enabled);
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      localStorage.setItem(`devMode_${courseId}`, enabled.toString());
+    }
+  }, [course]);
+
+  // Handle internal item selection and propagate to parent if needed
+  const handleItemSelect = useCallback((itemId) => {
+    setActiveItemId(itemId);
+    
+    // Update URL parameter to persist lesson selection
+    const url = new URL(window.location);
+    url.searchParams.set('lesson', itemId);
+    window.history.replaceState({}, '', url);
+    
+    // Also save to localStorage for reliable persistence
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      const storageKey = `lastLesson_${courseId}`;
+      localStorage.setItem(storageKey, itemId);
+      console.log('🔍 Saved to localStorage:', storageKey, '=', itemId);
+    }
+    
+    // Scroll to top when selecting a new item
+    window.scrollTo(0, 0);
+
+    if (externalItemSelect) {
+      externalItemSelect(itemId);
+    }
+  }, [externalItemSelect, course]);
+
+  // Handle scroll to top and expand navigation
+  const handleScrollToTopAndExpand = useCallback(() => {
+    // Expand navigation
+    setNavExpanded(true);
+    
+    // Scroll to top smoothly
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+
   
   // Flatten all course items for progress tracking (moved after courseData)
   const allCourseItems = useMemo(() => {
@@ -393,10 +369,25 @@ const FirebaseCourseWrapperContent = ({
   
   // Calculate lesson accessibility for the active lesson info panel
   const lessonAccessibility = useMemo(() => {
-    // Skip access control for staff/dev/authorized developers or if no course structure
-    if (shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course) || !course?.Gradebook) {
+    console.log('🔍 Calculating lesson accessibility:', {
+      isStaffView,
+      devMode,
+      isAuthorizedDeveloper,
+      isDeveloperModeActive,
+      shouldBypassOriginal: shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course),
+      hasGradebook: !!course?.Gradebook
+    });
+    
+    // Skip access control for staff/dev or when developer mode is active
+    const shouldBypass = shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course) || 
+                        (isAuthorizedDeveloper && isDeveloperModeActive);
+    
+    if (shouldBypass || !course?.Gradebook) {
       const accessibility = {};
-      const bypassReason = getBypassReason(isStaffView, devMode, currentUser, course);
+      let bypassReason = getBypassReason(isStaffView, devMode, currentUser, course);
+      if (isAuthorizedDeveloper && isDeveloperModeActive) {
+        bypassReason = 'Developer mode active';
+      }
       allCourseItems.forEach(item => {
         accessibility[item.itemId] = { accessible: true, reason: bypassReason };
       });
@@ -419,7 +410,7 @@ const FirebaseCourseWrapperContent = ({
     
     // Use the lesson access logic with gradebook data
     return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebook);
-  }, [allCourseItems, isStaffView, devMode, currentUser, course]);
+  }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive]);
   
   // Find the current active item for the info panel
   const currentActiveItem = useMemo(() => {
@@ -630,8 +621,8 @@ const FirebaseCourseWrapperContent = ({
               <span>Gradebook</span>
             </button>
             
-            {/* Debug tab - only show for authorized users */}
-            {isDebugAuthorized && (
+            {/* Debug tab - only show for authorized users when developer mode is active */}
+            {isDebugAuthorized && isDeveloperModeActive && (
               <button
                 className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
                   activeTab === 'debug' 
@@ -643,6 +634,24 @@ const FirebaseCourseWrapperContent = ({
                 <Bug className="h-4 w-4" />
                 <span>Debug</span>
               </button>
+            )}
+            
+            {/* Developer Mode Toggle - only show for authorized developers */}
+            {isAuthorizedDeveloper && (
+              <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-orange-50 rounded-md border border-orange-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-sm font-medium text-orange-800">Dev Mode</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={isDeveloperModeActive}
+                      onChange={(e) => handleDeveloperModeToggle(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
+                  </div>
+                </label>
+              </div>
             )}
           </div>
           
@@ -766,6 +775,7 @@ const FirebaseCourseWrapperContent = ({
               isStaffView={isStaffView}
               devMode={devMode}
               lessonAccessibility={lessonAccessibility}
+              isDeveloperModeActive={isDeveloperModeActive}
             />
           </div>
         )}
@@ -794,6 +804,7 @@ const FirebaseCourseWrapperContent = ({
             isStaffView={isStaffView}
             devMode={devMode}
             lessonAccessibility={lessonAccessibility}
+            isDeveloperModeActive={isDeveloperModeActive}
           />
         )}
 
@@ -801,9 +812,9 @@ const FirebaseCourseWrapperContent = ({
         <main className="flex-1 p-6">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
-              {isStaffView && devMode && (
+              {(isStaffView && devMode) && (
                 <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
-                  <span className="font-medium text-yellow-800">Developer Mode:</span>
+                  <span className="font-medium text-yellow-800">Staff Developer Mode:</span>
                   <span className="ml-2 text-yellow-700">
                     You can directly interact with the database in this view for testing questions.
                   </span>
@@ -863,8 +874,8 @@ const FirebaseCourseWrapperContent = ({
             <GradebookDashboard course={course} />
           )}
           
-          {/* Debug tab - only accessible by authorized users */}
-          {activeTab === 'debug' && isDebugAuthorized && (
+          {/* Debug tab - only accessible by authorized users when developer mode is active */}
+          {activeTab === 'debug' && isDebugAuthorized && isDeveloperModeActive && (
             <div className="bg-white rounded-lg shadow p-6">
               <div className="border-l-4 border-orange-400 bg-orange-50 p-4 mb-6">
                 <div className="flex">
@@ -981,45 +992,11 @@ const FirebaseCourseWrapperContent = ({
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Gradebook Debug Tools</h2>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h3 className="font-medium text-yellow-800 mb-3">Development Tools</h3>
-                  <button
-                    onClick={handleRecalculateGradebook}
-                    disabled={isRecalculating}
-                    className={`flex items-center gap-2 px-4 py-2 text-white rounded transition-colors ${
-                      isRecalculating 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-yellow-600 hover:bg-yellow-700'
-                    }`}
-                  >
-                    {isRecalculating ? (
-                      <>
-                        <Loader className="h-4 w-4 animate-spin" />
-                        Recalculating...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Recalculate Gradebook with New Weights
-                      </>
-                    )}
-                  </button>
-                  {isRecalculating && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                      <div className="flex items-center gap-2 text-blue-700">
-                        <Loader className="h-4 w-4 animate-spin" />
-                        <span className="font-medium">Processing gradebook recalculation...</span>
-                      </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        This may take up to 10 seconds. The page will refresh automatically when complete.
-                      </p>
-                    </div>
-                  )}
-                  {!isRecalculating && (
-                    <p className="text-xs text-yellow-700 mt-2">
-                      Click to update gradebook with course config weights (lessons: 100%, others: 0%). 
-                      This will force a complete recalculation of all gradebook data.
-                    </p>
-                  )}
+                  <h3 className="font-medium text-yellow-800 mb-3">Real-time Gradebook</h3>
+                  <p className="text-sm text-yellow-700">
+                    The gradebook is automatically updated in real-time when assessments are completed. 
+                    No manual recalculation needed - all updates are handled by database triggers.
+                  </p>
                 </div>
               </div>
             </div>

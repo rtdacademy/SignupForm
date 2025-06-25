@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-// SEQUENTIAL_ACCESS_UPDATE: Temporarily commented out to isolate Firebase permission issue
-// import { useProgress } from '../../../../context/CourseProgressContext';
 
 const WelcometoRTDAcademy = ({ courseId, itemId, activeItem, onNavigateToLesson, onNavigateToNext }) => {
-  // SEQUENTIAL_ACCESS_UPDATE: Temporarily commented out to isolate Firebase permission issue
-  // const { markCompleted } = useProgress();
   const [activeSection, setActiveSection] = useState('overview');
   const [interactiveAnswers, setInteractiveAnswers] = useState({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -36,17 +32,6 @@ const WelcometoRTDAcademy = ({ courseId, itemId, activeItem, onNavigateToLesson,
   };
 
   const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3;
-
-  // SEQUENTIAL_ACCESS_UPDATE: Temporarily commented out to isolate Firebase permission issue
-  // Track completion when all questions are answered
-  // useEffect(() => {
-  //   if (allQuestionsCompleted) {
-  //     const lessonItemId = itemId || activeItem?.itemId;
-  //     if (lessonItemId) {
-  //       markCompleted(lessonItemId);
-  //     }
-  //   }
-  // }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
 
   const handleNextLesson = () => {
     console.log('🚀 Navigating to next lesson...', {

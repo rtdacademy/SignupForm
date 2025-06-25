@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaPlusCircle } from 'react-icons/fa';
-import { NotebookPen, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { NotebookPen, AlertCircle, CheckCircle, Clock, UserX } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -45,6 +45,29 @@ const StaticTriangle = ({ color }) => {
       opacity="0.15"
       transform={`rotate(${randomPosition.rotation} ${randomPosition.x + TRIANGLE_SIZE / 2} ${randomPosition.y + TRIANGLE_SIZE / 2})`}
     />
+  );
+};
+
+// Blacklist Notification Component
+const BlacklistNotification = ({ isBlacklisted }) => {
+  if (!isBlacklisted) return null;
+
+  return (
+    <Alert className="border-red-200 bg-red-50 mb-6">
+      <UserX className="h-4 w-4 text-red-600" />
+      <AlertDescription className="text-red-800">
+        <div className="space-y-2">
+          <p className="font-medium">Registration Currently Unavailable</p>
+          <p className="text-sm">
+            We are unable to process new course registrations for your account at this time. 
+            If you believe this is an error or need assistance, please contact our school administration.
+          </p>
+          <p className="text-sm font-medium">
+            Contact: <a href="mailto:info@rtdacademy.com" className="text-red-700 underline">info@rtdacademy.com</a>
+          </p>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 };
 
@@ -122,6 +145,8 @@ const Dashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [blacklistLoading, setBlacklistLoading] = useState(false);
   
   // Get state from URL parameters
   const selectedCourseId = searchParams.get('courseId');
@@ -209,6 +234,41 @@ const Dashboard = () => {
       setShowWelcomeDialog(true);
     }
   }, [dataLoading, courses.length]);
+
+  // Check blacklist status
+  useEffect(() => {
+    const checkBlacklistStatus = async () => {
+      if (!currentUser?.email || !profile?.asn) return;
+      
+      try {
+        setBlacklistLoading(true);
+        const db = getDatabase();
+        const blacklistRef = ref(db, 'blacklist/active');
+        const snapshot = await get(blacklistRef);
+        
+        if (snapshot.exists()) {
+          const blacklistData = snapshot.val();
+          const blacklistEntries = Object.values(blacklistData);
+          
+          // Check if current user's ASN or email is blacklisted
+          const isUserBlacklisted = blacklistEntries.some(entry => 
+            (profile.asn && entry.asn === profile.asn) ||
+            (currentUser.email && entry.email.toLowerCase() === currentUser.email.toLowerCase())
+          );
+          
+          setIsBlacklisted(isUserBlacklisted);
+        }
+      } catch (error) {
+        console.error('Error checking blacklist status:', error);
+      } finally {
+        setBlacklistLoading(false);
+      }
+    };
+
+    if (!dataLoading && currentUser && profile) {
+      checkBlacklistStatus();
+    }
+  }, [currentUser, profile, dataLoading]);
 
   // Initialize activity tracking when dashboard loads
   useEffect(() => {
@@ -510,7 +570,10 @@ const Dashboard = () => {
         </div>
 
         <div className="relative z-10 container mx-auto px-4 py-8 flex flex-col">
-  {!isEmulating && (
+  {/* Blacklist Notification */}
+  <BlacklistNotification isBlacklisted={isBlacklisted} />
+
+  {!isEmulating && !isBlacklisted && (
     <div className="grid grid-cols-1 gap-4 mb-6">
       <FormDialog
         trigger={triggerButton}
@@ -624,20 +687,24 @@ const Dashboard = () => {
                       >
                         View Details
                       </Button>
-                      <Button
-                        className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-                        onClick={() => {
-                          // Use the appropriate handler based on course type
-                          if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
-                            handleGoToFirebaseCourse(course);
-                          } else {
-                            handleGoToLMSCourse(course);
-                          }
-                        }}
-                        disabled={!course.courseDetails && !course.firebaseCourse && !course.isRequiredCourse}
-                      >
-                        Go to Course
-                      </Button>
+                      {/* Hide Go to Course button if course details are loading OR if course access is restricted (unless user is developer) */}
+                      {course.courseDetails && !(course.courseDetails?.restrictCourseAccess === true && 
+                         !course.courseDetails?.allowedEmails?.includes(currentUser?.email)) && (
+                        <Button
+                          className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                          onClick={() => {
+                            // Use the appropriate handler based on course type
+                            if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
+                              handleGoToFirebaseCourse(course);
+                            } else {
+                              handleGoToLMSCourse(course);
+                            }
+                          }}
+                          disabled={!course.courseDetails && !course.firebaseCourse && !course.isRequiredCourse}
+                        >
+                          Go to Course
+                        </Button>
+                      )}
                     </div>
                   }
                   showProgressBar={true}

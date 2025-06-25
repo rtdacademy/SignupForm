@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider, useProgress } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
-import courseDisplay from './course-display.json';
 // Course structure now loaded from database via gradebook
 // SEQUENTIAL_ACCESS_UPDATE: Added lesson access utilities for Course 4 sequential unlocking
 import { 
@@ -167,7 +165,7 @@ const Course4 = ({
   gradebookItems = {}
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
-  const courseId = courseDisplay.courseId;
+  const courseId = course?.CourseID || '4';
   // Get course structure from course object (database-driven)
   const structure = course?.courseStructure?.units || 
                    course?.Gradebook?.courseStructure?.units || 
@@ -175,8 +173,8 @@ const Course4 = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseDisplay.courseId}: Course4 loaded with direct props`, {
-      config: courseDisplay,
+    console.log(`${courseId}: Course4 loaded with direct props`, {
+      courseId: courseId,
       structure: structure,
       contentRegistry: Object.keys(contentRegistry),
       receivedProps: {
@@ -301,11 +299,10 @@ const Course4 = ({
       );
     }
 
-    const courseId = course?.CourseID || courseDisplay.courseId;
+    const courseId = course?.CourseID || '4';
 
     return (
-      <ProgressProvider courseId={courseId} itemId={activeItem.itemId}>
-        <LessonContentWrapper 
+      <LessonContentWrapper 
           activeItem={activeItem}
           ContentComponent={ContentComponent}
           courseId={courseId}
@@ -317,7 +314,6 @@ const Course4 = ({
           gradebookItems={gradebookItems}
           courseStructure={{ courseStructure: { units: structure } }}
         />
-      </ProgressProvider>
     );
   };
 

@@ -45,9 +45,14 @@ function Header({
   onProfileClick,
   profile,
   hasIncompleteProfile,
-  parentInfo
+  parentInfo,
+  hasParentAccount
 }) {
   const navigate = useNavigate();
+
+  const handleParentDashboardClick = () => {
+    navigate('/parent-dashboard');
+  };
   
   // Validation logic for record limits
   const getRecordCountStyle = (total) => {
@@ -337,6 +342,18 @@ function Header({
                 >
                   <FaUserCircle />
                   <span className="hidden lg:inline">Employee Portal</span>
+                </button>
+              )}
+              
+              {/* Parent Dashboard Button - Only show for non-staff users who have a parent account */}
+              {!isStaffUser && hasParentAccount && (
+                <button
+                  onClick={handleParentDashboardClick}
+                  className="flex items-center space-x-2 text-purple-300 hover:text-purple-200 text-sm transition-colors duration-200"
+                  title="Access Parent Dashboard"
+                >
+                  <FaUserCircle />
+                  <span className="hidden lg:inline">Parent Portal</span>
                 </button>
               )}
               <span className="text-gray-300 text-sm hidden lg:inline">

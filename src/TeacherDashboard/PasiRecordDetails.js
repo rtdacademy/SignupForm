@@ -37,13 +37,23 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import ProfileHistory from '../StudentManagement/ProfileHistory';
+import { formatDateForInput, parseDateAsMountainTime } from '../utils/timeZoneUtils';
 
 // Helper function to calculate age from birthday
 const calculateAge = (birthday) => {
   if (!birthday) return 'N/A';
   
   try {
-    const birthDate = new Date(birthday);
+    let birthDate;
+    
+    // Handle YYYY-MM-DD format specifically to avoid timezone issues
+    if (typeof birthday === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+      const [year, month, day] = birthday.split('-').map(Number);
+      birthDate = new Date(year, month - 1, day);
+    } else {
+      birthDate = new Date(birthday);
+    }
+    
     const today = new Date();
     
     // Check if birthDate is valid
@@ -69,15 +79,30 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
   if (!dateValue || dateValue === 'N/A') return 'N/A';
   
   try {
-    let dateToFormat = dateValue;
+    let date;
     
-    // Create a Date object from the string
-    const date = new Date(dateValue);
+    // Handle different date formats
+    if (typeof dateValue === 'number' || /^\d{13,}$/.test(dateValue)) {
+      // Unix timestamp
+      const timestamp = typeof dateValue === 'string' ? parseInt(dateValue, 10) : dateValue;
+      date = new Date(timestamp);
+    } else if (typeof dateValue === 'string' && dateValue.includes('T')) {
+      // ISO string format (e.g., "2025-06-16T06:00:00.000Z")
+      date = new Date(dateValue);
+    } else if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      // Simple date string (e.g., "2007-06-01")
+      // Parse as local date to avoid timezone issues
+      const [year, month, day] = dateValue.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    } else {
+      // Try to parse as is
+      date = new Date(dateValue);
+    }
     
     // Check if the date is valid
     if (!isNaN(date.getTime())) {
       // Format date in "Month DD, YYYY" format
-      const options = { month: 'short', day: 'numeric', year: 'numeric' };
+      const options = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Edmonton' };
       return date.toLocaleDateString('en-US', options);
     }
     
@@ -923,7 +948,28 @@ const PasiRecordDetails = forwardRef(({
                 editingField={editingField}
                 editValue={editValue}
                 isUpdating={isUpdating}
-                onEditStart={handleEditStart}
+                onEditStart={(fieldKey, currentValue) => {
+                  // For birthday, ensure we use the raw YYYY-MM-DD format for the date input
+                  if (fieldKey === 'birthday' && currentValue) {
+                    // If it's already in YYYY-MM-DD format, use it as is
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(currentValue)) {
+                      handleEditStart(fieldKey, currentValue);
+                    } else {
+                      // Otherwise, try to convert to YYYY-MM-DD
+                      const date = new Date(currentValue);
+                      if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        handleEditStart(fieldKey, `${year}-${month}-${day}`);
+                      } else {
+                        handleEditStart(fieldKey, currentValue);
+                      }
+                    }
+                  } else {
+                    handleEditStart(fieldKey, currentValue);
+                  }
+                }}
                 onEditCancel={handleEditCancel}
                 onEditSave={handleEditSave}
                 onValueChange={handleEditValueChange}

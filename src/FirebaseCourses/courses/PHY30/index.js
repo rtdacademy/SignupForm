@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
 
@@ -145,11 +144,9 @@ const PHY30Course = ({
   };
 
   return (
-    <ProgressProvider courseId={courseId}>
-      <div className="max-w-4xl mx-auto p-6">
-        {renderContent()}
-      </div>
-    </ProgressProvider>
+    <div className="max-w-4xl mx-auto p-6">
+      {renderContent()}
+    </div>
   );
 };
 

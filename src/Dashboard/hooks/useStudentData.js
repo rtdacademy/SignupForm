@@ -90,14 +90,47 @@ export const useStudentData = (userEmailKey) => {
     }
   };
 
+  // Fetch course configuration from database with file fallback
+  const fetchCourseConfig = async (courseId) => {
+    try {
+      const db = getDatabase();
+      const courseConfigRef = ref(db, `courses/${courseId}/course-config`);
+      const configSnapshot = await get(courseConfigRef);
+      
+      if (configSnapshot.exists()) {
+        console.log(`✅ Using course config from database for course ${courseId}`);
+        return configSnapshot.val();
+      }
+      
+      // Fallback: try to get from Firebase Function that reads local files
+      console.log(`⚠️ Course config not found in database for ${courseId}, trying Firebase Function fallback...`);
+      const functions = getFunctions();
+      const getCourseConfigV2 = httpsCallable(functions, 'getCourseConfigV2');
+      const result = await getCourseConfigV2({ courseId });
+      
+      if (result.data.success) {
+        console.log(`✅ Using course config from file via Firebase Function for course ${courseId}`);
+        return result.data.config;
+      }
+      
+      console.warn(`Course config not found in database or file for ${courseId}`);
+      return null;
+    } catch (error) {
+      console.error(`Error fetching course config for ${courseId}:`, error);
+      return null;
+    }
+  };
+
   // Set up real-time listener for course details
   const setupCourseListener = (courseId) => {
     const db = getDatabase();
     const courseRef = ref(db, `courses/${courseId}`);
+    const courseConfigRef = ref(db, `courses/${courseId}/course-config`);
     
     console.log(`🔥 Setting up real-time listener for course: ${courseId}`);
     
-    const unsubscribe = onValue(courseRef, async (snapshot) => {
+    // Listen to both course data and course config changes
+    const courseUnsubscribe = onValue(courseRef, async (snapshot) => {
       try {
         const courseData = snapshot.exists() ? snapshot.val() : null;
 
@@ -105,14 +138,26 @@ export const useStudentData = (userEmailKey) => {
           // Enhance with resolved staff members
           const teachers = await fetchStaffMembers(courseData.Teachers || []);
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
+          
+          // Fetch course configuration
+          const courseConfig = await fetchCourseConfig(courseId);
 
-          // Update course details state
+          // Log restrictCourseAccess changes for debugging
+          console.log(`🔄 Course ${courseId} real-time update:`, {
+            restrictCourseAccess: courseData.restrictCourseAccess,
+            OnRegistration: courseData.OnRegistration,
+            hasCourseConfig: !!courseConfig,
+            timestamp: new Date().toLocaleTimeString()
+          });
+
+          // Update course details state with course config integrated
           setCourseDetails(prev => ({
             ...prev,
             [courseId]: {
               ...courseData,  // Include all original course data
               teachers,       // Add resolved teacher objects
-              supportStaff    // Add resolved support staff objects
+              supportStaff,   // Add resolved support staff objects
+              courseConfig    // Add course configuration
             }
           }));
         } else {
@@ -130,7 +175,42 @@ export const useStudentData = (userEmailKey) => {
       console.error(`Firebase listener error for course ${courseId}:`, error);
     });
     
-    return unsubscribe;
+    // Listen specifically to course config changes
+    const configUnsubscribe = onValue(courseConfigRef, async (configSnapshot) => {
+      try {
+        const courseConfig = configSnapshot.exists() ? configSnapshot.val() : null;
+        
+        console.log(`🔄 Course config ${courseId} real-time update:`, {
+          hasConfig: !!courseConfig,
+          timestamp: new Date().toLocaleTimeString()
+        });
+        
+        // Update only the course config in course details
+        setCourseDetails(prev => {
+          const currentCourse = prev[courseId];
+          if (currentCourse) {
+            return {
+              ...prev,
+              [courseId]: {
+                ...currentCourse,
+                courseConfig
+              }
+            };
+          }
+          return prev;
+        });
+      } catch (error) {
+        console.error(`Error processing course config for ${courseId}:`, error);
+      }
+    }, (error) => {
+      console.error(`Firebase course config listener error for ${courseId}:`, error);
+    });
+    
+    // Return a function that unsubscribes from both listeners
+    return () => {
+      courseUnsubscribe();
+      configUnsubscribe();
+    };
   };
   
   // Manage course listeners based on current student courses
@@ -336,11 +416,22 @@ export const useStudentData = (userEmailKey) => {
           // Get course details from real-time state (may be null if not loaded yet)
           const realtimeCourseDetails = courseDetails[id] || null;
           
+          // Debug log for course details merging
+          if (realtimeCourseDetails) {
+            console.log(`📋 Merging course details for ${id}:`, {
+              restrictCourseAccess: realtimeCourseDetails.restrictCourseAccess,
+              OnRegistration: realtimeCourseDetails.OnRegistration,
+              hasRealtimeDetails: !!realtimeCourseDetails,
+              hasCourseConfig: !!realtimeCourseDetails?.courseConfig,
+              timestamp: new Date().toLocaleTimeString()
+            });
+          }
+          
           // Fetch payment info
           const paymentInfo = await fetchPaymentDetails(id);
 
-          // Return the enhanced student course object with real-time course details
-          return {
+          // Build the enhanced course object with proper Gradebook structure
+          const enhancedCourse = {
             id,
             ...studentCourse,
             courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time
@@ -350,6 +441,21 @@ export const useStudentData = (userEmailKey) => {
               hasValidPayment: false
             }
           };
+          
+          // If we have course config from real-time details, integrate it into Gradebook structure
+          if (realtimeCourseDetails?.courseConfig) {
+            // Ensure Gradebook structure exists
+            if (!enhancedCourse.Gradebook) {
+              enhancedCourse.Gradebook = {};
+            }
+            
+            // Add course config to Gradebook structure
+            enhancedCourse.Gradebook.courseConfig = realtimeCourseDetails.courseConfig;
+            
+            console.log(`✅ Integrated course config into Gradebook structure for course ${id}`);
+          }
+          
+          return enhancedCourse;
         })
       );
 
@@ -402,6 +508,11 @@ export const useStudentData = (userEmailKey) => {
     // Only re-process if we have student data and course details have been updated
     if (studentData.loading || !studentData.profile) return;
     
+    console.log('🔄 Course details changed, re-processing courses...', {
+      courseDetailsKeys: Object.keys(courseDetails),
+      timestamp: new Date().toLocaleTimeString()
+    });
+    
     const updateCoursesWithNewDetails = async () => {
       // Get the latest student courses from state
       const coursesSnapshot = await new Promise((resolve) => {
@@ -420,6 +531,11 @@ export const useStudentData = (userEmailKey) => {
       if (coursesSnapshot) {
         // Re-process courses with updated course details
         const processedCourses = await processCourses(coursesSnapshot);
+        
+        console.log('✅ Courses re-processed with updated details', {
+          courseCount: processedCourses.length,
+          timestamp: new Date().toLocaleTimeString()
+        });
         
         setStudentData(prev => {
           // Re-process notifications if we have them
@@ -442,7 +558,7 @@ export const useStudentData = (userEmailKey) => {
     };
     
     updateCoursesWithNewDetails();
-  }, [courseDetails]); // Re-run when course details change
+  }, [courseDetails, userEmailKey]); // Re-run when course details change
 
   useEffect(() => {
     let isMounted = true;

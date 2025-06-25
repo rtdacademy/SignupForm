@@ -3,8 +3,8 @@
   "title": "Physics 30",
   "fullTitle": "2 - Physics 30",
   "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
-  "credits": 1,
-  "grade": "10",
+  "credits": 3,
+  "grade": "12",
   "prerequisites": [],
   "instructors": [],
   "duration": "1 semester",
@@ -221,127 +221,6 @@
             "questionId": "course2_76_section_3_exam_question1",
             "title": "Section 3 Comprehensive Assessment",
             "points": 25
-          }
-        ]
-      },
-      "02_momentum_one_dimension": {
-        "title": "Momentum in One Dimension",
-        "type": "lesson",
-        "contentPath": "02-momentum-one-dimension",
-        "questions": [
-          {
-            "questionId": "course2_02_momentum_inertia_difference",
-            "title": "Momentum vs Inertia Explanation",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_bowling_ball_momentum",
-            "title": "Bowling Ball Momentum Calculation",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_bullet_velocity",
-            "title": "Bullet Velocity from Momentum",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_hockey_puck_mass",
-            "title": "Hockey Puck Mass Calculation",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_jet_momentum_a",
-            "title": "Jet Momentum Basic Calculation",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_jet_momentum_b",
-            "title": "Jet Momentum Scaling Factors",
-            "points": 2
-          }
-        ]
-      },
-      "02_momentum_one_dimension_collisions": {
-        "title": "Momentum Collision Practice",
-        "type": "lesson",
-        "contentPath": "02-momentum-one-dimension",
-        "questions": [
-          {
-            "questionId": "course2_02_collision_rebound",
-            "title": "Two-Object Collision with Rebound",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_ball_collision_type",
-            "title": "Ball Collision - Elastic vs Inelastic",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_unknown_mass_collision",
-            "title": "Car-Truck Collision - Unknown Mass",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_football_tackle_mass",
-            "title": "Football Tackle - Receiver Mass",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_arrow_apple_mass",
-            "title": "Arrow and Apple Collision",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_truck_car_headon",
-            "title": "Truck-Car Head-on Collision",
-            "points": 2
-          }
-        ]
-      },
-      "02_momentum_one_dimension_advanced": {
-        "title": "Advanced Momentum Practice",
-        "type": "lesson",
-        "contentPath": "02-momentum-one-dimension",
-        "questions": [
-          {
-            "questionId": "course2_02_astronaut_recoil",
-            "title": "Astronaut Recoil with Gas Ejection",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_rocket_separation",
-            "title": "Two-Stage Rocket Separation",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_machine_gun_recoil",
-            "title": "Machine Gun Recoil (James Bond)",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_uranium_disintegration",
-            "title": "Uranium Atom Disintegration",
-            "points": 2
-          },
-          {
-            "questionId": "course2_02_ballistic_pendulum",
-            "title": "Ballistic Pendulum with Energy Analysis",
-            "points": 3
-          },
-          {
-            "questionId": "course2_02_canoe_comparison",
-            "title": "Canoe Momentum Comparison",
-            "points": 3
-          },
-          {
-            "questionId": "course2_02_cart_jumping",
-            "title": "Two Men Jumping from Cart",
-            "points": 3
-          },
-          {
-            "questionId": "course2_02_atom_collision",
-            "title": "Elastic Atomic Collision",
-            "points": 3
           }
         ]
       },
@@ -680,140 +559,6 @@
             "points": 15
           }
         ]
-      },
-      "10_reflection_of_light": {
-        "title": "Lesson 10 - Reflection of Light",
-        "type": "lesson",
-        "contentPath": "10-reflection-of-light",
-        "questions": [
-          {
-            "questionId": "angle_of_incidence_basic",
-            "title": "Basic Law of Reflection",
-            "points": 1
-          },
-          {
-            "questionId": "surface_to_normal_angle",
-            "title": "Surface vs Normal Angles",
-            "points": 1
-          },
-          {
-            "questionId": "total_angle_between_rays",
-            "title": "Angle Between Rays",
-            "points": 1
-          },
-          {
-            "questionId": "two_mirrors_scenario_a",
-            "title": "Two Mirrors - Scenario A",
-            "points": 1
-          },
-          {
-            "questionId": "two_mirrors_scenario_b",
-            "title": "Two Mirrors - Scenario B",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_image_description",
-            "title": "Mirror Image Properties",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_time_reading",
-            "title": "Mirror Time Reading",
-            "points": 1
-          }
-        ]
-      },
-      "11_curved_mirrors": {
-        "title": "Lesson 11 - Curved Mirrors",
-        "type": "lesson",
-        "contentPath": "11-curved-mirrors",
-        "questions": [
-          {
-            "questionId": "concave_mirror_image_distance",
-            "title": "Concave Mirror - Image Distance",
-            "points": 1
-          },
-          {
-            "questionId": "concave_mirror_image_size",
-            "title": "Concave Mirror - Image Size",
-            "points": 1
-          },
-          {
-            "questionId": "concave_mirror_image_description",
-            "title": "Concave Mirror - Image Properties",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_image_distance",
-            "title": "Convex Mirror - Image Distance",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_image_size",
-            "title": "Convex Mirror - Image Size",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_image_description",
-            "title": "Convex Mirror - Image Properties",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_type_erect_80cm",
-            "title": "Mirror Type Identification - Erect Image",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_type_identification_erect",
-            "title": "Mirror Type Properties - General",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_radius_inverted_120cm",
-            "title": "Mirror Radius - Inverted Image",
-            "points": 1
-          },
-          {
-            "questionId": "mirror_type_inverted_120cm",
-            "title": "Mirror Type - Inverted Image",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_radius_20cm",
-            "title": "Convex Mirror Distance Calculation",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_type_identification",
-            "title": "Convex Mirror Characteristics",
-            "points": 1
-          },
-          {
-            "questionId": "object_movement_image_size",
-            "title": "Object Movement Effects",
-            "points": 1
-          },
-          {
-            "questionId": "object_movement_image_size_change",
-            "title": "Object Movement - Size Change",
-            "points": 1
-          },
-          {
-            "questionId": "concave_mirror_3x_inverted_distance",
-            "title": "Concave Mirror - 3x Inverted Distance",
-            "points": 1
-          },
-          {
-            "questionId": "concave_mirror_2x_erect_distance",
-            "title": "Concave Mirror - 2x Erect Distance",
-            "points": 1
-          },
-          {
-            "questionId": "convex_mirror_one_sixth_distance",
-            "title": "Convex Mirror - 1/6 Size Distance",
-            "points": 1
-          }
-        ]
       }
     }
   },
@@ -836,7 +581,7 @@
             "title": "Physics 20 Review",
             "description": "Review of essential Physics 20 concepts",
             "contentPath": "01-physics-20-review",
-            "estimatedTime": 120,
+            "estimatedTime": 45,
             "order": 1,
             "required": true,
             "hasCloudFunctions": true
@@ -861,49 +606,7 @@
             "estimatedTime": 60,
             "order": 3,
             "required": true,
-            "hasCloudFunctions": true,
-            "questions": [
-              {
-                "questionId": "course2_03_car_truck_2d_collision",
-                "title": "Car-Truck 2D Collision",
-                "points": 3
-              },
-              {
-                "questionId": "course2_03_nuclear_decay_2d",
-                "title": "Nuclear Decay Analysis",
-                "points": 3
-              },
-              {
-                "questionId": "course2_03_glancing_collision_2d",
-                "title": "Glancing Collision",
-                "points": 3
-              },
-              {
-                "questionId": "course2_03_space_capsule_projectile",
-                "title": "Space Capsule Projectile",
-                "points": 3
-              },
-              {
-                "questionId": "course2_03_steel_ball_deflection",
-                "title": "Steel Ball Collision with Deflection",
-                "points": 4
-              },
-              {
-                "questionId": "course2_03_mass_explosion",
-                "title": "Mass Explosion Analysis",
-                "points": 4
-              },
-              {
-                "questionId": "course2_03_elastic_collision_90",
-                "title": "Elastic Collision with 90° Separation",
-                "points": 4
-              },
-              {
-                "questionId": "course2_03_plasticene_collision",
-                "title": "Plasticene Inelastic Collision",
-                "points": 4
-              }
-            ]
+            "hasCloudFunctions": false
           },
           {
             "itemId": "04_impulse_momentum_change",
@@ -914,59 +617,7 @@
             "estimatedTime": 60,
             "order": 4,
             "required": true,
-            "hasCloudFunctions": true,
-            "questions": [
-              {
-                "questionId": "course2_04_basic_impulse",
-                "title": "Basic Impulse Calculation",
-                "points": 3
-              },
-              {
-                "questionId": "course2_04_person_falling",
-                "title": "Person Falling and Landing",
-                "points": 3
-              },
-              {
-                "questionId": "course2_04_impulse_quantities",
-                "title": "Impulse Calculation Methods",
-                "points": 2
-              },
-              {
-                "questionId": "course2_04_karate_board",
-                "title": "Karate Board Breaking Physics",
-                "points": 3
-              },
-              {
-                "questionId": "course2_04_safety_features",
-                "title": "Safety Features and Impulse",
-                "points": 3
-              },
-              {
-                "questionId": "course2_04_golf_ball_driver",
-                "title": "Golf Ball Driver Analysis",
-                "points": 4
-              },
-              {
-                "questionId": "course2_04_child_ball",
-                "title": "Child Hitting Ball",
-                "points": 3
-              },
-              {
-                "questionId": "course2_04_ball_bat",
-                "title": "Ball Struck by Bat",
-                "points": 4
-              },
-              {
-                "questionId": "course2_04_bullet_wood",
-                "title": "Bullet Through Wood",
-                "points": 4
-              },
-              {
-                "questionId": "course2_04_water_turbine",
-                "title": "Water Turbine Blade",
-                "points": 4
-              }
-            ]
+            "hasCloudFunctions": false
           },
           {
             "itemId": "assignment_l1_3",
@@ -1021,7 +672,7 @@
             "estimatedTime": 60,
             "order": 9,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": false
           },
           {
             "itemId": "10_reflection_of_light",
@@ -1032,7 +683,7 @@
             "estimatedTime": 60,
             "order": 10,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": false
           },
           {
             "itemId": "11_curved_mirrors",
@@ -1043,7 +694,7 @@
             "estimatedTime": 75,
             "order": 11,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": false
           },
           {
             "itemId": "assignment_l5_7",
@@ -1169,13 +820,13 @@
           {
             "itemId": "23_unit_2_review",
             "type": "lesson",
-            "title": "Unit 2 Review - Optics and Wave Properties of Light",
-            "description": "Comprehensive review of reflection, refraction, mirrors, lenses, and wave properties of light",
+            "title": "Unit 2 Review",
+            "description": "Preview and review concepts",
             "contentPath": "23-unit-2-review",
-            "estimatedTime": 90,
+            "estimatedTime": 60,
             "order": 23,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": false
           },
           {
             "itemId": "exam_section_1",

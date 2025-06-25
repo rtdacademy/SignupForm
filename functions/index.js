@@ -45,13 +45,17 @@ const retrieveUserActivityFunctions = require('./retrieveUserActivity');
 const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
+const userRolesFunctions = require('./setUserRoles');
+const updateStudentProfileFunctions = require('./updateStudentProfile');
 
 // PASI data management
 const pasiDataFunctions = require('./uploadPasiData');
 
 // PDF generation
 const pdfGenerationFunctions = require('./generateRegistrationPDFs');
+const pdfStreamingFunctions = require('./generateRegistrationPDFsStreaming');
 const downloadPDFFunctions = require('./downloadRegistrationPDFs');
+const downloadJobFileFunctions = require('./downloadJobFile');
 const pasiCsvFunctions = require('./uploadPasiCsv');
 
 // Edge functions
@@ -153,6 +157,7 @@ exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 
 // Course configuration functions
 exports.getCourseConfigV2 = courseConfigFunctions.getCourseConfigV2;
+exports.syncCourseConfigToDatabase = courseConfigFunctions.syncCourseConfigToDatabase;
 
 // JSX transformation is now handled automatically by autoTransformSectionCode trigger
 // No manual transformation endpoint needed
@@ -184,7 +189,9 @@ exports.retrieveStudentPasiData = pasiDataFunctions.retrieveStudentPasiData;
 
 // PDF generation functions
 exports.generateRegistrationPDFs = pdfGenerationFunctions.generateRegistrationPDFs;
+exports.generateRegistrationPDFsStreaming = pdfStreamingFunctions.generateRegistrationPDFsStreaming;
 exports.downloadRegistrationPDFs = downloadPDFFunctions.downloadRegistrationPDFs;
+exports.downloadJobFile = downloadJobFileFunctions.downloadJobFile;
 
 // PASI CSV Upload V2
 exports.uploadPasiCsvV2 = pasiCsvFunctions.uploadPasiCsvV2;
@@ -193,6 +200,9 @@ exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
 exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
 exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
 exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
+
+// Student category update function
+exports.updateStudentCategories = require('./updateStudentCategories').updateStudentCategories;
 exports.resendParentInvitation = parentPortalFunctions.resendParentInvitation;
 exports.getParentDashboardData = parentPortalFunctions.getParentDashboardData;
 
@@ -203,6 +213,12 @@ exports.updateStudentAcademicInfo = studentPropertiesFunctions.updateStudentAcad
 exports.updateGuardianInfo = studentPropertiesFunctions.updateGuardianInfo;
 exports.updateStudentStatus = studentPropertiesFunctions.updateStudentStatus;
 exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocuments;
+
+// User roles and custom claims functions
+exports.setUserRoles = userRolesFunctions.setUserRoles;
+
+// Student profile update functions
+exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;
 
 // Student Registration functions
 const studentRegistrationFunctions = require('./submitStudentRegistration');
@@ -220,14 +236,8 @@ exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
 // Gradebook functions
 exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
 exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
-exports.updateStaffGradebook = gradebookFunctions.updateStaffGradebook;
 exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
-exports.getGradebookData = gradebookFunctions.getGradebookData;
-exports.getGradebookSummary = gradebookFunctions.getGradebookSummary;
-exports.recalculateGradebook = gradebookFunctions.recalculateGradebook;
-exports.recalculateMyGradebook = gradebookFunctions.recalculateMyGradebook;
 exports.validateGradebookStructure = gradebookFunctions.validateGradebookStructure;
-exports.cleanupLegacyAssessments = gradebookFunctions.cleanupLegacyAssessments;
 
 // Exam session management functions
 exports.startExamSession = examSessionFunctions.startExamSession;
@@ -655,6 +665,9 @@ exports.course2_24_section1_exam_q22 = require('./courses/2/24-section-1-exam/as
 exports.course2_24_section1_exam_q23 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q23;
 exports.course2_24_section1_exam_long1 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_long1;
 exports.course2_24_section1_exam_long2 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_long2;
+
+// Course 2 - Section Exams
+exports.course2_76_section_3_exam_question1 = require('./courses/2/78-diploma-exam/assessments').course2_76_section_3_exam_question1;
 
 // 3 Course Functions (Financial Literacy)
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;

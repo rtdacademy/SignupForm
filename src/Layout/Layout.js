@@ -7,12 +7,13 @@ import { getDatabase, ref, get } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const Layout = React.memo(({ children }) => {
-  const { user, signOut, isStaff, isEmulating } = useAuth(); 
+  const { user, signOut, isStaff, isEmulating, checkUserRoles } = useAuth(); 
   const { isFullScreen, setIsFullScreen } = useLayout();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [studentData, setStudentData] = useState(null);
+  const [hasParentAccount, setHasParentAccount] = useState(false);
 
   const fetchStudentData = useCallback(async () => {
     if (user && !isStaff(user)) {
@@ -34,9 +35,34 @@ const Layout = React.memo(({ children }) => {
     }
   }, [user, isStaff]);
 
+  const checkParentAccount = useCallback(async () => {
+    if (user && !isStaff(user)) {
+      try {
+        const sanitizedEmail = sanitizeEmail(user.email);
+        const userRoles = await checkUserRoles(user, sanitizedEmail);
+        
+        // Check if user has parent access from custom claims or database
+        const hasParentAccess = userRoles.permissions.canAccessParentPortal === true;
+        setHasParentAccount(hasParentAccess);
+        
+        console.log("Parent account check using hybrid approach:", {
+          hasParentAccess,
+          roles: userRoles.roles,
+          usingCustomClaims: userRoles.hasCustomClaims
+        });
+      } catch (error) {
+        console.error("Error checking parent account:", error);
+        setHasParentAccount(false);
+      }
+    } else {
+      setHasParentAccount(false);
+    }
+  }, [user, isStaff, checkUserRoles]);
+
   useEffect(() => {
     fetchStudentData();
-  }, [fetchStudentData]);
+    checkParentAccount();
+  }, [fetchStudentData, checkParentAccount]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -91,8 +117,9 @@ const Layout = React.memo(({ children }) => {
     portalType: isStaff(user) ? "Staff Portal" : "Student Portal",
     onFullScreenToggle: handleFullScreenToggle,
     isEmulating,
-    isStaffUser: isStaff(user) 
-  }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating]);
+    isStaffUser: isStaff(user),
+    hasParentAccount
+  }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating, hasParentAccount]);
 
   return (
     <div className={`flex flex-col h-screen bg-white ${isFullScreen ? 'overflow-hidden' : ''}`}>

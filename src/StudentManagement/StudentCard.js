@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -318,7 +318,9 @@ const StudentCard = React.memo(({
   onBulkAutoStatusToggle,
   isMobile,
   onCourseRemoved,
-  studentAsns
+  studentAsns,
+  isBlacklisted = false,
+  blacklistLoading = false
 }) => {
   
   // Check if this is a PASI-only record and render accordingly
@@ -422,6 +424,8 @@ const StudentCard = React.memo(({
   const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
   const [hasProfileHistory, setHasProfileHistory] = useState(false);
 
+  // Blacklist state is now passed as props
+
 
   const checkAsnIssues = useMemo(() => {
     if (!student.asn || !studentAsns) return true;  // Show button if no ASN or no studentAsns data
@@ -506,6 +510,8 @@ const StudentCard = React.memo(({
 
     checkProfileHistory();
   }, [student.id]);
+
+  // Blacklist status is now passed as props from parent component
 
  // Add this before your updateStatus function
 const validateActiveFutureArchivedValue = useCallback((value) => {
@@ -1087,6 +1093,32 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Needs Migration
                 </div>
+              </div>
+            )}
+
+            {/* Blacklist warning indicator */}
+            {isBlacklisted && (
+              <div className="mt-1 space-y-1">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <div className="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap cursor-help">
+                      <UserX className="w-3 h-3 mr-1" />
+                      Blacklisted Student
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[300px] p-3">
+                    <div className="space-y-2">
+                      <div className="font-semibold text-red-700">⚠️ Blacklisted Student</div>
+                      <div className="text-xs">
+                        This student's ASN ({student.asn}) or email ({getStudentInfo.email}) 
+                        is on the blacklist. They are restricted from registering for new courses.
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Contact administration to review blacklist status if needed.
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
 

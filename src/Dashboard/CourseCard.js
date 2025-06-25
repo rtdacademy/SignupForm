@@ -132,6 +132,9 @@ const CourseCard = ({
     return userEmail && allowedEmails.includes(userEmail);
   })();
 
+  // Check if course details are still loading (prevents race condition on dashboard re-entry)
+  const courseDetailsLoading = !course.courseDetails && course.id;
+
   // Update computedPaymentStatus to silently handle legacy courses
   const computedPaymentStatus = (() => {
     // Skip payment enforcement for courses created before Nov 22, 2024
@@ -228,7 +231,16 @@ const CourseCard = ({
       return;
     }
 
-    // Allow developers to bypass all restrictions
+    // Check for course access restriction
+    if (course.courseDetails?.restrictCourseAccess === true) {
+      // Allow developers to bypass course access restrictions
+      if (!isDeveloper) {
+        toast.error("Access to this course is currently restricted");
+        return;
+      }
+    }
+
+    // Allow developers to bypass all other restrictions
     if (isDeveloper) {
       // Use appropriate handler based on course type
       if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
@@ -565,6 +577,36 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
   const renderRegistrationMessage = () => {
     if (status !== 'Registration') return null;
+
+    // Show restriction message if course access is restricted (unless user is developer)
+    // Also show loading state if course details aren't loaded yet
+    if (courseDetailsLoading) {
+      return (
+        <Alert className="mb-4 bg-gray-50 border-gray-200">
+          <AlertCircle className="h-4 w-4 text-gray-500" />
+          <AlertDescription className="text-gray-700">
+            <p className="font-medium mb-1">Loading Course Details</p>
+            <p className="text-sm">
+              Please wait while we load the latest course information...
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (course.courseDetails?.restrictCourseAccess === true && !isDeveloper) {
+      return (
+        <Alert className="mb-4 bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-700">
+            <p className="font-medium mb-1">Course Access Restricted</p>
+            <p className="text-sm">
+              This course needs to be activated by your instructor before you can access it.
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
   
     // Different messaging for Firebase courses
     if (course.courseDetails?.firebaseCourse) {
@@ -1006,45 +1048,48 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               <div className={`grid ${course.courseDetails?.units && !course.courseDetails?.doesNotRequireSchedule ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
-                <Button
-                  onClick={handleGoToCourse}
-                  className={`
-                    w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
-                    ${course.isRequiredCourse
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                      : isDeveloper
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                        : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
-                          ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                            ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                          : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                            ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                    }
-                  `}
-                  disabled={!course.isRequiredCourse && !isDeveloper && (
-                    (course.courseDetails?.firebaseCourse || course.firebaseCourse)
-                      ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                  )}
-                >
-                  <FaExternalLinkAlt className="h-4 w-4" />
-                  <span>
-                    {course.isRequiredCourse
-                      ? 'Go to Required Course'
-                      : isDeveloper
-                        ? 'Go to Course (Developer)'
-                        : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
-                          ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                            ? 'Course Unavailable'
-                            : 'Go to Course'
-                          : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                            ? 'Course Unavailable'
-                            : 'Go to Course'
-                    }
-                  </span>
-                </Button>
+                {/* Hide entire button if course details are loading OR if course access is restricted and user is not developer */}
+                {!courseDetailsLoading && !(course.courseDetails?.restrictCourseAccess === true && !isDeveloper) && (
+                  <Button
+                    onClick={handleGoToCourse}
+                    className={`
+                      w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
+                      ${course.isRequiredCourse
+                        ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                        : isDeveloper
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                          : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
+                            ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                              ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                            : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                              ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                      }
+                    `}
+                    disabled={!course.isRequiredCourse && !isDeveloper && (
+                      (course.courseDetails?.firebaseCourse || course.firebaseCourse)
+                        ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                        : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                    )}
+                  >
+                    <FaExternalLinkAlt className="h-4 w-4" />
+                    <span>
+                      {course.isRequiredCourse
+                        ? 'Go to Required Course'
+                        : isDeveloper
+                          ? 'Go to Course (Developer)'
+                          : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
+                            ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                              ? 'Course Unavailable'
+                              : 'Go to Course'
+                            : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                              ? 'Course Unavailable'
+                              : 'Go to Course'
+                      }
+                    </span>
+                  </Button>
+                )}
 
                 {renderPaymentButton()}
               </div>

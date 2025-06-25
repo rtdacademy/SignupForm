@@ -53,7 +53,8 @@ import {
   UserPlus,
   GripVertical,
   List,
-  FileDown
+  FileDown,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useAuth } from '../context/AuthContext';
@@ -65,16 +66,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "../components/ui/sheet";
 import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
 import PDFGenerationSheet from "./PDFGenerationSheet";
+import CSVExportSheet from "./CSVExportSheet";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
 import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
 
-const ITEMS_PER_PAGE = 200;
+const ITEMS_PER_PAGE = 100;
 
 // Available icons for custom views
 const AVAILABLE_ICONS = [
@@ -1516,6 +1519,7 @@ const PasiRecordsSimplified = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isPDFGenerationOpen, setIsPDFGenerationOpen] = useState(false);
+  const [isCSVExportOpen, setIsCSVExportOpen] = useState(false);
   
   // Responsive breakpoint state
   const breakpoint = useResponsiveBreakpoint();
@@ -2317,10 +2321,48 @@ const PasiRecordsSimplified = () => {
   const getVisibleCustomViews = () => {
     if (!customViews.length) return [];
     
-    // Filter out hidden views
-    const visibleViews = customViews.filter(view => 
-      !userViewPreferences.hidden?.[view.id]
-    );
+    // Filter out hidden views and apply color/icon filters
+    const visibleViews = customViews.filter(view => {
+      // Individual view hiding (existing functionality)
+      if (userViewPreferences.hidden?.[view.id]) return false;
+      
+      // Check if color and icon filters are enabled
+      const colorFilterEnabled = userViewPreferences.colorFilters?.enabled;
+      const iconFilterEnabled = userViewPreferences.iconFilters?.enabled;
+      const filterLogic = userViewPreferences.filterLogic || 'AND'; // Default to AND
+      
+      // If no filters are enabled, show the view
+      if (!colorFilterEnabled && !iconFilterEnabled) {
+        return true;
+      }
+      
+      // Get selected colors and icons
+      const visibleColors = userViewPreferences.colorFilters?.visibleColors || [];
+      const visibleIcons = userViewPreferences.iconFilters?.visibleIcons || [];
+      
+      // Check color filter condition
+      let colorMatches = true;
+      if (colorFilterEnabled) {
+        colorMatches = visibleColors.length === 0 || visibleColors.includes(view.color);
+      }
+      
+      // Check icon filter condition  
+      let iconMatches = true;
+      if (iconFilterEnabled) {
+        iconMatches = visibleIcons.length === 0 || visibleIcons.includes(view.icon);
+      }
+      
+      // Apply AND/OR logic between filters
+      if (colorFilterEnabled && iconFilterEnabled) {
+        return filterLogic === 'AND' ? (colorMatches && iconMatches) : (colorMatches || iconMatches);
+      } else if (colorFilterEnabled) {
+        return colorMatches;
+      } else if (iconFilterEnabled) {
+        return iconMatches;
+      }
+      
+      return true;
+    });
     
     // Sort by user-specific order, then by creation date
     return visibleViews.sort((a, b) => {
@@ -2349,6 +2391,20 @@ const PasiRecordsSimplified = () => {
 
   const visibleCustomViews = getVisibleCustomViews();
   const hiddenCustomViews = getHiddenCustomViews();
+
+  // Get unique colors and icons used in custom views
+  const getUsedColors = () => {
+    const usedColors = new Set(customViews.map(view => view.color).filter(Boolean));
+    return AVAILABLE_COLORS.filter(color => usedColors.has(color.value));
+  };
+
+  const getUsedIcons = () => {
+    const usedIcons = new Set(customViews.map(view => view.icon).filter(Boolean));
+    return AVAILABLE_ICONS.filter(icon => usedIcons.has(icon.value));
+  };
+
+  const usedColors = getUsedColors();
+  const usedIcons = getUsedIcons();
 
   // Process records to add formatted dates and other computed fields
   const processedRecords = useMemo(() => {
@@ -2397,6 +2453,21 @@ const PasiRecordsSimplified = () => {
       // Normal sorting logic
       let aValue = a[sortState.column] || '';
       let bValue = b[sortState.column] || '';
+      
+      // Handle computed fields that may not exist directly in the data
+      if (sortState.column === 'studentName') {
+        // Use studentName if it exists, otherwise concatenate firstName and lastName
+        aValue = a.studentName || `${a.firstName || ''} ${a.lastName || ''}`.trim();
+        bValue = b.studentName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      } else if (sortState.column === 'courseCode') {
+        // Use courseCode if it exists, otherwise fall back to Course_Value
+        aValue = a.courseCode || a.Course_Value || '';
+        bValue = b.courseCode || b.Course_Value || '';
+      } else if (sortState.column === 'Course_Value') {
+        // Use Course_Value if it exists, otherwise fall back to courseCode
+        aValue = a.Course_Value || a.courseCode || '';
+        bValue = b.Course_Value || b.courseCode || '';
+      }
       
       // Handle workItems sorting based on severity
       if (sortState.column === 'workItems') {
@@ -2755,6 +2826,112 @@ const PasiRecordsSimplified = () => {
     toast.success(`View ${action} successfully`);
   };
 
+  // Toggle color filter enabled/disabled
+  const toggleColorFilterEnabled = async () => {
+    const isEnabling = !userViewPreferences.colorFilters?.enabled;
+    const newPreferences = {
+      ...userViewPreferences,
+      colorFilters: {
+        ...userViewPreferences.colorFilters,
+        enabled: isEnabling,
+        // Clear selections when enabling (start with nothing selected)
+        visibleColors: isEnabling ? [] : (userViewPreferences.colorFilters?.visibleColors || [])
+      }
+    };
+    
+    setUserViewPreferences(newPreferences);
+    await saveUserPreferences(newPreferences);
+    
+    const action = isEnabling ? 'enabled' : 'disabled';
+    toast.success(`Color filtering ${action}${isEnabling ? ' - select colors to show' : ''}`);
+  };
+
+  // Toggle icon filter enabled/disabled
+  const toggleIconFilterEnabled = async () => {
+    const isEnabling = !userViewPreferences.iconFilters?.enabled;
+    const newPreferences = {
+      ...userViewPreferences,
+      iconFilters: {
+        ...userViewPreferences.iconFilters,
+        enabled: isEnabling,
+        // Clear selections when enabling (start with nothing selected)
+        visibleIcons: isEnabling ? [] : (userViewPreferences.iconFilters?.visibleIcons || [])
+      }
+    };
+    
+    setUserViewPreferences(newPreferences);
+    await saveUserPreferences(newPreferences);
+    
+    const action = isEnabling ? 'enabled' : 'disabled';
+    toast.success(`Icon filtering ${action}${isEnabling ? ' - select icons to show' : ''}`);
+  };
+
+  // Toggle specific color visibility
+  const toggleColorFilter = async (color) => {
+    const visibleColors = userViewPreferences.colorFilters?.visibleColors || [];
+    const isCurrentlyVisible = visibleColors.includes(color);
+    const newVisibleColors = isCurrentlyVisible
+      ? visibleColors.filter(c => c !== color)
+      : [...visibleColors, color];
+    
+    const newPreferences = {
+      ...userViewPreferences,
+      colorFilters: {
+        ...userViewPreferences.colorFilters,
+        enabled: userViewPreferences.colorFilters?.enabled || false,
+        visibleColors: newVisibleColors
+      }
+    };
+    
+    setUserViewPreferences(newPreferences);
+    await saveUserPreferences(newPreferences);
+    
+    const action = isCurrentlyVisible ? 'deselected' : 'selected';
+    const colorLabel = AVAILABLE_COLORS.find(c => c.value === color)?.label || color;
+    toast.success(`${colorLabel} views ${action}`);
+  };
+
+  // Toggle specific icon visibility
+  const toggleIconFilter = async (icon) => {
+    const visibleIcons = userViewPreferences.iconFilters?.visibleIcons || [];
+    const isCurrentlyVisible = visibleIcons.includes(icon);
+    const newVisibleIcons = isCurrentlyVisible
+      ? visibleIcons.filter(i => i !== icon)
+      : [...visibleIcons, icon];
+    
+    const newPreferences = {
+      ...userViewPreferences,
+      iconFilters: {
+        ...userViewPreferences.iconFilters,
+        enabled: userViewPreferences.iconFilters?.enabled || false,
+        visibleIcons: newVisibleIcons
+      }
+    };
+    
+    setUserViewPreferences(newPreferences);
+    await saveUserPreferences(newPreferences);
+    
+    const action = isCurrentlyVisible ? 'deselected' : 'selected';
+    const iconLabel = AVAILABLE_ICONS.find(i => i.value === icon)?.label || icon;
+    toast.success(`${iconLabel} views ${action}`);
+  };
+
+  // Toggle filter logic between AND/OR
+  const toggleFilterLogic = async () => {
+    const currentLogic = userViewPreferences.filterLogic || 'AND';
+    const newLogic = currentLogic === 'AND' ? 'OR' : 'AND';
+    
+    const newPreferences = {
+      ...userViewPreferences,
+      filterLogic: newLogic
+    };
+    
+    setUserViewPreferences(newPreferences);
+    await saveUserPreferences(newPreferences);
+    
+    toast.success(`Filter logic changed to ${newLogic}`);
+  };
+
   // Drag and drop handlers for reordering custom views (user-specific)
   const handleDragStart = (e, viewId) => {
     setDraggedViewId(viewId);
@@ -2943,15 +3120,26 @@ const PasiRecordsSimplified = () => {
                 })()}
               </Badge>
               {filteredRecords.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPDFGenerationOpen(true)}
-                  className="h-8"
-                >
-                  <FileDown className="h-4 w-4 mr-1" />
-                  Generate PDFs
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCSVExportOpen(true)}
+                    className="h-8"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPDFGenerationOpen(true)}
+                    className="h-8"
+                  >
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Generate PDFs
+                  </Button>
+                </>
               )}
             </div>
           </CardTitle>
@@ -3012,7 +3200,7 @@ const PasiRecordsSimplified = () => {
                 )}
               </h3>
               <div className="flex items-center space-x-2">
-                {hiddenCustomViews.length > 0 && (
+                {(hiddenCustomViews.length > 0 || usedColors.length > 0 || usedIcons.length > 0) && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -3118,14 +3306,196 @@ const PasiRecordsSimplified = () => {
             </div>
 
             {/* Hidden Views Management */}
-            {showManageViews && hiddenCustomViews.length > 0 && (
+            {showManageViews && (hiddenCustomViews.length > 0 || usedColors.length > 0 || usedIcons.length > 0) && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                  <EyeOff className="h-4 w-4 mr-1" />
-                  Hidden Views
+                  <Settings className="h-4 w-4 mr-1" />
+                  Manage Views
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {hiddenCustomViews.map((view) => {
+
+                {/* Color and Icon Filters */}
+                {(usedColors.length > 0 || usedIcons.length > 0) && (
+                  <div className="mb-4 p-3 bg-white rounded-lg border">
+                    <h5 className="text-xs font-medium text-gray-600 mb-3 flex items-center">
+                      <Filter className="h-3 w-3 mr-1" />
+                      View Filters
+                    </h5>
+                    
+                    {/* Color Filter Section */}
+                    {usedColors.length > 0 && (
+                      <div className="mb-3">
+                        <div className="flex items-center gap-3 mb-2">
+                          <label className="text-xs font-medium text-gray-600">Filter by Color</label>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={userViewPreferences.colorFilters?.enabled || false}
+                              onCheckedChange={toggleColorFilterEnabled}
+                              className="data-[state=checked]:bg-blue-600"
+                            />
+                            <span className="text-xs text-gray-500">
+                              {userViewPreferences.colorFilters?.enabled ? 'On' : 'Off'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {usedColors.map((color) => {
+                            const visibleColors = userViewPreferences.colorFilters?.visibleColors || [];
+                            const isSelected = visibleColors.includes(color.value);
+                            const isFilterEnabled = userViewPreferences.colorFilters?.enabled;
+                            return (
+                              <TooltipProvider key={color.value}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => toggleColorFilter(color.value)}
+                                      className={`h-6 w-6 p-0 border-2 ${color.className} ${
+                                        !isFilterEnabled 
+                                          ? 'opacity-60' 
+                                          : isSelected 
+                                            ? 'opacity-100 ring-2 ring-blue-500 ring-offset-1' 
+                                            : 'opacity-30'
+                                      }`}
+                                      disabled={!isFilterEnabled}
+                                    >
+                                      <span className="sr-only">{color.label}</span>
+                                      {isFilterEnabled && isSelected && (
+                                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-blue-500 rounded-full flex items-center justify-center">
+                                          <span className="text-white text-xs">✓</span>
+                                        </div>
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {color.label} views 
+                                      {!isFilterEnabled ? ' (filter disabled)' : 
+                                       isSelected ? ' (selected - will show)' : ' (click to select)'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Filter Logic Toggle - Only show when both filters have options */}
+                    {usedColors.length > 0 && usedIcons.length > 0 && (
+                      <div className="mb-3 p-2 bg-gray-50 rounded border-l-4 border-blue-400">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium text-gray-700">Filter Logic</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-gray-400 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">
+                                  <strong>AND:</strong> Views must match BOTH color AND icon selections<br/>
+                                  <strong>OR:</strong> Views match EITHER color OR icon selections
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <div className="flex items-start gap-2 text-xs text-gray-600">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={toggleFilterLogic}
+                            className={`h-6 px-3 text-xs font-mono ${
+                              (userViewPreferences.filterLogic || 'AND') === 'AND' 
+                                ? 'bg-blue-100 text-blue-800 border-blue-300' 
+                                : 'bg-orange-100 text-orange-800 border-orange-300'
+                            }`}
+                          >
+                            {userViewPreferences.filterLogic || 'AND'}
+                          </Button>
+                          {(userViewPreferences.filterLogic || 'AND') === 'AND' ? (
+                            <span>Views must have a selected color <strong>AND</strong> a selected icon to show</span>
+                          ) : (
+                            <span>Views show if they have a selected color <strong>OR</strong> a selected icon (or both)</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Icon Filter Section */}
+                    {usedIcons.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <label className="text-xs font-medium text-gray-600">Filter by Icon</label>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={userViewPreferences.iconFilters?.enabled || false}
+                              onCheckedChange={toggleIconFilterEnabled}
+                              className="data-[state=checked]:bg-blue-600"
+                            />
+                            <span className="text-xs text-gray-500">
+                              {userViewPreferences.iconFilters?.enabled ? 'On' : 'Off'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {usedIcons.map((icon) => {
+                            const IconComponent = icon.component;
+                            const visibleIcons = userViewPreferences.iconFilters?.visibleIcons || [];
+                            const isSelected = visibleIcons.includes(icon.value);
+                            const isFilterEnabled = userViewPreferences.iconFilters?.enabled;
+                            return (
+                              <TooltipProvider key={icon.value}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => toggleIconFilter(icon.value)}
+                                      className={`h-6 w-6 p-0 relative ${
+                                        !isFilterEnabled 
+                                          ? 'opacity-60' 
+                                          : isSelected 
+                                            ? 'opacity-100 ring-2 ring-blue-500 ring-offset-1' 
+                                            : 'opacity-30'
+                                      }`}
+                                      disabled={!isFilterEnabled}
+                                    >
+                                      <IconComponent className="h-3 w-3" />
+                                      {isFilterEnabled && isSelected && (
+                                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-blue-500 rounded-full flex items-center justify-center">
+                                          <span className="text-white text-xs">✓</span>
+                                        </div>
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {icon.label} views 
+                                      {!isFilterEnabled ? ' (filter disabled)' : 
+                                       isSelected ? ' (selected - will show)' : ' (click to select)'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hidden Views List */}
+                {hiddenCustomViews.length > 0 && (
+                  <>
+                    <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center">
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      Hidden Views ({hiddenCustomViews.length})
+                    </h5>
+                    <div className="flex flex-wrap gap-2">
+                      {hiddenCustomViews.map((view) => {
                     const count = tabCounts[view.id] || 0;
                     return (
                       <div key={view.id} className="flex items-center">
@@ -3166,7 +3536,9 @@ const PasiRecordsSimplified = () => {
                       </div>
                     );
                   })}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -4017,6 +4389,15 @@ const PasiRecordsSimplified = () => {
       <PDFGenerationSheet
         isOpen={isPDFGenerationOpen}
         onOpenChange={setIsPDFGenerationOpen}
+        filteredRecords={filteredRecords}
+        selectedRecords={selectedPasiRecords ? Object.values(selectedPasiRecords) : []}
+        schoolYear={currentSchoolYear}
+      />
+      
+      {/* CSV Export Sheet */}
+      <CSVExportSheet
+        isOpen={isCSVExportOpen}
+        onOpenChange={setIsCSVExportOpen}
         filteredRecords={filteredRecords}
         selectedRecords={selectedPasiRecords ? Object.values(selectedPasiRecords) : []}
         schoolYear={currentSchoolYear}

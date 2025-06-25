@@ -283,6 +283,70 @@ export const formatDiplomaDate = (dateObj) => {
 };
 
 /**
+ * Parse a date value and ensure it's treated as Mountain Time
+ * This is specifically useful for date inputs to avoid timezone conversion issues
+ * 
+ * @param {string|number|Date} dateValue - Date in various formats
+ * @returns {Date|null} Date object representing the date in Mountain Time
+ */
+export const parseDateAsMountainTime = (dateValue) => {
+  if (!dateValue) return null;
+  
+  // Check if the value is a Unix timestamp (number or string containing only digits)
+  if (typeof dateValue === 'number' || /^\d+$/.test(dateValue)) {
+    const timestamp = typeof dateValue === 'string' ? parseInt(dateValue, 10) : dateValue;
+    return new Date(timestamp);
+  }
+  
+  // Check if the string is in ISO format (contains T)
+  if (typeof dateValue === 'string' && dateValue.includes('T')) {
+    return new Date(dateValue);
+  }
+  
+  // For YYYY-MM-DD format, parse as local date to avoid timezone issues
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  // For other date formats like "2025-06-23", assume they should be treated as Mountain Time
+  if (typeof dateValue === 'string') {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    if (year && month && day) {
+      return new Date(year, month - 1, day);
+    }
+  }
+  
+  // If we get here, try to parse it as a date anyway
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * Format a Date object for use in HTML date inputs (YYYY-MM-DD)
+ * This ensures the date is formatted correctly for date picker inputs
+ * 
+ * @param {Date|string} date - Date object or date string
+ * @returns {string} Date string in YYYY-MM-DD format for use in date inputs
+ */
+export const formatDateForInput = (date) => {
+  if (!date) return '';
+  
+  let dateObj = date;
+  if (typeof date === 'string') {
+    dateObj = parseDateAsMountainTime(date);
+  }
+  
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Check if a date range is valid based on constraints
  * 
  * @param {string|Date} startDate - Start date string in YYYY-MM-DD format or Date object

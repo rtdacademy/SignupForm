@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { signInWithPopup } from "firebase/auth";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { auth, microsoftProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { sanitizeEmail } from "../utils/sanitizeEmail";
 
 const StaffLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { isStaff, ensureStaffNode, loading } = useAuth();
+
+  // Get the redirect URL from query parameters
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get('redirect') || '/teacher-dashboard';
 
   // Reset login state when component mounts
   useEffect(() => {
@@ -39,7 +44,7 @@ const StaffLogin = () => {
           console.log("Signed in staff:", user.displayName);
           // Use setTimeout to ensure auth state is fully updated before navigation
           setTimeout(() => {
-            navigate("/teacher-dashboard");
+            navigate(redirectTo);
             setIsLoggingIn(false);
           }, 500);
         } else {
