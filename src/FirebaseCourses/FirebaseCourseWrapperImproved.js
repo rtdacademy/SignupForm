@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
 import { getLessonAccessibility } from './utils/lessonAccess';
+import { loadLessonPrompt, enhancePromptWithContext } from './utils/aiPromptLoader';
+import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
+import CourseOutline from './components/CourseOutline';
+import CourseResources from './components/CourseResources';
 // Import the comprehensive GradebookDashboard component
 import { 
   GradebookDashboard,
@@ -15,6 +19,7 @@ import {
   QuestionReviewModal 
 } from './components/gradebook';
 import { Skeleton } from '../components/ui/skeleton';
+import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 // Lazy load course components at module level to prevent re-importing
 const Course0 = React.lazy(() => import('./courses/PHY30'));
@@ -186,6 +191,30 @@ const FirebaseCourseWrapperContent = ({
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
   const [courseModuleLoaded, setCourseModuleLoaded] = useState(false);
+  const [isCourseOutlineOpen, setIsCourseOutlineOpen] = useState(false);
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [currentAIPrompt, setCurrentAIPrompt] = useState(null);
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  const [chatAnimationState, setChatAnimationState] = useState('closed'); // 'closed', 'opening', 'open', 'closing'
+  
+  // Draggable and resizable functionality for AI chat
+  const {
+    position: chatPosition,
+    size: chatSize,
+    isDragging,
+    isResizing,
+    handleDragStart,
+    handleResizeStart,
+    resetToDefault: resetChatPosition
+  } = useDraggableResizable({
+    defaultPosition: { x: window.innerWidth - 444, y: 24 }, // 420px width + 24px margin
+    defaultSize: { width: 420, height: 640 },
+    minSize: { width: 320, height: 400 },
+    maxSize: { width: 800, height: Math.min(900, window.innerHeight - 48) },
+    storageKey: `ai-chat-state-course-${course?.CourseID}`,
+    disabled: isMobile
+  });
   
   // Ref for navigation container to detect outside clicks
   const navigationRef = useRef(null);
@@ -276,6 +305,25 @@ const FirebaseCourseWrapperContent = ({
       localStorage.setItem(`devMode_${courseId}`, enabled.toString());
     }
   }, [course]);
+
+  // Handle AI chat toggle with animations
+  const handleChatToggle = useCallback(() => {
+    if (chatAnimationState === 'closed') {
+      // Opening animation
+      setChatAnimationState('opening');
+      setIsChatOpen(true);
+      // After a brief delay, set to fully open
+      setTimeout(() => setChatAnimationState('open'), 300);
+    } else if (chatAnimationState === 'open') {
+      // Closing animation
+      setChatAnimationState('closing');
+      // After animation completes, fully close
+      setTimeout(() => {
+        setIsChatOpen(false);
+        setChatAnimationState('closed');
+      }, 300);
+    }
+  }, [chatAnimationState]);
 
   // Handle internal item selection and propagate to parent if needed
   const handleItemSelect = useCallback((itemId) => {
@@ -530,6 +578,58 @@ const FirebaseCourseWrapperContent = ({
     }
   }, [allCourseItems.length, course, courseData.title, courseModuleLoaded, isContentReady]);
   
+  // Load AI prompt when active lesson changes
+  useEffect(() => {
+    const loadPromptForLesson = async () => {
+      if (!activeItemId || !course?.CourseID) {
+        return;
+      }
+      
+      setIsLoadingPrompt(true);
+      try {
+        const prompt = await loadLessonPrompt(course.CourseID, activeItemId);
+        
+        // Enhance prompt with additional context
+        const currentItem = allCourseItems.find(item => item.itemId === activeItemId);
+        const currentUnit = unitsList.find(unit => 
+          unit.items?.some(item => item.itemId === activeItemId)
+        );
+        
+        // Calculate progress for this specific use
+        let courseProgress = 0;
+        if (allCourseItems.length > 0) {
+          const gradebook = course?.Gradebook;
+          const completedCount = allCourseItems.filter(item => {
+            const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+            const gradebookItem = gradebook?.items?.[item.itemId];
+            return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+          }).length;
+          courseProgress = Math.round((completedCount / allCourseItems.length) * 100);
+        }
+        
+        const enhancedPrompt = enhancePromptWithContext(prompt, {
+          currentUnit: currentUnit?.title || currentUnit?.name,
+          lessonTitle: currentItem?.title,
+          lessonType: currentItem?.type,
+          studentProgress: `${courseProgress}% course completion`,
+          keywords: currentItem?.keywords || []
+        });
+        
+        setCurrentAIPrompt(enhancedPrompt);
+        console.log('Loaded AI prompt for lesson:', activeItemId);
+      } catch (error) {
+        console.error('Failed to load AI prompt:', error);
+        // Will use default prompt from the loader
+      } finally {
+        setIsLoadingPrompt(false);
+      }
+    };
+    
+    if (activeItemId) {
+      loadPromptForLesson();
+    }
+  }, [activeItemId, course?.CourseID, allCourseItems, unitsList, course?.Gradebook]);
+  
   // Show error state if no course structure available
   if (courseData.error) {
     return (
@@ -619,6 +719,22 @@ const FirebaseCourseWrapperContent = ({
             >
               <FaGraduationCap className="h-4 w-4" />
               <span>Gradebook</span>
+            </button>
+            
+            <button
+              className="px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm text-gray-600 hover:bg-gray-50"
+              onClick={() => setIsCourseOutlineOpen(true)}
+            >
+              <FileText className="h-4 w-4" />
+              <span>Course Outline</span>
+            </button>
+            
+            <button
+              className="px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm text-gray-600 hover:bg-gray-50"
+              onClick={() => setIsResourcesOpen(true)}
+            >
+              <Folder className="h-4 w-4" />
+              <span>Resources</span>
             </button>
             
             {/* Debug tab - only show for authorized users when developer mode is active */}
@@ -1041,6 +1157,220 @@ const FirebaseCourseWrapperContent = ({
           setReviewQuestion(null);
         }}
       />
+      
+      {/* Course Outline Modal */}
+      <CourseOutline
+        course={course}
+        isOpen={isCourseOutlineOpen}
+        onClose={() => setIsCourseOutlineOpen(false)}
+      />
+      
+      {/* Course Resources Modal */}
+      <CourseResources
+        course={course}
+        isOpen={isResourcesOpen}
+        onClose={() => setIsResourcesOpen(false)}
+      />
+      
+      {/* Floating AI Assistant Button */}
+      <button
+        onClick={handleChatToggle}
+        disabled={chatAnimationState === 'opening' || chatAnimationState === 'closing'}
+        className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group ${
+          chatAnimationState === 'opening' || chatAnimationState === 'open' 
+            ? 'scale-0 opacity-0' 
+            : 'scale-100 opacity-100 hover:scale-110'
+        }`}
+        style={{ 
+          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          transformOrigin: 'center'
+        }}
+        aria-label="Open AI Assistant"
+      >
+        <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
+        
+        {/* Pulse animation ring */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
+        
+        {/* Tooltip */}
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          AI Physics Assistant
+          <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+        </div>
+      </button>
+
+      {/* AI Chat Assistant - Draggable & Resizable Panel */}
+      {(isChatOpen || chatAnimationState !== 'closed') && (
+        <div 
+          className={`fixed z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
+            isMobile 
+              ? 'bottom-4 left-4 right-4 h-[80vh]' 
+              : ''
+          } ${isDragging ? 'cursor-grabbing' : ''} ${isResizing ? 'select-none' : ''}`}
+          style={isMobile ? {} : {
+            left: chatPosition.x,
+            top: chatPosition.y,
+            width: chatSize.width,
+            height: chatSize.height,
+            transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            transformOrigin: 'bottom right',
+            transform: chatAnimationState === 'open' 
+              ? 'scale(1)' 
+              : chatAnimationState === 'opening'
+              ? 'scale(0.95)'
+              : 'scale(0.9)',
+            opacity: chatAnimationState === 'open' ? 1 : 
+                    chatAnimationState === 'opening' ? 0.9 : 0.7
+          }}
+        >
+          {/* Resize Handles - Only on desktop */}
+          {!isMobile && (
+            <>
+              {/* Corner handles */}
+              <div 
+                className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize z-10"
+                onMouseDown={(e) => handleResizeStart(e, 'nw')}
+                onTouchStart={(e) => handleResizeStart(e, 'nw')}
+              />
+              <div 
+                className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize z-10"
+                onMouseDown={(e) => handleResizeStart(e, 'ne')}
+                onTouchStart={(e) => handleResizeStart(e, 'ne')}
+              />
+              <div 
+                className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize z-10"
+                onMouseDown={(e) => handleResizeStart(e, 'sw')}
+                onTouchStart={(e) => handleResizeStart(e, 'sw')}
+              />
+              <div 
+                className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize z-10 bg-gradient-to-tl from-purple-200 to-transparent rounded-tl-lg opacity-50 hover:opacity-75 transition-opacity"
+                onMouseDown={(e) => handleResizeStart(e, 'se')}
+                onTouchStart={(e) => handleResizeStart(e, 'se')}
+              />
+              
+              {/* Edge handles */}
+              <div 
+                className="absolute top-0 left-3 right-3 h-1 cursor-n-resize"
+                onMouseDown={(e) => handleResizeStart(e, 'n')}
+                onTouchStart={(e) => handleResizeStart(e, 'n')}
+              />
+              <div 
+                className="absolute bottom-0 left-3 right-3 h-1 cursor-s-resize"
+                onMouseDown={(e) => handleResizeStart(e, 's')}
+                onTouchStart={(e) => handleResizeStart(e, 's')}
+              />
+              <div 
+                className="absolute left-0 top-3 bottom-3 w-1 cursor-w-resize"
+                onMouseDown={(e) => handleResizeStart(e, 'w')}
+                onTouchStart={(e) => handleResizeStart(e, 'w')}
+              />
+              <div 
+                className="absolute right-0 top-3 bottom-3 w-1 cursor-e-resize"
+                onMouseDown={(e) => handleResizeStart(e, 'e')}
+                onTouchStart={(e) => handleResizeStart(e, 'e')}
+              />
+            </>
+          )}
+
+          {/* Chat Header - Draggable */}
+          <div 
+            className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 flex items-center justify-between ${
+              !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
+            }`}
+            onMouseDown={!isMobile ? handleDragStart : undefined}
+            onTouchStart={!isMobile ? handleDragStart : undefined}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <Bot className="w-6 h-6 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">AI Physics Assistant</span>
+                  {currentActiveItem && (
+                    <>
+                      <span className="text-white/60">•</span>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse flex-shrink-0"></div>
+                        <span className="text-sm font-medium truncate text-white/90">
+                          {currentActiveItem.title}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {isLoadingPrompt && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Loader className="w-3 h-3 animate-spin" />
+                    <span className="text-xs opacity-90">Loading context...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Reset position button - Only on desktop */}
+              {!isMobile && (
+                <button
+                  onClick={resetChatPosition}
+                  className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
+                  title="Reset position and size"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={handleChatToggle}
+                className="hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Chat Component */}
+          <div className="flex-1 overflow-hidden">
+            {currentAIPrompt && !isLoadingPrompt ? (
+              <GoogleAIChatApp
+                firebaseApp={undefined} // Will use default app
+                instructions={currentAIPrompt.instructions}
+                firstMessage={currentAIPrompt.firstMessage}
+                sessionIdentifier={`course_${course?.CourseID}_lesson_${activeItemId}`}
+                aiChatContext={{
+                  courseId: course?.CourseID,
+                  lessonId: activeItemId,
+                  lessonTitle: currentActiveItem?.title,
+                  lessonType: currentActiveItem?.type,
+                  contextKeywords: currentAIPrompt.contextKeywords || [],
+                  studentEmail: currentUser?.email
+                }}
+                // Dynamic chat configuration from AI prompt
+                showYouTube={currentAIPrompt.chatConfig?.showYouTube ?? true}
+                showUpload={currentAIPrompt.chatConfig?.showUpload ?? true}
+                allowContentRemoval={currentAIPrompt.chatConfig?.allowContentRemoval ?? true}
+                showResourcesAtTop={currentAIPrompt.chatConfig?.showResourcesAtTop ?? false}
+                // Predefined content from lesson configuration
+                YouTubeURL={currentAIPrompt.chatConfig?.predefinedYouTubeVideos?.[0]?.url}
+                YouTubeDisplayName={currentAIPrompt.chatConfig?.predefinedYouTubeVideos?.[0]?.displayName}
+                predefinedFiles={currentAIPrompt.chatConfig?.predefinedFiles || []}
+                predefinedFilesDisplayNames={currentAIPrompt.chatConfig?.predefinedFilesDisplayNames || {}}
+                showHeader={false}
+                // AI configuration from lesson ai-prompt file
+                aiModel={currentAIPrompt.aiConfig?.model || 'DEFAULT_CHAT_MODEL'}
+                aiTemperature={currentAIPrompt.aiConfig?.temperature || 'BALANCED'}
+                aiMaxTokens={currentAIPrompt.aiConfig?.maxTokens || 'MEDIUM'}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
+                    <Bot className="w-6 h-6 text-white" />
+                  </div>
+                  <p className="text-sm text-gray-600 font-medium">Loading AI assistant...</p>
+                  <p className="text-xs text-gray-500 mt-1">Preparing lesson context</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

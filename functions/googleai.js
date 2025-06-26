@@ -6,6 +6,63 @@ const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
 
+/**
+ * Resolve AI settings from keys to actual values
+ */
+const resolveAISettings = (aiModel, aiTemperature, aiMaxTokens) => {
+  // Resolve model name
+  let resolvedModel = AI_MODELS.DEFAULT_CHAT_MODEL;
+  
+  // Handle GEMINI sub-models
+  if (AI_MODELS.GEMINI[aiModel]) {
+    resolvedModel = AI_MODELS.GEMINI[aiModel];
+  }
+  // Handle top-level model keys
+  else if (AI_MODELS[aiModel]) {
+    resolvedModel = AI_MODELS[aiModel];
+  }
+  // Validate if it's already a full model name
+  else if (Object.values(AI_MODELS.GEMINI).includes(aiModel) || 
+           [AI_MODELS.DEFAULT_CHAT_MODEL, AI_MODELS.DEFAULT_IMAGE_GENERATION_MODEL, AI_MODELS.ACTIVE_CHAT_MODEL].includes(aiModel)) {
+    resolvedModel = aiModel;
+  }
+  else {
+    console.warn(`Unknown AI model key: ${aiModel}, using default`);
+  }
+  
+  // Resolve temperature
+  const resolvedTemperature = AI_MODELS.TEMPERATURE[aiTemperature] || 0.7;
+  
+  // Resolve max tokens
+  const resolvedMaxTokens = AI_MODELS.MAX_TOKENS[aiMaxTokens] || 1000;
+  
+  // Validate settings are allowed
+  const isModelAllowed = AI_MODELS.ALLOWED_MODELS.includes(aiModel) || aiModel === 'DEFAULT_CHAT_MODEL';
+  const isTemperatureAllowed = AI_MODELS.ALLOWED_TEMPERATURES.includes(aiTemperature);
+  const isMaxTokensAllowed = AI_MODELS.ALLOWED_MAX_TOKENS.includes(aiMaxTokens);
+  
+  if (!isModelAllowed) {
+    console.warn(`Model ${aiModel} not in allowed list, using default`);
+    resolvedModel = AI_MODELS.DEFAULT_CHAT_MODEL;
+  }
+  
+  if (!isTemperatureAllowed) {
+    console.warn(`Temperature ${aiTemperature} not in allowed list, using BALANCED`);
+  }
+  
+  if (!isMaxTokensAllowed) {
+    console.warn(`MaxTokens ${aiMaxTokens} not in allowed list, using MEDIUM`);
+  }
+  
+  console.log(`Resolved AI settings: model=${resolvedModel}, temperature=${resolvedTemperature}, maxTokens=${resolvedMaxTokens}`);
+  
+  return {
+    model: resolvedModel,
+    temperature: resolvedTemperature,
+    maxTokens: resolvedMaxTokens
+  };
+};
+
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -362,7 +419,10 @@ const sendChatMessage = onCall({
     
     const { 
       message, 
-      model = AI_MODELS.DEFAULT_CHAT_MODEL,
+      model = AI_MODELS.DEFAULT_CHAT_MODEL, // Legacy support
+      aiModel = 'DEFAULT_CHAT_MODEL', // New AI model key
+      aiTemperature = 'BALANCED', // New temperature key
+      aiMaxTokens = 'MEDIUM', // New max tokens key
       systemInstruction = null,
       streaming = false,
       mediaItems = [],  // Media items including images, documents, and YouTube URLs
@@ -387,6 +447,9 @@ const sendChatMessage = onCall({
       });
     }
 
+    // Resolve AI settings from keys to actual values
+    const aiSettings = resolveAISettings(aiModel, aiTemperature, aiMaxTokens);
+    
     // Process multimodal content (text + images + documents + YouTube)
     // Make sure mediaItems is always an array, even if it's undefined
     const safeMediaItems = Array.isArray(mediaItems) ? mediaItems : [];
@@ -562,10 +625,11 @@ IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${ques
         
         // Create new chat with the selected agent and enhanced system instruction
         chat = ai.chat({
-          model: googleAI.model(model),
+          model: googleAI.model(aiSettings.model),
           system: effectiveSystemInstruction,
           config: {
-            temperature: 0.7
+            temperature: aiSettings.temperature,
+            maxOutputTokens: aiSettings.maxTokens
           },
           context: context
         });
@@ -583,10 +647,11 @@ IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${ques
       
       // Create a chat using the enhanced system instruction
       chat = ai.chat({
-        model: googleAI.model(model),
+        model: googleAI.model(aiSettings.model),
         system: effectiveSystemInstruction,
         config: {
-          temperature: 0.7 // Balanced temperature for natural responses
+          temperature: aiSettings.temperature,
+          maxOutputTokens: aiSettings.maxTokens
         },
         context: context // Pass the context to the chat
       });
@@ -653,10 +718,11 @@ IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${ques
         
         // Create a chat with the correct format for Gemini 2.0
         chat = ai.chat({
-          model: googleAI.model(model),
+          model: googleAI.model(aiSettings.model),
           system: effectiveSystemInstruction,
           config: {
-            temperature: 0.7 // Balanced temperature for natural responses
+            temperature: aiSettings.temperature,
+            maxOutputTokens: aiSettings.maxTokens
           },
           context: context // Pass the context to the chat in recovery path
         });

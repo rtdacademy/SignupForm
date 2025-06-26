@@ -31,7 +31,6 @@ import {
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
 import StudentManagement from '../StudentManagement/StudentManagement';
-import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
 import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
@@ -200,7 +199,6 @@ function TeacherDashboard() {
       { icon: FolderOpen, label: 'File Storage', key: 'file-storage' },
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
-      { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Shield, label: 'Parent Management', key: 'parent-management' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
     ];
@@ -246,8 +244,6 @@ function TeacherDashboard() {
           filters={filters}
           onFilterChange={setFilters}
         />;
-      case 'external-links':
-        return <ExternalLinks />;
       case 'calendar-creator':
         return <IcsUpload />;
       case 'notifications':

@@ -1445,6 +1445,21 @@
       }
     ]
   },
+  "courseOutline": {
+    "resources": {
+      "dataBooklet": {
+        "title": "Physics 30 Data Booklet",
+        "url": "https://www.alberta.ca/system/files/custom_downloaded_images/edc-physics30-data-booklet.pdf",
+        "description": "Official Alberta Education Physics 30 data booklet containing formulas, constants, and reference information"
+      },
+      "calculator": {
+        "title": "TI-84 Online Calculator",
+        "type": "embed",
+        "embedCode": "<iframe src=\"https://ti84calc.com/ti84calc\" width=\"100%\" height=\"800px\" frameborder=\"0\" allow=\"fullscreen\"></iframe>",
+        "description": "Full-featured TI-84 graphing calculator for physics calculations"
+      }
+    }
+  },
   "metadata": {
   
     "status": "development"

@@ -986,7 +986,12 @@ const GoogleAIChatApp = ({
   showResourcesAtTop = true, // Whether to show predefined resources at the top
   context = null, // Context object for Genkit API
   sessionIdentifier = 'default', // Unique identifier for this chat session
-  aiChatContext = null // Additional context for AI chat
+  aiChatContext = null, // Additional context for AI chat
+  showHeader = true, // Whether to show the built-in header
+  // AI Configuration props (keys from aiSettings.js)
+  aiModel = 'DEFAULT_CHAT_MODEL', // Model key from AI_MODELS
+  aiTemperature = 'BALANCED', // Temperature key from AI_MODELS.TEMPERATURE
+  aiMaxTokens = 'MEDIUM' // Max tokens key from AI_MODELS.MAX_TOKENS
 }) => {
   // Generate session-specific localStorage keys
   const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
@@ -1584,7 +1589,9 @@ const handleSendMessage = async () => {
     // Log what we're sending to help debug
     console.log("Sending to AI:", {
       message: messageToSend,
-      model: AI_MODEL_MAPPING.livechat.name,
+      aiModel: aiModel,
+      aiTemperature: aiTemperature,
+      aiMaxTokens: aiMaxTokens,
       systemInstruction: systemMessage,
       streaming: true, // Enable streaming mode
       mediaItems: mediaItemsToSend.map(item => ({
@@ -1604,7 +1611,9 @@ const handleSendMessage = async () => {
     
     const result = await sendChatMessage({
       message: messageToSend, // The actual text message to send
-      model: AI_MODEL_MAPPING.livechat.name, // Using the live chat model from settings
+      aiModel: aiModel, // AI model key from aiSettings.js
+      aiTemperature: aiTemperature, // Temperature key from aiSettings.js
+      aiMaxTokens: aiMaxTokens, // Max tokens key from aiSettings.js
       systemInstruction: systemMessage, // Using our combined system message
       streaming: true, // Enable streaming mode
       mediaItems: mediaItemsToSend.map(item => {
@@ -1960,40 +1969,42 @@ const handleSendMessage = async () => {
 
   return (
     <div className="flex flex-col h-full relative">
-      <Card className="flex flex-col h-full border-0 rounded-none bg-gradient-to-br from-white to-gray-50">
-        <CardHeader className="flex-shrink-0 border-b bg-gradient-to-br from-purple-50 to-indigo-50 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-                <Bot className="w-6 h-6 text-white" />
+      <Card className={`flex flex-col h-full ${showHeader ? 'border-0 rounded-none' : 'border-0 rounded-none'} bg-gradient-to-br from-white to-gray-50`}>
+        {showHeader && (
+          <CardHeader className="flex-shrink-0 border-b bg-gradient-to-br from-purple-50 to-indigo-50 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-lg text-purple-900">
+                  Edbotz AI Chat
+                </CardTitle>
               </div>
-              <CardTitle className="text-lg text-purple-900">
-                Edbotz AI Chat
-              </CardTitle>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                >
+                  <Info className="w-4 h-4" />
+                  <span className="hidden sm:inline">About</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={isLoading || messages.length === 0}
+                  className="hover:bg-purple-100 text-purple-600"
+                  title="Reset Chat"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-              >
-                <Info className="w-4 h-4" />
-                <span className="hidden sm:inline">About</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                disabled={isLoading || messages.length === 0}
-                className="hover:bg-purple-100 text-purple-600"
-                title="Reset Chat"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+          </CardHeader>
+        )}
         
         {/* Display predefined resources at the top */}
         <PredefinedResourcesPanel />

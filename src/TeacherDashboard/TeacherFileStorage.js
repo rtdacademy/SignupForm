@@ -104,9 +104,15 @@ function TeacherFileStorage() {
   };
 
   // Load files and folders from current path
-  const loadFiles = async (path = currentPath) => {
+  const loadFiles = async (path = currentPath, showSkeletons = false) => {
     setIsLoading(true);
     setError('');
+    
+    // Only clear files if showSkeletons is true (initial load or folder change)
+    if (showSkeletons) {
+      setFiles([]);
+      setFolders([]);
+    }
     
     try {
       const storageRef = ref(storage, getUserStoragePath(path));
@@ -247,7 +253,7 @@ function TeacherFileStorage() {
         setTimeout(() => setSuccess(''), 3000);
       }
       
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after upload
     } catch (error) {
       console.error('Upload error:', error);
       setError('Failed to upload files. Please try again.');
@@ -270,7 +276,7 @@ function TeacherFileStorage() {
       await uploadBytes(placeholderRef, new Blob([''], { type: 'text/plain' }));
       setSuccess(`Folder "${folderName}" created successfully`);
       setTimeout(() => setSuccess(''), 3000);
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after folder creation
     } catch (error) {
       console.error('Error creating folder:', error);
       setError('Failed to create folder. Please try again.');
@@ -294,7 +300,7 @@ function TeacherFileStorage() {
       
       setSuccess(`${item.type === 'file' ? 'File' : 'Folder'} deleted successfully`);
       setTimeout(() => setSuccess(''), 3000);
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after deletion
     } catch (error) {
       console.error('Error deleting item:', error);
       setError(`Failed to delete ${item.type}. Please try again.`);
@@ -344,7 +350,7 @@ function TeacherFileStorage() {
       setSuccess(`Successfully deleted ${selectedFiles.size} file(s)`);
       setTimeout(() => setSuccess(''), 3000);
       setSelectedFiles(new Set());
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after bulk deletion
     } catch (error) {
       console.error('Error deleting files:', error);
       setError('Failed to delete some files. Please try again.');
@@ -357,7 +363,7 @@ function TeacherFileStorage() {
   const navigateToFolder = (folderPath) => {
     setCurrentPath(folderPath);
     setSelectedFiles(new Set()); // Clear selection when navigating
-    loadFiles(folderPath);
+    loadFiles(folderPath, true); // Show skeletons when changing folders
   };
 
   // Go back to parent folder
@@ -365,7 +371,7 @@ function TeacherFileStorage() {
     const parentPath = currentPath.split('/').slice(0, -1).join('/');
     setCurrentPath(parentPath);
     setSelectedFiles(new Set()); // Clear selection when navigating
-    loadFiles(parentPath);
+    loadFiles(parentPath, true); // Show skeletons when changing folders
   };
 
   // Filter files based on search term
@@ -379,7 +385,7 @@ function TeacherFileStorage() {
 
   useEffect(() => {
     if (user) {
-      loadFiles();
+      loadFiles(currentPath, true); // Show skeletons on initial load
     }
   }, [user]);
 
@@ -589,7 +595,7 @@ function TeacherFileStorage() {
       });
       
       cancelEditing();
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after rename
       
     } catch (error) {
       console.error('Error renaming file:', error);
@@ -800,7 +806,7 @@ function TeacherFileStorage() {
       
       setSuccess(`File moved to ${targetFolder.name} successfully!`);
       setTimeout(() => setSuccess(''), 3000);
-      loadFiles();
+      loadFiles(); // Refresh without skeletons after move
       
     } catch (error) {
       console.error('Error moving file:', error);
@@ -1107,7 +1113,60 @@ function TeacherFileStorage() {
 
           {/* File listing */}
           {isLoading ? (
-            <div className="text-center py-8">Loading...</div>
+            /* Loading Skeletons */
+            viewMode === 'list' ? (
+              <div className="border rounded-lg overflow-hidden">
+                {/* Table Header */}
+                <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 border-b font-medium text-sm">
+                  <div className="col-span-1">Select</div>
+                  <div className="col-span-4">Name</div>
+                  <div className="col-span-2">Size</div>
+                  <div className="col-span-3">Modified</div>
+                  <div className="col-span-2">Actions</div>
+                </div>
+                
+                {/* Loading skeleton rows */}
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-4 p-3 border-b animate-pulse">
+                    <div className="col-span-1">
+                      <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="col-span-4 flex items-center gap-3">
+                      <div className="h-5 w-5 bg-gray-200 rounded"></div>
+                      <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="col-span-3">
+                      <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="col-span-2 flex items-center gap-2">
+                      <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                      <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Grid Loading Skeletons */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Card key={index} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        </div>
+                        <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
           ) : viewMode === 'list' ? (
             <div className="border rounded-lg overflow-hidden">
               {/* Table Header */}
@@ -1242,6 +1301,17 @@ function TeacherFileStorage() {
                       {formatDate(file.updated)}
                     </div>
                     <div className="col-span-2 flex items-center gap-2">
+                      {/* Copy URL button for all files */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="Copy file URL"
+                        onClick={() => copyUrlToClipboard(file.downloadURL, file.displayName || file.name)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+
                       {/* Quick copy button for images */}
                       {isImageFile(file.name) && (
                         <DropdownMenu>
@@ -1250,18 +1320,12 @@ function TeacherFileStorage() {
                               variant="ghost" 
                               size="sm"
                               className="h-8 w-8 p-0"
-                              title="Quick copy options"
+                              title="Image copy options"
                             >
-                              <Copy className="h-4 w-4" />
+                              <FileImage className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => copyUrlToClipboard(file.downloadURL, file.displayName || file.name)}
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Copy URL
-                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => copyJsxToClipboard(file)}
                             >
@@ -1467,6 +1531,17 @@ function TeacherFileStorage() {
                             )}
                           </div>
                           
+                          {/* Copy URL button for all files */}
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Copy file URL"
+                            onClick={() => copyUrlToClipboard(file.downloadURL, file.displayName || file.name)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+
                           {/* Quick copy button for images */}
                           {isImageFile(file.name) && (
                             <DropdownMenu>
@@ -1475,18 +1550,12 @@ function TeacherFileStorage() {
                                   variant="ghost" 
                                   size="sm"
                                   className="h-8 w-8 p-0"
-                                  title="Quick copy options"
+                                  title="Image copy options"
                                 >
-                                  <Copy className="h-4 w-4" />
+                                  <FileImage className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent>
-                                <DropdownMenuItem
-                                  onClick={() => copyUrlToClipboard(file.downloadURL, file.displayName || file.name)}
-                                >
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  Copy URL
-                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => copyJsxToClipboard(file)}
                                 >
