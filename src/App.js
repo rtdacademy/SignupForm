@@ -38,6 +38,10 @@ import ParentDashboard from './ParentPortal/ParentDashboard';
 import ParentEmailVerification from './ParentPortal/ParentEmailVerification';
 import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
 import TeacherFirebaseCourseView from './StudentManagement/TeacherFirebaseCourseView';
+import RTDLearningLogin from './rtdLearning/Login';
+import RTDLearningDashboard from './rtdLearning/Dashboard';
+import RTDLearningAdminLogin from './rtdLearning/AdminLogin';
+import RTDLearningAdminDashboard from './rtdLearning/AdminDashboard';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -161,6 +165,22 @@ function MainApp() {
 <Route path="/parent-login" element={<ParentLogin />} />
 <Route path="/parent-verify-email" element={<ParentEmailVerification />} />
 <Route path="/parent-dashboard" element={user ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
+
+{/* RTD Learning Routes */}
+<Route path="/rtd-learning-login" element={
+  user ? <Navigate to="/rtd-learning-dashboard" /> : <RTDLearningLogin />
+} />
+<Route path="/rtd-learning-dashboard" element={
+  user && !isStaff(user) ? <RTDLearningDashboard /> : <Navigate to="/rtd-learning-login" />
+} />
+
+{/* RTD Learning Admin Routes */}
+<Route path="/rtd-learning-admin-login" element={
+  user && user.email?.endsWith('@rtdlearning.com') ? <Navigate to="/rtd-learning-admin-dashboard" /> : <RTDLearningAdminLogin />
+} />
+<Route path="/rtd-learning-admin-dashboard" element={
+  user && user.email?.endsWith('@rtdlearning.com') ? <RTDLearningAdminDashboard /> : <Navigate to="/rtd-learning-admin-login" />
+} />
         
       <Route 
   path="/dashboard" 

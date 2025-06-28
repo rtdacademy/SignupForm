@@ -237,7 +237,6 @@ const AIMultipleChoiceQuestion = ({
   // Authentication and state
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  console.log("Component render - loading state:", loading);
   const [error, setError] = useState(null);
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');

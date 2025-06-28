@@ -46,7 +46,9 @@ function Header({
   profile,
   hasIncompleteProfile,
   parentInfo,
-  hasParentAccount
+  hasParentAccount,
+  rtdLearningTheme = false,
+  logoUrl
 }) {
   const navigate = useNavigate();
 
@@ -154,7 +156,7 @@ function Header({
   };
 
   return (
-    <header className="bg-gray-800 border-b border-gray-700">
+    <header className={rtdLearningTheme ? "bg-green-800 border-b border-green-700" : "bg-gray-800 border-b border-gray-700"}>
       <div className="container mx-auto px-4">
         <div className="h-16 flex justify-between items-center">
           {/* Left section */}
@@ -171,10 +173,18 @@ function Header({
               className="flex items-center space-x-3 cursor-pointer group"
               onClick={onDashboardClick}
             >
-              <RTDLogo />
+              {rtdLearningTheme && logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="RTD Learning" 
+                  className="h-10 w-auto"
+                />
+              ) : (
+                <RTDLogo />
+              )}
               <div className="flex flex-col">
                 <h1 className="text-white text-lg font-semibold group-hover:text-gray-200 transition-colors duration-200">
-                  RTD Academy
+                  {rtdLearningTheme ? "RTD Learning" : "RTD Academy"}
                 </h1>
                 <div className="text-xs font-medium text-gray-300">
                   {portalType} {isEmulating && '(Emulation Mode)'}

@@ -247,7 +247,6 @@ const StandardMultipleChoiceQuestion = ({
   // Authentication and state
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  console.log("Component render - loading state:", loading);
   const [error, setError] = useState(null);
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
@@ -304,12 +303,10 @@ const StandardMultipleChoiceQuestion = ({
     // Define loadAssessment function here to avoid dependency issues
     const attemptReload = async () => {
       try {
-        console.log("Attempting to reload assessment after safety timeout");
         setLoading(true);
         
         // After a safety timeout, we rely on the database listener to refresh data
         // Just reset the component state and allow the database listener to update
-        console.log("Safety timeout triggered - resetting state and waiting for database update");
         
         // Reset state but don't clear the question to avoid UI flicker
         if (question) {
@@ -332,7 +329,6 @@ const StandardMultipleChoiceQuestion = ({
       
       // Set a new safety timeout (30 seconds)
       safetyTimeoutRef.current = setTimeout(() => {
-        console.log("🚨 Safety timeout triggered after 30 seconds - force exiting loading state");
         setRegenerating(false);
         setExpectingNewQuestion(false);
         // Try to reload with current data
@@ -378,7 +374,6 @@ const StandardMultipleChoiceQuestion = ({
         // TEMPORARY: Always use students path
         const basePath = 'students';
         const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${finalAssessmentId}`;
-        console.log(`Creating database ref for question: ${dbPath}`);
 
         // Setup firebase database listener
         const assessmentRef = ref(db, dbPath);
@@ -386,7 +381,6 @@ const StandardMultipleChoiceQuestion = ({
         unsubscribeRef = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
           if (data) {
-            console.log("Standard question data received from database:", data);
             
             // Check if maxAttempts has been reached - use value from data rather than default
             const maxAttemptsFromData = data.maxAttempts; // No fallback needed, we want to use what's in the data
@@ -409,8 +403,6 @@ const StandardMultipleChoiceQuestion = ({
               const oldQuestionText = question?.questionText || '';
               
               // Log what we're comparing
-              console.log(`Timestamp comparison - New: ${newTimestamp}, Old: ${oldTimestamp}`);
-              console.log(`Text comparison - New question starts with: "${newQuestionText.substring(0, 20)}...", Old question starts with: "${oldQuestionText.substring(0, 20)}..."`);
               
               // Check various conditions that might indicate a new question
               const isNewTimestamp = newTimestamp > oldTimestamp;
@@ -427,14 +419,7 @@ const StandardMultipleChoiceQuestion = ({
               // OR if we've been waiting too long (safety timeout)
               if (isNewTimestamp || isNewQuestionText || hasNewOptions || regenerationTimeoutExpired) {
                 // This is a new question, update the UI
-                console.log(`✅ New question detected! Criteria matched: ${
-                  [
-                    isNewTimestamp ? 'new timestamp' : '',
-                    isNewQuestionText ? 'different text' : '',
-                    hasNewOptions ? 'different options' : '',
-                    regenerationTimeoutExpired ? 'timeout expired' : ''
-                  ].filter(Boolean).join(', ')
-                }`);
+                // New question detected! Criteria matched: [criteria list]
                 
                 setQuestion(enhancedData);
                 setLastQuestionTimestamp(newTimestamp);
@@ -458,12 +443,10 @@ const StandardMultipleChoiceQuestion = ({
                 }
               } else {
                 // Log that we're still waiting for a truly new question
-                console.log("⚠️ Received update but doesn't match new question criteria yet, waiting for complete update");
                 setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
                 
                 // Safety measure: If we've been waiting for more than 15 seconds, force-accept this as a new question
                 if (Date.now() - lastGeneratedTimeRef.current > 15000) {
-                  console.log("⚠️ Safety timeout triggered - accepting update as new question despite not meeting criteria");
                   setQuestion(enhancedData);
                   setExpectingNewQuestion(false);
                   setRegenerating(false);
@@ -473,7 +456,6 @@ const StandardMultipleChoiceQuestion = ({
               }
             } else {
               // Normal case, update question data
-              console.log("Setting question data (not expecting new question)");
               setQuestion(enhancedData);
               setLastQuestionTimestamp(data.timestamp || 0);
               
@@ -488,24 +470,19 @@ const StandardMultipleChoiceQuestion = ({
                 setResult(data.lastSubmission);
                 // Preselect the last submitted answer
                 setSelectedAnswer(data.lastSubmission.answer || '');
-                console.log(`Preselecting last submitted answer: ${data.lastSubmission.answer}`);
               }
               
               // If max attempts reached, show appropriate message
               if (maxAttemptsReached) {
-                console.log("Maximum attempts reached for this assessment:", data.attempts);
                 // Only set the error if there's not already a result showing (to avoid confusion)
                 if (!data.lastSubmission) {
                   setError("You've reached the maximum number of attempts for this question.");
                 }
               }
-              console.log("Question set successfully, expectingNewQuestion:", expectingNewQuestion);
             }
           } else {
-            console.log("No standard question data found in database, generating new question");
             generateQuestion();
           }
-          console.log("Setting loading to false after processing question data");
           setLoading(false);
         }, (error) => {
           console.error("Error in database listener:", error);
@@ -536,7 +513,6 @@ const StandardMultipleChoiceQuestion = ({
     
     // Prevent multiple calls if we're already generating
     if (isGeneratingRef.current) {
-      console.log("Question generation already in progress, ignoring duplicate call");
       return;
     }
     
@@ -547,7 +523,6 @@ const StandardMultipleChoiceQuestion = ({
     const now = Date.now();
     const timeSinceLastGeneration = now - lastGeneratedTimeRef.current;
     if (timeSinceLastGeneration < 2000) {
-      console.log(`Debouncing question generation (${timeSinceLastGeneration}ms since last call)`);
       
       // Clear any existing timeout
       if (regenerationTimeoutRef.current) {
@@ -557,7 +532,6 @@ const StandardMultipleChoiceQuestion = ({
       // Set a timeout to generate after the debounce period
       const timeToWait = 2000 - timeSinceLastGeneration;
       regenerationTimeoutRef.current = setTimeout(() => {
-        console.log(`Debounce period complete, proceeding with generation`);
         lastGeneratedTimeRef.current = Date.now();
         generateQuestionNow();
       }, timeToWait);
@@ -598,10 +572,8 @@ const StandardMultipleChoiceQuestion = ({
         difficulty: difficultyFromData
       };
 
-      console.log(`Calling cloud function ${cloudFunctionName} to generate standard question`, functionParams);
 
       const result = await assessmentFunction(functionParams);
-      console.log("Standard question generation successful:", result);
 
       // The cloud function will update the assessment in the database
       // Our database listener will pick up the changes automatically
@@ -676,10 +648,8 @@ const StandardMultipleChoiceQuestion = ({
         difficulty: difficultyFromData
       };
 
-      console.log(`Calling cloud function ${cloudFunctionName} to evaluate standard question answer`, functionParams);
 
       const result = await assessmentFunction(functionParams);
-      console.log("Answer evaluation successful:", result);
 
       // Trigger callback
       onAttempt(result.data?.result?.isCorrect || false);
@@ -739,7 +709,6 @@ const StandardMultipleChoiceQuestion = ({
         // NO evaluation data - answers will be evaluated when exam is submitted
       };
 
-      console.log(`Saving exam answer (no evaluation): ${finalAssessmentId} = ${selectedAnswer}`);
       await saveExamAnswerFunction(saveParams);
 
       onExamAnswerSave(selectedAnswer, finalAssessmentId);
@@ -756,14 +725,12 @@ const StandardMultipleChoiceQuestion = ({
   const handleRegenerate = (customDifficulty = null) => {
     // If we're already generating, don't trigger again
     if (isGeneratingRef.current || regenerating) {
-      console.log("Already regenerating a question, ignoring duplicate request");
       return;
     }
     
     // Check if we've exceeded or reached max attempts allowed
     // Note: This only applies to the regenerate button; the server will enforce this too
     if (question && question.attempts >= question.maxAttempts) {
-      console.log(`Cannot regenerate - max attempts reached (${question.attempts}/${question.maxAttempts})`);
       setError(`You have reached the maximum number of attempts (${question.maxAttempts}).`);
       return;
     }

@@ -20,6 +20,7 @@ import {
 } from './components/gradebook';
 import { Skeleton } from '../components/ui/skeleton';
 import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
+import { AIAccordion } from '../components/ui/AIAccordion';
 
 // Lazy load course components at module level to prevent re-importing
 const Course0 = React.lazy(() => import('./courses/PHY30'));
@@ -64,24 +65,20 @@ const FirebaseCourseWrapperContent = ({
   activeItemId: externalActiveItemId,
   onItemSelect: externalItemSelect,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  profile
 }) => {
   const { currentUser } = useAuth();
   
+  // Debug: Log course prop value
+  console.log('🔍 Course prop value:', course);
+  console.log('🔍 Profile prop value:', profile);
+  
   // Get course data first to check for errors
   const getCourseData = () => {
-    console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
-    console.log("🔍 Course structure paths:", {
-      "course.Gradebook?.courseStructure": course.Gradebook?.courseStructure,
-      "course.Gradebook?.courseConfig?.courseStructure": course.Gradebook?.courseConfig?.courseStructure,
-      "course.courseStructure": course.courseStructure,
-      "course.courseStructure?.structure": course.courseStructure?.structure,
-      "course.courseStructure?.units": course.courseStructure?.units
-    });
 
     // First priority: check gradebook courseConfig courseStructure (database-driven from backend config)
     if (course.Gradebook?.courseConfig?.courseStructure) {
-      console.log("✅ Using course structure from gradebook courseConfig (database-driven from backend config)");
       return {
         title: course.Gradebook.courseConfig.courseStructure.title || course.Course?.Value || '',
         structure: course.Gradebook.courseConfig.courseStructure.units || [],
@@ -91,7 +88,6 @@ const FirebaseCourseWrapperContent = ({
     
     // Second priority: check gradebook courseStructure (legacy database path)
     else if (course.Gradebook?.courseStructure) {
-      console.log("✅ Using course structure from gradebook (legacy database path)");
       return {
         title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
         structure: course.Gradebook.courseStructure.units || [],
@@ -167,7 +163,6 @@ const FirebaseCourseWrapperContent = ({
     
     // If URL has lesson, use it
     if (lessonFromUrl) {
-      console.log('🔍 Wrapper initializing from URL:', lessonFromUrl);
       return lessonFromUrl;
     }
     
@@ -197,6 +192,12 @@ const FirebaseCourseWrapperContent = ({
   const [currentAIPrompt, setCurrentAIPrompt] = useState(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [chatAnimationState, setChatAnimationState] = useState('closed'); // 'closed', 'opening', 'open', 'closing'
+  
+  // Simplified AI state - just prepopulated message for chat input
+  const [prepopulatedMessage, setPrepopulatedMessage] = useState('');
+  
+  // State for content context from AI accordion
+  const [contentContextData, setContentContextData] = useState(null);
   
   // Draggable and resizable functionality for AI chat
   const {
@@ -239,9 +240,6 @@ const FirebaseCourseWrapperContent = ({
   const courseWeights = courseData.courseWeights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
 
   // Debug logging
-  console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
-  console.log("👤 Current User in wrapper:", currentUser);
-  console.log("!!!!!!!!!!!!!!!!!!Course:",course)
   
   // Scroll to top when component mounts
   useEffect(() => {
@@ -317,6 +315,8 @@ const FirebaseCourseWrapperContent = ({
     } else if (chatAnimationState === 'open') {
       // Closing animation
       setChatAnimationState('closing');
+      // Clear content context when closing
+      setContentContextData(null);
       // After animation completes, fully close
       setTimeout(() => {
         setIsChatOpen(false);
@@ -324,6 +324,140 @@ const FirebaseCourseWrapperContent = ({
       }, 300);
     }
   }, [chatAnimationState]);
+
+  // State for forcing new chat sessions
+  const [forceNewChatSession, setForceNewChatSession] = useState(false);
+  
+  // Handle dynamic AI context updates from child components
+  // COMMENTED OUT: Complex conversation history management - using simple approach instead
+  /*
+  const handleUpdateAIContext = useCallback((newContext) => {
+    // Instead of modifying system instructions, we'll update the conversation history
+    if (newContext.type === 'askAboutExample' && newContext.exampleNumber) {
+      // Generate conversation history for specific example
+      const exampleConversation = currentAIPrompt?.generateExampleConversation?.(
+        newContext.exampleNumber, 
+        newContext.userQuestion
+      );
+      
+      if (exampleConversation) {
+        // Update the current prompt with new conversation history and force new session
+        setCurrentAIPrompt(prev => ({
+          ...prev,
+          conversationHistory: exampleConversation
+        }));
+        
+        // Force a new chat session to clear existing messages
+        setForceNewChatSession(true);
+        
+        // Reset the force flag after a brief delay
+        setTimeout(() => setForceNewChatSession(false), 100);
+      }
+    } else {
+      // For other types of dynamic context, store for processing
+      setDynamicAIContext(newContext);
+    }
+    
+    // If chat is closed, open it
+    if (chatAnimationState === 'closed') {
+      handleChatToggle();
+    }
+  }, [chatAnimationState, handleChatToggle, currentAIPrompt]);
+  */
+
+  // Handle message prepopulation from child components
+  const handlePrepopulateMessage = useCallback((message) => {
+    setPrepopulatedMessage(message);
+    
+    // If chat is closed, open it
+    if (chatAnimationState === 'closed') {
+      handleChatToggle();
+    }
+    
+    // Clear prepopulated message after a delay to allow chat to use it
+    setTimeout(() => {
+      setPrepopulatedMessage('');
+    }, 500);
+  }, [chatAnimationState, handleChatToggle]);
+
+  // Handle AI accordion content selection
+  const handleAIAccordionContent = useCallback((extractedContent) => {
+    // Set the content context data for the AI chat
+    setContentContextData(extractedContent);
+    
+    // If chat is closed, open it
+    if (chatAnimationState === 'closed') {
+      handleChatToggle();
+    }
+  }, [chatAnimationState, handleChatToggle]);
+
+  // Helper function to create "Ask AI about this question/example" buttons
+  // Simplified version that just populates the chat input with question text
+  const createAskAIButton = useCallback((questionTextOrNumber, userQuestion = null, buttonText = null) => {
+    // Handle both direct question text and example numbers
+    let messageText;
+    let displayText;
+    
+    if (typeof questionTextOrNumber === 'string') {
+      // Direct question text provided
+      messageText = questionTextOrNumber;
+      displayText = buttonText || "Ask AI about this question";
+    } else {
+      // Example number provided (legacy support)
+      const exampleNumber = questionTextOrNumber;
+      messageText = userQuestion || `Can you help me understand Example ${exampleNumber}?`;
+      displayText = buttonText || `Ask AI about Example ${exampleNumber}`;
+    }
+    
+    return (
+      <button
+        onClick={() => handlePrepopulateMessage(messageText)}
+        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all duration-200"
+      >
+        <Bot className="w-4 h-4" />
+        {displayText}
+      </button>
+    );
+  }, [handlePrepopulateMessage]);
+
+  // Helper function to create "Ask AI" button that extracts text from a parent element
+  const createAskAIButtonFromElement = useCallback((elementSelector, buttonText = "Ask AI about this question") => {
+    const handleClick = () => {
+      try {
+        // Try to find the element and extract its text content
+        const element = document.querySelector(elementSelector);
+        if (element) {
+          // Extract clean text content, removing extra whitespace
+          let textContent = element.textContent || element.innerText || '';
+          textContent = textContent.replace(/\s+/g, ' ').trim();
+          
+          // Truncate if too long and add context
+          if (textContent.length > 500) {
+            textContent = textContent.substring(0, 500) + '...';
+          }
+          
+          const message = `Can you help me with this question: "${textContent}"`;
+          handlePrepopulateMessage(message);
+        } else {
+          // Fallback if element not found
+          handlePrepopulateMessage(`Can you help me with this question?`);
+        }
+      } catch (error) {
+        console.warn('Error extracting text from element:', error);
+        handlePrepopulateMessage(`Can you help me with this question?`);
+      }
+    };
+
+    return (
+      <button
+        onClick={handleClick}
+        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all duration-200"
+      >
+        <Bot className="w-4 h-4" />
+        {buttonText}
+      </button>
+    );
+  }, [handlePrepopulateMessage]);
 
   // Handle internal item selection and propagate to parent if needed
   const handleItemSelect = useCallback((itemId) => {
@@ -378,12 +512,10 @@ const FirebaseCourseWrapperContent = ({
   useEffect(() => {
     // Only validate if we have both an activeItemId AND course structure is loaded
     if (activeItemId && allCourseItems.length > 0) {
-      console.log('🔍 Wrapper validating lesson:', activeItemId, 'against', allCourseItems.length, 'items');
       
       // Validate that the current activeItemId (from URL) exists in course structure
       const lessonExists = allCourseItems.find(item => item.itemId === activeItemId);
       if (!lessonExists) {
-        console.log('❌ Wrapper: Lesson not found in course structure, clearing activeItemId');
         // If lesson from URL doesn't exist, clear it so course can set default
         setActiveItemId(null);
         // Also clean up the URL and localStorage
@@ -397,7 +529,6 @@ const FirebaseCourseWrapperContent = ({
           localStorage.removeItem(storageKey);
         }
       } else {
-        console.log('✅ Wrapper: Lesson found in course structure, keeping activeItemId');
         // If lesson exists and came from URL, save it to localStorage for future sessions
         const urlParams = new URLSearchParams(window.location.search);
         const lessonFromUrl = urlParams.get('lesson');
@@ -406,25 +537,15 @@ const FirebaseCourseWrapperContent = ({
           if (courseId) {
             const storageKey = `lastLesson_${courseId}`;
             localStorage.setItem(storageKey, activeItemId);
-            console.log('🔍 URL lesson validated, saved to localStorage:', storageKey, '=', activeItemId);
           }
         }
       }
     } else if (activeItemId && allCourseItems.length === 0) {
-      console.log('⏳ Wrapper: Have activeItemId but course structure not loaded yet, waiting...');
     }
   }, [allCourseItems, activeItemId, course]);
   
   // Calculate lesson accessibility for the active lesson info panel
   const lessonAccessibility = useMemo(() => {
-    console.log('🔍 Calculating lesson accessibility:', {
-      isStaffView,
-      devMode,
-      isAuthorizedDeveloper,
-      isDeveloperModeActive,
-      shouldBypassOriginal: shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course),
-      hasGradebook: !!course?.Gradebook
-    });
     
     // Skip access control for staff/dev or when developer mode is active
     const shouldBypass = shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course) || 
@@ -499,7 +620,6 @@ const FirebaseCourseWrapperContent = ({
       }
       
       modulePromise.then(() => {
-        console.log('✅ Course module loaded for courseId:', courseId);
         setCourseModuleLoaded(true);
       }).catch(err => {
         console.error('❌ Failed to load course module:', err);
@@ -578,6 +698,47 @@ const FirebaseCourseWrapperContent = ({
     }
   }, [allCourseItems.length, course, courseData.title, courseModuleLoaded, isContentReady]);
   
+  // Utility function to extract lesson-specific questions
+  const getLessonSpecificQuestions = useCallback((courseId, lessonId, assessments) => {
+    if (!courseId || !lessonId || !assessments) {
+      return {};
+    }
+    
+    // Convert lesson ID to question pattern: "01-physics-20-review" -> "course2_01_physics_20_review"
+    // Handle both hyphenated and underscored lessonId formats
+    const normalizedLessonId = lessonId.replace(/-/g, '_');
+    const questionPattern = `course${courseId}_${normalizedLessonId}`;
+    
+    
+    const lessonQuestions = {};
+    
+    Object.entries(assessments).forEach(([questionId, questionData]) => {
+      if (questionId.startsWith(questionPattern)) {
+        // Extract only the relevant fields for AI context
+        lessonQuestions[questionId] = {
+          questionText: questionData.questionText,
+          options: questionData.options,
+          activityType: questionData.activityType,
+          attempts: questionData.attempts || 0,
+          status: questionData.status,
+          // Include lastSubmission if it exists
+          ...(questionData.lastSubmission && {
+            lastSubmission: {
+              answer: questionData.lastSubmission.answer,
+              correctOptionId: questionData.lastSubmission.correctOptionId,
+              feedback: questionData.lastSubmission.feedback,
+              isCorrect: questionData.lastSubmission.isCorrect,
+              timestamp: questionData.lastSubmission.timestamp
+            }
+          })
+        };
+      }
+    });
+    
+    
+    return lessonQuestions;
+  }, []);
+
   // Load AI prompt when active lesson changes
   useEffect(() => {
     const loadPromptForLesson = async () => {
@@ -593,6 +754,13 @@ const FirebaseCourseWrapperContent = ({
         const currentItem = allCourseItems.find(item => item.itemId === activeItemId);
         const currentUnit = unitsList.find(unit => 
           unit.items?.some(item => item.itemId === activeItemId)
+        );
+        
+        // Extract lesson-specific questions from course assessments
+        const lessonQuestions = getLessonSpecificQuestions(
+          course.CourseID, 
+          activeItemId, 
+          course.Assessments
         );
         
         // Calculate progress for this specific use
@@ -612,11 +780,16 @@ const FirebaseCourseWrapperContent = ({
           lessonTitle: currentItem?.title,
           lessonType: currentItem?.type,
           studentProgress: `${courseProgress}% course completion`,
-          keywords: currentItem?.keywords || []
+          keywords: currentItem?.keywords || [],
+          lessonQuestions: lessonQuestions,
+          studentName: profile?.preferredFirstName || profile?.firstName
         });
         
+        // Add lesson questions to the enhanced prompt for AI context
+        enhancedPrompt.lessonQuestions = lessonQuestions;
+        
+        
         setCurrentAIPrompt(enhancedPrompt);
-        console.log('Loaded AI prompt for lesson:', activeItemId);
       } catch (error) {
         console.error('Failed to load AI prompt:', error);
         // Will use default prompt from the loader
@@ -628,7 +801,7 @@ const FirebaseCourseWrapperContent = ({
     if (activeItemId) {
       loadPromptForLesson();
     }
-  }, [activeItemId, course?.CourseID, allCourseItems, unitsList, course?.Gradebook]);
+  }, [activeItemId, course?.CourseID, allCourseItems, unitsList, course?.Gradebook, course?.Assessments, getLessonSpecificQuestions]);
   
   // Show error state if no course structure available
   if (courseData.error) {
@@ -655,27 +828,70 @@ const FirebaseCourseWrapperContent = ({
 
   // Convert gradebook data to progress format for navigation
   useEffect(() => {
-    // This will be handled by the GradebookContext now
-    // For navigation, we'll use a simplified approach
     const gradebookProgress = {};
     
-    // Check if we have any gradebook data
-    if (course?.Gradebook?.items) {
-      Object.entries(course.Gradebook.items).forEach(([itemId, item]) => {
-        if (item.status === 'completed' || item.score > 0) {
-          gradebookProgress[itemId] = {
-            completed: true,
-            completedAt: item.completedAt || item.lastAttempt || new Date().toISOString(),
-            score: item.score,
-            maxScore: item.maxScore,
-            attempts: item.attempts
-          };
+    // Use the itemStructure and assessments to determine lesson completion
+    const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
+    const assessments = course?.Assessments || {};
+    const progressionRequirements = course?.Gradebook?.courseConfig?.progressionRequirements || {};
+    
+    // Process each lesson from itemStructure
+    Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
+      if (!lessonConfig || lessonConfig.type !== 'lesson') return;
+      
+      const questions = lessonConfig.questions || [];
+      let completedQuestions = 0;
+      let totalScore = 0;
+      let maxScore = 0;
+      
+      // Check each question in the lesson
+      questions.forEach(questionConfig => {
+        const questionId = questionConfig.questionId;
+        const assessmentData = assessments[questionId];
+        const maxPoints = questionConfig.points || 1;
+        
+        maxScore += maxPoints;
+        
+        if (assessmentData) {
+          // Check if question has been answered correctly
+          const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
+          if (hasScore) {
+            completedQuestions += 1;
+            totalScore += maxPoints;
+          }
         }
       });
-    }
+      
+      // Determine if lesson meets completion requirements
+      const requirements = progressionRequirements.lessonOverrides?.[lessonKey] || progressionRequirements.defaultCriteria || {};
+      const minimumPercentage = requirements.minimumPercentage || 50;
+      const requireAllQuestions = requirements.requireAllQuestions !== false;
+      
+      const completionRate = questions.length > 0 ? (completedQuestions / questions.length) * 100 : 0;
+      const averageScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+      
+      let isCompleted = false;
+      if (requireAllQuestions) {
+        isCompleted = completionRate >= 100 && averageScore >= minimumPercentage;
+      } else {
+        isCompleted = averageScore >= minimumPercentage;
+      }
+      
+      if (isCompleted) {
+        gradebookProgress[lessonKey] = {
+          completed: true,
+          completedAt: new Date().toISOString(),
+          score: totalScore,
+          maxScore: maxScore,
+          attempts: completedQuestions
+        };
+      }
+    });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.items]);
+  }, [course?.Gradebook?.courseConfig, course?.Assessments]);
+
+ 
   
   // Get current unit index
   const currentUnitIndex = useMemo(() => {
@@ -776,34 +992,53 @@ const FirebaseCourseWrapperContent = ({
             <div className="hidden md:flex items-center gap-3 text-sm">
               <div className="flex items-center gap-2">
                 {(() => {
-                  // Calculate lesson status (same logic as LessonInfoPanel)
+                  // Calculate lesson status using correct data structure
                   const gradebook = course?.Gradebook;
-                  const courseStructureItem = gradebook?.courseStructureItems?.[currentActiveItem.itemId];
-                  const gradebookItem = gradebook?.items?.[currentActiveItem.itemId];
+                  const assessments = course?.Assessments || {};
+                  const gradebookConfig = gradebook?.courseConfig?.gradebook?.itemStructure?.[currentActiveItem.itemId];
+                  const progressionRequirements = gradebook?.courseConfig?.progressionRequirements || {};
                   
-                  // Calculate lesson percentage
+                  // Calculate lesson percentage from questions
                   let lessonPercentage = 0;
-                  if (courseStructureItem) {
-                    lessonPercentage = courseStructureItem.percentage || 0;
-                  } else {
-                    const gradebookConfig = gradebook?.courseConfig?.gradebook?.itemStructure?.[currentActiveItem.itemId];
-                    if (gradebookConfig && gradebookConfig.questions) {
-                      let calculatedScore = 0;
-                      let calculatedTotal = 0;
-                      gradebookConfig.questions.forEach(question => {
-                        const assessmentItem = gradebook?.items?.[question.questionId];
-                        if (assessmentItem) {
-                          calculatedScore += assessmentItem.score || 0;
-                          calculatedTotal += assessmentItem.maxScore || question.points || 0;
-                        } else {
-                          calculatedTotal += question.points || 0;
+                  let isCompleted = false;
+                  
+                  if (gradebookConfig && gradebookConfig.questions) {
+                    let calculatedScore = 0;
+                    let calculatedTotal = 0;
+                    let completedQuestions = 0;
+                    
+                    gradebookConfig.questions.forEach(question => {
+                      const questionId = question.questionId;
+                      const assessmentData = assessments[questionId];
+                      const maxPoints = question.points || 1;
+                      
+                      calculatedTotal += maxPoints;
+                      
+                      if (assessmentData) {
+                        // Check if question has been answered correctly
+                        const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
+                        if (hasScore) {
+                          calculatedScore += maxPoints;
+                          completedQuestions += 1;
                         }
-                      });
-                      lessonPercentage = calculatedTotal > 0 ? Math.round((calculatedScore / calculatedTotal) * 100) : 0;
+                      }
+                    });
+                    
+                    lessonPercentage = calculatedTotal > 0 ? Math.round((calculatedScore / calculatedTotal) * 100) : 0;
+                    
+                    // Check if lesson meets completion requirements
+                    const requirements = progressionRequirements.lessonOverrides?.[currentActiveItem.itemId] || progressionRequirements.defaultCriteria || {};
+                    const minimumPercentage = requirements.minimumPercentage || 50;
+                    const requireAllQuestions = requirements.requireAllQuestions !== false;
+                    
+                    const completionRate = gradebookConfig.questions.length > 0 ? (completedQuestions / gradebookConfig.questions.length) * 100 : 0;
+                    
+                    if (requireAllQuestions) {
+                      isCompleted = completionRate >= 100 && lessonPercentage >= minimumPercentage;
+                    } else {
+                      isCompleted = lessonPercentage >= minimumPercentage;
                     }
                   }
-                  
-                  const isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
                   const accessInfo = lessonAccessibility[currentActiveItem.itemId] || { accessible: true };
                   const isAccessible = accessInfo.accessible;
                   
@@ -943,7 +1178,6 @@ const FirebaseCourseWrapperContent = ({
                 ) : (() => {
                   // Render course content directly in wrapper instead of going through CourseRouterEnhanced
                   const courseId = course?.CourseID;
-                  console.log('🔍 Wrapper directly rendering course content for courseId:', courseId, 'activeItemId:', activeItemId);
                   
                   const courseProps = {
                     course: course,
@@ -951,7 +1185,16 @@ const FirebaseCourseWrapperContent = ({
                     onItemSelect: handleItemSelect,
                     isStaffView,
                     devMode,
-                    gradebookItems: course?.Gradebook?.items || course?.Assessments || {}
+                    gradebookItems: course?.Gradebook?.items || course?.Assessments || {},
+                    // Dynamic AI context callbacks (simplified)
+                    // onUpdateAIContext: handleUpdateAIContext, // REMOVED: Using simple prepopulate approach
+                    onPrepopulateMessage: handlePrepopulateMessage,
+                    // Helper functions for creating AI assistant buttons
+                    createAskAIButton: createAskAIButton,
+                    createAskAIButtonFromElement: createAskAIButtonFromElement,
+                    // AI Accordion support
+                    AIAccordion: AIAccordion,
+                    onAIAccordionContent: handleAIAccordionContent
                   };
                   
                   // Use pre-loaded components
@@ -1331,7 +1574,18 @@ const FirebaseCourseWrapperContent = ({
               <GoogleAIChatApp
                 firebaseApp={undefined} // Will use default app
                 instructions={currentAIPrompt.instructions}
-                firstMessage={currentAIPrompt.firstMessage}
+                conversationHistory={currentAIPrompt.conversationHistory || [
+                  {
+                    sender: 'user',
+                    text: 'Hello',
+                    timestamp: Date.now() - 1000
+                  },
+                  {
+                    sender: 'model',
+                    text: currentAIPrompt.firstMessage || "Hello! I'm your AI assistant. How can I help you today?",
+                    timestamp: Date.now()
+                  }
+                ]}
                 sessionIdentifier={`course_${course?.CourseID}_lesson_${activeItemId}`}
                 aiChatContext={{
                   courseId: course?.CourseID,
@@ -1339,7 +1593,8 @@ const FirebaseCourseWrapperContent = ({
                   lessonTitle: currentActiveItem?.title,
                   lessonType: currentActiveItem?.type,
                   contextKeywords: currentAIPrompt.contextKeywords || [],
-                  studentEmail: currentUser?.email
+                  studentEmail: currentUser?.email,
+                  lessonQuestions: currentAIPrompt.lessonQuestions || {}
                 }}
                 // Dynamic chat configuration from AI prompt
                 showYouTube={currentAIPrompt.chatConfig?.showYouTube ?? true}
@@ -1356,6 +1611,18 @@ const FirebaseCourseWrapperContent = ({
                 aiModel={currentAIPrompt.aiConfig?.model || 'DEFAULT_CHAT_MODEL'}
                 aiTemperature={currentAIPrompt.aiConfig?.temperature || 'BALANCED'}
                 aiMaxTokens={currentAIPrompt.aiConfig?.maxTokens || 'MEDIUM'}
+                // Simplified message prepopulation
+                initialMessage={prepopulatedMessage}
+                // Force new session when "Ask AI about example" is clicked
+                forceNewSession={forceNewChatSession}
+                // Content context from AI accordion
+                contentContextData={contentContextData}
+                onContentContext={(context) => {
+                  // Clear content context after it's been processed
+                  if (!context) {
+                    setContentContextData(null);
+                  }
+                }}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

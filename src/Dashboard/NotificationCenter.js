@@ -1007,25 +1007,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
       //       Object.keys(course.studentDashboardNotificationsResults).length : 0
       //   }))
       // });
-      
-      // Debug the structure of notifications from all courses
-      if (courses) {
-        courses.forEach(course => {
-          if (course.notificationIds) {
-            Object.values(course.notificationIds).forEach(notification => {
-              console.log('Raw notification object:', {
-                id: notification.id,
-                title: notification.title,
-                type: notification.type,
-                hasRepeatInterval: !!notification.repeatInterval,
-                repeatInterval: notification.repeatInterval,
-                directRepeatIntervalCheck: notification.repeatInterval ? true : false,
-                objectKeys: Object.keys(notification)
-              });
-            });
-          }
-        });
-      }
+    
     }
     
     courses?.forEach(course => {
@@ -1067,19 +1049,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
                   studentDashboardNotificationsResults: course.studentDashboardNotificationsResults
                 }]
               };
-              
-              // Debug the new notification object to confirm properties were copied
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`Survey notification (AFTER-COPY) ${newNotification.id}:`, {
-                  hasDisplayConfig: !!newNotification.displayConfig,
-                  displayConfig: newNotification.displayConfig,
-                  displayConfigFrequency: newNotification.displayConfig?.frequency,
-                  hasRenewalConfig: !!newNotification.renewalConfig,
-                  renewalConfig: newNotification.renewalConfig,
-                  renewalConfigMethod: newNotification.renewalConfig?.method,
-                  keys: Object.keys(newNotification)
-                });
-              }
+        
               
               // IMPORTANT: Explicitly copy the repeatInterval property if it exists
               // Preserve important properties
@@ -1319,11 +1289,6 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
               // Store the complete result data
               resultData
             };
-            
-            // Log if we found answers
-            if (resultData.answers) {
-              console.log(`Found answers for notification ${notificationId} in history:`, Object.keys(resultData.answers).length);
-            }
             
             // Add item to the list
             items.push(historyItem);

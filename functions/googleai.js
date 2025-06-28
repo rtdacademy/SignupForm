@@ -1,7 +1,7 @@
 // Import 2nd gen Firebase Functions
 const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { genkit } = require('genkit/beta'); // Beta package is needed for chat
+const { genkit } = require('genkit'); // Using stable genkit package
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
@@ -75,75 +75,25 @@ function initializeAI() {
   if (!aiInstance) {
     aiInstance = genkit({
       plugins: [googleAI()], // No need to pass API key - Genkit reads from environment
+      model: googleAI.model('gemini-2.5-flash'), // Use stable model
     });
   }
   return aiInstance;
 }
 
-// Function to get specialized educational agents
-function getEducationalAgents(ai) {
-  const preAnswerTutorAgent = ai.definePrompt({
-    name: 'preAnswerTutor',
-    description: 'Guides students using Socratic method before they answer questions',
-    system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
+// Default AI assistant system instruction
+const DEFAULT_SYSTEM_INSTRUCTION = `You are a helpful AI assistant specialized in education and learning. Your role is to:
 
-CRITICAL RULES:
-- NEVER directly provide the answer or indicate which option is correct
-- NEVER say things like "the answer is" or "option A is correct"
-- Use the Socratic method - ask guiding questions to help them think through the problem
-- Help them understand the concepts and principles needed to solve the problem
-- Encourage them to work through the problem step by step
-- If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
-- Ask questions about what they understand, what forces or principles might be involved, or how they might approach the problem
-- Be encouraging and supportive while maintaining the educational goal of guided discovery`
-  });
+- Help students understand concepts clearly and thoroughly
+- Guide them through problem-solving step by step
+- Encourage critical thinking and deep understanding
+- Provide clear explanations using appropriate terminology
+- Be patient, supportive, and encouraging
+- Adapt your explanations to the student's level of understanding
 
-  const postAnswerTutorAgent = ai.definePrompt({
-    name: 'postAnswerTutor', 
-    description: 'Discusses answers and provides explanations after student attempts question',
-    system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
+Always focus on helping students learn rather than just providing answers.`;
 
-You have access to their submission details and can reference them directly in your responses. The specific details will be provided in the system instruction.
-
-You can now freely:
-- Reference their specific answer choice by letter (A, B, C, D) and explain why it was right/wrong
-- Discuss why the correct answer is right and explain the reasoning
-- Explain why incorrect answers are wrong and address common misconceptions
-- Provide detailed explanations of the underlying physics concepts
-- Give additional examples to reinforce understanding
-- Help them understand how to approach similar problems in the future
-- Celebrate their success if they got it right, or help them learn from mistakes if they got it wrong
-- Be encouraging and focus on learning and understanding
-
-Always reference their specific answer when relevant to make the conversation personal and educational.`
-});
-
-const transitionAgent = ai.definePrompt({
-  name: 'transitionAgent',
-  description: 'Handles transitions when student moves from pre-answer to post-answer state',
-  system: `You are an educational AI tutor handling the moment when a student has just submitted their answer to a physics question.
-
-The student's submission details will be provided in the system instruction.
-
-Your role:
-- Acknowledge their specific answer choice (e.g., "I see you selected option D") in an encouraging way
-- Provide a brief, natural transition that recognizes they've now answered
-- Then seamlessly move into discussing why their answer was right/wrong and explaining the concepts
-- Keep the transition smooth and supportive - don't make it feel like you're switching personalities
-- Be positive regardless of whether they got it right or wrong
-- Reference their actual selection to make it personal and relevant
-- Focus on the learning opportunity this creates`
-});
-
-  return { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent };
-}
-
-// Store active chat instances by session ID
-// In production, you'd want to use a persistent store like Firestore
-const activeChatSessions = new Map();
-
-// Store pre-initialized context for each session
-const sessionContexts = new Map();
+// Removed session management - keeping it simple
 
 // Safe JSON stringifying to handle circular references
 const safeStringify = (obj) => {
@@ -337,17 +287,23 @@ const startChatSession = onCall({
 /**
  * Process multimodal content for sending to the model
  * Supports text, images (as data URLs or https URLs), documents, and YouTube videos
+ * Returns a string for text-only or properly formatted content for multimodal
  */
 const processMultimodalContent = async (message, mediaItems = []) => {
-  // If no media items, just return text prompt
+  // If no media items, just return the text message as a string
   if (!mediaItems || mediaItems.length === 0) {
-    return message;
+    return message || '';
   }
 
-  // Create multimodal prompt format
-  const promptParts = [];
+  // For multimodal content, create content parts without any role properties
+  const contentParts = [];
   
-  // Process each media item
+  // Add the text message first if it exists
+  if (message && message.trim()) {
+    contentParts.push({ text: message });
+  }
+  
+  // Process each media item and add to content parts
   for (const media of mediaItems) {
     if (media.type === 'youtube') {
       // For YouTube videos, we extract the video ID and use the proper video URL
@@ -356,17 +312,17 @@ const processMultimodalContent = async (message, mediaItems = []) => {
         // Properly formatted YouTube URL
         const youtubeUrl = getYouTubeVideoUrl(videoId);
         
-        // Add as video media with proper content type instead of just the thumbnail
-        promptParts.push({
+        // Add as video media with proper content type
+        contentParts.push({
           media: { 
             url: youtubeUrl,
-            contentType: "video/mp4"  // Specify this is a video
+            contentType: "video/mp4"
           }
         });
       }
     } else if (media.type === 'document') {
       // Handle document files
-      promptParts.push({
+      contentParts.push({
         media: { 
           url: media.url,
           contentType: getContentType(media.mimeType, media.name) 
@@ -375,13 +331,13 @@ const processMultimodalContent = async (message, mediaItems = []) => {
       
       // Add context about the document if available
       if (media.name) {
-        promptParts.push({
-          text: `[This is a document file: ${media.name}]`
+        contentParts.push({
+          text: `[Document: ${media.name}]`
         });
       }
     } else if ((media.type === 'image' || media.type === 'file') && media.url) {
       // Standard image handling or generic file
-      promptParts.push({
+      contentParts.push({
         media: { 
           url: media.url,
           contentType: media.mimeType || getContentType(null, media.name)
@@ -390,404 +346,198 @@ const processMultimodalContent = async (message, mediaItems = []) => {
     }
   }
   
-  // Add main text content
-  if (message) {
-    promptParts.push({ text: message });
-  }
-  
-  return promptParts;
+  // Return the content parts array directly for Genkit multimodal messages
+  // Genkit expects just the content parts array, not wrapped in a message object
+  return contentParts;
 };
 
 /**
- * Send a message to an existing chat session
+ * Chat message function using stable ai.generate() with multi-turn conversations
  */
 const sendChatMessage = onCall({
   concurrency: 10,
-  memory: '2GiB', // Increased memory for video and document processing
-  timeoutSeconds: 120, // Increased timeout for video and document processing
+  memory: '1GiB',
+  timeoutSeconds: 60,
   cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
 }, async (request) => {
   const data = request.data;
 
   try {
-    // Initialize AI instance - Genkit reads API key from environment
+    // Initialize AI instance
     const ai = initializeAI();
-    const { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent } = getEducationalAgents(ai);
     
-    // Log the incoming data but safely handle circular references
-    console.log("Received chat message data:", safeStringify(data));
+    console.log("Received chat message:", data.message);
     
     const { 
-      message, 
-      model = AI_MODELS.DEFAULT_CHAT_MODEL, // Legacy support
-      aiModel = 'DEFAULT_CHAT_MODEL', // New AI model key
-      aiTemperature = 'BALANCED', // New temperature key
-      aiMaxTokens = 'MEDIUM', // New max tokens key
-      systemInstruction = null,
+      message,
+      systemInstruction = DEFAULT_SYSTEM_INSTRUCTION,
       streaming = false,
-      mediaItems = [],  // Media items including images, documents, and YouTube URLs
-      sessionId = null,  // Session ID for persistent chat
-      context = null  // Context object for Genkit API
+      messages = [], // Previous conversation history
+      aiModel = 'FLASH', // Default to FLASH model
+      aiTemperature = 'BALANCED', // Default to balanced temperature
+      aiMaxTokens = 'MEDIUM' // Default to medium response length
     } = data;
 
-    // Validate input
-    if (!message && (!mediaItems || mediaItems.length === 0)) {
-      console.error("Neither message nor media items provided in the request data");
-      throw new Error('Either message or media items are required');
+    if (!message) {
+      throw new Error('Message is required');
     }
     
-    if (message) {
-      console.log(`Processing message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
-    }
+    // Resolve AI settings from the request
+    const resolvedSettings = resolveAISettings(aiModel, aiTemperature, aiMaxTokens);
+    console.log('🎯 Resolved AI Settings:', resolvedSettings);
     
-    if (mediaItems && mediaItems.length > 0) {
-      console.log(`Processing ${mediaItems.length} media items`);
-      mediaItems.forEach((item, index) => {
-        console.log(`Media item ${index + 1}: type=${item.type}, name=${item.name || 'unknown'}, url=${item.url?.substring(0, 50)}...`);
-      });
-    }
-
-    // Resolve AI settings from keys to actual values
-    const aiSettings = resolveAISettings(aiModel, aiTemperature, aiMaxTokens);
+    // Log system instruction details
+    console.log('🤖 System Instruction being used:');
+    console.log('Length:', systemInstruction ? systemInstruction.length : 0, 'characters');
+    console.log('Preview:', systemInstruction ? systemInstruction.substring(0, 100) + '...' : 'None');
+    console.log('Is using default?', systemInstruction === DEFAULT_SYSTEM_INSTRUCTION);
     
-    // Process multimodal content (text + images + documents + YouTube)
-    // Make sure mediaItems is always an array, even if it's undefined
-    const safeMediaItems = Array.isArray(mediaItems) ? mediaItems : [];
-    const prompt = await processMultimodalContent(message, safeMediaItems);
-    console.log("Processed prompt:", safeStringify(prompt));
+    // Simple approach: if no conversation history, use system + prompt
+    // If there is history, include it as messages
+    console.log('Sending message to AI with conversation history...');
+    console.log('Previous messages count:', messages.length);
     
-    // Log context if provided
-    if (context) {
-      console.log("Context provided:", safeStringify(context));
-    }
-    
-    // Simply log if context is provided
-    if (context) {
-      console.log("Using context as provided in Genkit documentation");
-    }
-
-    let chat;
-    let currentSessionId = sessionId;
-    
-    // Extract question state information from context (following Genkit best practices)
-    const questionState = context?.questionState || {};
-    const isContextUpdate = questionState.isContextUpdate || false;
-    const questionStatus = isContextUpdate ? (questionState.newStatus || 'attempted') : (questionState.status || 'active');
-    const hasAttempted = questionState.lastSubmission || questionStatus === 'attempted' || questionState.hasAttempted;
-    const previousStatus = questionState.previousStatus;
-    
-    // Log state detection for debugging
-    console.log('Question state detection:', {
-      isContextUpdate,
-      questionStatus,
-      hasAttempted,
-      previousStatus,
-      contextKeys: Object.keys(context || {}),
-      questionStateKeys: Object.keys(questionState || {}),
-      lastSubmission: questionState.lastSubmission ? {
-        selectedAnswer: questionState.lastSubmission.selectedAnswer,
-        isCorrect: questionState.lastSubmission.isCorrect,
-        correctOptionId: questionState.lastSubmission.correctOptionId
-      } : null
-    });
-    
-    // Select appropriate agent based on state
-    let selectedAgent;
-    let agentName;
-    
-    if (isContextUpdate && (previousStatus !== questionStatus || previousStatus === 'active')) {
-      // This is a transition from unanswered to answered
-      selectedAgent = transitionAgent;
-      agentName = 'transitionAgent';
-      console.log(`🔄 Using transition agent for status change: ${previousStatus} → ${questionStatus}`);
-    } else if (hasAttempted) {
-      // Student has attempted the question - use post-answer agent
-      selectedAgent = postAnswerTutorAgent;
-      agentName = 'postAnswerTutor';
-      console.log('Using post-answer tutor agent (student has attempted question)');
-    } else {
-      // Student hasn't answered yet - use pre-answer agent
-      selectedAgent = preAnswerTutorAgent;
-      agentName = 'preAnswerTutor';
-      console.log('Using pre-answer tutor agent (student has not yet answered)');
-    }
-    
-    // Prepare the system instruction with educational context
-    // Always use the agent system when we have questionState context
-    let effectiveSystemInstruction = (context?.questionState) ? selectedAgent.system : (systemInstruction || selectedAgent.system);
-    
-    // Add additional context about the question if provided
-    if (context?.aiChatContext) {
-      const contextInfo = `
-
-ADDITIONAL QUESTION CONTEXT:
-${context.aiChatContext}
-
-This additional context should inform your understanding of the concepts being tested and help you provide more targeted assistance.`;
+    if (streaming) {
+      // Use streaming for real-time response
+      console.log('Using streaming mode...');
       
-      effectiveSystemInstruction += contextInfo;
-    }
-    
-    // Add question-specific information to system instruction (not context)
-    if (context?.sessionInfo) {
-      // For pre-answer agent, include topic info
-      if (!questionState.lastSubmission) {
-        const topicInfo = `
-
-CURRENT QUESTION CONTEXT:
-- Course: ${context.sessionInfo.courseId}
-- Topic: ${context.sessionInfo.topic}
-- Student has NOT yet answered this question
-- Use Socratic method to guide their thinking
-
-IMPORTANT: Help guide the student's thinking about ${context.sessionInfo.topic} concepts without giving away the answer.`;
-        
-        effectiveSystemInstruction += topicInfo;
-        console.log('Enhanced system instruction for pre-answer scenario');
-      }
-    }
-    
-    // Add detailed submission information for post-answer scenarios
-    if (questionState.lastSubmission && context?.sessionInfo) {
-      const answerDetails = questionState.answerDetails || {};
+      let generateParams;
       
-      // Handle different question types
-      if (context.sessionInfo.questionType === 'longAnswer') {
-        // Long answer question context
-        const questionInfo = `
-
-CURRENT QUESTION CONTEXT:
-- Course: ${context.sessionInfo.courseId}
-- Topic: ${context.sessionInfo.topic}
-- Question Type: Long Answer
-- Student's answer: "${questionState.lastSubmission.answer}"
-- Word Count: ${questionState.lastSubmission.wordCount || 'Unknown'}
-- Score: ${questionState.lastSubmission.totalScore}/${questionState.lastSubmission.maxScore} (${questionState.lastSubmission.percentage}%)
-- Overall Feedback: "${questionState.lastSubmission.overallFeedback}"
-
-RUBRIC SCORES:
-${questionState.lastSubmission.rubricScores?.map(score => 
-  `- ${score.criterion}: ${score.score}/${score.maxPoints} - ${score.feedback}`
-).join('\n') || 'No rubric scores available'}
-
-STRENGTHS: ${questionState.lastSubmission.strengths?.join(', ') || 'None identified'}
-IMPROVEMENTS: ${questionState.lastSubmission.improvements?.join(', ') || 'None identified'}
-
-IMPORTANT: You can reference their specific answer text and discuss exactly why they earned or lost points on each rubric criterion.`;
+      if (messages.length === 0) {
+        // First message - use system + prompt approach
+        console.log('✅ STREAMING: First message - Using system instruction with prompt');
+        console.log('System instruction will be applied:', !!systemInstruction);
         
-        effectiveSystemInstruction += questionInfo;
-        
-        console.log('Enhanced system instruction with long answer details:', {
-          wordCount: questionState.lastSubmission.wordCount,
-          totalScore: questionState.lastSubmission.totalScore,
-          rubricCount: questionState.lastSubmission.rubricScores?.length
-        });
-        
-      } else {
-        // Multiple choice question context
-        const questionInfo = `
-
-CURRENT QUESTION CONTEXT:
-- Course: ${context.sessionInfo.courseId}
-- Topic: ${context.sessionInfo.topic}
-- Question Type: Multiple Choice
-- Student selected: Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()} - "${answerDetails.studentAnswerText || 'Unknown option'}"
-- Result: ${questionState.lastSubmission.isCorrect ? 'CORRECT' : 'INCORRECT'}
-- Correct answer: Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()} - "${answerDetails.correctAnswerText || 'Unknown option'}"
-- Feedback given: "${questionState.lastSubmission.feedback}"
-
-IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()}" and "Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()}" directly.`;
-        
-        effectiveSystemInstruction += questionInfo;
-        
-        console.log('Enhanced system instruction with multiple choice details:', {
-          selectedAnswer: questionState.lastSubmission.selectedAnswer,
-          correctAnswer: questionState.lastSubmission.correctOptionId,
-          studentText: answerDetails.studentAnswerText,
-          correctText: answerDetails.correctAnswerText
-        });
-      }
-    }
-    
-    // Log the final effective system instruction for debugging
-    console.log('Final effective system instruction preview:', effectiveSystemInstruction.substring(0, 200) + '...');
-    
-    // Check if we have an existing chat session
-    if (sessionId && activeChatSessions.has(sessionId)) {
-      const existingChat = activeChatSessions.get(sessionId);
-      
-      // Always create new chat when using agent system if agent has changed or we have questionState
-      if (isContextUpdate || 
-          agentName !== existingChat.lastAgentUsed || 
-          (context?.questionState && !existingChat.lastAgentUsed)) {
-        
-        console.log(`🔄 Creating new chat for agent switch from ${existingChat.lastAgentUsed || 'none'} to ${agentName}`);
-        
-        // Create new chat with the selected agent and enhanced system instruction
-        chat = ai.chat({
-          model: googleAI.model(aiSettings.model),
-          system: effectiveSystemInstruction,
+        generateParams = {
+          model: googleAI.model(resolvedSettings.model),
+          system: systemInstruction,
+          prompt: message,
           config: {
-            temperature: aiSettings.temperature,
-            maxOutputTokens: aiSettings.maxTokens
-          },
-          context: context
-        });
-        
-        // Store the agent name for future reference
-        chat.lastAgentUsed = agentName;
-        activeChatSessions.set(sessionId, chat);
+            temperature: resolvedSettings.temperature,
+            maxOutputTokens: resolvedSettings.maxTokens
+          }
+        };
       } else {
-        chat = existingChat;
-        console.log(`Using existing chat session: ${sessionId} with agent: ${agentName}`);
-      }
-    } else {
-      // Create a new session with the appropriate agent
-      console.log(`Creating new chat session with agent: ${agentName}`);
-      
-      // Create a chat using the enhanced system instruction
-      chat = ai.chat({
-        model: googleAI.model(aiSettings.model),
-        system: effectiveSystemInstruction,
-        config: {
-          temperature: aiSettings.temperature,
-          maxOutputTokens: aiSettings.maxTokens
-        },
-        context: context // Pass the context to the chat
-      });
-      
-      // Store the agent name for future reference
-      chat.lastAgentUsed = agentName;
-      
-      console.log("Chat initialized with specialized agent");
-      
-      // Generate a new session ID for tracking
-      currentSessionId = Date.now().toString();
-      activeChatSessions.set(currentSessionId, chat);
-      console.log(`Created new chat session: ${currentSessionId}`);
-    }
-
-    // Simple pass-through function - don't modify the table at all
-    const fixMarkdownTables = (text) => {
-      // Just remove blockquote markers (>) from the text, as these can interfere with markdown parsing
-      return text.replace(/^>\s*/gm, '').replace(/\n>\s*/g, '\n');
-    };
-    
-    // Now send the actual current message with media
-    let responseText;
-    try {
-      if (streaming) {
-        // Firebase Functions v2 doesn't support true streaming responses.
-        // This is a workaround to simulate streaming by collecting all chunks.
-        const { response, stream } = await chat.sendStream(prompt);
+        // Subsequent messages - use messages array approach
+        console.log('📚 STREAMING: Subsequent message - Using conversation history');
+        console.log('⚠️ STREAMING: System instruction NOT being applied to this message');
         
-        // Collect all chunks
-        let completeResponse = '';
-        for await (const chunk of stream) {
-          completeResponse += chunk.text || '';
+        // Ensure conversation starts with user message
+        const conversationMessages = messages.map(msg => ({
+          role: msg.role,
+          content: [{ text: msg.content }] // Convert string to array format
+        }));
+        
+        // Add current user message
+        conversationMessages.push({ role: 'user', content: [{ text: message }] });
+        
+        // Ensure first message is from user - if not, we need to restructure
+        if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
+          // Find first user message and move it to the front, or create a dummy user message
+          const firstUserIndex = conversationMessages.findIndex(msg => msg.role === 'user');
+          if (firstUserIndex > 0) {
+            // Move first user message to the beginning
+            const firstUserMsg = conversationMessages.splice(firstUserIndex, 1)[0];
+            conversationMessages.unshift(firstUserMsg);
+          }
         }
         
-        // Log the raw streaming response for debugging
-        console.log('=== RAW STREAMING AI RESPONSE START ===');
-        console.log(completeResponse);
-        console.log('=== RAW STREAMING AI RESPONSE END ===');
-        
-        // Format the response before sending back
-        responseText = fixMarkdownTables(completeResponse);
-      } else {
-        // Regular non-streaming response
-        const { text } = await chat.send(prompt);
-        
-        // Log the raw response for debugging
-        console.log('=== RAW AI RESPONSE START ===');
-        console.log(text);
-        console.log('=== RAW AI RESPONSE END ===');
-        
-        // Format the response before sending back
-        responseText = fixMarkdownTables(text);
-      }
-    } catch (err) {
-      console.error("Error during chat message processing:", err);
-      // If we can't process the message with the existing chat, try creating a new one
-      if (sessionId) {
-        console.log("Chat session error - creating new session");
-        
-        // Session creation is not needed with the new format
-        
-        // This code is no longer needed with the new approach
-        
-        // Create a chat with the correct format for Gemini 2.0
-        chat = ai.chat({
-          model: googleAI.model(aiSettings.model),
-          system: effectiveSystemInstruction,
+        generateParams = {
+          model: googleAI.model(resolvedSettings.model),
+          messages: conversationMessages,
           config: {
-            temperature: aiSettings.temperature,
-            maxOutputTokens: aiSettings.maxTokens
-          },
-          context: context // Pass the context to the chat in recovery path
-        });
-        
-        currentSessionId = Date.now().toString();
-        activeChatSessions.set(currentSessionId, chat);
-        
-        // Try sending just the current message without history
-        const { text } = await chat.send(prompt);
-        
-        // Log the raw response for debugging in recovery path
-        console.log('=== RAW RECOVERY AI RESPONSE START ===');
-        console.log(text);
-        console.log('=== RAW RECOVERY AI RESPONSE END ===');
-        
-        // Format the response before sending back
-        responseText = fixMarkdownTables(text);
-      } else {
-        throw err; // Re-throw if we can't recover
+            temperature: resolvedSettings.temperature,
+            maxOutputTokens: resolvedSettings.maxTokens
+          }
+        };
       }
-    }
-    
-    // Update the last activity time for this chat session
-    chat.lastActivityTime = Date.now();
-    
-    // Periodically clean up old chat sessions to prevent memory leaks
-    // In a production environment, you'd use a more persistent storage
-    const cleanupOldSessions = () => {
-      const now = Date.now();
-      const ONE_HOUR = 60 * 60 * 1000;
       
-      for (const [id, chatSession] of activeChatSessions.entries()) {
-        if (chatSession.lastActivityTime && (now - chatSession.lastActivityTime > ONE_HOUR)) {
-          console.log(`Removing inactive chat session: ${id}`);
-          activeChatSessions.delete(id);
+      console.log('Generate params:', JSON.stringify(generateParams, null, 2));
+      
+      const { stream, response } = ai.generateStream(generateParams);
+      
+      let fullText = '';
+      
+      // Stream the response
+      for await (const chunk of stream) {
+        if (chunk.text) {
+          fullText += chunk.text;
         }
       }
-    };
-    
-    // Clean up occasionally - don't wait for it to complete
-    if (Math.random() < 0.1) { // 10% chance on each call
-      setTimeout(cleanupOldSessions, 0);
+      
+      console.log('Streaming complete, full response:', fullText);
+      
+      return {
+        text: fullText,
+        success: true,
+        streaming: true
+      };
+    } else {
+      // Use regular generate for non-streaming
+      let generateParams;
+      
+      if (messages.length === 0) {
+        // First message - use system + prompt approach
+        console.log('✅ NON-STREAMING: First message - Using system instruction with prompt');
+        console.log('System instruction will be applied:', !!systemInstruction);
+        
+        generateParams = {
+          model: googleAI.model(resolvedSettings.model),
+          system: systemInstruction,
+          prompt: message,
+          config: {
+            temperature: resolvedSettings.temperature,
+            maxOutputTokens: resolvedSettings.maxTokens
+          }
+        };
+      } else {
+        // Subsequent messages - use messages array approach
+        console.log('📚 NON-STREAMING: Subsequent message - Using conversation history');
+        console.log('⚠️ NON-STREAMING: System instruction NOT being applied to this message');
+        
+        // Ensure conversation starts with user message
+        const conversationMessages = messages.map(msg => ({
+          role: msg.role,
+          content: [{ text: msg.content }] // Convert string to array format
+        }));
+        
+        // Add current user message
+        conversationMessages.push({ role: 'user', content: [{ text: message }] });
+        
+        // Ensure first message is from user - if not, we need to restructure
+        if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
+          // Find first user message and move it to the front, or create a dummy user message
+          const firstUserIndex = conversationMessages.findIndex(msg => msg.role === 'user');
+          if (firstUserIndex > 0) {
+            // Move first user message to the beginning
+            const firstUserMsg = conversationMessages.splice(firstUserIndex, 1)[0];
+            conversationMessages.unshift(firstUserMsg);
+          }
+        }
+        
+        generateParams = {
+          model: googleAI.model(resolvedSettings.model),
+          messages: conversationMessages,
+          config: {
+            temperature: resolvedSettings.temperature,
+            maxOutputTokens: resolvedSettings.maxTokens
+          }
+        };
+      }
+      
+      const response = await ai.generate(generateParams);
+      
+      console.log('Got response:', response.text);
+      
+      return {
+        text: response.text,
+        success: true,
+        streaming: false
+      };
     }
-    
-    // Log raw table information to help with debugging
-    if (responseText.includes('|')) {
-      console.log('=== TABLE DEBUGGING INFO ===');
-      console.log('Table detected in response');
-      const tableLines = responseText.split('\n').filter(line => line.includes('|'));
-      console.log(`Table has ${tableLines.length} lines`);
-      console.log('First few table lines:');
-      tableLines.slice(0, 3).forEach((line, i) => console.log(`${i}: ${line}`));
-    }
-    
-    return {
-      text: responseText,
-      streaming: streaming,
-      sessionId: currentSessionId, // Return the session ID so client can maintain the conversation
-      agentUsed: agentName, // For debugging and logging
-      questionStatus: questionStatus, // Echo back the detected status
-      isTransition: isContextUpdate // Indicate if this was a transition response
-    };
   } catch (error) {
-    console.error('Error sending chat message:', error);
-    throw new Error(`An error occurred while sending the message: ${error.message}`);
+    console.error('Error in chat:', error);
+    throw new Error(`Chat error: ${error.message}`);
   }
 });
 

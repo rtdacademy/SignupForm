@@ -47,7 +47,6 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
 
   // Convert Firebase error codes to user-friendly messages
   const getFriendlyErrorMessage = (error) => {
-    console.log("Error code:", error.code);
     
     const errorMessages = {
       // Sign in errors
@@ -147,10 +146,8 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     const userRef = ref(db, `users/${uid}`);
     
     try {
-      console.log("Checking if user data exists for UID:", uid);
       const snapshot = await get(child(ref(db), `users/${uid}`));
       if (!snapshot.exists()) {
-        console.log("User data doesn't exist, creating minimal user data");
         const sanitizedEmail = sanitizeEmail(user.email);
         const userData = {
           uid: uid,
@@ -163,9 +160,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
           emailVerified: user.emailVerified
         };
         await set(userRef, userData);
-        console.log("Minimal user data created successfully");
       } else {
-        console.log("User data already exists, updating last login");
         const existingData = snapshot.val();
         await set(userRef, {
           ...existingData,
@@ -209,7 +204,6 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("Auth state changed - user:", user);
         ensureUserData(user);
       }
     });
@@ -230,17 +224,14 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       if (activeTab === "signup") {
         // Check for existing account during signup
         const methods = await checkExistingAccount(emailInput);
-        console.log("Signup - checking methods:", methods);
         
         if (methods.length > 0) {
-          console.log("Account exists, preventing sign-up");
           setError("An account with this email already exists. Please sign in instead.");
           return;
         }
         await handleSignUp(e);
       } else {
         // Skip methods check for sign in
-        console.log("Sign in - attempting direct sign in");
         await handleSignIn(e);
       }
     } catch (error) {
@@ -251,9 +242,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
 
   const checkExistingAccount = async (email) => {
     try {
-      console.log("Checking existing account for email:", email);
       const methods = await fetchSignInMethodsForEmail(auth, email);
-      console.log("Sign-in methods found:", methods);
       setSignInMethods(methods);
       return methods;
     } catch (error) {
@@ -332,20 +321,15 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     setMessage(null);
 
     const userEmail = emailInput.trim();
-    console.log("Attempting sign in for email:", userEmail);
 
     try {
-      console.log("Calling signInWithEmailAndPassword");
       const userCredential = await signInWithEmailAndPassword(auth, userEmail, password);
       const user = userCredential.user;
       
       if (user.emailVerified) {
-        console.log("Email is verified, ensuring user data");
         await ensureUserData(user);
-        console.log("Navigating to dashboard");
         navigate("/dashboard");
       } else {
-        console.log("Email not verified");
         await sendEmailVerification(user);
         await auth.signOut();
         setVerificationEmail(userEmail);

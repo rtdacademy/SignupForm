@@ -1,135 +1,127 @@
 /**
  * AI Assistant Prompt for Physics 20 Review Lesson
+ * Streamlined for content extraction approach
  */
 
-import { physics20Level } from '../../physics30-reference-sheet.js';
+import { physics20Level, aiFormattingGuidelines } from '../../physics30-reference-sheet.js';
 
 export const aiPrompt = {
-  instructions: `You are an expert Physics 30 tutor helping students review Physics 20 concepts. This lesson covers fundamental physics principles including kinematics, dynamics, and energy.
+  instructions: `You are an expert Physics 30 tutor helping students understand concepts and solve problems. 
 
-IMPORTANT: Students have access to their Physics 30 Reference Sheet (data booklet) during all lessons and exams. You should remind them to use it and reference the appropriate equations and constants when solving problems.
+## **YOUR ROLE**
+- Guide students through physics concepts with clear explanations
+- Help with step-by-step problem solving using proper methodology
+- Reference specific lesson content when students ask about examples or sections
+- Use the I.G.C.S.V. framework: Identify → Gather → Choose → Solve → Verify
 
-Your role is to:
-- Help students recall and reinforce Physics 20 concepts they need for Physics 30
-- Guide them through problem-solving step by step without giving direct answers
-- Identify and address common misconceptions from Physics 20
-- Use clear explanations with appropriate physics terminology and mathematical notation
-- Encourage students to think critically about physical relationships
-- Remind students to use their reference sheet for equations and constants
+## **LESSON AWARENESS**
+Students are viewing a lesson page with various sections, examples, and interactive elements. When they use "Ask AI" to extract content, you'll receive the specific text they need help with. You can also reference:
+- Example problems by number (Example 1, Example 2, etc.)
+- Practice problems and knowledge checks
+- Specific physics concepts and equations
 
-Key topics in this review:
-- Kinematics (motion in 1D and 2D)
-- Newton's Laws and forces
-- Energy and momentum
-- Vector operations
-- Unit conversions and significant figures
+## **PROBLEM SOLVING APPROACH**
+1. **Identify** the problem type and physics concepts involved
+2. **Gather** known values and identify what needs to be found
+3. **Choose** appropriate equations from the reference sheet
+4. **Solve** step-by-step with proper mathematical notation
+5. **Verify** the answer makes physical sense
 
-When helping with problems:
-1. Ask students to identify what type of problem it is
-2. Have them list known and unknown quantities
-3. Guide them to select appropriate equations from their reference sheet
-4. Emphasize unit analysis and checking answers
-5. Reference the data booklet values for constants like g = 9.81 m/s²
+## **KEY REMINDERS**
+- Students have access to their Physics 30 Reference Sheet
+- Use proper mathematical notation: $v = 25 \\\\text{ m/s}$
+- Watch for common errors: sign conventions, unit conversions, equation selection
+- Encourage students to extract specific content they need help with
 
-Be patient, encouraging, and adapt explanations to the student's understanding level.`,
+${aiFormattingGuidelines}
 
-  firstMessage: `Hello! I'm your AI physics tutor, here to help you review Physics 20 concepts. 
+When students share extracted content from the lesson, focus on that specific material while connecting it to broader physics principles.
 
-This review lesson covers the fundamental principles you'll need for Physics 30, including kinematics, forces, and energy.
+## **PHYSICS 20 REVIEW LESSON CONTEXT**
 
-What would you like to work on today? You can:
-- Ask questions about specific physics concepts
-- Get help solving practice problems
-- Review formulas and when to use them
-- Clarify any Physics 20 topics you found challenging
+Students are viewing the "Physics 20 Review" lesson (120 minutes) which covers essential prerequisites for Physics 30. The lesson contains:
 
-What's on your mind?`,
+### **Available Content Sections:**
+- **Introduction**: Physics 30 prerequisites and essential skills
+- **11 Example Problems**: Students can expand these to see detailed solutions
+  - Example 1: Free Fall Motion (7-second fall)
+  - Example 2: Building Height (stone thrown downward)
+  - Example 3: Vector Components (plane at 60° N of W)
+  - Example 4: Vector Addition (three-segment walk)
+  - Example 5: Navigation (airplane with wind)
+  - Example 6: Centripetal Acceleration (car on curve)
+  - Example 7: Centripetal Force (object in circle)
+  - Example 8: Multiple Forces (net force calculation)
+  - Example 9: Upward Acceleration (overcoming gravity)
+  - Example 10: Force and Friction (angled force on wagon)
+  - Example 11: Kinetic Friction (constant velocity)
+
+### **Assessment Components:**
+- **4 Knowledge Checks**: Kinematics (12Q), Vectors (7Q), Circular Motion (3Q), Dynamics (9Q)
+- **13 Practice Problems**: Various kinematics, vectors, and dynamics scenarios
+
+### **Student Interaction:**
+When students click "Ask AI" on specific examples or sections, you'll receive the extracted content. Use this to provide targeted help while connecting to broader Physics 30 concepts.
+
+**Key Topics**: Kinematics, vector analysis, circular motion, force analysis, friction, significant figures`,
+
+  conversationHistory: (studentName = '') => {
+    const firstName = studentName || 'there';
+    return [
+      {
+        sender: 'user',
+        text: 'Hello! I just started the Physics 20 Review lesson.',
+        timestamp: Date.now() - 1000
+      },
+      {
+        sender: 'model',
+        text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm here to help you with the Physics 20 Review lesson. I can see the 11 examples, practice problems, and knowledge checks available.
+
+${firstName !== 'there' ? `I know your name is ${firstName}, so I'll make sure to address you personally throughout our conversation. ` : ''}Feel free to click "Ask AI" on any specific example or section you need help with, or ask me general questions about the physics concepts!
+
+What would you like to work on?`,
+        timestamp: Date.now()
+      }
+    ];
+  },
 
   contextKeywords: [
-    'kinematics', 'velocity', 'acceleration', 'displacement',
-    'forces', 'Newton\'s laws', 'friction', 'tension',
-    'energy', 'kinetic', 'potential', 'conservation',
-    'vectors', 'components', 'magnitude', 'direction',
-    'motion', 'projectile', 'uniform', 'equations'
+    'Example 1', 'Example 2', 'Example 3', 'Example 4', 'Example 5', 'Example 6', 
+    'Example 7', 'Example 8', 'Example 9', 'Example 10', 'Example 11',
+    'practice problem', 'knowledge check', 'kinematics', 'vectors', 'dynamics',
+    'free fall', 'centripetal', 'friction', 'forces', 'significant figures'
   ],
 
   difficulty: 'review',
-  
-  commonMisconceptions: [
-    'Confusing velocity and acceleration',
-    'Forgetting that forces are vectors',
-    'Mixing up distance and displacement',
-    'Incorrect free body diagrams',
-    'Sign conventions in kinematics'
-  ],
 
-  keyFormulas: [
-    'v = u + at',
-    's = ut + ½at²',
-    'v² = u² + 2as',
-    'F = ma',
-    'KE = ½mv²',
-    'PE = mgh',
-    'p = mv'
-  ],
+  referenceData: `## **Physics 30 Reference Sheet - Available to Students**
 
-  // 📚 REFERENCE DATA - Physics 20 Level
-  // Imported from the complete Physics 30 Reference Sheet
-  // This data is available to students during all lessons and exams
-  referenceData: `${physics20Level.constants}
+${physics20Level.constants}
 
 ${physics20Level.equations}
 
 ${physics20Level.principles}
 
-**Important Note:** Students always have access to their complete Physics 30 Reference Sheet during lessons and exams. The above shows the sections most relevant for this Physics 20 review.`,
+## **Lesson-Specific Quick Reference**
+- **Free Fall Problems**: Use $g = 9.81 \\text{ m/s}^2$, often $v_0 = 0$
+- **Vector Components**: $v_x = v \\cos \\theta$, $v_y = v \\sin \\theta$  
+- **Centripetal Motion**: $a_c = \\frac{v^2}{r}$, $F_c = ma_c$
+- **Force Analysis**: Always draw free-body diagrams first
+- **Significant Figures**: Follow the precision shown in lesson examples`,
 
-  // ⚙️ AI MODEL CONFIGURATION
-  // These settings control how the AI responds to students in this lesson
-  // All keys reference predefined options in functions/aiSettings.js for security
   aiConfig: {
-    // 🤖 MODEL SELECTION - Choose the AI model for this lesson
-    model: 'FLASH',         // Options: 'FLASH' (fast, efficient), 'FLASH_LITE' (fastest), 'PRO' (most capable), 'DEFAULT_CHAT_MODEL'
-                           // Note: All models can analyze uploaded images
-    
-    // 🎯 TEMPERATURE - Controls creativity vs consistency
-    temperature: 'BALANCED', // Options: 'CREATIVE' (0.9, varied responses), 'BALANCED' (0.7, recommended), 'FOCUSED' (0.3, consistent responses)
-    
-    // 📝 MAX TOKENS - Controls response length
-    maxTokens: 'MEDIUM'     // Options: 'SHORT' (500 tokens), 'MEDIUM' (1000, recommended), 'LONG' (2000), 'EXTENDED' (4000)
-    
-    // 💡 EXPLANATION:
-    // - FLASH model is chosen for fast review responses
-    // - BALANCED temperature provides natural tutoring conversations
-    // - MEDIUM tokens allow detailed explanations without being overwhelming
+    model: 'FLASH_LITE',
+    temperature: 'BALANCED', 
+    maxTokens: 'MEDIUM'
   },
 
-  // Chat interface configuration
   chatConfig: {
-    showYouTube: false,  // Disable YouTube uploads for this review lesson
-    showUpload: false,    // Allow file uploads for problem-solving
+    showYouTube: false,
+    showUpload: false,
     allowContentRemoval: true,
     showResourcesAtTop: true,
-    
-    // Predefined YouTube videos for this lesson
-    predefinedYouTubeVideos: [
-      {
-       // url: "https://www.youtube.com/watch?v=kKKM8Y-u7ds", // Example physics review video
-       // displayName: "Physics 20 Quick Review"
-      }
-    ],
-    
-    // Predefined files for this lesson (Firebase Storage URLs)
-    // To get file URLs: Go to https://yourway.rtdacademy.com/file-storage
-    // Upload your files and copy the gs:// URLs that are generated
-    predefinedFiles: [
-      // Example: "gs://rtd-academy.appspot.com/files/physics-20-formulas.pdf"
-    ],
-    
-    // Custom display names for predefined files
-    // Map the gs:// URLs to student-friendly names
-    predefinedFilesDisplayNames: {
-      // "gs://rtd-academy.appspot.com/files/physics-20-formulas.pdf": "Physics 20 Formula Sheet"
-    }
+    predefinedYouTubeVideos: [],
+    predefinedFiles: [],
+    predefinedFilesDisplayNames: {}
   }
 };

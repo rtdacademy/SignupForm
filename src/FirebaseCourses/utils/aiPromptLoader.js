@@ -19,9 +19,23 @@ const defaultPrompt = {
 
 Always adapt your explanations to the student's level of understanding.`,
 
-  firstMessage: `Hello! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
+  conversationHistory: (studentName = '') => {
+    const firstName = studentName || 'there';
+    return [
+      {
+        sender: 'user',
+        text: 'Hello!',
+        timestamp: Date.now() - 1000
+      },
+      {
+        sender: 'model',
+        text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
 
-What would you like to work on today? Feel free to ask questions about any physics topic or get help with specific problems.`,
+${firstName !== 'there' ? `I know your name is ${firstName}, so I'll make sure to address you personally throughout our conversation. ` : ''}What would you like to work on today? Feel free to ask questions about any physics topic or get help with specific problems.`,
+        timestamp: Date.now()
+      }
+    ];
+  },
 
   contextKeywords: ['physics', 'science', 'problem-solving'],
   difficulty: 'intermediate',
@@ -91,6 +105,15 @@ const getLessonFolder = (itemId) => {
   // Pattern 3: already in folder format (01-physics-20-review)
   if (/^\d{2}-/.test(itemId)) {
     return itemId;
+  }
+  
+  // Pattern 4: 01_physics_20_review format (number with underscores)
+  const numberUnderscorePattern = /^(\d{2})_(.+)$/;
+  const numberUnderscoreMatch = itemId.match(numberUnderscorePattern);
+  if (numberUnderscoreMatch) {
+    lessonNumber = numberUnderscoreMatch[1];
+    lessonName = numberUnderscoreMatch[2].replace(/_/g, '-');
+    return `${lessonNumber}-${lessonName}`;
   }
   
   // Special case for some lesson IDs that might not follow the pattern
@@ -198,18 +221,80 @@ export const loadCourseDefaultPrompt = async (courseId) => {
 export const enhancePromptWithContext = (basePrompt, additionalContext) => {
   if (!additionalContext) return basePrompt;
 
+  // Handle conversation history - can be array or function
+  let enhancedConversationHistory;
+  if (typeof basePrompt.conversationHistory === 'function') {
+    // Call the function with student name to get personalized conversation history
+    enhancedConversationHistory = basePrompt.conversationHistory(additionalContext.studentName);
+  } else {
+    // Fallback to array format
+    enhancedConversationHistory = [...(basePrompt.conversationHistory || [])];
+  }
+  
+  // Build enhanced system instructions instead of fake conversation messages
+  let enhancedInstructions = basePrompt.instructions || '';
+
+  // Add lesson questions context to system instructions instead of conversation
+  if (additionalContext.lessonQuestions && Object.keys(additionalContext.lessonQuestions).length > 0) {
+    const totalQuestions = Object.keys(additionalContext.lessonQuestions).length;
+    const attemptedQuestions = Object.values(additionalContext.lessonQuestions).filter(q => q.attempts > 0).length;
+    const correctQuestions = Object.values(additionalContext.lessonQuestions).filter(q => 
+      q.lastSubmission && q.lastSubmission.isCorrect
+    ).length;
+
+    // Add assessment context to system instructions
+    enhancedInstructions += `\n\n## **CURRENT STUDENT ASSESSMENT STATUS**\n\n`;
+    enhancedInstructions += `The student is working on ${totalQuestions} assessment questions in this lesson.\n`;
+    enhancedInstructions += `**Progress Summary**: ${attemptedQuestions}/${totalQuestions} attempted, ${correctQuestions}/${totalQuestions} correct\n\n`;
+    enhancedInstructions += `**Question Details:**\n`;
+
+    // Add details for each question to system instructions
+    Object.entries(additionalContext.lessonQuestions).forEach(([questionId, questionData]) => {
+      enhancedInstructions += `- **${questionId}**: ${questionData.questionText}\n`;
+      enhancedInstructions += `  - Type: ${questionData.activityType}, Attempts: ${questionData.attempts}, Status: ${questionData.status}\n`;
+
+      if (questionData.lastSubmission) {
+        const resultIcon = questionData.lastSubmission.isCorrect ? '✅' : '❌';
+        enhancedInstructions += `  - Last Answer: "${questionData.lastSubmission.answer}" ${resultIcon}\n`;
+        if (!questionData.lastSubmission.isCorrect) {
+          enhancedInstructions += `  - Student needs help with this concept\n`;
+        }
+      } else if (questionData.attempts === 0) {
+        enhancedInstructions += `  - Status: Ready to attempt - student may need preparation\n`;
+      }
+    });
+
+    enhancedInstructions += `\nUse this assessment information to provide targeted help when the student asks questions about specific problems.`;
+  }
+
+  // Add other context to system instructions instead of conversation messages
+  if (additionalContext.studentProgress || additionalContext.currentUnit || additionalContext.studentName) {
+    enhancedInstructions += `\n\n## **ADDITIONAL CONTEXT**\n\n`;
+    if (additionalContext.studentName) {
+      enhancedInstructions += `👤 Student Name: ${additionalContext.studentName} (use this name when addressing the student)\n`;
+    }
+    if (additionalContext.studentProgress) {
+      enhancedInstructions += `📈 Course Progress: ${additionalContext.studentProgress}\n`;
+    }
+    if (additionalContext.currentUnit) {
+      enhancedInstructions += `📚 Current Unit: ${additionalContext.currentUnit}\n`;
+    }
+    if (additionalContext.recentTopics) {
+      enhancedInstructions += `🔍 Recent Topics: ${additionalContext.recentTopics.join(', ')}\n`;
+    }
+  }
+
   return {
     ...basePrompt,
-    instructions: `${basePrompt.instructions}
-
-Additional Context:
-${additionalContext.studentProgress ? `Student Progress: ${additionalContext.studentProgress}` : ''}
-${additionalContext.currentUnit ? `Current Unit: ${additionalContext.currentUnit}` : ''}
-${additionalContext.recentTopics ? `Recent Topics: ${additionalContext.recentTopics.join(', ')}` : ''}`,
+    instructions: enhancedInstructions, // Enhanced instructions instead of fake conversation
+    conversationHistory: enhancedConversationHistory, // Keep original conversation clean
     
     contextKeywords: [
       ...(basePrompt.contextKeywords || []),
       ...(additionalContext.keywords || [])
-    ]
+    ],
+    
+    // Store lesson questions in the prompt for AI context (not in conversation)
+    lessonQuestions: additionalContext.lessonQuestions || {}
   };
 };

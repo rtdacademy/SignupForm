@@ -6,92 +6,135 @@ import { Badge } from '../../../components/ui/badge';
 const CourseProgress = ({ course }) => {
   const gradebook = course?.Gradebook || {};
   const courseStructure = gradebook?.courseStructure || {};
-  const items = gradebook?.items || {};
   const assessments = course?.Assessments || {};
+  const itemStructure = gradebook?.courseConfig?.gradebook?.itemStructure || {};
+  const progressionRequirements = gradebook?.courseConfig?.progressionRequirements || {};
 
-  // Group items by lesson and calculate lesson-level progress
+  // Group items by lesson using the itemStructure and calculate lesson-level progress
   const lessonProgress = useMemo(() => {
     const lessons = {};
     
-    // Process items from gradebook
-    Object.entries(items || {}).forEach(([itemId, itemData]) => {
-      const lessonPrefix = extractLessonPrefix(itemId);
-      if (!lessonPrefix) return;
+    // Process lessons from itemStructure (the authoritative source)
+    Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
+      if (!lessonConfig || lessonConfig.type !== 'lesson') return;
       
-      if (!lessons[lessonPrefix]) {
-        lessons[lessonPrefix] = {
-          lessonId: lessonPrefix,
-          lessonNumber: parseInt(lessonPrefix.split('_')[1]),
-          questions: [],
-          totalQuestions: 0,
-          completedQuestions: 0,
-          totalScore: 0,
-          maxScore: 0,
-          lastActivity: 0,
-          activityType: 'lesson',
-          lessonTitle: '',
-          isUnlocked: false,
-          status: 'not_started'
-        };
-      }
+      const lessonId = lessonKey;
+      const questions = lessonConfig.questions || [];
       
-      // Get assessment data for activityType
-      const assessmentData = assessments[itemId];
-      if (assessmentData?.activityType) {
-        lessons[lessonPrefix].activityType = assessmentData.activityType;
-      }
+      // Extract lesson number from key like "01_physics_20_review" -> 1
+      const lessonNumber = parseInt(lessonKey.split('_')[0]) || 0;
       
-      lessons[lessonPrefix].questions.push({
-        id: itemId,
-        ...itemData,
-        assessmentData
+      lessons[lessonId] = {
+        lessonId: lessonId,
+        lessonNumber: lessonNumber,
+        lessonTitle: lessonConfig.title || `Lesson ${lessonNumber}`,
+        activityType: lessonConfig.type || 'lesson',
+        contentPath: lessonConfig.contentPath || lessonId,
+        questions: [],
+        totalQuestions: questions.length,
+        completedQuestions: 0,
+        totalScore: 0,
+        maxScore: 0,
+        lastActivity: 0,
+        isUnlocked: false,
+        status: 'not_started',
+        meetsRequirements: false
+      };
+      
+      // Process each question in the lesson
+      questions.forEach(questionConfig => {
+        const questionId = questionConfig.questionId;
+        const assessmentData = assessments[questionId];
+        const maxPoints = questionConfig.points || 1;
+        
+        lessons[lessonId].maxScore += maxPoints;
+        
+        if (assessmentData) {
+          // Check if question has been attempted and scored
+          const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
+          const score = hasScore ? maxPoints : 0;
+          
+          lessons[lessonId].totalScore += score;
+          
+          if (hasScore) {
+            lessons[lessonId].completedQuestions += 1;
+          }
+          
+          // Track last activity
+          const lastAttempt = assessmentData.lastSubmission?.timestamp || assessmentData.timestamp || 0;
+          if (lastAttempt > lessons[lessonId].lastActivity) {
+            lessons[lessonId].lastActivity = lastAttempt;
+          }
+          
+          lessons[lessonId].questions.push({
+            id: questionId,
+            title: questionConfig.title,
+            points: maxPoints,
+            score: score,
+            hasAttempted: !!assessmentData.attempts || !!assessmentData.lastSubmission,
+            isCorrect: hasScore,
+            assessmentData
+          });
+        } else {
+          // Question not attempted yet
+          lessons[lessonId].questions.push({
+            id: questionId,
+            title: questionConfig.title,
+            points: maxPoints,
+            score: 0,
+            hasAttempted: false,
+            isCorrect: false
+          });
+        }
       });
-      
-      lessons[lessonPrefix].totalQuestions += 1;
-      lessons[lessonPrefix].totalScore += itemData.score || 0;
-      lessons[lessonPrefix].maxScore += itemData.maxScore || 0;
-      
-      if (itemData.score > 0) {
-        lessons[lessonPrefix].completedQuestions += 1;
-      }
-      
-      if (itemData.lastAttempt > lessons[lessonPrefix].lastActivity) {
-        lessons[lessonPrefix].lastActivity = itemData.lastAttempt;
-      }
-      
-      // Generate lesson title from the first question
-      if (!lessons[lessonPrefix].lessonTitle && itemData.title) {
-        lessons[lessonPrefix].lessonTitle = generateLessonTitle(lessonPrefix, itemData.title);
-      }
     });
     
     // Calculate lesson statistics and status
     const sortedLessons = Object.values(lessons).sort((a, b) => a.lessonNumber - b.lessonNumber);
     
     sortedLessons.forEach((lesson, index) => {
+      // Calculate completion metrics
       lesson.completionRate = lesson.totalQuestions > 0 ? (lesson.completedQuestions / lesson.totalQuestions) * 100 : 0;
       lesson.averageScore = lesson.maxScore > 0 ? (lesson.totalScore / lesson.maxScore) * 100 : 0;
       
-      // Determine lesson status
+      // Check if lesson meets progression requirements
+      const requirements = progressionRequirements.lessonOverrides?.[lesson.lessonId] || progressionRequirements.defaultCriteria || {};
+      const minimumPercentage = requirements.minimumPercentage || 50;
+      const requireAllQuestions = requirements.requireAllQuestions !== false; // default to true
+      
+      // Determine if lesson meets requirements
+      if (requireAllQuestions) {
+        lesson.meetsRequirements = lesson.completionRate >= 100 && lesson.averageScore >= minimumPercentage;
+      } else {
+        lesson.meetsRequirements = lesson.averageScore >= minimumPercentage;
+      }
+      
+      // Determine lesson status based on activity and requirements
       if (lesson.completedQuestions === 0) {
         lesson.status = 'not_started';
-      } else if (lesson.completedQuestions === lesson.totalQuestions) {
+      } else if (lesson.meetsRequirements) {
         lesson.status = 'completed';
       } else {
         lesson.status = 'in_progress';
       }
       
-      // Determine if lesson is unlocked (first lesson always unlocked, others unlock when previous is completed)
+      // Determine if lesson is unlocked
       if (index === 0) {
         lesson.isUnlocked = true;
       } else {
-        const previousLesson = sortedLessons[index - 1];
-        lesson.isUnlocked = previousLesson.status === 'completed';
+        // Check if progression requirements are enabled
+        const progressionEnabled = progressionRequirements.enabled !== false;
+        if (!progressionEnabled) {
+          lesson.isUnlocked = true;
+        } else {
+          const previousLesson = sortedLessons[index - 1];
+          lesson.isUnlocked = previousLesson.status === 'completed';
+        }
       }
     });
     
     return sortedLessons;
-  }, [items, assessments]);
+  }, [itemStructure, assessments, progressionRequirements]);
 
   // Calculate overall stats based on lessons
   const stats = useMemo(() => {
@@ -305,31 +348,21 @@ const LessonProgressRow = ({ lesson }) => {
   );
 };
 
-// Helper Functions
-const extractLessonPrefix = (itemId) => {
-  // Extract lesson prefix from item ID like "course4_01_welcome_rtd_academy_knowledge_check"
-  // Returns "course4_01"
-  const match = itemId.match(/^(course\d+_\d+)/);
-  return match ? match[1] : null;
+// Helper Functions - Now simplified since we get lesson info from itemStructure
+const formatLessonNumber = (lessonKey) => {
+  // Extract lesson number from key like "01_physics_20_review" -> "01"
+  const match = lessonKey.match(/^(\d+)/);
+  return match ? match[1] : '00';
 };
 
-const generateLessonTitle = (lessonPrefix, firstQuestionTitle) => {
-  // Extract lesson number from prefix like "course4_01" -> "01"
-  const lessonNumber = lessonPrefix.split('_')[1];
-  
-  // Try to create a meaningful title from the question title
-  // Remove common suffixes and clean up the title
-  let title = firstQuestionTitle || '';
-  title = title.replace(/Knowledge Check.*$/i, '');
-  title = title.replace(/Question \d+.*$/i, '');
-  title = title.replace(/- Question.*$/i, '');
-  title = title.trim();
-  
-  // If we couldn't extract a good title, use a default
+const formatLessonTitle = (title, lessonNumber) => {
   if (!title) {
-    title = `Lesson ${lessonNumber}`;
-  } else if (!title.toLowerCase().includes('lesson')) {
-    title = `Lesson ${lessonNumber} - ${title}`;
+    return `Lesson ${lessonNumber}`;
+  }
+  
+  // If title doesn't already include lesson number, add it
+  if (!title.toLowerCase().includes('lesson')) {
+    return `Lesson ${lessonNumber}: ${title}`;
   }
   
   return title;

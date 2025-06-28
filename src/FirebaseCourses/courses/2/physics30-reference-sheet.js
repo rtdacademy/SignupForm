@@ -354,6 +354,20 @@ ${areaFormulas}`,
 };
 
 // Complete reference sheet
+// AI Response Formatting Guidelines
+export const aiFormattingGuidelines = `## AI Response Formatting
+
+**Math Equations:**
+- Use LaTeX with double backslashes: $v = 25 \\\\text{ m/s}$
+- Units in \\\\text{}: $F = 49 \\\\text{ N}$
+- Vectors: $\\\\vec{F}_{\\\\text{net}}$
+- Fractions: $\\\\frac{1}{2}mv^2$
+
+**Text Formatting:**
+- Use markdown headers (##, ###)
+- Use bullet points and numbered lists
+- Keep responses concise for chat bubbles`;
+
 export const completeReferenceSheet = `# Physics 30 Reference Sheet
 
 ${constants}

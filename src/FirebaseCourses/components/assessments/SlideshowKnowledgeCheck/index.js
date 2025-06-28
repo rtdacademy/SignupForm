@@ -121,7 +121,6 @@ const SlideshowKnowledgeCheck = ({
   useEffect(() => {
     const loadProgressFromFirebase = async () => {
       // TEMPORARY FIX: Skip Firebase loading entirely to avoid permission errors
-      console.log("🚫 SlideshowKnowledgeCheck: Skipping Firebase load to avoid permission errors");
       setLoadingProgress(false);
       return;
       

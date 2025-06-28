@@ -16,7 +16,8 @@ import {
   RefreshCw,
   FileSpreadsheet,
   CloudUpload,
-  Users
+  Users,
+  BarChart3
 } from 'lucide-react';
 import { functions, auth } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -25,6 +26,7 @@ import { useUserPreferences } from '../context/UserPreferencesContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import PasiRecordsSimplified from './PasiRecordsSimplified';
 import BlacklistSheet from '../components/BlacklistSheet';
+import PASIAnalyticsV2 from './PASIAnalyticsV2';
 
 const PASIDataUploadV2 = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -36,6 +38,8 @@ const PASIDataUploadV2 = () => {
   const [lastSystemUpload, setLastSystemUpload] = useState(null);
   const [selectedYear, setSelectedYear] = useState('');
   const [showBlacklistSheet, setShowBlacklistSheet] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analyticsRecords, setAnalyticsRecords] = useState([]);
   const { preferences } = useUserPreferences();
   const { refreshStudentSummaries } = useSchoolYear();
 
@@ -195,6 +199,11 @@ const PASIDataUploadV2 = () => {
     return `${minutes}m ${remainingSeconds}s`;
   };
 
+  const handleShowAnalytics = (records) => {
+    setAnalyticsRecords(records || []);
+    setShowAnalytics(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Last Upload Summary */}
@@ -235,6 +244,15 @@ const PASIDataUploadV2 = () => {
               <span>PASI Data Upload</span>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleShowAnalytics([])}
+                className="flex items-center gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                View Analytics
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -368,12 +386,20 @@ const PASIDataUploadV2 = () => {
       </Card>
 
       {/* PASI Records Table */}
-      <PasiRecordsSimplified />
+      <PasiRecordsSimplified onShowAnalytics={handleShowAnalytics} />
 
       {/* Blacklist Sheet Modal */}
       <BlacklistSheet 
         isOpen={showBlacklistSheet}
         onClose={() => setShowBlacklistSheet(false)}
+      />
+
+      {/* Analytics Modal */}
+      <PASIAnalyticsV2
+        records={analyticsRecords}
+        isOpen={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
+        selectedSchoolYear={selectedYear || schoolYears[0] || '2024-2025'}
       />
     </div>
   );

@@ -215,6 +215,29 @@ markdownStyles.textContent = `
     vertical-align: middle !important;
     font-size: 1.25em !important;
   }
+  
+  /* Static content styling for context cards */
+  .accordion-content-display.static-content {
+    pointer-events: none !important; /* Disable all interactions */
+  }
+  
+  .accordion-content-display.static-content .static-button {
+    background-color: #f3f4f6 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 0.375rem !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.875rem !important;
+    color: #6b7280 !important;
+    cursor: default !important;
+  }
+  
+  .accordion-content-display.static-content .tooltip-content-static,
+  .accordion-content-display.static-content .tooltip-expanded {
+    display: inline !important;
+    color: #6b7280 !important;
+    font-style: italic !important;
+    font-size: 0.75rem !important;
+  }
 `;
 document.head.appendChild(markdownStyles);
 import { Button } from '../../components/ui/button';
@@ -603,6 +626,168 @@ const enhanceLinks = (htmlContent) => {
   return div.innerHTML;
 };
 
+// Helper function to parse messages with context cards
+const parseMessageWithContext = (messageText) => {
+  if (!messageText) return null;
+  
+  // Check if message contains context delimiters
+  const contextPattern = /🔖\[CONTEXT_START:([^\]]+)\]🔖\n?(.*?)\n?🔖\[CONTEXT_END\]🔖/gs;
+  const matches = [...messageText.matchAll(contextPattern)];
+  
+  if (matches.length === 0) {
+    return null; // No context sections found
+  }
+  
+  const parts = [];
+  let lastIndex = 0;
+  
+  matches.forEach((match) => {
+    const [fullMatch, title, content] = match;
+    const startIndex = match.index;
+    
+    // Add text before the context section
+    if (startIndex > lastIndex) {
+      const beforeText = messageText.slice(lastIndex, startIndex).trim();
+      if (beforeText) {
+        parts.push({
+          type: 'text',
+          content: beforeText
+        });
+      }
+    }
+    
+    // Add the context section
+    parts.push({
+      type: 'context',
+      title: title.trim(),
+      content: content.trim()
+    });
+    
+    lastIndex = startIndex + fullMatch.length;
+  });
+  
+  // Add any remaining text after the last context section
+  if (lastIndex < messageText.length) {
+    const afterText = messageText.slice(lastIndex).trim();
+    if (afterText) {
+      parts.push({
+        type: 'text',
+        content: afterText
+      });
+    }
+  }
+  
+  return parts;
+};
+
+// Helper function to render a context card
+const renderContextCard = (contextData, key) => {
+  // Support both old format (title, content) and new format (contextData object)
+  const title = typeof contextData === 'string' ? key : contextData.title;
+  const content = typeof contextData === 'string' ? contextData : contextData.content;
+  const originalJSX = typeof contextData === 'object' ? contextData.originalJSX : null;
+  
+  return (
+    <div key={key} className="mt-2 mb-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+      <div className="flex items-start gap-2 mb-2">
+        <div className="w-5 h-5 flex items-center justify-center bg-indigo-100 rounded-full flex-shrink-0 mt-0.5">
+          <span className="text-indigo-600 text-xs">📋</span>
+        </div>
+        <div className="text-sm font-medium text-gray-900">
+          Context from: {title}
+        </div>
+      </div>
+      <div className="text-sm text-gray-700 bg-gray-50 rounded p-2 border-l-4 border-indigo-200">
+        {originalJSX ? (
+          // Render original JSX with error boundary
+          <div className="accordion-content-display text-sm">
+            {(() => {
+              try {
+                return originalJSX;
+              } catch (jsxError) {
+                console.warn('Failed to render originalJSX, falling back to markdown:', jsxError);
+                // Fall through to markdown rendering below
+                return null;
+              }
+            })()}
+          </div>
+        ) : containsMarkdown(content) ? (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <ReactMarkdown
+              remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+              rehypePlugins={[
+                [rehypeSanitize, {
+                  allowedElements: [
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                    'pre', 'code', 'em', 'strong', 'del', 'a', 'br'
+                  ],
+                  allowedAttributes: {
+                    a: ['href', 'target', 'rel'],
+                    code: ['className', 'class', 'language']
+                  }
+                }],
+                rehypeKatex,
+                rehypeRaw
+              ]}
+              components={{
+                h1: ({node, ...props}) => <h3 className="text-base font-bold mt-2 mb-1" {...props} />,
+                h2: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
+                h3: ({node, ...props}) => <h5 className="text-xs font-bold mt-1 mb-1" {...props} />,
+                code: ({node, inline, className, children, ...props}) => {
+                  if (inline) {
+                    return <code className="px-1 py-0.5 rounded text-xs font-mono bg-gray-200 text-gray-800" {...props}>{children}</code>
+                  }
+                  return <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto"><code {...props}>{children}</code></pre>
+                }
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap">{content}</div>
+        )}
+        
+        {/* If originalJSX failed to render, fall back to markdown */}
+        {originalJSX && !originalJSX && containsMarkdown(content) && (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <ReactMarkdown
+              remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+              rehypePlugins={[
+                [rehypeSanitize, {
+                  allowedElements: [
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                    'pre', 'code', 'em', 'strong', 'del', 'a', 'br'
+                  ],
+                  allowedAttributes: {
+                    a: ['href', 'target', 'rel'],
+                    code: ['className', 'class', 'language']
+                  }
+                }],
+                rehypeKatex,
+                rehypeRaw
+              ]}
+              components={{
+                h1: ({node, ...props}) => <h3 className="text-base font-bold mt-2 mb-1" {...props} />,
+                h2: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
+                h3: ({node, ...props}) => <h5 className="text-xs font-bold mt-1 mb-1" {...props} />,
+                code: ({node, inline, className, children, ...props}) => {
+                  if (inline) {
+                    return <code className="px-1 py-0.5 rounded text-xs font-mono bg-gray-200 text-gray-800" {...props}>{children}</code>
+                  }
+                  return <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto"><code {...props}>{children}</code></pre>
+                }
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const MessageBubble = ({ 
   message, 
   isStreaming = false, 
@@ -683,6 +868,97 @@ const MessageBubble = ({
   
   // Render the message content
   const renderMessageContent = () => {
+    // First check if message has stored contextData (new format)
+    if (message.contextData) {
+      // Extract message text without delimiters for clean display
+      let cleanMessageText = message.text;
+      // Remove context delimiters if they exist
+      cleanMessageText = cleanMessageText.replace(/🔖\[CONTEXT_START:[^\]]+\]🔖\n?.*?\n?🔖\[CONTEXT_END\]🔖/gs, '').trim();
+      
+      return (
+        <div className="space-y-1">
+          {/* Render context card using stored data with originalJSX */}
+          {renderContextCard(message.contextData, 'stored-context')}
+          
+          {/* Render the main message text if there's content beyond context */}
+          {cleanMessageText && (
+            <div className={cn(
+              "prose prose-sm max-w-none markdown-content",
+              isUser && "text-white [&_*]:text-white [&_a]:text-white"
+            )}>
+              {containsMarkdown(cleanMessageText) || cleanMessageText.includes('$') || cleanMessageText.includes('\\') ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+                  rehypePlugins={[
+                    [rehypeSanitize, sanitizeOptions],
+                    rehypeKatex,
+                    rehypeRaw
+                  ]}
+                  components={markdownComponents}
+                >
+                  {cleanMessageText}
+                </ReactMarkdown>
+              ) : (
+                <div className="whitespace-pre-wrap">{cleanMessageText}</div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Fall back to parsing delimiters for backward compatibility
+    const contextParts = parseMessageWithContext(message.text);
+    if (contextParts) {
+      return (
+        <div className="space-y-1">
+          {contextParts.map((part, index) => {
+            if (part.type === 'context') {
+              return renderContextCard(part, `context-${index}`);
+            } else {
+              // Render regular text part with appropriate styling
+              const textContent = part.content;
+              const hasMarkdown = containsMarkdown(textContent) || textContent.includes('$') || textContent.includes('\\');
+              
+              if (hasMarkdown) {
+                return (
+                  <div key={`text-${index}`} className={cn(
+                    "prose prose-sm max-w-none markdown-content",
+                    isUser && "text-white [&_*]:text-white [&_a]:text-white"
+                  )}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkMath, remarkGfm, remarkEmoji]}
+                      rehypePlugins={[
+                        [rehypeSanitize, {
+                          allowedElements: ['p', 'strong', 'em', 'code', 'br'],
+                          allowedAttributes: {}
+                        }],
+                        rehypeKatex
+                      ]}
+                    >
+                      {textContent}
+                    </ReactMarkdown>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={`text-${index}`} className={cn(
+                    "prose prose-sm max-w-none",
+                    isUser && "text-white [&_*]:text-white"
+                  )}>
+                    {textContent}
+                  </div>
+                );
+              }
+            }
+          })}
+          {isStreaming && !isProcessing && (
+            <span className="inline-block w-1.5 h-4 ml-0.5 bg-indigo-500 animate-pulse rounded"></span>
+          )}
+        </div>
+      );
+    }
+    
     // If the message is flagged as HTML content (from Quill editor)
     if (message.isHtml || (message.text && message.text.includes('<') && message.text.includes('>'))) {
       return (
@@ -954,7 +1230,7 @@ const MessageBubble = ({
           {/* Render media items if present */}
           {message.media && renderMedia(message.media)}
           
-          {/* Show processing animations for AI responses */}
+          {/* Show processing animations for model responses */}
           {!isUser && isProcessing && renderProcessingAnimations()}
           
           {/* Render message content */}
@@ -975,7 +1251,6 @@ const MessageBubble = ({
 const GoogleAIChatApp = ({ 
   firebaseApp = getApp(),
   instructions = "You are a helpful AI assistant that provides clear, accurate information.",
-  firstMessage = "Hello! I'm your AI assistant. I can help you with a variety of tasks. Would you like to: hear a joke, learn about a topic, or get help with a question? Just let me know how I can assist you today!",
   showYouTube = true,
   showUpload = true,
   YouTubeURL = null,
@@ -991,52 +1266,168 @@ const GoogleAIChatApp = ({
   // AI Configuration props (keys from aiSettings.js)
   aiModel = 'DEFAULT_CHAT_MODEL', // Model key from AI_MODELS
   aiTemperature = 'BALANCED', // Temperature key from AI_MODELS.TEMPERATURE
-  aiMaxTokens = 'MEDIUM' // Max tokens key from AI_MODELS.MAX_TOKENS
+  aiMaxTokens = 'MEDIUM', // Max tokens key from AI_MODELS.MAX_TOKENS
+  // Dynamic context props
+  dynamicContext = null, // Dynamic context that can be updated during session
+  onInputChange = null, // Callback to notify parent of input changes
+  initialMessage = '', // Initial message to prepopulate
+  // Content context props for AI accordion integration
+  onContentContext = null, // Callback when content context is set
+  contentContextData = null, // External content context data
+  // Conversation history props
+  conversationHistory = [ // Array of initial conversation messages
+    {
+      sender: 'user',
+      text: 'Hello',
+      timestamp: Date.now() - 1000
+    },
+    {
+      sender: 'model', 
+      text: "Hello! I'm your AI assistant. I can help you with a variety of tasks. Would you like to: hear a joke, learn about a topic, or get help with a question? Just let me know how I can assist you today!",
+      timestamp: Date.now()
+    }
+  ],
+  forceNewSession = false // Force a new chat session, clearing existing messages
 }) => {
   // Generate session-specific localStorage keys
   const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
   const STORAGE_KEY_MESSAGES = `google_ai_chat_messages_${sessionIdentifier}`;
   
-  // Load saved session ID from localStorage if available
+  // For now, disable session persistence to avoid system instruction issues
+  // Always start fresh
   const getSavedSessionId = () => {
-    try {
-      return localStorage.getItem(STORAGE_KEY_SESSION_ID);
-    } catch (e) {
-      console.warn("Could not access localStorage:", e);
-      return null;
-    }
+    return null; // Always return null to force new sessions
   };
   
-  // Load saved messages from localStorage if available
+  // For now, disable message persistence to avoid system instruction issues
+  // Always start fresh
   const getSavedMessages = () => {
-    try {
-      const savedMessages = localStorage.getItem(STORAGE_KEY_MESSAGES);
-      return savedMessages ? JSON.parse(savedMessages) : [];
-    } catch (e) {
-      console.warn("Could not load saved messages:", e);
-      return [];
-    }
+    return []; // Always return empty array to start fresh
   };
 
-  // Combine instructions and firstMessage into a single system message
+  // Create system message from instructions and conversation context
   const getSystemMessage = useCallback(() => {
-    return `${instructions} Your first message to the user was: "${firstMessage}" Continue the conversation based on the user's responses, remembering that you've already greeted them with this message.`;
-  }, [instructions, firstMessage]);
+    let systemMessage = `${instructions}`;
+    
+    // Add dynamic context if provided
+    if (dynamicContext && dynamicContext.focusedContent) {
+      systemMessage += `\n\n## STUDENT FOCUS REQUEST\n`;
+      systemMessage += `The student has specifically asked for help with ${dynamicContext.focusedContent.type} ${dynamicContext.focusedContent.id}`;
+      
+      if (dynamicContext.focusedContent.title) {
+        systemMessage += `: ${dynamicContext.focusedContent.title}`;
+      }
+      
+      systemMessage += `.\n\n`;
+      
+      if (dynamicContext.focusedContent.problem) {
+        systemMessage += `**Current Problem:**\n${dynamicContext.focusedContent.problem}\n\n`;
+      }
+      
+      if (dynamicContext.focusedContent.solution) {
+        systemMessage += `**Solution Details:**\n${dynamicContext.focusedContent.solution}\n\n`;
+      }
+      
+      if (dynamicContext.focusedContent.concepts) {
+        systemMessage += `**Key Concepts:** ${dynamicContext.focusedContent.concepts.join(', ')}\n\n`;
+      }
+      
+      systemMessage += `The student is looking at this specific ${dynamicContext.focusedContent.type} and needs targeted help.\n`;
+    }
+    
+    // Add conversation context if there's an initial model message
+    const initialModelMessage = conversationHistory.find(msg => msg.sender === 'model');
+    if (initialModelMessage) {
+      systemMessage += ` Your initial message to the user was: "${initialModelMessage.text}" Continue the conversation based on the user's responses, remembering this conversation context.`;
+    }
+    
+    return systemMessage;
+  }, [instructions, conversationHistory, dynamicContext]);
 
-  const [inputMessage, setInputMessage] = useState('');
+
+  // Development logging - show complete AI chat configuration
+  if (process.env.NODE_ENV === 'development') {
+    console.group('🤖 AI CHAT CONFIGURATION (Updated Conversation History Structure)');
+    
+    console.log('📋 Component Props:', {
+      hasInstructions: !!instructions,
+      conversationHistoryLength: conversationHistory.length,
+      instructionsLength: instructions?.length || 0,
+      sessionIdentifier,
+      showYouTube,
+      showUpload,
+      allowContentRemoval,
+      showResourcesAtTop,
+      aiModel,
+      aiTemperature,
+      aiMaxTokens,
+      forceNewSession
+    });
+    
+    console.log('💬 CONVERSATION HISTORY:', conversationHistory.map((msg, index) => ({
+      index,
+      sender: msg.sender,
+      textPreview: msg.text?.substring(0, 100) + (msg.text?.length > 100 ? '...' : ''),
+      timestamp: msg.timestamp,
+      hasMedia: !!msg.media
+    })));
+    
+    console.log('🎯 AI Context:', {
+      aiChatContext: aiChatContext,
+      lessonQuestionsCount: aiChatContext?.lessonQuestions ? Object.keys(aiChatContext.lessonQuestions).length : 0,
+      contextKeywordsCount: aiChatContext?.contextKeywords?.length || 0,
+      dynamicContext: dynamicContext
+    });
+    
+    if (instructions) {
+      console.log('📜 SYSTEM INSTRUCTIONS (length: ' + instructions.length + ' chars):');
+      console.log(instructions.substring(0, 500) + (instructions.length > 500 ? '...' : ''));
+    }
+    
+    if (aiChatContext?.lessonQuestions && Object.keys(aiChatContext.lessonQuestions).length > 0) {
+      console.log('📚 LESSON QUESTIONS BREAKDOWN:');
+      Object.entries(aiChatContext.lessonQuestions).forEach(([questionId, questionData]) => {
+        console.log(`${questionId}:`, {
+          question: questionData.questionText?.substring(0, 80) + '...',
+          attempts: questionData.attempts,
+          status: questionData.status,
+          hasLastSubmission: !!questionData.lastSubmission,
+          lastAnswer: questionData.lastSubmission?.answer,
+          wasCorrect: questionData.lastSubmission?.isCorrect
+        });
+      });
+    }
+    
+    console.groupEnd();
+  }
+
+  const [inputMessage, setInputMessage] = useState(initialMessage || '');
   const inputRef = useRef(null);
+  const [lastPrepopulatedMessage, setLastPrepopulatedMessage] = useState(initialMessage || '');
   const [messages, setMessages] = useState(() => {
-    // Initialize with saved messages or create initial message
+    // If forceNewSession is true, always use the new conversation history
+    if (forceNewSession) {
+      return conversationHistory.map((msg, index) => ({
+        id: Date.now() + index,
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: msg.timestamp || Date.now() + index,
+        media: msg.media // Include media if provided
+      }));
+    }
+    
+    // Initialize with saved messages or provided conversation history
     const savedMessages = getSavedMessages();
     
-    // If there are no saved messages, create an initial AI greeting message
+    // If there are no saved messages, use the provided conversation history
     if (savedMessages.length === 0) {
-      return [{
-        id: Date.now(),
-        sender: 'ai',
-        text: firstMessage,
-        timestamp: Date.now(),
-      }];
+      return conversationHistory.map((msg, index) => ({
+        id: Date.now() + index,
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: msg.timestamp || Date.now() + index,
+        media: msg.media // Include media if provided
+      }));
     }
     
     return savedMessages;
@@ -1052,7 +1443,10 @@ const GoogleAIChatApp = ({
   const [youtubeURL, setYoutubeURL] = useState('');
   const [addingYouTube, setAddingYouTube] = useState(false);
   const [youtubeURLs, setYoutubeURLs] = useState([]);
-  const [sessionId, setSessionId] = useState(getSavedSessionId); // Load saved session ID
+  // Content context for AI accordion integration
+  const [contentContext, setContentContext] = useState(null);
+  const [showContentPreview, setShowContentPreview] = useState(false);
+  // Removed sessionId state since we're using stateless generate() approach
   const scrollAreaRef = useRef(null);
   const fileInputRef = useRef(null);
   
@@ -1077,27 +1471,28 @@ const GoogleAIChatApp = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
   
-  // Save messages to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
-    } catch (e) {
-      console.warn("Could not save messages to localStorage:", e);
-    }
-  }, [messages]);
+  // Temporarily disabled - save messages to localStorage
+  // useEffect(() => {
+  //   try {
+  //     localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
+  //   } catch (e) {
+  //     console.warn("Could not save messages to localStorage:", e);
+  //   }
+  // }, [messages]);
   
-  // Save session ID to localStorage
-  useEffect(() => {
-    if (sessionId) {
-      try {
-        localStorage.setItem(STORAGE_KEY_SESSION_ID, sessionId);
-        console.log(`Session ID saved to localStorage: ${sessionId}`);
-      } catch (e) {
-        console.warn("Could not save session ID to localStorage:", e);
-      }
-    }
-  }, [sessionId]);
+  // Temporarily disabled - save session ID to localStorage
+  // useEffect(() => {
+  //   if (sessionId) {
+  //     try {
+  //       localStorage.setItem(STORAGE_KEY_SESSION_ID, sessionId);
+  //       console.log(`Session ID saved to localStorage: ${sessionId}`);
+  //     } catch (e) {
+  //       console.warn("Could not save session ID to localStorage:", e);
+  //     }
+  //   }
+  // }, [sessionId]);
 
   // Set initial YouTube URL if provided
   const loadedYouTubeRef = useRef(false);
@@ -1124,18 +1519,85 @@ const GoogleAIChatApp = ({
     };
   }, []); // Empty dependency array to run only once on mount
 
+  // Handle external message prepopulation
+  useEffect(() => {
+    if (initialMessage && initialMessage !== lastPrepopulatedMessage) {
+      setInputMessage(initialMessage);
+      setLastPrepopulatedMessage(initialMessage);
+      // Focus the input field
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [initialMessage, lastPrepopulatedMessage]);
+
+  // Notify parent of input changes
+  useEffect(() => {
+    if (onInputChange && typeof onInputChange === 'function') {
+      onInputChange(inputMessage);
+    }
+  }, [inputMessage, onInputChange]);
+
+  // Handle forceNewSession prop changes
+  useEffect(() => {
+    if (forceNewSession) {
+      // Reset to new conversation history
+      const initialMessages = conversationHistory.map((msg, index) => ({
+        id: Date.now() + index,
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: msg.timestamp || Date.now() + index,
+        media: msg.media
+      }));
+      
+      setMessages(initialMessages);
+      setError(null);
+      setUploadedFiles([]);
+      setYoutubeURLs([]);
+      setYoutubeURL('');
+      setAddingYouTube(false);
+      setIsProcessing(false);
+      setProcessingMedia(null);
+      setInputMessage('');
+      
+      // Clear localStorage for this session
+      try {
+        localStorage.removeItem(STORAGE_KEY_SESSION_ID);
+        localStorage.removeItem(STORAGE_KEY_MESSAGES);
+      } catch (e) {
+        console.warn("Could not clear localStorage:", e);
+      }
+    }
+  }, [forceNewSession, conversationHistory, STORAGE_KEY_SESSION_ID, STORAGE_KEY_MESSAGES]);
+
+  // Handle external content context updates
+  useEffect(() => {
+    if (contentContextData) {
+      setContentContext(contentContextData);
+      setShowContentPreview(true);
+      
+      // Notify parent if callback is provided
+      if (onContentContext) {
+        onContentContext(contentContextData);
+      }
+    }
+  }, [contentContextData, onContentContext]);
 
   // Reset chat
   const handleReset = useCallback(() => {
-    // Create a new AI greeting message instead of clearing all messages
-    const initialAiMessage = {
-      id: Date.now(),
-      sender: 'ai',
-      text: firstMessage,
-      timestamp: Date.now(),
-    };
+    console.log('🔄 Starting chat reset...');
     
-    setMessages([initialAiMessage]);
+    // Reset to the initial conversation history provided via props
+    const initialMessages = conversationHistory.map((msg, index) => ({
+      id: Date.now() + index,
+      sender: msg.sender,
+      text: msg.text,
+      timestamp: msg.timestamp || Date.now() + index,
+      media: msg.media
+    }));
+    
+    // Reset all state variables to their initial values
+    setMessages(initialMessages);
     setError(null);
     setUploadedFiles([]);
     setYoutubeURLs([]);
@@ -1143,16 +1605,53 @@ const GoogleAIChatApp = ({
     setAddingYouTube(false);
     setIsProcessing(false);
     setProcessingMedia(null);
-    setSessionId(null); // Clear the session ID to start a fresh conversation
+    setInputMessage('');
+    setIsLoading(false);
+    setIsStreaming(false);
+    setIsInitializing(false);
+    setLastPrepopulatedMessage('');
+    setContentContext(null);
+    setShowContentPreview(false);
     
-    // Also clear localStorage
+    // Reset any predefined YouTube URLs if they exist
+    if (YouTubeURL) {
+      const videoId = extractYouTubeVideoId(YouTubeURL);
+      if (videoId) {
+        setYoutubeURLs([{
+          url: YouTubeURL,
+          type: 'youtube',
+          displayName: YouTubeDisplayName,
+          isPredefined: true
+        }]);
+      }
+    }
+    
+    // Clear localStorage completely
     try {
       localStorage.removeItem(STORAGE_KEY_SESSION_ID);
-      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify([initialAiMessage]));
+      localStorage.removeItem(STORAGE_KEY_MESSAGES);
+      console.log('✅ localStorage cleared');
     } catch (e) {
-      console.warn("Could not clear localStorage:", e);
+      console.warn("❌ Could not clear localStorage:", e);
     }
-  }, [firstMessage]);
+    
+    // Reset the loaded YouTube flag
+    loadedYouTubeRef.current = false;
+    
+    console.log('✅ Chat reset complete - all state cleared and reinitialized');
+  }, [conversationHistory, STORAGE_KEY_SESSION_ID, STORAGE_KEY_MESSAGES, YouTubeURL, YouTubeDisplayName]);
+  
+  // Helper function to convert frontend messages to backend conversation format
+  const convertMessagesToConversationHistory = useCallback((messages) => {
+    return messages
+      .filter(msg => msg.text && msg.text.trim()) // Only include messages with text
+      .map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        content: msg.text
+      }));
+  }, []);
+
+  // Removed dynamic context change detection since we're starting fresh each time
   
   // Get file type based on mime type or extension
   const getFileType = (file) => {
@@ -1539,16 +2038,30 @@ const handleSendMessage = async () => {
   // Combine prepared files and YouTube URLs
   const allMedia = [...preparedFiles, ...youtubeURLs];
   
+  // Combine user input with content context if available
+  let combinedMessage = inputMessage;
+  if (contentContext && showContentPreview) {
+    if (inputMessage.trim()) {
+      // User typed something + content context
+      combinedMessage = `${inputMessage}\n\n🔖[CONTEXT_START:${contentContext.title}]🔖\n${contentContext.content}\n🔖[CONTEXT_END]🔖`;
+    } else {
+      // Only content context, generate a helpful question
+      combinedMessage = `Can you help me understand this content?\n\n🔖[CONTEXT_START:${contentContext.title}]🔖\n${contentContext.content}\n🔖[CONTEXT_END]🔖`;
+    }
+  }
+  
   const userMessage = {
     id: Date.now(),
     sender: 'user',
-    text: inputMessage,
+    text: combinedMessage,
     timestamp: Date.now(),
-    media: allMedia.length > 0 ? allMedia : undefined
+    media: allMedia.length > 0 ? allMedia : undefined,
+    hasContentContext: !!contentContext, // Flag to indicate this message includes context
+    contextData: contentContext && showContentPreview ? contentContext : null // Store original context data
   };
   
-  // Create a copy of the input message before clearing it
-  const messageToSend = inputMessage;
+  // Create a copy of the combined message before clearing it
+  const messageToSend = combinedMessage;
   const mediaItemsToSend = [...allMedia];
   
   // Update UI immediately
@@ -1558,13 +2071,15 @@ const handleSendMessage = async () => {
   setYoutubeURLs([]);
   setYoutubeURL('');
   setAddingYouTube(false);
+  setContentContext(null); // Clear content context after sending
+  setShowContentPreview(false);
   setIsLoading(true);
   
-  // Create empty AI message placeholder for streaming
-  const aiMessageId = Date.now() + 1;
+  // Create empty model message placeholder for streaming
+  const modelMessageId = Date.now() + 1;
   setMessages(prev => [...prev, {
-    id: aiMessageId,
-    sender: 'ai',
+    id: modelMessageId,
+    sender: 'model',
     text: '',
     timestamp: Date.now() + 1,
   }]);
@@ -1586,79 +2101,57 @@ const handleSendMessage = async () => {
     // Get the combined system message
     const systemMessage = getSystemMessage();
     
-    // Log what we're sending to help debug
-    console.log("Sending to AI:", {
-      message: messageToSend,
-      aiModel: aiModel,
-      aiTemperature: aiTemperature,
-      aiMaxTokens: aiMaxTokens,
-      systemInstruction: systemMessage,
-      streaming: true, // Enable streaming mode
-      mediaItems: mediaItemsToSend.map(item => ({
-        url: item.url,
-        type: item.type,
-        name: item.name,
-        mimeType: item.mimeType
-      })),
-      hasContext: context !== null // Log if context is being provided
-    });
+    // Convert current messages (excluding the model placeholder) to conversation history
+    const currentMessages = messages.filter(msg => 
+      msg.id !== modelMessageId && // Exclude the empty model placeholder we just added
+      msg.text && msg.text.trim() // Only include messages with actual text
+    );
+    const conversationHistory = convertMessagesToConversationHistory(currentMessages);
     
-    // If context exists, log it
-    if (context) {
-      console.log("Passing context to AI via Genkit context object:", context);
-      console.log("Note: This uses the Genkit context mechanism, not system message embedding");
+    // Development logging for message sending
+    if (process.env.NODE_ENV === 'development') {
+      console.group('🚀 SENDING MESSAGE TO AI (Stable Generate API)');
+      
+      console.log("📤 Message Details:", {
+        userMessage: messageToSend,
+        conversationHistoryLength: conversationHistory.length,
+        hasSystemInstruction: !!systemMessage
+      });
+      
+      console.log("💬 Conversation History:", conversationHistory);
+      
+      console.log("🎯 Current AI Context:", {
+        aiChatContext: aiChatContext,
+        lessonQuestions: aiChatContext?.lessonQuestions ? Object.keys(aiChatContext.lessonQuestions).length : 0,
+        contextKeywords: aiChatContext?.contextKeywords?.length || 0
+      });
+      
+      console.log("📜 COMPLETE SYSTEM INSTRUCTION:");
+      console.log(systemMessage);
+      
+      console.groupEnd();
     }
     
     const result = await sendChatMessage({
       message: messageToSend, // The actual text message to send
-      aiModel: aiModel, // AI model key from aiSettings.js
-      aiTemperature: aiTemperature, // Temperature key from aiSettings.js
-      aiMaxTokens: aiMaxTokens, // Max tokens key from aiSettings.js
       systemInstruction: systemMessage, // Using our combined system message
       streaming: true, // Enable streaming mode
-      mediaItems: mediaItemsToSend.map(item => {
-        // Format specifically for Genkit Document API
-        if (item.media) {
-          return {
-            url: item.url,
-            type: item.type,
-            name: item.name,
-            mimeType: item.mimeType || item.contentType,
-            media: item.media // Include properly formatted media object for Genkit
-          };
-        }
-        
-        return {
-          url: item.url,
-          type: item.type,
-          name: item.name,
-          mimeType: item.mimeType
-        };
-      }),
-      sessionId: sessionId, // Pass the session ID if we have one
-      context: {
-        ...context, // Spread existing context if it exists
-        ...(aiChatContext && { aiChatContext }) // Include aiChatContext if provided
-      }
+      messages: conversationHistory, // Include conversation history for multi-turn context
+      // Removed session-related parameters since we're using stateless generate()
+      // mediaItems support can be added later if needed with the stable API
     });
     
     // Now that we have a response, stop the processing animations
     setIsProcessing(false);
     setProcessingMedia(null);
     
-    // Update the AI message with the response
-    const aiResponse = result.data.text;
-    
-    // Save the session ID if provided by the server
-    if (result.data.sessionId) {
-      setSessionId(result.data.sessionId);
-      console.log(`Chat session established with ID: ${result.data.sessionId}`);
-    }
+    // Update the model message with the response
+    const modelResponse = result.data.text;
     
     // Simulate progressive typing effect
     if (result.data.streaming) {
       let displayedText = '';
-      const fullText = aiResponse;
+      const fullText = modelResponse;
       const words = fullText.split(' ');
       
       for (let i = 0; i < words.length; i++) {
@@ -1667,7 +2160,7 @@ const handleSendMessage = async () => {
         // Update message with current text
         setMessages(prev =>
           prev.map(msg =>
-            msg.id === aiMessageId ? { ...msg, text: displayedText } : msg
+            msg.id === modelMessageId ? { ...msg, text: displayedText } : msg
           )
         );
         
@@ -1679,14 +2172,14 @@ const handleSendMessage = async () => {
       }
     } else {
       // Debug table formatting
-      if (aiResponse.includes('|')) {
+      if (modelResponse.includes('|')) {
         console.log('=== TABLE DEBUGGING INFO ===');
         console.log('Raw table content:');
-        const tableLines = aiResponse.split('\n').filter(line => line.includes('|'));
+        const tableLines = modelResponse.split('\n').filter(line => line.includes('|'));
         console.log(tableLines.join('\n'));
         
         console.log('\nFormatted table content:');
-        const formattedText = formatMarkdownTables(aiResponse);
+        const formattedText = formatMarkdownTables(modelResponse);
         const formattedTableLines = formattedText.split('\n').filter(line => line.includes('|'));
         console.log(formattedTableLines.join('\n'));
       }
@@ -1694,7 +2187,7 @@ const handleSendMessage = async () => {
       // Regular non-streaming update
       setMessages(prev =>
         prev.map(msg =>
-          msg.id === aiMessageId ? { ...msg, text: aiResponse } : msg
+          msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
         )
       );
     }
@@ -1709,10 +2202,10 @@ const handleSendMessage = async () => {
       ? `API Error: ${errorDetails}` 
       : `I'm sorry, I encountered an error: ${errorDetails}`;
       
-    // Update the AI message with the error
+    // Update the model message with the error
     setMessages(prev =>
       prev.map(msg =>
-        msg.id === aiMessageId ? { 
+        msg.id === modelMessageId ? { 
           ...msg, 
           text: errorMessage
         } : msg
@@ -2009,6 +2502,38 @@ const handleSendMessage = async () => {
         {/* Display predefined resources at the top */}
         <PredefinedResourcesPanel />
         
+        {/* Content Context Preview - Moved to top of chat area */}
+        {contentContext && showContentPreview && (
+          <div className="mx-4 mt-2 mb-2 border border-indigo-200 bg-indigo-50 rounded-lg p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <div className="text-sm font-medium text-indigo-900 mb-1">
+                  📋 Content from: {contentContext.title}
+                </div>
+                <div className="text-xs text-indigo-700 line-clamp-3">
+                  {contentContext.preview || contentContext.content}
+                </div>
+                <div className="text-xs text-indigo-600 mt-1">
+                  This content will be included with your message • {contentContext.wordCount || 0} words
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setContentContext(null);
+                  setShowContentPreview(false);
+                  if (onContentContext) {
+                    onContentContext(null);
+                  }
+                }}
+                className="text-indigo-600 hover:text-indigo-800 p-1 flex-shrink-0"
+                title="Remove content context"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
         <div className="flex-1 min-h-0">
           <ScrollArea 
             ref={scrollAreaRef}
@@ -2019,8 +2544,8 @@ const handleSendMessage = async () => {
                 <MessageBubble
                   key={message.id}
                   message={message}
-                  isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'ai'}
-                  isProcessing={isProcessing && message === messages[messages.length - 1] && message.sender === 'ai'}
+                  isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'model'}
+                  isProcessing={isProcessing && message === messages[messages.length - 1] && message.sender === 'model'}
                   processingMedia={processingMedia}
                 />
               ))}
