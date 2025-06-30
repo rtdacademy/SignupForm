@@ -11,18 +11,10 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson about Momentum in Two Dimensions
  * Covers vector momentum analysis, two-dimensional collisions, and conservation principles in 2D systems
  */
-const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
+const MomentumTwoDimensions = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
     const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);  // Collapsible section states
-  const [isIntroductionOpen, setIsIntroductionOpen] = useState(false);
-  const [isComponentMethodOpen, setIsComponentMethodOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isVectorAdditionOpen, setIsVectorAdditionOpen] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isExample5Open, setIsExample5Open] = useState(false);
-
+  const [error, setError] = useState(null);
   // Practice problem states
   const [currentTwoDProblem1, setCurrentTwoDProblem1] = useState(0);
   const [currentTwoDProblem2, setCurrentTwoDProblem2] = useState(0);
@@ -183,154 +175,139 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
       title="Lesson 2 - Momentum in Two Dimensions"
       metadata={{ estimated_time: '120 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsIntroductionOpen(!isIntroductionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Introduction to Two-Dimensional Momentum"
+            value="introduction-2d-momentum"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Introduction to Two-Dimensional Momentum</h3>
-            <span className="text-blue-600">{isIntroductionOpen ? '▼' : '▶'}</span>
-          </button>
+            <p className="mb-4">
+              When we extend our study of momentum to two or more dimensions, we must remember that 
+              momentum has two major properties that remain fundamental to our understanding:
+            </p>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+              <h4 className="font-semibold text-blue-800 mb-3">Two Major Properties of Momentum:</h4>
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                  <div>
+                    <p className="font-semibold text-blue-900">Momentum is always conserved</p>
+                    <p className="text-blue-800 text-sm">
+                      In isolated systems, the total momentum before any interaction equals the total momentum after the interaction.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                  <div>
+                    <p className="font-semibold text-blue-900">Momentum is a vector quantity</p>
+                    <p className="text-blue-800 text-sm">
+                      Momentum has both magnitude and direction, making vector analysis essential for multi-dimensional problems.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {isIntroductionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  When we extend our study of momentum to two or more dimensions, we must remember that 
-                  momentum has two major properties that remain fundamental to our understanding:
-                </p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-green-800 mb-3">Vector Addition in Two Dimensions</h4>
+              <p className="mb-3 text-green-900">
+                When extending momentum analysis to two or more dimensions, we must use vector addition. 
+                There are two basic techniques for handling vector momentum:
+              </p>
+              
+              <div className="space-y-3">
+                <div className="bg-white p-3 rounded border border-green-300">
+                  <h5 className="font-semibold text-green-700 mb-2">1. Component Method</h5>
+                  <p className="text-sm text-green-800">
+                    Break each momentum vector into its x and y components, then apply conservation 
+                    of momentum separately to each direction. This method is particularly useful when 
+                    dealing with collisions at various angles.
+                  </p>
+                  <div className="mt-2 text-center">
+                    <InlineMath>{'\\vec{p} = p_x\\hat{i} + p_y\\hat{j}'}</InlineMath>
+                  </div>
+                </div>
                 
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-                  <h4 className="font-semibold text-blue-800 mb-3">Two Major Properties of Momentum:</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
-                      <div>
-                        <p className="font-semibold text-blue-900">Momentum is always conserved</p>
-                        <p className="text-blue-800 text-sm">
-                          In isolated systems, the total momentum before any interaction equals the total momentum after the interaction.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
-                      <div>
-                        <p className="font-semibold text-blue-900">Momentum is a vector quantity</p>
-                        <p className="text-blue-800 text-sm">
-                          Momentum has both magnitude and direction, making vector analysis essential for multi-dimensional problems.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-green-800 mb-3">Vector Addition in Two Dimensions</h4>
-                  <p className="mb-3 text-green-900">
-                    When extending momentum analysis to two or more dimensions, we must use vector addition. 
-                    There are two basic techniques for handling vector momentum:
+                <div className="bg-white p-3 rounded border border-green-300">
+                  <h5 className="font-semibold text-green-700 mb-2">2. Vector Addition Method</h5>
+                  <p className="text-sm text-green-800">
+                    Use geometric principles such as the parallelogram rule or triangle method to 
+                    combine momentum vectors directly. This method provides visual insight into 
+                    the momentum relationships.
                   </p>
-                  
-                  <div className="space-y-3">
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">1. Component Method</h5>
-                      <p className="text-sm text-green-800">
-                        Break each momentum vector into its x and y components, then apply conservation 
-                        of momentum separately to each direction. This method is particularly useful when 
-                        dealing with collisions at various angles.
-                      </p>
-                      <div className="mt-2 text-center">
-                        <InlineMath>{'\\vec{p} = p_x\\hat{i} + p_y\\hat{j}'}</InlineMath>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">2. Vector Addition Method</h5>
-                      <p className="text-sm text-green-800">
-                        Use geometric principles such as the parallelogram rule or triangle method to 
-                        combine momentum vectors directly. This method provides visual insight into 
-                        the momentum relationships.
-                      </p>
-                      <div className="mt-2 text-center">
-                        <InlineMath>{'\\vec{p}_{total} = \\vec{p}_1 + \\vec{p}_2 + \\vec{p}_3 + ...'}</InlineMath>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-yellow-800 mb-2">Key Insight:</h4>
-                  <p className="text-yellow-900">
-                    The conservation of momentum principle applies independently to each dimension. 
-                    This means that momentum is conserved in the x-direction and simultaneously 
-                    conserved in the y-direction, allowing us to solve complex two-dimensional 
-                    collision problems systematically.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}        </div>
-      </TextSection>
-
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsComponentMethodOpen(!isComponentMethodOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Component Method</h3>
-            <span className="text-blue-600">{isComponentMethodOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isComponentMethodOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">                <p className="mb-4">
-                  The main principle used in the component method for solving two dimensional collision 
-                  problems is that the momentum in the east-west direction and the momentum in the 
-                  north-south direction are independent – we treat east-west momentum separately from 
-                  north-south momentum.
-                </p>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-green-800 mb-3">Independent Directions</h4>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">East-West Direction (x-axis)</h5>
-                      <p className="text-sm text-green-800">
-                        Conservation of momentum applies independently in the horizontal direction:
-                      </p>
-                      <div className="mt-2 text-center">
-                        <InlineMath>{'\\sum p_{x,initial} = \\sum p_{x,final}'}</InlineMath>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">North-South Direction (y-axis)</h5>
-                      <p className="text-sm text-green-800">
-                        Conservation of momentum applies independently in the vertical direction:
-                      </p>
-                      <div className="mt-2 text-center">
-                        <InlineMath>{'\\sum p_{y,initial} = \\sum p_{y,final}'}</InlineMath>
-                      </div>
-                    </div>
+                  <div className="mt-2 text-center">
+                    <InlineMath>{'\\vec{p}_{total} = \\vec{p}_1 + \\vec{p}_2 + \\vec{p}_3 + ...'}</InlineMath>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>      </TextSection>
 
-      <TextSection>
-        <div className="mb-6">          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="font-semibold text-yellow-800 mb-2">Key Insight:</h4>
+              <p className="text-yellow-900">
+                The conservation of momentum principle applies independently to each dimension. 
+                This means that momentum is conserved in the x-direction and simultaneously 
+                conserved in the y-direction, allowing us to solve complex two-dimensional 
+                collision problems systematically.
+              </p>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
+
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Component Method"
+            value="component-method"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1 - Two-Dimensional Explosion</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <p className="mb-4">
+              The main principle used in the component method for solving two dimensional collision 
+              problems is that the momentum in the east-west direction and the momentum in the 
+              north-south direction are independent – we treat east-west momentum separately from 
+              north-south momentum.
+            </p>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-green-800 mb-3">Independent Directions</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white p-3 rounded border border-green-300">
+                  <h5 className="font-semibold text-green-700 mb-2">East-West Direction (x-axis)</h5>
+                  <p className="text-sm text-green-800">
+                    Conservation of momentum applies independently in the horizontal direction:
+                  </p>
+                  <div className="mt-2 text-center">
+                    <InlineMath>{'\\sum p_{x,initial} = \\sum p_{x,final}'}</InlineMath>
+                  </div>
+                </div>
+                
+                <div className="bg-white p-3 rounded border border-green-300">
+                  <h5 className="font-semibold text-green-700 mb-2">North-South Direction (y-axis)</h5>
+                  <p className="text-sm text-green-800">
+                    Conservation of momentum applies independently in the vertical direction:
+                  </p>
+                  <div className="mt-2 text-center">
+                    <InlineMath>{'\\sum p_{y,initial} = \\sum p_{y,final}'}</InlineMath>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
+
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 1 - Two-Dimensional Explosion"
+            value="example-1-explosion"
+            onAskAI={onAIAccordionContent}
+          >
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 16.0 kg object traveling east at 30.00 m/s explodes into two pieces. The first part has 
@@ -608,24 +585,18 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 2 - Two-Dimensional Collision"
+            value="example-2-collision"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2 - Two-Dimensional Collision</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 100.0 kg object traveling east at 50.0 m/s collides with a 50.0 kg object at rest. 
@@ -912,11 +883,11 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
+      
         <SlideshowKnowledgeCheck
           courseId="2"
           lessonPath="03-momentum-two-dimensions"
@@ -948,21 +919,16 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
           ]}
           theme="blue"
         />
-      </TextSection>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsVectorAdditionOpen(!isVectorAdditionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Vector Addition Method"
+            value="vector-addition-method"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Vector Addition Method</h3>
-            <span className="text-blue-600">{isVectorAdditionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isVectorAdditionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   The vector addition method uses geometric principles to combine momentum vectors directly. 
                   This approach provides visual insight into momentum relationships and is particularly 
@@ -1016,23 +982,18 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 3 - Two-Dimensional Explosion"
+            value="example-3-explosion"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 3 - Two-Dimensional Explosion</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 16.0 kg object traveling east at 30.00 m/s explodes into two pieces. The first part has 
@@ -1157,23 +1118,18 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 4 - Two-Dimensional Collision with Unknown Final Velocity"
+            value="example-4-collision"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 4 - Two-Dimensional Collision with Unknown Final Velocity</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 500 kg mass traveling south at 300 m/s collides with a 100 kg object at rest. 
@@ -1295,21 +1251,18 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}        </div>
-      </TextSection>      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 5 - Three Piece Explosion</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-          {isExample5Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 5 - Three Piece Explosion"
+            value="example-5-explosion"
+            onAskAI={onAIAccordionContent}
+          >
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 20 kg bomb is at rest. The bomb explodes into three pieces. A 2.50 kg piece moves 
@@ -1425,9 +1378,12 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                   </ol>
                 </div>
               </div>
-            </div>
-          )}        </div>      </TextSection>      {/* Advanced Practice Problems */}
-      <TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
+
+      {/* Advanced Practice Problems */}
+      
         <SlideshowKnowledgeCheck
           courseId="2"
           lessonPath="03-momentum-two-dimensions-advanced"
@@ -1459,7 +1415,7 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
           ]}
           theme="blue"
         />
-      </TextSection>
+      
 
       <LessonSummary
         points={[

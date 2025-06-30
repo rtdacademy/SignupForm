@@ -14,23 +14,47 @@ function convertAccordions(filePath) {
     process.exit(1);
   }
 
-  let content = fs.readFileSync(filePath, 'utf8');
+  const content = fs.readFileSync(filePath, 'utf8');
   let stateVariablesToRemove = [];
 
-  // Pattern to match manual accordion sections
-  const accordionPattern = /<TextSection>\s*<div className="mb-6">\s*<button\s+onClick=\{[^}]*setIs(\w+)Open[^}]*\}[^>]*>\s*<h3[^>]*>([^<]+)<\/h3>\s*<span[^>]*>\{is\w+Open[^}]*\}<\/span>\s*<\/button>\s*\{is\w+Open && \(\s*<div className="mt-4">([\s\S]*?)<\/div>\s*\)\}\s*<\/div>\s*<\/TextSection>/g;
+  // Manual approach - find sections by button patterns and parse manually
+  const sections = findAccordionSections(content);
+  
+  console.log(`Found ${sections.length} accordion sections to convert:`);
+  
+  return {
+    content: content, // For now, just return original content 
+    convertedCount: sections.length,
+    removedStateVars: []
+  };
+}
 
-  // Find all accordion sections
+function findAccordionSections(content) {
+  // Find all button patterns with onClick handlers
+  const buttonPattern = /onClick=\{\(\) => setIs(\w+)Open\(!is\w+Open\)\}/g;
   const matches = [];
   let match;
-  while ((match = accordionPattern.exec(content)) !== null) {
-    matches.push({
-      fullMatch: match[0],
-      stateName: match[1],
-      title: match[2].trim(),
-      content: match[3]
-    });
+  
+  while ((match = buttonPattern.exec(content)) !== null) {
+    const stateName = match[1];
+    
+    // Find the title by looking for the h3 tag after this button
+    const beforeButton = content.substring(0, match.index);
+    const afterButton = content.substring(match.index);
+    
+    // Look for h3 tag in the button
+    const titleMatch = afterButton.match(/<h3[^>]*>([^<]+)<\/h3>/);
+    if (titleMatch) {
+      matches.push({
+        stateName: stateName,
+        title: titleMatch[1].trim(),
+        position: match.index
+      });
+    }
   }
+  
+  return matches;
+}
 
   console.log(`Found ${matches.length} accordion sections to convert:`);
 

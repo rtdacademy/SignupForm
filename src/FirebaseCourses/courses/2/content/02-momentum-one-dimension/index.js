@@ -531,15 +531,11 @@ AIAccordion, onAIAccordionContent }) => {
   // TEMPORARY FIX: Removed useAuth dependency to avoid permission errors
   // const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);  const [isSystemsOpen, setIsSystemsOpen] = useState(false);  const [isConservationOfMomentumOpen, setIsConservationOfMomentumOpen] = useState(false);  const [isElasticInelasticCollisionsOpen, setIsElasticInelasticCollisionsOpen] = useState(false);
+  const [error, setError] = useState(null);  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);
   const [isExplosionsOpen, setIsExplosionsOpen] = useState(false);  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
   const [isExample4Open, setIsExample4Open] = useState(false);
   const [isExample5Open, setIsExample5Open] = useState(false);
-  const [isExample6Open, setIsExample6Open] = useState(false);  const [isExample7Open, setIsExample7Open] = useState(false);
-  const [isExample8Open, setIsExample8Open] = useState(false);
-  const [isExample9Open, setIsExample9Open] = useState(false);
-  const [isInertiaVsMomentumOpen, setIsInertiaVsMomentumOpen] = useState(false);  const [currentMomentumProblem, setCurrentMomentumProblem] = useState(0);
+  const [isExample6Open, setIsExample6Open] = useState(false);  const [isInertiaVsMomentumOpen, setIsInertiaVsMomentumOpen] = useState(false);  const [currentMomentumProblem, setCurrentMomentumProblem] = useState(0);
   const [currentCollisionProblem, setCurrentCollisionProblem] = useState(0);
   const [currentAdvancedProblem, setCurrentAdvancedProblem] = useState(0);
   
@@ -803,7 +799,7 @@ AIAccordion, onAIAccordionContent }) => {
       title="Lesson 1 - Momentum and Conservation of Momentum in One Dimension"
       metadata={{ estimated_time: '120 minutes' }}
     >
-      <TextSection>
+     
         <AIAccordion theme="blue">
           <AIAccordion.Item
             title="Physics Principles in Physics 30"
@@ -902,9 +898,9 @@ AIAccordion, onAIAccordionContent }) => {
             </div>
           </AIAccordion.Item>
         </AIAccordion>
-      </TextSection>
+     
 
-      <TextSection>
+      
         <AIAccordion theme="blue">
           <AIAccordion.Item
             title="Momentum: A Fundamental Physical Concept"
@@ -970,9 +966,9 @@ AIAccordion, onAIAccordionContent }) => {
             </div>
           </AIAccordion.Item>
         </AIAccordion>
-      </TextSection>
+      
 
-      <TextSection>
+      
         <AIAccordion theme="blue">
           <AIAccordion.Item
             title="Example 1: Calculating Momentum"
@@ -1068,246 +1064,235 @@ AIAccordion, onAIAccordionContent }) => {
             </div>
           </AIAccordion.Item>
         </AIAccordion>
-      </TextSection>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2: Finding Velocity from Momentum</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example shows how to find velocity when momentum and mass are known, using the same momentum from Example 1.
+     
+  <AIAccordion theme="blue">
+    <AIAccordion.Item
+      title="Example 2: Finding Velocity from Momentum"
+      value="example-2"
+      onAskAI={onAIAccordionContent}
+    >
+      <p className="mb-4">
+        This example shows how to find velocity when momentum and mass are known, using the same momentum from Example 1.
+      </p>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+        <p className="mb-4">
+          A micro-meteorite with a mass of 5.0 g has the same momentum as the car in Example 1. 
+          What is the velocity of the meteorite?
+        </p>
+        <div className="bg-white p-4 rounded border border-gray-100">
+          <p className="font-medium text-gray-700 mb-2">Solution:</p>
+          <ol className="list-decimal pl-6 space-y-3">
+            <li>
+              <strong>Identify known values:</strong>
+              <div className="pl-4 mt-2 space-y-4">
+                <div>
+                  <div className="group relative cursor-help mb-2">
+                    <div className="flex items-baseline">
+                      <div className="w-48">Mass of meteorite:</div>
+                      <div><InlineMath>{'m = 5.0~\\text{g} = 0.0050~\\text{kg}'}</InlineMath></div>
+                      <span className="ml-1 text-blue-500 text-xs relative">
+                        ⓘ
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
+                          Convert grams to kilograms for consistency
+                        </div>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="group relative cursor-help mb-2">
+                    <div className="flex items-baseline">
+                      <div className="w-48">Momentum:</div>
+                      <div><InlineMath>{'\\vec{p} = 7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath> west</div>
+                      <span className="ml-1 text-blue-500 text-xs relative">
+                        ⓘ
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
+                          Same momentum as the car from Example 1
+                        </div>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            <li>
+              <strong>Select appropriate equation:</strong>
+              <div className="pl-4 mt-2 group relative cursor-help">
+                <p className="border-b border-dotted border-blue-300 inline-block">Rearrange momentum formula to solve for velocity:</p>
+                <span className="ml-1 inline-block text-blue-500 text-xs">ⓘ</span>
+                <BlockMath>{'\\vec{p} = m\\vec{v}'}</BlockMath>
+                <BlockMath>{'\\vec{v} = \\frac{\\vec{p}}{m}'}</BlockMath>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none">
+                  Divide both sides by mass to isolate velocity
+                </div>
+              </div>
+            </li>
+            <li>
+              <strong>Substitute values:</strong>
+              <div className="pl-4 mt-2">
+                <BlockMath>{'\\vec{v} = \\frac{7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}}{0.0050~\\text{kg}}'}</BlockMath>
+                <BlockMath>{'\\vec{v} = \\frac{7.5 \\times 10^3}{5.0 \\times 10^{-3}}~\\text{m/s}'}</BlockMath>
+                <BlockMath>{'\\vec{v} = 1.5 \\times 10^6~\\text{m/s}'}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Final answer:</strong>
+              <p className="pl-4 mt-1 group relative cursor-help inline-flex items-center">
+                <span>The velocity of the meteorite is <InlineMath>{'1.5 \\times 10^6~\\text{m/s}'}</InlineMath> west</span>
+                <span className="ml-1 text-blue-500 text-xs relative">
+                  ⓘ
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-64 pointer-events-none z-10">
+                    This is about 0.5% the speed of light - extremely fast!
+                  </div>
+                </span>
               </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A micro-meteorite with a mass of 5.0 g has the same momentum as the car in Example 1. 
-                  What is the velocity of the meteorite?
-                </p>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
-                  <ol className="list-decimal pl-6 space-y-3">
-                    <li>
-                      <strong>Identify known values:</strong>
-                      <div className="pl-4 mt-2 space-y-4">
-                        <div>
-                          <div className="group relative cursor-help mb-2">
-                            <div className="flex items-baseline">
-                              <div className="w-48">Mass of meteorite:</div>
-                              <div><InlineMath>{'m = 5.0~\\text{g} = 0.0050~\\text{kg}'}</InlineMath></div>
-                              <span className="ml-1 text-blue-500 text-xs relative">
-                                ⓘ
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
-                                  Convert grams to kilograms for consistency
-                                </div>
-                              </span>
-                            </div>
-                          </div>
-                          <div className="group relative cursor-help mb-2">
-                            <div className="flex items-baseline">
-                              <div className="w-48">Momentum:</div>
-                              <div><InlineMath>{'\\vec{p} = 7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath> west</div>
-                              <span className="ml-1 text-blue-500 text-xs relative">
-                                ⓘ
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
-                                  Same momentum as the car from Example 1
-                                </div>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                    <li>
-                      <strong>Select appropriate equation:</strong>
-                      <div className="pl-4 mt-2 group relative cursor-help">
-                        <p className="border-b border-dotted border-blue-300 inline-block">Rearrange momentum formula to solve for velocity:</p>
-                        <span className="ml-1 inline-block text-blue-500 text-xs">ⓘ</span>
-                        <BlockMath>{'\\vec{p} = m\\vec{v}'}</BlockMath>
-                        <BlockMath>{'\\vec{v} = \\frac{\\vec{p}}{m}'}</BlockMath>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none">
-                          Divide both sides by mass to isolate velocity
-                        </div>
-                      </div>
-                    </li>
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <BlockMath>{'\\vec{v} = \\frac{7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}}{0.0050~\\text{kg}}'}</BlockMath>
-                        <BlockMath>{'\\vec{v} = \\frac{7.5 \\times 10^3}{5.0 \\times 10^{-3}}~\\text{m/s}'}</BlockMath>
-                        <BlockMath>{'\\vec{v} = 1.5 \\times 10^6~\\text{m/s}'}</BlockMath>
-                      </div>
-                    </li>
-                    <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1 group relative cursor-help inline-flex items-center">
-                        <span>The velocity of the meteorite is <InlineMath>{'1.5 \\times 10^6~\\text{m/s}'}</InlineMath> west</span>
-                        <span className="ml-1 text-blue-500 text-xs relative">
-                          ⓘ
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-64 pointer-events-none z-10">
-                            This is about 0.5% the speed of light - extremely fast!
-                          </div>
-                        </span>
-                      </p>
-                    </li>
-                  </ol>
+            </li>
+          </ol>
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-800">
+                <strong>Physical Insight:</strong> Notice how the tiny mass of the meteorite (5.0 g) requires 
+                an enormous velocity (1.5 × 10⁶ m/s) to have the same momentum as a much more massive 
+                car (1500 kg) moving at a relatively slow speed (5.0 m/s). This demonstrates the inverse 
+                relationship between mass and velocity when momentum is constant.
+              </p>
+           
+              </div> 
+            </div>    
+          </div>       
+        </div>        
+    </AIAccordion.Item>
+  </AIAccordion>
 
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-sm text-amber-800">
-                        <strong>Physical Insight:</strong> Notice how the tiny mass of the meteorite (5.0 g) requires 
-                        an enormous velocity (1.5 × 10⁶ m/s) to have the same momentum as a much more massive 
-                        car (1500 kg) moving at a relatively slow speed (5.0 m/s). This demonstrates the inverse 
-                        relationship between mass and velocity when momentum is constant.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
+    
+  <AIAccordion theme="amber">
+    <AIAccordion.Item
+      title="⚠️ Important Note: Inertia vs Momentum"
+      value="inertia-vs-momentum"
+      onAskAI={onAIAccordionContent}
+    >
+      <div className="bg-amber-50 p-6 rounded-lg border border-amber-200">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+          <p className="text-red-800 font-medium mb-2">
+            <strong>Common Misconception Alert!</strong>
+          </p>
+          <p className="text-red-700">
+            A major misconception that people have is that <span className="font-semibold">inertia and momentum mean the same thing</span>.
+          </p>
         </div>
-      </TextSection>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsInertiaVsMomentumOpen(!isInertiaVsMomentumOpen)}
-            className="w-full text-left p-4 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors duration-200 flex items-center justify-between border border-amber-200"
-          >
-            <h3 className="text-xl font-semibold text-amber-800">⚠️ Important Note: Inertia vs Momentum</h3>
-            <span className="text-amber-600">{isInertiaVsMomentumOpen ? '▼' : '▶'}</span>
-          </button>
+        <div className="bg-white p-4 rounded-lg border border-amber-300 mb-4">
+          <h4 className="font-semibold text-gray-800 mb-3">Comparing Our Examples:</h4>
+          <p className="mb-4">
+            In the examples above, both objects have the <span className="font-semibold text-blue-700">same momentum</span> 
+            (mass × velocity) but the <span className="font-semibold text-green-700">inertia</span> (i.e. mass) of the 
+            car is substantially larger than the inertia of the meteorite.
+          </p>
 
-          {isInertiaVsMomentumOpen && (
-            <div className="mt-4">
-              <div className="bg-amber-50 p-6 rounded-lg border border-amber-200">
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                  <p className="text-red-800 font-medium mb-2">
-                    <strong>Common Misconception Alert!</strong>
-                  </p>
-                  <p className="text-red-700">
-                    A major misconception that people have is that <span className="font-semibold">inertia and momentum mean the same thing</span>.
-                  </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <h5 className="font-semibold text-blue-800 mb-2">Car (Example 1)</h5>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Mass (Inertia):</span>
+                  <span className="font-mono"><InlineMath>{'1500~\\text{kg}'}</InlineMath></span>
                 </div>
-
-                <div className="bg-white p-4 rounded-lg border border-amber-300 mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-3">Comparing Our Examples:</h4>
-                  <p className="mb-4">
-                    In the examples above, both objects have the <span className="font-semibold text-blue-700">same momentum</span> 
-                    (mass × velocity) but the <span className="font-semibold text-green-700">inertia</span> (i.e. mass) of the 
-                    car is substantially larger than the inertia of the meteorite.
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                      <h5 className="font-semibold text-blue-800 mb-2">Car (Example 1)</h5>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Mass (Inertia):</span>
-                          <span className="font-mono"><InlineMath>{'1500~\\text{kg}'}</InlineMath></span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Velocity:</span>
-                          <span className="font-mono"><InlineMath>{'5.0~\\text{m/s}'}</InlineMath></span>
-                        </div>
-                        <div className="flex justify-between font-semibold">
-                          <span>Momentum:</span>
-                          <span className="font-mono"><InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath></span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 p-4 rounded border border-green-200">
-                      <h5 className="font-semibold text-green-800 mb-2">Meteorite (Example 2)</h5>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Mass (Inertia):</span>
-                          <span className="font-mono"><InlineMath>{'0.0050~\\text{kg}'}</InlineMath></span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Velocity:</span>
-                          <span className="font-mono"><InlineMath>{'1.5 \\times 10^6~\\text{m/s}'}</InlineMath></span>
-                        </div>
-                        <div className="flex justify-between font-semibold">
-                          <span>Momentum:</span>
-                          <span className="font-mono"><InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath></span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex justify-between">
+                  <span>Velocity:</span>
+                  <span className="font-mono"><InlineMath>{'5.0~\\text{m/s}'}</InlineMath></span>
                 </div>
-
-                <div className="bg-white border border-gray-300 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 text-center">Key Distinctions</h4>
-                  
-                  <div className="space-y-4">
-                    <div className="group relative cursor-help">
-                      <div className="flex items-start space-x-3 p-3 bg-green-50 rounded border border-green-200">
-                        <div className="font-semibold text-green-700 min-w-[4rem]">
-                          <InlineMath>{'\\text{Inertia}'}</InlineMath>
-                        </div>
-                        <div>
-                          <p className="text-green-800">
-                            Refers to the <span className="font-semibold">mass of an object</span>
-                          </p>
-                          <p className="text-sm text-green-700 mt-1">
-                            • Measures resistance to changes in motion<br/>
-                            • Scalar quantity (no direction)<br/>
-                            • Units: kg
-                          </p>
-                        </div>
-                        <span className="text-green-500 text-xs">ⓘ</span>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none z-10">
-                          Inertia is a property of matter that quantifies how much an object resists acceleration
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="group relative cursor-help">
-                      <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded border border-blue-200">
-                        <div className="font-semibold text-blue-700 min-w-[4rem]">
-                          <InlineMath>{'\\text{Momentum}'}</InlineMath>
-                        </div>
-                        <div>
-                          <p className="text-blue-800">
-                            Refers to the <span className="font-semibold">mass and motion of the object</span>
-                          </p>
-                          <p className="text-sm text-blue-700 mt-1">
-                            • Measures quantity of motion<br/>
-                            • Vector quantity (has direction)<br/>
-                            • Units: kg·m/s
-                          </p>
-                        </div>
-                        <span className="text-blue-500 text-xs">ⓘ</span>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none z-10">
-                          Momentum combines both the mass of an object and its velocity to describe its motion
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Memory Tip:</strong> Think of inertia as "how stubborn" an object is about changing its motion, 
-                      while momentum describes "how much motion" an object actually has.
-                    </p>
-                  </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Momentum:</span>
+                  <span className="font-mono"><InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath></span>
                 </div>
               </div>
             </div>
-          )}
-        </div>      </TextSection>
 
-      <TextSection>
+            <div className="bg-green-50 p-4 rounded border border-green-200">
+              <h5 className="font-semibold text-green-800 mb-2">Meteorite (Example 2)</h5>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Mass (Inertia):</span>
+                  <span className="font-mono"><InlineMath>{'0.0050~\\text{kg}'}</InlineMath></span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Velocity:</span>
+                  <span className="font-mono"><InlineMath>{'1.5 \\times 10^6~\\text{m/s}'}</InlineMath></span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Momentum:</span>
+                  <span className="font-mono"><InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="bg-white border border-gray-300 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-800 mb-3 text-center">Key Distinctions</h4>
+          <div className="space-y-4">
+            <div className="group relative cursor-help">
+              <div className="flex items-start space-x-3 p-3 bg-green-50 rounded border border-green-200">
+                <div className="font-semibold text-green-700 min-w-[4rem]">
+                  <InlineMath>{'\\text{Inertia}'}</InlineMath>
+                </div>
+                <div>
+                  <p className="text-green-800">
+                    Refers to the <span className="font-semibold">mass of an object</span>
+                  </p>
+                  <p className="text-sm text-green-700 mt-1">
+                    • Measures resistance to changes in motion<br/>
+                    • Scalar quantity (no direction)<br/>
+                    • Units: kg
+                  </p>
+                </div>
+                <span className="text-green-500 text-xs">ⓘ</span>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none z-10">
+                  Inertia is a property of matter that quantifies how much an object resists acceleration
+                </div>
+              </div>
+            </div>
+
+            <div className="group relative cursor-help">
+              <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="font-semibold text-blue-700 min-w-[4rem]">
+                  <InlineMath>{'\\text{Momentum}'}</InlineMath>
+                </div>
+                <div>
+                  <p className="text-blue-800">
+                    Refers to the <span className="font-semibold">mass and motion of the object</span>
+                  </p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    • Measures quantity of motion<br/>
+                    • Vector quantity (has direction)<br/>
+                    • Units: kg·m/s
+                  </p>
+                </div>
+                <span className="text-blue-500 text-xs">ⓘ</span>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none z-10">
+                  Momentum combines both the mass of an object and its velocity to describe its motion
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-sm text-yellow-800">
+              <strong>Memory Tip:</strong> Think of inertia as "how stubborn" an object is about changing its motion, 
+              while momentum describes "how much motion" an object actually has.
+            </p>
+          </div>
+        </div>
+        </div>
+      </AIAccordion.Item>
+  </AIAccordion>
+
+
+
+      
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension"
@@ -1345,99 +1330,92 @@ AIAccordion, onAIAccordionContent }) => {
             console.log(`Momentum Knowledge Check completed with ${score}% score`);
           }}
         />
-      </TextSection>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsSystemsOpen(!isSystemsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Systems"
+            value="systems"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Systems</h3>
-            <span className="text-blue-600">{isSystemsOpen ? '▼' : '▶'}</span>
-          </button>          {isSystemsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  Before we can understand momentum more fully, we must also be aware of different 
-                  kinds of systems. There are several types of systems:
-                </p>
-                
-                <div className="space-y-4 mb-6">
-                  <div className="bg-white border border-gray-300 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3">Types of Systems</h4>
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div className="bg-green-50 p-3 rounded border border-green-200">
-                        <h5 className="font-semibold text-green-700 mb-2">Closed System</h5>
-                        <p className="text-sm text-green-800">No mass enters or leaves the system</p>
-                      </div>
-                      <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                        <h5 className="font-semibold text-blue-700 mb-2">Isolated System</h5>
-                        <p className="text-sm text-blue-800">No external forces act on the system and no energy leaves the system</p>
-                      </div>
-                      <div className="bg-red-50 p-3 rounded border border-red-200">
-                        <h5 className="font-semibold text-red-700 mb-2">Open System</h5>
-                        <p className="text-sm text-red-800">Mass may enter or leave the system and external forces may influence the system</p>
-                      </div>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                Before we can understand momentum more fully, we must also be aware of different 
+                kinds of systems. There are several types of systems:
+              </p>
+              
+              <div className="space-y-4 mb-6">
+                <div className="bg-white border border-gray-300 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-3">Types of Systems</h4>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 p-3 rounded border border-green-200">
+                      <h5 className="font-semibold text-green-700 mb-2">Closed System</h5>
+                      <p className="text-sm text-green-800">No mass enters or leaves the system</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                      <h5 className="font-semibold text-blue-700 mb-2">Isolated System</h5>
+                      <p className="text-sm text-blue-800">No external forces act on the system and no energy leaves the system</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded border border-red-200">
+                      <h5 className="font-semibold text-red-700 mb-2">Open System</h5>
+                      <p className="text-sm text-red-800">Mass may enter or leave the system and external forces may influence the system</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-amber-800 mb-3">Real-Life Example: Car Collision</h4>
-                  <p className="mb-3">
-                    To illustrate the difference between these kinds of systems, consider a real-life collision 
-                    between two cars:
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="bg-white p-4 rounded border border-amber-100">
-                      <p className="mb-2">
-                        <span className="font-semibold text-amber-700">1.</span> The collision of the cars is 
-                        <strong> not an isolated system</strong> – i.e. they are not isolated from the Earth. 
-                        Frictional forces between the Earth and the cars will cause the cars to slow down.
-                      </p>
-                      <p className="text-amber-600 italic text-sm">
-                        If the cars collided on a very slippery surface where the frictional forces with the 
-                        Earth were minimised, this would almost constitute an isolated system.
-                      </p>
-                    </div>
-                    
-                    <div className="bg-white p-4 rounded border border-amber-100">
-                      <p className="mb-2">
-                        <span className="font-semibold text-amber-700">2.</span> If the cars collide and all 
-                        of the parts of the cars stay attached to the cars we have a <strong>closed system</strong>.
-                      </p>
-                      <p className="text-amber-600 italic text-sm">
-                        However, if parts of the cars fly off we have an <strong>open system</strong>.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-purple-800 mb-2">Important for Our Study:</h4>
-                  <p className="text-purple-900">
-                    In our investigation of the conservation of momentum below we will be assuming 
-                    <strong> closed and isolated systems</strong>.
-                  </p>
                 </div>
               </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-amber-800 mb-3">Real-Life Example: Car Collision</h4>
+                <p className="mb-3">
+                  To illustrate the difference between these kinds of systems, consider a real-life collision 
+                  between two cars:
+                </p>
+                
+                <div className="space-y-3">
+                  <div className="bg-white p-4 rounded border border-amber-100">
+                    <p className="mb-2">
+                      <span className="font-semibold text-amber-700">1.</span> The collision of the cars is 
+                      <strong> not an isolated system</strong> – i.e. they are not isolated from the Earth. 
+                      Frictional forces between the Earth and the cars will cause the cars to slow down.
+                    </p>
+                    <p className="text-amber-600 italic text-sm">
+                      If the cars collided on a very slippery surface where the frictional forces with the 
+                      Earth were minimised, this would almost constitute an isolated system.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded border border-amber-100">
+                    <p className="mb-2">
+                      <span className="font-semibold text-amber-700">2.</span> If the cars collide and all 
+                      of the parts of the cars stay attached to the cars we have a <strong>closed system</strong>.
+                    </p>
+                    <p className="text-amber-600 italic text-sm">
+                      However, if parts of the cars fly off we have an <strong>open system</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="font-semibold text-purple-800 mb-2">Important for Our Study:</h4>
+                <p className="text-purple-900">
+                  In our investigation of the conservation of momentum below we will be assuming 
+                  <strong> closed and isolated systems</strong>.
+                </p>
+              </div>
             </div>
-          )}</div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">          <button
-            onClick={() => setIsConservationOfMomentumOpen(!isConservationOfMomentumOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Conservation of Momentum"
+            value="conservation-of-momentum"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Conservation of Momentum</h3>
-            <span className="text-blue-600">{isConservationOfMomentumOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isConservationOfMomentumOpen && (
-            <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   The real importance of the concept of momentum is that in any isolated closed system, 
@@ -1547,824 +1525,565 @@ AIAccordion, onAIAccordionContent }) => {
                   </div>
                 </div>
               </div>
-            </div>          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElasticInelasticCollisionsOpen(!isElasticInelasticCollisionsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Elastic and Inelastic Collisions"
+            value="elastic-and-inelastic-collisions"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Elastic and Inelastic Collisions</h3>
-            <span className="text-blue-600">{isElasticInelasticCollisionsOpen ? '▼' : '▶'}</span>
-          </button>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                There are two basic types of collisions – elastic and inelastic – and we use the law of 
+                conservation of momentum to predict and calculate the results.
+              </p>
 
-          {isElasticInelasticCollisionsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  There are two basic types of collisions – elastic and inelastic – and we use the law of 
-                  conservation of momentum to predict and calculate the results.
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-green-800 mb-3">Elastic Collisions</h4>
+                <p className="mb-3">
+                  Elastic collisions are those where both momentum and kinetic energy are conserved. 
+                  Purely elastic collisions are very hard to produce in the ordinary world because there is 
+                  always some kinetic energy converted into heat, sound, deformation or some other form 
+                  of energy.
                 </p>
+                <p className="text-sm text-green-700 italic">
+                  As we shall see in future lessons on the nature of the atom, collisions 
+                  between subatomic particles are elastic collisions.
+                </p>
+              </div>
 
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-green-800 mb-3">Elastic Collisions</h4>
-                  <p className="mb-3">
-                    Elastic collisions are those where both momentum and kinetic energy are conserved. 
-                    Purely elastic collisions are very hard to produce in the ordinary world because there is 
-                    always some kinetic energy converted into heat, sound, deformation or some other form 
-                    of energy.
-                  </p>
-                  <p className="text-sm text-green-700 italic">
-                    As we shall see in future lessons on the nature of the atom, collisions 
-                    between subatomic particles are elastic collisions.
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-red-800 mb-3">Inelastic Collisions</h4>
+                <p className="mb-3">
+                  Inelastic collisions are those where momentum is conserved, but kinetic energy is not 
+                  conserved.
+                </p>
+                <div className="bg-white p-4 rounded border border-red-300">
+                  <p className="text-center font-semibold text-gray-800">
+                    A completely inelastic collision is when the objects collide and stick together.
                   </p>
                 </div>
+              </div>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-red-800 mb-3">Inelastic Collisions</h4>
-                  <p className="mb-3">
-                    Inelastic collisions are those where momentum is conserved, but kinetic energy is not 
-                    conserved.
-                  </p>
-                  <div className="bg-white p-4 rounded border border-red-300">
-                    <p className="text-center font-semibold text-gray-800">
-                      A completely inelastic collision is when the objects collide and stick together.
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 3: Collision Problem with Conservation of Momentum"
+            value="example-3-collision-problem"
+            onAskAI={onAIAccordionContent}
+          >
+            <p className="mb-4">
+              This example demonstrates how to apply conservation of momentum to solve collision problems.
+            </p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+              <p className="mb-4">
+                A 2.00 kg object travelling east at 4.00 m/s collides with a 3.00 kg object travelling west 
+                at 1.50 m/s. If the 3.00 kg object ends up travelling east at 1.25 m/s, what is the final 
+                velocity of the 2.00 kg object?
+              </p>
+                <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-2">Solution:</p>
+
+                {/* Data Summary Tables with Integrated Diagrams */}
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Before Collision Data with Diagram */}
+                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                      <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
+                      
+                      {/* Collision Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Object 1 - simple circle */}
+                          <circle cx="75" cy="40" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                          
+                          {/* Momentum arrow for object 1 */}
+                          <defs>
+                            <marker id="arrowhead1" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                              <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
+                            </marker>
+                          </defs>
+                          <line x1="95" y1="40" x2="130" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead1)"/>
+                          
+                          {/* Object 2 - simple circle */}
+                          <circle cx="225" cy="40" r="18" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                          
+                          {/* Momentum arrow for object 2 */}
+                          <defs>
+                            <marker id="arrowhead2" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                              <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
+                            </marker>
+                          </defs>
+                          <line x1="205" y1="40" x2="170" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead2)"/>
+                        </svg>
+                      </div>                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
+                          <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
+                          <div><InlineMath>{'+4.00~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
+                          <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
+                          <div><InlineMath>{'-1.50~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* After Collision Data with Diagram */}
+                    <div className="bg-green-50 p-4 rounded border border-green-200">
+                      <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
+                      
+                      {/* Collision Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Object 1 - simple circle (no arrow since velocity is unknown) */}
+                          <circle cx="90" cy="40" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                          
+                          {/* Object 2 - simple circle */}
+                          <circle cx="210" cy="40" r="18" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                          
+                          {/* Momentum arrow for object 2 only */}
+                          <defs>
+                            <marker id="arrowhead4" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                              <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
+                            </marker>
+                          </defs>
+                          <line x1="230" y1="40" x2="250" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead4)"/>
+                        </svg>
+                      </div>
+
+                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
+                          <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_1\' ='}</InlineMath></div>
+                          <div><InlineMath>{'?'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
+                          <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_2\' ='}</InlineMath></div>
+                          <div><InlineMath>{'+1.25~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <ol className="list-decimal pl-6 space-y-4">
+                  <li>
+                    <strong>Apply Conservation of Momentum:</strong>
+                    <div className="pl-4 mt-2">
+                      <p className="mb-2">When we apply the conservation of momentum principle we want the equation to reflect the context of the question. In this question there are two objects before the collision and two objects after the collision. Therefore there are two momentum terms on the before side and two momentum terms on the after side.</p>
+                      <div className="text-center mb-3">
+                        <BlockMath>{'m_1v_1 + m_2v_2 = m_1v_1\' + m_2v_2\''}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Rearrange to solve for v₁′:</strong>
+                    <div className="pl-4 mt-2">
+                      <p className="mb-2">Rearrange the equation, plug in the known values, and calculate the unknown.</p>
+                      <div className="space-y-2">
+                        <BlockMath>{'m_1v_1 + m_2v_2 = m_1v_1\' + m_2v_2\''}</BlockMath>
+                        <BlockMath>{'m_1v_1\' = m_1v_1 + m_2v_2 - m_2v_2\''}</BlockMath>
+                        <BlockMath>{'v_1\' = \\frac{m_1v_1 + m_2v_2 - m_2v_2\'}{m_1}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Substitute values:</strong>
+                    <div className="pl-4 mt-2">
+                      <div className="space-y-2">
+                        <BlockMath>{'v_1\' = \\frac{(2.00)(4.00) + (3.00)(-1.50) - (3.00)(1.25)}{2.00}'}</BlockMath>
+                        <BlockMath>{'v_1\' = \\frac{8.00 - 4.50 - 3.75}{2.00}'}</BlockMath>
+                        <BlockMath>{'v_1\' = \\frac{-0.25}{2.00}'}</BlockMath>
+                        <BlockMath>{'v_1\' = -0.13~\\text{m/s}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                    <li>
+                    <strong>Final answer:</strong>
+                    <p className="pl-4 mt-1">
+                      The final velocity of the 2.00 kg object is <InlineMath>{'0.13~\\text{m/s}'}</InlineMath> west.
                     </p>
-                  </div>
-                </div>
+                  </li>
+                </ol>
               </div>
             </div>
-          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3: Collision Problem with Conservation of Momentum</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
 
-          {isExample3Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example demonstrates how to apply conservation of momentum to solve collision problems.
+
+  <AIAccordion theme="blue">
+    <AIAccordion.Item
+      title="Example 4: Completely Inelastic Collision"
+      value="example-4"
+      onAskAI={onAIAccordionContent}
+    >
+      <p className="mb-4">
+        This example demonstrates a completely inelastic collision where objects stick together after impact.
+      </p>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+        <p className="mb-4">
+          A 30 kg object travelling at 45 m/s west collides with a 40 kg object at rest.  
+          If the objects stick together on contact, what is the resulting velocity of the combined masses?
+        </p>
+
+        <div className="bg-white p-4 rounded border border-gray-100 mb-6">
+          <p className="font-medium text-gray-700 mb-2">Solution:</p>
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Before Collision */}
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
+              <div className="flex justify-center mb-4">
+                <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                  <circle cx="75" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                  <circle cx="225" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                  <defs>
+                    <marker id="arrow5" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                      <polygon points="0 0, 6 2, 0 4" fill="#000"/>
+                    </marker>
+                  </defs>
+                  <line x1="200" y1="40" x2="170" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow5)"/>
+                </svg>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>m₁ = </span><span>30 kg</span></div>
+                <div className="flex justify-between"><span>v₁ = </span><span>-45 m/s</span></div>
+                <div className="flex justify-between"><span>m₂ = </span><span>40 kg</span></div>
+                <div className="flex justify-between"><span>v₂ = </span><span>0 m/s</span></div>
+              </div>
+            </div>
+            {/* After Collision */}
+            <div className="bg-green-50 p-4 rounded border border-green-200">
+              <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
+              <div className="flex justify-center mb-4">
+                <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                  <circle cx="135" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                  <circle cx="165" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                  <defs>
+                    <marker id="arrow6" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                      <polygon points="0 0, 6 2, 0 4" fill="#000"/>
+                    </marker>
+                  </defs>
+                  <line x1="110" y1="40" x2="80" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow6)"/>
+                </svg>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>m₁₂ = </span><span>70 kg</span></div>
+                <div className="flex justify-between"><span>v₁₂ = </span><span>?</span></div>
+              </div>
+            </div>
+          </div>
+
+          <ol className="list-decimal pl-6 space-y-4">
+            <li>
+              <strong>Conservation of Momentum:</strong>
+              <div className="pl-4 mt-2 text-center">
+                <BlockMath>{`m_1v_1 + m_2v_2 = m_{12}v_{12}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Rearrange:</strong>
+              <div className="pl-4 mt-2">
+                <BlockMath>{`v_{12} = \\frac{m_1v_1 + m_2v_2}{m_{12}}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Substitute:</strong>
+              <div className="pl-4 mt-2 space-y-2">
+                <BlockMath>{`v_{12} = \\frac{(30)(-45) + (40)(0)}{70}`}</BlockMath>
+                <BlockMath>{`v_{12} = -19~\\text{m/s}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Answer:</strong>
+              <p className="pl-4 mt-1">
+                The combined masses move at <InlineMath>{`19~\\text{m/s}`}</InlineMath> west.
               </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 2.00 kg object travelling east at 4.00 m/s collides with a 3.00 kg object travelling west 
-                  at 1.50 m/s. If the 3.00 kg object ends up travelling east at 1.25 m/s, what is the final 
-                  velocity of the 2.00 kg object?
-                </p>
-                  <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
+            </li>
+          </ol>
 
-                  {/* Data Summary Tables with Integrated Diagrams */}
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before Collision Data with Diagram */}
-                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
-                        
-                        {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Object 1 - simple circle */}
-                            <circle cx="75" cy="40" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for object 1 */}
-                            <defs>
-                              <marker id="arrowhead1" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="95" y1="40" x2="130" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead1)"/>
-                            
-                            {/* Object 2 - simple circle */}
-                            <circle cx="225" cy="40" r="18" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for object 2 */}
-                            <defs>
-                              <marker id="arrowhead2" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="205" y1="40" x2="170" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead2)"/>
-                          </svg>
-                        </div>                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'+4.00~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'-1.50~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* After Collision Data with Diagram */}
-                      <div className="bg-green-50 p-4 rounded border border-green-200">
-                        <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
-                        
-                        {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Object 1 - simple circle (no arrow since velocity is unknown) */}
-                            <circle cx="90" cy="40" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            
-                            {/* Object 2 - simple circle */}
-                            <circle cx="210" cy="40" r="18" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for object 2 only */}
-                            <defs>
-                              <marker id="arrowhead4" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="230" y1="40" x2="250" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead4)"/>
-                          </svg>
-                        </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_1\' ='}</InlineMath></div>
-                            <div><InlineMath>{'?'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_2\' ='}</InlineMath></div>
-                            <div><InlineMath>{'+1.25~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ol className="list-decimal pl-6 space-y-4">
-                    <li>
-                      <strong>Apply Conservation of Momentum:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">When we apply the conservation of momentum principle we want the equation to reflect the context of the question. In this question there are two objects before the collision and two objects after the collision. Therefore there are two momentum terms on the before side and two momentum terms on the after side.</p>
-                        <div className="text-center mb-3">
-                          <BlockMath>{'m_1v_1 + m_2v_2 = m_1v_1\' + m_2v_2\''}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Rearrange to solve for v₁′:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Rearrange the equation, plug in the known values, and calculate the unknown.</p>
-                        <div className="space-y-2">
-                          <BlockMath>{'m_1v_1 + m_2v_2 = m_1v_1\' + m_2v_2\''}</BlockMath>
-                          <BlockMath>{'m_1v_1\' = m_1v_1 + m_2v_2 - m_2v_2\''}</BlockMath>
-                          <BlockMath>{'v_1\' = \\frac{m_1v_1 + m_2v_2 - m_2v_2\'}{m_1}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <div className="space-y-2">
-                          <BlockMath>{'v_1\' = \\frac{(2.00)(4.00) + (3.00)(-1.50) - (3.00)(1.25)}{2.00}'}</BlockMath>
-                          <BlockMath>{'v_1\' = \\frac{8.00 - 4.50 - 3.75}{2.00}'}</BlockMath>
-                          <BlockMath>{'v_1\' = \\frac{-0.25}{2.00}'}</BlockMath>
-                          <BlockMath>{'v_1\' = -0.13~\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                      <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1">
-                        The final velocity of the 2.00 kg object is <InlineMath>{'0.13~\\text{m/s}'}</InlineMath> west.
-                      </p>
-                    </li>
-                  </ol>
-                </div>
-              </div>
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <p className="text-sm text-purple-800">
+                <strong>Note:</strong> Completely inelastic collisions conserve momentum but not kinetic energy.
+              </p>
             </div>
-          )}
+          </div>
         </div>
-      </TextSection>
+      </div>
+    </AIAccordion.Item>
+  </AIAccordion>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 4: Completely Inelastic Collision</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
 
-          {isExample4Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example demonstrates a completely inelastic collision where objects stick together after impact.
+
+  <AIAccordion theme="blue">
+    <AIAccordion.Item
+      title="Example 5: Finding Initial Velocity in Inelastic Collision"
+      value="example-5"
+      onAskAI={onAIAccordionContent}
+    >
+      <p className="mb-4">
+        This example demonstrates how to find an unknown initial velocity in a completely inelastic collision.
+      </p>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+        <p className="mb-4">
+          A 400 kg object travelling east at 50 m/s collides with a moving 50 kg object.  
+          The masses stick together and move at 27.8 m/s east. What was the initial velocity of the 50 kg object?
+        </p>
+
+        <div className="bg-white p-4 rounded border border-gray-100 mb-6">
+          <p className="font-medium text-gray-700 mb-2">Solution:</p>
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Before */}
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
+              <div className="flex justify-center mb-4">
+                <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                  <circle cx="75" cy="40" r="22" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                  <circle cx="225" cy="40" r="16" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                  <defs>
+                    <marker id="arrow7" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                      <polygon points="0 0,6 2,0 4" fill="#000"/>
+                    </marker>
+                  </defs>
+                  <line x1="100" y1="40" x2="130" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow7)"/>
+                  <line x1="200" y1="40" x2="170" y2="40" stroke="#888" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrow7)"/>
+                </svg>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>m₁ = </span><span>400 kg</span></div>
+                <div className="flex justify-between"><span>v₁ = </span><span>+50 m/s</span></div>
+                <div className="flex justify-between"><span>m₂ = </span><span>50 kg</span></div>
+                <div className="flex justify-between"><span>v₂ = </span><span>?</span></div>
+              </div>
+            </div>
+            {/* After */}
+            <div className="bg-green-50 p-4 rounded border border-green-200">
+              <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
+              <div className="flex justify-center mb-4">
+                <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                  <circle cx="135" cy="40" r="22" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                  <circle cx="165" cy="40" r="16" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                  <defs>
+                    <marker id="arrow8" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                      <polygon points="0 0,6 2,0 4" fill="#000"/>
+                    </marker>
+                  </defs>
+                  <line x1="190" y1="40" x2="220" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow8)"/>
+                </svg>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>m₁₂ = </span><span>450 kg</span></div>
+                <div className="flex justify-between"><span>v₁₂ = </span><span>+27.8 m/s</span></div>
+              </div>
+            </div>
+          </div>
+
+          <ol className="list-decimal pl-6 space-y-4">
+            <li>
+              <strong>Conservation of Momentum:</strong>
+              <div className="pl-4 mt-2 text-center">
+                <BlockMath>{`m_1v_1 + m_2v_2 = m_{12}v_{12}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Rearrange for v₂:</strong>
+              <div className="pl-4 mt-2">
+                <BlockMath>{`v_2 = \\frac{m_{12}v_{12} - m_1v_1}{m_2}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Substitute:</strong>
+              <div className="pl-4 mt-2 space-y-2">
+                <BlockMath>{`v_2 = \\frac{(450)(27.8) - (400)(50)}{50}`}</BlockMath>
+                <BlockMath>{`v_2 = -1.50 \\times 10^2~\\text{m/s}`}</BlockMath>
+              </div>
+            </li>
+            <li>
+              <strong>Answer:</strong>
+              <p className="pl-4 mt-1">
+                The 50 kg object was moving at <InlineMath>{`1.5 \\times 10^2~\\text{m/s}`}</InlineMath> west.
               </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 30 kg object travelling at 45 m/s west collides with a 40 kg object at rest. 
-                  If the objects stick together on contact, what is the resulting velocity of the combined masses?
-                </p>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </AIAccordion.Item>
+  </AIAccordion>
 
-                  {/* Data Summary Tables with Integrated Diagrams */}
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before Collision Data with Diagram */}
-                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
-                          {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Object 2 - stationary object (now on left) */}
-                            <circle cx="75" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            {/* No arrow for stationary object */}
-                            
-                            {/* Object 1 - moving object (now on right) */}
-                            <circle cx="225" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for object 1 (moving west - pointing toward stationary object) */}
-                            <defs>
-                              <marker id="arrowhead5" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="200" y1="40" x2="170" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead5)"/>
-                          </svg>
-                        </div>
 
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'30~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'-45~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'40~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'0~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* After Collision Data with Diagram */}
-                      <div className="bg-green-50 p-4 rounded border border-green-200">
-                        <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
-                          {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Combined objects - red and blue balls touching to show they stuck together */}
-                            <circle cx="135" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            <circle cx="165" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for combined object pointing west */}
-                            <defs>
-                              <marker id="arrowhead6" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="110" y1="40" x2="80" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead6)"/>
-                          </svg>
-                        </div>
+  <AIAccordion theme="blue">
+    <AIAccordion.Item
+      title="Example 6: Elastic vs Inelastic Collision Analysis"
+      value="example-6"
+      onAskAI={onAIAccordionContent}
+    >
+      <p className="mb-4">
+        This example demonstrates how to analyze a collision to determine final velocities, check if it's elastic, and understand energy conservation.
+      </p>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+        <p className="mb-4">
+          A 2.00 kg object travelling east at 4.00 m/s collides with a 3.00 kg object travelling west at 1.50 m/s.  
+          If the 3.00 kg object ends up travelling east at 2.10 m/s:
+        </p>
+        <div className="ml-4 mb-4 space-y-1">
+          <p><strong>a.</strong> What is the final velocity of the 2.00 kg object?</p>
+          <p><strong>b.</strong> Was the collision elastic?</p>
+          <p><strong>c.</strong> Why is momentum always conserved while kinetic energy may not be?</p>
+        </div>
 
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_{12} ='}</InlineMath></div>
-                            <div><InlineMath>{'70~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_{12} ='}</InlineMath></div>
-                            <div><InlineMath>{'?'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ol className="list-decimal pl-6 space-y-4">
-                    <li>
-                      <strong>Apply Conservation of Momentum:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">In this question there are two objects before the collision and one object after the collision. Therefore there are two momentum terms on the before side and one momentum term on the after side.</p>
-                        <div className="text-center mb-3">
-                          <BlockMath>{'m_1v_1 + m_2v_2 = m_{12}v_{12}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Rearrange to solve for v₁₂:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Since object 2 is at rest, v₂ = 0, which simplifies our equation:</p>
-                        <div className="space-y-2">
-                          <BlockMath>{'m_1v_1 + m_2(0) = m_{12}v_{12}'}</BlockMath>
-                          <BlockMath>{'m_1v_1 = m_{12}v_{12}'}</BlockMath>
-                          <BlockMath>{'v_{12} = \\frac{m_1v_1}{m_{12}}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Note that m₁₂ = m₁ + m₂ = 30 kg + 40 kg = 70 kg</p>                        <div className="space-y-2">
-                          <BlockMath>{'v_{12} = \\frac{(30)(-45)}{70}'}</BlockMath>
-                          <BlockMath>{'v_{12} = \\frac{-1350}{70}'}</BlockMath>
-                          <BlockMath>{'v_{12} = -19~\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1">
-                        The resulting velocity of the combined masses is <InlineMath>{'19~\\text{m/s}'}</InlineMath> west.
-                      </p>
-                    </li>
-                  </ol>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-800">
-                        <strong>Note:</strong> This is an example of a <strong>completely inelastic collision</strong> 
-                        where the objects stick together after impact. In this type of collision, momentum is 
-                        conserved but kinetic energy is not conserved (some energy is lost to deformation, 
-                        heat, sound, etc.).
-                      </p>
-                    </div>
-                  </div>
+        <div className="bg-white p-4 rounded border border-gray-100">
+          {/* Part A */}
+          <div className="mb-8">
+            <h5 className="font-semibold text-lg mb-3 text-blue-800">Part A: Final Velocity</h5>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Before */}
+              <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                <h6 className="font-semibold text-blue-800 mb-2">Before</h6>
+                <div className="flex justify-center mb-4">
+                  <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                    <circle cx="75" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                    <circle cx="225" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                    <defs>
+                      <marker id="arrow9" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                        <polygon points="0 0,6 2,0 4" fill="#000"/>
+                      </marker>
+                    </defs>
+                    <line x1="100" y1="40" x2="130" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow9)"/>
+                    <line x1="200" y1="40" x2="170" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow9)"/>
+                  </svg>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>m₁ = 2.00 kg</span><span>v₁ = +4.00 m/s</span></div>
+                  <div className="flex justify-between"><span>m₂ = 3.00 kg</span><span>v₂ = -1.50 m/s</span></div>
+                </div>
+              </div>
+              {/* After */}
+              <div className="bg-green-50 p-4 rounded border border-green-200">
+                <h6 className="font-semibold text-green-800 mb-2">After</h6>
+                <div className="flex justify-center mb-4">
+                  <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                    <circle cx="75" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                    <circle cx="225" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+                    <defs>
+                      <marker id="arrow10" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                        <polygon points="0 0,6 2,0 4" fill="#000"/>
+                      </marker>
+                    </defs>
+                    <line x1="50" y1="40" x2="20" y2="40" stroke="#888" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrow10)"/>
+                    <line x1="250" y1="40" x2="280" y2="40" stroke="#000" strokeWidth="3" markerEnd="url(#arrow10)"/>
+                  </svg>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>v₁f = ?</span><span>?</span></div>
+                  <div className="flex justify-between"><span>v₂f = +2.10 m/s</span><span></span></div>
                 </div>
               </div>
             </div>
-          )}
-        </div>      </TextSection>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 5: Finding Initial Velocity in Inelastic Collision</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample5Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example demonstrates how to find an unknown initial velocity in a completely inelastic collision.
-              </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 400 kg object travelling east at 50 m/s collides with a moving 50 kg object. 
-                  The masses stick together after they collide and move at 27.8 m/s to the east. 
-                  What was the initial velocity of the 50 kg object?
-                </p>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
-
-                  {/* Data Summary Tables with Integrated Diagrams */}
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before Collision Data with Diagram */}
-                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h5 className="font-semibold text-blue-800 mb-3">Before Collision</h5>
-                          {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Object 1 - 400 kg object moving east */}
-                            <circle cx="75" cy="40" r="22" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            
-                            {/* Object 2 - 50 kg object with unknown velocity */}
-                            <circle cx="225" cy="40" r="16" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for object 1 (moving east) */}
-                            <defs>
-                              <marker id="arrowhead7" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="100" y1="40" x2="130" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead7)"/>
-                            
-                            {/* Question mark arrow for object 2 (unknown direction) */}
-                            <line x1="200" y1="40" x2="170" y2="40" stroke="#888888" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead7)"/>
-                            <text x="185" y="25" fill="#888888" fontSize="12" textAnchor="middle">?</text>
-                          </svg>
-                        </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'400~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'+50~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'50~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'?'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* After Collision Data with Diagram */}
-                      <div className="bg-green-50 p-4 rounded border border-green-200">
-                        <h5 className="font-semibold text-green-800 mb-3">After Collision</h5>
-                          {/* Collision Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Combined objects - blue and red balls touching to show they stuck together */}
-                            <circle cx="135" cy="40" r="22" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            <circle cx="165" cy="40" r="16" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                            
-                            {/* Momentum arrow for combined object pointing east */}
-                            <defs>
-                              <marker id="arrowhead8" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="190" y1="40" x2="220" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead8)"/>
-                          </svg>
-                        </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_{12} ='}</InlineMath></div>
-                            <div><InlineMath>{'450~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_{12} ='}</InlineMath></div>
-                            <div><InlineMath>{'+27.8~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ol className="list-decimal pl-6 space-y-4">
-                    <li>
-                      <strong>Apply Conservation of Momentum:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">In this collision, we have two objects before and one object after. We need to find the initial velocity of object 2.</p>
-                        <div className="text-center mb-3">
-                          <BlockMath>{'m_1v_1 + m_2v_2 = m_{12}v_{12}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Rearrange to solve for v₂:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">We need to isolate v₂ on one side of the equation:</p>
-                        <div className="space-y-2">
-                          <BlockMath>{'m_2v_2 = m_{12}v_{12} - m_1v_1'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{m_{12}v_{12} - m_1v_1}{m_2}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Note that m₁₂ = m₁ + m₂ = 400 kg + 50 kg = 450 kg</p>                        <div className="space-y-2">
-                          <BlockMath>{'v_2 = \\frac{(450)(27.8) - (400)(50)}{50}'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{12510 - 20000}{50}'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{-7490}{50}'}</BlockMath>
-                          <BlockMath>{'v_2 = -149.8~\\text{m/s}'}</BlockMath>
-                          <BlockMath>{'v_2 = -1.5 \\times 10^2~\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                      <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1">
-                        The initial velocity of the 50 kg object was <InlineMath>{'1.5 \\times 10^2~\\text{m/s}'}</InlineMath> west 
-                        (the negative sign indicates it was moving in the opposite direction to our chosen positive direction).
-                      </p>
-                    </li>
-                  </ol>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-800">
-                        <strong>Note:</strong> This problem shows how conservation of momentum can be used to find 
-                        unknown initial conditions. The negative velocity indicates that the 50 kg object was initially 
-                        moving west (opposite to the 400 kg object) before the collision occurred.
-                      </p>
-                    </div>
-                  </div>
+            <ol className="list-decimal pl-6 space-y-4">
+              <li>
+                <strong>Momentum:</strong>
+                <div className="pl-4 text-center">
+                  <BlockMath>{`m_1v_{1i} + m_2v_{2i} = m_1v_{1f} + m_2v_{2f}`}</BlockMath>
                 </div>
+              </li>
+              <li>
+                <strong>Rearrange:</strong>
+                <div className="pl-4 space-y-2">
+                  <BlockMath>{`v_{1f} = \\frac{m_1v_{1i} + m_2v_{2i} - m_2v_{2f}}{m_1}`}</BlockMath>
+                </div>
+              </li>
+              <li>
+                <strong>Substitute:</strong>
+                <div className="pl-4 space-y-2">
+                  <BlockMath>{`v_{1f} = \\frac{(2.00)(4.00) + (3.00)(-1.50) - (3.00)(2.10)}{2.00}`}</BlockMath>
+                  <BlockMath>{`v_{1f} = -1.40~\\text{m/s}`}</BlockMath>
+                </div>
+              </li>
+              <li>
+                <strong>Answer:</strong>
+                <p className="pl-4 mt-1">
+                  The 2.00 kg object ends up at <InlineMath>{`1.40~\\text{m/s}`}</InlineMath> west.
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          {/* Part B */}
+          <div className="mb-8 border-t border-gray-200 pt-6">
+            <h5 className="font-semibold text-lg mb-3 text-red-800">Part B: Elastic?</h5>
+            <p className="mb-4">
+              Compare kinetic energy before and after.
+            </p>
+            <ol className="list-decimal pl-6 space-y-4">
+              <li>
+                <BlockMath>{`KE_i = \\tfrac12(2)(4^2) + \\tfrac12(3)(1.5^2) = 19.4~J`}</BlockMath>
+              </li>
+              <li>
+                <BlockMath>{`KE_f = \\tfrac12(2)(1.4^2) + \\tfrac12(3)(2.1^2) = 8.58~J`}</BlockMath>
+              </li>
+              <li>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  KE_f &lt; KE_i ⇒ collision is inelastic.
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          {/* Part C */}
+          <div className="border-t border-gray-200 pt-6">
+            <h5 className="font-semibold text-lg mb-3 text-orange-800">Part C: Why?</h5>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                Momentum is conserved by Newton’s 3rd Law—forces come in equal & opposite pairs.
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                Kinetic energy can convert into heat, sound, deformation—energy transforms, not disappears.
               </div>
             </div>
-          )}
-        </div>      </TextSection>
+          </div>
+        </div>
+      </div>
+    </AIAccordion.Item>
+  </AIAccordion>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample6Open(!isExample6Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 6: Elastic vs Inelastic Collision Analysis</h3>
-            <span className="text-blue-600">{isExample6Open ? '▼' : '▶'}</span>
-          </button>
 
-          {isExample6Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example demonstrates how to analyze a collision to determine final velocities, check if it's elastic, and understand energy conservation.
-              </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 2.00 kg object travelling east at 4.00 m/s collides with a 3.00 kg object travelling west at 1.50 m/s. 
-                  If the 3.00 kg object ends up travelling east at 2.10 m/s:
-                </p>
-                <div className="ml-4 mb-4 space-y-1">
-                  <p><strong>a.</strong> What is the final velocity of the 2.00 kg object?</p>
-                  <p><strong>b.</strong> Was the collision elastic?</p>
-                  <p><strong>c.</strong> How can momentum always be conserved while kinetic energy is not always conserved?</p>
-                </div>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  {/* Part A Solution */}
-                  <div className="mb-8">
-                    <h5 className="font-semibold text-lg mb-3 text-blue-800">Part A: Finding Final Velocity</h5>
-                    
-                    {/* Data Summary Tables with Integrated Diagrams */}
-                    <div className="mb-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Before Collision Data with Diagram */}
-                        <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                          <h6 className="font-semibold text-blue-800 mb-3">Before Collision</h6>
-                          {/* Collision Diagram */}
-                          <div className="flex justify-center mb-4">
-                            <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                              {/* Object 1 - 2.00 kg moving east */}
-                              <circle cx="75" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                              <text x="75" y="46" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">2kg</text>
-                              
-                              {/* Object 2 - 3.00 kg moving west */}
-                              <circle cx="225" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                              <text x="225" y="46" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">3kg</text>
-                              
-                              {/* Momentum arrows */}
-                              <defs>
-                                <marker id="arrowhead9" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                  <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                                </marker>
-                              </defs>
-                              {/* Object 1 arrow (east) */}
-                              <line x1="100" y1="40" x2="130" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead9)"/>
-                              <text x="115" y="30" fill="#000000" fontSize="10" textAnchor="middle">4.00 m/s</text>
-                              
-                              {/* Object 2 arrow (west) */}
-                              <line x1="200" y1="40" x2="170" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead9)"/>
-                              <text x="185" y="30" fill="#000000" fontSize="10" textAnchor="middle">1.50 m/s</text>
-                            </svg>
-                          </div>
 
-                          {/* Data Values */}
-                          <div className="space-y-2">
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                              <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
-                              <div><InlineMath>{'+4.00~\\text{m/s}'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                              <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
-                              <div><InlineMath>{'-1.50~\\text{m/s}'}</InlineMath></div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* After Collision Data with Diagram */}
-                        <div className="bg-green-50 p-4 rounded border border-green-200">
-                          <h6 className="font-semibold text-green-800 mb-3">After Collision</h6>
-                          {/* Collision Diagram */}
-                          <div className="flex justify-center mb-4">
-                            <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                              {/* Object 1 - 2.00 kg with unknown final velocity */}
-                              <circle cx="75" cy="40" r="18" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                              <text x="75" y="46" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">2kg</text>
-                              
-                              {/* Object 2 - 3.00 kg moving east at 2.10 m/s */}
-                              <circle cx="225" cy="40" r="20" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
-                              <text x="225" y="46" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">3kg</text>
-                              
-                              {/* Momentum arrows */}
-                              <defs>
-                                <marker id="arrowhead10" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                  <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                                </marker>
-                              </defs>
-                              {/* Object 1 unknown arrow */}
-                              <line x1="50" y1="40" x2="20" y2="40" stroke="#888888" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead10)"/>
-                              <text x="35" y="30" fill="#888888" fontSize="10" textAnchor="middle">?</text>
-                              
-                              {/* Object 2 arrow (east) */}
-                              <line x1="250" y1="40" x2="280" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead10)"/>
-                              <text x="265" y="30" fill="#000000" fontSize="10" textAnchor="middle">2.10 m/s</text>
-                            </svg>
-                          </div>
-
-                          {/* Data Values */}
-                          <div className="space-y-2">
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                              <div><InlineMath>{'2.00~\\text{kg}'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'v_{1f} ='}</InlineMath></div>
-                              <div><InlineMath>{'?'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                              <div><InlineMath>{'3.00~\\text{kg}'}</InlineMath></div>
-                            </div>
-                            <div className="flex items-baseline">
-                              <div className="w-20"><InlineMath>{'v_{2f} ='}</InlineMath></div>
-                              <div><InlineMath>{'+2.10~\\text{m/s}'}</InlineMath></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <ol className="list-decimal pl-6 space-y-4">
-                      <li>
-                        <strong>Apply Conservation of Momentum:</strong>
-                        <div className="pl-4 mt-2">
-                          <div className="text-center mb-3">
-                            <BlockMath>{'m_1v_{1i} + m_2v_{2i} = m_1v_{1f} + m_2v_{2f}'}</BlockMath>
-                          </div>
-                        </div>
-                      </li>
-                      
-                      <li>
-                        <strong>Rearrange to solve for v₁f:</strong>
-                        <div className="pl-4 mt-2">
-                          <div className="space-y-2">
-                            <BlockMath>{'m_1v_{1f} = m_1v_{1i} + m_2v_{2i} - m_2v_{2f}'}</BlockMath>
-                            <BlockMath>{'v_{1f} = \\frac{m_1v_{1i} + m_2v_{2i} - m_2v_{2f}}{m_1}'}</BlockMath>
-                          </div>
-                        </div>
-                      </li>
-                      
-                      <li>
-                        <strong>Substitute values:</strong>
-                        <div className="pl-4 mt-2">
-                          <div className="space-y-2">
-                            <BlockMath>{'v_{1f} = \\frac{(2.00)(4.00) + (3.00)(-1.50) - (3.00)(2.10)}{2.00}'}</BlockMath>
-                            <BlockMath>{'v_{1f} = \\frac{8.00 - 4.50 - 6.30}{2.00}'}</BlockMath>
-                            <BlockMath>{'v_{1f} = \\frac{-2.80}{2.00}'}</BlockMath>
-                            <BlockMath>{'v_{1f} = -1.40~\\text{m/s}'}</BlockMath>
-                          </div>
-                        </div>
-                      </li>
-                      
-                      <li>
-                        <strong>Answer for Part A:</strong>
-                        <p className="pl-4 mt-1">
-                          The final velocity of the 2.00 kg object is <InlineMath>{'1.40~\\text{m/s}'}</InlineMath> west.
-                        </p>
-                      </li>
-                    </ol>
-                  </div>
-
-                  {/* Part B Solution */}
-                  <div className="mb-8 border-t border-gray-200 pt-6">
-                    <h5 className="font-semibold text-lg mb-3 text-purple-800">Part B: Determining if Collision is Elastic</h5>
-                    
-                    <p className="mb-4">To determine if the collision was elastic, we calculate the kinetic energy before and after the collision and compare the values.</p>
-
-                    <ol className="list-decimal pl-6 space-y-4">
-                      <li>
-                        <strong>Calculate initial kinetic energy:</strong>
-                        <div className="pl-4 mt-2">
-                          <div className="space-y-2">
-                            <BlockMath>{'KE_i = \\frac{1}{2}m_1v_{1i}^2 + \\frac{1}{2}m_2v_{2i}^2'}</BlockMath>
-                            <BlockMath>{'KE_i = \\frac{1}{2}(2.00)(4.00)^2 + \\frac{1}{2}(3.00)(-1.50)^2'}</BlockMath>
-                            <BlockMath>{'KE_i = \\frac{1}{2}(2.00)(16.0) + \\frac{1}{2}(3.00)(2.25)'}</BlockMath>
-                            <BlockMath>{'KE_i = 16.0 + 3.38 = 19.4~\\text{J}'}</BlockMath>
-                          </div>
-                        </div>
-                      </li>
-                      
-                      <li>
-                        <strong>Calculate final kinetic energy:</strong>
-                        <div className="pl-4 mt-2">
-                          <div className="space-y-2">
-                            <BlockMath>{'KE_f = \\frac{1}{2}m_1v_{1f}^2 + \\frac{1}{2}m_2v_{2f}^2'}</BlockMath>
-                            <BlockMath>{'KE_f = \\frac{1}{2}(2.00)(-1.40)^2 + \\frac{1}{2}(3.00)(2.10)^2'}</BlockMath>
-                            <BlockMath>{'KE_f = \\frac{1}{2}(2.00)(1.96) + \\frac{1}{2}(3.00)(4.41)'}</BlockMath>
-                            <BlockMath>{'KE_f = 1.96 + 6.62 = 8.58~\\text{J}'}</BlockMath>
-                          </div>
-                        </div>
-                      </li>
-                      
-                      <li>
-                        <strong>Compare energies:</strong>
-                        <div className="pl-4 mt-2">
-                          <p className="mb-2">Since <InlineMath>{'KE_f = 8.58~\\text{J} < KE_i = 19.4~\\text{J}'}</InlineMath></p>
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                            <p className="text-red-800"><strong>Answer for Part B:</strong> The collision is <strong>inelastic</strong> because kinetic energy is not conserved.</p>
-                          </div>
-                        </div>
-                      </li>
-                    </ol>
-                  </div>
-
-                  {/* Part C Solution */}
-                  <div className="border-t border-gray-200 pt-6">
-                    <h5 className="font-semibold text-lg mb-3 text-orange-800">Part C: Why Momentum is Always Conserved but Kinetic Energy is Not</h5>
-                    
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h6 className="font-semibold text-blue-800 mb-2">Momentum Conservation</h6>
-                        <p className="text-blue-900">
-                          Momentum in an isolated system is always conserved. This law is a direct result of 
-                          <strong> Newton's third law of motion</strong> where the change in momentum of one object 
-                          is equal and opposite to the change in momentum of the other object. The combined change 
-                          in momentum is zero.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <h6 className="font-semibold text-orange-800 mb-2">Kinetic Energy</h6>
-                        <p className="text-orange-900">
-                          Kinetic energy, on the other hand, can easily be transformed into heat, sound, and 
-                          the deformation of objects. The <strong>Conservation of Energy</strong> (i.e., the total 
-                          amount of energy in an isolated system does not change, but energy can be transformed 
-                          into other types) does not depend on Newton's Laws.
-                        </p>
-                      </div>                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-gray-800">
-                          <strong>Answer for Part C:</strong> Momentum is always conserved due to Newton's third law, 
-                          while kinetic energy can be converted to other forms of energy during collisions.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}        </div>
-      </TextSection>
-
-      <TextSection>
+      
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension-collisions"
@@ -2407,18 +2126,16 @@ AIAccordion, onAIAccordionContent }) => {
             console.log(`Collision Practice completed with ${score}% score`);
           }}
         />
-      </TextSection>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExplosionsOpen(!isExplosionsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Explosions and Momentum Conservation</h3>
-            <span className="text-blue-600">{isExplosionsOpen ? '▼' : '▶'}</span>
-          </button>
-            {isExplosionsOpen && (
+      
+          <AIAccordion theme="purple">
+    <AIAccordion.Item
+      title="Explosions and Momentum Conservation"
+      value="example-explosions"
+      onAskAI={onAIAccordionContent}
+    >
+      
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
@@ -2435,374 +2152,359 @@ AIAccordion, onAIAccordionContent }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>      </TextSection>
+          </AIAccordion.Item>
+  </AIAccordion>    
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample7Open(!isExample7Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 7: Rifle Recoil Problem"
+            value="example-7-rifle-recoil"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 7: Rifle Recoil Problem</h3>
-            <span className="text-blue-600">{isExample7Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample7Open && (
-            <div className="mt-4">
+            <p className="mb-4">
+              This example demonstrates how conservation of momentum applies to recoil situations where initial momentum is zero.
+            </p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-lg mb-3">Problem:</h4>
               <p className="mb-4">
-                This example demonstrates how conservation of momentum applies to recoil situations where initial momentum is zero.
+                A 5.0 kg rifle fires a 0.020 kg bullet to the east. If the muzzle speed of the bullet is 400 m/s, 
+                what is the recoil velocity of the rifle?
               </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 5.0 kg rifle fires a 0.020 kg bullet to the east. If the muzzle speed of the bullet is 400 m/s, 
-                  what is the recoil velocity of the rifle?
-                </p>
+              
+              <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-2">Solution:</p>
                 
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
-                  
-                  {/* Data Summary Tables with Integrated Diagrams */}
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before Firing Data with Diagram */}
-                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h6 className="font-semibold text-blue-800 mb-3">Before Firing</h6>
-                        {/* Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Rifle with bullet inside - shown as combined object at rest */}
-                            <rect x="120" y="30" width="60" height="20" fill="#8b5a2b" stroke="#654321" strokeWidth="2" rx="3"/>
-                            <text x="150" y="45" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">Rifle+Bullet</text>
-                            <text x="150" y="65" fill="#000000" fontSize="9" textAnchor="middle">v = 0 m/s</text>
-                          </svg>
-                        </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'m_{rifle} ='}</InlineMath></div>
-                            <div><InlineMath>{'5.0~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'m_{bullet} ='}</InlineMath></div>
-                            <div><InlineMath>{'0.020~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'v_{initial} ='}</InlineMath></div>
-                            <div><InlineMath>{'0~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
+                {/* Data Summary Tables with Integrated Diagrams */}
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Before Firing Data with Diagram */}
+                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                      <h6 className="font-semibold text-blue-800 mb-3">Before Firing</h6>
+                      {/* Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Rifle with bullet inside - shown as combined object at rest */}
+                          <rect x="120" y="30" width="60" height="20" fill="#8b5a2b" stroke="#654321" strokeWidth="2" rx="3"/>
+                          <text x="150" y="45" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">Rifle+Bullet</text>
+                          <text x="150" y="65" fill="#000000" fontSize="9" textAnchor="middle">v = 0 m/s</text>
+                        </svg>
                       </div>
 
-                      {/* After Firing Data with Diagram */}
-                      <div className="bg-green-50 p-4 rounded border border-green-200">
-                        <h6 className="font-semibold text-green-800 mb-3">After Firing</h6>
-                        {/* Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Bullet moving east */}
-                            <circle cx="220" cy="40" r="8" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2"/>
-                            <text x="220" y="55" fill="#000000" fontSize="8" textAnchor="middle">Bullet</text>
-                            
-                            {/* Rifle moving west */}
-                            <rect x="60" y="30" width="50" height="20" fill="#8b5a2b" stroke="#654321" strokeWidth="2" rx="3"/>
-                            <text x="85" y="55" fill="#000000" fontSize="8" textAnchor="middle">Rifle</text>
-                            
-                            {/* Velocity arrows */}
-                            <defs>
-                              <marker id="arrowhead10" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            {/* Bullet arrow (east) */}
-                            <line x1="240" y1="40" x2="270" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead10)"/>
-                            <text x="255" y="30" fill="#000000" fontSize="9" textAnchor="middle">400 m/s</text>
-                            
-                            {/* Rifle arrow (west) */}
-                            <line x1="50" y1="40" x2="20" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead10)"/>
-                            <text x="35" y="30" fill="#000000" fontSize="9" textAnchor="middle">v = ?</text>
-                          </svg>
+                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'m_{rifle} ='}</InlineMath></div>
+                          <div><InlineMath>{'5.0~\\text{kg}'}</InlineMath></div>
                         </div>
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'m_{bullet} ='}</InlineMath></div>
+                          <div><InlineMath>{'0.020~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'v_{initial} ='}</InlineMath></div>
+                          <div><InlineMath>{'0~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                      </div>
+                    </div>
 
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'m_{rifle} ='}</InlineMath></div>
-                            <div><InlineMath>{'5.0~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'m_{bullet} ='}</InlineMath></div>
-                            <div><InlineMath>{'0.020~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'v_{bullet} ='}</InlineMath></div>
-                            <div><InlineMath>{'+400~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-24"><InlineMath>{'v_{rifle} ='}</InlineMath></div>
-                            <div><InlineMath>{'?'}</InlineMath></div>
-                          </div>
+                    {/* After Firing Data with Diagram */}
+                    <div className="bg-green-50 p-4 rounded border border-green-200">
+                      <h6 className="font-semibold text-green-800 mb-3">After Firing</h6>
+                      {/* Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Bullet moving east */}
+                          <circle cx="220" cy="40" r="8" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2"/>
+                          <text x="220" y="55" fill="#000000" fontSize="8" textAnchor="middle">Bullet</text>
+                          
+                          {/* Rifle moving west */}
+                          <rect x="60" y="30" width="50" height="20" fill="#8b5a2b" stroke="#654321" strokeWidth="2" rx="3"/>
+                          <text x="85" y="55" fill="#000000" fontSize="8" textAnchor="middle">Rifle</text>
+                          
+                          {/* Velocity arrows */}
+                          <defs>
+                            <marker id="arrowhead10" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                              <polygon points="0 0, 6 2, 0 4" fill="#000000"/>
+                            </marker>
+                          </defs>
+                          {/* Bullet arrow (east) */}
+                          <line x1="240" y1="40" x2="270" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead10)"/>
+                          <text x="255" y="30" fill="#000000" fontSize="9" textAnchor="middle">400 m/s</text>
+                          
+                          {/* Rifle arrow (west) */}
+                          <line x1="50" y1="40" x2="20" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead10)"/>
+                          <text x="35" y="30" fill="#000000" fontSize="9" textAnchor="middle">v = ?</text>
+                        </svg>
+                      </div>
+
+                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'m_{rifle} ='}</InlineMath></div>
+                          <div><InlineMath>{'5.0~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'m_{bullet} ='}</InlineMath></div>
+                          <div><InlineMath>{'0.020~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'v_{bullet} ='}</InlineMath></div>
+                          <div><InlineMath>{'+400~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-24"><InlineMath>{'v_{rifle} ='}</InlineMath></div>
+                          <div><InlineMath>{'?'}</InlineMath></div>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <ol className="list-decimal pl-6 space-y-4">
-                    <li>
-                      <strong>Apply Conservation of Momentum:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Since the rifle and bullet start at rest, the initial momentum is zero. After firing, the total momentum must still be zero.</p>
-                        <div className="text-center mb-3">
-                          <BlockMath>{'p_{initial} = p_{final}'}</BlockMath>
-                          <BlockMath>{'0 = m_{rifle}v_{rifle} + m_{bullet}v_{bullet}'}</BlockMath>
-                        </div>
+                <ol className="list-decimal pl-6 space-y-4">
+                  <li>
+                    <strong>Apply Conservation of Momentum:</strong>
+                    <div className="pl-4 mt-2">
+                      <p className="mb-2">Since the rifle and bullet start at rest, the initial momentum is zero. After firing, the total momentum must still be zero.</p>
+                      <div className="text-center mb-3">
+                        <BlockMath>{'p_{initial} = p_{final}'}</BlockMath>
+                        <BlockMath>{'0 = m_{rifle}v_{rifle} + m_{bullet}v_{bullet}'}</BlockMath>
                       </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Rearrange to solve for rifle velocity:</strong>
-                      <div className="pl-4 mt-2">
-                        <div className="space-y-2">
-                          <BlockMath>{'m_{rifle}v_{rifle} = -m_{bullet}v_{bullet}'}</BlockMath>
-                          <BlockMath>{'v_{rifle} = -\\frac{m_{bullet}v_{bullet}}{m_{rifle}}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <div className="space-y-2">
-                          <BlockMath>{'v_{rifle} = -\\frac{(0.020~\\text{kg})(400~\\text{m/s})}{5.0~\\text{kg}}'}</BlockMath>
-                          <BlockMath>{'v_{rifle} = -\\frac{8.0~\\text{kg}\\cdot\\text{m/s}}{5.0~\\text{kg}}'}</BlockMath>
-                          <BlockMath>{'v_{rifle} = -1.6~\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1">
-                        The recoil velocity of the rifle is <InlineMath>{'1.6~\\text{m/s}'}</InlineMath> west 
-                        (the negative sign indicates it recoils in the opposite direction to the bullet's motion).
-                      </p>
-                    </li>
-                  </ol>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-800">
-                        <strong>Key Concept:</strong> This problem demonstrates that when the initial momentum of a system is zero, 
-                        the final momentum must also be zero. The rifle and bullet acquire equal and opposite momenta, 
-                        which is why the rifle recoils backward when the bullet is fired forward. This is a practical 
-                        application of Newton's third law and conservation of momentum.
-                      </p>
                     </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Rearrange to solve for rifle velocity:</strong>
+                    <div className="pl-4 mt-2">
+                      <div className="space-y-2">
+                        <BlockMath>{'m_{rifle}v_{rifle} = -m_{bullet}v_{bullet}'}</BlockMath>
+                        <BlockMath>{'v_{rifle} = -\\frac{m_{bullet}v_{bullet}}{m_{rifle}}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Substitute values:</strong>
+                    <div className="pl-4 mt-2">
+                      <div className="space-y-2">
+                        <BlockMath>{'v_{rifle} = -\\frac{(0.020~\\text{kg})(400~\\text{m/s})}{5.0~\\text{kg}}'}</BlockMath>
+                        <BlockMath>{'v_{rifle} = -\\frac{8.0~\\text{kg}\\cdot\\text{m/s}}{5.0~\\text{kg}}'}</BlockMath>
+                        <BlockMath>{'v_{rifle} = -1.6~\\text{m/s}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Final answer:</strong>
+                    <p className="pl-4 mt-1">
+                      The recoil velocity of the rifle is <InlineMath>{'1.6~\\text{m/s}'}</InlineMath> west 
+                      (the negative sign indicates it recoils in the opposite direction to the bullet's motion).
+                    </p>
+                  </li>
+                </ol>
+
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <p className="text-sm text-purple-800">
+                      <strong>Key Concept:</strong> This problem demonstrates that when the initial momentum of a system is zero, 
+                      the final momentum must also be zero. The rifle and bullet acquire equal and opposite momenta, 
+                      which is why the rifle recoils backward when the bullet is fired forward. This is a practical 
+                      application of Newton's third law and conservation of momentum.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-          )}        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample8Open(!isExample8Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 8: Bomb Explosion Problem"
+            value="example-8-bomb-explosion"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 8: Bomb Explosion Problem</h3>
-            <span className="text-blue-600">{isExample8Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample8Open && (
-            <div className="mt-4">
+            <p className="mb-4">
+              This example demonstrates how conservation of momentum applies to explosion problems where an object breaks apart.
+            </p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-lg mb-3">Problem:</h4>
               <p className="mb-4">
-                This example demonstrates how conservation of momentum applies to explosion problems where an object breaks apart.
+                A 4.00 kg bomb is rolling across a floor at 3.00 m/s to the east. After the bomb explodes, 
+                a 1.50 kg piece has a velocity of 15.0 m/s east. What is the velocity of the other piece?
               </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">
-                  A 4.00 kg bomb is rolling across a floor at 3.00 m/s to the east. After the bomb explodes, 
-                  a 1.50 kg piece has a velocity of 15.0 m/s east. What is the velocity of the other piece?
-                </p>
+              
+              <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-2">Solution:</p>
                 
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
-                  
-                  {/* Data Summary Tables with Integrated Diagrams */}
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before Explosion Data with Diagram */}
-                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h6 className="font-semibold text-blue-800 mb-3">Before Explosion</h6>
-                        {/* Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Bomb moving east */}
-                            <circle cx="150" cy="40" r="25" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2"/>
-                            <text x="150" y="40" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">4.00kg</text>
-                            <text x="150" y="50" fill="white" fontSize="8" textAnchor="middle">Bomb</text>
-                              {/* Arrow showing movement east */}
-                            <defs>
-                              <marker id="arrowhead11" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                                <polygon points="0 0, 8 3, 0 6" fill="#000000"/>
-                              </marker>
-                            </defs>
-                            <line x1="180" y1="40" x2="220" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead11)"/>
-                            <text x="200" y="30" fill="#000000" fontSize="9" textAnchor="middle">3.00 m/s</text>
-                          </svg>
-                        </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_{total} ='}</InlineMath></div>
-                            <div><InlineMath>{'4.00~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_{initial} ='}</InlineMath></div>
-                            <div><InlineMath>{'+3.00~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                        </div>
+                {/* Data Summary Tables with Integrated Diagrams */}
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Before Explosion Data with Diagram */}
+                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                      <h6 className="font-semibold text-blue-800 mb-3">Before Explosion</h6>
+                      {/* Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Bomb moving east */}
+                          <circle cx="150" cy="40" r="25" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2"/>
+                          <text x="150" y="40" fill="white" fontSize="10" textAnchor="middle" fontWeight="bold">4.00kg</text>
+                          <text x="150" y="50" fill="white" fontSize="8" textAnchor="middle">Bomb</text>
+                            {/* Arrow showing movement east */}
+                          <defs>
+                            <marker id="arrowhead11" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                              <polygon points="0 0, 8 3, 0 6" fill="#000000"/>
+                            </marker>
+                          </defs>
+                          <line x1="180" y1="40" x2="220" y2="40" stroke="#000000" strokeWidth="3" markerEnd="url(#arrowhead11)"/>
+                          <text x="200" y="30" fill="#000000" fontSize="9" textAnchor="middle">3.00 m/s</text>
+                        </svg>
                       </div>
 
-                      {/* After Explosion Data with Diagram */}
-                      <div className="bg-green-50 p-4 rounded border border-green-200">
-                        <h6 className="font-semibold text-green-800 mb-3">After Explosion</h6>
-                        {/* Diagram */}
-                        <div className="flex justify-center mb-4">
-                          <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
-                            {/* Piece 1 moving east */}
-                            <circle cx="200" cy="30" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
-                            <text x="200" y="30" fill="white" fontSize="8" textAnchor="middle" fontWeight="bold">1.50kg</text>
-                            
-                            {/* Piece 2 with unknown velocity */}
-                            <circle cx="100" cy="50" r="18" fill="#8b5cf6" stroke="#7c3aed" strokeWidth="2"/>
-                            <text x="100" y="50" fill="white" fontSize="8" textAnchor="middle" fontWeight="bold">2.50kg</text>
-                            
-                            {/* Arrow for piece 1 (east) */}
-                            <line x1="220" y1="30" x2="250" y2="30" stroke="#000000" strokeWidth="2" markerEnd="url(#arrowhead11)"/>
-                            <text x="235" y="20" fill="#000000" fontSize="8" textAnchor="middle">15.0 m/s</text>
-                            
-                            {/* Arrow for piece 2 (unknown direction) */}
-                            <line x1="75" y1="50" x2="45" y2="50" stroke="#000000" strokeWidth="2" markerEnd="url(#arrowhead11)"/>
-                            <text x="60" y="40" fill="#000000" fontSize="8" textAnchor="middle">v = ?</text>
-                          </svg>
+                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_{total} ='}</InlineMath></div>
+                          <div><InlineMath>{'4.00~\\text{kg}'}</InlineMath></div>
                         </div>
-
-                        {/* Data Values */}
-                        <div className="space-y-2">
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'1.50~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
-                            <div><InlineMath>{'+15.0~\\text{m/s}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'2.50~\\text{kg}'}</InlineMath></div>
-                          </div>
-                          <div className="flex items-baseline">
-                            <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
-                            <div><InlineMath>{'?'}</InlineMath></div>
-                          </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_{initial} ='}</InlineMath></div>
+                          <div><InlineMath>{'+3.00~\\text{m/s}'}</InlineMath></div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <ol className="list-decimal pl-6 space-y-4">
-                    <li>
-                      <strong>Apply Conservation of Momentum:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">The total momentum before the explosion equals the total momentum after the explosion.</p>
-                        <div className="text-center mb-3">
-                          <BlockMath>{'p_{before} = p_{after}'}</BlockMath>
-                          <BlockMath>{'m_{total}v_{initial} = m_1v_1 + m_2v_2'}</BlockMath>
-                        </div>
+                    {/* After Explosion Data with Diagram */}
+                    <div className="bg-green-50 p-4 rounded border border-green-200">
+                      <h6 className="font-semibold text-green-800 mb-3">After Explosion</h6>
+                      {/* Diagram */}
+                      <div className="flex justify-center mb-4">
+                        <svg width="300" height="80" viewBox="0 0 300 80" className="border border-gray-300 bg-white rounded">
+                          {/* Piece 1 moving east */}
+                          <circle cx="200" cy="30" r="15" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+                          <text x="200" y="30" fill="white" fontSize="8" textAnchor="middle" fontWeight="bold">1.50kg</text>
+                          
+                          {/* Piece 2 with unknown velocity */}
+                          <circle cx="100" cy="50" r="18" fill="#8b5cf6" stroke="#7c3aed" strokeWidth="2"/>
+                          <text x="100" y="50" fill="white" fontSize="8" textAnchor="middle" fontWeight="bold">2.50kg</text>
+                          
+                          {/* Arrow for piece 1 (east) */}
+                          <line x1="220" y1="30" x2="250" y2="30" stroke="#000000" strokeWidth="2" markerEnd="url(#arrowhead11)"/>
+                          <text x="235" y="20" fill="#000000" fontSize="8" textAnchor="middle">15.0 m/s</text>
+                          
+                          {/* Arrow for piece 2 (unknown direction) */}
+                          <line x1="75" y1="50" x2="45" y2="50" stroke="#000000" strokeWidth="2" markerEnd="url(#arrowhead11)"/>
+                          <text x="60" y="40" fill="#000000" fontSize="8" textAnchor="middle">v = ?</text>
+                        </svg>
                       </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Determine the mass of piece 2:</strong>
-                      <div className="pl-4 mt-2">
-                        <p className="mb-2">Since the bomb breaks into two pieces:</p>
-                        <div className="space-y-2">
-                          <BlockMath>{'m_2 = m_{total} - m_1'}</BlockMath>
-                          <BlockMath>{'m_2 = 4.00~\\text{kg} - 1.50~\\text{kg} = 2.50~\\text{kg}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Rearrange to solve for v₂:</strong>
-                      <div className="pl-4 mt-2">
-                        <div className="space-y-2">
-                          <BlockMath>{'m_2v_2 = m_{total}v_{initial} - m_1v_1'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{m_{total}v_{initial} - m_1v_1}{m_2}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <div className="space-y-2">
-                          <BlockMath>{'v_2 = \\frac{(4.00~\\text{kg})(3.00~\\text{m/s}) - (1.50~\\text{kg})(15.0~\\text{m/s})}{2.50~\\text{kg}}'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{12.0~\\text{kg}\\cdot\\text{m/s} - 22.5~\\text{kg}\\cdot\\text{m/s}}{2.50~\\text{kg}}'}</BlockMath>
-                          <BlockMath>{'v_2 = \\frac{-10.5~\\text{kg}\\cdot\\text{m/s}}{2.50~\\text{kg}}'}</BlockMath>
-                          <BlockMath>{'v_2 = -4.20~\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1">
-                        The velocity of the other piece is <InlineMath>{'4.20~\\text{m/s}'}</InlineMath> west 
-                        (the negative sign indicates it moves in the opposite direction to our chosen positive direction).
-                      </p>
-                    </li>
-                  </ol>
 
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-800">
-                        <strong>Key Concept:</strong> This problem demonstrates conservation of momentum in explosions. 
-                        The bomb initially has momentum to the east, so the total momentum of the fragments must also 
-                        equal this initial momentum. Since one piece flies east faster than the original speed, the other 
-                        piece must fly west to conserve momentum. This is similar to the rifle-bullet problem, but here 
-                        the system had initial momentum before the explosion.
-                      </p>
+                      {/* Data Values */}
+                      <div className="space-y-2">
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_1 ='}</InlineMath></div>
+                          <div><InlineMath>{'1.50~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_1 ='}</InlineMath></div>
+                          <div><InlineMath>{'+15.0~\\text{m/s}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'m_2 ='}</InlineMath></div>
+                          <div><InlineMath>{'2.50~\\text{kg}'}</InlineMath></div>
+                        </div>
+                        <div className="flex items-baseline">
+                          <div className="w-20"><InlineMath>{'v_2 ='}</InlineMath></div>
+                          <div><InlineMath>{'?'}</InlineMath></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <ol className="list-decimal pl-6 space-y-4">
+                  <li>
+                    <strong>Apply Conservation of Momentum:</strong>
+                    <div className="pl-4 mt-2">
+                      <p className="mb-2">The total momentum before the explosion equals the total momentum after the explosion.</p>
+                      <div className="text-center mb-3">
+                        <BlockMath>{'p_{before} = p_{after}'}</BlockMath>
+                        <BlockMath>{'m_{total}v_{initial} = m_1v_1 + m_2v_2'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Determine the mass of piece 2:</strong>
+                    <div className="pl-4 mt-2">
+                      <p className="mb-2">Since the bomb breaks into two pieces:</p>
+                      <div className="space-y-2">
+                        <BlockMath>{'m_2 = m_{total} - m_1'}</BlockMath>
+                        <BlockMath>{'m_2 = 4.00~\\text{kg} - 1.50~\\text{kg} = 2.50~\\text{kg}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Rearrange to solve for v₂:</strong>
+                    <div className="pl-4 mt-2">
+                      <div className="space-y-2">
+                        <BlockMath>{'m_2v_2 = m_{total}v_{initial} - m_1v_1'}</BlockMath>
+                        <BlockMath>{'v_2 = \\frac{m_{total}v_{initial} - m_1v_1}{m_2}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Substitute values:</strong>
+                    <div className="pl-4 mt-2">
+                      <div className="space-y-2">
+                        <BlockMath>{'v_2 = \\frac{(4.00~\\text{kg})(3.00~\\text{m/s}) - (1.50~\\text{kg})(15.0~\\text{m/s})}{2.50~\\text{kg}}'}</BlockMath>
+                        <BlockMath>{'v_2 = \\frac{12.0~\\text{kg}\\cdot\\text{m/s} - 22.5~\\text{kg}\\cdot\\text{m/s}}{2.50~\\text{kg}}'}</BlockMath>
+                        <BlockMath>{'v_2 = \\frac{-10.5~\\text{kg}\\cdot\\text{m/s}}{2.50~\\text{kg}}'}</BlockMath>
+                        <BlockMath>{'v_2 = -4.20~\\text{m/s}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Final answer:</strong>
+                    <p className="pl-4 mt-1">
+                      The velocity of the other piece is <InlineMath>{'4.20~\\text{m/s}'}</InlineMath> west 
+                      (the negative sign indicates it moves in the opposite direction to our chosen positive direction).
+                    </p>
+                  </li>
+                </ol>
+
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <p className="text-sm text-purple-800">
+                      <strong>Key Concept:</strong> This problem demonstrates conservation of momentum in explosions. 
+                      The bomb initially has momentum to the east, so the total momentum of the fragments must also 
+                      equal this initial momentum. Since one piece flies east faster than the original speed, the other 
+                      piece must fly west to conserve momentum. This is similar to the rifle-bullet problem, but here 
+                      the system had initial momentum before the explosion.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>          )}
-        </div>
-      </TextSection>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample9Open(!isExample9Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 9: Two-Part Problem - Collision and Incline"
+            value="example-9-collision-incline"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 9: Two-Part Problem - Collision and Incline</h3>
-            <span className="text-blue-600">{isExample9Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample9Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                This example demonstrates how momentum and energy conservation can be combined to solve multi-step problems.
-              </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <p className="mb-4">
+              This example demonstrates how momentum and energy conservation can be combined to solve multi-step problems.
+            </p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-lg mb-3">Problem:</h4>
                 <p className="mb-4">
                   Ball A (2.0 kg) moving at 5.0 m/s east collides with stationary ball B (3.0 kg). After the collision, 
@@ -3057,14 +2759,14 @@ AIAccordion, onAIAccordionContent }) => {
                         the appropriate conservation law for each step.
                       </p>
                     </div>
-                  </div>                </div>
-              </div>
+                  </div>
+                </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      
 
-      <TextSection>
+      
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension-advanced"
@@ -3117,7 +2819,7 @@ AIAccordion, onAIAccordionContent }) => {
             console.log(`Advanced Practice completed with ${score}% score`);
           }}
         />
-      </TextSection>
+      
 
       <LessonSummary
         points={[
