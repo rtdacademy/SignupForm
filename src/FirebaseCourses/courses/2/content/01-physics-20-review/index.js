@@ -310,6 +310,80 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
+            {/* Kinematics Knowledge Check */}
+            <TextSection>
+              <div className="my-8">
+                <SlideshowKnowledgeCheck
+                  courseId={courseId}
+                  lessonPath="01-physics-20-review"
+                  course={course}
+                  onAIAccordionContent={onAIAccordionContent}
+                  questions={[
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question1',
+                      title: 'Question 1: Displacement'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question2',
+                      title: 'Question 2: Speed and Time'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question3',
+                      title: 'Question 3: Average Speed'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question4',
+                      title: 'Question 4: Acceleration'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question5',
+                      title: 'Question 5: Vertical Motion'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question6',
+                      title: 'Question 6: Motion on Slope'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question7',
+                      title: 'Question 7: Electron Acceleration'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question8',
+                      title: 'Question 8: Projectile Time'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question9',
+                      title: 'Question 9: Falling Objects'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question10',
+                      title: 'Question 10: Free Fall'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question11',
+                      title: 'Question 11: Maximum Height'
+                    },
+                    {
+                      type: 'multiple-choice',
+                      questionId: 'course2_01_physics_20_review_question12',
+                      title: 'Question 12: Horizontal Projectile'
+                    }
+                  ]}
+                />
+              </div>
+            </TextSection>
+
             <AIAccordion.Item value="example3" title="Example 3: Vector Components" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving vector components using trigonometry.
@@ -720,6 +794,28 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
+            {/* Vector Practice Problems - Knowledge Check */}
+            <SlideshowKnowledgeCheck
+              courseId={courseId}
+              lessonPath="01-physics-20-review"
+              course={course}
+              onAIAccordionContent={onAIAccordionContent}
+              questions={[
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_01_physics_20_review_vector_q1',
+                  title: 'Question 1: Ski Lift Height'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_01_physics_20_review_vector_q2',
+                  title: 'Question 2: Highway Distance and Bearing'
+                }
+              ]}
+              onComplete={(score, results) => console.log(`Vector Knowledge Check completed with ${score}%`)}
+              theme="green"
+            />
+
             <AIAccordion.Item value="example6" title="Example 6: Centripetal Acceleration" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving centripetal acceleration and circular motion.
@@ -941,6 +1037,33 @@ AIAccordion, onAIAccordionContent }) => {
                 </div>
               </div>
             </AIAccordion.Item>
+
+            {/* Circular Motion Knowledge Check */}
+            <SlideshowKnowledgeCheck
+              courseId={courseId}
+              lessonPath="01-physics-20-review"
+              course={course}
+              onAIAccordionContent={onAIAccordionContent}
+              questions={[
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_01_physics_20_review_circular_q1',
+                  title: 'Question 1: Ball Speed and Tension'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_01_physics_20_review_circular_q2',
+                  title: 'Question 2: Car Cornering Force'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_01_physics_20_review_circular_q3',
+                  title: 'Question 3: Satellite Motion'
+                }
+              ]}
+              onComplete={(score, results) => console.log(`Circular Motion Knowledge Check completed with ${score}%`)}
+              theme="purple"
+            />
 
             <AIAccordion.Item value="example8" title="Example 8: Multiple Forces" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
@@ -1496,129 +1619,6 @@ AIAccordion, onAIAccordionContent }) => {
         </div>
       )}
 
-      {/* Kinematics Knowledge Check */}
-      <TextSection>
-        <div className="my-8">
-          <SlideshowKnowledgeCheck
-            courseId={courseId}
-            lessonPath="01-physics-20-review"
-            course={course}
-            onAIAccordionContent={onAIAccordionContent}
-            questions={[
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question1',
-                title: 'Question 1: Displacement'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question2',
-                title: 'Question 2: Speed and Time'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question3',
-                title: 'Question 3: Average Speed'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question4',
-                title: 'Question 4: Acceleration'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question5',
-                title: 'Question 5: Vertical Motion'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question6',
-                title: 'Question 6: Motion on Slope'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question7',
-                title: 'Question 7: Electron Acceleration'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question8',
-                title: 'Question 8: Projectile Time'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question9',
-                title: 'Question 9: Falling Objects'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question10',
-                title: 'Question 10: Free Fall'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question11',
-                title: 'Question 11: Maximum Height'
-              },
-              {
-                type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_question12',
-                title: 'Question 12: Horizontal Projectile'
-              }
-            ]}
-          />
-        </div>
-      </TextSection>
-
-      {/* Vector Practice Problems - Knowledge Check */}
-      <SlideshowKnowledgeCheck
-        courseId={courseId}
-        lessonPath="01-physics-20-review"
-        course={course}
-        onAIAccordionContent={onAIAccordionContent}
-        questions={[
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q1',
-            title: 'Question 1: Ski Lift Height'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q2',
-            title: 'Question 2: Highway Distance and Bearing'
-          }
-        ]}
-        onComplete={(score, results) => console.log(`Vector Knowledge Check completed with ${score}%`)}
-        theme="green"
-      />
-
-      {/* Circular Motion Knowledge Check */}
-      <SlideshowKnowledgeCheck
-        courseId={courseId}
-        lessonPath="01-physics-20-review"
-        course={course}
-        onAIAccordionContent={onAIAccordionContent}
-        questions={[
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_circular_q1',
-            title: 'Question 1: Ball Speed and Tension'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_circular_q2',
-            title: 'Question 2: Car Cornering Force'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_circular_q3',
-            title: 'Question 3: Satellite Motion'
-          }
-        ]}
-        onComplete={(score, results) => console.log(`Circular Motion Knowledge Check completed with ${score}%`)}
-        theme="purple"
-      />
-
       {/* Dynamics Practice Knowledge Check */}
       <TextSection>
         <div className="my-8">
@@ -1679,7 +1679,10 @@ AIAccordion, onAIAccordionContent }) => {
           />
         </div>
       </TextSection>
-      
+
+
+
+
       <LessonSummary
         title="Key Skills for Physics 30"
         points={[
