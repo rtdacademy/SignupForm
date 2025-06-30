@@ -86,7 +86,15 @@ const Course2 = ({
   activeItemId: externalActiveItemId,
   onItemSelect,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  onUpdateAIContext,
+  onPrepopulateMessage,
+  // Add missing AI-related props
+  AIAccordion,
+  onAIAccordionContent,
+  createAskAIButton,
+  createAskAIButtonFromElement,
+  gradebookItems
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course?.CourseID || '2';
@@ -96,14 +104,6 @@ const Course2 = ({
                    course?.Gradebook?.courseStructure?.units || 
                    [];
 
-  // Debug logging
-  useEffect(() => {
-    console.log(`${courseId}: Course loaded`, {
-      courseId: courseId,
-      structure: structure,
-      contentRegistry: Object.keys(contentRegistry)
-    });
-  }, [structure]);
 
   // Use external or internal active item ID
   const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;
@@ -156,12 +156,6 @@ const Course2 = ({
     const contentPath = activeItem.contentPath;
     const ContentComponent = contentRegistry[contentPath];
 
-    console.log('Loading content:', {
-      contentPath,
-      itemId: activeItem.itemId,
-      type: activeItem.type,
-      hasComponent: !!ContentComponent
-    });
 
     if (ContentComponent) {
       return (
@@ -169,7 +163,7 @@ const Course2 = ({
           <div className="flex justify-between items-center mb-4">
             <div>
               <p className="text-sm text-gray-500 mb-1">{activeItem.unitName}</p>
-              <h1 className="text-xl font-bold text-gray-800">
+              <h1 className="text-3xl font-bold text-gray-800">
                 {activeItem.title}
                 {devMode && activeItem.hasCloudFunctions && (
                   <span className="ml-2 text-xs bg-yellow-600 text-white px-2 py-0.5 rounded-full">
@@ -201,6 +195,14 @@ const Course2 = ({
             itemConfig={activeItem}
             isStaffView={isStaffView}
             devMode={devMode}
+            onUpdateAIContext={onUpdateAIContext}
+            onPrepopulateMessage={onPrepopulateMessage}
+            // Add missing AI-related props
+            AIAccordion={AIAccordion}
+            onAIAccordionContent={onAIAccordionContent}
+            createAskAIButton={createAskAIButton}
+            createAskAIButtonFromElement={createAskAIButtonFromElement}
+            gradebookItems={gradebookItems}
           />
         </div>
       );
@@ -252,16 +254,7 @@ const Course2 = ({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Course Header */}
-      <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
-        <h1 className="text-2xl font-bold text-gray-900">{course?.courseDetails?.Title || 'Physics 30'}</h1>
-        <p className="text-gray-600 mt-1">{course?.courseDetails?.description || 'Course description'}</p>
-        <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-          <span>Grade {course?.courseDetails?.grade || '12'}</span>
-          <span>•</span>
-          <span>{progressStats.percentage}% Complete</span>
-        </div>
-      </div>
+    
       
       {/* Main Content */}
       {renderContent()}

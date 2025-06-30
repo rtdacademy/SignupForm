@@ -17,11 +17,27 @@ const defaultPrompt = {
 - Use appropriate physics terminology and mathematical notation
 - Be patient and supportive
 
+When a student asks a question but isn't clear about what specific help they need, ask probing questions to determine exactly where they may be having difficulties. This helps you provide more targeted and effective assistance.
+
 Always adapt your explanations to the student's level of understanding.`,
 
-  firstMessage: `Hello! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
+  conversationHistory: (studentName = '') => {
+    const firstName = studentName || 'there';
+    return [
+      {
+        sender: 'user',
+        text: 'Hello!',
+        timestamp: Date.now() - 1000
+      },
+      {
+        sender: 'model',
+        text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
 
-What would you like to work on today? Feel free to ask questions about any physics topic or get help with specific problems.`,
+${firstName !== 'there' ? `I know your name is ${firstName}, so I'll make sure to address you personally throughout our conversation. ` : ''}What would you like to work on today? Feel free to ask questions about any physics topic or get help with specific problems.`,
+        timestamp: Date.now()
+      }
+    ];
+  },
 
   contextKeywords: ['physics', 'science', 'problem-solving'],
   difficulty: 'intermediate',
@@ -91,6 +107,15 @@ const getLessonFolder = (itemId) => {
   // Pattern 3: already in folder format (01-physics-20-review)
   if (/^\d{2}-/.test(itemId)) {
     return itemId;
+  }
+  
+  // Pattern 4: 01_physics_20_review format (number with underscores)
+  const numberUnderscorePattern = /^(\d{2})_(.+)$/;
+  const numberUnderscoreMatch = itemId.match(numberUnderscorePattern);
+  if (numberUnderscoreMatch) {
+    lessonNumber = numberUnderscoreMatch[1];
+    lessonName = numberUnderscoreMatch[2].replace(/_/g, '-');
+    return `${lessonNumber}-${lessonName}`;
   }
   
   // Special case for some lesson IDs that might not follow the pattern
@@ -198,18 +223,48 @@ export const loadCourseDefaultPrompt = async (courseId) => {
 export const enhancePromptWithContext = (basePrompt, additionalContext) => {
   if (!additionalContext) return basePrompt;
 
+  // Handle conversation history - can be array or function
+  let enhancedConversationHistory;
+  if (typeof basePrompt.conversationHistory === 'function') {
+    // Call the function with student name to get personalized conversation history
+    enhancedConversationHistory = basePrompt.conversationHistory(additionalContext.studentName);
+  } else {
+    // Fallback to array format
+    enhancedConversationHistory = [...(basePrompt.conversationHistory || [])];
+  }
+  
+  // Build enhanced system instructions instead of fake conversation messages
+  let enhancedInstructions = basePrompt.instructions || '';
+
+
+
+  // Add other context to system instructions instead of conversation messages
+  if (additionalContext.studentProgress || additionalContext.currentUnit || additionalContext.studentName) {
+    enhancedInstructions += `\n\n## **ADDITIONAL CONTEXT**\n\n`;
+    if (additionalContext.studentName) {
+      enhancedInstructions += `👤 Student Name: ${additionalContext.studentName} (use this name when addressing the student)\n`;
+    }
+    if (additionalContext.studentProgress) {
+      enhancedInstructions += `📈 Course Progress: ${additionalContext.studentProgress}\n`;
+    }
+    if (additionalContext.currentUnit) {
+      enhancedInstructions += `📚 Current Unit: ${additionalContext.currentUnit}\n`;
+    }
+    if (additionalContext.recentTopics) {
+      enhancedInstructions += `🔍 Recent Topics: ${additionalContext.recentTopics.join(', ')}\n`;
+    }
+  }
+
   return {
     ...basePrompt,
-    instructions: `${basePrompt.instructions}
-
-Additional Context:
-${additionalContext.studentProgress ? `Student Progress: ${additionalContext.studentProgress}` : ''}
-${additionalContext.currentUnit ? `Current Unit: ${additionalContext.currentUnit}` : ''}
-${additionalContext.recentTopics ? `Recent Topics: ${additionalContext.recentTopics.join(', ')}` : ''}`,
+    instructions: enhancedInstructions, // Enhanced instructions instead of fake conversation
+    conversationHistory: enhancedConversationHistory, // Keep original conversation clean
     
     contextKeywords: [
       ...(basePrompt.contextKeywords || []),
       ...(additionalContext.keywords || [])
-    ]
+    ],
+    
+  
   };
 };

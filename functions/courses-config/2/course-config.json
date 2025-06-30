@@ -18,7 +18,7 @@
   },
   "progressionRequirements": {
     "enabled": true,
-     "defaultCriteria": {
+    "defaultCriteria": {
       "minimumPercentage": 50,
       "questionCompletionPercentage": null,
       "requireAllQuestions": true
@@ -57,7 +57,10 @@
       "longAnswer": {
         "totalPoints": 5,
         "rubricCriteria": 3,
-        "wordLimits": { "min": 50, "max": 200 },
+        "wordLimits": {
+          "min": 50,
+          "max": 200
+        },
         "showRubric": true,
         "showWordCount": true
       }
@@ -81,7 +84,10 @@
       "longAnswer": {
         "totalPoints": 10,
         "rubricCriteria": 4,
-        "wordLimits": { "min": 50, "max": 300},
+        "wordLimits": {
+          "min": 50,
+          "max": 300
+        },
         "showRubric": true,
         "showWordCount": true
       }
@@ -104,7 +110,10 @@
       "longAnswer": {
         "totalPoints": 15,
         "rubricCriteria": 5,
-        "wordLimits": { "min": 50, "max": 400 },
+        "wordLimits": {
+          "min": 50,
+          "max": 400
+        },
         "showRubric": true,
         "showWordCount": true
       }
@@ -127,7 +136,10 @@
       "longAnswer": {
         "totalPoints": 5,
         "rubricCriteria": 5,
-        "wordLimits": { "min": 50, "max": 300 },
+        "wordLimits": {
+          "min": 50,
+          "max": 300
+        },
         "showRubric": false,
         "showWordCount": true
       }
@@ -186,35 +198,133 @@
         "contentPath": "24-section-1-exam",
         "questions": [
           {
-            "questionId": "course2_24_section_1_exam_question1",
-            "title": "Section 1 Comprehensive Assessment",
-            "points": 25
+            "questionId": "course2_24_section1_exam_q1",
+            "title": "Section1 Exam Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q2",
+            "title": "Section1 Exam Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q3",
+            "title": "Section1 Exam Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q4",
+            "title": "Section1 Exam Q4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q5",
+            "title": "Section1 Exam Q5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q6",
+            "title": "Section1 Exam Q6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q7",
+            "title": "Section1 Exam Q7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q8",
+            "title": "Section1 Exam Q8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q9",
+            "title": "Section1 Exam Q9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q10",
+            "title": "Section1 Exam Q10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q11",
+            "title": "Section1 Exam Q11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q12",
+            "title": "Section1 Exam Q12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q13",
+            "title": "Section1 Exam Q13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q14",
+            "title": "Section1 Exam Q14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q15",
+            "title": "Section1 Exam Q15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q16",
+            "title": "Section1 Exam Q16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q17",
+            "title": "Section1 Exam Q17",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q18",
+            "title": "Section1 Exam Q18",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q19",
+            "title": "Section1 Exam Q19",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q20",
+            "title": "Section1 Exam Q20",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q21",
+            "title": "Section1 Exam Q21",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q22",
+            "title": "Section1 Exam Q22",
+            "points": 1
+          },
+          {
+            "questionId": "course2_24_section1_exam_q23",
+            "title": "Section1 Exam Q23",
+            "points": 1
           }
         ]
       },
       "exam_section_2": {
-        "title": "Section 2 Exam - Electricity and Magnetism", 
+        "title": "Section 2 Exam - Electricity and Magnetism",
         "type": "exam",
         "contentPath": "48-section-2-exam",
-        "questions": [
-          {
-            "questionId": "course2_48_section_2_exam_question1",
-            "title": "Section 2 Comprehensive Assessment",
-            "points": 25
-          }
-        ]
+        "questions": []
       },
       "exam_section_3": {
         "title": "Section 3 Exam - Atomic Physics and Nuclear",
-        "type": "exam", 
+        "type": "exam",
         "contentPath": "76-section-3-exam",
-        "questions": [
-          {
-            "questionId": "course2_76_section_3_exam_question1",
-            "title": "Section 3 Comprehensive Assessment",
-            "points": 25
-          }
-        ]
+        "questions": []
       },
       "assignment_l1_3": {
         "title": "Assignment L1-3 - Momentum Fundamentals",
@@ -222,21 +332,121 @@
         "contentPath": "05-l1-3-assignment",
         "questions": [
           {
-            "questionId": "course2_05_l1_3_assignment_question1",
-            "title": "Momentum Calculations",
-            "points": 10
+            "questionId": "course2_05_l13_question1",
+            "title": "L13 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question2",
+            "title": "L13 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question3",
+            "title": "L13 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question4",
+            "title": "L13 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question5",
+            "title": "L13 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question6",
+            "title": "L13 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question7",
+            "title": "L13 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question8",
+            "title": "L13 Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question9",
+            "title": "L13 Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question10",
+            "title": "L13 Question10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question11",
+            "title": "L13 Question11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_05_l13_question12",
+            "title": "L13 Question12",
+            "points": 1
           }
         ]
       },
       "assignment_l1_4": {
         "title": "Assignment L1-4 - Momentum Cumulative",
         "type": "assignment",
-        "contentPath": "08-l1-4-cumulative-assignment", 
+        "contentPath": "08-l1-4-cumulative-assignment",
         "questions": [
           {
-            "questionId": "course2_08_l1_4_assignment_question1",
-            "title": "Momentum and Graphing",
-            "points": 10
+            "questionId": "course2_08_l14_question1",
+            "title": "L14 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question2",
+            "title": "L14 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question3",
+            "title": "L14 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question4",
+            "title": "L14 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question5",
+            "title": "L14 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question6",
+            "title": "L14 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question7",
+            "title": "L14 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question8",
+            "title": "L14 Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question9",
+            "title": "L14 Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_08_l14_question10",
+            "title": "L14 Question10",
+            "points": 1
           }
         ]
       },
@@ -246,9 +456,54 @@
         "contentPath": "12-l5-7-assignment",
         "questions": [
           {
-            "questionId": "course2_12_l5_7_assignment_question1",
-            "title": "Reflection and Refraction",
-            "points": 10
+            "questionId": "course2_12_l57_question1",
+            "title": "L57 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question2",
+            "title": "L57 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question3",
+            "title": "L57 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question4",
+            "title": "L57 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question5",
+            "title": "L57 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question6",
+            "title": "L57 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question7",
+            "title": "L57 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question8",
+            "title": "L57 Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question9",
+            "title": "L57 Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_12_l57_question10",
+            "title": "L57 Question10",
+            "points": 1
           }
         ]
       },
@@ -258,9 +513,44 @@
         "contentPath": "16-l8-9-assignment",
         "questions": [
           {
-            "questionId": "course2_16_l8_9_assignment_question1",
-            "title": "Lenses and Mirrors",
-            "points": 10
+            "questionId": "course2_16_l89_question1",
+            "title": "L89 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question2",
+            "title": "L89 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question3",
+            "title": "L89 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question4",
+            "title": "L89 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question5",
+            "title": "L89 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question6",
+            "title": "L89 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question7",
+            "title": "L89 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_16_l89_question8",
+            "title": "L89 Question8",
+            "points": 1
           }
         ]
       },
@@ -270,9 +560,54 @@
         "contentPath": "21-l1-12-cumulative-assignment",
         "questions": [
           {
-            "questionId": "course2_21_l1_12_assignment_question1",
-            "title": "Momentum and Optics Review",
-            "points": 10
+            "questionId": "course2_21_l112_question1",
+            "title": "L112 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question2",
+            "title": "L112 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question3",
+            "title": "L112 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question4",
+            "title": "L112 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question5",
+            "title": "L112 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question6",
+            "title": "L112 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question7",
+            "title": "L112 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question8",
+            "title": "L112 Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question9",
+            "title": "L112 Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_21_l112_question10",
+            "title": "L112 Question10",
+            "points": 1
           }
         ]
       },
@@ -280,275 +615,1109 @@
         "title": "Assignment L13-14 - Electrostatics",
         "type": "assignment",
         "contentPath": "28-l13-14-assignment",
-        "questions": [
-          {
-            "questionId": "course2_28_l13_14_assignment_question1",
-            "title": "Electric Forces and Fields",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l15_18": {
         "title": "Assignment L15-18 - Electric Circuits",
         "type": "assignment",
         "contentPath": "34-l15-18-assignment",
-        "questions": [
-          {
-            "questionId": "course2_34_l15_18_assignment_question1",
-            "title": "Current and Potential",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l1_18": {
         "title": "Assignment L1-18 - Unit 2 Cumulative",
         "type": "assignment",
         "contentPath": "35-l1-18-cumulative-assignment",
-        "questions": [
-          {
-            "questionId": "course2_35_l1_18_assignment_question1",
-            "title": "Electricity Comprehensive",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l19_21": {
         "title": "Assignment L19-21 - Magnetism",
         "type": "assignment",
         "contentPath": "39-l19-21-assignment",
-        "questions": [
-          {
-            "questionId": "course2_39_l19_21_assignment_question1",
-            "title": "Magnetic Forces and Fields",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l22_24": {
         "title": "Assignment L22-24 - Electromagnetic Induction",
         "type": "assignment",
         "contentPath": "44-l22-24-assignment",
-        "questions": [
-          {
-            "questionId": "course2_44_l22_24_assignment_question1",
-            "title": "Generators and Motors",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l1_24": {
         "title": "Assignment L1-24 - Unit 3-4 Cumulative",
         "type": "assignment",
         "contentPath": "45-l1-24-cumulative-assignment",
-        "questions": [
-          {
-            "questionId": "course2_45_l1_24_assignment_question1",
-            "title": "Electricity and Magnetism Review",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l25_27": {
         "title": "Assignment L25-27 - Early Atomic Models",
         "type": "assignment",
         "contentPath": "52-l25-27-assignment",
-        "questions": [
-          {
-            "questionId": "course2_52_l25_27_assignment_question1",
-            "title": "Atomic Structure History",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l28_30": {
         "title": "Assignment L28-30 - Quantum Effects",
         "type": "assignment",
         "contentPath": "59-l28-30-assignment",
-        "questions": [
-          {
-            "questionId": "course2_59_l28_30_assignment_question1",
-            "title": "Photoelectric and Planck",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l31_33": {
         "title": "Assignment L31-33 - Wave-Particle Duality",
         "type": "assignment",
         "contentPath": "63-l31-33-assignment",
-        "questions": [
-          {
-            "questionId": "course2_63_l31_33_assignment_question1",
-            "title": "Bohr Model and Compton Effect",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l1_34": {
         "title": "Assignment L1-34 - Unit 5 Cumulative",
         "type": "assignment",
         "contentPath": "65-l1-34-cumulative-assignment",
-        "questions": [
-          {
-            "questionId": "course2_65_l1_34_assignment_question1",
-            "title": "Quantum Physics Review",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l35_36": {
         "title": "Assignment L35-36 - Nuclear Physics",
         "type": "assignment",
         "contentPath": "69-l35-36-assignment",
-        "questions": [
-          {
-            "questionId": "course2_69_l35_36_assignment_question1",
-            "title": "Nuclear Decay and Radiation",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l37_38": {
         "title": "Assignment L37-38 - Particle Physics",
         "type": "assignment",
         "contentPath": "72-l37-38-assignment",
-        "questions": [
-          {
-            "questionId": "course2_72_l37_38_assignment_question1",
-            "title": "Quarks and Fundamental Particles",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "assignment_l1_38": {
         "title": "Assignment L1-38 - Final Cumulative",
         "type": "assignment",
         "contentPath": "73-l1-38-cumulative-assignment",
-        "questions": [
-          {
-            "questionId": "course2_73_l1_38_assignment_question1",
-            "title": "Complete Course Review",
-            "points": 10
-          }
-        ]
+        "questions": []
       },
       "lab_momentum_conservation": {
         "title": "Lab - Momentum Conservation",
         "type": "lab",
         "contentPath": "07-lab-momentum-conservation",
-        "questions": [
-          {
-            "questionId": "course2_07_lab_momentum_question1", 
-            "title": "Conservation of Momentum Lab",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_mirrors_lenses": {
         "title": "Lab - Mirrors and Lenses",
         "type": "lab",
         "contentPath": "15-lab-mirrors-lenses",
-        "questions": [
-          {
-            "questionId": "course2_15_lab_mirrors_lenses_question1", 
-            "title": "Optics Lab Analysis",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_laser_wavelength": {
         "title": "Lab - Laser Wavelength",
         "type": "lab",
         "contentPath": "20-lab-laser-wavelength",
-        "questions": [
-          {
-            "questionId": "course2_20_lab_laser_wavelength_question1", 
-            "title": "Diffraction and Interference",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_electrostatic": {
         "title": "Lab - Electrostatic Forces",
         "type": "lab",
         "contentPath": "27-lab-electrostatic",
-        "questions": [
-          {
-            "questionId": "course2_27_lab_electrostatic_question1", 
-            "title": "Coulomb's Law Verification",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_electric_fields": {
         "title": "Lab - Electric Fields",
         "type": "lab",
         "contentPath": "33-lab-electric-fields",
-        "questions": [
-          {
-            "questionId": "course2_33_lab_electric_fields_question1", 
-            "title": "Field Mapping and Analysis",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_electromagnet": {
         "title": "Lab - Electromagnet",
         "type": "lab",
         "contentPath": "43-lab-electromagnet",
-        "questions": [
-          {
-            "questionId": "course2_43_lab_electromagnet_question1", 
-            "title": "Electromagnetic Induction Lab",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_plancks_constant": {
         "title": "Lab - Planck's Constant",
         "type": "lab",
         "contentPath": "54-lab-plancks-constant",
-        "questions": [
-          {
-            "questionId": "course2_54_lab_plancks_constant_question1", 
-            "title": "Quantum Energy Measurement",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_millikans_oil_drop": {
         "title": "Lab - Millikan's Oil Drop",
         "type": "lab",
         "contentPath": "56-lab-millikans-oil-drop",
-        "questions": [
-          {
-            "questionId": "course2_56_lab_millikans_oil_drop_question1", 
-            "title": "Electron Charge Determination",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_marshmallow_speed_light": {
         "title": "Lab - Speed of Light with Marshmallows",
         "type": "lab",
         "contentPath": "58-lab-marshmallow-speed-light",
-        "questions": [
-          {
-            "questionId": "course2_58_lab_marshmallow_speed_light_question1", 
-            "title": "Electromagnetic Wave Speed",
-            "points": 15
-          }
-        ]
+        "questions": []
       },
       "lab_half_life": {
         "title": "Lab - Radioactive Half-Life",
         "type": "lab",
         "contentPath": "68-lab-half-life",
+        "questions": []
+      },
+      "01_physics_20_review": {
+        "title": "Physics 20 Review",
+        "type": "lesson",
+        "contentPath": "01-physics-20-review",
         "questions": [
           {
-            "questionId": "course2_68_lab_half_life_question1", 
-            "title": "Nuclear Decay Analysis",
-            "points": 15
+            "questionId": "course2_01_physics_20_review_question1",
+            "title": "Physics 20 Review Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question2",
+            "title": "Physics 20 Review Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question3",
+            "title": "Physics 20 Review Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question4",
+            "title": "Physics 20 Review Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question5",
+            "title": "Physics 20 Review Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question6",
+            "title": "Physics 20 Review Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question7",
+            "title": "Physics 20 Review Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question8",
+            "title": "Physics 20 Review Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question9",
+            "title": "Physics 20 Review Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question10",
+            "title": "Physics 20 Review Question10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question11",
+            "title": "Physics 20 Review Question11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_question12",
+            "title": "Physics 20 Review Question12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_vector_q1",
+            "title": "Physics 20 Review Vector Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_vector_q2",
+            "title": "Physics 20 Review Vector Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_circular_q1",
+            "title": "Physics 20 Review Circular Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_circular_q2",
+            "title": "Physics 20 Review Circular Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_circular_q3",
+            "title": "Physics 20 Review Circular Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q1",
+            "title": "Physics 20 Review Dynamics Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q2",
+            "title": "Physics 20 Review Dynamics Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q3",
+            "title": "Physics 20 Review Dynamics Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q4",
+            "title": "Physics 20 Review Dynamics Q4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q5",
+            "title": "Physics 20 Review Dynamics Q5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q6",
+            "title": "Physics 20 Review Dynamics Q6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q7",
+            "title": "Physics 20 Review Dynamics Q7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q8",
+            "title": "Physics 20 Review Dynamics Q8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_01_physics_20_review_dynamics_q9",
+            "title": "Physics 20 Review Dynamics Q9",
+            "points": 1
+          }
+        ]
+      },
+      "02_momentum_one_dimension": {
+        "title": "Momentum in One Dimension",
+        "type": "lesson",
+        "contentPath": "02-momentum-one-dimension",
+        "questions": [
+          {
+            "questionId": "course2_02_momentum_one_dimension_aiQuestion",
+            "title": "Momentum One Dimension Aiquestion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_aiLongAnswer",
+            "title": "Momentum One Dimension Ailonganswer",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_inertia_difference",
+            "title": "Momentum Inertia Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_bowling_ball_momentum",
+            "title": "Bowling Ball Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_bullet_velocity",
+            "title": "Bullet Velocity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_hockey_puck_mass",
+            "title": "Hockey Puck Mass",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_jet_momentum_a",
+            "title": "Jet Momentum A",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_jet_momentum_b",
+            "title": "Jet Momentum B",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_collision_rebound",
+            "title": "Collision Rebound",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_ball_collision_type",
+            "title": "Ball Collision Type",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_unknown_mass_collision",
+            "title": "Unknown Mass Collision",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_football_tackle_mass",
+            "title": "Football Tackle Mass",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_arrow_apple_mass",
+            "title": "Arrow Apple Mass",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_truck_car_headon",
+            "title": "Truck Car Headon",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_astronaut_recoil",
+            "title": "Astronaut Recoil",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_rocket_separation",
+            "title": "Rocket Separation",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_machine_gun_recoil",
+            "title": "Machine Gun Recoil",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_uranium_disintegration",
+            "title": "Uranium Disintegration",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_ballistic_pendulum",
+            "title": "Ballistic Pendulum",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_canoe_comparison",
+            "title": "Canoe Comparison",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_cart_jumping",
+            "title": "Cart Jumping",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_atom_collision",
+            "title": "Atom Collision",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q1",
+            "title": "Momentum One Dimension Kc Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q2",
+            "title": "Momentum One Dimension Kc Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q3",
+            "title": "Momentum One Dimension Kc Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q4",
+            "title": "Momentum One Dimension Kc Q4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q5",
+            "title": "Momentum One Dimension Kc Q5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q6",
+            "title": "Momentum One Dimension Kc Q6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q7",
+            "title": "Momentum One Dimension Kc Q7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q8",
+            "title": "Momentum One Dimension Kc Q8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q9",
+            "title": "Momentum One Dimension Kc Q9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q10",
+            "title": "Momentum One Dimension Kc Q10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q11",
+            "title": "Momentum One Dimension Kc Q11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q12",
+            "title": "Momentum One Dimension Kc Q12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q13",
+            "title": "Momentum One Dimension Kc Q13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q14",
+            "title": "Momentum One Dimension Kc Q14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q15",
+            "title": "Momentum One Dimension Kc Q15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q16",
+            "title": "Momentum One Dimension Kc Q16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q17",
+            "title": "Momentum One Dimension Kc Q17",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q18",
+            "title": "Momentum One Dimension Kc Q18",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_momentum_one_dimension_kc_q19",
+            "title": "Momentum One Dimension Kc Q19",
+            "points": 1
+          }
+        ]
+      },
+      "03_momentum_two_dimensions": {
+        "title": "Momentum in Two Dimensions",
+        "type": "lesson",
+        "contentPath": "03-momentum-two-dimensions",
+        "questions": [
+          {
+            "questionId": "course2_03_car_truck_2d_collision",
+            "title": "Car Truck 2d Collision",
+            "points": 3
+          },
+          {
+            "questionId": "course2_03_nuclear_decay_2d",
+            "title": "Nuclear Decay 2d",
+            "points": 3
+          },
+          {
+            "questionId": "course2_03_glancing_collision_2d",
+            "title": "Glancing Collision 2d",
+            "points": 3
+          },
+          {
+            "questionId": "course2_03_space_capsule_projectile",
+            "title": "Space Capsule Projectile",
+            "points": 3
+          },
+          {
+            "questionId": "course2_03_steel_ball_deflection",
+            "title": "Steel Ball Deflection",
+            "points": 4
+          },
+          {
+            "questionId": "course2_03_mass_explosion",
+            "title": "Mass Explosion",
+            "points": 4
+          },
+          {
+            "questionId": "course2_03_elastic_collision_90",
+            "title": "Elastic Collision 90",
+            "points": 4
+          },
+          {
+            "questionId": "course2_03_plasticene_collision",
+            "title": "Plasticene Collision",
+            "points": 4
+          }
+        ]
+      },
+      "04_impulse_momentum_change": {
+        "title": "Impulse and Momentum Change",
+        "type": "lesson",
+        "contentPath": "04-impulse-momentum-change",
+        "questions": [
+          {
+            "questionId": "course2_04_basic_impulse",
+            "title": "Basic Impulse",
+            "points": 3
+          },
+          {
+            "questionId": "course2_04_person_falling",
+            "title": "Person Falling",
+            "points": 3
+          },
+          {
+            "questionId": "course2_04_impulse_quantities",
+            "title": "Impulse Quantities",
+            "points": 2
+          },
+          {
+            "questionId": "course2_04_karate_board",
+            "title": "Karate Board",
+            "points": 3
+          },
+          {
+            "questionId": "course2_04_safety_features",
+            "title": "Safety Features",
+            "points": 3
+          },
+          {
+            "questionId": "course2_04_golf_ball_driver",
+            "title": "Golf Ball Driver",
+            "points": 4
+          },
+          {
+            "questionId": "course2_04_child_ball",
+            "title": "Child Ball",
+            "points": 3
+          },
+          {
+            "questionId": "course2_04_ball_bat",
+            "title": "Ball Bat",
+            "points": 4
+          },
+          {
+            "questionId": "course2_04_bullet_wood",
+            "title": "Bullet Wood",
+            "points": 4
+          },
+          {
+            "questionId": "course2_04_water_turbine",
+            "title": "Water Turbine",
+            "points": 4
+          }
+        ]
+      },
+      "06_graphing_techniques": {
+        "title": "Graphing Techniques",
+        "type": "lesson",
+        "contentPath": "06-graphing-techniques",
+        "questions": [
+          {
+            "questionId": "course2_06_graphing_techniques_question1",
+            "title": "Graphing Techniques Question1",
+            "points": 2
+          },
+          {
+            "questionId": "course2_06_graphing_techniques_question2",
+            "title": "Graphing Techniques Question2",
+            "points": 2
+          },
+          {
+            "questionId": "course2_06_graphing_techniques_question3",
+            "title": "Graphing Techniques Question3",
+            "points": 2
+          },
+          {
+            "questionId": "course2_06_graphing_techniques_question4",
+            "title": "Graphing Techniques Question4",
+            "points": 2
+          }
+        ]
+      },
+      "13_refraction_of_light": {
+        "title": "Refraction of Light",
+        "type": "lesson",
+        "contentPath": "13-refraction-of-light",
+        "questions": [
+          {
+            "questionId": "course2_13_refraction_kc_q1",
+            "title": "Refraction Kc Q1",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q2",
+            "title": "Refraction Kc Q2",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q3",
+            "title": "Refraction Kc Q3",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q4",
+            "title": "Refraction Kc Q4",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q5",
+            "title": "Refraction Kc Q5",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q6",
+            "title": "Refraction Kc Q6",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_refraction_kc_q7",
+            "title": "Refraction Kc Q7",
+            "points": 2
+          },
+          {
+            "questionId": "course2_13_slideshow_q1",
+            "title": "Slideshow Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_13_slideshow_q2",
+            "title": "Slideshow Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_13_critical_q1",
+            "title": "Critical Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_13_critical_q2",
+            "title": "Critical Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_13_critical_q3",
+            "title": "Critical Q3",
+            "points": 1
+          }
+        ]
+      },
+      "17_dispersion_scattering": {
+        "title": "Dispersion and Scattering",
+        "type": "lesson",
+        "contentPath": "17-dispersion-scattering",
+        "questions": [
+          {
+            "questionId": "course2_17_dispersion_air_speeds",
+            "title": "Dispersion Air Speeds",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_diamond_dispersion",
+            "title": "Diamond Dispersion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_microscopy_scattering",
+            "title": "Microscopy Scattering",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_clothing_color_heat",
+            "title": "Clothing Color Heat",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_red_orange_difference",
+            "title": "Red Orange Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_stage_lighting_color",
+            "title": "Stage Lighting Color",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_window_glass_dispersion",
+            "title": "Window Glass Dispersion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_green_object_lighting",
+            "title": "Green Object Lighting",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_cat_color_vision",
+            "title": "Cat Color Vision",
+            "points": 1
+          },
+          {
+            "questionId": "course2_17_moonlight_colorless",
+            "title": "Moonlight Colorless",
+            "points": 1
+          }
+        ]
+      },
+      "18_interference_of_light": {
+        "title": "Interference of Light",
+        "type": "lesson",
+        "contentPath": "18-interference-of-light",
+        "questions": [
+          {
+            "questionId": "course2_18_constructive_amplitude",
+            "title": "Constructive Amplitude",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_destructive_amplitude",
+            "title": "Destructive Amplitude",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_dark_fringes_cause",
+            "title": "Dark Fringes Cause",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_wavelength_fringe_spacing",
+            "title": "Wavelength Fringe Spacing",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_path_difference_interference",
+            "title": "Path Difference Interference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_coherence_requirement",
+            "title": "Coherence Requirement",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_single_slit_blocking",
+            "title": "Single Slit Blocking",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_lightbulb_incoherence",
+            "title": "Lightbulb Incoherence",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_fringe_count_factors",
+            "title": "Fringe Count Factors",
+            "points": 1
+          },
+          {
+            "questionId": "course2_18_sound_dead_spots",
+            "title": "Sound Dead Spots",
+            "points": 1
+          }
+        ]
+      },
+      "19_diffraction_gratings": {
+        "title": "Diffraction Gratings",
+        "type": "lesson",
+        "contentPath": "19-diffraction-gratings",
+        "questions": [
+          {
+            "questionId": "course2_19_green_light_grating",
+            "title": "Green Light Grating",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_second_order_minimum",
+            "title": "Second Order Minimum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_yellow_light_spacing",
+            "title": "Yellow Light Spacing",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_frequency_third_order",
+            "title": "Frequency Third Order",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_spectral_orders_red",
+            "title": "Spectral Orders Red",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_water_trough_fringes",
+            "title": "Water Trough Fringes",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_cd_player_laser",
+            "title": "Cd Player Laser",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_bright_dark_bands",
+            "title": "Bright Dark Bands",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_frequency_measurement",
+            "title": "Frequency Measurement",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_grating_change",
+            "title": "Grating Change",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_distance_change",
+            "title": "Distance Change",
+            "points": 1
+          },
+          {
+            "questionId": "course2_19_frequency_change",
+            "title": "Frequency Change",
+            "points": 1
+          }
+        ]
+      },
+      "22_unit_1_review": {
+        "title": "Unit 1 Review",
+        "type": "lesson",
+        "contentPath": "22-unit-1-review",
+        "questions": [
+          {
+            "questionId": "course2_22_unit1_q1a",
+            "title": "Unit1 Q1a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q1b",
+            "title": "Unit1 Q1b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q2",
+            "title": "Unit1 Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q3a",
+            "title": "Unit1 Q3a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q3b",
+            "title": "Unit1 Q3b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q4a",
+            "title": "Unit1 Q4a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q4b",
+            "title": "Unit1 Q4b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q5",
+            "title": "Unit1 Q5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q6",
+            "title": "Unit1 Q6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q7",
+            "title": "Unit1 Q7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q8",
+            "title": "Unit1 Q8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q9a",
+            "title": "Unit1 Q9a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q9b",
+            "title": "Unit1 Q9b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q10",
+            "title": "Unit1 Q10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q11",
+            "title": "Unit1 Q11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q12",
+            "title": "Unit1 Q12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q13a",
+            "title": "Unit1 Q13a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q13b",
+            "title": "Unit1 Q13b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q14",
+            "title": "Unit1 Q14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q15",
+            "title": "Unit1 Q15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q16",
+            "title": "Unit1 Q16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_22_unit1_q17",
+            "title": "Unit1 Q17",
+            "points": 1
+          }
+        ]
+      },
+      "23_unit_2_review": {
+        "title": "Unit 2 Review",
+        "type": "lesson",
+        "contentPath": "23-unit-2-review",
+        "questions": [
+          {
+            "questionId": "course2_23_unit2_q1",
+            "title": "Unit2 Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q2",
+            "title": "Unit2 Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q3",
+            "title": "Unit2 Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q4",
+            "title": "Unit2 Q4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q5a",
+            "title": "Unit2 Q5a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q5b",
+            "title": "Unit2 Q5b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q6a",
+            "title": "Unit2 Q6a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q6b",
+            "title": "Unit2 Q6b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q7a",
+            "title": "Unit2 Q7a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q7b",
+            "title": "Unit2 Q7b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q8a",
+            "title": "Unit2 Q8a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q8b",
+            "title": "Unit2 Q8b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q9",
+            "title": "Unit2 Q9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q10",
+            "title": "Unit2 Q10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q11a",
+            "title": "Unit2 Q11a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q11b",
+            "title": "Unit2 Q11b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q12a",
+            "title": "Unit2 Q12a",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q12b",
+            "title": "Unit2 Q12b",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q13",
+            "title": "Unit2 Q13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q14",
+            "title": "Unit2 Q14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q15",
+            "title": "Unit2 Q15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q16",
+            "title": "Unit2 Q16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q17",
+            "title": "Unit2 Q17",
+            "points": 1
+          },
+          {
+            "questionId": "course2_23_unit2_q18",
+            "title": "Unit2 Q18",
+            "points": 1
           }
         ]
       }
@@ -563,7 +1732,7 @@
     "units": [
       {
         "unitId": "unit_1_momentum_optics",
-        "name": "Unit 1: Momentum and Optics",
+        "name": "Section 1: Momentum and Optics",
         "description": "Momentum conservation, collisions, and light phenomena",
         "order": 1,
         "items": [
@@ -835,7 +2004,7 @@
       },
       {
         "unitId": "unit_2_electricity_magnetism",
-        "name": "Unit 2: Electricity and Magnetism",
+        "name": "Section 2: Electricity and Magnetism",
         "description": "Electric fields, circuits, and magnetic phenomena",
         "order": 2,
         "items": [
@@ -1107,7 +2276,7 @@
       },
       {
         "unitId": "unit_3_atomic_nuclear",
-        "name": "Unit 3: Atomic and Nuclear Physics",
+        "name": "Section 3: Atomic and Nuclear Physics",
         "description": "Atomic models, quantum mechanics, and nuclear physics",
         "order": 3,
         "items": [
@@ -1461,7 +2630,6 @@
     }
   },
   "metadata": {
-  
     "status": "development"
   }
 }

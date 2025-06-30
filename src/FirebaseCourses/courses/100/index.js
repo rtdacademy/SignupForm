@@ -36,11 +36,7 @@ const Course100 = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseDisplay.courseId}: Course loaded`, {
-      config: courseDisplay,
-      structure: structure,
-      contentRegistry: Object.keys(contentRegistry)
-    });
+    // Debug logging removed
   }, []);
 
   // Use external or internal active item ID
@@ -93,12 +89,7 @@ const Course100 = ({
     const contentPath = activeItem.contentPath;
     const ContentComponent = contentRegistry[contentPath];
 
-    console.log('Loading content:', {
-      contentPath,
-      itemId: activeItem.itemId,
-      type: activeItem.type,
-      hasComponent: !!ContentComponent
-    });
+    // Loading content logging removed
 
     if (ContentComponent) {
       return (
