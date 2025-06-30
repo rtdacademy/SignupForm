@@ -202,7 +202,7 @@ export const CREATE_CHECKOUT_QUERY = `
 // API helper functions
 export const shopifyAPI = {
   // Fetch all products (courses)
-  async getProducts(first = 20) {
+  async getProducts(first = 100) {
     try {
       const response = await shopifyClient.request(PRODUCTS_QUERY, {
         variables: { first }

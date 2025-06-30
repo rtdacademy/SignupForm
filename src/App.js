@@ -176,10 +176,10 @@ function MainApp() {
 
 {/* RTD Learning Admin Routes */}
 <Route path="/rtd-learning-admin-login" element={
-  user && user.email?.endsWith('@rtdlearning.com') ? <Navigate to="/rtd-learning-admin-dashboard" /> : <RTDLearningAdminLogin />
+  user && ['kyle@rtdacademy.com', 'stan@rtdacademy.com', 'marc@rtdacademy.com'].includes(user.email?.toLowerCase()) ? <Navigate to="/rtd-learning-admin-dashboard" /> : <RTDLearningAdminLogin />
 } />
 <Route path="/rtd-learning-admin-dashboard" element={
-  user && user.email?.endsWith('@rtdlearning.com') ? <RTDLearningAdminDashboard /> : <Navigate to="/rtd-learning-admin-login" />
+  user && ['kyle@rtdacademy.com', 'stan@rtdacademy.com', 'marc@rtdacademy.com'].includes(user.email?.toLowerCase()) ? <RTDLearningAdminDashboard /> : <Navigate to="/rtd-learning-admin-login" />
 } />
         
       <Route 

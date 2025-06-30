@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X, Minimize2, RotateCcw } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
@@ -189,6 +189,7 @@ const FirebaseCourseWrapperContent = ({
   const [isCourseOutlineOpen, setIsCourseOutlineOpen] = useState(false);
   const [isResourcesOpen, setIsResourcesOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
   const [currentAIPrompt, setCurrentAIPrompt] = useState(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [chatAnimationState, setChatAnimationState] = useState('closed'); // 'closed', 'opening', 'open', 'closing'
@@ -209,10 +210,10 @@ const FirebaseCourseWrapperContent = ({
     handleResizeStart,
     resetToDefault: resetChatPosition
   } = useDraggableResizable({
-    defaultPosition: { x: window.innerWidth - 444, y: 24 }, // 420px width + 24px margin
-    defaultSize: { width: 420, height: 640 },
+    defaultPosition: { x: window.innerWidth - 644, y: 24 }, // 620px width + 24px margin
+    defaultSize: { width: 620, height: 600 }, // More reasonable initial height
     minSize: { width: 320, height: 400 },
-    maxSize: { width: 800, height: Math.min(900, window.innerHeight - 48) },
+    maxSize: { width: 1000, height: Math.min(900, window.innerHeight - 48) },
     storageKey: `ai-chat-state-course-${course?.CourseID}`,
     disabled: isMobile
   });
@@ -310,6 +311,7 @@ const FirebaseCourseWrapperContent = ({
       // Opening animation
       setChatAnimationState('opening');
       setIsChatOpen(true);
+      setIsChatMinimized(false);
       // After a brief delay, set to fully open
       setTimeout(() => setChatAnimationState('open'), 300);
     } else if (chatAnimationState === 'open') {
@@ -320,10 +322,21 @@ const FirebaseCourseWrapperContent = ({
       // After animation completes, fully close
       setTimeout(() => {
         setIsChatOpen(false);
+        setIsChatMinimized(false);
         setChatAnimationState('closed');
       }, 300);
     }
   }, [chatAnimationState]);
+
+  // Handle chat minimize/restore
+  const handleChatMinimize = useCallback(() => {
+    setIsChatMinimized(!isChatMinimized);
+    // When restoring from minimized state, reset to default size if needed
+    if (isChatMinimized) {
+      // Chat is currently minimized and being restored
+      // The useDraggableResizable hook will handle the size restoration
+    }
+  }, [isChatMinimized]);
 
   // State for forcing new chat sessions
   const [forceNewChatSession, setForceNewChatSession] = useState(false);
@@ -369,27 +382,31 @@ const FirebaseCourseWrapperContent = ({
   const handlePrepopulateMessage = useCallback((message) => {
     setPrepopulatedMessage(message);
     
-    // If chat is closed, open it
+    // If chat is closed, open it; if minimized, restore it
     if (chatAnimationState === 'closed') {
       handleChatToggle();
+    } else if (isChatMinimized) {
+      setIsChatMinimized(false);
     }
     
     // Clear prepopulated message after a delay to allow chat to use it
     setTimeout(() => {
       setPrepopulatedMessage('');
     }, 500);
-  }, [chatAnimationState, handleChatToggle]);
+  }, [chatAnimationState, handleChatToggle, isChatMinimized]);
 
   // Handle AI accordion content selection
   const handleAIAccordionContent = useCallback((extractedContent) => {
     // Set the content context data for the AI chat
     setContentContextData(extractedContent);
     
-    // If chat is closed, open it
+    // If chat is closed, open it; if minimized, restore it
     if (chatAnimationState === 'closed') {
       handleChatToggle();
+    } else if (isChatMinimized) {
+      setIsChatMinimized(false);
     }
-  }, [chatAnimationState, handleChatToggle]);
+  }, [chatAnimationState, handleChatToggle, isChatMinimized]);
 
   // Helper function to create "Ask AI about this question/example" buttons
   // Simplified version that just populates the chat input with question text
@@ -1415,40 +1432,51 @@ const FirebaseCourseWrapperContent = ({
         onClose={() => setIsResourcesOpen(false)}
       />
       
-      {/* Floating AI Assistant Button */}
-      <button
-        onClick={handleChatToggle}
-        disabled={chatAnimationState === 'opening' || chatAnimationState === 'closing'}
-        className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group ${
-          chatAnimationState === 'opening' || chatAnimationState === 'open' 
-            ? 'scale-0 opacity-0' 
-            : 'scale-100 opacity-100 hover:scale-110'
-        }`}
-        style={{ 
-          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-          transformOrigin: 'center'
-        }}
-        aria-label="Open AI Assistant"
-      >
-        <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
-        
-        {/* Pulse animation ring */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
-        
-        {/* Tooltip */}
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-          AI Physics Assistant
-          <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-        </div>
-      </button>
+      {/* Floating AI Assistant Button - Show when chat is closed or when minimized */}
+      {(chatAnimationState === 'closed' || isChatMinimized) && (
+        <button
+          onClick={isChatMinimized ? handleChatMinimize : handleChatToggle}
+          disabled={chatAnimationState === 'opening' || chatAnimationState === 'closing'}
+          className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group ${
+            chatAnimationState === 'opening'
+              ? 'scale-0 opacity-0' 
+              : 'scale-100 opacity-100 hover:scale-110'
+          }`}
+          style={{ 
+            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+            transformOrigin: 'center'
+          }}
+          aria-label={isChatMinimized ? "Restore AI Assistant" : "Open AI Assistant"}
+        >
+          {isChatMinimized ? (
+            <>
+              <MessageCircle className="w-7 h-7 transition-transform group-hover:scale-110" />
+              {/* Active conversation indicator - small dot */}
+              <div className="absolute top-1 right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+            </>
+          ) : (
+            <>
+              <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
+              {/* Pulse animation ring */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
+            </>
+          )}
+          
+          {/* Tooltip */}
+          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            {isChatMinimized ? 'Resume conversation' : 'AI Physics Assistant'}
+            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+          </div>
+        </button>
+      )}
 
       {/* AI Chat Assistant - Draggable & Resizable Panel */}
-      {(isChatOpen || chatAnimationState !== 'closed') && (
+      {(isChatOpen || chatAnimationState !== 'closed') && !isChatMinimized && (
         <div 
-          className={`fixed z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
+          className={`fixed z-50 bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
             isMobile 
-              ? 'bottom-4 left-4 right-4 h-[80vh]' 
-              : ''
+              ? 'inset-0 rounded-none' // Full screen on mobile
+              : 'rounded-2xl'
           } ${isDragging ? 'cursor-grabbing' : ''} ${isResizing ? 'select-none' : ''}`}
           style={isMobile ? {} : {
             left: chatPosition.x,
@@ -1469,60 +1497,86 @@ const FirebaseCourseWrapperContent = ({
           {/* Resize Handles - Only on desktop */}
           {!isMobile && (
             <>
-              {/* Corner handles */}
+              {/* Corner handles - More visible */}
               <div 
-                className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize z-10"
+                className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-10 bg-gradient-to-br from-purple-400/30 to-transparent rounded-br-md opacity-60 hover:opacity-100 transition-opacity"
                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                 onTouchStart={(e) => handleResizeStart(e, 'nw')}
               />
               <div 
-                className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize z-10"
+                className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize z-10 bg-gradient-to-bl from-purple-400/30 to-transparent rounded-bl-md opacity-60 hover:opacity-100 transition-opacity"
                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                 onTouchStart={(e) => handleResizeStart(e, 'ne')}
               />
               <div 
-                className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize z-10"
+                className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize z-10 bg-gradient-to-tr from-purple-400/30 to-transparent rounded-tr-md opacity-60 hover:opacity-100 transition-opacity"
                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                 onTouchStart={(e) => handleResizeStart(e, 'sw')}
               />
               <div 
-                className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize z-10 bg-gradient-to-tl from-purple-200 to-transparent rounded-tl-lg opacity-50 hover:opacity-75 transition-opacity"
+                className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10 bg-gradient-to-tl from-purple-400/40 to-transparent rounded-tl-md opacity-70 hover:opacity-100 transition-opacity group"
                 onMouseDown={(e) => handleResizeStart(e, 'se')}
                 onTouchStart={(e) => handleResizeStart(e, 'se')}
-              />
+              >
+                {/* Visual resize indicator on bottom-right corner */}
+                <div className="absolute bottom-0.5 right-0.5 w-2 h-2">
+                  <div className="absolute bottom-0 right-0 w-1 h-1 bg-purple-500/60 rounded-full"></div>
+                  <div className="absolute bottom-0.5 right-1 w-0.5 h-0.5 bg-purple-500/40 rounded-full"></div>
+                  <div className="absolute bottom-1 right-0.5 w-0.5 h-0.5 bg-purple-500/40 rounded-full"></div>
+                </div>
+              </div>
               
-              {/* Edge handles */}
+              {/* Edge handles - More visible resize bars */}
+              {/* Top edge - vertical resize */}
               <div 
-                className="absolute top-0 left-3 right-3 h-1 cursor-n-resize"
+                className="absolute top-0 left-4 right-4 h-2 cursor-n-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-b-sm"
                 onMouseDown={(e) => handleResizeStart(e, 'n')}
                 onTouchStart={(e) => handleResizeStart(e, 'n')}
-              />
+              >
+                {/* Visual indicator line */}
+                <div className="absolute top-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/60 rounded-full"></div>
+              </div>
+              
+              {/* Bottom edge - vertical resize */}
               <div 
-                className="absolute bottom-0 left-3 right-3 h-1 cursor-s-resize"
+                className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-t-sm"
                 onMouseDown={(e) => handleResizeStart(e, 's')}
                 onTouchStart={(e) => handleResizeStart(e, 's')}
-              />
+              >
+                {/* Visual indicator line */}
+                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/60 rounded-full"></div>
+              </div>
+              
+              {/* Left edge - horizontal resize */}
               <div 
-                className="absolute left-0 top-3 bottom-3 w-1 cursor-w-resize"
+                className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-r-sm"
                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                 onTouchStart={(e) => handleResizeStart(e, 'w')}
-              />
+              >
+                {/* Visual indicator line */}
+                <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/60 rounded-full"></div>
+              </div>
+              
+              {/* Right edge - horizontal resize */}
               <div 
-                className="absolute right-0 top-3 bottom-3 w-1 cursor-e-resize"
+                className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-l-sm"
                 onMouseDown={(e) => handleResizeStart(e, 'e')}
                 onTouchStart={(e) => handleResizeStart(e, 'e')}
-              />
+              >
+                {/* Visual indicator line */}
+                <div className="absolute right-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/60 rounded-full"></div>
+              </div>
             </>
           )}
 
-          {/* Chat Header - Draggable */}
-          <div 
-            className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 flex items-center justify-between ${
-              !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
-            }`}
-            onMouseDown={!isMobile ? handleDragStart : undefined}
-            onTouchStart={!isMobile ? handleDragStart : undefined}
-          >
+              {/* Chat Header - Draggable */}
+              <div 
+                className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3 flex items-center justify-between ${
+                  !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
+                }`}
+                onMouseDown={!isMobile ? handleDragStart : undefined}
+                onTouchStart={!isMobile ? handleDragStart : undefined}
+              >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <Bot className="w-6 h-6 flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -1549,16 +1603,15 @@ const FirebaseCourseWrapperContent = ({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Reset position button - Only on desktop */}
-              {!isMobile && (
-                <button
-                  onClick={resetChatPosition}
-                  className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
-                  title="Reset position and size"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              )}
+              {/* Minimize button */}
+              <button
+                onClick={handleChatMinimize}
+                className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
+                title="Minimize chat"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+              
               <button
                 onClick={handleChatToggle}
                 className="hover:bg-white/20 rounded-full p-2 transition-colors"
@@ -1569,7 +1622,9 @@ const FirebaseCourseWrapperContent = ({
           </div>
           
           {/* Chat Component */}
-          <div className="flex-1 overflow-hidden">
+          <div className={`flex-1 overflow-hidden transition-all duration-300 ${
+            isChatMinimized ? 'h-0 opacity-0' : 'opacity-100'
+          }`}>
             {currentAIPrompt && !isLoadingPrompt ? (
               <GoogleAIChatApp
                 firebaseApp={undefined} // Will use default app
@@ -1623,6 +1678,8 @@ const FirebaseCourseWrapperContent = ({
                     setContentContextData(null);
                   }
                 }}
+                // Enable math-friendly rendering for physics courses
+                mathFriendly={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

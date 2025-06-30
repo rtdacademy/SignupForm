@@ -17,6 +17,8 @@ const defaultPrompt = {
 - Use appropriate physics terminology and mathematical notation
 - Be patient and supportive
 
+When a student asks a question but isn't clear about what specific help they need, ask probing questions to determine exactly where they may be having difficulties. This helps you provide more targeted and effective assistance.
+
 Always adapt your explanations to the student's level of understanding.`,
 
   conversationHistory: (studentName = '') => {
@@ -234,38 +236,7 @@ export const enhancePromptWithContext = (basePrompt, additionalContext) => {
   // Build enhanced system instructions instead of fake conversation messages
   let enhancedInstructions = basePrompt.instructions || '';
 
-  // Add lesson questions context to system instructions instead of conversation
-  if (additionalContext.lessonQuestions && Object.keys(additionalContext.lessonQuestions).length > 0) {
-    const totalQuestions = Object.keys(additionalContext.lessonQuestions).length;
-    const attemptedQuestions = Object.values(additionalContext.lessonQuestions).filter(q => q.attempts > 0).length;
-    const correctQuestions = Object.values(additionalContext.lessonQuestions).filter(q => 
-      q.lastSubmission && q.lastSubmission.isCorrect
-    ).length;
 
-    // Add assessment context to system instructions
-    enhancedInstructions += `\n\n## **CURRENT STUDENT ASSESSMENT STATUS**\n\n`;
-    enhancedInstructions += `The student is working on ${totalQuestions} assessment questions in this lesson.\n`;
-    enhancedInstructions += `**Progress Summary**: ${attemptedQuestions}/${totalQuestions} attempted, ${correctQuestions}/${totalQuestions} correct\n\n`;
-    enhancedInstructions += `**Question Details:**\n`;
-
-    // Add details for each question to system instructions
-    Object.entries(additionalContext.lessonQuestions).forEach(([questionId, questionData]) => {
-      enhancedInstructions += `- **${questionId}**: ${questionData.questionText}\n`;
-      enhancedInstructions += `  - Type: ${questionData.activityType}, Attempts: ${questionData.attempts}, Status: ${questionData.status}\n`;
-
-      if (questionData.lastSubmission) {
-        const resultIcon = questionData.lastSubmission.isCorrect ? '✅' : '❌';
-        enhancedInstructions += `  - Last Answer: "${questionData.lastSubmission.answer}" ${resultIcon}\n`;
-        if (!questionData.lastSubmission.isCorrect) {
-          enhancedInstructions += `  - Student needs help with this concept\n`;
-        }
-      } else if (questionData.attempts === 0) {
-        enhancedInstructions += `  - Status: Ready to attempt - student may need preparation\n`;
-      }
-    });
-
-    enhancedInstructions += `\nUse this assessment information to provide targeted help when the student asks questions about specific problems.`;
-  }
 
   // Add other context to system instructions instead of conversation messages
   if (additionalContext.studentProgress || additionalContext.currentUnit || additionalContext.studentName) {
@@ -294,7 +265,6 @@ export const enhancePromptWithContext = (basePrompt, additionalContext) => {
       ...(additionalContext.keywords || [])
     ],
     
-    // Store lesson questions in the prompt for AI context (not in conversation)
-    lessonQuestions: additionalContext.lessonQuestions || {}
+  
   };
 };

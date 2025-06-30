@@ -29,7 +29,6 @@ Students are viewing a lesson page with various sections, examples, and interact
 
 ## **KEY REMINDERS**
 - Students have access to their Physics 30 Reference Sheet
-- Use proper mathematical notation: $v = 25 \\\\text{ m/s}$
 - Watch for common errors: sign conventions, unit conversions, equation selection
 - Encourage students to extract specific content they need help with
 

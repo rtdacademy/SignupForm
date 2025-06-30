@@ -58,7 +58,13 @@ const RTDLearningAdminDashboard = () => {
 
   // Check if user is RTD Learning admin
   const isRTDLearningAdmin = (email) => {
-    return email && email.endsWith('@rtdlearning.com');
+    if (typeof email !== 'string') return false;
+    const allowedEmails = [
+      'kyle@rtdacademy.com',
+      'stan@rtdacademy.com',
+      'marc@rtdacademy.com'
+    ];
+    return allowedEmails.includes(email.toLowerCase());
   };
 
   // Redirect non-admin users

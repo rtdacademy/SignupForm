@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { signInWithPopup, onAuthStateChanged } from "firebase/auth";
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
-import { auth, googleProvider } from "../firebase";
+import { auth, microsoftProvider } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Alert, AlertDescription } from "../components/ui/alert";
 
@@ -14,11 +14,15 @@ const RTDLearningAdminLogin = () => {
 
   const db = getDatabase();
 
-  // Check if email is an RTD Learning admin email
+  // Check if email is an allowed RTD Learning admin email
   const isRTDLearningAdmin = (email) => {
     if (typeof email !== 'string') return false;
-    const sanitized = sanitizeEmail(email);
-    return sanitized.endsWith("@rtdlearning.com");
+    const allowedEmails = [
+      'kyle@rtdacademy.com',
+      'stan@rtdacademy.com',
+      'marc@rtdacademy.com'
+    ];
+    return allowedEmails.includes(email.toLowerCase());
   };
 
   // Convert Firebase error codes to user-friendly messages
@@ -27,7 +31,7 @@ const RTDLearningAdminLogin = () => {
       'auth/popup-closed-by-user': 'The sign-in window was closed. Please try again.',
       'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
       'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
-      'auth/operation-not-allowed': 'Google sign-in is not enabled. Please contact support.',
+      'auth/operation-not-allowed': 'Microsoft sign-in is not enabled. Please contact support.',
       'auth/network-request-failed': 'Connection problem. Please check your internet and try again.',
       'auth/internal-error': 'An unexpected error occurred. Please try again later.',
       'auth/user-disabled': 'This account has been disabled. Please contact support.',
@@ -52,10 +56,10 @@ const RTDLearningAdminLogin = () => {
           uid: uid,
           email: user.email,
           sanitizedEmail: sanitizedEmail,
-          type: "rtd_learning_admin",
+          type: "staff",
           createdAt: Date.now(),
           lastLogin: Date.now(),
-          provider: user.providerData[0]?.providerId || 'google.com',
+          provider: user.providerData[0]?.providerId || 'microsoft.com',
           emailVerified: user.emailVerified,
           isRTDLearningAdmin: true
         };
@@ -66,7 +70,7 @@ const RTDLearningAdminLogin = () => {
           ...existingData,
           lastLogin: Date.now(),
           emailVerified: user.emailVerified,
-          type: "rtd_learning_admin",
+          type: "staff",
           isRTDLearningAdmin: true
         });
       }
@@ -77,23 +81,23 @@ const RTDLearningAdminLogin = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleMicrosoftSignIn = async () => {
     setError(null);
     setIsLoading(true);
     
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, microsoftProvider);
       const user = result.user;
 
       if (!user.email) {
-        setError("Unable to retrieve email from Google. Please try again.");
+        setError("Unable to retrieve email from Microsoft. Please try again.");
         await auth.signOut();
         return;
       }
 
       if (!isRTDLearningAdmin(user.email)) {
         await auth.signOut();
-        setError("Access denied. This login is only for RTD Learning administrators with @rtdlearning.com email addresses.");
+        setError("Access denied. This login is only for authorized RTD Learning administrators (kyle@rtdacademy.com, stan@rtdacademy.com, or marc@rtdacademy.com).");
         return;
       }
 
@@ -121,7 +125,7 @@ const RTDLearningAdminLogin = () => {
         <h1 className="text-3xl font-extrabold text-center text-green-600">RTD Learning</h1>
         <h2 className="mt-2 text-center text-xl font-bold text-gray-900">Admin Portal</h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in with your RTD Learning administrator account
+          Sign in with your authorized RTD Learning administrator account
         </p>
       </div>
 
@@ -139,13 +143,13 @@ const RTDLearningAdminLogin = () => {
             <div className="text-center">
               <h3 className="text-lg font-medium text-gray-900">Administrator Access</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Only RTD Learning administrators with @rtdlearning.com email addresses can access this portal.
+                Only authorized RTD Learning administrators (kyle@rtdacademy.com, stan@rtdacademy.com, or marc@rtdacademy.com) can access this portal.
               </p>
             </div>
 
             <div>
               <button
-                onClick={handleGoogleSignIn}
+                onClick={handleMicrosoftSignIn}
                 disabled={isLoading}
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
@@ -158,10 +162,10 @@ const RTDLearningAdminLogin = () => {
                   <>
                     <img
                       className="h-6 w-6 mr-3"
-                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                      alt="Google logo"
+                      src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                      alt="Microsoft logo"
                     />
-                    <span>Sign in with Google</span>
+                    <span>Sign in with Microsoft</span>
                   </>
                 )}
               </button>

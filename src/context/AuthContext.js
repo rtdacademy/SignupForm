@@ -123,7 +123,8 @@ export function AuthProvider({ children }) {
     '/education-plan/2025-26',
     '/prerequisite-flowchart',
     '/parent-verify-email',
-    '/rtd-learning-login'
+    '/rtd-learning-login',
+    '/rtd-learning-admin-login'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -373,7 +374,7 @@ export function AuthProvider({ children }) {
 
   // Function to check token and set up expiration
   const checkTokenExpiration = useCallback(async () => {
-    if (!user) return;
+    if (!user || !auth.currentUser) return;
     
     try {
       // Get the current token with expiration info
@@ -395,7 +396,7 @@ export function AuthProvider({ children }) {
         const refreshTime = Math.max(0, timeUntilExpiration - 60 * 1000);
         
         tokenRefreshTimeoutRef.current = setTimeout(async () => {
-          if (userActivityTracking.current.isActive) {
+          if (userActivityTracking.current.isActive && auth.currentUser) {
             console.log('Refreshing Firebase token');
             await auth.currentUser.getIdToken(true);
           }
@@ -419,13 +420,13 @@ export function AuthProvider({ children }) {
       userActivityTracking.current.isActive = true;
       
       // Force a token refresh if token is going to expire soon
-      if (tokenExpirationTime) {
+      if (tokenExpirationTime && auth.currentUser) {
         const timeUntilExpiration = tokenExpirationTime - Date.now();
         if (timeUntilExpiration < 10 * 60 * 1000) { // Less than 10 minutes left
           await auth.currentUser.getIdToken(true);
           await checkTokenExpiration(); // Update expiration time
         }
-      } else {
+      } else if (auth.currentUser) {
         // If we don't have the expiration time yet, check it now
         await checkTokenExpiration();
       }
@@ -1057,6 +1058,8 @@ export function AuthProvider({ children }) {
                     navigate('/parent-login');
                   } else if (currentPath.toLowerCase() === '/rtd-learning-dashboard') {
                     navigate('/rtd-learning-login');
+                  } else if (currentPath.toLowerCase() === '/rtd-learning-admin-dashboard') {
+                    navigate('/rtd-learning-admin-login');
                   } else {
                     navigate('/login');
                   }

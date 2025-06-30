@@ -413,7 +413,7 @@ const containsMarkdown = (text) => {
     /\[.+\]\(.+\)/,                // Links: [text](url)
     /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
     /^\s*>\s+.+$/m,                // Blockquotes: > quote
-    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*[-*]\s+.+$/m,             // Unordered lists: - item or * item
     /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
     /!\[.+\]\(.+\)/,               // Images: ![alt](url)
     /~~.+~~/,                      // Strikethrough: ~~text~~
@@ -1335,11 +1335,6 @@ const GoogleAIChatApp = ({
       systemMessage += `The student is looking at this specific ${dynamicContext.focusedContent.type} and needs targeted help.\n`;
     }
     
-    // Add conversation context if there's an initial model message
-    const initialModelMessage = conversationHistory.find(msg => msg.sender === 'model');
-    if (initialModelMessage) {
-      systemMessage += ` Your initial message to the user was: "${initialModelMessage.text}" Continue the conversation based on the user's responses, remembering this conversation context.`;
-    }
     
     return systemMessage;
   }, [instructions, conversationHistory, dynamicContext]);

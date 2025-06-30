@@ -389,7 +389,7 @@ const sendChatMessage = onCall({
     // Log system instruction details
     console.log('🤖 System Instruction being used:');
     console.log('Length:', systemInstruction ? systemInstruction.length : 0, 'characters');
-    console.log('Preview:', systemInstruction ? systemInstruction.substring(0, 100) + '...' : 'None');
+    console.log('Full text:', systemInstruction || 'None');
     console.log('Is using default?', systemInstruction === DEFAULT_SYSTEM_INSTRUCTION);
     
     // Simple approach: if no conversation history, use system + prompt
