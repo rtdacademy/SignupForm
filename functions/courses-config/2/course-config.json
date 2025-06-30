@@ -2,10 +2,10 @@
   "courseId": "2",
   "title": "Physics 30",
   "weights": {
-    "lesson": 0.15,
-    "assignment": 0.35,
+    "lesson": 0,
+    "assignment": 0.2,
     "lab": 0.2,
-    "exam": 0.3
+    "exam": 0.6
   },
   "globalSettings": {
     "allowLateSubmissions": true,
@@ -224,7 +224,7 @@
           {
             "questionId": "course2_05_l1_3_assignment_question1",
             "title": "Momentum Calculations",
-            "points": 10
+            "points": 12
           }
         ]
       },
@@ -260,7 +260,7 @@
           {
             "questionId": "course2_16_l8_9_assignment_question1",
             "title": "Lenses and Mirrors",
-            "points": 10
+            "points": 8
           }
         ]
       },
@@ -573,7 +573,7 @@
             "title": "Physics 20 Review",
             "description": "Review of essential Physics 20 concepts",
             "contentPath": "01-physics-20-review",
-            "estimatedTime": 45,
+            "estimatedTime": 120,
             "order": 1,
             "required": true,
             "hasCloudFunctions": true
@@ -584,7 +584,7 @@
             "title": "Momentum in One Dimension",
             "description": "Linear momentum and conservation principles",
             "contentPath": "02-momentum-one-dimension",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 2,
             "required": true,
             "hasCloudFunctions": true
@@ -595,7 +595,7 @@
             "title": "Momentum in Two Dimensions",
             "description": "Vector momentum and collision analysis",
             "contentPath": "03-momentum-two-dimensions",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 3,
             "required": true,
             "hasCloudFunctions": false
@@ -606,7 +606,7 @@
             "title": "Impulse and Momentum Change",
             "description": "Impulse-momentum theorem and applications",
             "contentPath": "04-impulse-momentum-change",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 4,
             "required": true,
             "hasCloudFunctions": false
@@ -617,7 +617,7 @@
             "title": "Assignment L1-3 - Momentum Fundamentals",
             "description": "Practice problems on momentum calculations",
             "contentPath": "05-l1-3-assignment",
-            "estimatedTime": 45,
+            "estimatedTime": 60,
             "order": 5,
             "required": true,
             "hasCloudFunctions": true
@@ -628,7 +628,7 @@
             "title": "Graphing Techniques",
             "description": "Data analysis and graphing methods",
             "contentPath": "06-graphing-techniques",
-            "estimatedTime": 45,
+            "estimatedTime": 120,
             "order": 6,
             "required": true,
             "hasCloudFunctions": false
@@ -639,7 +639,7 @@
             "title": "Lab - Momentum Conservation",
             "description": "Experimental verification of momentum conservation",
             "contentPath": "07-lab-momentum-conservation",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 7,
             "required": true,
             "hasCloudFunctions": true
@@ -661,7 +661,7 @@
             "title": "Introduction to Light",
             "description": "Nature and properties of light",
             "contentPath": "09-introduction-to-light",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 9,
             "required": true,
             "hasCloudFunctions": false
@@ -672,7 +672,7 @@
             "title": "Reflection of Light",
             "description": "Laws of reflection and mirror optics",
             "contentPath": "10-reflection-of-light",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 10,
             "required": true,
             "hasCloudFunctions": false
@@ -683,7 +683,7 @@
             "title": "Curved Mirrors",
             "description": "Concave and convex mirror analysis",
             "contentPath": "11-curved-mirrors",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 11,
             "required": true,
             "hasCloudFunctions": false
@@ -694,7 +694,7 @@
             "title": "Assignment L5-7 - Optics Fundamentals",
             "description": "Reflection and refraction problems",
             "contentPath": "12-l5-7-assignment",
-            "estimatedTime": 45,
+            "estimatedTime": 60,
             "order": 12,
             "required": true,
             "hasCloudFunctions": true
@@ -705,7 +705,7 @@
             "title": "Refraction of Light",
             "description": "Snell's law and light bending",
             "contentPath": "13-refraction-of-light",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 13,
             "required": true,
             "hasCloudFunctions": false
@@ -716,7 +716,7 @@
             "title": "Optics and Lenses",
             "description": "Thin lens equations and applications",
             "contentPath": "14-optics-lenses",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 14,
             "required": true,
             "hasCloudFunctions": false
@@ -727,7 +727,7 @@
             "title": "Lab - Mirrors and Lenses",
             "description": "Experimental optics with focal lengths",
             "contentPath": "15-lab-mirrors-lenses",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 15,
             "required": true,
             "hasCloudFunctions": true
@@ -749,7 +749,7 @@
             "title": "Dispersion and Scattering",
             "description": "Color separation and light scattering",
             "contentPath": "17-dispersion-scattering",
-            "estimatedTime": 45,
+            "estimatedTime": 120,
             "order": 17,
             "required": true,
             "hasCloudFunctions": false
@@ -760,7 +760,7 @@
             "title": "Interference of Light",
             "description": "Wave interference patterns",
             "contentPath": "18-interference-of-light",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 18,
             "required": true,
             "hasCloudFunctions": false
@@ -771,7 +771,7 @@
             "title": "Diffraction Gratings",
             "description": "Multiple slit interference",
             "contentPath": "19-diffraction-gratings",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 19,
             "required": true,
             "hasCloudFunctions": false
@@ -782,7 +782,7 @@
             "title": "Lab - Laser Wavelength",
             "description": "Measuring wavelength using diffraction",
             "contentPath": "20-lab-laser-wavelength",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 20,
             "required": true,
             "hasCloudFunctions": true
@@ -793,7 +793,7 @@
             "title": "Assignment L1-12 - Unit 1 Cumulative",
             "description": "Comprehensive momentum and optics review",
             "contentPath": "21-l1-12-cumulative-assignment",
-            "estimatedTime": 75,
+            "estimatedTime": 60,
             "order": 21,
             "required": true,
             "hasCloudFunctions": true
@@ -804,7 +804,7 @@
             "title": "Unit 1 Review",
             "description": "Review of momentum and optics",
             "contentPath": "22-unit-1-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 22,
             "required": true,
             "hasCloudFunctions": false
@@ -815,7 +815,7 @@
             "title": "Unit 2 Review",
             "description": "Preview and review concepts",
             "contentPath": "23-unit-2-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 23,
             "required": true,
             "hasCloudFunctions": false
@@ -826,7 +826,7 @@
             "title": "Section 1 Exam - Momentum and Optics",
             "description": "Comprehensive exam covering momentum and optics topics",
             "contentPath": "24-section-1-exam",
-            "estimatedTime": 120,
+            "estimatedTime": 180,
             "order": 24,
             "required": true,
             "hasCloudFunctions": true
@@ -845,7 +845,7 @@
             "title": "Electrostatics",
             "description": "Electric charge and static electricity",
             "contentPath": "25-electrostatics",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 1,
             "required": true,
             "hasCloudFunctions": false
@@ -856,7 +856,7 @@
             "title": "Coulomb's Law",
             "description": "Force between electric charges",
             "contentPath": "26-coulombs-law",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 2,
             "required": true,
             "hasCloudFunctions": false
@@ -867,7 +867,7 @@
             "title": "Lab - Electrostatic Forces",
             "description": "Experimental verification of Coulomb's law",
             "contentPath": "27-lab-electrostatic",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 3,
             "required": true,
             "hasCloudFunctions": true
@@ -878,7 +878,7 @@
             "title": "Assignment L13-14 - Electrostatics",
             "description": "Electric forces and fields problems",
             "contentPath": "28-l13-14-assignment",
-            "estimatedTime": 45,
+            "estimatedTime": 60,
             "order": 4,
             "required": true,
             "hasCloudFunctions": true
@@ -889,7 +889,7 @@
             "title": "Electric Fields",
             "description": "Electric field concepts and calculations",
             "contentPath": "29-electric-fields",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 5,
             "required": true,
             "hasCloudFunctions": false
@@ -900,7 +900,7 @@
             "title": "Electric Potential",
             "description": "Voltage and electric potential energy",
             "contentPath": "30-electric-potential",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 6,
             "required": true,
             "hasCloudFunctions": false
@@ -911,7 +911,7 @@
             "title": "Parallel Plates",
             "description": "Uniform electric fields and capacitors",
             "contentPath": "31-parallel-plates",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 7,
             "required": true,
             "hasCloudFunctions": false
@@ -922,7 +922,7 @@
             "title": "Electric Current",
             "description": "Current, resistance, and Ohm's law",
             "contentPath": "32-electric-current",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 8,
             "required": true,
             "hasCloudFunctions": false
@@ -933,7 +933,7 @@
             "title": "Lab - Electric Fields",
             "description": "Mapping electric field patterns",
             "contentPath": "33-lab-electric-fields",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 9,
             "required": true,
             "hasCloudFunctions": true
@@ -955,7 +955,7 @@
             "title": "Assignment L1-18 - Unit 2 Cumulative",
             "description": "Comprehensive electricity review",
             "contentPath": "35-l1-18-cumulative-assignment",
-            "estimatedTime": 75,
+            "estimatedTime": 60,
             "order": 11,
             "required": true,
             "hasCloudFunctions": true
@@ -966,7 +966,7 @@
             "title": "Magnetic Fields",
             "description": "Magnetic field concepts and sources",
             "contentPath": "36-magnetic-fields",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 12,
             "required": true,
             "hasCloudFunctions": false
@@ -977,7 +977,7 @@
             "title": "Magnetic Forces on Particles",
             "description": "Lorentz force and particle motion",
             "contentPath": "37-magnetic-forces-particles",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 13,
             "required": true,
             "hasCloudFunctions": false
@@ -988,7 +988,7 @@
             "title": "Motor Effect",
             "description": "Force on current-carrying conductors",
             "contentPath": "38-motor-effect",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 14,
             "required": true,
             "hasCloudFunctions": false
@@ -1010,7 +1010,7 @@
             "title": "Generator Effect",
             "description": "Electromagnetic induction principles",
             "contentPath": "40-generator-effect",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 16,
             "required": true,
             "hasCloudFunctions": false
@@ -1021,7 +1021,7 @@
             "title": "Activities",
             "description": "Practice activities and applications",
             "contentPath": "41-activities",
-            "estimatedTime": 45,
+            "estimatedTime": 120,
             "order": 17,
             "required": false,
             "hasCloudFunctions": false
@@ -1032,7 +1032,7 @@
             "title": "Electromagnetic Radiation",
             "description": "EM waves and the electromagnetic spectrum",
             "contentPath": "42-electromagnetic-radiation",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 18,
             "required": true,
             "hasCloudFunctions": false
@@ -1043,7 +1043,7 @@
             "title": "Lab - Electromagnet",
             "description": "Building and testing electromagnets",
             "contentPath": "43-lab-electromagnet",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 19,
             "required": true,
             "hasCloudFunctions": true
@@ -1065,7 +1065,7 @@
             "title": "Assignment L1-24 - Unit 3-4 Cumulative",
             "description": "Comprehensive electricity and magnetism review",
             "contentPath": "45-l1-24-cumulative-assignment",
-            "estimatedTime": 90,
+            "estimatedTime": 60,
             "order": 21,
             "required": true,
             "hasCloudFunctions": true
@@ -1076,7 +1076,7 @@
             "title": "Unit 3 Review",
             "description": "Review of electric fields and circuits",
             "contentPath": "46-unit-3-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 22,
             "required": true,
             "hasCloudFunctions": false
@@ -1087,7 +1087,7 @@
             "title": "Unit 4 Review",
             "description": "Review of magnetism and induction",
             "contentPath": "47-unit-4-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 23,
             "required": true,
             "hasCloudFunctions": false
@@ -1098,7 +1098,7 @@
             "title": "Section 2 Exam - Electricity and Magnetism",
             "description": "Comprehensive exam covering electricity and magnetism",
             "contentPath": "48-section-2-exam",
-            "estimatedTime": 120,
+            "estimatedTime": 180,
             "order": 24,
             "required": true,
             "hasCloudFunctions": true
@@ -1117,7 +1117,7 @@
             "title": "Early Atomic Models",
             "description": "Historical development of atomic theory",
             "contentPath": "49-early-atomic-models",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 1,
             "required": true,
             "hasCloudFunctions": false
@@ -1128,7 +1128,7 @@
             "title": "Cathode Rays",
             "description": "Discovery of the electron",
             "contentPath": "50-cathode-rays",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 2,
             "required": true,
             "hasCloudFunctions": false
@@ -1139,7 +1139,7 @@
             "title": "Rutherford Atom",
             "description": "Nuclear model of the atom",
             "contentPath": "51-rutherford-atom",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 3,
             "required": true,
             "hasCloudFunctions": false
@@ -1150,7 +1150,7 @@
             "title": "Assignment L25-27 - Early Atomic Models",
             "description": "Atomic structure history problems",
             "contentPath": "52-l25-27-assignment",
-            "estimatedTime": 45,
+            "estimatedTime": 120,
             "order": 4,
             "required": true,
             "hasCloudFunctions": true
@@ -1161,7 +1161,7 @@
             "title": "Quantization of Light",
             "description": "Planck's quantum hypothesis",
             "contentPath": "53-quantization-of-light",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 5,
             "required": true,
             "hasCloudFunctions": false
@@ -1172,7 +1172,7 @@
             "title": "Lab - Planck's Constant",
             "description": "Determining Planck's constant experimentally",
             "contentPath": "54-lab-plancks-constant",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 6,
             "required": true,
             "hasCloudFunctions": true
@@ -1183,7 +1183,7 @@
             "title": "Photoelectric Effect",
             "description": "Einstein's explanation of the photoelectric effect",
             "contentPath": "55-photoelectric-effect",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 7,
             "required": true,
             "hasCloudFunctions": false
@@ -1194,7 +1194,7 @@
             "title": "Lab - Millikan's Oil Drop",
             "description": "Measuring elementary charge",
             "contentPath": "56-lab-millikans-oil-drop",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 8,
             "required": true,
             "hasCloudFunctions": true
@@ -1205,7 +1205,7 @@
             "title": "Light Spectra and Excitation",
             "description": "Atomic emission and absorption spectra",
             "contentPath": "57-light-spectra-excitation",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 9,
             "required": true,
             "hasCloudFunctions": false
@@ -1216,7 +1216,7 @@
             "title": "Lab - Speed of Light with Marshmallows",
             "description": "Creative measurement of light speed",
             "contentPath": "58-lab-marshmallow-speed-light",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 10,
             "required": true,
             "hasCloudFunctions": true
@@ -1238,7 +1238,7 @@
             "title": "Bohr Model",
             "description": "Bohr's quantum model of hydrogen",
             "contentPath": "60-bohr-model",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 12,
             "required": true,
             "hasCloudFunctions": false
@@ -1249,7 +1249,7 @@
             "title": "Compton Effect",
             "description": "Photon scattering and momentum",
             "contentPath": "61-compton-effect",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 13,
             "required": true,
             "hasCloudFunctions": false
@@ -1260,7 +1260,7 @@
             "title": "Wave-Particle Nature",
             "description": "de Broglie waves and duality",
             "contentPath": "62-wave-particle-nature",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 14,
             "required": true,
             "hasCloudFunctions": false
@@ -1282,7 +1282,7 @@
             "title": "Quantum Mechanics",
             "description": "Introduction to quantum mechanical principles",
             "contentPath": "64-quantum-mechanics",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 16,
             "required": true,
             "hasCloudFunctions": false
@@ -1293,7 +1293,7 @@
             "title": "Assignment L1-34 - Unit 5 Cumulative",
             "description": "Comprehensive quantum physics review",
             "contentPath": "65-l1-34-cumulative-assignment",
-            "estimatedTime": 90,
+            "estimatedTime": 60,
             "order": 17,
             "required": true,
             "hasCloudFunctions": true
@@ -1304,7 +1304,7 @@
             "title": "Nuclear Physics",
             "description": "Nuclear structure and properties",
             "contentPath": "66-nuclear-physics",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 18,
             "required": true,
             "hasCloudFunctions": false
@@ -1315,7 +1315,7 @@
             "title": "Radioactivity",
             "description": "Nuclear decay and radiation types",
             "contentPath": "67-radioactivity",
-            "estimatedTime": 75,
+            "estimatedTime": 120,
             "order": 19,
             "required": true,
             "hasCloudFunctions": false
@@ -1326,7 +1326,7 @@
             "title": "Lab - Radioactive Half-Life",
             "description": "Modeling nuclear decay processes",
             "contentPath": "68-lab-half-life",
-            "estimatedTime": 90,
+            "estimatedTime": 120,
             "order": 20,
             "required": true,
             "hasCloudFunctions": true
@@ -1348,7 +1348,7 @@
             "title": "Particle Physics",
             "description": "Elementary particles and interactions",
             "contentPath": "70-particle-physics",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 22,
             "required": true,
             "hasCloudFunctions": false
@@ -1359,7 +1359,7 @@
             "title": "Quarks",
             "description": "Quark model and hadron structure",
             "contentPath": "71-quarks",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 23,
             "required": true,
             "hasCloudFunctions": false
@@ -1381,7 +1381,7 @@
             "title": "Assignment L1-38 - Final Cumulative",
             "description": "Complete course review assignment",
             "contentPath": "73-l1-38-cumulative-assignment",
-            "estimatedTime": 120,
+            "estimatedTime": 60,
             "order": 25,
             "required": true,
             "hasCloudFunctions": true
@@ -1392,7 +1392,7 @@
             "title": "Unit 5 Review",
             "description": "Review of quantum mechanics concepts",
             "contentPath": "74-unit-5-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 26,
             "required": true,
             "hasCloudFunctions": false
@@ -1403,7 +1403,7 @@
             "title": "Unit 6 Review",
             "description": "Review of nuclear and particle physics",
             "contentPath": "75-unit-6-review",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 27,
             "required": true,
             "hasCloudFunctions": false
@@ -1414,7 +1414,7 @@
             "title": "Section 3 Exam - Atomic Physics and Nuclear",
             "description": "Comprehensive exam covering atomic and nuclear physics",
             "contentPath": "76-section-3-exam",
-            "estimatedTime": 120,
+            "estimatedTime": 180,
             "order": 28,
             "required": true,
             "hasCloudFunctions": true
@@ -1425,7 +1425,7 @@
             "title": "Diploma Exam Review",
             "description": "Preparation for provincial diploma exam",
             "contentPath": "77-diploma-exam-review",
-            "estimatedTime": 90,
+            "estimatedTime": 600,
             "order": 29,
             "required": true,
             "hasCloudFunctions": false
@@ -1436,7 +1436,7 @@
             "title": "Diploma Exam",
             "description": "Information about the provincial diploma exam",
             "contentPath": "78-diploma-exam",
-            "estimatedTime": 30,
+            "estimatedTime": 180,
             "order": 30,
             "required": false,
             "hasCloudFunctions": false
@@ -1457,6 +1457,12 @@
         "type": "embed",
         "embedCode": "<iframe src=\"https://ti84calc.com/ti84calc\" width=\"100%\" height=\"800px\" frameborder=\"0\" allow=\"fullscreen\"></iframe>",
         "description": "Full-featured TI-84 graphing calculator for physics calculations"
+      }
+      "textbook": {
+        "title": "Person Physics Textbook",
+        "type": "embed",
+        "url": "https://rtdacademy-my.sharepoint.com/:b:/p/charlie/EcHGv2TVKRJElwMsk1H29aYBYC9P3mkjOOq_qnQPoGWMIg?e=sd0hwD",
+        "description": "Optional textbook for additional readings and proactice problems"
       }
     }
   },
