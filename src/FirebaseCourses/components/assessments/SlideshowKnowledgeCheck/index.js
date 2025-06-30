@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Expand } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Expand, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import StandardMultipleChoiceQuestion from '../StandardMultipleChoiceQuestion';
 import AIShortAnswerQuestion from '../AIShortAnswerQuestion';
@@ -175,12 +175,6 @@ const SlideshowKnowledgeCheck = ({
   // Get theme configuration
   const themeConfig = getThemeConfig(theme);
   
-  // Debug theme configuration
-  console.log('🎨 SlideshowKnowledgeCheck theme debug:', {
-    themeProp: theme,
-    themeConfig,
-    themeConfigName: themeConfig.name
-  });
 
   // Helper function to get assessment data from course prop
   const getQuestionAssessmentData = (questionId) => {
@@ -190,11 +184,50 @@ const SlideshowKnowledgeCheck = ({
     return course.Assessments[questionId] || null;
   };
 
+  // Helper function to check if student has full score for a question
+  const hasFullScore = (questionId) => {
+    if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure || !course?.Grades?.assessments) {
+      return false;
+    }
+
+    // Find the question in the course config to get the points
+    let questionPoints = null;
+    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+    
+    for (const itemKey in itemStructure) {
+      const item = itemStructure[itemKey];
+      if (item.questions) {
+        const question = item.questions.find(q => q.questionId === questionId);
+        if (question) {
+          questionPoints = question.points;
+          break;
+        }
+      }
+    }
+
+    if (questionPoints === null) {
+      return false;
+    }
+
+    // Get the student's actual score
+    const studentScore = course.Grades.assessments[questionId];
+    
+    // Check if student has full score
+    return studentScore >= questionPoints;
+  };
+
   // Helper function to determine question attempt status
   const getQuestionStatus = (questionId) => {
     const assessmentData = getQuestionAssessmentData(questionId);
+    const hasFullScoreForQuestion = hasFullScore(questionId);
+    
     if (!assessmentData) {
-      return { attempted: false, correct: null, attempts: 0 };
+      return { 
+        attempted: false, 
+        correct: null, 
+        attempts: 0, 
+        hasFullScore: hasFullScoreForQuestion 
+      };
     }
 
     const attempted = assessmentData.status === 'attempted' || assessmentData.status === 'completed' || assessmentData.attempts > 0;
@@ -204,7 +237,8 @@ const SlideshowKnowledgeCheck = ({
       attempted,
       correct,
       attempts: assessmentData.attempts || 0,
-      lastSubmission: assessmentData.lastSubmission
+      lastSubmission: assessmentData.lastSubmission,
+      hasFullScore: hasFullScoreForQuestion
     };
   };
 
@@ -248,10 +282,6 @@ const SlideshowKnowledgeCheck = ({
         setQuestionsCompleted(newQuestionsCompleted);
         setQuestionResults(newQuestionResults);
         
-        console.log('📊 Loaded progress from course data:', {
-          completed: newQuestionsCompleted,
-          results: newQuestionResults
-        });
         
       } catch (error) {
         console.error('🚨 SlideshowKnowledgeCheck: Failed to load progress from course data:', error);
@@ -534,36 +564,55 @@ const SlideshowKnowledgeCheck = ({
                               const status = getQuestionStatus(questionId);
                               const isAttempted = questionsCompleted[`question${questionNumber}`] || status.attempted;
                               
+                              // Determine button styling based on full score status
+                              let buttonClass, iconElement;
+                              
+                              if (isCurrent) {
+                                buttonClass = `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}`;
+                              } else if (status.hasFullScore) {
+                                // Student has full score - show green with retry indicator if being attempted again
+                                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white';
+                                iconElement = isAttempted && result !== 'correct' ? (
+                                  <div className="absolute -top-1 -right-1">
+                                    <RotateCcw className="w-4 h-4 text-green-600 bg-white rounded-full p-0.5" />
+                                  </div>
+                                ) : (
+                                  <div className="absolute -top-1 -right-1">
+                                    <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                                  </div>
+                                );
+                              } else if (result === 'correct') {
+                                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white';
+                                iconElement = (
+                                  <div className="absolute -top-1 -right-1">
+                                    <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                                  </div>
+                                );
+                              } else if (result === 'incorrect') {
+                                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white';
+                                iconElement = (
+                                  <div className="absolute -top-1 -right-1">
+                                    <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
+                                  </div>
+                                );
+                              } else if (isAttempted) {
+                                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400';
+                              } else {
+                                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700';
+                              }
+                              
                               return (
                                 <button
                                   key={index}
                                   onClick={() => navigateToQuestion(index)}
-                                  className={
-                                    isCurrent 
-                                      ? `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}` 
-                                      : result === 'correct'
-                                        ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white'
-                                        : result === 'incorrect'
-                                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white'
-                                          : isAttempted
-                                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400'
-                                          : 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700'
-                                  }
-                                  title={`Question ${questionNumber}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
+                                  className={buttonClass}
+                                  title={`Question ${questionNumber}${status.hasFullScore ? ' (Full Score)' : ''}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
                                   aria-label={`Go to question ${questionNumber}`}
                                 >
                                   <span>{questionNumber}</span>
                                   
-                                  {/* Correct/Incorrect icons */}
-                                  {result && (
-                                    <div className="absolute -top-1 -right-1">
-                                      {result === 'correct' ? (
-                                        <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
-                                      ) : (
-                                        <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
-                                      )}
-                                    </div>
-                                  )}
+                                  {/* Status icons */}
+                                  {iconElement}
                                 </button>
                               );
                             })}
@@ -684,36 +733,55 @@ const SlideshowKnowledgeCheck = ({
               const status = getQuestionStatus(questionId);
               const isAttempted = questionsCompleted[`question${questionNumber}`] || status.attempted;
               
+              // Determine button styling based on full score status
+              let buttonClass, iconElement;
+              
+              if (isCurrent) {
+                buttonClass = `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}`;
+              } else if (status.hasFullScore) {
+                // Student has full score - show green with retry indicator if being attempted again
+                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white';
+                iconElement = isAttempted && result !== 'correct' ? (
+                  <div className="absolute -top-1 -right-1">
+                    <RotateCcw className="w-4 h-4 text-green-600 bg-white rounded-full p-0.5" />
+                  </div>
+                ) : (
+                  <div className="absolute -top-1 -right-1">
+                    <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                  </div>
+                );
+              } else if (result === 'correct') {
+                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white';
+                iconElement = (
+                  <div className="absolute -top-1 -right-1">
+                    <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                  </div>
+                );
+              } else if (result === 'incorrect') {
+                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white';
+                iconElement = (
+                  <div className="absolute -top-1 -right-1">
+                    <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
+                  </div>
+                );
+              } else if (isAttempted) {
+                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400';
+              } else {
+                buttonClass = 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700';
+              }
+              
               return (
                 <button
                   key={index}
                   onClick={() => navigateToQuestion(index)}
-                  className={
-                    isCurrent 
-                      ? `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}` 
-                      : result === 'correct'
-                        ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white'
-                        : result === 'incorrect'
-                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white'
-                          : isAttempted
-                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400'
-                          : 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700'
-                  }
-                  title={`Question ${questionNumber}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
+                  className={buttonClass}
+                  title={`Question ${questionNumber}${status.hasFullScore ? ' (Full Score)' : ''}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
                   aria-label={`Go to question ${questionNumber}`}
                 >
                   <span>{questionNumber}</span>
                   
-                  {/* Correct/Incorrect icons */}
-                  {result && (
-                    <div className="absolute -top-1 -right-1">
-                      {result === 'correct' ? (
-                        <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
-                      )}
-                    </div>
-                  )}
+                  {/* Status icons */}
+                  {iconElement}
                 </button>
               );
             })}

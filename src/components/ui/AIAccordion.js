@@ -177,9 +177,44 @@ const AIAccordionItem = ({
   onAskAI = null,
   askAIButtonText = "Ask AI",
   className = "",
+  theme = 'purple',
   ...props 
 }) => {
   const contentRef = useRef(null);
+
+  // Theme configuration with gradient colors
+  const getThemeConfig = (theme) => {
+    const themes = {
+      purple: {
+        gradient: 'from-purple-600 to-indigo-600',
+        accent: 'purple-600',
+        light: 'purple-100',
+        border: 'purple-300',
+        ring: 'ring-purple-200',
+        name: 'purple'
+      },
+      blue: {
+        gradient: 'from-blue-600 to-cyan-600',
+        accent: 'blue-600',
+        light: 'blue-100',
+        border: 'blue-300',
+        ring: 'ring-blue-200',
+        name: 'blue'
+      },
+      green: {
+        gradient: 'from-emerald-600 to-teal-600',
+        accent: 'emerald-600',
+        light: 'emerald-100',
+        border: 'emerald-300',
+        ring: 'ring-emerald-200',
+        name: 'green'
+      }
+    };
+    
+    return themes[theme] || themes.purple;
+  };
+
+  const themeConfig = getThemeConfig(theme);
 
   const handleAskAI = () => {
     if (!onAskAI) {
@@ -416,7 +451,7 @@ const AIAccordionItem = ({
       className={`${className} !bg-transparent !rounded-none !border-0 !shadow-none !m-0 !p-0 transition-all duration-200 overflow-hidden`}
       {...props}
     >
-      <AccordionTrigger className="group bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 rounded-lg group-data-[state=open]:!rounded-b-none border border-purple-600 relative [&>svg]:hidden shadow-md hover:shadow-lg">
+      <AccordionTrigger className={`group bg-gradient-to-r ${themeConfig.gradient} hover:shadow-lg transition-all duration-200 rounded-lg group-data-[state=open]:!rounded-b-none border border-${themeConfig.accent} relative [&>svg]:hidden shadow-md`}>
         <div className="flex items-center justify-between w-full pr-8">
           <span className="text-left font-semibold text-white">{title}</span>
           
@@ -426,7 +461,7 @@ const AIAccordionItem = ({
               e.stopPropagation(); // Prevent accordion toggle
               handleAskAI();
             }}
-            className="ml-3 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 bg-white hover:bg-purple-50 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 opacity-0 group-data-[state=open]:opacity-100 invisible group-data-[state=open]:visible"
+            className={`ml-3 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-${themeConfig.accent} bg-white hover:bg-${themeConfig.light} rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 opacity-0 group-data-[state=open]:opacity-100 invisible group-data-[state=open]:visible`}
             title="Ask AI about this content"
           >
             <Bot className="w-4 h-4" />
@@ -438,14 +473,14 @@ const AIAccordionItem = ({
       </AccordionTrigger>
       
       <AccordionContent className="!p-0">
-        <div ref={contentRef} className="px-5 py-4 bg-white border-x border-b border-purple-300 rounded-b-lg shadow-md">
+        <div ref={contentRef} className={`px-5 py-4 bg-white border-x border-b border-${themeConfig.border} rounded-b-lg shadow-md`}>
           {children}
           
           {/* Bottom AI Button */}
-          <div className="mt-6 pt-4 border-t border-purple-200 flex justify-center">
+          <div className={`mt-6 pt-4 border-t border-${themeConfig.border} flex justify-center`}>
             <button
               onClick={handleAskAI}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r ${themeConfig.gradient} rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105`}
               title="Ask AI about this content"
             >
               <Bot className="w-4 h-4" />
@@ -458,7 +493,7 @@ const AIAccordionItem = ({
   );
 };
 
-const AIAccordion = ({ children, className = "", ...props }) => {
+const AIAccordion = ({ children, className = "", theme = 'purple', ...props }) => {
   return (
     <Accordion 
       type="single" 
@@ -466,7 +501,12 @@ const AIAccordion = ({ children, className = "", ...props }) => {
       className={`space-y-0 ${className}`} 
       {...props}
     >
-      {children}
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child, { theme, ...child.props });
+        }
+        return child;
+      })}
     </Accordion>
   );
 };

@@ -77,16 +77,35 @@ markdownStyles.textContent = `
     border: 1px solid #e0e0e0 !important;
   }
   
-  .markdown-content code {
+  /* Inline code styling */
+  .markdown-content code:not(pre code) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-    font-size: 0.9em !important;
-    color: #333 !important;
+    font-size: 0.875rem !important;
+    color: #374151 !important;
+    background-color: #f3f4f6 !important;
+    padding: 0.125rem 0.25rem !important;
+    border-radius: 0.25rem !important;
+    border: 1px solid #e5e7eb !important;
   }
   
+  /* Code block styling */
   .markdown-content pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 0.875rem !important;
     color: #333 !important;
     background-color: transparent !important;
+    padding: 0 !important;
+    border: none !important;
   }
+  
+  /* Specific inline code styling to override any global styles */
+  .inline-code {
+    display: inline !important;
+    white-space: nowrap !important;
+    vertical-align: baseline !important;
+    font-weight: normal !important;
+  }
+  
   
   .markdown-content img {
     max-width: 100% !important;
@@ -409,7 +428,7 @@ const containsMarkdown = (text) => {
     /\*\*.+\*\*/,                  // Bold: **bold**
     /\*.+\*/,                      // Italic: *italic*
     /```[\s\S]*```/,               // Code block: ```code```
-    /`[^`]+`/,                     // Inline code: `code`
+    // /`[^`]+`/,                     // Inline code: `code` - DISABLED
     /\[.+\]\(.+\)/,                // Links: [text](url)
     /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
     /^\s*>\s+.+$/m,                // Blockquotes: > quote
@@ -434,7 +453,7 @@ const containsMarkdown = (text) => {
     text.includes('**') || 
     text.includes('*') ||
     text.includes('```') ||
-    text.includes('`') ||
+    // text.includes('`') ||  // DISABLED - ignore single backticks
     text.includes('[') ||
     text.includes('|') ||
     text.includes('> ') ||
@@ -465,6 +484,23 @@ const containsMarkdown = (text) => {
   }
   
   return false;
+};
+
+// Helper function to remove single backticks while preserving triple backticks
+const removeSingleBackticks = (text) => {
+  if (!text) return text;
+  
+  // First, temporarily replace triple backticks with placeholders
+  const tripleBacktickPlaceholder = '___TRIPLE_BACKTICK___';
+  let processedText = text.replace(/```/g, tripleBacktickPlaceholder);
+  
+  // Remove single backticks
+  processedText = processedText.replace(/`/g, '');
+  
+  // Restore triple backticks
+  processedText = processedText.replace(new RegExp(tripleBacktickPlaceholder, 'g'), '```');
+  
+  return processedText;
 };
 
 // Helper function to prepare text for remark-gfm table processing
@@ -597,8 +633,12 @@ const enhanceLinks = (htmlContent) => {
   const codeElements = div.getElementsByTagName('code');
   Array.from(codeElements).forEach(code => {
     if (code.parentElement.tagName !== 'PRE') {
-      code.classList.add('bg-gray-100', 'px-1', 'py-0.5', 'rounded', 'text-sm');
-      code.style.color = '#333';
+      // Inline code styling
+      code.classList.add('inline-code', 'bg-gray-200', 'px-1', 'py-0.5', 'rounded-sm', 'text-sm', 'border', 'border-gray-300');
+      code.style.color = '#374151';
+      code.style.display = 'inline';
+      code.style.whiteSpace = 'nowrap';
+      code.style.verticalAlign = 'baseline';
     } else {
       // For code blocks inside pre elements
       code.style.color = '#333';
@@ -735,7 +775,7 @@ const renderContextCard = (contextData, key) => {
                 h3: ({node, ...props}) => <h5 className="text-xs font-bold mt-1 mb-1" {...props} />,
                 code: ({node, inline, className, children, ...props}) => {
                   if (inline) {
-                    return <code className="px-1 py-0.5 rounded text-xs font-mono bg-gray-200 text-gray-800" {...props}>{children}</code>
+                    return <code className="inline-code px-1 py-0.5 rounded-sm text-xs font-mono bg-gray-200 text-gray-800 border border-gray-300" {...props}>{children}</code>
                   }
                   return <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto"><code {...props}>{children}</code></pre>
                 }
@@ -773,7 +813,7 @@ const renderContextCard = (contextData, key) => {
                 h3: ({node, ...props}) => <h5 className="text-xs font-bold mt-1 mb-1" {...props} />,
                 code: ({node, inline, className, children, ...props}) => {
                   if (inline) {
-                    return <code className="px-1 py-0.5 rounded text-xs font-mono bg-gray-200 text-gray-800" {...props}>{children}</code>
+                    return <code className="inline-code px-1 py-0.5 rounded-sm text-xs font-mono bg-gray-200 text-gray-800 border border-gray-300" {...props}>{children}</code>
                   }
                   return <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto"><code {...props}>{children}</code></pre>
                 }
@@ -896,7 +936,7 @@ const MessageBubble = ({
                   ]}
                   components={markdownComponents}
                 >
-                  {cleanMessageText}
+                  {removeSingleBackticks(cleanMessageText)}
                 </ReactMarkdown>
               ) : (
                 <div className="whitespace-pre-wrap">{cleanMessageText}</div>
@@ -936,7 +976,7 @@ const MessageBubble = ({
                         rehypeKatex
                       ]}
                     >
-                      {textContent}
+                      {removeSingleBackticks(textContent)}
                     </ReactMarkdown>
                   </div>
                 );
@@ -974,8 +1014,8 @@ const MessageBubble = ({
     
     // Check if the message might be markdown or contains math
     if (message.text && (containsMarkdown(message.text) || message.text.includes('$') || message.text.includes('\\'))) {
-      // Format tables properly if present
-      const formattedText = formatMarkdownTables(message.text);
+      // Format tables properly if present and remove single backticks
+      const formattedText = formatMarkdownTables(removeSingleBackticks(message.text));
       
       return (
         <div className={cn(
@@ -1026,9 +1066,9 @@ const MessageBubble = ({
                 const language = match ? match[1] : '';
                 const value = String(children).replace(/\n$/, '');
                 
-                // For inline code
+                // For inline code - simpler styling for inline display
                 if (inline) {
-                  return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+                  return <code className="inline-code px-1 py-0.5 rounded-sm text-sm font-mono bg-gray-200 text-gray-800 border border-gray-300" {...props}>{children}</code>
                 }
                 
                 // Check if this is a mermaid diagram
@@ -1102,7 +1142,7 @@ const MessageBubble = ({
     
     // If it's a user message and contains math or we want consistent rendering, render with markdown
     if (isUser && mightContainMath) {
-      const formattedText = formatMarkdownTables(message.text);
+      const formattedText = formatMarkdownTables(removeSingleBackticks(message.text));
       
       return (
         <div className={cn(
@@ -2142,9 +2182,15 @@ const handleSendMessage = async () => {
     
     // Update the model message with the response
     const modelResponse = result.data.text;
+    const fallbackUsed = result.data.fallbackUsed || false;
     
-    // Simulate progressive typing effect
-    if (result.data.streaming) {
+    // Log if fallback was used
+    if (fallbackUsed) {
+      console.log('⚠️ Streaming failed, using fallback complete response');
+    }
+    
+    // Simulate progressive typing effect only if streaming worked
+    if (result.data.streaming && !fallbackUsed) {
       let displayedText = '';
       const fullText = modelResponse;
       const words = fullText.split(' ');
@@ -2192,17 +2238,25 @@ const handleSendMessage = async () => {
     const errorDetails = err.message || 'Failed to send message. Please try again.';
     setError(errorDetails);
     
-    // Show detailed error information in the UI for debugging
-    const errorMessage = err.code === 'functions/invalid-argument' 
-      ? `API Error: ${errorDetails}` 
-      : `I'm sorry, I encountered an error: ${errorDetails}`;
+    // Provide more informative error messages
+    let errorMessage;
+    if (err.code === 'functions/invalid-argument') {
+      errorMessage = `API Error: ${errorDetails}`;
+    } else if (errorDetails.includes('AI response failed')) {
+      errorMessage = `I apologize, but I couldn't complete my response. This might be due to network issues or response length limits. Please try asking your question again, perhaps in a more concise way.`;
+    } else if (errorDetails.includes('Empty response')) {
+      errorMessage = `I apologize, but I couldn't generate a response. Please try again in a moment.`;
+    } else {
+      errorMessage = `I'm sorry, I encountered an error: ${errorDetails}`;
+    }
       
     // Update the model message with the error
     setMessages(prev =>
       prev.map(msg =>
         msg.id === modelMessageId ? { 
           ...msg, 
-          text: errorMessage
+          text: errorMessage,
+          isError: true // Mark as error for potential styling
         } : msg
       )
     );

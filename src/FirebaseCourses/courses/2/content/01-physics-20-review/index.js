@@ -384,7 +384,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </TextSection>
 
-            <AIAccordion.Item value="example3" title="Example 3: Vector Components" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example3" title="Example 3: Vector Components" theme="green" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving vector components using trigonometry.
               </p>
@@ -545,7 +545,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
-            <AIAccordion.Item value="example4" title="Example 4: Vector Addition" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example4" title="Example 4: Vector Addition" theme="green" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving multiple vector displacements using vector addition.
               </p>
@@ -666,7 +666,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
-            <AIAccordion.Item value="example5" title="Example 5: Navigation" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example5" title="Example 5: Navigation" theme="green" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's analyze vectors in a navigation problem involving an airplane and wind.
               </p>
@@ -1065,7 +1065,7 @@ AIAccordion, onAIAccordionContent }) => {
               theme="purple"
             />
 
-            <AIAccordion.Item value="example8" title="Example 8: Multiple Forces" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example8" title="Example 8: Multiple Forces" theme="blue" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving multiple forces acting on an object and determine the resulting acceleration.
               </p>
@@ -1224,7 +1224,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
-            <AIAccordion.Item value="example9" title="Example 9: Upward Acceleration" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example9" title="Example 9: Upward Acceleration" theme="blue" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving upward acceleration where we need to consider both the applied force and gravity.
               </p>
@@ -1343,7 +1343,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
-            <AIAccordion.Item value="example10" title="Example 10: Force and Friction" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example10" title="Example 10: Force and Friction" theme="blue" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving applied force, friction, and acceleration on a horizontal surface.
               </p>
@@ -1479,7 +1479,7 @@ AIAccordion, onAIAccordionContent }) => {
               </div>
             </AIAccordion.Item>
 
-            <AIAccordion.Item value="example11" title="Example 11: Kinetic Friction" onAskAI={onAIAccordionContent}>
+            <AIAccordion.Item value="example11" title="Example 11: Kinetic Friction" theme="blue" onAskAI={onAIAccordionContent}>
               <p className="mb-4">
                 Let's solve a problem involving kinetic friction when an object moves at constant velocity.
               </p>

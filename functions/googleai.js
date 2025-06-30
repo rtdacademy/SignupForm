@@ -457,20 +457,62 @@ const sendChatMessage = onCall({
       const { stream, response } = ai.generateStream(generateParams);
       
       let fullText = '';
+      let streamingFailed = false;
+      let chunkCount = 0;
       
-      // Stream the response
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          fullText += chunk.text;
+      try {
+        // Try to stream the response
+        for await (const chunk of stream) {
+          if (chunk.text) {
+            fullText += chunk.text;
+            chunkCount++;
+          }
+        }
+        console.log(`Streaming completed successfully. Chunks: ${chunkCount}, Length: ${fullText.length}`);
+        
+        // Check if response might have been truncated due to token limits
+        const estimatedTokens = Math.ceil(fullText.length / 4); // Rough estimate: 1 token ≈ 4 characters
+        const tokenLimit = resolvedSettings.maxTokens;
+        
+        if (estimatedTokens >= tokenLimit * 0.95) { // If we're within 95% of the limit
+          console.warn(`Response may have been truncated. Estimated tokens: ${estimatedTokens}/${tokenLimit}`);
+        }
+      } catch (streamErr) {
+        console.warn('Streaming failed, falling back to complete response:', streamErr.message);
+        streamingFailed = true;
+        // Clear any partial text since we'll get the full response
+        fullText = '';
+      }
+      
+      // If streaming failed or we got no text, wait for the complete response
+      if (streamingFailed || !fullText) {
+        try {
+          console.log('Waiting for complete response...');
+          const finalResponse = await response;
+          
+          if (finalResponse && finalResponse.text) {
+            fullText = finalResponse.text;
+            console.log(`Got complete response. Length: ${fullText.length}`);
+          } else {
+            throw new Error('No text in final response');
+          }
+        } catch (responseErr) {
+          console.error('Failed to get complete response:', responseErr);
+          throw new Error(`AI response failed: ${responseErr.message}`);
         }
       }
       
-      console.log('Streaming complete, full response:', fullText);
+      // Validate we got something
+      if (!fullText || fullText.trim().length === 0) {
+        throw new Error('Empty response received from AI model');
+      }
       
       return {
         text: fullText,
         success: true,
-        streaming: true
+        streaming: !streamingFailed, // Let frontend know if streaming actually worked
+        fallbackUsed: streamingFailed,
+        chunkCount: chunkCount
       };
     } else {
       // Use regular generate for non-streaming

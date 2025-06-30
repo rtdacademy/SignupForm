@@ -335,14 +335,6 @@ const StandardMultipleChoiceQuestion = ({
   // Get theme colors - prioritize prop theme over question settings when passed from parent component
   const activeTheme = (isExamMode ? 'purple' : theme) || question?.settings?.theme || 'purple';
   
-  // Debug theme application
-  console.log('🎨 StandardMultipleChoiceQuestion theme debug:', {
-    themeProp: theme,
-    questionTheme: question?.settings?.theme,
-    isExamMode,
-    activeTheme,
-    finalThemeConfig: getThemeConfig(activeTheme)
-  });
   
   // Get gradient theme configuration (matching SlideshowKnowledgeCheck)
   const themeConfig = getThemeConfig(activeTheme);
@@ -1011,6 +1003,12 @@ Your goal is to help them learn by thinking through the problem themselves.
 
 `;
       } else if (!isCorrect) {
+        // Map internal IDs to display letters
+        const studentAnswerIndex = question.options.findIndex(opt => opt.id === result?.answer);
+        const correctAnswerIndex = question.options.findIndex(opt => opt.id === result?.correctOptionId);
+        const studentDisplayLetter = studentAnswerIndex >= 0 ? String.fromCharCode(65 + studentAnswerIndex) : 'Unknown';
+        const correctDisplayLetter = correctAnswerIndex >= 0 ? String.fromCharCode(65 + correctAnswerIndex) : 'Unknown';
+        
         aiGuidance = `
 **AI GUIDANCE:** 
 This student attempted the question but got it wrong. Help them understand their mistake and guide them toward the correct approach.
@@ -1023,8 +1021,8 @@ This student attempted the question but got it wrong. Help them understand their
 - Now you CAN show them the correct answer since they've already attempted it
 
 **Student's Performance:**
-- Their answer: ${result?.answer?.toUpperCase() || 'Unknown'}
-- Correct answer: ${result?.correctOptionId?.toUpperCase() || 'Unknown'}
+- Their answer: ${studentDisplayLetter}
+- Correct answer: ${correctDisplayLetter}
 - Feedback given: ${result?.feedback || 'None'}
 
 `;

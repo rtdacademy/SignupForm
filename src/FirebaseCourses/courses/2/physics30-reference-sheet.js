@@ -363,10 +363,18 @@ export const aiFormattingGuidelines = `## AI Response Formatting
 - Vectors: $\\\\vec{F}_{\\\\text{net}}$
 - Fractions: $\\\\frac{1}{2}mv^2$
 
+**Scientific Notation:**
+- Use LaTeX format: $1.23 \\\\times 10^{5}$
+- For negative exponents: $2.5 \\\\times 10^{-3}$
+- With units: $6.02 \\\\times 10^{23} \\\\text{ mol}^{-1}$
+- Always use \\\\times (not * or x)
+
 **Text Formatting:**
 - Use markdown headers (##, ###)
 - Use bullet points and numbered lists
-- Keep responses concise for chat bubbles`;
+- Keep responses concise for chat bubbles
+- Never use backticks within any of your responses
+`;
 
 export const completeReferenceSheet = `# Physics 30 Reference Sheet
 

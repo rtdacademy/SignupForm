@@ -33,8 +33,8 @@ const AI_MODELS = {
   // Max Token Settings (response length control)
   MAX_TOKENS: {
     SHORT: 500,         // Brief responses
-    MEDIUM: 1000,       // Standard responses (recommended)
-    LONG: 2000,         // Detailed responses
+    MEDIUM: 2000,       // Standard responses (recommended) - increased for educational content
+    LONG: 3000,         // Detailed responses
     EXTENDED: 4000      // Very detailed responses (use sparingly)
   },
   
