@@ -1457,7 +1457,7 @@
         "type": "embed",
         "embedCode": "<iframe src=\"https://ti84calc.com/ti84calc\" width=\"100%\" height=\"800px\" frameborder=\"0\" allow=\"fullscreen\"></iframe>",
         "description": "Full-featured TI-84 graphing calculator for physics calculations"
-      }
+      },
       "textbook": {
         "title": "Person Physics Textbook",
         "type": "embed",
