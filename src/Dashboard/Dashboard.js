@@ -153,14 +153,6 @@ const Dashboard = () => {
   const showLMS = searchParams.get('view') === 'course';
   const courseType = searchParams.get('courseType'); // 'firebase' or 'lms'
   
-  // Debug logging for URL state
-  console.log('📍 Dashboard URL State:', {
-    selectedCourseId,
-    showLMS,
-    courseType,
-    searchParams: Object.fromEntries(searchParams),
-    timestamp: new Date().toLocaleTimeString()
-  });
   
   // Only set showWelcomeDialog initially, after data is loaded
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
@@ -175,17 +167,6 @@ const Dashboard = () => {
     ? courses.find(course => course.CourseID === selectedCourseId || course.id === selectedCourseId)
     : null;
     
-  // Debug logging for selectedCourse
-  console.log('🎯 Dashboard selectedCourse:', {
-    selectedCourseId,
-    courseType,
-    selectedCourse: selectedCourse ? 'Found' : 'Not found',
-    courseDetails: selectedCourse?.courseDetails ? 'Has courseDetails' : 'Missing courseDetails',
-    firebaseCourse: selectedCourse?.courseDetails?.firebaseCourse,
-    coursesArrayLength: courses.length,
-    routingDecision: courseType ? `Explicit: ${courseType}` : 'Will fallback to course detection',
-    timestamp: new Date().toLocaleTimeString()
-  });
 
   const { isModernCourse, loading: courseTypeLoading } = useModernCourse(
     selectedCourse?.CourseID
@@ -487,6 +468,7 @@ const Dashboard = () => {
             // Explicit Firebase course routing
             <FirebaseCourseWrapper
               course={selectedCourse}
+              profile={profile}
             />
           ) : courseType === 'lms' ? (
             // Explicit LMS course routing
@@ -499,6 +481,7 @@ const Dashboard = () => {
             // Fallback for Firebase courses when courseType is not specified (backward compatibility)
             <FirebaseCourseWrapper
               course={selectedCourse}
+              profile={profile}
             />
           ) : (
             // Default fallback to LMS for regular courses

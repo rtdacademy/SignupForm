@@ -98,20 +98,6 @@ const CollapsibleNavigation = ({
   // Display debugging information about the course structure
   useEffect(() => {
     if (course) {
-      console.log("CollapsibleNavigation: Course structure and ID debug:", {
-        providedUnitsList: unitsList,
-        detailsStructure: course.courseDetails?.courseStructure?.structure,
-        directStructure: course.courseStructure?.structure,
-        units: course.units,
-        courseIdFields: {
-          courseId: course.courseId,
-          CourseID: course.CourseID,
-          id: course.id,
-          courseIdPresent: !!course.courseId,
-          CourseIDPresent: !!course.CourseID
-        },
-        fullCourseObject: course
-      });
     }
   }, [course, unitsList]);
 
@@ -586,7 +572,7 @@ const CollapsibleNavigation = ({
                     <p className="font-medium">Current Lesson</p>
                     <p className="text-sm">{currentLesson.item.title}</p>
                     <p className="text-xs text-gray-500">
-                      Unit {currentLesson.unit.sequence || currentLesson.unit.order || currentLesson.unitIndex + 1}: {currentLesson.unit.name || currentLesson.unit.title}
+                      {currentLesson.unit.name || currentLesson.unit.title}
                     </p>
                   </div>
                 </TooltipContent>
@@ -737,7 +723,7 @@ const CollapsibleNavigation = ({
                                     isCurrentUnit ? 'text-purple-800' : 'text-blue-800'
                                   }`}
                                 >
-                                  {unit.name || unit.title || `Unit ${unit.sequence || unit.order || unit.index + 1}`}
+                                  {unit.name || unit.title || `Section ${unit.sequence || unit.order || unit.index + 1}`}
                                 </span>
                                 <span className="text-xs text-gray-500 whitespace-nowrap ml-1">
                                   {unitPercentage}%

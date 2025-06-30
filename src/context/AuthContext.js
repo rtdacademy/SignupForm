@@ -122,7 +122,9 @@ export function AuthProvider({ children }) {
     '/aerr/2023-24',
     '/education-plan/2025-26',
     '/prerequisite-flowchart',
-    '/parent-verify-email'
+    '/parent-verify-email',
+    '/rtd-learning-login',
+    '/rtd-learning-admin-login'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -372,7 +374,7 @@ export function AuthProvider({ children }) {
 
   // Function to check token and set up expiration
   const checkTokenExpiration = useCallback(async () => {
-    if (!user) return;
+    if (!user || !auth.currentUser) return;
     
     try {
       // Get the current token with expiration info
@@ -394,7 +396,7 @@ export function AuthProvider({ children }) {
         const refreshTime = Math.max(0, timeUntilExpiration - 60 * 1000);
         
         tokenRefreshTimeoutRef.current = setTimeout(async () => {
-          if (userActivityTracking.current.isActive) {
+          if (userActivityTracking.current.isActive && auth.currentUser) {
             console.log('Refreshing Firebase token');
             await auth.currentUser.getIdToken(true);
           }
@@ -418,13 +420,13 @@ export function AuthProvider({ children }) {
       userActivityTracking.current.isActive = true;
       
       // Force a token refresh if token is going to expire soon
-      if (tokenExpirationTime) {
+      if (tokenExpirationTime && auth.currentUser) {
         const timeUntilExpiration = tokenExpirationTime - Date.now();
         if (timeUntilExpiration < 10 * 60 * 1000) { // Less than 10 minutes left
           await auth.currentUser.getIdToken(true);
           await checkTokenExpiration(); // Update expiration time
         }
-      } else {
+      } else if (auth.currentUser) {
         // If we don't have the expiration time yet, check it now
         await checkTokenExpiration();
       }
@@ -631,11 +633,9 @@ export function AuthProvider({ children }) {
     const userRef = ref(db, `users/${user.uid}`);
     
     try {
-      console.log("Checking if user data exists for UID:", user.uid);
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        console.log("User data doesn't exist, creating minimal user data");
         
         const userData = {
           uid: user.uid,
@@ -649,9 +649,7 @@ export function AuthProvider({ children }) {
         };
         
         await set(userRef, userData);
-        console.log("Minimal user data created successfully");
       } else {
-        console.log("User data already exists, updating last login");
         const existingData = snapshot.val();
         
         await set(userRef, {
@@ -739,24 +737,15 @@ export function AuthProvider({ children }) {
   // Custom Claims Helper Functions
   const checkAndSetCustomClaims = async (user, forceRefresh = false) => {
     if (!user) {
-      console.log('[Custom Claims] No user provided');
       return null;
     }
     
     try {
-      console.log('[Custom Claims] Checking custom claims for user:', user.email);
       
       // Get the user's current ID token with claims
       const idTokenResult = await user.getIdTokenResult();
       const claims = idTokenResult.claims;
       
-      console.log('[Custom Claims] Current claims:', {
-        hasClaims: !!claims,
-        hasRoles: !!claims.roles,
-        hasPermissions: !!claims.permissions,
-        hasLastUpdated: !!claims.lastUpdated,
-        claims: claims
-      });
       
       // Determine which portal the user is trying to access
       const currentPath = location.pathname.toLowerCase();
@@ -767,12 +756,10 @@ export function AuthProvider({ children }) {
       let needsClaimsUpdate = false;
       
       if (isAccessingParentPortal && claims.permissions && !claims.permissions.canAccessParentPortal) {
-        console.log('[Custom Claims] User accessing parent portal but lacks parent permissions');
         needsClaimsUpdate = true;
       }
       
       if (isAccessingStaffPortal && claims.permissions && !claims.permissions.isStaff) {
-        console.log('[Custom Claims] User accessing staff portal but lacks staff permissions');
         needsClaimsUpdate = true;
       }
       
@@ -783,41 +770,25 @@ export function AuthProvider({ children }) {
                            (Date.now() - claims.lastUpdated) < 24 * 60 * 60 * 1000;
       
       if (!hasValidClaims || needsClaimsUpdate || forceRefresh) {
-        console.log('[Custom Claims] Claims need update:', {
-          reason: !hasValidClaims ? 'missing/outdated' : (needsClaimsUpdate ? 'portal mismatch' : 'forced refresh'),
-          hasRoles: !!claims.roles,
-          hasPermissions: !!claims.permissions,
-          hasLastUpdated: !!claims.lastUpdated,
-          isRecent: claims.lastUpdated ? (Date.now() - claims.lastUpdated) < 24 * 60 * 60 * 1000 : false,
-          needsClaimsUpdate,
-          forceRefresh
-        });
         
         // Import the cloud function
-        console.log('[Custom Claims] Importing Firebase functions...');
         const { getFunctions, httpsCallable } = await import('firebase/functions');
         const functions = getFunctions();
         const setUserRoles = httpsCallable(functions, 'setUserRoles');
         
         // Call the function to set custom claims
-        console.log('[Custom Claims] Calling setUserRoles cloud function...');
         const result = await setUserRoles();
-        console.log('[Custom Claims] setUserRoles result:', result.data);
         
         // Force token refresh to get new claims
-        console.log('[Custom Claims] Forcing token refresh...');
         await user.getIdToken(true);
         
         // Get updated token with new claims
         const updatedTokenResult = await user.getIdTokenResult();
-        console.log('[Custom Claims] Updated claims after refresh:', updatedTokenResult.claims);
         return updatedTokenResult.claims;
       }
       
-      console.log('[Custom Claims] Using existing valid claims');
       return claims;
     } catch (error) {
-      console.error('[Custom Claims] Error checking/setting custom claims:', error);
       return null;
     }
   };
@@ -843,21 +814,17 @@ export function AuthProvider({ children }) {
 
   // Enhanced role checking with custom claims fallback
   const checkUserRoles = async (user, emailKey, forceRefresh = false) => {
-    console.log('[checkUserRoles] Starting role check for:', user?.email);
     
     // First try to get roles from custom claims
     const claims = await checkAndSetCustomClaims(user, forceRefresh);
     const claimsData = getUserRolesFromClaims(claims);
     
-    console.log('[checkUserRoles] Claims data:', claimsData);
     
     if (claimsData.hasCustomClaims) {
-      console.log('[checkUserRoles] Using custom claims for role determination:', claimsData);
       return claimsData;
     }
     
     // Fallback to existing database checking logic
-    console.log('[checkUserRoles] No valid custom claims, using database fallback');
     const roles = [];
     const permissions = {};
     
@@ -870,7 +837,6 @@ export function AuthProvider({ children }) {
     
     // Check parent status
     const parentStatus = await checkIsParent(user, emailKey);
-    console.log('[checkUserRoles] Parent status check result:', parentStatus);
     if (parentStatus) {
       roles.push('parent');
       permissions.canAccessParentPortal = true;
@@ -889,7 +855,6 @@ export function AuthProvider({ children }) {
       hasCustomClaims: false
     };
     
-    console.log('[checkUserRoles] Final role determination from database:', result);
     return result;
   };
 
@@ -944,9 +909,7 @@ export function AuthProvider({ children }) {
               if (dataCreated) {
                 try {
                   // Check and set custom claims for staff user
-                  console.log('[AuthContext] Checking custom claims for staff user...');
                   const userRoles = await checkUserRoles(currentUser, emailKey);
-                  console.log('[AuthContext] Staff user roles determined:', userRoles);
                   
                   await Promise.all([
                     fetchStaffMembers(),
@@ -994,9 +957,7 @@ export function AuthProvider({ children }) {
 
                 try {
                   // Check and set custom claims for parent user - force refresh to ensure parent permissions are checked
-                  console.log('[AuthContext] Checking custom claims for parent user (forcing refresh)...');
                   const userRoles = await checkUserRoles(currentUser, emailKey, true);
-                  console.log('[AuthContext] Parent user roles determined:', userRoles);
                   
                   await Promise.all([
                     checkTokenExpiration(),
@@ -1041,13 +1002,10 @@ export function AuthProvider({ children }) {
               if (dataCreated && isMounted) {
                 try {
                   // Check and set custom claims for the user
-                  console.log('[AuthContext] Checking custom claims for student user...');
                   const userRoles = await checkUserRoles(currentUser, emailKey);
-                  console.log('[AuthContext] User roles determined:', userRoles);
                   
                   // Set parent user status based on custom claims or database check
                   if (userRoles.permissions.canAccessParentPortal) {
-                    console.log('[AuthContext] User has parent portal access');
                   }
                   
                   await archivePreviousSession(currentUser);
@@ -1098,6 +1056,10 @@ export function AuthProvider({ children }) {
                     navigate('/staff-login');
                   } else if (currentPath.toLowerCase() === '/parent-dashboard') {
                     navigate('/parent-login');
+                  } else if (currentPath.toLowerCase() === '/rtd-learning-dashboard') {
+                    navigate('/rtd-learning-login');
+                  } else if (currentPath.toLowerCase() === '/rtd-learning-admin-dashboard') {
+                    navigate('/rtd-learning-admin-login');
                   } else {
                     navigate('/login');
                   }

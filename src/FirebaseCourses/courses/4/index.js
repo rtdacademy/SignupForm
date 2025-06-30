@@ -173,17 +173,7 @@ const Course4 = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseId}: Course4 loaded with direct props`, {
-      courseId: courseId,
-      structure: structure,
-      contentRegistry: Object.keys(contentRegistry),
-      receivedProps: {
-        externalActiveItemId,
-        hasOnItemSelect: !!onItemSelect,
-        isStaffView,
-        devMode
-      }
-    });
+    // Debug logging removed
   }, [structure, externalActiveItemId, onItemSelect, isStaffView, devMode]);
 
   // Use external or internal active item ID
@@ -278,12 +268,7 @@ const Course4 = ({
     const contentPath = activeItem.contentPath;
     const ContentComponent = contentRegistry[contentPath];
 
-    console.log('Loading content:', {
-      contentPath,
-      itemId: activeItem.itemId,
-      type: activeItem.type,
-      hasComponent: !!ContentComponent
-    });
+    // Loading content logging removed
 
     if (!ContentComponent) {
       return (

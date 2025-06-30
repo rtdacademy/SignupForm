@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getDatabase, ref, get } from 'firebase/database';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Expand } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import StandardMultipleChoiceQuestion from '../StandardMultipleChoiceQuestion';
 import AIShortAnswerQuestion from '../AIShortAnswerQuestion';
+import { Sheet, SheetContent, SheetTrigger } from '../../../../components/ui/sheet';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Simple inline multiple choice component for slideshow
 const InlineMultipleChoiceQuestion = ({ question, questionNumber, theme, onAttempt }) => {
@@ -22,19 +23,43 @@ const InlineMultipleChoiceQuestion = ({ question, questionNumber, theme, onAttem
 
   const getThemeColors = () => {
     const themes = {
-      blue: { bg: 'bg-blue-50', border: 'border-blue-200', button: 'bg-blue-600 hover:bg-blue-700', text: 'text-blue-800' },
-      green: { bg: 'bg-green-50', border: 'border-green-200', button: 'bg-green-600 hover:bg-green-700', text: 'text-green-800' },
-      purple: { bg: 'bg-purple-50', border: 'border-purple-200', button: 'bg-purple-600 hover:bg-purple-700', text: 'text-purple-800' },
-      indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', button: 'bg-indigo-600 hover:bg-indigo-700', text: 'text-indigo-800' }
+      blue: { 
+        bg: 'bg-blue-50', 
+        border: 'border-blue-300', 
+        button: 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800', 
+        text: 'text-blue-800',
+        accent: 'blue-600'
+      },
+      green: { 
+        bg: 'bg-green-50', 
+        border: 'border-green-300', 
+        button: 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800', 
+        text: 'text-green-800',
+        accent: 'green-600'
+      },
+      purple: { 
+        bg: 'bg-purple-50', 
+        border: 'border-purple-300', 
+        button: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700', 
+        text: 'text-purple-800',
+        accent: 'purple-600'
+      },
+      indigo: { 
+        bg: 'bg-indigo-50', 
+        border: 'border-indigo-300', 
+        button: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700', 
+        text: 'text-indigo-800',
+        accent: 'indigo-600'
+      }
     };
-    return themes[theme] || themes.blue;
+    return themes[theme] || themes.purple;
   };
 
   const colors = getThemeColors();
 
   return (
-    <div className={`p-6 rounded-lg border-2 ${colors.bg} ${colors.border}`}>
-      <h3 className="text-lg font-semibold mb-4">Question {questionNumber}</h3>
+    <div className={`p-6 rounded-lg border ${colors.bg} ${colors.border} shadow-md`}>
+      <h3 className="text-lg font-semibold mb-4 text-gray-800">Question {questionNumber}</h3>
       <p className="text-gray-800 mb-4">{question.question}</p>
       
       <div className="space-y-2 mb-4">
@@ -74,7 +99,7 @@ const InlineMultipleChoiceQuestion = ({ question, questionNumber, theme, onAttem
         <button
           onClick={handleSubmit}
           disabled={selectedOption === null}
-          className={`px-4 py-2 text-white rounded-lg transition-colors ${
+          className={`px-6 py-3 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg font-medium ${
             selectedOption === null 
               ? 'bg-gray-400 cursor-not-allowed' 
               : `${colors.button}`
@@ -93,19 +118,95 @@ const InlineMultipleChoiceQuestion = ({ question, questionNumber, theme, onAttem
   );
 };
 
+// Theme configuration with gradient colors
+const getThemeConfig = (theme) => {
+  const themes = {
+    purple: {
+      gradient: 'from-purple-600 to-indigo-600',
+      gradientHover: 'from-purple-700 to-indigo-700',
+      accent: 'purple-600',
+      light: 'purple-100',
+      border: 'purple-200',
+      ring: 'ring-purple-200',
+      name: 'purple'
+    },
+    blue: {
+      gradient: 'from-blue-600 to-cyan-600',
+      gradientHover: 'from-blue-700 to-cyan-700',
+      accent: 'blue-600',
+      light: 'blue-100',
+      border: 'blue-200',
+      ring: 'ring-blue-200',
+      name: 'blue'
+    },
+    green: {
+      gradient: 'from-emerald-600 to-teal-600',
+      gradientHover: 'from-emerald-700 to-teal-700',
+      accent: 'emerald-600',
+      light: 'emerald-100',
+      border: 'emerald-200',
+      ring: 'ring-emerald-200',
+      name: 'green'
+    }
+  };
+  
+  return themes[theme] || themes.purple;
+};
+
 const SlideshowKnowledgeCheck = ({ 
   courseId, 
   lessonPath,
   questions,
   onComplete,
-  theme = 'indigo',
-  questionIdPrefix = null
+  theme = 'purple',
+  questionIdPrefix = null,
+  // AI Assistant props (following AIAccordion pattern)
+  course = null,
+  onAIAccordionContent = null
 }) => {
   const { currentUser } = useAuth();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionsCompleted, setQuestionsCompleted] = useState({});
   const [questionResults, setQuestionResults] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
+  const [preloadingQuestions, setPreloadingQuestions] = useState(true);
+  const [preloadingErrors, setPreloadingErrors] = useState([]);
+
+  // Get theme configuration
+  const themeConfig = getThemeConfig(theme);
+  
+  // Debug theme configuration
+  console.log('🎨 SlideshowKnowledgeCheck theme debug:', {
+    themeProp: theme,
+    themeConfig,
+    themeConfigName: themeConfig.name
+  });
+
+  // Helper function to get assessment data from course prop
+  const getQuestionAssessmentData = (questionId) => {
+    if (!course?.Assessments || !questionId) {
+      return null;
+    }
+    return course.Assessments[questionId] || null;
+  };
+
+  // Helper function to determine question attempt status
+  const getQuestionStatus = (questionId) => {
+    const assessmentData = getQuestionAssessmentData(questionId);
+    if (!assessmentData) {
+      return { attempted: false, correct: null, attempts: 0 };
+    }
+
+    const attempted = assessmentData.status === 'attempted' || assessmentData.status === 'completed' || assessmentData.attempts > 0;
+    const correct = assessmentData.lastSubmission?.isCorrect || null;
+    
+    return {
+      attempted,
+      correct,
+      attempts: assessmentData.attempts || 0,
+      lastSubmission: assessmentData.lastSubmission
+    };
+  };
 
   // Generate unique question IDs based on lesson path or custom prefix
   const generateQuestionId = (index) => {
@@ -117,96 +218,132 @@ const SlideshowKnowledgeCheck = ({
     return `${coursePrefix}_${lessonPrefix}_question${index + 1}`;
   };
 
-  // Load progress from Firebase on component mount
+  // Load progress from course.Assessments data
   useEffect(() => {
-    const loadProgressFromFirebase = async () => {
-      // TEMPORARY FIX: Skip Firebase loading entirely to avoid permission errors
-      console.log("🚫 SlideshowKnowledgeCheck: Skipping Firebase load to avoid permission errors");
-      setLoadingProgress(false);
-      return;
+    const loadProgressFromCourse = () => {
+      setLoadingProgress(true);
       
-      // Original code commented out:
-      // if (!currentUser?.email || !courseId) {
-      //   console.log("🚫 SlideshowKnowledgeCheck: No user or courseId, skipping Firebase load");
-      //   setLoadingProgress(false);
-      //   return;
-      // }
-
       try {
-        const db = getDatabase();
-        const studentEmail = currentUser.email.replace(/\./g, ',');
-        console.log("🔍 SlideshowKnowledgeCheck: Loading progress for", { studentEmail, courseId });
-        
-        const progressPromises = questions.map(async (_, index) => {
-          const questionId = generateQuestionId(index);
-          const questionNumber = index + 1;
-          
-          // Read from Firebase: /students/{email}/courses/{courseId}/Assessments/{questionId}/lastSubmission
-          const assessmentRef = ref(db, `students/${studentEmail}/courses/${courseId}/Assessments/${questionId}/lastSubmission`);
-          console.log("📖 SlideshowKnowledgeCheck: Attempting to read from:", assessmentRef.toString());
-          
-          try {
-            const snapshot = await get(assessmentRef);
-            if (snapshot.exists()) {
-              const lastSubmission = snapshot.val();
-              const isCorrect = lastSubmission.isCorrect;
-              return {
-                questionNumber,
-                isCorrect,
-                hasBeenAnswered: true
-              };
-            }
-          } catch (error) {
-            console.error(`🚨 SlideshowKnowledgeCheck PERMISSION ERROR for question ${questionNumber}:`, error);
-            console.error("📍 Error details:", {
-              code: error.code,
-              message: error.message,
-              path: `students/${studentEmail}/courses/${courseId}/Assessments/${questionId}/lastSubmission`
-            });
-          }
-          
-          return {
-            questionNumber,
-            isCorrect: null,
-            hasBeenAnswered: false
-          };
-        });
+        if (!course?.Assessments || !questions || questions.length === 0) {
+          setLoadingProgress(false);
+          return;
+        }
 
-        const progressResults = await Promise.all(progressPromises);
-        
-        // Update state based on loaded progress
         const newQuestionResults = {};
         const newQuestionsCompleted = {};
         
-        progressResults.forEach(({ questionNumber, isCorrect, hasBeenAnswered }) => {
-          if (hasBeenAnswered) {
+        questions.forEach((question, index) => {
+          const questionNumber = index + 1;
+          const questionId = question.questionId || generateQuestionId(index);
+          const status = getQuestionStatus(questionId);
+          
+          if (status.attempted) {
             newQuestionsCompleted[`question${questionNumber}`] = true;
-            newQuestionResults[`question${questionNumber}`] = isCorrect ? 'correct' : 'incorrect';
+            if (status.correct !== null) {
+              newQuestionResults[`question${questionNumber}`] = status.correct ? 'correct' : 'incorrect';
+            }
           }
         });
         
         setQuestionsCompleted(newQuestionsCompleted);
         setQuestionResults(newQuestionResults);
         
-        console.log('📊 Loaded progress from Firebase:', {
+        console.log('📊 Loaded progress from course data:', {
           completed: newQuestionsCompleted,
           results: newQuestionResults
         });
         
       } catch (error) {
-        console.error('🚨 SlideshowKnowledgeCheck: OUTER CATCH - Failed to load progress from Firebase:', error);
-        console.error('📍 Outer error details:', {
-          code: error.code,
-          message: error.message,
-          stack: error.stack
-        });
+        console.error('🚨 SlideshowKnowledgeCheck: Failed to load progress from course data:', error);
       } finally {
         setLoadingProgress(false);
       }
     };
 
-    loadProgressFromFirebase();
-  }, [currentUser, courseId, questions.length, lessonPath]);
+    loadProgressFromCourse();
+  }, [course, questions.length, lessonPath]);
+
+  // Pre-load all cloud function questions when component mounts
+  useEffect(() => {
+    const preloadCloudFunctionQuestions = async () => {
+      if (!currentUser || !currentUser.email || !questions || questions.length === 0) {
+        setPreloadingQuestions(false);
+        return;
+      }
+
+      const functions = getFunctions();
+      const errors = [];
+      
+      // Filter questions that use cloud functions (have questionId but no options/correctAnswer)
+      const cloudFunctionQuestions = questions.filter(question => 
+        question.type === 'multiple-choice' && 
+        question.questionId && 
+        (!question.options || !question.correctAnswer)
+      );
+
+      if (cloudFunctionQuestions.length === 0) {
+        setPreloadingQuestions(false);
+        return;
+      }
+
+      // Check which questions already exist using course.Assessments
+      const questionsToPreload = cloudFunctionQuestions.filter(question => {
+        const questionId = question.questionId;
+        const assessmentData = course?.Assessments?.[questionId];
+        
+        if (!assessmentData) {
+          // Question doesn't exist, needs pre-loading
+          return true;
+        } else {
+          return false;
+        }
+      });
+
+      if (questionsToPreload.length === 0) {
+        setPreloadingQuestions(false);
+        return;
+      }
+
+      // Pre-load only the questions that don't exist
+      const preloadPromises = questionsToPreload.map(async (question) => {
+        try {
+          const questionId = question.questionId;
+          const assessmentFunction = httpsCallable(functions, questionId);
+
+          const functionParams = {
+            courseId: courseId,
+            assessmentId: questionId,
+            operation: 'generate',
+            studentEmail: currentUser.email,
+            userId: currentUser.uid,
+            topic: question.topic || 'general',
+            difficulty: question.difficulty || 'intermediate'
+          };
+
+          const result = await assessmentFunction(functionParams);
+          return { questionId, success: true };
+        } catch (error) {
+          console.error(`❌ Failed to pre-load question ${question.questionId}:`, error);
+          errors.push({ questionId: question.questionId, error: error.message });
+          return { questionId: question.questionId, success: false, error };
+        }
+      });
+
+      try {
+        await Promise.allSettled(preloadPromises);
+        
+        if (errors.length > 0) {
+          setPreloadingErrors(errors);
+        }
+      } catch (error) {
+        console.error('💥 Critical error during question pre-loading:', error);
+      } finally {
+        setPreloadingQuestions(false);
+      }
+    };
+
+    preloadCloudFunctionQuestions();
+  }, [currentUser, courseId, questions, course]);
 
   const handleQuestionComplete = (questionNumber) => {
     setQuestionsCompleted(prev => ({
@@ -260,15 +397,18 @@ const SlideshowKnowledgeCheck = ({
             }}
           />;
         } else {
-          // Cloud function question - use the old method
+          // Cloud function question - use the optimized method with pre-loading
           return (
             <StandardMultipleChoiceQuestion
               key={questionId}
               courseId={courseId}
               cloudFunctionName={question.questionId || questionId}
               title={question.title || `Question ${questionNumber}`}
-              theme={theme}
+              theme={themeConfig.name}
               maxAttempts={9999}
+              course={course}
+              onAIAccordionContent={onAIAccordionContent}
+              skipInitialGeneration={true}
               onAttempt={(isCorrect) => {
                 handleQuestionComplete(questionNumber);
                 handleQuestionResult(questionNumber, isCorrect);
@@ -300,13 +440,21 @@ const SlideshowKnowledgeCheck = ({
     }
   };
 
-  // Show loading spinner while loading progress
-  if (loadingProgress) {
+  // Show loading spinner while loading progress or pre-loading questions
+  if (loadingProgress || preloadingQuestions) {
+    const loadingText = loadingProgress ? 'Loading progress...' : 'Pre-loading questions...';
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-600">Loading progress...</span>
+        <div className={`bg-gradient-to-r ${themeConfig.gradient} rounded-lg p-8`}>
+          <div className="flex justify-center items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <span className="ml-3 text-white font-medium">{loadingText}</span>
+          </div>
+          {preloadingQuestions && (
+            <div className="mt-3 text-center text-purple-200 text-sm">
+              Preparing all questions for faster navigation...
+            </div>
+          )}
         </div>
       </div>
     );
@@ -316,8 +464,11 @@ const SlideshowKnowledgeCheck = ({
   if (!questions || questions.length === 0) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <div className="text-center py-8 text-gray-500">
-          <p>No questions available for this slideshow.</p>
+        <div className={`bg-gradient-to-r ${themeConfig.gradient} rounded-lg p-8`}>
+          <div className="text-center text-white">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-75" />
+            <p className="text-lg font-medium">No questions available for this slideshow.</p>
+          </div>
         </div>
       </div>
     );
@@ -325,102 +476,345 @@ const SlideshowKnowledgeCheck = ({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Visual Progress Navigation */}
-      <div className="flex justify-center items-center space-x-2 mb-8">
-        {questions.map((_, index) => {
-          const questionNumber = index + 1;
-          const isCurrent = currentQuestionIndex === index;
-          const result = questionResults[`question${questionNumber}`];
-          
-          return (
-            <button
-              key={index}
-              onClick={() => navigateToQuestion(index)}
-              className={`
-                w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold
-                transition-all duration-200 transform hover:scale-110
-                ${isCurrent 
-                  ? 'bg-indigo-600 text-white ring-4 ring-indigo-200' 
-                  : result === 'correct'
-                    ? 'bg-green-500 text-white'
-                    : result === 'incorrect'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-gray-400'
-                }
-              `}
-              aria-label={`Go to question ${questionNumber}`}
-            >
-              {questionNumber}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Question Display */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">
-            Question {currentQuestionIndex + 1} of {questions.length}
-          </h3>
-        </div>
-        
-        {questions && questions.length > 0 && questions[currentQuestionIndex] 
-          ? renderQuestion(questions[currentQuestionIndex], currentQuestionIndex)
-          : <div className="text-center py-8 text-gray-500">No questions available</div>
-        }
-      </div>
-
-      {/* Navigation Controls */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
-          disabled={currentQuestionIndex === 0}
-          className={`
-            flex items-center px-4 py-2 rounded-lg font-medium transition-colors
-            ${currentQuestionIndex === 0
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }
-          `}
-        >
-          <ChevronLeft className="w-5 h-5 mr-1" />
-          Previous
-        </button>
-
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            {Object.keys(questionsCompleted).length} of {questions.length} completed
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
-          disabled={currentQuestionIndex === questions.length - 1}
-          className={`
-            flex items-center px-4 py-2 rounded-lg font-medium transition-colors
-            ${currentQuestionIndex === questions.length - 1
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }
-          `}
-        >
-          Next
-          <ChevronRight className="w-5 h-5 ml-1" />
-        </button>
-      </div>
-
-      {/* Completion Summary */}
-      {allQuestionsCompleted && (
-        <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-green-800 mb-2">
-            Knowledge Check Complete!
-          </h3>
-          <p className="text-green-700">
-            You've completed all {questions.length} questions. 
-            {Object.values(questionResults).filter(r => r === 'correct').length} out of {questions.length} correct.
-          </p>
+      {/* Pre-loading error notification */}
+      {preloadingErrors.length > 0 && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="flex items-center">
+            <AlertCircle className="w-4 h-4 text-yellow-600 mr-2" />
+            <div className="text-yellow-800 text-sm">
+              <span className="font-medium">Notice:</span> {preloadingErrors.length} question{preloadingErrors.length > 1 ? 's' : ''} will load individually when accessed.
+            </div>
+          </div>
         </div>
       )}
+      
+      {/* Main Card Container */}
+      <div className="bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+        {/* Header with Gradient Background */}
+        <div className={`bg-gradient-to-r ${themeConfig.gradient} px-6 py-2`}>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-white text-center">
+                Knowledge Check
+              </h2>
+            </div>
+            <Sheet>
+              <SheetTrigger asChild>
+                <button 
+                  className="text-white hover:text-purple-200 transition-colors p-1 rounded hover:bg-white/10"
+                  title="Expand to fullscreen"
+                >
+                  <Expand className="w-5 h-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContent 
+                side="top" 
+                className="w-full h-full max-w-none max-h-none p-0 border-0"
+              >
+                <div className="h-full flex flex-col">
+                  {/* Fullscreen Header */}
+                  <div className={`bg-gradient-to-r ${themeConfig.gradient} px-6 py-4 border-b`}>
+                    <h2 className="text-xl font-bold text-white text-center">
+                      Knowledge Check - Fullscreen Mode
+                    </h2>
+                  </div>
+                  
+                  {/* Fullscreen Content - Scrollable */}
+                  <div className="flex-1 overflow-auto bg-gray-50">
+                    <div className="max-w-4xl mx-auto p-6">
+                      <div className="bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                        {/* Progress Navigation */}
+                        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+                          <div className="flex justify-center items-center space-x-3">
+                            {questions.map((_, index) => {
+                              const questionNumber = index + 1;
+                              const questionId = questions[index].questionId || generateQuestionId(index);
+                              const isCurrent = currentQuestionIndex === index;
+                              const result = questionResults[`question${questionNumber}`];
+                              const status = getQuestionStatus(questionId);
+                              const isAttempted = questionsCompleted[`question${questionNumber}`] || status.attempted;
+                              
+                              return (
+                                <button
+                                  key={index}
+                                  onClick={() => navigateToQuestion(index)}
+                                  className={
+                                    isCurrent 
+                                      ? `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}` 
+                                      : result === 'correct'
+                                        ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white'
+                                        : result === 'incorrect'
+                                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white'
+                                          : isAttempted
+                                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400'
+                                          : 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700'
+                                  }
+                                  title={`Question ${questionNumber}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
+                                  aria-label={`Go to question ${questionNumber}`}
+                                >
+                                  <span>{questionNumber}</span>
+                                  
+                                  {/* Correct/Incorrect icons */}
+                                  {result && (
+                                    <div className="absolute -top-1 -right-1">
+                                      {result === 'correct' ? (
+                                        <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
+                                      )}
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Question Content */}
+                        <div className="p-8">
+                          {questions && questions.length > 0 && questions[currentQuestionIndex] 
+                            ? renderQuestion(questions[currentQuestionIndex], currentQuestionIndex)
+                            : <div className="text-center py-8 text-gray-500">No questions available</div>
+                          }
+                        </div>
+
+                        {/* Navigation Footer */}
+                        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+                          <div className="flex justify-between items-center">
+                            <button
+                              onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
+                              disabled={currentQuestionIndex === 0}
+                              className={
+                                currentQuestionIndex === 0
+                                  ? 'flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : `flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white`
+                              }
+                            >
+                              <ChevronLeft className="w-5 h-5 mr-1" />
+                              Previous
+                            </button>
+
+                            <div className={`text-center bg-white px-6 py-3 rounded-lg border border-${themeConfig.border}`}>
+                              <div className="flex justify-center space-x-6 text-base">
+                                <div className="text-center">
+                                  <div className="font-bold text-blue-600 text-xl">
+                                    {Object.keys(questionsCompleted).length}
+                                  </div>
+                                  <div className="text-sm text-gray-500">Attempted</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-bold text-green-600 text-xl">
+                                    {Object.values(questionResults).filter(r => r === 'correct').length}
+                                  </div>
+                                  <div className="text-sm text-gray-500">Correct</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-bold text-gray-600 text-xl">
+                                    {questions.length}
+                                  </div>
+                                  <div className="text-sm text-gray-500">Total</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
+                              disabled={currentQuestionIndex === questions.length - 1}
+                              className={
+                                currentQuestionIndex === questions.length - 1
+                                  ? 'flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : `flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white`
+                              }
+                            >
+                              Next
+                              <ChevronRight className="w-5 h-5 ml-1" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Completion Summary in Fullscreen - Only show for perfect scores */}
+                      {allQuestionsCompleted && (() => {
+                        const correctCount = Object.values(questionResults).filter(r => r === 'correct').length;
+                        const totalQuestions = questions.length;
+                        const allCorrect = correctCount === totalQuestions;
+                        
+                        if (allCorrect) {
+                          // Celebratory message for perfect score only
+                          return (
+                            <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6 shadow-lg">
+                              <div className="flex items-center justify-center mb-3">
+                                <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
+                                <h3 className="text-xl font-bold text-green-800">
+                                  Perfect Score!
+                                </h3>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-green-700 text-lg mb-3">
+                                  You got all {totalQuestions} questions correct!
+                                </p>
+                                <div className="bg-white rounded-lg p-4 inline-block shadow-md">
+                                  <div className="text-2xl font-bold text-green-600">
+                                    {correctCount} / {totalQuestions} (100%)
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Don't show anything for partial scores - info is already visible in the component
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+        
+        {/* Progress Navigation */}
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+          <div className="flex justify-center items-center space-x-3">
+            {questions.map((_, index) => {
+              const questionNumber = index + 1;
+              const questionId = questions[index].questionId || generateQuestionId(index);
+              const isCurrent = currentQuestionIndex === index;
+              const result = questionResults[`question${questionNumber}`];
+              const status = getQuestionStatus(questionId);
+              const isAttempted = questionsCompleted[`question${questionNumber}`] || status.attempted;
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => navigateToQuestion(index)}
+                  className={
+                    isCurrent 
+                      ? `relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white ring-4 ${themeConfig.ring}` 
+                      : result === 'correct'
+                        ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-green-500 text-white'
+                        : result === 'incorrect'
+                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-red-500 text-white'
+                          : isAttempted
+                          ? 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-blue-100 border-2 border-blue-300 text-blue-700 hover:border-blue-400'
+                          : 'relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 transform hover:scale-110 shadow-md hover:shadow-lg bg-white border-2 border-gray-300 text-gray-700'
+                  }
+                  title={`Question ${questionNumber}${isAttempted ? ` (${status.attempts} attempts)` : ''}`}
+                  aria-label={`Go to question ${questionNumber}`}
+                >
+                  <span>{questionNumber}</span>
+                  
+                  {/* Correct/Incorrect icons */}
+                  {result && (
+                    <div className="absolute -top-1 -right-1">
+                      {result === 'correct' ? (
+                        <CheckCircle className="w-4 h-4 text-green-600 bg-white rounded-full" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-600 bg-white rounded-full" />
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Question Content */}
+        <div className="p-6">
+          {questions && questions.length > 0 && questions[currentQuestionIndex] 
+            ? renderQuestion(questions[currentQuestionIndex], currentQuestionIndex)
+            : <div className="text-center py-8 text-gray-500">No questions available</div>
+          }
+        </div>
+
+        {/* Navigation Footer */}
+        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
+              disabled={currentQuestionIndex === 0}
+              className={
+                currentQuestionIndex === 0
+                  ? 'flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : `flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white`
+              }
+            >
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              Previous
+            </button>
+
+            <div className={`text-center bg-white px-4 py-2 rounded-lg border border-${themeConfig.border}`}>
+              <div className="flex justify-center space-x-4 text-sm">
+                <div className="text-center">
+                  <div className="font-bold text-blue-600">
+                    {Object.keys(questionsCompleted).length}
+                  </div>
+                  <div className="text-xs text-gray-500">Attempted</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-green-600">
+                    {Object.values(questionResults).filter(r => r === 'correct').length}
+                  </div>
+                  <div className="text-xs text-gray-500">Correct</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-gray-600">
+                    {questions.length}
+                  </div>
+                  <div className="text-xs text-gray-500">Total</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
+              disabled={currentQuestionIndex === questions.length - 1}
+              className={
+                currentQuestionIndex === questions.length - 1
+                  ? 'flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : `flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg bg-gradient-to-r ${themeConfig.gradient} text-white`
+              }
+            >
+              Next
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Completion Summary - Only show for perfect scores */}
+      {allQuestionsCompleted && (() => {
+        const correctCount = Object.values(questionResults).filter(r => r === 'correct').length;
+        const totalQuestions = questions.length;
+        const allCorrect = correctCount === totalQuestions;
+        
+        if (allCorrect) {
+          // Celebratory message for perfect score only
+          return (
+            <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 shadow-md">
+              <div className="flex items-center justify-center mb-2">
+                <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+                <h3 className="text-lg font-bold text-green-800">
+                  Perfect Score!
+                </h3>
+              </div>
+              <div className="text-center">
+                <p className="text-green-700 text-sm mb-2">
+                  You got all {totalQuestions} questions correct!
+                </p>
+                <div className="bg-white rounded-lg p-3 inline-block shadow-sm">
+                  <div className="text-xl font-bold text-green-600">
+                    {correctCount} / {totalQuestions} (100%)
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        // Don't show anything for partial scores - info is already visible in the component
+        return null;
+      })()}
     </div>
   );
 };

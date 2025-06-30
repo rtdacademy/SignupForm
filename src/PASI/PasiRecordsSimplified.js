@@ -54,7 +54,8 @@ import {
   GripVertical,
   List,
   FileDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  BarChart3
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useAuth } from '../context/AuthContext';
@@ -1501,7 +1502,7 @@ const CustomViewModal = ({
   );
 };
 
-const PasiRecordsSimplified = () => {
+const PasiRecordsSimplified = ({ onShowAnalytics }) => {
   const { 
     pasiStudentSummariesCombined, 
     pasiRecordsNew, 
@@ -1512,7 +1513,7 @@ const PasiRecordsSimplified = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState('linked');
+  const [activeTab, setActiveTab] = useState('allYourWay');
   const [selectedPasiRecords, setSelectedPasiRecords] = useState({});
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
@@ -3006,7 +3007,7 @@ const PasiRecordsSimplified = () => {
       
       // Switch to default tab if current tab was deleted
       if (activeTab === viewId) {
-        setActiveTab('linked');
+        setActiveTab('allYourWay');
       }
     } catch (error) {
       console.error('Error deleting custom view:', error);
@@ -3121,6 +3122,17 @@ const PasiRecordsSimplified = () => {
               </Badge>
               {filteredRecords.length > 0 && (
                 <>
+                  {onShowAnalytics && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onShowAnalytics(filteredRecords)}
+                      className="h-8"
+                    >
+                      <BarChart3 className="h-4 w-4 mr-1" />
+                      View Analytics
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"

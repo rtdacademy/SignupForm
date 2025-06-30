@@ -98,18 +98,15 @@ export const useStudentData = (userEmailKey) => {
       const configSnapshot = await get(courseConfigRef);
       
       if (configSnapshot.exists()) {
-        console.log(`✅ Using course config from database for course ${courseId}`);
         return configSnapshot.val();
       }
       
       // Fallback: try to get from Firebase Function that reads local files
-      console.log(`⚠️ Course config not found in database for ${courseId}, trying Firebase Function fallback...`);
       const functions = getFunctions();
       const getCourseConfigV2 = httpsCallable(functions, 'getCourseConfigV2');
       const result = await getCourseConfigV2({ courseId });
       
       if (result.data.success) {
-        console.log(`✅ Using course config from file via Firebase Function for course ${courseId}`);
         return result.data.config;
       }
       
@@ -127,7 +124,6 @@ export const useStudentData = (userEmailKey) => {
     const courseRef = ref(db, `courses/${courseId}`);
     const courseConfigRef = ref(db, `courses/${courseId}/course-config`);
     
-    console.log(`🔥 Setting up real-time listener for course: ${courseId}`);
     
     // Listen to both course data and course config changes
     const courseUnsubscribe = onValue(courseRef, async (snapshot) => {
@@ -143,12 +139,6 @@ export const useStudentData = (userEmailKey) => {
           const courseConfig = await fetchCourseConfig(courseId);
 
           // Log restrictCourseAccess changes for debugging
-          console.log(`🔄 Course ${courseId} real-time update:`, {
-            restrictCourseAccess: courseData.restrictCourseAccess,
-            OnRegistration: courseData.OnRegistration,
-            hasCourseConfig: !!courseConfig,
-            timestamp: new Date().toLocaleTimeString()
-          });
 
           // Update course details state with course config integrated
           setCourseDetails(prev => ({
@@ -180,10 +170,6 @@ export const useStudentData = (userEmailKey) => {
       try {
         const courseConfig = configSnapshot.exists() ? configSnapshot.val() : null;
         
-        console.log(`🔄 Course config ${courseId} real-time update:`, {
-          hasConfig: !!courseConfig,
-          timestamp: new Date().toLocaleTimeString()
-        });
         
         // Update only the course config in course details
         setCourseDetails(prev => {
@@ -227,7 +213,6 @@ export const useStudentData = (userEmailKey) => {
     // Remove listeners for courses no longer enrolled
     activeCourseIds.forEach(courseId => {
       if (!currentCourseIds.has(courseId)) {
-        console.log(`🔥 Removing listener for course: ${courseId}`);
         courseListenersRef.current[courseId](); // Call unsubscribe
         delete courseListenersRef.current[courseId];
         
@@ -243,7 +228,6 @@ export const useStudentData = (userEmailKey) => {
     // Add listeners for new courses
     currentCourseIds.forEach(courseId => {
       if (!activeCourseIds.has(courseId)) {
-        console.log(`🔥 Adding listener for course: ${courseId}`);
         const unsubscribe = setupCourseListener(courseId);
         courseListenersRef.current[courseId] = unsubscribe;
       }
@@ -418,13 +402,6 @@ export const useStudentData = (userEmailKey) => {
           
           // Debug log for course details merging
           if (realtimeCourseDetails) {
-            console.log(`📋 Merging course details for ${id}:`, {
-              restrictCourseAccess: realtimeCourseDetails.restrictCourseAccess,
-              OnRegistration: realtimeCourseDetails.OnRegistration,
-              hasRealtimeDetails: !!realtimeCourseDetails,
-              hasCourseConfig: !!realtimeCourseDetails?.courseConfig,
-              timestamp: new Date().toLocaleTimeString()
-            });
           }
           
           // Fetch payment info
@@ -452,7 +429,6 @@ export const useStudentData = (userEmailKey) => {
             // Add course config to Gradebook structure
             enhancedCourse.Gradebook.courseConfig = realtimeCourseDetails.courseConfig;
             
-            console.log(`✅ Integrated course config into Gradebook structure for course ${id}`);
           }
           
           return enhancedCourse;
@@ -508,11 +484,6 @@ export const useStudentData = (userEmailKey) => {
     // Only re-process if we have student data and course details have been updated
     if (studentData.loading || !studentData.profile) return;
     
-    console.log('🔄 Course details changed, re-processing courses...', {
-      courseDetailsKeys: Object.keys(courseDetails),
-      timestamp: new Date().toLocaleTimeString()
-    });
-    
     const updateCoursesWithNewDetails = async () => {
       // Get the latest student courses from state
       const coursesSnapshot = await new Promise((resolve) => {
@@ -531,11 +502,6 @@ export const useStudentData = (userEmailKey) => {
       if (coursesSnapshot) {
         // Re-process courses with updated course details
         const processedCourses = await processCourses(coursesSnapshot);
-        
-        console.log('✅ Courses re-processed with updated details', {
-          courseCount: processedCourses.length,
-          timestamp: new Date().toLocaleTimeString()
-        });
         
         setStudentData(prev => {
           // Re-process notifications if we have them
