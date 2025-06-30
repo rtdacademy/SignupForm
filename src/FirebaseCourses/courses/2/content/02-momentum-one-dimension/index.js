@@ -526,14 +526,13 @@ const CollisionAnimation = () => {
 /**
  * Lesson on Momentum in One Dimension for Physics 30
  */
-const MomentumOneDimension = ({ course, courseId = '2' }) => {
+const MomentumOneDimension = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+AIAccordion, onAIAccordionContent }) => {
   // TEMPORARY FIX: Removed useAuth dependency to avoid permission errors
   // const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);  const [isPhysicsPrinciplesOpen, setIsPhysicsPrinciplesOpen] = useState(false);
-  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);  const [isSystemsOpen, setIsSystemsOpen] = useState(false);  const [isConservationOfMomentumOpen, setIsConservationOfMomentumOpen] = useState(false);  const [isElasticInelasticCollisionsOpen, setIsElasticInelasticCollisionsOpen] = useState(false);
-  const [isExplosionsOpen, setIsExplosionsOpen] = useState(false);  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
+  const [error, setError] = useState(null);  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);  const [isSystemsOpen, setIsSystemsOpen] = useState(false);  const [isConservationOfMomentumOpen, setIsConservationOfMomentumOpen] = useState(false);  const [isElasticInelasticCollisionsOpen, setIsElasticInelasticCollisionsOpen] = useState(false);
+  const [isExplosionsOpen, setIsExplosionsOpen] = useState(false);  const [isExample2Open, setIsExample2Open] = useState(false);
   const [isExample3Open, setIsExample3Open] = useState(false);
   const [isExample4Open, setIsExample4Open] = useState(false);
   const [isExample5Open, setIsExample5Open] = useState(false);
@@ -805,124 +804,113 @@ const MomentumOneDimension = ({ course, courseId = '2' }) => {
       metadata={{ estimated_time: '120 minutes' }}
     >
       <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPhysicsPrinciplesOpen(!isPhysicsPrinciplesOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Physics Principles in Physics 30"
+            value="physics-principles"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Physics Principles in Physics 30</h3>
-            <span className="text-blue-600">{isPhysicsPrinciplesOpen ? '▼' : '▶'}</span>
-          </button>
+            <p className="mb-4">
+              Students often ask if Physics 30 is "harder" than Physics 20. This, of course, 
+              depends on the aptitudes, attitudes and work ethic of the individual student. However, 
+              there is one major difference between Physics 20 and Physics 30.
+            </p>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+              <p className="mb-2">
+                <strong>Physics 20:</strong> Dominated by problem solving and the calculation of an answer
+              </p>
+              <p>
+                <strong>Physics 30:</strong> Has a substantial problem-solving component, but also requires 
+                that students learn and understand the <span className="font-semibold text-blue-700">Physics Principles</span> that 
+                form the foundation of physics
+              </p>
+            </div>
+            
+            <p className="mb-4">
+              These principles are listed on your Physics Data Sheet and are reproduced below. 
+              In other words, you will be required to explain how the physics principles are being 
+              applied to a particular problem – you will demonstrate that you know the theory behind 
+              the problem solving.
+            </p>
 
-          {isPhysicsPrinciplesOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  Students often ask if Physics 30 is "harder" than Physics 20. This, of course, 
-                  depends on the aptitudes, attitudes and work ethic of the individual student. However, 
-                  there is one major difference between Physics 20 and Physics 30.
-                </p>
-                
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-                  <p className="mb-2">
-                    <strong>Physics 20:</strong> Dominated by problem solving and the calculation of an answer
-                  </p>
-                  <p>
-                    <strong>Physics 30:</strong> Has a substantial problem-solving component, but also requires 
-                    that students learn and understand the <span className="font-semibold text-blue-700">Physics Principles</span> that 
-                    form the foundation of physics
-                  </p>
-                </div>                <p className="mb-4">
-                  These principles are listed on your Physics Data Sheet and are reproduced below. 
-                  In other words, you will be required to explain how the physics principles are being 
-                  applied to a particular problem – you will demonstrate that you know the theory behind 
-                  the problem solving.
-                </p>
-
-                <div className="bg-white border border-gray-300 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 text-center">Physics Principles from Data Sheet</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">0</span>
-                      <span>Uniform motion</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">1</span>
-                      <span>Accelerated motion</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">2</span>
-                      <span>Uniform circular motion</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">3</span>
-                      <span>Work-energy theorem</span>
-                    </div>
-                    <div className="flex items-start space-x-2 bg-green-100 px-2 py-1 rounded">
-                      <span className="font-semibold text-green-700 min-w-[1.5rem]">4</span>
-                      <span className="font-semibold text-green-700">Conservation of momentum</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">5</span>
-                      <span>Conservation of energy</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">6</span>
-                      <span>Conservation of mass-energy</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">7</span>
-                      <span>Conservation of charge</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">8</span>
-                      <span>Conservation of nucleons</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="font-semibold text-blue-600 min-w-[1.5rem]">9</span>
-                      <span>Wave-particle duality</span>
-                    </div>
-                  </div>
+            <div className="bg-white border border-gray-300 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-gray-800 mb-3 text-center">Physics Principles from Data Sheet</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">0</span>
+                  <span>Uniform motion</span>
                 </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-yellow-800 mb-2">Physics Principles Overview:</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-start">
-                      <span className="font-medium text-yellow-700 mr-2">Principles 0, 1, 2, 3, and 5:</span>
-                      <span>Were taught in Physics 20 and will be seen again in different contexts in Physics 30</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="font-medium text-yellow-700 mr-2">Remaining principles:</span>
-                      <span>Are what Physics 30 is all about</span>
-                    </li>
-                  </ul>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">1</span>
+                  <span>Accelerated motion</span>
                 </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-green-800">
-                    <strong>This lesson will introduce principle 4: </strong>
-                    <span className="font-semibold">The Conservation of Momentum</span>
-                  </p>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">2</span>
+                  <span>Uniform circular motion</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">3</span>
+                  <span>Work-energy theorem</span>
+                </div>
+                <div className="flex items-start space-x-2 bg-green-100 px-2 py-1 rounded">
+                  <span className="font-semibold text-green-700 min-w-[1.5rem]">4</span>
+                  <span className="font-semibold text-green-700">Conservation of momentum</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">5</span>
+                  <span>Conservation of energy</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">6</span>
+                  <span>Conservation of mass-energy</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">7</span>
+                  <span>Conservation of charge</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">8</span>
+                  <span>Conservation of nucleons</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="font-semibold text-blue-600 min-w-[1.5rem]">9</span>
+                  <span>Wave-particle duality</span>
                 </div>
               </div>
             </div>
-          )}        </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-yellow-800 mb-2">Physics Principles Overview:</h4>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start">
+                  <span className="font-medium text-yellow-700 mr-2">Principles 0, 1, 2, 3, and 5:</span>
+                  <span>Were taught in Physics 20 and will be seen again in different contexts in Physics 30</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="font-medium text-yellow-700 mr-2">Remaining principles:</span>
+                  <span>Are what Physics 30 is all about</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-800">
+                <strong>This lesson will introduce principle 4: </strong>
+                <span className="font-semibold">The Conservation of Momentum</span>
+              </p>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
       </TextSection>
 
       <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsMomentumConceptOpen(!isMomentumConceptOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Momentum: A Fundamental Physical Concept"
+            value="momentum-concept"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Momentum: A Fundamental Physical Concept</h3>
-            <span className="text-blue-600">{isMomentumConceptOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isMomentumConceptOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   A very useful physical concept is momentum. The momentum (<InlineMath>{'p'}</InlineMath>) of an object is 
                   defined as the product of its mass and velocity.
@@ -974,117 +962,112 @@ const MomentumOneDimension = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
-                  <p className="text-sm text-gray-700">
-                    <strong>Reference:</strong> You may refer to Pearson pages 446 to 449 for a different 
-                    discussion about momentum.
-                  </p>                </div>
-              </div>
+            <div className="mt-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
+              <p className="text-sm text-gray-700">
+                <strong>Reference:</strong> You may refer to Pearson pages 446 to 449 for a different 
+                discussion about momentum.
+              </p>
             </div>
-          )}
-        </div>      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      </TextSection>
 
       <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        <AIAccordion theme="blue">
+          <AIAccordion.Item
+            title="Example 1: Calculating Momentum"
+            value="example-1"
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1: Calculating Momentum</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <p className="mb-4">
-                Let's solve a problem involving momentum calculation using the momentum formula.
-              </p>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-lg mb-3">Problem:</h4>
-                <p className="mb-4">What is the momentum of a 1500 kg car travelling west at 5.0 m/s?</p>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-2">Solution:</p>
-                  <ol className="list-decimal pl-6 space-y-3">
-                    <li>
-                      <strong>Identify known values:</strong>
-                      <div className="pl-4 mt-2 space-y-4">
-                        <div>
-                          <div className="group relative cursor-help mb-2">
-                            <div className="flex items-baseline">
-                              <div className="w-48">Mass:</div>
-                              <div><InlineMath>{'m = 1500~\\text{kg}'}</InlineMath></div>
-                              <span className="ml-1 text-blue-500 text-xs relative">
-                                ⓘ
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
-                                  The mass of the car
-                                </div>
-                              </span>
-                            </div>
+            <p className="mb-4">
+              Let's solve a problem involving momentum calculation using the momentum formula.
+            </p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-lg mb-3">Problem:</h4>
+              <p className="mb-4">What is the momentum of a 1500 kg car travelling west at 5.0 m/s?</p>
+              
+              <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-2">Solution:</p>
+                <ol className="list-decimal pl-6 space-y-3">
+                  <li>
+                    <strong>Identify known values:</strong>
+                    <div className="pl-4 mt-2 space-y-4">
+                      <div>
+                        <div className="group relative cursor-help mb-2">
+                          <div className="flex items-baseline">
+                            <div className="w-48">Mass:</div>
+                            <div><InlineMath>{'m = 1500~\\text{kg}'}</InlineMath></div>
+                            <span className="ml-1 text-blue-500 text-xs relative">
+                              ⓘ
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
+                                The mass of the car
+                              </div>
+                            </span>
                           </div>
-                          <div className="group relative cursor-help mb-2">
-                            <div className="flex items-baseline">
-                              <div className="w-48">Velocity:</div>
-                              <div><InlineMath>{'\\vec{v} = 5.0~\\text{m/s}'}</InlineMath> west</div>
-                              <span className="ml-1 text-blue-500 text-xs relative">
-                                ⓘ
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
-                                  Velocity is a vector quantity with both magnitude and direction
-                                </div>
-                              </span>
-                            </div>
+                        </div>
+                        <div className="group relative cursor-help mb-2">
+                          <div className="flex items-baseline">
+                            <div className="w-48">Velocity:</div>
+                            <div><InlineMath>{'\\vec{v} = 5.0~\\text{m/s}'}</InlineMath> west</div>
+                            <span className="ml-1 text-blue-500 text-xs relative">
+                              ⓘ
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-48 pointer-events-none z-10">
+                                Velocity is a vector quantity with both magnitude and direction
+                              </div>
+                            </span>
                           </div>
                         </div>
                       </div>
-                    </li>
-                    <li>
-                      <strong>Select appropriate equation:</strong>
-                      <div className="pl-4 mt-2 group relative cursor-help">
-                        <p className="border-b border-dotted border-blue-300 inline-block">For momentum calculation:</p>
-                        <span className="ml-1 inline-block text-blue-500 text-xs">ⓘ</span>
-                        <BlockMath>{'\\vec{p} = m\\vec{v}'}</BlockMath>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none">
-                          Momentum is the product of mass and velocity
-                        </div>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>Select appropriate equation:</strong>
+                    <div className="pl-4 mt-2 group relative cursor-help">
+                      <p className="border-b border-dotted border-blue-300 inline-block">For momentum calculation:</p>
+                      <span className="ml-1 inline-block text-blue-500 text-xs">ⓘ</span>
+                      <BlockMath>{'\\vec{p} = m\\vec{v}'}</BlockMath>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded top-full mt-2 left-0 w-64 pointer-events-none">
+                        Momentum is the product of mass and velocity
                       </div>
-                    </li>                    <li>
-                      <strong>Substitute values:</strong>
-                      <div className="pl-4 mt-2">
-                        <BlockMath>{'\\vec{p} = (1500~\\text{kg})(5.0~\\text{m/s})'}</BlockMath>
-                        <BlockMath>{'\\vec{p} = 7500~\\text{kg}\\cdot\\text{m/s}'}</BlockMath>
-                        <BlockMath>{'\\vec{p} = 7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</BlockMath>
-                      </div>
-                    </li>
-                    <li>
-                      <strong>Final answer:</strong>
-                      <p className="pl-4 mt-1 group relative cursor-help inline-flex items-center">
-                        <span>The momentum of the car is <InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath> west</span>
-                        <span className="ml-1 text-blue-500 text-xs relative">
-                          ⓘ
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-64 pointer-events-none z-10">
-                            Remember to include the direction since momentum is a vector quantity
-                          </div>
-                        </span>
-                      </p>
-                    </li>
-                  </ol>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-600 group relative cursor-help inline-flex items-center">
-                      <span>Note: The direction (west) is essential since momentum is a vector quantity</span>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>Substitute values:</strong>
+                    <div className="pl-4 mt-2">
+                      <BlockMath>{'\\vec{p} = (1500~\\text{kg})(5.0~\\text{m/s})'}</BlockMath>
+                      <BlockMath>{'\\vec{p} = 7500~\\text{kg}\\cdot\\text{m/s}'}</BlockMath>
+                      <BlockMath>{'\\vec{p} = 7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</BlockMath>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>Final answer:</strong>
+                    <p className="pl-4 mt-1 group relative cursor-help inline-flex items-center">
+                      <span>The momentum of the car is <InlineMath>{'7.5 \\times 10^3~\\text{kg}\\cdot\\text{m/s}'}</InlineMath> west</span>
                       <span className="ml-1 text-blue-500 text-xs relative">
                         ⓘ
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-64 pointer-events-none z-10">
-                          Vector quantities require both magnitude and direction to be completely specified
+                          Remember to include the direction since momentum is a vector quantity
                         </div>
                       </span>
                     </p>
-                  </div>
+                  </li>
+                </ol>
+
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 group relative cursor-help inline-flex items-center">
+                    <span>Note: The direction (west) is essential since momentum is a vector quantity</span>
+                    <span className="ml-1 text-blue-500 text-xs relative">
+                      ⓘ
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bg-gray-800 text-white text-sm p-2 rounded left-6 -top-1 w-64 pointer-events-none z-10">
+                        Vector quantities require both magnitude and direction to be completely specified
+                      </div>
+                    </span>
+                  </p>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </AIAccordion.Item>
+        </AIAccordion>
       </TextSection>
 
       <TextSection>
@@ -1328,6 +1311,8 @@ const MomentumOneDimension = ({ course, courseId = '2' }) => {
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension"
+          course={course}
+          onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
               type: 'multiple-choice',
@@ -2383,6 +2368,8 @@ const MomentumOneDimension = ({ course, courseId = '2' }) => {
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension-collisions"
+          course={course}
+          onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
               type: 'multiple-choice',
@@ -3081,6 +3068,8 @@ const MomentumOneDimension = ({ course, courseId = '2' }) => {
         <SlideshowKnowledgeCheck
           courseId={courseId}
           lessonPath="02-momentum-one-dimension-advanced"
+          course={course}
+          onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
               type: 'multiple-choice',

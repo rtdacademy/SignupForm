@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Expand, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import StandardMultipleChoiceQuestion from '../StandardMultipleChoiceQuestion';
@@ -169,7 +169,8 @@ const SlideshowKnowledgeCheck = ({
   const [questionsCompleted, setQuestionsCompleted] = useState({});
   const [questionResults, setQuestionResults] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
-  const [preloadingQuestions, setPreloadingQuestions] = useState(true);
+  // Disable preloading entirely - questions will load on demand
+  const [preloadingQuestions, setPreloadingQuestions] = useState(false);
   const [preloadingErrors, setPreloadingErrors] = useState([]);
 
   // Get theme configuration
@@ -291,89 +292,14 @@ const SlideshowKnowledgeCheck = ({
     };
 
     loadProgressFromCourse();
-  }, [course, questions.length, lessonPath]);
+  }, [course?.Assessments, course?.Gradebook, course?.Grades, questions.length, lessonPath]);
 
-  // Pre-load all cloud function questions when component mounts
+  // DISABLED: Pre-loading removed to prevent infinite loops and loading issues
+  // Questions will now load on-demand when navigated to
   useEffect(() => {
-    const preloadCloudFunctionQuestions = async () => {
-      if (!currentUser || !currentUser.email || !questions || questions.length === 0) {
-        setPreloadingQuestions(false);
-        return;
-      }
-
-      const functions = getFunctions();
-      const errors = [];
-      
-      // Filter questions that use cloud functions (have questionId but no options/correctAnswer)
-      const cloudFunctionQuestions = questions.filter(question => 
-        question.type === 'multiple-choice' && 
-        question.questionId && 
-        (!question.options || !question.correctAnswer)
-      );
-
-      if (cloudFunctionQuestions.length === 0) {
-        setPreloadingQuestions(false);
-        return;
-      }
-
-      // Check which questions already exist using course.Assessments
-      const questionsToPreload = cloudFunctionQuestions.filter(question => {
-        const questionId = question.questionId;
-        const assessmentData = course?.Assessments?.[questionId];
-        
-        if (!assessmentData) {
-          // Question doesn't exist, needs pre-loading
-          return true;
-        } else {
-          return false;
-        }
-      });
-
-      if (questionsToPreload.length === 0) {
-        setPreloadingQuestions(false);
-        return;
-      }
-
-      // Pre-load only the questions that don't exist
-      const preloadPromises = questionsToPreload.map(async (question) => {
-        try {
-          const questionId = question.questionId;
-          const assessmentFunction = httpsCallable(functions, questionId);
-
-          const functionParams = {
-            courseId: courseId,
-            assessmentId: questionId,
-            operation: 'generate',
-            studentEmail: currentUser.email,
-            userId: currentUser.uid,
-            topic: question.topic || 'general',
-            difficulty: question.difficulty || 'intermediate'
-          };
-
-          const result = await assessmentFunction(functionParams);
-          return { questionId, success: true };
-        } catch (error) {
-          console.error(`❌ Failed to pre-load question ${question.questionId}:`, error);
-          errors.push({ questionId: question.questionId, error: error.message });
-          return { questionId: question.questionId, success: false, error };
-        }
-      });
-
-      try {
-        await Promise.allSettled(preloadPromises);
-        
-        if (errors.length > 0) {
-          setPreloadingErrors(errors);
-        }
-      } catch (error) {
-        console.error('💥 Critical error during question pre-loading:', error);
-      } finally {
-        setPreloadingQuestions(false);
-      }
-    };
-
-    preloadCloudFunctionQuestions();
-  }, [currentUser, courseId, questions, course]);
+    // Simply mark preloading as complete since we're not doing it
+    setPreloadingQuestions(false);
+  }, []);
 
   const handleQuestionComplete = (questionNumber) => {
     setQuestionsCompleted(prev => ({
@@ -427,7 +353,7 @@ const SlideshowKnowledgeCheck = ({
             }}
           />;
         } else {
-          // Cloud function question - use the optimized method with pre-loading
+          // Cloud function question - load on demand (no preloading)
           return (
             <StandardMultipleChoiceQuestion
               key={questionId}
@@ -438,7 +364,7 @@ const SlideshowKnowledgeCheck = ({
               maxAttempts={9999}
               course={course}
               onAIAccordionContent={onAIAccordionContent}
-              skipInitialGeneration={true}
+              skipInitialGeneration={false}
               onAttempt={(isCorrect) => {
                 handleQuestionComplete(questionNumber);
                 handleQuestionResult(questionNumber, isCorrect);

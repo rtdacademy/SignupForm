@@ -427,7 +427,7 @@ const StandardMultipleChoiceQuestion = ({
         clearTimeout(safetyTimeoutRef.current);
       }
     };
-  }, [regenerating, expectingNewQuestion, course, finalAssessmentId]);
+  }, [regenerating, expectingNewQuestion, finalAssessmentId]);
   
   useEffect(() => {
     if (!currentUser || !currentUser.email) {
