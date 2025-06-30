@@ -1526,45 +1526,45 @@ const FirebaseCourseWrapperContent = ({
                 </div>
               </div>
               
-              {/* Edge handles - More visible resize bars */}
-              {/* Top edge - vertical resize */}
+              {/* Edge handles - Subtle resize bars that appear on hover */}
+              {/* Top edge - vertical resize (full width, avoiding corners) */}
               <div 
-                className="absolute top-0 left-4 right-4 h-2 cursor-n-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-b-sm"
+                className="absolute top-0 left-4 right-4 h-2 cursor-n-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
                 onMouseDown={(e) => handleResizeStart(e, 'n')}
                 onTouchStart={(e) => handleResizeStart(e, 'n')}
               >
-                {/* Visual indicator line */}
-                <div className="absolute top-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/60 rounded-full"></div>
+                {/* Visual indicator - only visible on hover */}
+                <div className="absolute top-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               
-              {/* Bottom edge - vertical resize */}
+              {/* Bottom edge - vertical resize (full width, avoiding corners) */}
               <div 
-                className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-t-sm"
+                className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
                 onMouseDown={(e) => handleResizeStart(e, 's')}
                 onTouchStart={(e) => handleResizeStart(e, 's')}
               >
-                {/* Visual indicator line */}
-                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/60 rounded-full"></div>
+                {/* Visual indicator - only visible on hover */}
+                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               
-              {/* Left edge - horizontal resize */}
+              {/* Left edge - horizontal resize (full height, avoiding corners) */}
               <div 
-                className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-r-sm"
+                className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                 onTouchStart={(e) => handleResizeStart(e, 'w')}
               >
-                {/* Visual indicator line */}
-                <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/60 rounded-full"></div>
+                {/* Visual indicator - only visible on hover */}
+                <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               
-              {/* Right edge - horizontal resize */}
+              {/* Right edge - horizontal resize (full height, avoiding corners) */}
               <div 
-                className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize bg-purple-400/20 hover:bg-purple-400/40 transition-colors opacity-60 hover:opacity-100 rounded-l-sm"
+                className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
                 onMouseDown={(e) => handleResizeStart(e, 'e')}
                 onTouchStart={(e) => handleResizeStart(e, 'e')}
               >
-                {/* Visual indicator line */}
-                <div className="absolute right-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/60 rounded-full"></div>
+                {/* Visual indicator - only visible on hover */}
+                <div className="absolute right-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </>
           )}
@@ -1624,7 +1624,7 @@ const FirebaseCourseWrapperContent = ({
           {/* Chat Component */}
           <div className={`flex-1 overflow-hidden transition-all duration-300 ${
             isChatMinimized ? 'h-0 opacity-0' : 'opacity-100'
-          }`}>
+          }`} style={{ margin: '0 3px 3px 3px' }}>
             {currentAIPrompt && !isLoadingPrompt ? (
               <GoogleAIChatApp
                 firebaseApp={undefined} // Will use default app

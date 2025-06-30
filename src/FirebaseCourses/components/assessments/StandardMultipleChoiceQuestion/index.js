@@ -4,7 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
-import { Infinity, MessageCircle } from 'lucide-react';
+import { Infinity, Bot } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
@@ -15,14 +15,41 @@ import remarkDeflist from 'remark-deflist';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '../../../../components/ui/sheet';
-import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
+
+// Theme configuration with gradient colors (matching SlideshowKnowledgeCheck)
+const getThemeConfig = (theme) => {
+  const themes = {
+    purple: {
+      gradient: 'from-purple-600 to-indigo-600',
+      gradientHover: 'from-purple-700 to-indigo-700',
+      accent: 'purple-600',
+      light: 'purple-100',
+      border: 'purple-200',
+      ring: 'ring-purple-200',
+      name: 'purple'
+    },
+    blue: {
+      gradient: 'from-blue-600 to-cyan-600',
+      gradientHover: 'from-blue-700 to-cyan-700',
+      accent: 'blue-600',
+      light: 'blue-100',
+      border: 'blue-200',
+      ring: 'ring-blue-200',
+      name: 'blue'
+    },
+    green: {
+      gradient: 'from-emerald-600 to-teal-600',
+      gradientHover: 'from-emerald-700 to-teal-700',
+      accent: 'emerald-600',
+      light: 'emerald-100',
+      border: 'emerald-200',
+      ring: 'ring-emerald-200',
+      name: 'green'
+    }
+  };
+  
+  return themes[theme] || themes.purple;
+};
 
 /**
  * Helper function to detect if text contains markdown patterns
@@ -96,11 +123,31 @@ const containsMarkdown = (text) => {
 };
 
 /**
+ * Helper function to format scientific notation for display
+ */
+const formatScientificNotation = (text) => {
+  if (!text) return text;
+  
+  // Pattern to match scientific notation (e.g., 3.4e+8, 1.2e-5, 6.02e23)
+  const scientificPattern = /(\d+\.?\d*)[eE]([+-]?\d+)/g;
+  
+  return text.replace(scientificPattern, (match, coefficient, exponent) => {
+    // Remove leading + from exponent if present
+    const cleanExponent = exponent.replace(/^\+/, '');
+    // Format as proper scientific notation with × and superscript using HTML
+    return `${coefficient} × 10<sup>${cleanExponent}</sup>`;
+  });
+};
+
+/**
  * Enhanced text rendering that handles both markdown and LaTeX math
  * Based on GoogleAIChatApp's comprehensive rendering approach
  */
 const renderEnhancedText = (text) => {
   if (!text) return text;
+  
+  // First, format any scientific notation
+  text = formatScientificNotation(text);
   
   // If text contains markdown patterns, use ReactMarkdown with enhanced configuration
   if (containsMarkdown(text)) {
@@ -117,7 +164,9 @@ const renderEnhancedText = (text) => {
                 'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
                 'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span',
                 // Additional elements we want to allow
-                'details', 'summary', 'dl', 'dt', 'dd'
+                'details', 'summary', 'dl', 'dt', 'dd',
+                // Scientific notation formatting
+                'sup', 'sub'
               ],
               // Allow certain attributes
               allowedAttributes: {
@@ -187,11 +236,12 @@ const renderEnhancedText = (text) => {
     );
   }
   
-  // For simple text without markdown, just preserve line breaks
+  // For simple text without markdown, preserve line breaks and handle any HTML we added (like sup tags)
   return (
-    <div style={{ whiteSpace: 'pre-wrap' }}>
-      {text}
-    </div>
+    <div 
+      style={{ whiteSpace: 'pre-wrap' }}
+      dangerouslySetInnerHTML={{ __html: text }}
+    />
   );
 };
 
@@ -228,10 +278,16 @@ const StandardMultipleChoiceQuestion = ({
   hasExistingAnswer = false, // Whether this question already has a saved answer
   currentSavedAnswer = null, // The currently saved answer for this question
   
+  // Pre-loading optimization props
+  skipInitialGeneration = false, // Skip initial cloud function call (when question is pre-loaded)
+  
   // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
   onAttempt = () => {},    // Callback on each attempt
   onComplete = () => {},   // Callback when all attempts are used
+  
+  // AI Assistant props (following AIAccordion pattern)
+  onAIAccordionContent = null, // Callback to send extracted content to AI chat
 }) => {
   // Use cloudFunctionName as assessmentId, with fallback for backward compatibility
   const finalAssessmentId = cloudFunctionName || assessmentId;
@@ -254,13 +310,15 @@ const StandardMultipleChoiceQuestion = ({
   const [result, setResult] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
-  const [chatSheetOpen, setChatSheetOpen] = useState(false);
   const [showExamFeedback, setShowExamFeedback] = useState(false);
   
   // Refs for debouncing and preventing multiple calls
   const isGeneratingRef = useRef(false);
   const lastGeneratedTimeRef = useRef(0);
   const regenerationTimeoutRef = useRef(null);
+  
+  // Ref for content extraction (following AIAccordion pattern)
+  const contentRef = useRef(null);
 
   // Firebase references
   const functions = getFunctions();
@@ -274,8 +332,22 @@ const StandardMultipleChoiceQuestion = ({
   // Check if current selection differs from saved answer
   const hasUnsavedChanges = isExamMode && currentSavedAnswer && selectedAnswer && selectedAnswer !== currentSavedAnswer;
   
-  // Get theme colors - use theme from question settings if available, otherwise use prop
-  const activeTheme = question?.settings?.theme || (isExamMode ? 'red' : theme);
+  // Get theme colors - prioritize prop theme over question settings when passed from parent component
+  const activeTheme = (isExamMode ? 'purple' : theme) || question?.settings?.theme || 'purple';
+  
+  // Debug theme application
+  console.log('🎨 StandardMultipleChoiceQuestion theme debug:', {
+    themeProp: theme,
+    questionTheme: question?.settings?.theme,
+    isExamMode,
+    activeTheme,
+    finalThemeConfig: getThemeConfig(activeTheme)
+  });
+  
+  // Get gradient theme configuration (matching SlideshowKnowledgeCheck)
+  const themeConfig = getThemeConfig(activeTheme);
+  
+  // Keep legacy theme colors for border compatibility
   const themeColors = getThemeColors(activeTheme);
 
   // Track if we're currently waiting for a new question during regeneration
@@ -297,6 +369,21 @@ const StandardMultipleChoiceQuestion = ({
       }
     };
   }, []);
+
+  // Add fallback mechanism for pre-loaded questions that don't load
+  useEffect(() => {
+    if (skipInitialGeneration && loading) {
+      // If we're expecting a pre-loaded question but still loading after 5 seconds,
+      // fall back to generating the question normally
+      const fallbackTimeout = setTimeout(() => {
+        if (loading && !question) {
+          generateQuestion();
+        }
+      }, 5000);
+
+      return () => clearTimeout(fallbackTimeout);
+    }
+  }, [skipInitialGeneration, loading, question, finalAssessmentId]);
   
   // Effect to handle safety timeouts for loading state
   useEffect(() => {
@@ -481,9 +568,19 @@ const StandardMultipleChoiceQuestion = ({
               }
             }
           } else {
-            generateQuestion();
+            // Only generate question if skipInitialGeneration is false
+            if (!skipInitialGeneration) {
+              generateQuestion();
+            } else {
+              // If we're skipping initial generation, just stop loading
+              // The question should already be pre-loaded by the parent component
+              setLoading(false);
+            }
           }
-          setLoading(false);
+          // If we're not skipping generation OR we have data, stop loading
+          if (!skipInitialGeneration || data) {
+            setLoading(false);
+          }
         }, (error) => {
           console.error("Error in database listener:", error);
           setError("Failed to load question data");
@@ -505,7 +602,7 @@ const StandardMultipleChoiceQuestion = ({
         unsubscribeRef();
       }
     };
-  }, [currentUser, courseId, finalAssessmentId, db]);
+  }, [currentUser, courseId, finalAssessmentId, db, skipInitialGeneration]);
 
   // Generate a new question using cloud function with debouncing
   const generateQuestion = async () => {
@@ -847,6 +944,293 @@ const StandardMultipleChoiceQuestion = ({
     return context;
   };
 
+  // Extract question content for AI chat (following AIAccordion pattern)
+  const handleAskAI = () => {
+    if (!onAIAccordionContent) {
+      console.warn('onAIAccordionContent callback not provided to StandardMultipleChoiceQuestion. Please ensure the parent component passes this prop.');
+      // For now, show an alert to help with debugging
+      alert('AI integration not fully set up. The onAIAccordionContent prop needs to be passed from the parent component.');
+      return;
+    }
+
+    try {
+      // Extract content from the question container
+      const contentElement = contentRef.current;
+      if (!contentElement) {
+        console.warn('Content element not found');
+        return;
+      }
+
+      // Get the raw HTML content
+      let htmlContent = contentElement.innerHTML || '';
+      
+      // Clean up zero-width spaces and other problematic Unicode characters
+      htmlContent = htmlContent
+        .replace(/\u200B/g, '')  // Remove zero-width space
+        .replace(/\u00A0/g, ' ') // Replace non-breaking space with regular space
+        .replace(/\u2060/g, '')  // Remove word joiner
+        .replace(/\uFEFF/g, ''); // Remove byte order mark
+
+      // Create a temporary div to extract clean text
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      let textContent = tempDiv.textContent || tempDiv.innerText || '';
+      
+      // Clean up the text content
+      textContent = textContent
+        .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+        .replace(/^\s*Multiple Choice Question\s*/i, '') // Remove generic title
+        .replace(/^\s*Question\s*\d*\s*/i, '') // Remove question number prefix
+        .trim();
+
+      // Determine if student has attempted the question
+      const hasAttempted = result !== null || question.attempts > 0;
+      const isCorrect = result?.isCorrect || false;
+      
+      // Create educational guidance for the AI based on attempt status
+      let aiGuidance = '';
+      if (!hasAttempted) {
+        aiGuidance = `
+**IMPORTANT AI GUIDANCE:** 
+This student has NOT yet attempted this question. Your role is to GUIDE their thinking, NOT provide the answer directly.
+
+**DO:**
+- Ask probing questions to help them think through the problem
+- Help them identify what they know and what they need to find
+- Guide them toward the correct approach or formula
+- Encourage them to work through it step by step
+- Help them understand concepts they're struggling with
+
+**DO NOT:**
+- Give them the correct answer choice (A, B, C, or D)
+- Solve the problem completely for them
+- Tell them which option to select
+- Provide the final numerical answer
+
+Your goal is to help them learn by thinking through the problem themselves.
+
+`;
+      } else if (!isCorrect) {
+        aiGuidance = `
+**AI GUIDANCE:** 
+This student attempted the question but got it wrong. Help them understand their mistake and guide them toward the correct approach.
+
+**DO:**
+- Help them analyze why their chosen answer was incorrect
+- Guide them through the correct reasoning
+- Explain the underlying concepts they may have missed
+- Help them see the correct approach step by step
+- Now you CAN show them the correct answer since they've already attempted it
+
+**Student's Performance:**
+- Their answer: ${result?.answer?.toUpperCase() || 'Unknown'}
+- Correct answer: ${result?.correctOptionId?.toUpperCase() || 'Unknown'}
+- Feedback given: ${result?.feedback || 'None'}
+
+`;
+      } else {
+        aiGuidance = `
+**AI GUIDANCE:** 
+This student answered correctly! Reinforce their understanding and help them connect concepts.
+
+**DO:**
+- Congratulate them on getting it right
+- Help them understand WHY their answer was correct
+- Connect this problem to broader concepts
+- Ask if they want to explore related topics
+- Help solidify their understanding of the underlying principles
+
+`;
+      }
+
+      // Create structured markdown content for AI context (internal - not shown to student)
+      let markdownContent = aiGuidance;
+      
+      // Add question context
+      if (question?.questionText) {
+        markdownContent += `**Question:**\n${question.questionText}\n\n`;
+      }
+      
+      // Add answer options with current selection state
+      if (question?.options) {
+        markdownContent += `**Answer Options:**\n`;
+        question.options.forEach((option, index) => {
+          const letter = String.fromCharCode(65 + index); // A, B, C, D
+          const isSelected = selectedAnswer === option.id;
+          const isCorrect = result?.correctOptionId === option.id;
+          const isIncorrect = result && !result.isCorrect && result.answer === option.id;
+          
+          let optionText = `${letter}) ${option.text}`;
+          
+          // Add status indicators if question has been answered
+          if (result && !isExamMode) {
+            if (isCorrect) {
+              optionText += ' ✓ **(Correct Answer)**';
+            } else if (isIncorrect) {
+              optionText += ' ✗ **(Student\'s Incorrect Answer)**';
+            } else if (isSelected) {
+              optionText += ' **(Currently Selected)**';
+            }
+          } else if (isSelected) {
+            optionText += ' **(Currently Selected)**';
+          }
+          
+          markdownContent += `${optionText}\n`;
+        });
+        markdownContent += '\n';
+      }
+      
+      // Add attempt information
+      if (question) {
+        markdownContent += `**Attempt Status:** `;
+        if (question.attempts > 0) {
+          markdownContent += `${question.attempts} attempt(s) made`;
+          if (question.maxAttempts && question.maxAttempts <= 500) {
+            markdownContent += ` (${question.maxAttempts - question.attempts} remaining)`;
+          }
+        } else {
+          markdownContent += 'Not yet attempted';
+        }
+        markdownContent += '\n\n';
+      }
+      
+      // Add feedback if available
+      if (result?.feedback && !isExamMode) {
+        markdownContent += `**System Feedback Given:**\n${result.feedback}\n\n`;
+      }
+      
+      // Add exam mode note if applicable
+      if (isExamMode) {
+        markdownContent += `**Note:** This question is part of an exam. Detailed feedback will be available after exam completion.\n\n`;
+      }
+
+      // Create standard JSX content that will be displayed to the student in the chat
+      const createQuestionDisplayJSX = () => {
+        return (
+          <div className="question-context-display bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-none">
+            <div className="mb-3">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">Multiple Choice Question</h4>
+              <div className="text-gray-700">
+                {renderEnhancedText(question?.questionText || 'Question text not available')}
+              </div>
+            </div>
+            
+            <div className="mb-3">
+              <h5 className="font-medium text-gray-700 mb-2">Answer Options:</h5>
+              <div className="space-y-1">
+                {question?.options?.map((option, index) => {
+                  const letter = String.fromCharCode(65 + index); // A, B, C, D
+                  const isSelected = selectedAnswer === option.id;
+                  const isCorrect = result?.correctOptionId === option.id;
+                  const isIncorrect = result && !result.isCorrect && result.answer === option.id;
+                  
+                  return (
+                    <div 
+                      key={option.id}
+                      className={`flex items-start gap-2 p-2 rounded ${
+                        result && !isExamMode
+                          ? isCorrect
+                            ? 'bg-green-100 border border-green-300'
+                            : isIncorrect
+                            ? 'bg-red-100 border border-red-300'
+                            : isSelected
+                            ? 'bg-blue-100 border border-blue-300'
+                            : 'bg-white border border-gray-200'
+                          : isSelected
+                          ? 'bg-blue-100 border border-blue-300'
+                          : 'bg-white border border-gray-200'
+                      }`}
+                    >
+                      <span className="font-medium text-gray-700 min-w-[20px]">{letter})</span>
+                      <div className="flex-1">
+                        {renderEnhancedText(option.text)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {result && !isExamMode && isCorrect && (
+                          <span className="text-green-600 font-medium">✓ Correct</span>
+                        )}
+                        {result && !isExamMode && isIncorrect && (
+                          <span className="text-red-600 font-medium">✗ Your Answer</span>
+                        )}
+                        {isSelected && (!result || isExamMode) && (
+                          <span className="text-blue-600 font-medium">Selected</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-600 space-y-1">
+              <div>
+                <strong>Status:</strong> {
+                  question?.attempts > 0 
+                    ? `${question.attempts} attempt(s) made${question.maxAttempts && question.maxAttempts <= 500 ? ` (${question.maxAttempts - question.attempts} remaining)` : ''}`
+                    : 'Not yet attempted'
+                }
+              </div>
+              
+              {result?.feedback && !isExamMode && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                  <strong>Feedback:</strong> {result.feedback}
+                </div>
+              )}
+              
+              {isExamMode && (
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <strong>Exam Mode:</strong> Detailed feedback will be available after exam completion.
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      // Create a cleaner preview (first 200 chars of question text)
+      const cleanPreview = question?.questionText?.substring(0, 200) || 'Multiple Choice Question';
+
+      // Structure the extracted content
+      const extractedContent = {
+        title: question?.questionText ? `Question: ${question.questionText.substring(0, 50)}...` : 'Multiple Choice Question',
+        content: markdownContent, // This contains the AI guidance and context
+        originalJSX: createQuestionDisplayJSX(), // This will be displayed to the student
+        type: 'multiple-choice-question',
+        wordCount: markdownContent.split(' ').filter(word => word.length > 0).length,
+        preview: cleanPreview + (cleanPreview.length >= 200 ? '...' : ''),
+        questionData: {
+          questionId: finalAssessmentId,
+          courseId: courseId,
+          questionText: question?.questionText,
+          options: question?.options,
+          selectedAnswer: selectedAnswer,
+          result: result,
+          attempts: question?.attempts,
+          maxAttempts: question?.maxAttempts,
+          status: question?.status,
+          isExamMode: isExamMode,
+          hasAttempted: hasAttempted,
+          isCorrect: isCorrect
+        }
+      };
+
+      // Call the provided callback with the extracted content
+      onAIAccordionContent(extractedContent);
+      
+    } catch (error) {
+      console.error('Error extracting content from question:', error);
+      
+      // Fallback to simple question-based content
+      onAIAccordionContent({
+        title: 'Multiple Choice Question',
+        content: `Can you help me understand this multiple choice question?`,
+        type: 'fallback',
+        wordCount: 0,
+        preview: `Can you help me understand this multiple choice question?`
+      });
+    }
+  };
+
   // Animations for components
   const animations = {
     container: {
@@ -880,15 +1264,11 @@ const StandardMultipleChoiceQuestion = ({
 
   return (
     <>
-    <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName}`} style={{
-      backgroundColor: themeColors.bgLight,
-      borderColor: themeColors.border
-    }}>
+    <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName} bg-white/75 backdrop-blur-sm border-${themeConfig.border}`}>
       {/* Header */}
-      <div className="px-4 py-3 border-b"
-           style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
+      <div className={`px-4 py-3 border-b bg-gradient-to-r ${themeConfig.gradient} bg-opacity-75 border-${themeConfig.border}`}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
+          <h3 className="text-lg font-medium text-white">
             {question?.title || title || 'Multiple Choice Question'}
           </h3>
           <div className="flex items-center gap-2">
@@ -897,21 +1277,16 @@ const StandardMultipleChoiceQuestion = ({
                 EXAM MODE
               </span>
             )}
-            {question?.generatedBy === 'standard' && (
-              <span className="text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 font-medium">
-                Standard
-              </span>
-            )}
             {question && question.enableAIChat !== false && !isExamMode && (
               <Button
-                onClick={() => setChatSheetOpen(true)}
+                onClick={handleAskAI}
                 size="sm"
                 variant="outline"
                 className="flex items-center gap-1"
-                title="Chat with AI about this question"
+                title="Ask AI about this question"
               >
-                <MessageCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Chat with AI</span>
+                <Bot className="w-4 h-4" />
+                <span className="hidden sm:inline">Ask AI</span>
               </Button>
             )}
           </div>
@@ -919,7 +1294,7 @@ const StandardMultipleChoiceQuestion = ({
         
         {/* Display attempts counter when question is loaded */}
         {question && (
-          <div className="flex items-center text-xs text-gray-600 mt-1">
+          <div className="flex items-center text-xs text-white/90 mt-1">
             <span className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -928,7 +1303,7 @@ const StandardMultipleChoiceQuestion = ({
               Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
               <span className="mx-1">/</span>
               {question.maxAttempts && question.maxAttempts > 500 ? (
-                <Infinity className="h-3.5 w-3.5 inline-block text-gray-600" />
+                <Infinity className="h-3.5 w-3.5 inline-block text-white/90" />
               ) : (
                 <span className="font-medium">{question.maxAttempts}</span>
               )}
@@ -938,7 +1313,7 @@ const StandardMultipleChoiceQuestion = ({
       </div>
 
       {/* Content */}
-      <div className="p-5">
+      <div ref={contentRef} className="p-5 bg-white/80">
         {error && (
           <div className="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-300">
             {error}
@@ -992,18 +1367,9 @@ const StandardMultipleChoiceQuestion = ({
                     custom={index}
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    style={{
-                      ...(selectedAnswer === option.id ? {
-                        backgroundColor: `${themeColors.bgLight}`,
-                        borderColor: themeColors.accent,
-                        boxShadow: `0 0 0 1px ${themeColors.accent}`,
-                      } : {}),
-                      borderWidth: '1px',
-                      transition: 'all 0.2s'
-                    }}
-                    className={`flex items-center p-3.5 border rounded-md cursor-pointer ${
+                    className={`flex items-center p-3.5 border rounded-md cursor-pointer transition-all duration-200 ${
                       selectedAnswer === option.id
-                        ? ``
+                        ? `bg-${themeConfig.light} border-${themeConfig.accent} ring-1 ${themeConfig.ring}`
                         : 'bg-white hover:bg-gray-50 border-gray-200'
                     }`}
                     onClick={() => {
@@ -1021,7 +1387,7 @@ const StandardMultipleChoiceQuestion = ({
                       checked={selectedAnswer === option.id}
                       onChange={() => !result && setSelectedAnswer(option.id)}
                       disabled={result !== null} // Disable after submission
-                      className={`mr-3 h-4 w-4 cursor-pointer text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
+                      className={`mr-3 h-4 w-4 cursor-pointer text-${themeConfig.accent} focus:ring-${themeConfig.accent}`}
                     />
                     <label 
                       htmlFor={`${instanceId}_${option.id}`} 
@@ -1049,12 +1415,10 @@ const StandardMultipleChoiceQuestion = ({
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !selectedAnswer}
-                  style={{
-                    backgroundColor: hasUnsavedChanges ? '#f59e0b' : themeColors.accent,
-                    color: 'white',
-                  }}
                   className={`mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md ${
-                    hasUnsavedChanges ? 'ring-2 ring-amber-300 ring-opacity-50' : ''
+                    hasUnsavedChanges 
+                      ? 'bg-amber-500 ring-2 ring-amber-300 ring-opacity-50' 
+                      : `bg-gradient-to-r ${themeConfig.gradient}`
                   }`}
                 >
                   {submitting ? 
@@ -1113,11 +1477,7 @@ const StandardMultipleChoiceQuestion = ({
                         {/* Regular regenerate button */}
                         <Button
                           onClick={() => handleRegenerate()}
-                          style={{
-                            backgroundColor: themeColors.accent,
-                            color: 'white',
-                          }}
-                          className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                          className={`w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md bg-gradient-to-r ${themeConfig.gradient}`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1172,96 +1532,6 @@ const StandardMultipleChoiceQuestion = ({
       </div>
     </div>
 
-    {/* AI Chat Sheet */}
-    <Sheet open={chatSheetOpen} onOpenChange={setChatSheetOpen}>
-      <SheetContent className="w-[90vw] max-w-[90vw] sm:w-[90vw] p-0" side="right">
-        {/* Desktop: Side by side, Mobile: Chat only */}
-        <div className="flex h-screen">
-          {/* Left side - Question (hidden on mobile) */}
-          <div className="hidden md:block md:w-1/2 border-r overflow-y-auto p-6 bg-gray-50">
-            <div className="max-w-2xl mx-auto">
-              <h3 className="text-lg font-semibold mb-4">Current Question</h3>
-              <div className="space-y-4">
-                {/* Question Text */}
-                <div className="space-y-3">
-                  <div className="text-base font-medium text-gray-900">
-                    {renderEnhancedText(question?.questionText)}
-                  </div>
-                </div>
-
-                {/* Options */}
-                <div className="space-y-2.5">
-                  {question?.options?.map((option, index) => (
-                    <div
-                      key={option.id}
-                      className={`flex items-center p-3.5 border rounded-md ${
-                        selectedAnswer === option.id
-                          ? 'bg-blue-50 border-blue-200'
-                          : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        checked={selectedAnswer === option.id}
-                        disabled
-                        className="mr-3 h-4 w-4"
-                      />
-                      <label className="text-gray-700 flex-grow">
-                        {renderEnhancedText(option.text)}
-                      </label>
-
-                      {/* Show the correct/incorrect icon if there's a result (but NOT in exam mode) */}
-                      {!isExamMode && result?.isCorrect && selectedAnswer === option.id && (
-                        <span className="text-green-600 ml-2">✓</span>
-                      )}
-                      {!isExamMode && result?.correctOptionId === option.id && !result.isCorrect && (
-                        <span className="text-green-600 ml-2">✓</span>
-                      )}
-                      {!isExamMode && !result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
-                        <span className="text-red-600 ml-2">✗</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Show result if available */}
-                {result && (
-                  <div className={`p-4 rounded-md shadow-sm ${
-                    result.isCorrect
-                      ? 'bg-green-50 border border-green-100 text-green-800'
-                      : 'bg-red-50 border border-red-100 text-red-800'
-                  }`}>
-                    <p className="font-medium text-base mb-1">
-                      {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-                    </p>
-                    <div className="mb-3 text-sm">
-                      {renderEnhancedText(result.feedback)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Right side - Chat (full width on mobile, half width on desktop) */}
-          <div className="w-full md:w-1/2 h-full">
-            {question && (
-              <GoogleAIChatApp
-                sessionIdentifier={`standard-multiple-choice-${courseId}-${finalAssessmentId}-${question.timestamp || Date.now()}`}
-                instructions={null} // Let server-side agent system handle instructions
-                firstMessage={getAIChatFirstMessage()}
-                showYouTube={false}
-                showUpload={false}
-                allowContentRemoval={false}
-                showResourcesAtTop={false}
-                context={getAIChatContext()}
-                aiChatContext={question.aiChatContext}
-              />
-            )}
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
     </>
   );
 };

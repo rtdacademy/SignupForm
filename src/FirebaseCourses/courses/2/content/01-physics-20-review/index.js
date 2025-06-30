@@ -14,16 +14,6 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 const Physics20Review = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
 AIAccordion, onAIAccordionContent }) => {
 
-  // Debug logging to check if props are being passed
-  console.log('🔍 Physics20Review props:', {
-    hasOnPrepopulateMessage: !!onPrepopulateMessage,
-    hasCreateAskAIButton: !!createAskAIButton,
-    hasCreateAskAIButtonFromElement: !!createAskAIButtonFromElement,
-    hasAIAccordion: !!AIAccordion,
-    hasOnAIAccordionContent: !!onAIAccordionContent,
-    AIAccordionType: typeof AIAccordion,
-    onAIAccordionContentType: typeof onAIAccordionContent
-  });
 
   // TEMPORARY FIX: Removed useAuth dependency to avoid permission errors
   // const { currentUser } = useAuth();
@@ -1512,6 +1502,8 @@ AIAccordion, onAIAccordionContent }) => {
           <SlideshowKnowledgeCheck
             courseId={courseId}
             lessonPath="01-physics-20-review"
+            course={course}
+            onAIAccordionContent={onAIAccordionContent}
             questions={[
               {
                 type: 'multiple-choice',
@@ -1582,6 +1574,8 @@ AIAccordion, onAIAccordionContent }) => {
       <SlideshowKnowledgeCheck
         courseId={courseId}
         lessonPath="01-physics-20-review"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
         questions={[
           {
             type: 'multiple-choice',
@@ -1602,6 +1596,8 @@ AIAccordion, onAIAccordionContent }) => {
       <SlideshowKnowledgeCheck
         courseId={courseId}
         lessonPath="01-physics-20-review"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
         questions={[
           {
             type: 'multiple-choice',
@@ -1629,6 +1625,8 @@ AIAccordion, onAIAccordionContent }) => {
           <SlideshowKnowledgeCheck
             courseId={courseId}
             lessonPath="01-physics-20-review"
+            course={course}
+            onAIAccordionContent={onAIAccordionContent}
             questions={[
               {
                 type: 'multiple-choice',
@@ -1677,7 +1675,7 @@ AIAccordion, onAIAccordionContent }) => {
               }
             ]}
             onComplete={(score, results) => console.log(`Dynamics Knowledge Check completed with score: ${score}%`)}
-            theme="indigo"
+            theme="blue"
           />
         </div>
       </TextSection>

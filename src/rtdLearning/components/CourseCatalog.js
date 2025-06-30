@@ -137,8 +137,10 @@ const CourseCatalog = ({ maxItems = 12 }) => {
     setError(null);
     
     try {
-      const productsData = await shopifyAPI.getProducts(maxItems);
-      setProducts(productsData?.edges || []);
+      const productsData = await shopifyAPI.getAllProducts();
+      // Limit to maxItems for display
+      const limitedProducts = productsData?.edges?.slice(0, maxItems) || [];
+      setProducts(limitedProducts);
     } catch (err) {
       console.error('Error loading products:', err);
       setError(err.message || 'Failed to load courses');

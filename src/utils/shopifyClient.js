@@ -16,18 +16,16 @@ export const shopifyClient = createStorefrontApiClient({
   publicAccessToken: SHOPIFY_CONFIG.publicAccessToken,
 });
 
-// GraphQL query to fetch products (courses)
+// GraphQL query to fetch products (courses) - Simplified for better performance
 export const PRODUCTS_QUERY = `
-  query getProducts($first: Int!) {
-    products(first: $first) {
+  query getProducts($first: Int!, $after: String) {
+    products(first: $first, after: $after) {
       edges {
         node {
           id
           title
           description
           handle
-          createdAt
-          updatedAt
           productType
           vendor
           tags
@@ -43,18 +41,16 @@ export const PRODUCTS_QUERY = `
               currencyCode
             }
           }
-          images(first: 5) {
+          images(first: 1) {
             edges {
               node {
                 id
                 url
                 altText
-                width
-                height
               }
             }
           }
-          variants(first: 10) {
+          variants(first: 1) {
             edges {
               node {
                 id
@@ -63,16 +59,8 @@ export const PRODUCTS_QUERY = `
                   amount
                   currencyCode
                 }
-                compareAtPrice {
-                  amount
-                  currencyCode
-                }
                 availableForSale
                 quantityAvailable
-                selectedOptions {
-                  name
-                  value
-                }
               }
             }
           }
@@ -202,14 +190,51 @@ export const CREATE_CHECKOUT_QUERY = `
 // API helper functions
 export const shopifyAPI = {
   // Fetch all products (courses)
-  async getProducts(first = 100) {
+  async getProducts(first = 50, after = null) {
     try {
+      const variables = { first };
+      if (after) variables.after = after;
+      
       const response = await shopifyClient.request(PRODUCTS_QUERY, {
-        variables: { first }
+        variables
       });
       return response.data?.products || null;
     } catch (error) {
       console.error('Error fetching products:', error);
+      throw error;
+    }
+  },
+
+  // Fetch ALL products using pagination
+  async getAllProducts() {
+    try {
+      let allProducts = [];
+      let hasNextPage = true;
+      let endCursor = null;
+      
+      while (hasNextPage && allProducts.length < 200) { // Safety limit
+        const response = await this.getProducts(50, endCursor);
+        
+        if (response?.edges) {
+          allProducts = allProducts.concat(response.edges);
+          hasNextPage = response.pageInfo?.hasNextPage || false;
+          endCursor = response.pageInfo?.endCursor || null;
+        } else {
+          break;
+        }
+      }
+      
+      return {
+        edges: allProducts,
+        pageInfo: {
+          hasNextPage: false,
+          hasPreviousPage: false,
+          startCursor: allProducts[0]?.cursor || null,
+          endCursor: allProducts[allProducts.length - 1]?.cursor || null
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching all products:', error);
       throw error;
     }
   },

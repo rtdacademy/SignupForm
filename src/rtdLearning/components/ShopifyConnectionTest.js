@@ -37,7 +37,7 @@ const ShopifyConnectionTest = () => {
         
         // Try to fetch a few products
         try {
-          const productsData = await shopifyAPI.getProducts(5);
+          const productsData = await shopifyAPI.getAllProducts();
           setProducts(productsData);
         } catch (productError) {
           console.warn('Products fetch failed:', productError);
