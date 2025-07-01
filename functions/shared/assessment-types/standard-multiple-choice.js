@@ -516,7 +516,7 @@ class StandardMultipleChoiceCore {
       finalScore = currentScore;
       console.log(`Exam mode: saving grade ${currentScore}/${pointsValue} (no best score policy)`);
     } else {
-      // Regular mode: use best score policy
+      // Regular mode: use best score policy - never allow grade to decrease
       const existingGradeSnapshot = await gradeRef.once('value');
       const existingGrade = existingGradeSnapshot.val();
       
@@ -530,18 +530,67 @@ class StandardMultipleChoiceCore {
         finalScore = currentScore;
         console.log(`Improved score: ${existingGrade} → ${currentScore}`);
       } else {
-        // Same or worse score - keep existing grade
+        // Same or worse score - keep existing grade (never allow grade to decrease)
         shouldUpdateGrade = false;
         finalScore = existingGrade;
-        console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+        console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore}) - never allowing grade decrease`);
       }
     }
 
     // Update grade record if needed
     if (shouldUpdateGrade) {
       await gradeRef.set(finalScore);
+    }
 
-      // Update gradebook with the new/updated score
+    // Always update grade metadata (parallel path for audit trail)
+    const gradeMetadataRef = getDatabaseRef('gradeMetadata', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    
+    // Get existing metadata to preserve history
+    const existingMetadataSnapshot = await gradeMetadataRef.once('value');
+    const existingMetadata = existingMetadataSnapshot.val() || {};
+    
+    // Build grade history entry
+    const historyEntry = {
+      score: currentScore,
+      timestamp: getServerTimestamp(),
+      attempt: updatedAttempts,
+      isCorrect: result.isCorrect,
+      answer: params.answer,
+      correctOptionId: result.correctOptionId
+    };
+    
+    // Preserve existing history and add new entry
+    const gradeHistory = existingMetadata.gradeHistory || [];
+    gradeHistory.push(historyEntry);
+    
+    // Determine if this was an improvement
+    const previousBestScore = existingMetadata.bestScore || 0;
+    const wasImprovement = shouldUpdateGrade && finalScore > previousBestScore;
+    
+    const gradeMetadata = {
+      bestScore: finalScore,
+      currentScore: currentScore, // Score from this attempt
+      achievedAt: shouldUpdateGrade ? getServerTimestamp() : (existingMetadata.achievedAt || getServerTimestamp()),
+      achievedOnAttempt: shouldUpdateGrade ? updatedAttempts : (existingMetadata.achievedOnAttempt || updatedAttempts),
+      sourceAssessmentId: params.assessmentId,
+      sourceActivityType: assessmentData.activityType || 'lesson',
+      wasImprovement: wasImprovement,
+      previousBestScore: previousBestScore,
+      totalAttempts: updatedAttempts,
+      pointsValue: pointsValue,
+      lastAttemptAt: getServerTimestamp(),
+      gradeNeverDecreased: !params.examMode, // Flag indicating grade protection policy
+      examMode: params.examMode || false,
+      gradeHistory: gradeHistory.slice(-10), // Keep last 10 attempts to avoid unbounded growth
+      gradeUpdatePolicy: params.examMode ? 'immediate' : 'best_score_only'
+    };
+    
+    await gradeMetadataRef.set(gradeMetadata);
+    
+    console.log(`📝 Grade metadata updated: bestScore=${finalScore}, currentAttempt=${currentScore}, wasImprovement=${wasImprovement}, attempts=${updatedAttempts}`);
+
+    // Update gradebook with the new/updated score (only if grade was actually updated)
+    if (shouldUpdateGrade) {
       try {
         // Get course config for gradebook integration
         const courseConfig = await getCourseConfig(params.courseId);

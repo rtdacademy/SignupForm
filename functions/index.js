@@ -255,7 +255,6 @@ exports.exitExamSession = examSessionFunctions.exitExamSession;
 
 
 //PHY30
-exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToPhysics').default;
 
 // 2 Course Functions
 //exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
@@ -423,7 +422,7 @@ exports.course2_01_physics_20_review_circular_q3 = require('./courses/2/01-physi
 exports.course2_01_physics_20_review_circular_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_circular_q4;
 
 // Dynamics Knowledge Check Questions
-exports.course2_01_physics_20_review_dynamics_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q1;
+exports.course2_01_physics_20_review_dynamics_q1a = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q1a;
 exports.course2_01_physics_20_review_dynamics_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q2;
 exports.course2_01_physics_20_review_dynamics_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q3;
 exports.course2_01_physics_20_review_dynamics_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q4;
@@ -689,76 +688,10 @@ exports.course3_02_economic_environment_longAnswer = require('./courses/3/02-eco
 exports.course3_02_economic_environment_shortAnswer = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_shortAnswer;
 
 // 4 Course Functions (RTD Academy Orientation)
-exports.course4_01_welcome_rtd_academy_knowledge_check = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_knowledge_check;
-exports.course4_01_welcome_rtd_academy_question2 = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_question2;
-exports.course4_01_welcome_rtd_academy_question3 = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_question3;
-exports.course4_03_time_management_question1 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question1;
-exports.course4_03_time_management_question2 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question2;
-exports.course4_03_time_management_question3 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question3;
-exports.course4_03_time_management_question4 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question4;
-exports.course4_03_time_management_question5 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question5;
-exports.course4_03_time_management_question6 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question6;
-exports.course4_03_time_management_question7 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question7;
-exports.course4_03_time_management_question8 = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_question8;
-exports.course4_02_learning_plans_completion_policies_aiQuestion = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_completion_policies_aiQuestion;
-exports.course4_02_learning_plans_jordan_scenario = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_jordan_scenario;
-exports.course4_02_learning_plans_question1 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question1;
-exports.course4_02_learning_plans_question2 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question2;
-exports.course4_02_learning_plans_question3 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question3;
-exports.course4_02_learning_plans_question4 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question4;
-exports.course4_02_learning_plans_question5 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question5;
-exports.course4_02_learning_plans_question6 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question6;
-exports.course4_02_learning_plans_question7 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question7;
-exports.course4_02_learning_plans_question8 = require('./courses/4/02-learning-plans-completion-policies/assessments').course4_02_learning_plans_question8;
-exports.course4_04_conduct_expectations_question1 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question1;
-exports.course4_04_conduct_expectations_question2 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question2;
-exports.course4_04_conduct_expectations_question3 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question3;
-exports.course4_04_conduct_expectations_question4 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question4;
-exports.course4_04_conduct_expectations_question5 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question5;
-exports.course4_04_conduct_expectations_question6 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question6;
-exports.course4_04_conduct_expectations_question7 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question7;
-exports.course4_04_conduct_expectations_question8 = require('./courses/4/04-conduct-expectations-responsibilities/assessments').course4_04_conduct_expectations_question8;
-exports.course4_05_course_prerequisites_question1 = require('./courses/4/05-digital-citizenship-online-safety/assessments').course4_05_course_prerequisites_question1;
-exports.course4_05_course_prerequisites_question2 = require('./courses/4/05-digital-citizenship-online-safety/assessments').course4_05_course_prerequisites_question2;
-exports.course4_05_course_prerequisites_question3 = require('./courses/4/05-digital-citizenship-online-safety/assessments').course4_05_course_prerequisites_question3;
-exports.course4_07_technology_readiness_assistive_tools_aiQuestion = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_assistive_tools_aiQuestion;
-exports.course4_07_technology_readiness_question1 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question1;
-exports.course4_07_technology_readiness_question2 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question2;
-exports.course4_07_technology_readiness_question3 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question3;
-exports.course4_07_technology_readiness_question4 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question4;
-exports.course4_07_technology_readiness_question5 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question5;
-exports.course4_07_technology_readiness_question6 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question6;
-exports.course4_07_technology_readiness_question7 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question7;
-exports.course4_07_technology_readiness_question8 = require('./courses/4/07-technology-readiness-assistive-tools/assessments').course4_07_technology_readiness_question8;
-exports.course4_08_cell_phone_policy_question1 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question1;
-exports.course4_08_cell_phone_policy_question2 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question2;
-exports.course4_08_cell_phone_policy_question3 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question3;
-exports.course4_08_cell_phone_policy_question4 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question4;
-exports.course4_08_cell_phone_policy_question5 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question5;
-exports.course4_08_cell_phone_policy_question6 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question6;
-exports.course4_08_cell_phone_policy_question7 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question7;
-exports.course4_08_cell_phone_policy_question8 = require('./courses/4/08-cell-phone-policy-exam-proctoring/assessments').course4_08_cell_phone_policy_question8;
-exports.course4_10_exams_rewrites_question1 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question1;
-exports.course4_10_exams_rewrites_question2 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question2;
-exports.course4_10_exams_rewrites_question3 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question3;
-exports.course4_10_exams_rewrites_question4 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question4;
-exports.course4_10_exams_rewrites_question5 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question5;
-exports.course4_10_exams_rewrites_question6 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question6;
-exports.course4_10_exams_rewrites_question7 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question7;
-exports.course4_10_exams_rewrites_question8 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question8;
 
 // Course 4 - Mid-Course Exam
-exports.course4_06_mid_exam_question1 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question1;
-exports.course4_06_mid_exam_question2 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question2;
-exports.course4_06_mid_exam_question3 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question3;
 
 // Course 4 - Final Comprehensive Exam
-exports.course4_11_final_exam_question1 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question1;
-exports.course4_11_final_exam_question2 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question2;
-exports.course4_11_final_exam_question3 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question3;
-exports.course4_11_final_exam_question4 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question4;
 
 // 100 Course Functions
-exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
-exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;
 

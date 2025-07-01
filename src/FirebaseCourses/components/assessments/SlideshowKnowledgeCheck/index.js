@@ -185,7 +185,7 @@ const SlideshowKnowledgeCheck = ({
     return course.Assessments[questionId] || null;
   };
 
-  // Helper function to check if student has full score for a question
+  // Helper function to check if student has full score for a question using reliable data
   const hasFullScore = (questionId) => {
     if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure || !course?.Grades?.assessments) {
       return false;
@@ -210,36 +210,79 @@ const SlideshowKnowledgeCheck = ({
       return false;
     }
 
-    // Get the student's actual score
+    // Get the student's actual score from reliable source
     const studentScore = course.Grades.assessments[questionId];
     
     // Check if student has full score
     return studentScore >= questionPoints;
   };
 
-  // Helper function to determine question attempt status
+  // Helper function to determine question attempt status using reliable data sources
   const getQuestionStatus = (questionId) => {
-    const assessmentData = getQuestionAssessmentData(questionId);
-    const hasFullScoreForQuestion = hasFullScore(questionId);
-    
-    if (!assessmentData) {
+    if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure || !course?.Grades?.assessments) {
       return { 
         attempted: false, 
         correct: null, 
         attempts: 0, 
-        hasFullScore: hasFullScoreForQuestion 
+        hasFullScore: false,
+        score: 0,
+        maxPoints: 0
       };
     }
 
-    const attempted = assessmentData.status === 'attempted' || assessmentData.status === 'completed' || assessmentData.attempts > 0;
-    const correct = assessmentData.lastSubmission?.isCorrect || null;
+    // Get question points from course config
+    let questionPoints = null;
+    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+    
+    for (const itemKey in itemStructure) {
+      const item = itemStructure[itemKey];
+      if (item.questions) {
+        const question = item.questions.find(q => q.questionId === questionId);
+        if (question) {
+          questionPoints = question.points;
+          break;
+        }
+      }
+    }
+
+    if (questionPoints === null) {
+      return { 
+        attempted: false, 
+        correct: null, 
+        attempts: 0, 
+        hasFullScore: false,
+        score: 0,
+        maxPoints: 0
+      };
+    }
+
+    // Get actual grade from reliable source
+    const actualGrade = course.Grades.assessments[questionId];
+    
+    // Determine attempt status based on new grade system:
+    // - If grade exists in assessments: student has attempted
+    // - If grade is 0: student got it wrong (but attempted)
+    // - If grade > 0: student got it right
+    // - If grade === undefined: student has not attempted
+    
+    const attempted = actualGrade !== undefined;
+    const score = actualGrade || 0;
+    const correct = attempted ? (score > 0) : null;
+    const hasFullScoreForQuestion = score >= questionPoints;
+    
+    // Get attempts from Assessment data if available (for display purposes)
+    const assessmentData = getQuestionAssessmentData(questionId);
+    const attempts = assessmentData?.attempts || (attempted ? 1 : 0);
     
     return {
       attempted,
       correct,
-      attempts: assessmentData.attempts || 0,
-      lastSubmission: assessmentData.lastSubmission,
-      hasFullScore: hasFullScoreForQuestion
+      attempts,
+      hasFullScore: hasFullScoreForQuestion,
+      score,
+      maxPoints: questionPoints,
+      // Legacy compatibility
+      lastSubmission: assessmentData?.lastSubmission
     };
   };
 
@@ -742,13 +785,29 @@ const SlideshowKnowledgeCheck = ({
               <div className="flex justify-center space-x-4 text-sm">
                 <div className="text-center">
                   <div className="font-bold text-blue-600">
-                    {Object.keys(questionsCompleted).length}
+                    {(() => {
+                      let attemptedCount = 0;
+                      questions.forEach((question, index) => {
+                        const questionId = question.questionId || generateQuestionId(index);
+                        const status = getQuestionStatus(questionId);
+                        if (status.attempted) attemptedCount++;
+                      });
+                      return attemptedCount;
+                    })()}
                   </div>
                   <div className="text-xs text-gray-500">Attempted</div>
                 </div>
                 <div className="text-center">
                   <div className="font-bold text-green-600">
-                    {Object.values(questionResults).filter(r => r === 'correct').length}
+                    {(() => {
+                      let correctCount = 0;
+                      questions.forEach((question, index) => {
+                        const questionId = question.questionId || generateQuestionId(index);
+                        const status = getQuestionStatus(questionId);
+                        if (status.correct === true) correctCount++;
+                      });
+                      return correctCount;
+                    })()}
                   </div>
                   <div className="text-xs text-gray-500">Correct</div>
                 </div>
@@ -779,7 +838,12 @@ const SlideshowKnowledgeCheck = ({
 
       {/* Completion Summary - Only show for perfect scores */}
       {allQuestionsCompleted && (() => {
-        const correctCount = Object.values(questionResults).filter(r => r === 'correct').length;
+        let correctCount = 0;
+        questions.forEach((question, index) => {
+          const questionId = question.questionId || generateQuestionId(index);
+          const status = getQuestionStatus(questionId);
+          if (status.correct === true) correctCount++;
+        });
         const totalQuestions = questions.length;
         const allCorrect = correctCount === totalQuestions;
         

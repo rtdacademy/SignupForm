@@ -160,7 +160,7 @@ if (isAPIKeyAvailable()) {
     console.error("❌ Failed to initialize AI in short answer:", error);
   }
 } else {
-  console.log("GEMINI_API_KEY not found in environment - AI generation will use fallback questions");
+  //console.log("GEMINI_API_KEY not found in environment - AI generation will use fallback questions");
 }
 
 /**

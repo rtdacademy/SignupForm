@@ -5,7 +5,12 @@ const CourseResources = ({ course, isOpen, onClose }) => {
   // Extract course data from the course prop
   const courseConfig = course?.Gradebook?.courseConfig || {};
   const courseDetails = course?.courseDetails || {};
-  const resources = courseConfig?.courseOutline?.resources || {};
+  
+  // Try multiple paths for resources - new structure first, then legacy
+  const resources = courseConfig?.courseOutline?.resources || 
+                   courseDetails?.courseConfig?.courseOutline?.resources || 
+                   courseConfig?.resources || 
+                   {};
   
   // Function to open calculator in popup window
   const openCalculatorWindow = (resource) => {

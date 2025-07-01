@@ -748,7 +748,7 @@ const createRandomNetForceQuestion = () => {
 };
 
 // Dynamics Question 1: Net force and acceleration
-exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
+exports.course2_01_physics_20_review_dynamics_q1a = createStandardMultipleChoice({
   questions: [
     createRandomNetForceQuestion(),
     createRandomNetForceQuestion(),
@@ -1205,7 +1205,7 @@ exports.course2_01_physics_20_review_circular_q3 = createStandardMultipleChoice(
 
 
 // ===== DYNAMICS KNOWLEDGE CHECK ASSESSMENTS =====
-
+/*
 // Helper function to create randomized net force and acceleration question
 const createRandomNetForceAccelerationQuestion = () => {
   const mass = randFloat(4.5, 6.0, 1);
@@ -1254,23 +1254,23 @@ const createRandomNetForceAccelerationQuestion = () => {
     topic: "Newton's Second Law"
   };
 };
-
-// Dynamics Question 1: Net force and acceleration
-exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
-  questions: [
-    createRandomNetForceAccelerationQuestion(),
-    createRandomNetForceAccelerationQuestion(),
-    createRandomNetForceAccelerationQuestion(),
-    createRandomNetForceAccelerationQuestion(),
-    createRandomNetForceAccelerationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
+*/
+// Dynamics Question 1: Net force and acceleration (DUPLICATE - COMMENTED OUT)
+// exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
+//   questions: [
+//     createRandomNetForceAccelerationQuestion(),
+//     createRandomNetForceAccelerationQuestion(),
+//     createRandomNetForceAccelerationQuestion(),
+//     createRandomNetForceAccelerationQuestion(),
+//     createRandomNetForceAccelerationQuestion()
+//   ],
+//   randomizeQuestions: true,
+//   allowSameQuestion: false,
+//   pointsValue: 1,
+//   maxAttempts: 9999,
+//   showFeedback: true
+// });
+/*
 // Helper function to create randomized upward force question
 const createRandomUpwardForceQuestion = () => {
   const mass = randInt(40, 60);
@@ -1588,3 +1588,4 @@ exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice(
   showFeedback: true
 });
 
+*/

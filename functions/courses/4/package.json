@@ -1,0 +1,24 @@
+{
+  "name": "course-4-functions",
+  "description": "Cloud Functions for Course 4 - RTD Academy Orientation",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions:course-4",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2",
+    "dotenv": "^16.4.7",
+    "@genkit-ai/googleai": "^1.9.0",
+    "genkit": "^1.9.0",
+    "zod": "^3.24.4"
+  },
+  "private": true
+}

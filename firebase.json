@@ -2,7 +2,21 @@
   "functions": [
     {
       "source": "functions",
-      "codebase": "default",
+      "codebase": "core",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        ".cache",
+        "courses/**"
+      ],
+      "predeploy": []
+    },
+    {
+      "source": "functions/courses/2",
+      "codebase": "course-2",
       "ignore": [
         "node_modules",
         ".git",
@@ -10,8 +24,31 @@
         "firebase-debug.*.log",
         "*.local",
         ".cache"
-      ],
-      "predeploy": []
+      ]
+    },
+    {
+      "source": "functions/courses/3",
+      "codebase": "course-3",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        ".cache"
+      ]
+    },
+    {
+      "source": "functions/courses/4",
+      "codebase": "course-4",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        ".cache"
+      ]
     }
   ],
   "hosting": [

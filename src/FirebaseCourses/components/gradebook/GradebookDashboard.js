@@ -7,7 +7,7 @@ import CourseProgress from './CourseProgress';
 import CourseItemDetailModal from './CourseItemDetailModal';
 import QuestionReviewModal from './QuestionReviewModal';
 
-const GradebookDashboard = ({ course }) => {
+const GradebookDashboard = ({ course, allCourseItems = [] }) => {
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -47,16 +47,17 @@ const GradebookDashboard = ({ course }) => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <GradebookSummary course={course} />
+          <GradebookSummary course={course} allCourseItems={allCourseItems} />
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-6">
-          <CourseProgress course={course} />
+          <CourseProgress course={course} allCourseItems={allCourseItems} />
         </TabsContent>
 
         <TabsContent value="assessments" className="space-y-6">
           <AssessmentGrid 
             course={course} 
+            allCourseItems={allCourseItems}
             onReviewAssessment={handleReviewAssessment}
           />
         </TabsContent>

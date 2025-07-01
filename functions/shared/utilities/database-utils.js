@@ -199,6 +199,10 @@ const DATABASE_PATHS = {
     isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`
             : `students/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`,
   
+  gradeMetadata: (studentKey, courseId, assessmentId, isStaff = false) => 
+    isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Grades/metadata/${assessmentId}`
+            : `students/${studentKey}/courses/${courseId}/Grades/metadata/${assessmentId}`,
+  
   courseAssessment: (courseId, assessmentId) => 
     `courses/${courseId}/assessments/${assessmentId}`,
   

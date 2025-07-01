@@ -1,4 +1,4 @@
-const { createAIShortAnswer } = require('../../../../shared/assessment-types/ai-short-answer');
+const { createAIShortAnswer } = require('shared/assessment-types/ai-short-answer');
 
 // Question 6: Economic Decision Making Short Answer
 exports.course3_02_economic_environment_shortAnswer = createAIShortAnswer({

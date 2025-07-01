@@ -26,8 +26,9 @@ export const isSequentialAccessEnabled = (courseStructure, courseGradebook = nul
 
 /**
  * Gets the accessibility status for all lessons in a course using assessment-based unlocking
+ * Updated to work with the new data structure: itemStructure and Grades.assessments
  * @param {Object} courseStructure - Course structure with units and items
- * @param {Object} assessmentData - Student assessment/gradebook data (read from Firebase)
+ * @param {Object} assessmentData - Student assessment/gradebook data (read from Firebase) - legacy fallback
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
  * @returns {Object} - Map of itemId to accessibility info
  */
@@ -74,7 +75,12 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     const previousItem = sortedItems[i - 1];
     
     // Check if previous lesson has assessment attempts/completion
-    const isPreviousCompleted = hasCompletedAssessments(previousItem.itemId, assessmentData, courseGradebook);
+    // Pass actual grades for more accurate checking
+    const actualGrades = courseGradebook?.grades?.assessments || {};
+    const isPreviousCompleted = hasCompletedAssessments(previousItem.itemId, assessmentData, {
+      ...courseGradebook,
+      grades: { assessments: actualGrades }
+    });
     
     // Get required criteria info for better error messages
     let requiredPercentage = null;
@@ -103,9 +109,36 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       
       requiredPercentage = criteria.minimumPercentage;
       
-      const courseStructureItems = courseGradebook.courseStructureItems || {};
-      const previousLessonData = courseStructureItems[previousItem.itemId];
-      const currentPercentage = previousLessonData?.percentage || 0;
+      // Calculate current percentage using new data structure
+      const itemStructure = courseGradebook?.courseConfig?.gradebook?.itemStructure;
+      const normalizedPreviousId = previousItem.itemId.replace(/-/g, '_');
+      const previousLessonConfig = itemStructure?.[normalizedPreviousId];
+      
+      let currentPercentage = 0;
+      if (previousLessonConfig && actualGrades) {
+        let totalScore = 0;
+        let totalPossible = 0;
+        
+        previousLessonConfig.questions?.forEach(question => {
+          const questionId = question.questionId;
+          const maxPoints = question.points || 1;
+          const actualGrade = actualGrades[questionId] || 0;
+          
+          totalPossible += maxPoints;
+          if (actualGrades.hasOwnProperty(questionId)) {
+            totalScore += actualGrade;
+          }
+        });
+        
+        currentPercentage = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
+      }
+      
+      // Fallback to legacy courseStructureItems if available
+      if (currentPercentage === 0) {
+        const courseStructureItems = courseGradebook.courseStructureItems || {};
+        const previousLessonData = courseStructureItems[previousItem.itemId];
+        currentPercentage = previousLessonData?.percentage || 0;
+      }
       
       // Generate detailed reason based on criteria
       let requirementParts = [];
@@ -145,8 +178,9 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
 
 /**
  * Checks if a lesson has completed assessments with flexible progression requirements
+ * Uses the new reliable data sources: itemStructure and Grades.assessments
  * @param {string} lessonId - The lesson item ID
- * @param {Object} assessmentData - Assessment/gradebook data from Firebase
+ * @param {Object} assessmentData - Assessment/gradebook data from Firebase (legacy, used for fallback)
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
  * @returns {boolean} - Whether the lesson meets completion requirements
  */
@@ -164,17 +198,30 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
-  // Check if lesson data exists in courseStructureItems (aggregated lesson data)
-  const courseStructureItems = courseGradebook.courseStructureItems || {};
-  const lessonData = courseStructureItems[lessonId];
+  // Use new data sources for reliable calculations
+  const itemStructure = courseConfig?.gradebook?.itemStructure;
+  const actualGrades = courseGradebook.grades?.assessments || {}; // course.Grades.assessments
   
-  if (!lessonData) {
-    // If no lesson data, fall back to basic check
+  if (!itemStructure || !actualGrades) {
+    console.warn('Missing required data structures for lesson access checking:', {
+      hasItemStructure: !!itemStructure,
+      hasActualGrades: !!actualGrades,
+      lessonId
+    });
+    return hasBasicCompletionCheck(lessonId, assessmentData);
+  }
+  
+  // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
+  const normalizedLessonId = lessonId.replace(/-/g, '_');
+  const lessonConfig = itemStructure[normalizedLessonId];
+  
+  if (!lessonConfig || !lessonConfig.questions) {
+    console.warn(`No lesson config found for: ${normalizedLessonId}`);
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
   // Get progression criteria for this lesson (with fallback to defaults)
-  const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId];
+  const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId] || progressionRequirements.lessonOverrides?.[normalizedLessonId];
   const defaultCriteria = progressionRequirements.defaultCriteria || {};
   
   // Determine criteria to use (lesson override takes precedence, then defaults, then legacy fallback)
@@ -182,7 +229,7 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     minimumPercentage: lessonOverride?.minimumPercentage ?? 
                       defaultCriteria.minimumPercentage ?? 
                       progressionRequirements.defaultMinimumPercentage ?? 
-                      80,
+                      50,
     requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
                         defaultCriteria.requireAllQuestions ?? 
                         false,
@@ -191,8 +238,27 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
                                  null
   };
   
-  // Check percentage requirement
-  const lessonPercentage = lessonData.percentage || 0;
+  // Calculate lesson score using actual grades
+  let totalScore = 0;
+  let totalPossible = 0;
+  let attemptedQuestions = 0;
+  const totalQuestions = lessonConfig.questions.length;
+  
+  lessonConfig.questions.forEach(question => {
+    const questionId = question.questionId;
+    const maxPoints = question.points || 1;
+    const actualGrade = actualGrades[questionId] || 0;
+    
+    totalPossible += maxPoints;
+    
+    // If grade exists (even if 0), student has attempted
+    if (actualGrades.hasOwnProperty(questionId)) {
+      attemptedQuestions += 1;
+      totalScore += actualGrade;
+    }
+  });
+  
+  const lessonPercentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
   const meetsPercentageRequirement = lessonPercentage >= criteria.minimumPercentage;
   
   // Check question completion requirements
@@ -200,15 +266,11 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   
   if (criteria.requireAllQuestions) {
     // Must answer ALL questions
-    const totalQuestions = getTotalQuestionsForLesson(lessonId, courseConfig);
-    const attemptedQuestions = getAttemptedQuestionsForLesson(lessonId, assessmentData);
     meetsQuestionRequirement = attemptedQuestions >= totalQuestions;
     
     console.log(`📊 ${lessonId} Question Requirement (ALL): ${attemptedQuestions}/${totalQuestions} - ${meetsQuestionRequirement ? 'MET' : 'NOT MET'}`);
   } else if (criteria.questionCompletionPercentage !== null && criteria.questionCompletionPercentage > 0) {
     // Must answer specified percentage of questions
-    const totalQuestions = getTotalQuestionsForLesson(lessonId, courseConfig);
-    const attemptedQuestions = getAttemptedQuestionsForLesson(lessonId, assessmentData);
     const questionCompletionPercentage = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
     meetsQuestionRequirement = questionCompletionPercentage >= criteria.questionCompletionPercentage;
     
@@ -219,7 +281,7 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   const meetsAllRequirements = meetsPercentageRequirement && meetsQuestionRequirement;
   
   // Log for debugging
-  console.log(`📊 Lesson ${lessonId}: Score ${lessonPercentage}% (required: ${criteria.minimumPercentage}%) & Questions ${meetsQuestionRequirement ? 'MET' : 'NOT MET'} - ${meetsAllRequirements ? 'UNLOCKED' : 'LOCKED'}`);
+  console.log(`📊 Lesson ${lessonId}: Score ${Math.round(lessonPercentage)}% (required: ${criteria.minimumPercentage}%) & Questions ${meetsQuestionRequirement ? 'MET' : 'NOT MET'} - ${meetsAllRequirements ? 'UNLOCKED' : 'LOCKED'}`);
   
   return meetsAllRequirements;
 };
@@ -376,27 +438,66 @@ export const shouldBypassAccessControlEnhanced = (isStaffView, devMode, currentU
 
 /**
  * Gets the total number of questions for a lesson from course config
+ * Updated to use the new itemStructure data format
  * @param {string} lessonId - The lesson item ID
  * @param {Object} courseConfig - Course configuration object
  * @returns {number} - Total number of questions in the lesson
  */
 const getTotalQuestionsForLesson = (lessonId, courseConfig) => {
   const gradebookStructure = courseConfig?.gradebook?.itemStructure;
-  if (!gradebookStructure || !gradebookStructure[lessonId]) {
+  if (!gradebookStructure) {
     return 0;
   }
   
-  const lessonStructure = gradebookStructure[lessonId];
-  return lessonStructure.questions ? lessonStructure.questions.length : 0;
+  // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
+  const normalizedLessonId = lessonId.replace(/-/g, '_');
+  const lessonStructure = gradebookStructure[normalizedLessonId];
+  
+  if (!lessonStructure || !lessonStructure.questions) {
+    return 0;
+  }
+  
+  return lessonStructure.questions.length;
 };
 
 /**
  * Gets the number of attempted questions for a lesson from assessment data
+ * Updated to use course.Grades.assessments instead of pattern matching
  * @param {string} lessonId - The lesson item ID
- * @param {Object} assessmentData - Assessment/gradebook data from Firebase
+ * @param {Object} assessmentData - Assessment/gradebook data from Firebase (legacy - may not have actual grades)
+ * @param {Object} courseConfig - Course configuration with itemStructure
+ * @param {Object} actualGrades - course.Grades.assessments object
  * @returns {number} - Number of questions attempted (with at least one attempt)
  */
-const getAttemptedQuestionsForLesson = (lessonId, assessmentData) => {
+const getAttemptedQuestionsForLesson = (lessonId, assessmentData, courseConfig = null, actualGrades = null) => {
+  // If we have the new data structure, use it
+  if (courseConfig && actualGrades) {
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+    if (!gradebookStructure) {
+      return 0;
+    }
+    
+    // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
+    const normalizedLessonId = lessonId.replace(/-/g, '_');
+    const lessonStructure = gradebookStructure[normalizedLessonId];
+    
+    if (!lessonStructure || !lessonStructure.questions) {
+      return 0;
+    }
+    
+    // Count questions that have been attempted (grade exists, even if 0)
+    let attemptedCount = 0;
+    lessonStructure.questions.forEach(question => {
+      const questionId = question.questionId;
+      if (actualGrades.hasOwnProperty(questionId)) {
+        attemptedCount++;
+      }
+    });
+    
+    return attemptedCount;
+  }
+  
+  // Fallback to legacy pattern matching approach
   if (!assessmentData) {
     return 0;
   }
