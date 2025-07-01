@@ -305,12 +305,12 @@
           {
             "questionId": "course2_24_section1_exam_q22",
             "title": "Section1 Exam Q22",
-            "points": 1
+            "points": 4
           },
           {
             "questionId": "course2_24_section1_exam_q23",
             "title": "Section1 Exam Q23",
-            "points": 1
+            "points": 5
           }
         ]
       },
@@ -933,77 +933,77 @@
           {
             "questionId": "course2_02_jet_momentum_b",
             "title": "Jet Momentum B",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_collision_rebound",
             "title": "Collision Rebound",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_ball_collision_type",
             "title": "Ball Collision Type",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_unknown_mass_collision",
             "title": "Unknown Mass Collision",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_football_tackle_mass",
             "title": "Football Tackle Mass",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_arrow_apple_mass",
             "title": "Arrow Apple Mass",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_truck_car_headon",
             "title": "Truck Car Headon",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_astronaut_recoil",
             "title": "Astronaut Recoil",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_rocket_separation",
             "title": "Rocket Separation",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_machine_gun_recoil",
             "title": "Machine Gun Recoil",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_uranium_disintegration",
             "title": "Uranium Disintegration",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_02_ballistic_pendulum",
             "title": "Ballistic Pendulum",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_02_canoe_comparison",
             "title": "Canoe Comparison",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_02_cart_jumping",
             "title": "Cart Jumping",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_02_atom_collision",
             "title": "Atom Collision",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_02_momentum_one_dimension_kc_q1",
@@ -1110,42 +1110,42 @@
           {
             "questionId": "course2_03_car_truck_2d_collision",
             "title": "Car Truck 2d Collision",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_03_nuclear_decay_2d",
             "title": "Nuclear Decay 2d",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_03_glancing_collision_2d",
             "title": "Glancing Collision 2d",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_03_space_capsule_projectile",
             "title": "Space Capsule Projectile",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_03_steel_ball_deflection",
             "title": "Steel Ball Deflection",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_03_mass_explosion",
             "title": "Mass Explosion",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_03_elastic_collision_90",
             "title": "Elastic Collision 90",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_03_plasticene_collision",
             "title": "Plasticene Collision",
-            "points": 4
+            "points": 1
           }
         ]
       },
@@ -1157,52 +1157,52 @@
           {
             "questionId": "course2_04_basic_impulse",
             "title": "Basic Impulse",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_04_person_falling",
             "title": "Person Falling",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_04_impulse_quantities",
             "title": "Impulse Quantities",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_04_karate_board",
             "title": "Karate Board",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_04_safety_features",
             "title": "Safety Features",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_04_golf_ball_driver",
             "title": "Golf Ball Driver",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_04_child_ball",
             "title": "Child Ball",
-            "points": 3
+            "points": 1
           },
           {
             "questionId": "course2_04_ball_bat",
             "title": "Ball Bat",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_04_bullet_wood",
             "title": "Bullet Wood",
-            "points": 4
+            "points": 1
           },
           {
             "questionId": "course2_04_water_turbine",
             "title": "Water Turbine",
-            "points": 4
+            "points": 1
           }
         ]
       },
@@ -1214,22 +1214,22 @@
           {
             "questionId": "course2_06_graphing_techniques_question1",
             "title": "Graphing Techniques Question1",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_06_graphing_techniques_question2",
             "title": "Graphing Techniques Question2",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_06_graphing_techniques_question3",
             "title": "Graphing Techniques Question3",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_06_graphing_techniques_question4",
             "title": "Graphing Techniques Question4",
-            "points": 2
+            "points": 1
           }
         ]
       },
@@ -1241,37 +1241,37 @@
           {
             "questionId": "course2_13_refraction_kc_q1",
             "title": "Refraction Kc Q1",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q2",
             "title": "Refraction Kc Q2",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q3",
             "title": "Refraction Kc Q3",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q4",
             "title": "Refraction Kc Q4",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q5",
             "title": "Refraction Kc Q5",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q6",
             "title": "Refraction Kc Q6",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_refraction_kc_q7",
             "title": "Refraction Kc Q7",
-            "points": 2
+            "points": 1
           },
           {
             "questionId": "course2_13_slideshow_q1",
