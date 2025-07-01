@@ -11,19 +11,11 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 7 - Curved Mirrors
  * Covers plane mirrors and spherical mirrors
  */
-const CurvedMirrors = ({ course, courseId = '2' }) => {
+const CurvedMirrors = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isPlaneMirrorsOpen, setIsPlaneMirrorsOpen] = useState(false);
-  const [isSphericalMirrorsOpen, setIsSphericalMirrorsOpen] = useState(false);
-  const [isImageFormationOpen, setIsImageFormationOpen] = useState(false);
-  const [isSignConventionsOpen, setIsSignConventionsOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
   
   // Animation states
   const [objectDistance, setObjectDistance] = useState(100); // Distance from mirror
@@ -86,18 +78,14 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
         </div>
 
         {/* Plane Mirrors Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPlaneMirrorsOpen(!isPlaneMirrorsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Plane Mirrors – Revisited" 
+            value="plane-mirrors-revisited" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Plane Mirrors – Revisited</h3>
-            <span className="text-blue-600">{isPlaneMirrorsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isPlaneMirrorsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   In our previous work on Reflection, we saw that for plane mirrors the image of an object
                   always exists within the mirror – we can never touch or project the image since it does
@@ -375,23 +363,28 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Plane Mirrors – Revisited</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Spherical Mirrors Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsSphericalMirrorsOpen(!isSphericalMirrorsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Spherical Mirrors" 
+            value="spherical-mirrors" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Spherical Mirrors</h3>
-            <span className="text-blue-600">{isSphericalMirrorsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isSphericalMirrorsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   Spherical mirrors, like plane mirrors, obey the law of reflection (<InlineMath>{"\\theta_i = \\theta_r"}</InlineMath>), but for spherical
                   mirrors the normal is always the radius of the sphere. Spherical mirrors come in two
@@ -846,23 +839,28 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Spherical Mirrors</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Image Formation Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsImageFormationOpen(!isImageFormationOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Image Formation" 
+            value="image-formation" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Image Formation</h3>
-            <span className="text-blue-600">{isImageFormationOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isImageFormationOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h5 className="font-semibold text-gray-700 mb-3">Ray Diagrams</h5>
                 
                 <p className="mb-4">
@@ -1612,23 +1610,28 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </ul>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Image Formation</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Sign Conventions and Calculations Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsSignConventionsOpen(!isSignConventionsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Sign Conventions and Mirror Calculations" 
+            value="sign-conventions-and-mirror-calculations" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Sign Conventions and Mirror Calculations</h3>
-            <span className="text-blue-600">{isSignConventionsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isSignConventionsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   As we saw above, real images exist in real space and are always inverted, while virtual
                   images exist as images "within" the mirror and are always erect. In order to use the
@@ -1700,23 +1703,28 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Sign Conventions and Mirror Calculations</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example Problem Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Example 1: Converging Mirror Problem" 
+            value="example-1-converging-mirror-problem" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1: Converging Mirror Problem</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 5.0 cm tall object is placed 60 cm away from a converging mirror that has an 80 cm
@@ -1785,23 +1793,28 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 1: Converging Mirror Problem</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 2 Problem Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="green">
+          <AIAccordion.Item 
+            title="Example 2: Diverging Mirror Problem" 
+            value="example-2-diverging-mirror-problem" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2: Diverging Mirror Problem</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A 5.0 cm tall object is placed 60 cm away from a diverging mirror that has an 80 cm
@@ -1874,9 +1887,18 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 2: Diverging Mirror Problem</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Curved Mirrors Practice Questions */}
         <SlideshowKnowledgeCheck
@@ -1919,18 +1941,14 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
         />
 
         {/* Example 3 Problem Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 3: Finding Mirror Type and Focal Length" 
+            value="example-3-finding-mirror-type-and-focal-length" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 3: Finding Mirror Type and Focal Length</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   The erect image of an object is one-third the size of the object. If the object is 20 cm
@@ -2007,9 +2025,18 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 3: Finding Mirror Type and Focal Length</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Slideshow Knowledge Check - Additional Practice Questions */}
         <SlideshowKnowledgeCheck

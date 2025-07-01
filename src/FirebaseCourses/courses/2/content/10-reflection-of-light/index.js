@@ -11,17 +11,11 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 6 - Reflection of Light
  * Covers the laws of reflection and types of reflection
  */
-const ReflectionOfLight = ({ course, courseId = '2' }) => {
+const ReflectionOfLight = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isLawsOfReflectionOpen, setIsLawsOfReflectionOpen] = useState(false);
-  const [isTypesOfReflectionOpen, setIsTypesOfReflectionOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
   
   // Animation states
   const [incidenceAngle, setIncidenceAngle] = useState(45);
@@ -80,18 +74,14 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
         </div>
 
         {/* Laws of Reflection Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsLawsOfReflectionOpen(!isLawsOfReflectionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Laws of Reflection" 
+            value="laws-of-reflection" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Laws of Reflection</h3>
-            <span className="text-blue-600">{isLawsOfReflectionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isLawsOfReflectionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   When we studied waves in Physics 20, we learned about the law of reflection. In terms
                   of light rays, the Laws of Reflection are:
@@ -272,23 +262,28 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Laws of Reflection</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Types of Reflection Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsTypesOfReflectionOpen(!isTypesOfReflectionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Types of Reflection" 
+            value="types-of-reflection" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Types of Reflection</h3>
-            <span className="text-blue-600">{isTypesOfReflectionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isTypesOfReflectionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4 mb-6">
                   <div>
                     <h5 className="font-semibold text-gray-700">Specular Reflection</h5>
@@ -506,23 +501,28 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Types of Reflection</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 1 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 1 - Finding the Angle of Reflection" 
+            value="example-1-finding-angle-of-reflection" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1 - Finding the Angle of Reflection</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   What is the angle of reflection for the light ray in the diagram below?
@@ -621,23 +621,28 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 1 - Finding the Angle of Reflection</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 2 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 2 - Angle Between Reflected Ray and Mirror" 
+            value="example-2-angle-between-reflected-ray-and-mirror" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2 - Angle Between Reflected Ray and Mirror</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   What is the angle between the reflected ray and the mirror surface for the diagram below?
@@ -735,23 +740,28 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 2 - Angle Between Reflected Ray and Mirror</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 3 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 3 - Multiple Reflections Between Two Mirrors" 
+            value="example-3-multiple-reflections-between-two-mirrors" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 3 - Multiple Reflections Between Two Mirrors</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   What is the angle of reflection for the light ray bouncing off of mirror II in the diagram below?
@@ -861,9 +871,18 @@ const ReflectionOfLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 3 - Multiple Reflections Between Two Mirrors</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </TextSection>
 
       {/* Reflection of Light Practice Questions */}

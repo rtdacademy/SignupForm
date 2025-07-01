@@ -11,17 +11,11 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 3 - Impulse & Change in Momentum
  * Covers the relationship between force, time, and momentum change
  */
-const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
+const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isIntroductionOpen, setIsIntroductionOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
   
   // Animation states
   const [animationTime, setAnimationTime] = useState(0);
@@ -173,201 +167,343 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
       title="Lesson 3 - Impulse & Change in Momentum"
       metadata={{ estimated_time: '60 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsIntroductionOpen(!isIntroductionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Impulse and Change in Momentum" 
+            value="impulse-and-change-in-momentum" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Impulse and Change in Momentum</h3>
-            <span className="text-blue-600">{isIntroductionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isIntroductionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  According to Newton's 2nd Law of Motion (Physics Principle 1), to change the motion 
-                  (i.e. momentum) of an object an unbalanced force must be applied. If, for example, we 
-                  want to change the motion of a car we have to apply a force for a given time. Further, 
-                  one could apply a large force for a short time or a smaller force for a longer time to 
-                  effect the same change in velocity.
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                According to Newton's 2nd Law of Motion (Physics Principle 1), to change the motion 
+                (i.e. momentum) of an object an unbalanced force must be applied. If, for example, we 
+                want to change the motion of a car we have to apply a force for a given time. Further, 
+                one could apply a large force for a short time or a smaller force for a longer time to 
+                effect the same change in velocity.
+              </p>
+              
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                <h4 className="font-semibold text-blue-800 mb-3">Derivation from Newton's 2nd Law:</h4>
+                <p className="mb-3">
+                  Beginning with Newton's 2nd Law we can derive a useful equation that describes the 
+                  relationship between force (<InlineMath>{'F'}</InlineMath>), time (<InlineMath>{'\\Delta t'}</InlineMath>), 
+                  mass (<InlineMath>{'m'}</InlineMath>), and change in velocity (<InlineMath>{'\\Delta v'}</InlineMath>).
                 </p>
-                
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-                  <h4 className="font-semibold text-blue-800 mb-3">Derivation from Newton's 2nd Law:</h4>
-                  <p className="mb-3">
-                    Beginning with Newton's 2nd Law we can derive a useful equation that describes the 
-                    relationship between force (<InlineMath>{'F'}</InlineMath>), time (<InlineMath>{'\\Delta t'}</InlineMath>), 
-                    mass (<InlineMath>{'m'}</InlineMath>), and change in velocity (<InlineMath>{'\\Delta v'}</InlineMath>).
-                  </p>
-                  <div className="bg-white p-4 rounded border border-blue-200">
-                    <div className="space-y-2">
-                      <div className="text-center">
-                        <BlockMath>{'F = ma'}</BlockMath>
-                      </div>
-                      <div className="text-center">
-                        <BlockMath>{'F = m\\frac{\\Delta v}{\\Delta t}'}</BlockMath>
-                      </div>
-                      <div className="text-center">
-                        <BlockMath>{'F\\Delta t = m\\Delta v'}</BlockMath>
-                      </div>
+                <div className="bg-white p-4 rounded border border-blue-200">
+                  <div className="space-y-2">
+                    <div className="text-center">
+                      <BlockMath>{'F = ma'}</BlockMath>
                     </div>
-                    <p className="text-sm text-blue-700 mt-3 text-center italic">
-                      This equation is on your formula sheet.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-yellow-800 mb-2">Important Note:</h4>
-                  <p className="text-yellow-900">
-                    Recall that <InlineMath>{'\\Delta v'}</InlineMath> means "the change in velocity". 
-                    Do not mistake the change in velocity for the final velocity.
-                  </p>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-green-800 mb-3">Key Definitions:</h4>
-                  <div className="space-y-3">
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">Change in Momentum</h5>
-                      <p className="text-sm text-green-800 mb-2">
-                        The product of mass and change in velocity is the change in momentum:
-                      </p>
-                      <div className="text-center">
-                        <BlockMath>{'\\Delta p = m\\Delta v'}</BlockMath>
-                      </div>
+                    <div className="text-center">
+                      <BlockMath>{'F = m\\frac{\\Delta v}{\\Delta t}'}</BlockMath>
                     </div>
-                    
-                    <div className="bg-white p-3 rounded border border-green-300">
-                      <h5 className="font-semibold text-green-700 mb-2">Impulse</h5>
-                      <p className="text-sm text-green-800 mb-2">
-                        The product of force and time is called the impulse:
-                      </p>
-                      <div className="text-center">
-                        <BlockMath>{'J = F\\Delta t'}</BlockMath>
-                      </div>
-                      <p className="text-sm text-green-800 mt-2">
-                        The impulse that acts on an object results in a change in the object's momentum.
-                      </p>
+                    <div className="text-center">
+                      <BlockMath>{'F\\Delta t = m\\Delta v'}</BlockMath>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-purple-800 mb-3">The Impulse-Momentum Theorem:</h4>
-                  <div className="text-center mb-3">
-                    <BlockMath>{'F\\Delta t = \\Delta p = m\\Delta v'}</BlockMath>
-                  </div>
-                  <p className="text-purple-900">
-                    Since impulse is a combination of force and time, one can apply a large force for a 
-                    short time or a small force for a long time or a medium force for a medium time to 
-                    achieve the same change in momentum.
+                  <p className="text-sm text-blue-700 mt-3 text-center italic">
+                    This equation is on your formula sheet.
                   </p>
-                </div>
-
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-3">Real-World Example:</h4>
-                  <p className="text-orange-900 mb-3">
-                    Imagine a person jumping off a three-story building. If the person landed on the ground 
-                    on her back, she would experience a very large force over a short stopping time. The 
-                    force would be large enough to cause significant damage to the body.
-                  </p>
-                  <p className="text-orange-900 mb-3">
-                    However, if she landed on a large piece of foam like they use for pole vaults, her 
-                    stopping time would be longer and the force acting on her would be far smaller.
-                  </p>
-                  <p className="text-orange-900">
-                    This is the same idea behind the use of:
-                  </p>
-                  <ul className="list-disc list-inside text-orange-800 mt-2 ml-4">
-                    <li>Elastic ropes for wall climbers</li>
-                    <li>Air bags in cars</li>
-                    <li>Other safety devices</li>
-                  </ul>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Calculating Change in Momentum</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
-                <p className="mb-4">
-                  An average force of 17.0 N acts on an object for 0.025 s. What is the change in momentum?
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-yellow-800 mb-2">Important Note:</h4>
+                <p className="text-yellow-900">
+                  Recall that <InlineMath>{'\\Delta v'}</InlineMath> means "the change in velocity". 
+                  Do not mistake the change in velocity for the final velocity.
                 </p>
-                
-                <div className="bg-white p-4 rounded border border-gray-100">
-                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-green-800 mb-3">Key Definitions:</h4>
+                <div className="space-y-3">
+                  <div className="bg-white p-3 rounded border border-green-300">
+                    <h5 className="font-semibold text-green-700 mb-2">Change in Momentum</h5>
+                    <p className="text-sm text-green-800 mb-2">
+                      The product of mass and change in velocity is the change in momentum:
+                    </p>
+                    <div className="text-center">
+                      <BlockMath>{'\\Delta p = m\\Delta v'}</BlockMath>
+                    </div>
+                  </div>
                   
-                  <ol className="list-decimal pl-6 space-y-3">
-                    <li>
-                      <strong>Given:</strong>
-                      <div className="mt-2 ml-4">
-                        <p>Force: <InlineMath>{'F = 17.0\\text{ N}'}</InlineMath></p>
-                        <p>Time: <InlineMath>{'\\Delta t = 0.025\\text{ s}'}</InlineMath></p>
-                        <p>Find: Change in momentum (<InlineMath>{'\\Delta p'}</InlineMath>)</p>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Equation:</strong>
-                      <div className="text-center mt-2">
-                        <BlockMath>{'F\\Delta t = \\Delta p'}</BlockMath>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Substitute and solve:</strong>
-                      <div className="mt-2 ml-4">
-                        <div className="text-center">
-                          <BlockMath>{'\\Delta p = F\\Delta t = (17.0\\text{ N})(0.025\\text{ s})'}</BlockMath>
-                        </div>
-                        <div className="text-center">
-                          <BlockMath>{'\\Delta p = 0.43\\text{ N}\\cdot\\text{s} = 0.43\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </li>
-                  </ol>
-                  
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <p className="font-semibold text-gray-800">Answer:</p>
-                    <p className="text-lg mt-2">
-                      The change in momentum is <InlineMath>{'0.43\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
+                  <div className="bg-white p-3 rounded border border-green-300">
+                    <h5 className="font-semibold text-green-700 mb-2">Impulse</h5>
+                    <p className="text-sm text-green-800 mb-2">
+                      The product of force and time is called the impulse:
+                    </p>
+                    <div className="text-center">
+                      <BlockMath>{'J = F\\Delta t'}</BlockMath>
+                    </div>
+                    <p className="text-sm text-green-800 mt-2">
+                      The impulse that acts on an object results in a change in the object's momentum.
                     </p>
                   </div>
                 </div>
               </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-purple-800 mb-3">The Impulse-Momentum Theorem:</h4>
+                <div className="text-center mb-3">
+                  <BlockMath>{'F\\Delta t = \\Delta p = m\\Delta v'}</BlockMath>
+                </div>
+                <p className="text-purple-900">
+                  Since impulse is a combination of force and time, one can apply a large force for a 
+                  short time or a small force for a long time or a medium force for a medium time to 
+                  achieve the same change in momentum.
+                </p>
+              </div>
+
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="font-semibold text-orange-800 mb-3">Real-World Example:</h4>
+                <p className="text-orange-900 mb-3">
+                  Imagine a person jumping off a three-story building. If the person landed on the ground 
+                  on her back, she would experience a very large force over a short stopping time. The 
+                  force would be large enough to cause significant damage to the body.
+                </p>
+                <p className="text-orange-900 mb-3">
+                  However, if she landed on a large piece of foam like they use for pole vaults, her 
+                  stopping time would be longer and the force acting on her would be far smaller.
+                </p>
+                <p className="text-orange-900">
+                  This is the same idea behind the use of:
+                </p>
+                <ul className="list-disc list-inside text-orange-800 mt-2 ml-4">
+                  <li>Elastic ropes for wall climbers</li>
+                  <li>Air bags in cars</li>
+                  <li>Other safety devices</li>
+                </ul>
+              </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Impulse and Change in Momentum</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                According to Newton's 2nd Law of Motion (Physics Principle 1), to change the motion 
+                (i.e. momentum) of an object an unbalanced force must be applied. If, for example, we 
+                want to change the motion of a car we have to apply a force for a given time. Further, 
+                one could apply a large force for a short time or a smaller force for a longer time to 
+                effect the same change in velocity.
+              </p>
+              
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                <h4 className="font-semibold text-blue-800 mb-3">Derivation from Newton's 2nd Law:</h4>
+                <p className="mb-3">
+                  Beginning with Newton's 2nd Law we can derive a useful equation that describes the 
+                  relationship between force (<InlineMath>{'F'}</InlineMath>), time (<InlineMath>{'\\Delta t'}</InlineMath>), 
+                  mass (<InlineMath>{'m'}</InlineMath>), and change in velocity (<InlineMath>{'\\Delta v'}</InlineMath>).
+                </p>
+                <div className="bg-white p-4 rounded border border-blue-200">
+                  <div className="space-y-2">
+                    <div className="text-center">
+                      <BlockMath>{'F = ma'}</BlockMath>
+                    </div>
+                    <div className="text-center">
+                      <BlockMath>{'F = m\\frac{\\Delta v}{\\Delta t}'}</BlockMath>
+                    </div>
+                    <div className="text-center">
+                      <BlockMath>{'F\\Delta t = m\\Delta v'}</BlockMath>
+                    </div>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-3 text-center italic">
+                    This equation is on your formula sheet.
+                  </p>
+                </div>
+              </div>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-yellow-800 mb-2">Important Note:</h4>
+                <p className="text-yellow-900">
+                  Recall that <InlineMath>{'\\Delta v'}</InlineMath> means "the change in velocity". 
+                  Do not mistake the change in velocity for the final velocity.
+                </p>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-green-800 mb-3">Key Definitions:</h4>
+                <div className="space-y-3">
+                  <div className="bg-white p-3 rounded border border-green-300">
+                    <h5 className="font-semibold text-green-700 mb-2">Change in Momentum</h5>
+                    <p className="text-sm text-green-800 mb-2">
+                      The product of mass and change in velocity is the change in momentum:
+                    </p>
+                    <div className="text-center">
+                      <BlockMath>{'\\Delta p = m\\Delta v'}</BlockMath>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border border-green-300">
+                    <h5 className="font-semibold text-green-700 mb-2">Impulse</h5>
+                    <p className="text-sm text-green-800 mb-2">
+                      The product of force and time is called the impulse:
+                    </p>
+                    <div className="text-center">
+                      <BlockMath>{'J = F\\Delta t'}</BlockMath>
+                    </div>
+                    <p className="text-sm text-green-800 mt-2">
+                      The impulse that acts on an object results in a change in the object's momentum.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-purple-800 mb-3">The Impulse-Momentum Theorem:</h4>
+                <div className="text-center mb-3">
+                  <BlockMath>{'F\\Delta t = \\Delta p = m\\Delta v'}</BlockMath>
+                </div>
+                <p className="text-purple-900">
+                  Since impulse is a combination of force and time, one can apply a large force for a 
+                  short time or a small force for a long time or a medium force for a medium time to 
+                  achieve the same change in momentum.
+                </p>
+              </div>
+
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="font-semibold text-orange-800 mb-3">Real-World Example:</h4>
+                <p className="text-orange-900 mb-3">
+                  Imagine a person jumping off a three-story building. If the person landed on the ground 
+                  on her back, she would experience a very large force over a short stopping time. The 
+                  force would be large enough to cause significant damage to the body.
+                </p>
+                <p className="text-orange-900 mb-3">
+                  However, if she landed on a large piece of foam like they use for pole vaults, her 
+                  stopping time would be longer and the force acting on her would be far smaller.
+                </p>
+                <p className="text-orange-900">
+                  This is the same idea behind the use of:
+                </p>
+                <ul className="list-disc list-inside text-orange-800 mt-2 ml-4">
+                  <li>Elastic ropes for wall climbers</li>
+                  <li>Air bags in cars</li>
+                  <li>Other safety devices</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 1 - Calculating Change in Momentum" 
+              value="example-1-calculating-change-in-momentum" 
+              onAskAI={onAIAccordionContent}
+            >
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+              <p className="mb-4">
+                An average force of 17.0 N acts on an object for 0.025 s. What is the change in momentum?
+              </p>
+              
+              <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                
+                <ol className="list-decimal pl-6 space-y-3">
+                  <li>
+                    <strong>Given:</strong>
+                    <div className="mt-2 ml-4">
+                      <p>Force: <InlineMath>{'F = 17.0\\text{ N}'}</InlineMath></p>
+                      <p>Time: <InlineMath>{'\\Delta t = 0.025\\text{ s}'}</InlineMath></p>
+                      <p>Find: Change in momentum (<InlineMath>{'\\Delta p'}</InlineMath>)</p>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Equation:</strong>
+                    <div className="text-center mt-2">
+                      <BlockMath>{'F\\Delta t = \\Delta p'}</BlockMath>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Substitute and solve:</strong>
+                    <div className="mt-2 ml-4">
+                      <div className="text-center">
+                        <BlockMath>{'\\Delta p = F\\Delta t = (17.0\\text{ N})(0.025\\text{ s})'}</BlockMath>
+                      </div>
+                      <div className="text-center">
+                        <BlockMath>{'\\Delta p = 0.43\\text{ N}\\cdot\\text{s} = 0.43\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                </ol>
+                
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <p className="font-semibold text-gray-800">Answer:</p>
+                  <p className="text-lg mt-2">
+                    The change in momentum is <InlineMath>{'0.43\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 1 - Calculating Change in Momentum</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+              <p className="mb-4">
+                An average force of 17.0 N acts on an object for 0.025 s. What is the change in momentum?
+              </p>
+              
+              <div className="bg-white p-4 rounded border border-gray-100">
+                <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                
+                <ol className="list-decimal pl-6 space-y-3">
+                  <li>
+                    <strong>Given:</strong>
+                    <div className="mt-2 ml-4">
+                      <p>Force: <InlineMath>{'F = 17.0\\text{ N}'}</InlineMath></p>
+                      <p>Time: <InlineMath>{'\\Delta t = 0.025\\text{ s}'}</InlineMath></p>
+                      <p>Find: Change in momentum (<InlineMath>{'\\Delta p'}</InlineMath>)</p>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Equation:</strong>
+                    <div className="text-center mt-2">
+                      <BlockMath>{'F\\Delta t = \\Delta p'}</BlockMath>
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <strong>Substitute and solve:</strong>
+                    <div className="mt-2 ml-4">
+                      <div className="text-center">
+                        <BlockMath>{'\\Delta p = F\\Delta t = (17.0\\text{ N})(0.025\\text{ s})'}</BlockMath>
+                      </div>
+                      <div className="text-center">
+                        <BlockMath>{'\\Delta p = 0.43\\text{ N}\\cdot\\text{s} = 0.43\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                      </div>
+                    </div>
+                  </li>
+                </ol>
+                
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <p className="font-semibold text-gray-800">Answer:</p>
+                  <p className="text-lg mt-2">
+                    The change in momentum is <InlineMath>{'0.43\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 2 - Puck Collision Problem" 
+            value="example-2-puck-collision-problem" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2 - Puck Collision Problem</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -561,9 +697,23 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 2 - Puck Collision Problem</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+              <p className="mb-4">
+                A 5.00 kg puck slides to the right at 10.0 m/s on a frictionless surface and collides with a 
+                stationary 8.00 kg puck. The 5.00 kg puck rebounds with a speed of 2.50 m/s.
+              </p>
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
+            </div>
+          </div>
+        )}
 
       <TextSection>
         <SlideshowKnowledgeCheck
@@ -611,17 +761,13 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
         />
       </TextSection>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Analysis of Interactions Involving Impulse" 
+            value="analysis-of-interactions-involving-impulse" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Analysis of Interactions Involving Impulse</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="bg-white p-4 rounded border border-gray-100">
@@ -763,21 +909,26 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
-
-      <TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+      ) : (
         <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3 - Force on a Ball as a Function of Time</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
+          <h3 className="text-xl font-semibold mb-4">Analysis of Interactions Involving Impulse</h3>
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 italic">
+              [Complete analysis and interactive elements available when AI features are enabled]
+            </p>
+          </div>
+        </div>
+      )}
 
-          {isExample4Open && (
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 3 - Force on a Ball as a Function of Time" 
+            value="example-3-force-on-ball-function-of-time" 
+            onAskAI={onAIAccordionContent}
+          >
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -918,9 +1069,18 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
                 </div>
               </div>
             </div>
-          )}
+          </AIAccordion.Item>
+        </AIAccordion>
+      ) : (
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-4">Example 3 - Force on a Ball as a Function of Time</h3>
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 italic">
+              [Complete problem solution and interactive elements available when AI features are enabled]
+            </p>
+          </div>
         </div>
-      </TextSection>
+      )}
 
       <TextSection>
         <SlideshowKnowledgeCheck

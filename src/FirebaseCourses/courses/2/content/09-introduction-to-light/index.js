@@ -11,22 +11,11 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 5 - Introduction to Light
  * Covers the observable properties of light and its sources
  */
-const IntroductionToLight = ({ course, courseId = '2' }) => {
+const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isIntroductionOpen, setIsIntroductionOpen] = useState(false);
-  const [isBasicPropertiesOpen, setIsBasicPropertiesOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isSpeedOfLightOpen, setIsSpeedOfLightOpen] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isMichelsonOpen, setIsMichelsonOpen] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isLightYearOpen, setIsLightYearOpen] = useState(false);
-  const [isExample5Open, setIsExample5Open] = useState(false);
   
   // Animation states
   const [animationTime, setAnimationTime] = useState(0);
@@ -139,19 +128,14 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
       title="Lesson 5 - Introduction to Light"
       metadata={{ estimated_time: '45 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsIntroductionOpen(!isIntroductionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Sources of Light" 
+            value="sources-of-light" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Sources of Light</h3>
-            <span className="text-blue-600">{isIntroductionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isIntroductionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="mb-4">
                   In the beginning of this unit on Light, we will not concern ourselves with what light is
                   (particle, wave or something else), rather we will begin by working with the observable
@@ -454,24 +438,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                       </li>
                     </ol>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Sources of Light</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Basic Properties of Light Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsBasicPropertiesOpen(!isBasicPropertiesOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Basic Properties of Light" 
+            value="basic-properties-of-light" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Basic Properties of Light</h3>
-            <span className="text-blue-600">{isBasicPropertiesOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isBasicPropertiesOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">The basic properties of light are:</p>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">The basic properties of light are:</p>
                 
                 <ol className="list-decimal pl-6 space-y-4">
                   <li>
@@ -489,24 +478,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </li>
                 </ol>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Basic Properties of Light</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 1 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Example 1 - Similar Triangles" 
+            value="example-1-similar-triangles" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1 - Similar Triangles</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   If a metre stick casts a shadow that is 1.5 m long and a tree's shadow at the same time
                   is 18 m long, how tall is the tree?
@@ -641,25 +635,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 1 - Similar Triangles</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 2 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Example 2 - Pinhole Camera" 
+            value="example-2-pinhole-camera" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2 - Pinhole Camera</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A pinhole camera is made from a black box where a small pin-sized hole is made at one
                   end. Light rays from an object or light source travel through the pinhole to form an
@@ -811,9 +809,18 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 2 - Pinhole Camera</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Pinhole Camera Practice Problems */}
         <div className="mb-6">
@@ -852,19 +859,15 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
         </div>
 
         {/* Speed of Light Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsSpeedOfLightOpen(!isSpeedOfLightOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="The Speed of Light" 
+            value="the-speed-of-light" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">The Speed of Light</h3>
-            <span className="text-blue-600">{isSpeedOfLightOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isSpeedOfLightOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4 text-sm text-gray-600">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4 text-sm text-gray-600">
                   <em>Refer to Pearson pages 648 to 652.</em>
                 </p>
 
@@ -1085,24 +1088,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   yielded the result that the speed of light was very fast.
                 </p>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">The Speed of Light</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 3 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Example 3 - Römer's Calculation" 
+            value="example-3-romer-calculation" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 3 - Römer's Calculation</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   In an early measurement Römer measured a 1250 s time difference. If the Earth's
                   mean radius of orbit is <InlineMath>{'1.49 \\times 10^{11}\\text{ m}'}</InlineMath>, what is the speed of light that Römer measured?
@@ -1204,24 +1212,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 3 - Römer's Calculation</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Michelson's Method Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsMichelsonOpen(!isMichelsonOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Michelson's Rotating Mirror Method" 
+            value="michelson-rotating-mirror-method" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Michelson's Rotating Mirror Method</h3>
-            <span className="text-blue-600">{isMichelsonOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isMichelsonOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
                   Since Römer's day a number of techniques have been used to measure the speed of
                   light. Among the most important were those carried out by Albert A. Michelson (1852–
                   1931). Michelson used a rotating mirror apparatus like the one diagrammed below for a
@@ -1274,24 +1287,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </p>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Michelson's Rotating Mirror Method</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 4 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Example 4 - Michelson's Calculation" 
+            value="example-4-michelson-calculation" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 4 - Michelson's Calculation</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   In a Michelson-type experiment, a rotating eight-sided mirror was placed 50.0 km from
                   the reflecting mirror as diagrammed below. The observer found that in order to observe
@@ -1411,9 +1429,18 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 4 - Michelson's Calculation</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Michelson Method Practice Problems */}
         <div className="mb-6">
@@ -1447,19 +1474,15 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
         </div>
 
         {/* Light Year Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsLightYearOpen(!isLightYearOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Light Year – A Distance" 
+            value="light-year-a-distance" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Light Year – A Distance</h3>
-            <span className="text-blue-600">{isLightYearOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isLightYearOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
                   The vast majority of objects that we see in the night sky – stars, galaxies, nebulae – are
                   very far away from us. In fact, for some objects it has taken light billions of years to
                   reach us here on Earth. Therefore we are not seeing objects as they are, rather we are
@@ -1470,24 +1493,29 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   one year.
                 </p>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Light Year – A Distance</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Example 5 Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+        {AIAccordion ? (
+        <AIAccordion theme="purple">
+          <AIAccordion.Item 
+            title="Example 5 - How Many Metres in a Light Year?" 
+            value="example-5-light-year-calculation" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 5 - How Many Metres in a Light Year?</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample5Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   How many metres are in a light year?
                 </p>
@@ -1543,11 +1571,21 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 5 - How Many Metres in a Light Year?</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* SlideshowKnowledgeCheck: Light-Year and Space Communication Practice */}
+        <TextSection>
         <SlideshowKnowledgeCheck
           courseId={effectiveCourseId}
           lessonPath="09-introduction-to-light"

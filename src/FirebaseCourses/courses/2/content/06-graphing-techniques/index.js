@@ -11,17 +11,11 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 4 - Graphing Techniques
  * Covers scientific graphing, linear relationships, and slope calculations
  */
-const GraphingTechniques = ({ course, courseId = '2' }) => {
+const GraphingTechniques = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isIntroductionOpen, setIsIntroductionOpen] = useState(false);
-  const [isSlopeBasicsOpen, setIsSlopeBasicsOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
   
   // Practice problem states
   const [currentProblemSet1, setCurrentProblemSet1] = useState(0);
@@ -104,22 +98,17 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
       title="Lesson 4 - Graphing Techniques"
       metadata={{ estimated_time: '45 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsIntroductionOpen(!isIntroductionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Introduction to Scientific Graphing" 
+            value="introduction-to-scientific-graphing" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Introduction to Scientific Graphing</h3>
-            <span className="text-blue-600">{isIntroductionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isIntroductionOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  When scientists are trying to determine the relationship between variables they often 
-                  turn to graphical analysis. In addition, scientists often use graphs that form a best-fit 
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                When scientists are trying to determine the relationship between variables they often 
+                turn to graphical analysis. In addition, scientists often use graphs that form a best-fit 
                   straight line from which they can calculate a slope from which, in turn, they can 
                   calculate a required value. This lesson is designed for you to learn how to plot graphs 
                   from which we can calculate a desired value.
@@ -169,27 +158,30 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                     This often corresponds to a meaningful physical quantity.
                   </p>
                 </div>
-              </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Introduction to Scientific Graphing</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
+            </div>
+          </div>
+        )}
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsSlopeBasicsOpen(!isSlopeBasicsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Calculating Slopes – The Basics" 
+            value="calculating-slopes-the-basics" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Calculating Slopes – The Basics</h3>
-            <span className="text-blue-600">{isSlopeBasicsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isSlopeBasicsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  Recall from your previous course work that the basic procedure for creating graphs is:
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                Recall from your previous course work that the basic procedure for creating graphs is:
                 </p>
                 
                 <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
@@ -307,27 +299,30 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                     </div>
                   </div>
                 </div>
-              </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Calculating Slopes – The Basics</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete content and interactive elements available when AI features are enabled]
+              </p>
+            </div>
+          </div>
+        )}
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 1 - Finding Mass from Energy-Height Data" 
+            value="example-1-finding-mass-from-energy-height-data" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 1 - Finding Mass from Energy-Height Data</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  Perhaps the best way to see how this works is to carefully read the following example.
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="mb-4">
+                Perhaps the best way to see how this works is to carefully read the following example.
                 </p>
                 
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -515,25 +510,28 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                     </div>
                   </div>
                 </div>
-              </div>
-          )}
-        </div>
-      </TextSection>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 1 - Finding Mass from Energy-Height Data</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
+            </div>
+          </div>
+        )}
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 2 - Finding Mass from Kinetic Energy-Speed Data" 
+            value="example-2-finding-mass-from-kinetic-energy-speed-data" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 2 - Finding Mass from Kinetic Energy-Speed Data</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   The following data relating kinetic energy and speed was obtained for an object. What is the mass of the object?
                 </p>
@@ -809,25 +807,28 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 2 - Finding Mass from Kinetic Energy-Speed Data</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </div>
+        )}
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+      {AIAccordion ? (
+        <AIAccordion theme="blue">
+          <AIAccordion.Item 
+            title="Example 3 - Work Done from Power-Time Data" 
+            value="example-3-work-done-from-power-time-data" 
+            onAskAI={onAIAccordionContent}
           >
-            <h3 className="text-xl font-semibold">Example 3 - Work Done from Power-Time Data</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   The following data relating power and time was obtained for an object. What is the work done on the object?
                 </p>
@@ -1030,10 +1031,18 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
+          </AIAccordion.Item>
+        </AIAccordion>
+        ) : (
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4">Example 3 - Work Done from Power-Time Data</h3>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 italic">
+                [Complete problem solution and interactive elements available when AI features are enabled]
+              </p>
             </div>
-          )}
-        </div>
-      </TextSection>
+          </div>
+        )}
 
       <TextSection>
         <div className="mb-6">
@@ -1041,7 +1050,7 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
             <p className="text-blue-900">
               <strong>Instructions:</strong> For each question below, use the provided data table to sketch the graph on paper. 
-              Determine the line of best fit and calculate the slope. Use the hint buttons if you need help with the formulas.
+              Determine the line of best fit and calculate the slope. 
             </p>
           </div>
           
