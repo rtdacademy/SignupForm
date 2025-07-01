@@ -6,6 +6,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 
 const RefractionOfLight = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   const [tirStep, setTirStep] = useState(1); // 1: small angle, 2: critical angle, 3: total internal reflection
+  const [isExample1Open, setIsExample1Open] = useState(false);
 
   return (
     <LessonContent
