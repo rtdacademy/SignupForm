@@ -1,9 +1,10 @@
 import React from 'react';
-import ExamSession from '../../../../components/ExamSession';
+import AssessmentSession from '../../../../components/AssessmentSession';
 
 const Section1Exam = ({ courseId, studentEmail }) => {
-  const examConfig = {
-    examId: 'section_1_exam_physics_30',
+  const assessmentConfig = {
+    assessmentId: 'exam_section_1_physics_30',
+    activityType: 'exam',
     title: 'Section 1 Exam - Momentum and Light',
     description: 'This comprehensive exam covers momentum conservation, impulse, collisions, and the fundamentals of light including reflection, refraction, and image formation. The exam tests your understanding of the physics concepts from Lessons 1-12.',
     timeLimit: 180, // 3 hours (180 minutes)
@@ -178,10 +179,11 @@ const Section1Exam = ({ courseId, studentEmail }) => {
   };
 
   return (
-    <ExamSession
+    <AssessmentSession
       courseId={courseId}
       studentEmail={studentEmail}
-      examConfig={examConfig}
+      assessmentConfig={assessmentConfig}
+      activityType="exam"
     />
   );
 };

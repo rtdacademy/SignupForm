@@ -7,42 +7,119 @@ import { sanitizeEmail } from '../../utils/sanitizeEmail';
 import { Button } from '../../components/ui/button';
 import { StandardMultipleChoiceQuestion, AIShortAnswerQuestion, AILongAnswerQuestion } from './assessments';
 import StandardLongAnswerQuestion from './assessments/StandardLongAnswerQuestion';
-import { Clock, AlertCircle, CheckCircle, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, FileText, ArrowRight, ArrowLeft, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { ScrollArea } from '../../components/ui/scroll-area';
 
 /**
- * ExamSession Component
+ * AssessmentSession Component
  * 
- * Manages an exam session where students:
- * 1. Pre-generate exam questions by calling cloud functions
- * 2. Start an exam and get a session ID
- * 3. Answer questions with saves but no immediate feedback
- * 4. Navigate between questions
- * 5. Complete the exam to see all results
+ * Manages assessment sessions for different activity types:
+ * - Assignments: Individual question feedback, easy exit, no sessions
+ * - Quizzes: Optional timer, clear exit option
+ * - Exams: Secure mode, session management, delayed feedback
  * 
  * Props:
  * - courseId: Course identifier
- * - studentEmail: Student email address
- * - examConfig: Exam configuration object with questions, timeLimit, etc.
- * - onExamComplete: Callback when exam is completed
- * - onExamExit: Callback when student exits without completing
+ * - studentEmail: Student email address  
+ * - assessmentConfig: Assessment configuration object with questions, timeLimit, etc.
+ * - activityType: 'assignment' | 'quiz' | 'exam' (auto-detected from config if not provided)
+ * - onAssessmentComplete: Callback when assessment is completed
+ * - onAssessmentExit: Callback when student exits without completing
  */
-const ExamSession = ({
+const AssessmentSession = ({
   courseId,
   studentEmail,
-  examConfig,
-  onExamComplete = () => {},
-  onExamExit = () => {},
+  assessmentConfig,
+  activityType = null, // Auto-detect from config if not provided
+  onAssessmentComplete = () => {},
+  onAssessmentExit = () => {},
 }) => {
   const { currentUser } = useAuth();
-  const [examSession, setExamSession] = useState(null);
+
+  // Activity configuration system
+  const getActivityConfig = (type) => {
+    const configs = {
+      assignment: {
+        badge: { text: "ASSIGNMENT MODE", color: "bg-green-100 text-green-800 border-green-300" },
+        theme: {
+          gradient: "from-green-600 to-emerald-600",
+          gradientHover: "from-green-700 to-emerald-700",
+          accent: "green-600",
+          light: "green-100",
+          border: "green-200",
+          ring: "ring-green-200"
+        },
+        title: "Assignment in Progress",
+        allowEasyExit: true,
+        showExitButton: true,
+        useSession: false,
+        allowImmediateFeedback: true,
+        secureModeIntensity: "low" // Still secure but more relaxed
+      },
+      quiz: {
+        badge: { text: "QUIZ MODE", color: "bg-blue-100 text-blue-800 border-blue-300" },
+        theme: {
+          gradient: "from-blue-600 to-cyan-600",
+          gradientHover: "from-blue-700 to-cyan-700", 
+          accent: "blue-600",
+          light: "blue-100",
+          border: "blue-200",
+          ring: "ring-blue-200"
+        },
+        title: "Quiz in Progress",
+        allowEasyExit: true,
+        showExitButton: true,
+        useSession: true, // Optional - can be overridden
+        allowImmediateFeedback: false, // Usually delayed
+        secureModeIntensity: "medium"
+      },
+      exam: {
+        badge: { text: "EXAM MODE", color: "bg-red-100 text-red-800 border-red-300" },
+        theme: {
+          gradient: "from-red-600 to-rose-600",
+          gradientHover: "from-red-700 to-rose-700",
+          accent: "red-600", 
+          light: "red-100",
+          border: "red-200",
+          ring: "ring-red-200"
+        },
+        title: "Exam in Progress",
+        allowEasyExit: false,
+        showExitButton: false,
+        useSession: true,
+        allowImmediateFeedback: false,
+        secureModeIntensity: "high"
+      }
+    };
+    return configs[type] || configs.exam; // Default to exam if unknown
+  };
+
+  // Auto-detect activity type from config if not provided
+  const detectActivityType = () => {
+    if (activityType) return activityType;
+    
+    // Auto-detection logic based on config properties
+    if (assessmentConfig?.activityType) return assessmentConfig.activityType;
+    if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('assignment')) return 'assignment';
+    if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('quiz')) return 'quiz';
+    if (assessmentConfig?.timeLimit && assessmentConfig.timeLimit > 60) return 'exam';
+    if (assessmentConfig?.questions?.length > 20) return 'exam';
+    
+    // Default based on other clues
+    return 'exam'; // Safe default
+  };
+
+  const currentActivityType = detectActivityType();
+  const activityConfig = getActivityConfig(currentActivityType);
+
+  const [assessmentSession, setAssessmentSession] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [savedAnswers, setSavedAnswers] = useState({});
-  const [isStartingExam, setIsStartingExam] = useState(false);
-  const [isSubmittingExam, setIsSubmittingExam] = useState(false);
-  const [examResults, setExamResults] = useState(null);
+  const [isStartingAssessment, setIsStartingAssessment] = useState(false);
+  const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
+  const [assessmentResults, setAssessmentResults] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
@@ -77,28 +154,28 @@ const ExamSession = ({
 
   // Update URL parameters based on exam state
   useEffect(() => {
-    if (examResults) {
+    if (assessmentResults) {
       // Exam completed state
-      updateExamURLParams('completed', examSession?.sessionId);
-    } else if (examSession && examSession.status === 'in_progress') {
+      updateExamURLParams('completed', assessmentSession?.sessionId);
+    } else if (assessmentSession && assessmentSession.status === 'in_progress') {
       // Exam in progress state
-      updateExamURLParams('in-progress', examSession.sessionId);
+      updateExamURLParams('in-progress', assessmentSession.sessionId);
     } else {
       // Pre-exam state
       updateExamURLParams('pre-exam');
     }
-  }, [examSession, examResults, updateExamURLParams]);
+  }, [assessmentSession, assessmentResults, updateExamURLParams]);
 
-  // Detect existing exam sessions when component mounts
+  // Detect existing assessment sessions when component mounts
   useEffect(() => {
-    if (currentUser?.email && examConfig?.examId) {
+    if (currentUser?.email && assessmentConfig?.assessmentId && activityConfig.useSession) {
       detectExamSessions();
     }
-  }, [currentUser?.email, examConfig?.examId]);
+  }, [currentUser?.email, assessmentConfig?.assessmentId, activityConfig.useSession]);
 
-  // Detect existing exam sessions
+  // Detect existing assessment sessions
   const detectExamSessions = async () => {
-    if (!currentUser?.email || !examConfig?.examId) return;
+    if (!currentUser?.email || !assessmentConfig?.assessmentId) return;
     
     setIsDetectingSessions(true);
     try {
@@ -106,7 +183,7 @@ const ExamSession = ({
       
       const result = await detectSessionFunction({
         courseId: courseId,
-        examItemId: examConfig.examId,
+        assessmentItemId: assessmentConfig.assessmentId,
         studentEmail: currentUser.email
       });
       
@@ -116,7 +193,7 @@ const ExamSession = ({
       // If there's an active session, automatically resume it
       if (detection.activeSession) {
         console.log('🔄 Resuming active exam session:', detection.activeSession.sessionId);
-        setExamSession(detection.activeSession);
+        setAssessmentSession(detection.activeSession);
         setSavedAnswers(detection.activeSession.responses || {});
         
         // Set generated questions from the session
@@ -146,18 +223,18 @@ const ExamSession = ({
 
   // Calculate time remaining if time limit is set
   useEffect(() => {
-    if (examSession && examConfig?.timeLimit && examSession.startTime) {
+    if (assessmentSession && assessmentConfig?.timeLimit && assessmentSession.startTime) {
       const updateTimeRemaining = () => {
         const now = Date.now();
-        const startTime = new Date(examSession.startTime).getTime();
-        const endTime = startTime + (examConfig.timeLimit * 60 * 1000);
+        const startTime = new Date(assessmentSession.startTime).getTime();
+        const endTime = startTime + (assessmentConfig.timeLimit * 60 * 1000);
         const remaining = Math.max(0, endTime - now);
         
         setTimeRemaining(remaining);
         
         // Auto-submit if time is up
-        if (remaining === 0 && examSession.status === 'in_progress') {
-          handleSubmitExam(true); // true = auto-submit
+        if (remaining === 0 && assessmentSession.status === 'in_progress') {
+          handleSubmitAssessment(true); // true = auto-submit
         }
       };
 
@@ -170,24 +247,24 @@ const ExamSession = ({
         }
       };
     }
-  }, [examSession, examConfig?.timeLimit]);
+  }, [assessmentSession, assessmentConfig?.timeLimit]);
 
   // Listen for exam session updates
   useEffect(() => {
-    if (examSession?.sessionId && currentUser?.email) {
+    if (assessmentSession?.sessionId && currentUser?.email) {
       const studentKey = sanitizeEmail(currentUser.email);
-      const sessionPath = `students/${studentKey}/courses/${courseId}/ExamSessions/${examSession.sessionId}`;
+      const sessionPath = `students/${studentKey}/courses/${courseId}/ExamSessions/${assessmentSession.sessionId}`;
       const sessionRef = ref(db, sessionPath);
       
       const handleSessionUpdate = (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setExamSession(prev => ({...prev, ...data}));
+          setAssessmentSession(prev => ({...prev, ...data}));
           setSavedAnswers(data.responses || {});
           
           // If exam was completed, load results
           if (data.status === 'completed' && data.finalResults) {
-            setExamResults(data.finalResults);
+            setAssessmentResults(data.finalResults);
             // Update URL to show exam completed
             updateExamURLParams('completed', data.sessionId);
           }
@@ -202,7 +279,7 @@ const ExamSession = ({
         }
       };
     }
-  }, [examSession?.sessionId, currentUser, courseId, db]);
+  }, [assessmentSession?.sessionId, currentUser, courseId, db]);
 
   // Clean up URL parameters when component unmounts
   useEffect(() => {
@@ -215,18 +292,18 @@ const ExamSession = ({
     };
   }, []);
 
-  // Pre-generate exam questions by calling cloud functions
-  const generateExamQuestions = async () => {
-    if (!currentUser?.email || !examConfig?.questions?.length) return [];
+  // Pre-generate assessment questions by calling cloud functions
+  const generateAssessmentQuestions = async () => {
+    if (!currentUser?.email || !assessmentConfig?.questions?.length) return [];
     
     setIsGeneratingQuestions(true);
     
     try {
-      console.log('🎯 Pre-generating exam questions...');
+      console.log('🎯 Pre-generating assessment questions...');
       
       // Create all promises for parallel execution
-      const questionPromises = examConfig.questions.map(async (questionConfig) => {
-        const questionFunction = httpsCallable(functions, questionConfig.questionId);
+      const questionPromises = assessmentConfig.questions.map(async (questionConfig) => {
+        const questionFunction = httpsCallable(functions, 'course2_assessments');
         
         try {
           const result = await questionFunction({
@@ -234,6 +311,7 @@ const ExamSession = ({
             courseId: courseId,
             assessmentId: questionConfig.questionId,
             studentEmail: currentUser.email,
+            userId: currentUser.uid,
             topic: 'exam',
             difficulty: 'intermediate'
           });
@@ -258,43 +336,43 @@ const ExamSession = ({
       const generatedQuestions = await Promise.all(questionPromises);
       
       setGeneratedQuestions(generatedQuestions);
-      console.log(`🎯 Successfully generated ${generatedQuestions.length} exam questions`);
+      console.log(`🎯 Successfully generated ${generatedQuestions.length} assessment questions`);
       return generatedQuestions;
       
     } catch (error) {
-      console.error('❌ Error generating exam questions:', error);
-      alert('Failed to generate exam questions: ' + error.message);
+      console.error('❌ Error generating assessment questions:', error);
+      alert('Failed to generate assessment questions: ' + error.message);
       return [];
     } finally {
       setIsGeneratingQuestions(false);
     }
   };
 
-  // Start exam session
-  const handleStartExam = async () => {
+  // Start assessment session
+  const handleStartAssessment = async () => {
     if (!currentUser?.email) return;
     
-    setIsStartingExam(true);
+    setIsStartingAssessment(true);
     try {
       // First, generate all the questions
-      const questions = await generateExamQuestions();
+      const questions = await generateAssessmentQuestions();
       if (questions.length === 0) {
-        throw new Error('No questions were generated for the exam');
+        throw new Error('No questions were generated for the assessment');
       }
       
       const startExamFunction = httpsCallable(functions, 'startExamSession');
       
       const result = await startExamFunction({
         courseId: courseId,
-        examItemId: examConfig.examId,
+        assessmentItemId: assessmentConfig.assessmentId,
         questions: questions,
-        timeLimit: examConfig.timeLimit,
+        timeLimit: assessmentConfig.timeLimit,
         studentEmail: currentUser.email,
         userId: currentUser.uid
       });
       
       console.log('Exam session started:', result.data);
-      setExamSession(result.data.session);
+      setAssessmentSession(result.data.session);
       
       // Update URL to show exam in progress
       updateExamURLParams('in-progress', result.data.session.sessionId);
@@ -305,7 +383,7 @@ const ExamSession = ({
       // Keep URL in pre-exam state on error
       updateExamURLParams('pre-exam');
     } finally {
-      setIsStartingExam(false);
+      setIsStartingAssessment(false);
     }
   };
 
@@ -327,8 +405,8 @@ const ExamSession = ({
   };
 
   // Submit exam for grading
-  const handleSubmitExam = async (autoSubmit = false) => {
-    if (!examSession) return;
+  const handleSubmitAssessment = async (autoSubmit = false) => {
+    if (!assessmentSession) return;
     
     // Check if all questions are answered (unless auto-submit)
     if (!autoSubmit) {
@@ -341,7 +419,7 @@ const ExamSession = ({
       }
     }
     
-    setIsSubmittingExam(true);
+    setIsSubmittingAssessment(true);
     try {
       console.log('🎯 Starting parallel exam submission...');
       
@@ -354,7 +432,7 @@ const ExamSession = ({
         }
         
         try {
-          const questionFunction = httpsCallable(functions, question.questionId);
+          const questionFunction = httpsCallable(functions, 'course2_assessments');
           const result = await questionFunction({
             courseId: courseId,
             assessmentId: question.questionId,
@@ -385,7 +463,7 @@ const ExamSession = ({
         new Promise(resolve => setTimeout(resolve, 1000)).then(() => 
           submitExamFunction({
             courseId: courseId,
-            sessionId: examSession.sessionId,
+            sessionId: assessmentSession.sessionId,
             responses: savedAnswers,
             studentEmail: currentUser.email,
             autoSubmit: autoSubmit
@@ -396,30 +474,36 @@ const ExamSession = ({
       console.log('📊 Question evaluation results:', questionResults);
       console.log('🎯 Exam session completed:', examResult.data);
       
-      setExamResults(examResult.data.results);
+      setAssessmentResults(examResult.data.results);
       
       // Update URL to show exam completed
-      updateExamURLParams('completed', examSession.sessionId);
+      updateExamURLParams('completed', assessmentSession.sessionId);
       
-      onExamComplete(examResult.data);
+      onAssessmentComplete(examResult.data);
       
     } catch (error) {
       console.error('Error submitting exam:', error);
       alert('Failed to submit exam: ' + error.message);
       // Keep URL in in-progress state on error
-      updateExamURLParams('in-progress', examSession?.sessionId);
+      updateExamURLParams('in-progress', assessmentSession?.sessionId);
     } finally {
-      setIsSubmittingExam(false);
+      setIsSubmittingAssessment(false);
     }
   };
 
-  // Handle exit exam (with warning)
-  const handleExitExam = () => {
-    setShowExitWarning(true);
+  // Handle exit assessment (activity-specific behavior)
+  const handleExitAssessment = () => {
+    // For activities that allow easy exit (like assignments), exit directly
+    if (activityConfig.allowEasyExit) {
+      confirmExitAssessment();
+    } else {
+      // For other activities (like exams), show confirmation modal
+      setShowExitWarning(true);
+    }
   };
 
-  const confirmExitExam = async () => {
-    if (!examSession) return;
+  const confirmExitAssessment = async () => {
+    if (!assessmentSession) return;
     
     setShowExitWarning(false);
     
@@ -428,7 +512,7 @@ const ExamSession = ({
       
       const result = await exitExamFunction({
         courseId: courseId,
-        sessionId: examSession.sessionId,
+        sessionId: assessmentSession.sessionId,
         studentEmail: currentUser.email
       });
       
@@ -437,13 +521,13 @@ const ExamSession = ({
       // Update URL back to pre-exam state
       updateExamURLParams('pre-exam');
       
-      onExamExit();
+      onAssessmentExit();
       
     } catch (error) {
       console.error('Error exiting exam:', error);
-      // Still call onExamExit even if the cloud function fails
+      // Still call onAssessmentExit even if the cloud function fails
       updateExamURLParams('pre-exam');
-      onExamExit();
+      onAssessmentExit();
     }
   };
 
@@ -469,7 +553,7 @@ const ExamSession = ({
   const answeredCount = Object.keys(savedAnswers).length;
 
   // If exam hasn't started, show start screen
-  if (!examSession) {
+  if (!assessmentSession) {
     // Show loading while detecting sessions
     if (isDetectingSessions) {
       return (
@@ -519,7 +603,7 @@ const ExamSession = ({
               )}
               
               <Button
-                onClick={() => onExamExit()}
+                onClick={() => onAssessmentExit()}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Return to Course
@@ -539,10 +623,10 @@ const ExamSession = ({
             <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Ready to Start Your Exam?</h1>
             <p className="text-gray-600">
-              This exam contains {examConfig?.questions?.length || 0} questions.
-              {examConfig?.timeLimit && (
+              This exam contains {assessmentConfig?.questions?.length || 0} questions.
+              {assessmentConfig?.timeLimit && (
                 <span className="block mt-2 text-gray-700 font-medium">
-                  Time Limit: {examConfig.timeLimit} minutes
+                  Time Limit: {assessmentConfig.timeLimit} minutes
                 </span>
               )}
             </p>
@@ -588,20 +672,20 @@ const ExamSession = ({
               <li>• You can navigate between questions and change your answers</li>
               <li>• Your answers are saved automatically</li>
               <li>• You will see your results only after submitting the entire exam</li>
-              {examConfig?.timeLimit && <li>• The exam will auto-submit when time expires</li>}
+              {assessmentConfig?.timeLimit && <li>• The exam will auto-submit when time expires</li>}
               <li>• Make sure you have a stable internet connection</li>
               <li>• Do not refresh the page or navigate away during the exam</li>
             </ul>
           </div>
           
           <Button
-            onClick={handleStartExam}
-            disabled={isStartingExam || isGeneratingQuestions}
+            onClick={handleStartAssessment}
+            disabled={isStartingAssessment || isGeneratingQuestions}
             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
           >
-            {isStartingExam 
-              ? (isGeneratingQuestions ? 'Preparing Questions...' : 'Starting Exam...') 
-              : sessionDetection?.attemptsSummary?.attemptsUsed > 0 ? 'Start New Attempt' : 'Start Exam'}
+            {isStartingAssessment 
+              ? (isGeneratingQuestions ? 'Preparing Questions...' : 'Starting Assessment...') 
+              : sessionDetection?.attemptsSummary?.attemptsUsed > 0 ? 'Start New Attempt' : 'Start Assessment'}
           </Button>
         </div>
         </div>
@@ -610,7 +694,7 @@ const ExamSession = ({
   }
 
   // If exam is completed, show results
-  if (examResults) {
+  if (assessmentResults) {
     return (
       <div className="py-8">
         <div className="max-w-4xl mx-auto p-6">
@@ -623,16 +707,16 @@ const ExamSession = ({
           
           <div className="grid md:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-blue-700">{examResults.score}</div>
+              <div className="text-2xl font-bold text-blue-700">{assessmentResults.score}</div>
               <div className="text-sm text-blue-600">Score</div>
             </div>
             <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-emerald-700">{examResults.percentage}%</div>
+              <div className="text-2xl font-bold text-emerald-700">{assessmentResults.percentage}%</div>
               <div className="text-sm text-emerald-600">Percentage</div>
             </div>
             <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-slate-700">
-                {examResults.correctAnswers}/{examResults.totalQuestions}
+                {assessmentResults.correctAnswers}/{assessmentResults.totalQuestions}
               </div>
               <div className="text-sm text-slate-600">Correct</div>
             </div>
@@ -641,7 +725,7 @@ const ExamSession = ({
           {/* Question-by-question results */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold mb-4">Question Details:</h3>
-            {examResults.questionResults?.map((result, index) => (
+            {assessmentResults.questionResults?.map((result, index) => (
               <div key={result.questionId} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">Question {index + 1}</span>
@@ -669,7 +753,7 @@ const ExamSession = ({
           
           <div className="text-center mt-8">
             <Button
-              onClick={() => onExamComplete(examResults)}
+              onClick={() => onAssessmentComplete(assessmentResults)}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Continue to Course
@@ -684,7 +768,7 @@ const ExamSession = ({
   // Main exam interface
   return (
     <>
-    <Sheet open={examSession && examSession.status === 'in_progress' && !examResults} onOpenChange={() => {}}>
+    <Sheet open={assessmentSession && assessmentSession.status === 'in_progress' && !assessmentResults} onOpenChange={() => {}}>
       <SheetContent 
         className="w-full max-w-none p-0 [&>button]:hidden" 
         side="bottom"
@@ -699,13 +783,13 @@ const ExamSession = ({
               <FileText className="h-6 w-6 text-gray-600" />
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-gray-900">Exam in Progress</h1>
-                  <span className="text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 font-medium">
-                    SECURE MODE
+                  <h1 className="text-lg font-bold text-gray-900">{activityConfig.title}</h1>
+                  <span className={`text-xs py-1 px-2 rounded font-medium border ${activityConfig.badge.color}`}>
+                    {activityConfig.badge.text}
                   </span>
-                  {examSession?.attemptNumber && (
+                  {assessmentSession?.attemptNumber && (
                     <span className="text-xs py-1 px-2 rounded bg-gray-100 text-gray-700 font-medium">
-                      Attempt {examSession.attemptNumber}/{examSession.maxAttempts}
+                      Attempt {assessmentSession.attemptNumber}/{assessmentSession.maxAttempts}
                     </span>
                   )}
                 </div>
@@ -746,6 +830,17 @@ const ExamSession = ({
                 <span className="text-sm">Show Timer</span>
               </button>
             )}
+            
+            {/* Activity-specific exit button for assignments and quizzes */}
+            {activityConfig.showExitButton && (
+              <button
+                onClick={handleExitAssessment}
+                className={`flex items-center justify-center w-8 h-8 rounded-md border-2 hover:bg-gray-100 transition-colors ${activityConfig.theme.border} text-${activityConfig.theme.accent}`}
+                title={`Exit ${currentActivityType}`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
           </div>
         </CardContent>
@@ -783,12 +878,12 @@ const ExamSession = ({
               
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Button
-                  onClick={() => handleSubmitExam(false)}
-                  disabled={isSubmittingExam}
+                  onClick={() => handleSubmitAssessment(false)}
+                  disabled={isSubmittingAssessment}
                   size="sm"
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2"
                 >
-                  {isSubmittingExam ? 'Submitting...' : 'Finish Exam'}
+                  {isSubmittingAssessment ? 'Submitting...' : 'Finish Assessment'}
                 </Button>
                 <div className="text-xs text-gray-500 mt-2 text-center">
                   {answeredCount} of {generatedQuestions.length}
@@ -819,10 +914,11 @@ const ExamSession = ({
                   {(currentQuestion.type === 'standard-multiple-choice' || currentQuestion.type === 'multiple-choice') && (
                     <StandardMultipleChoiceQuestion
                       courseId={courseId}
-                      cloudFunctionName={currentQuestion.questionId}
+                      cloudFunctionName="course2_assessments"
+                      assessmentId={currentQuestion.questionId}
                       examMode={true}
-                      examSessionId={examSession.sessionId}
-                      onExamAnswerSave={handleAnswerSave}
+                      examSessionId={assessmentSession.sessionId}
+                      onAssessmentAnswerSave={handleAnswerSave}
                       theme="slate"
                       hasExistingAnswer={!!savedAnswers[currentQuestion.questionId]}
                       currentSavedAnswer={savedAnswers[currentQuestion.questionId]}
@@ -831,10 +927,11 @@ const ExamSession = ({
                   {currentQuestion.type === 'ai-short-answer' && (
                     <AIShortAnswerQuestion
                       courseId={courseId}
-                      cloudFunctionName={currentQuestion.questionId}
+                      cloudFunctionName="course2_assessments"
+                      assessmentId={currentQuestion.questionId}
                       examMode={true}
-                      examSessionId={examSession.sessionId}
-                      onExamAnswerSave={handleAnswerSave}
+                      examSessionId={assessmentSession.sessionId}
+                      onAssessmentAnswerSave={handleAnswerSave}
                       theme="slate"
                       hasExistingAnswer={!!savedAnswers[currentQuestion.questionId]}
                       currentSavedAnswer={savedAnswers[currentQuestion.questionId]}
@@ -843,10 +940,11 @@ const ExamSession = ({
                   {currentQuestion.type === 'ai-long-answer' && (
                     <AILongAnswerQuestion
                       courseId={courseId}
-                      cloudFunctionName={currentQuestion.questionId}
+                      cloudFunctionName="course2_assessments"
+                      assessmentId={currentQuestion.questionId}
                       examMode={true}
-                      examSessionId={examSession.sessionId}
-                      onExamAnswerSave={handleAnswerSave}
+                      examSessionId={assessmentSession.sessionId}
+                      onAssessmentAnswerSave={handleAnswerSave}
                       theme="slate"
                       hasExistingAnswer={!!savedAnswers[currentQuestion.questionId]}
                       currentSavedAnswer={savedAnswers[currentQuestion.questionId]}
@@ -855,10 +953,11 @@ const ExamSession = ({
                   {currentQuestion.type === 'standard-long-answer' && (
                     <StandardLongAnswerQuestion
                       courseId={courseId}
-                      cloudFunctionName={currentQuestion.questionId}
+                      cloudFunctionName="course2_assessments"
+                      assessmentId={currentQuestion.questionId}
                       examMode={true}
-                      examSessionId={examSession.sessionId}
-                      onExamAnswerSave={handleAnswerSave}
+                      examSessionId={assessmentSession.sessionId}
+                      onAssessmentAnswerSave={handleAnswerSave}
                       theme="slate"
                     />
                   )}
@@ -914,16 +1013,25 @@ const ExamSession = ({
         </div>
       </div>
 
-      {/* Exit Warning Modal */}
+      {/* Activity-specific Exit Warning Modal */}
       {showExitWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-4">
             <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="h-6 w-6 text-gray-600" />
-              <h3 className="text-lg font-semibold">Exit Exam?</h3>
+              <AlertCircle className={`h-6 w-6 ${
+                currentActivityType === 'assignment' ? 'text-green-600' :
+                currentActivityType === 'quiz' ? 'text-blue-600' : 'text-red-600'
+              }`} />
+              <h3 className="text-lg font-semibold">Exit {currentActivityType === 'assignment' ? 'Assignment' : currentActivityType === 'quiz' ? 'Quiz' : 'Exam'}?</h3>
             </div>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to exit the exam? Your answers will be lost and you may not be able to restart.
+              {currentActivityType === 'assignment' ? (
+                'Are you sure you want to exit this assignment? Your progress will be saved and you can return later to continue.'
+              ) : currentActivityType === 'quiz' ? (
+                'Are you sure you want to exit this quiz? Your current answers will be saved, but you may not be able to restart.'
+              ) : (
+                'Are you sure you want to exit the exam? Your answers will be lost and you may not be able to restart.'
+              )}
             </p>
             <div className="flex gap-3 justify-end">
               <Button
@@ -933,10 +1041,15 @@ const ExamSession = ({
                 Cancel
               </Button>
               <Button
-                onClick={confirmExitExam}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={confirmExitAssessment}
+                className={
+                  currentActivityType === 'assignment' ? 'bg-green-600 hover:bg-green-700 text-white' :
+                  currentActivityType === 'quiz' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
+                  'bg-red-600 hover:bg-red-700 text-white'
+                }
               >
-                Exit Exam
+                {currentActivityType === 'assignment' ? 'Save & Exit' : 
+                 currentActivityType === 'quiz' ? 'Exit Quiz' : 'Exit Exam'}
               </Button>
             </div>
           </div>
@@ -950,4 +1063,4 @@ const ExamSession = ({
   );
 };
 
-export default ExamSession;
+export default AssessmentSession;

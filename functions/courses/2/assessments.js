@@ -31,6 +31,7 @@ const { assessmentConfigs: physicsReviewConfigs } = require('../2a/01-physics-20
 const { assessmentConfigs: momentum1DConfigs } = require('../2a/02-momentum-one-dimension/assessments');
 const { assessmentConfigs: momentum2DConfigs } = require('../2a/03-momentum-two-dimensions/assessments');
 const { assessmentConfigs: impulseConfigs } = require('../2a/04-impulse-momentum-change/assessments');
+const { assessmentConfigs: l13AssignmentConfigs } = require('../2a/05-l1-3-assignment/assessments');
 
 /**
  * Assessment Configuration Mapping
@@ -42,7 +43,8 @@ const getAllAssessmentConfigs = () => {
     ...physicsReviewConfigs,
     ...momentum1DConfigs,
     ...momentum2DConfigs,
-    ...impulseConfigs
+    ...impulseConfigs,
+    ...l13AssignmentConfigs
   };
 };
 

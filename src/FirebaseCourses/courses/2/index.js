@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import remarkEmoji from 'remark-emoji';
+import remarkDeflist from 'remark-deflist';
+import rehypeSanitize from 'rehype-sanitize';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 // Course structure now loaded from database via gradebook
 
 // Type-specific styling

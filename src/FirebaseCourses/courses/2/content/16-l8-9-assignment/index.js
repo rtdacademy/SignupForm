@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import ExamSession from '../../../../components/ExamSession.js';
+import AssessmentSession from '../../../../components/AssessmentSession.js';
 
 const L89Assignment = () => {
   const [showExam, setShowExam] = useState(false);
 
-  const examConfig = {
-    examId: 'l8-9-assignment',
+  const assessmentConfig = {
+    assessmentId: 'assignment_l8_9',
+    activityType: 'assignment',
+    title: 'L8-9 Assignment - Refraction and Lenses',
+    description: 'Assessment covering Snell\'s law, critical angles, total internal reflection, and lens equations from Lessons 8-9.',
     timeLimit: 60, // 60 minutes
     questions: [
       {
@@ -51,22 +54,23 @@ const L89Assignment = () => {
     ]
   };
 
-  const handleExamComplete = (results) => {
-    console.log('Exam completed:', results);
+  const handleAssessmentComplete = (results) => {
+    console.log('Assessment completed:', results);
     setShowExam(false);
   };
 
-  const handleExamExit = () => {
+  const handleAssessmentExit = () => {
     setShowExam(false);
   };
 
   if (showExam) {
     return (
-      <ExamSession
+      <AssessmentSession
         courseId="2"
-        examConfig={examConfig}
-        onExamComplete={handleExamComplete}
-        onExamExit={handleExamExit}
+        assessmentConfig={assessmentConfig}
+        activityType="assignment"
+        onAssessmentComplete={handleAssessmentComplete}
+        onAssessmentExit={handleAssessmentExit}
       />
     );
   }

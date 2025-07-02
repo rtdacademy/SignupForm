@@ -30,11 +30,15 @@ exports.startExamSession = onCall({
     const {
       courseId,
       examItemId,
+      assessmentItemId, // New parameter name
       questions = [],
       timeLimit = null,
       studentEmail: dataStudentEmail,
       userId: dataUserId
     } = actualData;
+    
+    // Support both old and new parameter names for backwards compatibility
+    const itemId = assessmentItemId || examItemId;
 
     // Get authentication info
     const studentEmail = dataStudentEmail || context.auth?.token?.email;
@@ -48,12 +52,12 @@ exports.startExamSession = onCall({
     const studentKey = sanitizeEmail(studentEmail);
     const isStaff = studentEmail.includes('@rtdacademy.com');
 
-    if (!courseId || !examItemId || !questions.length) {
-      throw new Error('Missing required parameters: courseId, examItemId, or questions');
+    if (!courseId || !itemId || !questions.length) {
+      throw new Error('Missing required parameters: courseId, assessmentItemId/examItemId, or questions');
     }
 
     // Generate unique session ID
-    const sessionId = `exam_${examItemId}_${studentKey}_${Date.now()}`;
+    const sessionId = `exam_${itemId}_${studentKey}_${Date.now()}`;
     
     // Get course config to validate exam settings
     const courseConfig = await getCourseConfig(courseId);
@@ -87,7 +91,7 @@ exports.startExamSession = onCall({
     }
     
     const attemptNumber = attemptsUsed + 1;
-    console.log(`🎯 Starting attempt ${attemptNumber}/${maxAttempts} for exam ${examItemId}`);
+    console.log(`🎯 Starting attempt ${attemptNumber}/${maxAttempts} for exam ${itemId}`);
     
     // Ensure questions is an array of objects with at least questionId
     const normalizedQuestions = questions.map(q => {
@@ -100,7 +104,7 @@ exports.startExamSession = onCall({
     // Create exam session
     const sessionData = {
       sessionId: sessionId,
-      examItemId: examItemId,
+      examItemId: itemId,
       courseId: courseId,
       studentEmail: studentEmail,
       status: 'in_progress',
@@ -553,8 +557,12 @@ exports.detectActiveExamSession = onCall({
     const {
       courseId,
       examItemId,
+      assessmentItemId, // New parameter name
       studentEmail: dataStudentEmail
     } = actualData;
+    
+    // Support both old and new parameter names for backwards compatibility
+    const itemId = assessmentItemId || examItemId;
 
     // Get authentication info
     const studentEmail = dataStudentEmail || context.auth?.token?.email;
@@ -567,11 +575,11 @@ exports.detectActiveExamSession = onCall({
     const studentKey = sanitizeEmail(studentEmail);
     const isStaff = studentEmail.includes('@rtdacademy.com');
 
-    if (!courseId || !examItemId) {
-      throw new Error('Missing required parameters: courseId or examItemId');
+    if (!courseId || !itemId) {
+      throw new Error('Missing required parameters: courseId or assessmentItemId/examItemId');
     }
 
-    console.log(`🔍 Detecting exam sessions for ${examItemId} in course ${courseId}`);
+    console.log(`🔍 Detecting exam sessions for ${itemId} in course ${courseId}`);
     
     const basePath = isStaff ? 'staff_testing' : 'students';
     const sessionsPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions`;
@@ -582,7 +590,7 @@ exports.detectActiveExamSession = onCall({
     
     // Filter sessions for this specific exam
     const examSessions = Object.values(allSessions).filter(session => 
-      session.examItemId === examItemId
+      session.examItemId === itemId
     );
     
     // Sort by creation time (newest first)

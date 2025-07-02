@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import ExamSession from '../../../../components/ExamSession.js';
+import AssessmentSession from '../../../../components/AssessmentSession.js';
 
 const L112CumulativeAssignment = () => {
   const [showExam, setShowExam] = useState(false);
 
-  const examConfig = {
-    examId: 'l1-12-cumulative-assignment',
+  const assessmentConfig = {
+    assessmentId: 'assignment_l1_12_cumulative',
+    activityType: 'assignment',
+    title: 'L1-12 Cumulative Assignment',
+    description: 'Comprehensive assessment covering key concepts from Lessons 1-12, including momentum, optics, interference, and diffraction gratings.',
     timeLimit: 90, // 90 minutes
     questions: [
       {
@@ -61,22 +64,23 @@ const L112CumulativeAssignment = () => {
     ]
   };
 
-  const handleExamComplete = (results) => {
-    console.log('Exam completed:', results);
+  const handleAssessmentComplete = (results) => {
+    console.log('Assessment completed:', results);
     setShowExam(false);
   };
 
-  const handleExamExit = () => {
+  const handleAssessmentExit = () => {
     setShowExam(false);
   };
 
   if (showExam) {
     return (
-      <ExamSession
+      <AssessmentSession
         courseId="2"
-        examConfig={examConfig}
-        onExamComplete={handleExamComplete}
-        onExamExit={handleExamExit}
+        assessmentConfig={assessmentConfig}
+        activityType="assignment"
+        onAssessmentComplete={handleAssessmentComplete}
+        onAssessmentExit={handleAssessmentExit}
       />
     );
   }

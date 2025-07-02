@@ -1,9 +1,10 @@
 import React from 'react';
-import ExamSession from '../../../../components/ExamSession';
+import AssessmentSession from '../../../../components/AssessmentSession';
 
 const L14CumulativeAssignment = ({ courseId, studentEmail }) => {
-  const examConfig = {
-    examId: 'exam_l1_4_cumulative',
+  const assessmentConfig = {
+    assessmentId: 'assignment_l1_4_cumulative',
+    activityType: 'assignment',
     title: 'L1-4 Cumulative Assignment - Momentum and Impulse',
     description: 'Comprehensive assessment covering all concepts from Lessons 1-4: momentum conservation, collisions, impulse, and problem-solving applications.',
     timeLimit: 60, // 60 minutes for cumulative assignment
@@ -70,21 +71,22 @@ const L14CumulativeAssignment = ({ courseId, studentEmail }) => {
       }
     ],
     instructions: [
-      'This is a timed cumulative assignment with a 60-minute limit.',
+      'This cumulative assignment has a 60-minute time limit, but you can exit and return as needed.',
       'Questions cover all topics from Lessons 1-4.',
       'Use appropriate physics formulas and show clear reasoning.',
       'Pay careful attention to units and vector directions.',
-      'All questions must be answered before submitting.',
-      'You have only ONE attempt - make sure you are ready before starting.'
+      'Your progress will be saved automatically as you work.',
+      'You can review and change your answers before final submission.'
     ],
     passingGrade: 70
   };
 
   return (
-    <ExamSession
+    <AssessmentSession
       courseId={courseId}
       studentEmail={studentEmail}
-      examConfig={examConfig}
+      assessmentConfig={assessmentConfig}
+      activityType="assignment"
     />
   );
 };

@@ -1,9 +1,10 @@
 import React from 'react';
-import ExamSession from '../../../../components/ExamSession';
+import AssessmentSession from '../../../../components/AssessmentSession';
 
 const FinalComprehensiveExam = ({ courseId, studentEmail }) => {
-  const examConfig = {
-    examId: 'exam_final_comprehensive',
+  const assessmentConfig = {
+    assessmentId: 'exam_final_comprehensive',
+    activityType: 'exam',
     title: 'Final Comprehensive Exam',
     description: 'This comprehensive final exam covers all course material including policies, procedures, academic integrity, technology use, digital citizenship, and student support services.',
     timeLimit: 90, // 90 minutes
@@ -46,10 +47,11 @@ const FinalComprehensiveExam = ({ courseId, studentEmail }) => {
   };
 
   return (
-    <ExamSession
+    <AssessmentSession
       courseId={courseId}
       studentEmail={studentEmail}
-      examConfig={examConfig}
+      assessmentConfig={assessmentConfig}
+      activityType="exam"
     />
   );
 };

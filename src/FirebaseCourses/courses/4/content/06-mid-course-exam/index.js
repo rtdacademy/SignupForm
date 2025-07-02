@@ -1,9 +1,10 @@
 import React from 'react';
-import ExamSession from '../../../../components/ExamSession';
+import AssessmentSession from '../../../../components/AssessmentSession';
 
 const MidCourseExam = ({ courseId, studentEmail }) => {
-  const examConfig = {
-    examId: 'exam_mid_course_test',
+  const assessmentConfig = {
+    assessmentId: 'exam_mid_course_test',
+    activityType: 'exam',
     title: 'Mid-Course Exam - Policies and Procedures',
     description: 'This exam tests your understanding of RTD Academy policies, time management requirements, and communication standards covered in the first half of the course.',
     timeLimit: 60, // 60 minutes
@@ -38,10 +39,11 @@ const MidCourseExam = ({ courseId, studentEmail }) => {
   };
 
   return (
-    <ExamSession
+    <AssessmentSession
       courseId={courseId}
       studentEmail={studentEmail}
-      examConfig={examConfig}
+      assessmentConfig={assessmentConfig}
+      activityType="exam"
     />
   );
 };

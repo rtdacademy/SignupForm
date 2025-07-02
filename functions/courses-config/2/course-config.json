@@ -35,6 +35,78 @@
       "exam_section_3": {
         "minimumPercentage": 1,
         "requireAllQuestions": false
+      },
+      "assignment_l1_3": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_4": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l5_7": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l8_9": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_12": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l13_14": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l15_18": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_18": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l19_21": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l22_24": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_24": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l25_27": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l28_30": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l31_33": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_34": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l35_36": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l37_38": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
+      },
+      "assignment_l1_38": {
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
       }
     }
   },

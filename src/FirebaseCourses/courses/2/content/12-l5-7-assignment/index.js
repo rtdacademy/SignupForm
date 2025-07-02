@@ -1,9 +1,10 @@
 import React from 'react';
-import ExamSession from '../../../../components/ExamSession';
+import AssessmentSession from '../../../../components/AssessmentSession';
 
 const L57Assignment = ({ courseId, studentEmail }) => {
-  const examConfig = {
-    examId: 'exam_l5_7_assignment',
+  const assessmentConfig = {
+    assessmentId: 'assignment_l5_7',
+    activityType: 'assignment',
     title: 'L5-7 Assignment - Reflection and Optics',
     description: 'Assessment covering pinhole cameras, speed of light measurements, reflection laws, and curved mirror calculations from Lessons 5-7.',
     timeLimit: 60, // 60 minutes
@@ -70,21 +71,22 @@ const L57Assignment = ({ courseId, studentEmail }) => {
       }
     ],
     instructions: [
-      'This is a timed assignment with a 60-minute limit.',
+      'This assignment has a 60-minute time limit, but you can exit and return as needed.',
       'Use appropriate physics formulas for optics and reflection calculations.',
       'Pay attention to sign conventions for mirrors (concave vs convex).',
       'Remember the law of reflection and mirror equation applications.',
-      'All questions must be answered before submitting.',
-      'You have only ONE attempt - make sure you are ready before starting.'
+      'Your progress will be saved automatically as you work.',
+      'You can review and change your answers before final submission.'
     ],
     passingGrade: 70
   };
 
   return (
-    <ExamSession
+    <AssessmentSession
       courseId={courseId}
       studentEmail={studentEmail}
-      examConfig={examConfig}
+      assessmentConfig={assessmentConfig}
+      activityType="assignment"
     />
   );
 };
