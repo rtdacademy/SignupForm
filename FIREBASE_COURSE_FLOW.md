@@ -155,7 +155,7 @@ const getCourseData = () => {
 **Location**: `/functions/courses/4/01-welcome-rtd-academy/assessments.js`
 
 ```javascript
-const { createStandardMultipleChoice } = require('../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
 
 const knowledgeCheck = createStandardMultipleChoice({
   questionId: 'course4_01_welcome_rtd_academy_knowledge_check',
@@ -353,7 +353,7 @@ const LessonComponent = ({ courseId }) => {
 **File**: `/functions/courses/{courseId}/01-lesson-folder/assessments.js`
 
 ```javascript
-const { createStandardMultipleChoice } = require('../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
 
 const question1 = createStandardMultipleChoice({
   questionId: 'courseX_01_question_id',

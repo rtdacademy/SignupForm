@@ -36,7 +36,7 @@ All rubrics use a 4-level scoring system:
 
 ```javascript
 // Import specific rubric
-const { MOMENTUM_RUBRICS } = require('../../../shared/rubrics');
+const { MOMENTUM_RUBRICS } = require('../shared/rubrics');
 
 // Use in assessment configuration
 exports.myAssessment = createAILongAnswer({

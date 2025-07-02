@@ -7,7 +7,7 @@
  * prerequisites, academic pathway planning, and handling missing requirements.
  */
 
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Activity type for this lesson
 const ACTIVITY_TYPE = 'lesson';

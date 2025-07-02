@@ -1630,7 +1630,7 @@ AIAccordion, onAIAccordionContent }) => {
             questions={[
               {
                 type: 'multiple-choice',
-                questionId: 'course2_01_physics_20_review_dynamics_q1',
+                questionId: 'course2_01_physics_20_review_dynamics_q1a',
                 title: 'Question 1: Net Force and Acceleration'
               },
               {

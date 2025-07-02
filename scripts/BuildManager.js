@@ -145,7 +145,7 @@ class BuildManager {
       const timeForRegularUpdate = Date.now() % 30000 < 5000;
       
       if (significantChange || timeForRegularUpdate) {
-        console.log(`📊 Memory: ${this.formatMemoryUsage(currentMemory)}/${this.formatMemoryUsage(totalMemory)} | Peak: ${this.formatMemoryUsage(peakMemory)} | ${changeIndicator} ${this.formatMemoryUsage(changeAmount)} | Limit: ${this.memorySize}MB`);
+        //console.log(`📊 Memory: ${this.formatMemoryUsage(currentMemory)}/${this.formatMemoryUsage(totalMemory)} | Peak: ${this.formatMemoryUsage(peakMemory)} | ${changeIndicator} ${this.formatMemoryUsage(changeAmount)} | Limit: ${this.memorySize}MB`);
       }
       
       // Warning if memory usage gets high

@@ -108,7 +108,7 @@ const generateBackendAssessments = (config) => {
     const functionName = `${functionPrefix}_question${index + 1}`;
     
     if (question.type === 'multiple-choice') {
-      imports.add("const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');");
+      imports.add("const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');");
       
       exports.push(`
 exports.${functionName} = createStandardMultipleChoice({
@@ -130,7 +130,7 @@ exports.${functionName} = createStandardMultipleChoice({
   showFeedback: true
 });`);
     } else if (question.type === 'ai-short-answer') {
-      imports.add("const { createAIShortAnswer } = require('../../../shared/assessment-types/ai-short-answer');");
+      imports.add("const { createAIShortAnswer } = require('../shared/assessment-types/ai-short-answer');");
       
       exports.push(`
 exports.${functionName} = createAIShortAnswer({

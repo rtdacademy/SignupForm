@@ -7,8 +7,8 @@
  * using the shared assessment system with COM1255 specific configuration.
  */
 
-const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Activity type for this lesson
 const ACTIVITY_TYPE = 'lesson';

@@ -4,7 +4,7 @@
  */
 
 const admin = require('firebase-admin');
-const { sanitizeEmail } = require('../../utils');
+const { sanitizeEmail } = require('../utils/utils');
 
 // Helper function to get category weights
 const getCategoryWeight = (type) => {
@@ -198,6 +198,10 @@ const DATABASE_PATHS = {
   studentGrade: (studentKey, courseId, assessmentId, isStaff = false) => 
     isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`
             : `students/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`,
+  
+  gradeMetadata: (studentKey, courseId, assessmentId, isStaff = false) => 
+    isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Grades/metadata/${assessmentId}`
+            : `students/${studentKey}/courses/${courseId}/Grades/metadata/${assessmentId}`,
   
   courseAssessment: (courseId, assessmentId) => 
     `courses/${courseId}/assessments/${assessmentId}`,

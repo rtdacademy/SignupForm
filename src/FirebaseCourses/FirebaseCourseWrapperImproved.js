@@ -6,6 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
 import { getLessonAccessibility } from './utils/lessonAccess';
 import { loadLessonPrompt, enhancePromptWithContext } from './utils/aiPromptLoader';
+import { 
+  validateGradeDataStructures, 
+  calculateLessonScore, 
+  calculateCategoryScores 
+} from './utils/gradeCalculations';
 import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
@@ -594,8 +599,14 @@ const FirebaseCourseWrapperContent = ({
       return accessibility;
     }
     
-    // Use the lesson access logic with gradebook data
-    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebook);
+    // Use the lesson access logic with gradebook data and actual grades
+    const gradebookWithGrades = {
+      ...gradebook,
+      grades: {
+        assessments: course?.Grades?.assessments || {}
+      }
+    };
+    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebookWithGrades);
   }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive]);
   
   // Find the current active item for the info panel
@@ -756,6 +767,8 @@ const FirebaseCourseWrapperContent = ({
     return lessonQuestions;
   }, []);
 
+  // GRADE CALCULATION UTILITY FUNCTIONS - Now imported from utils
+
   // Load AI prompt when active lesson changes
   useEffect(() => {
     const loadPromptForLesson = async () => {
@@ -843,54 +856,46 @@ const FirebaseCourseWrapperContent = ({
     );
   }
 
-  // Convert gradebook data to progress format for navigation
+  // Convert gradebook data to progress format for navigation - Using new grade calculation functions
   useEffect(() => {
     const gradebookProgress = {};
     
-    // Use the itemStructure and assessments to determine lesson completion
-    const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
-    const assessments = course?.Assessments || {};
-    const progressionRequirements = course?.Gradebook?.courseConfig?.progressionRequirements || {};
+    // Validate that we have the required data structures
+    const validation = validateGradeDataStructures(course);
+    if (!validation.valid) {
+      console.warn('Cannot calculate progress - missing required data:', validation.missing);
+      setProgress({});
+      return;
+    }
     
-    // Process each lesson from itemStructure
+    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+    const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements || {};
+    
+    // Process each lesson from itemStructure using new calculation functions
     Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
       if (!lessonConfig || lessonConfig.type !== 'lesson') return;
       
-      const questions = lessonConfig.questions || [];
-      let completedQuestions = 0;
-      let totalScore = 0;
-      let maxScore = 0;
+      // Use new grade calculation function for accurate scores
+      const lessonScore = calculateLessonScore(lessonKey, course);
       
-      // Check each question in the lesson
-      questions.forEach(questionConfig => {
-        const questionId = questionConfig.questionId;
-        const assessmentData = assessments[questionId];
-        const maxPoints = questionConfig.points || 1;
-        
-        maxScore += maxPoints;
-        
-        if (assessmentData) {
-          // Check if question has been answered correctly
-          const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
-          if (hasScore) {
-            completedQuestions += 1;
-            totalScore += maxPoints;
-          }
-        }
-      });
+      if (!lessonScore.valid) {
+        return; // Skip if calculation failed
+      }
       
       // Determine if lesson meets completion requirements
       const requirements = progressionRequirements.lessonOverrides?.[lessonKey] || progressionRequirements.defaultCriteria || {};
       const minimumPercentage = requirements.minimumPercentage || 50;
       const requireAllQuestions = requirements.requireAllQuestions !== false;
       
-      const completionRate = questions.length > 0 ? (completedQuestions / questions.length) * 100 : 0;
-      const averageScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+      const completionRate = lessonScore.totalQuestions > 0 ? (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+      const averageScore = lessonScore.percentage;
       
       let isCompleted = false;
       if (requireAllQuestions) {
+        // Must attempt all questions AND meet minimum score
         isCompleted = completionRate >= 100 && averageScore >= minimumPercentage;
       } else {
+        // Only need to meet minimum score (allows partial completion)
         isCompleted = averageScore >= minimumPercentage;
       }
       
@@ -898,15 +903,16 @@ const FirebaseCourseWrapperContent = ({
         gradebookProgress[lessonKey] = {
           completed: true,
           completedAt: new Date().toISOString(),
-          score: totalScore,
-          maxScore: maxScore,
-          attempts: completedQuestions
+          score: lessonScore.score,
+          maxScore: lessonScore.total,
+          attempts: lessonScore.attempted,
+          percentage: lessonScore.percentage
         };
       }
     });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Assessments]);
+  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments]);
 
  
   
@@ -1004,109 +1010,9 @@ const FirebaseCourseWrapperContent = ({
             )}
           </div>
           
-          {/* Simple Lesson Status Indicator - hidden on small screens */}
+          {/* Simple Lesson Title - hidden on small screens */}
           {activeTab === 'content' && currentActiveItem && (
             <div className="hidden md:flex items-center gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                {(() => {
-                  // Calculate lesson status using correct data structure
-                  const gradebook = course?.Gradebook;
-                  const assessments = course?.Assessments || {};
-                  const gradebookConfig = gradebook?.courseConfig?.gradebook?.itemStructure?.[currentActiveItem.itemId];
-                  const progressionRequirements = gradebook?.courseConfig?.progressionRequirements || {};
-                  
-                  // Calculate lesson percentage from questions
-                  let lessonPercentage = 0;
-                  let isCompleted = false;
-                  
-                  if (gradebookConfig && gradebookConfig.questions) {
-                    let calculatedScore = 0;
-                    let calculatedTotal = 0;
-                    let completedQuestions = 0;
-                    
-                    gradebookConfig.questions.forEach(question => {
-                      const questionId = question.questionId;
-                      const assessmentData = assessments[questionId];
-                      const maxPoints = question.points || 1;
-                      
-                      calculatedTotal += maxPoints;
-                      
-                      if (assessmentData) {
-                        // Check if question has been answered correctly
-                        const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
-                        if (hasScore) {
-                          calculatedScore += maxPoints;
-                          completedQuestions += 1;
-                        }
-                      }
-                    });
-                    
-                    lessonPercentage = calculatedTotal > 0 ? Math.round((calculatedScore / calculatedTotal) * 100) : 0;
-                    
-                    // Check if lesson meets completion requirements
-                    const requirements = progressionRequirements.lessonOverrides?.[currentActiveItem.itemId] || progressionRequirements.defaultCriteria || {};
-                    const minimumPercentage = requirements.minimumPercentage || 50;
-                    const requireAllQuestions = requirements.requireAllQuestions !== false;
-                    
-                    const completionRate = gradebookConfig.questions.length > 0 ? (completedQuestions / gradebookConfig.questions.length) * 100 : 0;
-                    
-                    if (requireAllQuestions) {
-                      isCompleted = completionRate >= 100 && lessonPercentage >= minimumPercentage;
-                    } else {
-                      isCompleted = lessonPercentage >= minimumPercentage;
-                    }
-                  }
-                  const accessInfo = lessonAccessibility[currentActiveItem.itemId] || { accessible: true };
-                  const isAccessible = accessInfo.accessible;
-                  
-                  // Status icon and text
-                  let statusIcon, statusText, statusColor;
-                  if (!isAccessible) {
-                    statusIcon = <Lock className="h-4 w-4" />;
-                    statusText = 'Locked';
-                    statusColor = 'text-gray-500';
-                  } else if (isCompleted) {
-                    statusIcon = <CheckCircle className="h-4 w-4" />;
-                    statusText = 'Completed';
-                    statusColor = 'text-green-600';
-                  } else if (lessonPercentage > 0) {
-                    statusIcon = <PlayCircle className="h-4 w-4" />;
-                    statusText = 'In Progress';
-                    statusColor = 'text-purple-600';
-                  } else {
-                    statusIcon = <AlertCircle className="h-4 w-4" />;
-                    statusText = 'Not Started';
-                    statusColor = 'text-gray-500';
-                  }
-                  
-                  const getGradeColor = (percentage) => {
-                    if (percentage >= 90) return 'text-green-600';
-                    if (percentage >= 80) return 'text-blue-600';
-                    if (percentage >= 70) return 'text-yellow-600';
-                    if (percentage >= 60) return 'text-orange-600';
-                    return 'text-red-600';
-                  };
-                  
-                  return (
-                    <>
-                      <div className={`flex items-center gap-1 ${statusColor}`}>
-                        {statusIcon}
-                        <span className="font-medium">{statusText}</span>
-                      </div>
-                      {lessonPercentage > 0 && (
-                        <span className={`font-semibold ${getGradeColor(lessonPercentage)}`}>
-                          {lessonPercentage}%
-                        </span>
-                      )}
-                      {!isAccessible && accessInfo.reason && (
-                        <span className="text-xs text-red-600 max-w-xs truncate">
-                          {accessInfo.reason}
-                        </span>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
               <div className="text-gray-600 font-medium truncate max-w-xs">
                 {currentActiveItem.title}
               </div>
@@ -1189,6 +1095,51 @@ const FirebaseCourseWrapperContent = ({
                 </div>
               )}
               
+              {/* Lesson Progress Bars */}
+              {currentActiveItem && (() => {
+                // Use new grade calculation function for accurate data
+                const lessonScore = calculateLessonScore(currentActiveItem.itemId, course);
+                
+                if (!lessonScore.valid || lessonScore.totalQuestions === 0) {
+                  return null;
+                }
+                
+                const attemptedPercentage = lessonScore.totalQuestions > 0 ? (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+                
+                return (
+                  <div className="border-b border-gray-200 px-6 py-3 bg-gradient-to-r from-gray-50 to-blue-50">
+                    <div className="space-y-2">
+                      {/* Attempted Progress Bar */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700 w-32 flex-shrink-0">Attempted</span>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full transition-all duration-500 ease-in-out"
+                            style={{ width: `${attemptedPercentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-gray-600 w-12 text-right">{lessonScore.attempted}/{lessonScore.totalQuestions}</span>
+                      </div>
+                      
+                      {/* Score Progress Bar - Now using actual grades */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700 w-32 flex-shrink-0">Score</span>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-gradient-to-r from-green-400 to-green-600 h-2.5 rounded-full transition-all duration-500 ease-in-out"
+                            style={{ width: `${lessonScore.percentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-semibold text-green-600 w-12 text-right">{Math.round(lessonScore.percentage)}%</span>
+                      </div>
+                      
+                      {/* Points Display */}
+                    
+                    </div>
+                  </div>
+                );
+              })()}
+              
               <React.Suspense fallback={<CourseLoadingSkeleton />}>
                 {!isContentReady ? (
                   <CourseLoadingSkeleton />
@@ -1247,7 +1198,7 @@ const FirebaseCourseWrapperContent = ({
           )}
           
           {(activeTab === 'progress' || activeTab === 'grades') && (
-            <GradebookDashboard course={course} />
+            <GradebookDashboard course={course} allCourseItems={allCourseItems} />
           )}
           
           {/* Debug tab - only accessible by authorized users when developer mode is active */}

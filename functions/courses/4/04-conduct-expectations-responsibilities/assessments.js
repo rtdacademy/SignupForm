@@ -7,7 +7,7 @@
  * online conduct standards, communication expectations, and academic integrity requirements.
  */
 
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Activity type for this lesson
 const ACTIVITY_TYPE = 'lesson';

@@ -8,7 +8,7 @@
     "exam": 0.6
   },
   "globalSettings": {
-    "allowLateSubmissions": true,
+    "allowLateSubmissions": false,
     "showProgressBar": true,
     "showGrades": true,
     "enableAIQuestions": true,
@@ -844,7 +844,7 @@
             "points": 1
           },
           {
-            "questionId": "course2_01_physics_20_review_dynamics_q1",
+            "questionId": "course2_01_physics_20_review_dynamics_q1a",
             "title": "Physics 20 Review Dynamics Q1",
             "points": 1
           },

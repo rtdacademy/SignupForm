@@ -7,7 +7,7 @@
  * time management, RTD Academy requirements, and inactivity policies.
  */
 
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Activity type for this lesson
 const ACTIVITY_TYPE = 'lesson';

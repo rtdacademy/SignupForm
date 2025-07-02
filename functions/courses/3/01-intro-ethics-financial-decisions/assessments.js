@@ -1,4 +1,4 @@
-const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
+const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
 const { ETHICS_FALLBACK_QUESTIONS } = require('./fallback-questions');
 
 // Course 3 - Lesson 1: Introduction and Ethics in Financial Decision Making

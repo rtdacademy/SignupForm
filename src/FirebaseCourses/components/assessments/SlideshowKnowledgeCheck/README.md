@@ -142,7 +142,7 @@ Create assessment functions using `createStandardMultipleChoice()` in your cours
 
 ```javascript
 // functions/courses/{courseId}/{lessonPath}/assessments.js
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 exports.question_function_name = createStandardMultipleChoice({
   questions: [

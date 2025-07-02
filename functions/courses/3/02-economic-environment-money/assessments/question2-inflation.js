@@ -1,4 +1,4 @@
-const { createAIMultipleChoice } = require('../../../../shared/assessment-types/ai-multiple-choice');
+const { createAIMultipleChoice } = require('../../shared/assessment-types/ai-multiple-choice');
 const { ECONOMIC_ENVIRONMENT_FALLBACK_QUESTIONS } = require('../fallback-questions');
 
 // Question 2: Inflation and Purchasing Power

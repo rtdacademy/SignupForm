@@ -6,10 +6,21 @@ const CourseOutline = ({ course, isOpen, onClose }) => {
 
   // Extract course data from the course prop
   const courseConfig = course?.Gradebook?.courseConfig || {};
-  const courseStructure = courseConfig?.courseStructure || {};
   const courseDetails = course?.courseDetails || {};
-  const weights = courseConfig?.weights || {};
-  const resources = courseConfig?.courseOutline?.resources || {};
+  
+  // Try multiple paths for course structure - new structure first, then legacy
+  const courseStructure = courseConfig?.courseStructure || 
+                         courseDetails?.courseConfig?.courseStructure || 
+                         {};
+  
+  const weights = courseConfig?.weights || 
+                 courseDetails?.courseConfig?.weights || 
+                 {};
+  
+  const resources = courseConfig?.courseOutline?.resources || 
+                   courseDetails?.courseConfig?.courseOutline?.resources || 
+                   courseConfig?.resources || 
+                   {};
 
   // Calculate total estimated hours from course structure
   const totalEstimatedHours = useMemo(() => {

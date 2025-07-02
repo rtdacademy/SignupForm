@@ -17,7 +17,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
  */
 async function loadAssessmentDefaults() {
   try {
-    const configPath = path.join(__dirname, '../../config/assessment-defaults.json');
+    const configPath = path.join(__dirname, '../config/assessment-defaults.json');
     const configData = await fs.readFile(configPath, 'utf8');
     return JSON.parse(configData);
   } catch (error) {
@@ -35,7 +35,7 @@ async function loadAssessmentDefaults() {
  */
 async function loadCourseConfig(courseId, configFileName = 'course-config.json') {
   try {
-    const configPath = path.join(__dirname, `../../courses-config/${courseId}/${configFileName}`);
+    const configPath = path.join(__dirname, `../courses-config/${courseId}/${configFileName}`);
     const configData = await fs.readFile(configPath, 'utf8');
     return JSON.parse(configData);
   } catch (error) {

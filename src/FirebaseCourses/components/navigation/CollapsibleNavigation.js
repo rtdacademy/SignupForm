@@ -166,15 +166,83 @@ const CollapsibleNavigation = ({
     return items;
   }, [unitsList, course]);
   
-  // Calculate overall progress percentage using gradebook data
+  // Calculate overall progress percentage using progression requirements
   const overallProgress = useMemo(() => {
     if (!allCourseItems.length) return 0;
+    
     const gradebook = course?.Gradebook;
+    const itemStructure = gradebook?.courseConfig?.gradebook?.itemStructure;
+    const actualGrades = course?.Grades?.assessments || {};
+    const progressionRequirements = gradebook?.courseConfig?.progressionRequirements;
+    
+    // If we don't have the new data structure, fall back to old logic
+    if (!itemStructure || !progressionRequirements?.enabled) {
+      const completedCount = allCourseItems.filter(item => {
+        const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+        const gradebookItem = gradebook?.items?.[item.itemId];
+        return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+      }).length;
+      return Math.round((completedCount / allCourseItems.length) * 100);
+    }
+    
+    // Use progression requirements to determine completion
     const completedCount = allCourseItems.filter(item => {
-      const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
-      const gradebookItem = gradebook?.items?.[item.itemId];
-      return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+      // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
+      const normalizedItemId = item.itemId.replace(/-/g, '_');
+      const itemConfig = itemStructure[normalizedItemId];
+      
+      if (!itemConfig || !itemConfig.questions) {
+        return false; // Can't be completed if no questions
+      }
+      
+      // Get progression criteria for this item
+      const itemOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[normalizedItemId];
+      const defaultCriteria = progressionRequirements.defaultCriteria || {};
+      
+      const criteria = {
+        minimumPercentage: itemOverride?.minimumPercentage ?? 
+                          defaultCriteria.minimumPercentage ?? 
+                          50,
+        requireAllQuestions: itemOverride?.requireAllQuestions ?? 
+                            defaultCriteria.requireAllQuestions ?? 
+                            true
+      };
+      
+      // Calculate item score using actual grades
+      let totalScore = 0;
+      let totalPossible = 0;
+      let attemptedQuestions = 0;
+      const totalQuestions = itemConfig.questions.length;
+      
+      itemConfig.questions.forEach(question => {
+        const questionId = question.questionId;
+        const maxPoints = question.points || 1;
+        const actualGrade = actualGrades[questionId] || 0;
+        
+        totalPossible += maxPoints;
+        
+        if (actualGrades.hasOwnProperty(questionId)) {
+          attemptedQuestions += 1;
+          totalScore += actualGrade;
+        }
+      });
+      
+      const itemPercentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
+      const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
+      
+      // Check if item meets completion requirements
+      let isCompleted = false;
+      if (criteria.requireAllQuestions) {
+        // Must attempt all questions AND meet minimum score
+        isCompleted = completionRate >= 100 && itemPercentage >= criteria.minimumPercentage;
+      } else {
+        // Only need to meet minimum score (allows partial completion)
+        isCompleted = itemPercentage >= criteria.minimumPercentage;
+      }
+      
+      return isCompleted;
     }).length;
+    
     return Math.round((completedCount / allCourseItems.length) * 100);
   }, [allCourseItems, course]);
 
@@ -263,80 +331,91 @@ const CollapsibleNavigation = ({
   };
   
   const renderItem = (item, unitIndex, itemIndex) => {
-    // Use gradebook data for lesson status and percentages
+    // Use the same reliable calculation as the progress bars at the top
     const gradebook = course?.Gradebook;
     const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
     const gradebookItem = gradebook?.items?.[item.itemId];
     
-    // Calculate lesson percentage from category data if courseStructureItems doesn't exist
+    // Calculate lesson score using the correct data sources (same as calculateLessonScore)
     let lessonPercentage = 0;
     let lessonScore = 0;
     let lessonTotal = 0;
+    let attemptedQuestions = 0;
+    let totalQuestions = 0;
     
-    // Debug logging to trace data paths
-    if (item.itemId.includes('lesson_')) {
-      console.log(`📊 Data paths for ${item.itemId}:`, {
-        gradebook: gradebook ? 'exists' : 'missing',
-        courseStructureItems: gradebook?.courseStructureItems,
-        courseStructureItem: courseStructureItem,
-        categories: gradebook?.categories,
-        lessonCategory: gradebook?.categories?.lesson,
-        lessonCategoryItems: gradebook?.categories?.lesson?.items,
-        itemId: item.itemId
-      });
+    // Use new reliable data sources
+    const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
+    const actualGrades = course?.Grades?.assessments || {};
+    
+    if (itemStructure && actualGrades) {
+      // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
+      const normalizedItemId = item.itemId.replace(/-/g, '_');
+      const lessonConfig = itemStructure[normalizedItemId];
+      
+      if (lessonConfig && lessonConfig.questions) {
+        totalQuestions = lessonConfig.questions.length;
+        
+        lessonConfig.questions.forEach(question => {
+          const questionId = question.questionId;
+          const maxPoints = question.points || 1;
+          const actualGrade = actualGrades[questionId] || 0;
+          
+          lessonTotal += maxPoints;
+          
+          // If grade exists (even if 0), student has attempted
+          if (actualGrades.hasOwnProperty(questionId)) {
+            attemptedQuestions += 1;
+            lessonScore += actualGrade;
+          }
+        });
+        
+        lessonPercentage = lessonTotal > 0 ? (lessonScore / lessonTotal) * 100 : 0;
+      }
     }
     
-    if (courseStructureItem) {
-      // Use courseStructureItems if available (this will be populated when assessments are completed)
+    // Fallback to courseStructureItems if new data structure is not available
+    if (lessonTotal === 0 && courseStructureItem) {
       lessonPercentage = courseStructureItem.percentage || 0;
       lessonScore = courseStructureItem.totalScore || 0;
       lessonTotal = courseStructureItem.totalPossible || 0;
-    } else {
-      // Fallback: Calculate from category items
-      const categoryItems = gradebook?.categories?.lesson?.items || [];
-      const lessonItem = categoryItems.find(catItem => catItem.id === item.itemId);
-      
-      if (item.itemId.includes('lesson_')) {
-        console.log(`🔍 Looking for ${item.itemId} in category items:`, {
-          categoryItems: categoryItems.map(ci => ({ id: ci.id, score: ci.score, maxScore: ci.maxScore, percentage: ci.percentage })),
-          lessonItem: lessonItem,
-          found: !!lessonItem
-        });
-      }
-      
-      if (lessonItem) {
-        lessonPercentage = lessonItem.percentage || 0;
-        lessonScore = lessonItem.score || 0;
-        lessonTotal = lessonItem.maxScore || 0;
-      }
     }
     
-    // Determine completion based on gradebook data
-    const isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
+    // Determine completion based on progression requirements if available
+    let isCompleted = false;
+    if (totalQuestions > 0 && course?.Gradebook?.courseConfig?.progressionRequirements?.enabled) {
+      const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
+      const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
+      const defaultCriteria = progressionRequirements.defaultCriteria || {};
+      
+      const criteria = {
+        minimumPercentage: lessonOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50,
+        requireAllQuestions: lessonOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? true
+      };
+      
+      const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
+      
+      if (criteria.requireAllQuestions) {
+        isCompleted = completionRate >= 100 && lessonPercentage >= criteria.minimumPercentage;
+      } else {
+        isCompleted = lessonPercentage >= criteria.minimumPercentage;
+      }
+    } else {
+      // Fallback completion logic
+      isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
+    }
+    
     const isActive = activeItemId === item.itemId;
     
     // SEQUENTIAL_ACCESS_UPDATE: Check lesson accessibility
-    // Original code (before sequential access): Only had isCompleted, isActive, gradebookItem above
     const accessInfo = lessonAccessibility[item.itemId] || { accessible: true, reason: 'Default access' };
     const isAccessible = accessInfo.accessible;
     
-    // Determine if this is the next recommended item (simplified logic for gradebook-based system)
-    const hasStarted = lessonPercentage > 0 || (gradebookItem?.attempts || 0) > 0;
+    // Determine if this is the next recommended item
+    const hasStarted = attemptedQuestions > 0 || lessonPercentage > 0;
     const isNextItem = !isCompleted && hasStarted;
     
     // Use the calculated lesson percentage
     const gradePercentage = lessonPercentage > 0 ? lessonPercentage : null;
-    
-    // Debug logging for this specific item
-    if (item.itemId.includes('lesson_')) {
-      console.log(`🔍 Rendering ${item.itemId}:`, {
-        courseStructureItem: courseStructureItem ? 'present' : 'missing',
-        percentage: gradePercentage,
-        isAccessible,
-        accessReason: accessInfo.reason,
-        requiredPercentage: accessInfo.requiredPercentage
-      });
-    }
     
     // Get grade color
     const getGradeColor = (percentage) => {
@@ -406,7 +485,7 @@ const CollapsibleNavigation = ({
               <div className="flex items-center gap-2 ml-2">
                 {gradePercentage !== null && (
                   <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
-                    {gradePercentage}%
+                    {Math.round(gradePercentage)}%
                   </span>
                 )}
                 <Badge
@@ -433,12 +512,12 @@ const CollapsibleNavigation = ({
                 )}
               </>
             )}
-            {(courseStructureItem || lessonScore > 0 || gradebookItem) && (
+            {(lessonScore > 0 || attemptedQuestions > 0 || gradebookItem) && (
               <>
-                {(courseStructureItem || lessonScore > 0) && (
+                {(lessonScore > 0 || totalQuestions > 0) && (
                   <>
-                    <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({gradePercentage || 0}%)</p>
-                    <p className="text-sm">Assessments: {courseStructureItem?.assessmentCount || lessonTotal}</p>
+                    <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({Math.round(gradePercentage || 0)}%)</p>
+                    <p className="text-sm">Questions: {attemptedQuestions}/{totalQuestions} attempted</p>
                   </>
                 )}
                 {gradebookItem && (

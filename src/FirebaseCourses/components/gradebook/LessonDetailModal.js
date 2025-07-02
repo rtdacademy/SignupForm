@@ -84,12 +84,24 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course }) => {
 
 // Individual Question Card Component
 const QuestionCard = ({ question, assessmentData, questionNumber }) => {
+  // Helper to get question status based on new data structure
+  const getQuestionStatus = () => {
+    if (!question.attempted) {
+      return 'not_started';
+    } else if (question.actualGrade === question.points) {
+      return 'completed_perfect';
+    } else {
+      return 'completed';
+    }
+  };
+
   const getStatusIcon = () => {
-    if (question.status === 'completed' && question.score === question.maxScore) {
+    const status = getQuestionStatus();
+    if (status === 'completed_perfect') {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (question.status === 'completed') {
+    } else if (status === 'completed') {
       return <CheckCircle className="h-5 w-5 text-blue-500" />;
-    } else if (question.attempts > 0) {
+    } else if (question.attempted) {
       return <RotateCcw className="h-5 w-5 text-yellow-500" />;
     }
     return <Clock className="h-5 w-5 text-gray-400" />;
@@ -117,7 +129,7 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
             <span className="text-sm font-medium text-gray-500">Question {questionNumber}</span>
             {getStatusIcon()}
             <Badge variant="outline" className="text-xs">
-              {question.status?.replace('_', ' ') || 'Not Started'}
+              {getQuestionStatus().replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </Badge>
           </div>
           <h4 className="font-medium text-gray-900">{question.title}</h4>
@@ -127,9 +139,9 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
         </div>
         
         <div className="text-right ml-4">
-          {question.attempts > 0 ? (
-            <div className={`text-sm font-medium px-3 py-1 rounded border ${getScoreColor(question.score, question.maxScore)}`}>
-              {question.score} / {question.maxScore}
+          {question.attempted ? (
+            <div className={`text-sm font-medium px-3 py-1 rounded border ${getScoreColor(question.actualGrade, question.points)}`}>
+              {question.actualGrade} / {question.points}
             </div>
           ) : (
             <div className="text-sm text-gray-400 px-3 py-1 bg-gray-50 rounded border">
@@ -143,7 +155,7 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <div>
           <span className="font-medium text-gray-700">Attempts:</span>
-          <div className="text-gray-600">{question.attempts || 0}</div>
+          <div className="text-gray-600">{assessmentData?.attempts || 0}</div>
         </div>
         <div>
           <span className="font-medium text-gray-700">Max Attempts:</span>
@@ -155,7 +167,7 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
         </div>
         <div>
           <span className="font-medium text-gray-700">Points:</span>
-          <div className="text-gray-600">{assessmentData?.pointsValue || question.maxScore}</div>
+          <div className="text-gray-600">{question.points}</div>
         </div>
       </div>
 
@@ -167,15 +179,50 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
             <span className="text-xs text-gray-500">{formatDate(assessmentData.lastSubmission.timestamp)}</span>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="font-medium text-gray-600">Your Answer:</span>
-              <div className="text-gray-800">{assessmentData.lastSubmission.answer}</div>
-            </div>
-            <div>
-              <span className="font-medium text-gray-600">Correct Answer:</span>
-              <div className="text-gray-800">{assessmentData.lastSubmission.correctOptionId}</div>
-            </div>
+          <div className="space-y-3 text-sm">
+            {(() => {
+              // Find the actual option text for student's answer and correct answer
+              const studentAnswerId = assessmentData.lastSubmission.answer;
+              const correctAnswerId = assessmentData.lastSubmission.correctOptionId;
+              const isCorrect = assessmentData.lastSubmission.isCorrect;
+              
+              // Find option texts from the available options
+              const studentOption = assessmentData.options?.find(opt => opt.id === studentAnswerId);
+              const correctOption = assessmentData.options?.find(opt => opt.id === correctAnswerId);
+              
+              const studentAnswerText = studentOption?.text || studentAnswerId;
+              const correctAnswerText = correctOption?.text || correctAnswerId;
+              
+              if (isCorrect) {
+                // If correct, only show one answer since they're the same
+                return (
+                  <div>
+                    <span className="font-medium text-gray-600">Selected Answer:</span>
+                    <div className="text-green-800 bg-green-50 p-2 rounded border border-green-200 mt-1">
+                      <span className="font-medium">{studentAnswerId?.toUpperCase()}:</span> {studentAnswerText}
+                    </div>
+                  </div>
+                );
+              } else {
+                // If incorrect, show both answers
+                return (
+                  <>
+                    <div>
+                      <span className="font-medium text-gray-600">Your Answer:</span>
+                      <div className="text-red-800 bg-red-50 p-2 rounded border border-red-200 mt-1">
+                        <span className="font-medium">{studentAnswerId?.toUpperCase()}:</span> {studentAnswerText}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Correct Answer:</span>
+                      <div className="text-green-800 bg-green-50 p-2 rounded border border-green-200 mt-1">
+                        <span className="font-medium">{correctAnswerId?.toUpperCase()}:</span> {correctAnswerText}
+                      </div>
+                    </div>
+                  </>
+                );
+              }
+            })()}
           </div>
           
           {assessmentData.lastSubmission.feedback && (
@@ -194,7 +241,7 @@ const QuestionCard = ({ question, assessmentData, questionNumber }) => {
       )}
 
       {/* Answer Options (if available and not yet attempted) */}
-      {assessmentData?.options && question.attempts === 0 && (
+      {assessmentData?.options && !question.attempted && (
         <div className="mt-3 pt-3 border-t">
           <span className="text-sm font-medium text-gray-700">Answer Options:</span>
           <div className="mt-2 space-y-1">

@@ -7,12 +7,12 @@
  * using the shared assessment system with general educational configuration.
  */
 
-const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../../../shared/utilities/config-loader');
+const { createAILongAnswer } = require('../shared/assessment-types/ai-long-answer');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../../../courses-config/4/course-config.json');
+const courseConfig = require('../shared/courses-config/4/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module

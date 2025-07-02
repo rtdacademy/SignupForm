@@ -1,146 +1,112 @@
-import React, { useMemo } from 'react';
-import { CheckCircle, Circle, Clock, Target, BookOpen, Award, Lock, Play } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle, Circle, Clock, Target, BookOpen, Award, Lock, Play, Eye } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
 import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { 
+  validateGradeDataStructures, 
+  calculateLessonScore, 
+  checkLessonCompletion 
+} from '../../utils/gradeCalculations';
+import LessonDetailModal from './LessonDetailModal';
 
-const CourseProgress = ({ course }) => {
+const CourseProgress = ({ course, allCourseItems = [] }) => {
+  // State for lesson detail modal
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Validate that we have the required data structures
+  const validation = validateGradeDataStructures(course);
+  
   const gradebook = course?.Gradebook || {};
   const courseStructure = gradebook?.courseStructure || {};
-  const assessments = course?.Assessments || {};
+  const grades = course?.Grades?.assessments || {}; // Use reliable grades source
   const itemStructure = gradebook?.courseConfig?.gradebook?.itemStructure || {};
   const progressionRequirements = gradebook?.courseConfig?.progressionRequirements || {};
+  
+  // Show error state if validation fails
+  if (!validation.valid) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-5 w-5 text-yellow-600" />
+            <h3 className="text-lg font-medium text-yellow-800">Progress Data Loading</h3>
+          </div>
+          <p className="text-yellow-700 text-sm">
+            Progress tracking is loading. Missing: {validation.missing.join(', ')}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // Group items by lesson using the itemStructure and calculate lesson-level progress
-  const lessonProgress = useMemo(() => {
-    const lessons = {};
+  // Use the passed allCourseItems for consistent data with navigation
+  const courseItemsProgress = useMemo(() => {
+    // Use allCourseItems passed from parent for consistency with navigation
+    if (allCourseItems.length === 0) {
+      return [];
+    }
     
-    // Process lessons from itemStructure (the authoritative source)
-    Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
-      if (!lessonConfig || lessonConfig.type !== 'lesson') return;
+    // Process ALL course items (lessons, assignments, exams, labs, etc.) not just lessons
+    // Since allCourseItems is already in the correct order from the wrapper, we can use that
+    const items = allCourseItems.map((courseItem, globalIndex) => {
+      const lessonId = courseItem.itemId;
       
-      const lessonId = lessonKey;
-      const questions = lessonConfig.questions || [];
+      // Use reliable calculation function for lesson scores
+      const lessonScore = calculateLessonScore(lessonId, course);
       
-      // Extract lesson number from key like "01_physics_20_review" -> 1
-      const lessonNumber = parseInt(lessonKey.split('_')[0]) || 0;
+      // Check if lesson meets completion requirements
+      const isCompleted = checkLessonCompletion(lessonId, course);
       
-      lessons[lessonId] = {
+      // Calculate completion rate and status
+      const completionRate = lessonScore.totalQuestions > 0 ? 
+        (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+      
+      let status = 'not_started';
+      if (lessonScore.attempted > 0) {
+        status = isCompleted ? 'completed' : 'in_progress';
+      }
+      
+      // Determine unlock status
+      let isUnlocked = true; // Default to unlocked
+      if (globalIndex > 0 && progressionRequirements.enabled !== false) {
+        // Check if previous item is completed
+        const previousItemId = allCourseItems[globalIndex - 1].itemId;
+        const previousCompleted = checkLessonCompletion(previousItemId, course);
+        isUnlocked = previousCompleted;
+      }
+      
+      // Global item number: 1, 2, 3, 4, 5... across all units
+      const itemNumber = globalIndex + 1;
+      
+      return {
         lessonId: lessonId,
-        lessonNumber: lessonNumber,
-        lessonTitle: lessonConfig.title || `Lesson ${lessonNumber}`,
-        activityType: lessonConfig.type || 'lesson',
-        contentPath: lessonConfig.contentPath || lessonId,
-        questions: [],
-        totalQuestions: questions.length,
-        completedQuestions: 0,
-        totalScore: 0,
-        maxScore: 0,
-        lastActivity: 0,
-        isUnlocked: false,
-        status: 'not_started',
-        meetsRequirements: false
+        lessonNumber: itemNumber,
+        lessonTitle: courseItem.title || `${courseItem.type || 'Item'} ${itemNumber}`,
+        activityType: courseItem.type || 'lesson',
+        contentPath: courseItem.contentPath || lessonId,
+        totalQuestions: lessonScore.totalQuestions,
+        completedQuestions: lessonScore.attempted,
+        totalScore: lessonScore.score,
+        maxScore: lessonScore.total,
+        completionRate: completionRate,
+        averageScore: lessonScore.percentage,
+        status: status,
+        isUnlocked: isUnlocked,
+        meetsRequirements: isCompleted,
+        valid: lessonScore.valid
       };
-      
-      // Process each question in the lesson
-      questions.forEach(questionConfig => {
-        const questionId = questionConfig.questionId;
-        const assessmentData = assessments[questionId];
-        const maxPoints = questionConfig.points || 1;
-        
-        lessons[lessonId].maxScore += maxPoints;
-        
-        if (assessmentData) {
-          // Check if question has been attempted and scored
-          const hasScore = assessmentData.lastSubmission?.isCorrect || (assessmentData.score && assessmentData.score > 0);
-          const score = hasScore ? maxPoints : 0;
-          
-          lessons[lessonId].totalScore += score;
-          
-          if (hasScore) {
-            lessons[lessonId].completedQuestions += 1;
-          }
-          
-          // Track last activity
-          const lastAttempt = assessmentData.lastSubmission?.timestamp || assessmentData.timestamp || 0;
-          if (lastAttempt > lessons[lessonId].lastActivity) {
-            lessons[lessonId].lastActivity = lastAttempt;
-          }
-          
-          lessons[lessonId].questions.push({
-            id: questionId,
-            title: questionConfig.title,
-            points: maxPoints,
-            score: score,
-            hasAttempted: !!assessmentData.attempts || !!assessmentData.lastSubmission,
-            isCorrect: hasScore,
-            assessmentData
-          });
-        } else {
-          // Question not attempted yet
-          lessons[lessonId].questions.push({
-            id: questionId,
-            title: questionConfig.title,
-            points: maxPoints,
-            score: 0,
-            hasAttempted: false,
-            isCorrect: false
-          });
-        }
-      });
     });
     
-    // Calculate lesson statistics and status
-    const sortedLessons = Object.values(lessons).sort((a, b) => a.lessonNumber - b.lessonNumber);
-    
-    sortedLessons.forEach((lesson, index) => {
-      // Calculate completion metrics
-      lesson.completionRate = lesson.totalQuestions > 0 ? (lesson.completedQuestions / lesson.totalQuestions) * 100 : 0;
-      lesson.averageScore = lesson.maxScore > 0 ? (lesson.totalScore / lesson.maxScore) * 100 : 0;
-      
-      // Check if lesson meets progression requirements
-      const requirements = progressionRequirements.lessonOverrides?.[lesson.lessonId] || progressionRequirements.defaultCriteria || {};
-      const minimumPercentage = requirements.minimumPercentage || 50;
-      const requireAllQuestions = requirements.requireAllQuestions !== false; // default to true
-      
-      // Determine if lesson meets requirements
-      if (requireAllQuestions) {
-        lesson.meetsRequirements = lesson.completionRate >= 100 && lesson.averageScore >= minimumPercentage;
-      } else {
-        lesson.meetsRequirements = lesson.averageScore >= minimumPercentage;
-      }
-      
-      // Determine lesson status based on activity and requirements
-      if (lesson.completedQuestions === 0) {
-        lesson.status = 'not_started';
-      } else if (lesson.meetsRequirements) {
-        lesson.status = 'completed';
-      } else {
-        lesson.status = 'in_progress';
-      }
-      
-      // Determine if lesson is unlocked
-      if (index === 0) {
-        lesson.isUnlocked = true;
-      } else {
-        // Check if progression requirements are enabled
-        const progressionEnabled = progressionRequirements.enabled !== false;
-        if (!progressionEnabled) {
-          lesson.isUnlocked = true;
-        } else {
-          const previousLesson = sortedLessons[index - 1];
-          lesson.isUnlocked = previousLesson.status === 'completed';
-        }
-      }
-    });
-    
-    return sortedLessons;
-  }, [itemStructure, assessments, progressionRequirements]);
+    return items;
+  }, [allCourseItems, course, progressionRequirements]);
 
-  // Calculate overall stats based on lessons
+  // Calculate overall stats based on all course items
   const stats = useMemo(() => {
-    const total = lessonProgress.length;
-    const completed = lessonProgress.filter(lesson => lesson.status === 'completed').length;
-    const inProgress = lessonProgress.filter(lesson => lesson.status === 'in_progress').length;
+    const total = courseItemsProgress.length;
+    const completed = courseItemsProgress.filter(item => item.status === 'completed').length;
+    const inProgress = courseItemsProgress.filter(item => item.status === 'in_progress').length;
     const notStarted = total - completed - inProgress;
     const completionPercentage = total > 0 ? (completed / total) * 100 : 0;
 
@@ -151,10 +117,21 @@ const CourseProgress = ({ course }) => {
       notStarted,
       completionPercentage
     };
-  }, [lessonProgress]);
+  }, [courseItemsProgress]);
 
-  // Find next lesson to work on
-  const nextLesson = lessonProgress.find(lesson => lesson.isUnlocked && lesson.status !== 'completed');
+  // Find next item to work on
+  const nextItem = courseItemsProgress.find(item => item.isUnlocked && item.status !== 'completed');
+
+  // Modal handlers
+  const handleViewDetails = (item) => {
+    setSelectedLesson(item);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedLesson(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -163,7 +140,12 @@ const CourseProgress = ({ course }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-medium text-gray-700 mb-1">Course Progress</h3>
-            <p className="text-sm text-gray-600">Your journey through {courseStructure.title || 'this course'}</p>
+            <p className="text-sm text-gray-600">Your journey through {
+              course?.Gradebook?.courseConfig?.courseStructure?.title || 
+              course?.Gradebook?.courseStructure?.title || 
+              courseStructure.title || 
+              'this course'
+            }</p>
           </div>
           <BookOpen className="h-8 w-8 text-green-600" />
         </div>
@@ -171,7 +153,7 @@ const CourseProgress = ({ course }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <ProgressStat 
             icon={<CheckCircle className="h-4 w-4 text-green-600" />}
-            label="Lessons Completed"
+            label="Items Completed"
             value={stats.completed}
             total={stats.total}
             color="green"
@@ -201,7 +183,7 @@ const CourseProgress = ({ course }) => {
         
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Lessons Completed</span>
+            <span>Course Items Completed</span>
             <span>{stats.completed} / {stats.total} ({Math.round(stats.completionPercentage)}%)</span>
           </div>
           <Progress value={stats.completionPercentage} className="h-3" />
@@ -215,16 +197,16 @@ const CourseProgress = ({ course }) => {
         )}
       </div>
 
-      {/* Lesson Progress Table */}
+      {/* Course Items Progress Table */}
       <div className="space-y-4">
-        <h4 className="text-md font-medium text-gray-700">Lesson Progress</h4>
+        <h4 className="text-md font-medium text-gray-700">Course Items Progress</h4>
         <div className="bg-white rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lesson
+                    Course Item
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Progress
@@ -238,17 +220,32 @@ const CourseProgress = ({ course }) => {
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Access
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {lessonProgress.map((lesson) => (
-                  <LessonProgressRow key={lesson.lessonId} lesson={lesson} />
+                {courseItemsProgress.map((item) => (
+                  <LessonProgressRow 
+                    key={item.lessonId} 
+                    lesson={item} 
+                    onViewDetails={() => handleViewDetails(item)}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
+      {/* Lesson Detail Modal */}
+      <LessonDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        lesson={selectedLesson}
+        course={course}
+      />
     </div>
   );
 };
@@ -268,7 +265,7 @@ const ProgressStat = ({ icon, label, value, total, suffix = '', color }) => (
 );
 
 // Lesson Progress Row Component
-const LessonProgressRow = ({ lesson }) => {
+const LessonProgressRow = ({ lesson, onViewDetails }) => {
   const getStatusIcon = () => {
     if (lesson.status === 'completed') {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
@@ -343,6 +340,22 @@ const LessonProgressRow = ({ lesson }) => {
             {lesson.isUnlocked ? 'Unlocked' : 'Locked'}
           </span>
         </div>
+      </td>
+      
+      <td className="px-6 py-4 text-center">
+        {lesson.totalQuestions > 0 ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onViewDetails}
+            className="flex items-center gap-1"
+          >
+            <Eye className="h-4 w-4" />
+            View Details
+          </Button>
+        ) : (
+          <span className="text-xs text-gray-400">No questions</span>
+        )}
       </td>
     </tr>
   );

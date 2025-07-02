@@ -11,6 +11,11 @@ import {
   Clock,
   RotateCcw
 } from 'lucide-react';
+import { 
+  validateGradeDataStructures, 
+  calculateLessonScore, 
+  checkLessonCompletion 
+} from '../../utils/gradeCalculations';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -23,86 +28,111 @@ import {
 } from '../../../components/ui/select';
 import LessonDetailModal from './LessonDetailModal';
 
-const AssessmentGrid = ({ onReviewAssessment, course }) => {
-  // Extract gradebook data directly from course prop
-  const gradebook = course?.Gradebook || {};
-  const items = gradebook?.items || {};
+const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [] }) => {
+  // Validate that we have the required data structures
+  const validation = validateGradeDataStructures(course);
+  
+  // Extract data from the new reliable sources
+  const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
+  const actualGrades = course?.Grades?.assessments || {};
   const assessments = course?.Assessments || {};
-  const categories = gradebook?.categories || {};
-  const hasData = !!gradebook?.summary;
-  const configError = hasData ? null : 'No gradebook data available';
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [sortBy, setSortBy] = useState('lesson');
+  const [sortBy, setSortBy] = useState('order');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Group assessments by lesson prefix and calculate lesson-level statistics
+  // Use allCourseItems for consistent data with other components
   const groupedLessons = useMemo(() => {
-    const lessons = {};
+    // Use allCourseItems passed from parent for consistency with navigation and progress
+    if (allCourseItems.length === 0) {
+      return [];
+    }
     
-    // Process items from gradebook
-    Object.entries(items || {}).forEach(([itemId, itemData]) => {
-      const lessonPrefix = extractLessonPrefix(itemId);
-      if (!lessonPrefix) return;
+    const lessons = [];
+    
+    // Process all course items in the same order as CourseProgress
+    allCourseItems.forEach((courseItem, globalIndex) => {
+      // Use reliable calculation function for lesson scores
+      const lessonScore = calculateLessonScore(courseItem.itemId, course);
       
-      if (!lessons[lessonPrefix]) {
-        lessons[lessonPrefix] = {
-          lessonId: lessonPrefix,
-          questions: [],
-          totalQuestions: 0,
-          completedQuestions: 0,
-          totalScore: 0,
-          maxScore: 0,
-          totalAttempts: 0,
-          lastActivity: 0,
-          activityType: 'lesson',
-          lessonTitle: ''
-        };
+      // Check if lesson meets completion requirements
+      const isCompleted = checkLessonCompletion(courseItem.itemId, course);
+      
+      // Calculate completion rate and status
+      const completionRate = lessonScore.totalQuestions > 0 ? 
+        (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+      
+      let status = 'not_started';
+      if (lessonScore.attempted > 0) {
+        status = isCompleted ? 'completed' : 'in_progress';
       }
       
-      // Get assessment data for activityType and other details
-      const assessmentData = assessments[itemId];
-      if (assessmentData?.activityType) {
-        lessons[lessonPrefix].activityType = assessmentData.activityType;
+      // Global lesson number: 1, 2, 3, 4, 5... across all units (same as CourseProgress)
+      const lessonNumber = globalIndex + 1;
+      
+      // Get detailed question information if configured
+      const normalizedLessonId = courseItem.itemId.replace(/-/g, '_');
+      const lessonConfig = itemStructure[normalizedLessonId];
+      const questions = [];
+      let lastActivity = 0;
+      let totalAttempts = 0;
+      
+      // If lesson is configured, get detailed question data
+      if (lessonConfig && lessonConfig.questions) {
+        lessonConfig.questions.forEach(questionConfig => {
+          const questionId = questionConfig.questionId;
+          const actualGrade = actualGrades[questionId] || 0;
+          const assessmentData = assessments[questionId];
+          const maxPoints = questionConfig.points || 0;
+          
+          // Track last activity from assessment submission
+          if (assessmentData?.lastSubmission?.timestamp > lastActivity) {
+            lastActivity = assessmentData.lastSubmission.timestamp;
+          }
+          
+          // Count attempts
+          if (actualGrades.hasOwnProperty(questionId)) {
+            totalAttempts += assessmentData?.attempts || 1;
+          }
+          
+          // Add question to lesson with complete data
+          questions.push({
+            id: questionId,
+            title: questionConfig.title || questionId,
+            points: maxPoints,
+            actualGrade: actualGrade,
+            attempted: actualGrades.hasOwnProperty(questionId),
+            assessmentData: assessmentData
+          });
+        });
       }
       
-      lessons[lessonPrefix].questions.push({
-        id: itemId,
-        ...itemData,
-        assessmentData
-      });
+      const lesson = {
+        lessonId: courseItem.itemId,
+        lessonNumber: lessonNumber,
+        lessonTitle: courseItem.title || `Lesson ${lessonNumber}`,
+        activityType: courseItem.type || 'lesson',
+        questions: questions,
+        totalQuestions: lessonScore.totalQuestions,
+        completedQuestions: lessonScore.attempted,
+        totalScore: lessonScore.score,
+        maxScore: lessonScore.total,
+        averageScore: lessonScore.percentage,
+        completionRate: completionRate,
+        status: status,
+        totalAttempts: totalAttempts,
+        lastActivity: lastActivity,
+        isConfigured: !!lessonConfig // Flag to show if lesson has been configured
+      };
       
-      lessons[lessonPrefix].totalQuestions += 1;
-      lessons[lessonPrefix].totalScore += itemData.score || 0;
-      lessons[lessonPrefix].maxScore += itemData.maxScore || 0;
-      lessons[lessonPrefix].totalAttempts += itemData.attempts || 0;
-      
-      if (itemData.score > 0) {
-        lessons[lessonPrefix].completedQuestions += 1;
-      }
-      
-      if (itemData.lastAttempt > lessons[lessonPrefix].lastActivity) {
-        lessons[lessonPrefix].lastActivity = itemData.lastAttempt;
-      }
-      
-      // Generate lesson title from the first question
-      if (!lessons[lessonPrefix].lessonTitle && itemData.title) {
-        lessons[lessonPrefix].lessonTitle = generateLessonTitle(lessonPrefix, itemData.title);
-      }
+      lessons.push(lesson);
     });
     
-    // Calculate lesson-level statistics
-    Object.values(lessons).forEach(lesson => {
-      lesson.averageScore = lesson.maxScore > 0 ? (lesson.totalScore / lesson.maxScore) * 100 : 0;
-      lesson.completionRate = lesson.totalQuestions > 0 ? (lesson.completedQuestions / lesson.totalQuestions) * 100 : 0;
-      lesson.status = getItemStatus(lesson);
-    });
-    
-    return Object.values(lessons);
-  }, [items, assessments]);
+    return lessons;
+  }, [allCourseItems, course, itemStructure, actualGrades, assessments]);
 
   // Filter and sort lessons
   const filteredLessons = useMemo(() => {
@@ -137,8 +167,13 @@ const AssessmentGrid = ({ onReviewAssessment, course }) => {
       let comparison = 0;
       
       switch (sortBy) {
+        case 'order':
+          // Use lesson number for proper sequential ordering
+          comparison = a.lessonNumber - b.lessonNumber;
+          break;
         case 'lesson':
-          comparison = a.lessonId.localeCompare(b.lessonId);
+          // Also use lesson number instead of lessonId
+          comparison = a.lessonNumber - b.lessonNumber;
           break;
         case 'date':
           comparison = (b.lastActivity || 0) - (a.lastActivity || 0);
@@ -153,6 +188,8 @@ const AssessmentGrid = ({ onReviewAssessment, course }) => {
           comparison = (a.activityType || '').localeCompare(b.activityType || '');
           break;
         default:
+          // Default to maintaining original order
+          comparison = a.lessonNumber - b.lessonNumber;
           break;
       }
       
@@ -162,20 +199,22 @@ const AssessmentGrid = ({ onReviewAssessment, course }) => {
     return lessons;
   }, [groupedLessons, searchTerm, filterType, filterStatus, sortBy, sortOrder]);
 
-  // Show configuration error if weights are missing
-  if (configError) {
+  // Show error state if validation fails
+  if (!validation.valid) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-700 font-medium">Configuration Error</p>
-        <p className="text-red-600 text-sm mt-2">{configError}</p>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+        <p className="text-yellow-700 font-medium">Assessment Data Loading</p>
+        <p className="text-yellow-600 text-sm mt-2">
+          Assessment data is loading. Missing: {validation.missing.join(', ')}
+        </p>
       </div>
     );
   }
 
-  if (!hasData) {
+  if (allCourseItems.length === 0) {
     return (
       <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-500">No lessons available yet.</p>
+        <p className="text-gray-500">No course items available yet. Course structure may still be loading.</p>
       </div>
     );
   }
@@ -361,11 +400,15 @@ const LessonRow = ({ lesson, onViewDetails }) => {
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-6 py-4">
-        <div className="text-sm font-medium text-gray-900">
-          {lesson.lessonTitle}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {lesson.lessonId}
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1">
+            {lesson.lessonNumber.toString().padStart(2, '0')}
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              {lesson.lessonTitle}
+            </div>
+          </div>
         </div>
       </td>
       <td className="px-6 py-4">
@@ -374,24 +417,32 @@ const LessonRow = ({ lesson, onViewDetails }) => {
         </Badge>
       </td>
       <td className="px-6 py-4 text-center">
-        {lesson.totalAttempts > 0 ? (
+        {lesson.isConfigured && lesson.totalAttempts > 0 ? (
           <div className="flex flex-col items-center">
             <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
               {lesson.totalScore} / {lesson.maxScore}
             </div>
             <div className="text-xs text-gray-500 mt-1">{Math.round(lesson.averageScore)}%</div>
           </div>
-        ) : (
+        ) : lesson.isConfigured ? (
           <span className="text-sm text-gray-400">-</span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
       <td className="px-6 py-4 text-center">
-        <div className="text-sm text-gray-600">
-          {lesson.completedQuestions} / {lesson.totalQuestions}
-        </div>
-        <div className="text-xs text-gray-500">
-          {Math.round(lesson.completionRate)}% complete
-        </div>
+        {lesson.isConfigured ? (
+          <div>
+            <div className="text-sm text-gray-600">
+              {lesson.completedQuestions} / {lesson.totalQuestions}
+            </div>
+            <div className="text-xs text-gray-500">
+              {Math.round(lesson.completionRate)}% complete
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Coming soon</span>
+        )}
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center justify-center gap-2">
@@ -403,16 +454,18 @@ const LessonRow = ({ lesson, onViewDetails }) => {
         </div>
       </td>
       <td className="px-6 py-4">
-        {lesson.lastActivity ? (
+        {lesson.isConfigured && lesson.lastActivity ? (
           <div className="text-sm text-gray-600">
             {new Date(lesson.lastActivity).toLocaleDateString()}
           </div>
-        ) : (
+        ) : lesson.isConfigured ? (
           <span className="text-sm text-gray-400">-</span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
       <td className="px-6 py-4 text-center">
-        {lesson.questions.length > 0 && (
+        {lesson.isConfigured && lesson.questions.length > 0 ? (
           <Button
             size="sm"
             variant="ghost"
@@ -422,6 +475,10 @@ const LessonRow = ({ lesson, onViewDetails }) => {
             <Eye className="h-4 w-4" />
             View Details
           </Button>
+        ) : lesson.isConfigured ? (
+          <span className="text-xs text-gray-400">No questions</span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
     </tr>
@@ -439,35 +496,6 @@ const SortIcon = ({ field, currentSort, sortOrder }) => {
 };
 
 // Helper Functions
-const extractLessonPrefix = (itemId) => {
-  // Extract lesson prefix from item ID like "course4_01_welcome_rtd_academy_knowledge_check"
-  // Returns "course4_01"
-  const match = itemId.match(/^(course\d+_\d+)/);
-  return match ? match[1] : null;
-};
-
-const generateLessonTitle = (lessonPrefix, firstQuestionTitle) => {
-  // Extract lesson number from prefix like "course4_01" -> "01"
-  const lessonNumber = lessonPrefix.split('_')[1];
-  
-  // Try to create a meaningful title from the question title
-  // Remove common suffixes and clean up the title
-  let title = firstQuestionTitle || '';
-  title = title.replace(/Knowledge Check.*$/i, '');
-  title = title.replace(/Question \d+.*$/i, '');
-  title = title.replace(/- Question.*$/i, '');
-  title = title.trim();
-  
-  // If we couldn't extract a good title, use a default
-  if (!title) {
-    title = `Lesson ${lessonNumber}`;
-  } else if (!title.toLowerCase().includes('lesson')) {
-    title = `Lesson ${lessonNumber} - ${title}`;
-  }
-  
-  return title;
-};
-
 const getItemStatus = (lesson) => {
   // Determine lesson status based on completion
   if (lesson.completedQuestions === 0) {

@@ -31,7 +31,7 @@
  * To use this module in your course assessment file:
  * 
  * ```javascript
- * const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
+ * const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
  * 
  * exports.yourFunctionName = createAIMultipleChoice({
  *   // Configuration object - see ACCEPTED PARAMETERS below
@@ -133,7 +133,7 @@ const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getData
 const { storeSubmission, createMultipleChoiceSubmissionRecord } = require('../utilities/submission-storage');
 const { AIQuestionSchema } = require('../schemas/assessment-schemas');
 const { applyPromptModules } = require('../prompt-modules');
-const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../../utils/aiModels');
+const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../utils/aiModels');
 
 // Initialize AI instance if we have an API key
 let ai = null;
