@@ -11,17 +11,12 @@ import { InlineMath, BlockMath } from 'react-katex';
  * Lesson 9 - Optics: Lenses
  * Covers converging and diverging lenses, refraction in lenses, and lens equations
  */
-const OpticsLenses = ({ course, courseId = '2' }) => {
+const OpticsLenses = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Collapsible section states
-  const [isLensBasicsOpen, setIsLensBasicsOpen] = useState(false);
-  const [isRayDiagramsOpen, setIsRayDiagramsOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
   
   // Ray diagram animation states
   const [rayDiagramStep, setRayDiagramStep] = useState(0); // Current step in animation (0-4)
@@ -62,121 +57,112 @@ const OpticsLenses = ({ course, courseId = '2' }) => {
         </div>
 
         {/* Lens Basics and Refraction Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsLensBasicsOpen(!isLensBasicsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Lens Basics and Refraction</h3>
-            <span className="text-blue-600">{isLensBasicsOpen ? '▼' : '▶'}</span>
-          </button>
+        {AIAccordion ? (
+          <div className="mb-6">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item value="lens-basics" title="Lens Basics and Refraction" theme="blue" onAskAI={onAIAccordionContent}>
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  <p className="mb-4">
+                    A study of lenses is very similar to that of curved mirrors. However, while mirrors 
+                    involve reflection, lenses involve refraction. In fact, for lenses there are two refractions 
+                    – one when the light ray enters the lens and one when the light ray exits the lens.
+                  </p>
 
-          {isLensBasicsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  A study of lenses is very similar to that of curved mirrors. However, while mirrors 
-                  involve reflection, lenses involve refraction. In fact, for lenses there are two refractions 
-                  – one when the light ray enters the lens and one when the light ray exits the lens.
-                </p>
-
-                {/* Convex Lens Section */}
-                <div className="mt-6 bg-white p-4 rounded border border-gray-300">
-                  <h4 className="font-semibold text-gray-800 mb-3">Converging (Convex) Lenses</h4>
-                  
-                  <div className="mb-4">
-                    <p className="mb-3">
-                      Note that for a convex lens like the one depicted below, the light ray is bent toward the 
-                      principle axis twice, while for a concave lens the light ray is bent away from the principle 
-                      axis.
-                    </p>
+                  {/* Convex Lens Section */}
+                  <div className="mt-6 bg-white p-4 rounded border border-gray-300">
+                    <h4 className="font-semibold text-gray-800 mb-3">Converging (Convex) Lenses</h4>
                     
-                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                      <p className="text-sm text-blue-800">
-                        <strong>Key Points about Convex Lenses:</strong>
-                        <br />• Light passes through two surfaces, getting refracted at each
-                        <br />• The shape causes light rays to converge (come together)
-                        <br />• Thicker in the middle than at the edges
-                        <br />• Creates real focal points where light actually converges
+                    <div className="mb-4">
+                      <p className="mb-3">
+                        Note that for a convex lens like the one depicted below, the light ray is bent toward the 
+                        principle axis twice, while for a concave lens the light ray is bent away from the principle 
+                        axis.
+                      </p>
+                      
+                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                        <p className="text-sm text-blue-800">
+                          <strong>Key Points about Convex Lenses:</strong>
+                          <br />• Light passes through two surfaces, getting refracted at each
+                          <br />• The shape causes light rays to converge (come together)
+                          <br />• Thicker in the middle than at the edges
+                          <br />• Creates real focal points where light actually converges
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-gray-100 rounded">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Understanding the Two Refractions:</p>
+                      <p className="text-sm text-gray-600">
+                        Using the law of refraction, can you explain refraction 1 and refraction 2?
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="mt-4 p-3 bg-gray-100 rounded">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Understanding the Two Refractions:</p>
-                    <p className="text-sm text-gray-600">
-                      Using the law of refraction, can you explain refraction 1 and refraction 2?
-                    </p>
-                  </div>
-                </div>
 
-                {/* Concave Lens Section */}
-                <div className="mt-6 bg-white p-4 rounded border border-gray-300">
-                  <h4 className="font-semibold text-gray-800 mb-3">Diverging (Concave) Lenses</h4>
-                  
-                  <div className="mb-4">
-                    <p className="mb-3">
-                      Convex lenses are converging lenses, and concave lenses are diverging lenses.
-                    </p>
+                  {/* Concave Lens Section */}
+                  <div className="mt-6 bg-white p-4 rounded border border-gray-300">
+                    <h4 className="font-semibold text-gray-800 mb-3">Diverging (Concave) Lenses</h4>
                     
-                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                      <p className="text-sm text-blue-800">
-                        <strong>Key Points about Concave Lenses:</strong>
-                        <br />• Light rays diverge (spread apart) after passing through
-                        <br />• Thinner in the middle than at the edges
-                        <br />• Creates virtual focal points (light appears to come from these points)
-                        <br />• Always produces virtual, upright, diminished images
+                    <div className="mb-4">
+                      <p className="mb-3">
+                        Convex lenses are converging lenses, and concave lenses are diverging lenses.
+                      </p>
+                      
+                      <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                        <p className="text-sm text-blue-800">
+                          <strong>Key Points about Concave Lenses:</strong>
+                          <br />• Light rays diverge (spread apart) after passing through
+                          <br />• Thinner in the middle than at the edges
+                          <br />• Creates virtual focal points (light appears to come from these points)
+                          <br />• Always produces virtual, upright, diminished images
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-gray-100 rounded">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Critical Thinking:</p>
+                      <p className="text-sm text-gray-600">
+                        Using the law of refraction, can you explain the refractions for a diverging lens?
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="mt-4 p-3 bg-gray-100 rounded">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Critical Thinking:</p>
-                    <p className="text-sm text-gray-600">
-                      Using the law of refraction, can you explain the refractions for a diverging lens?
-                    </p>
-                  </div>
-                </div>
 
-                {/* Summary Box */}
-                <div className="mt-6 bg-gray-100 p-4 rounded-lg border border-gray-300">
-                  <h5 className="font-semibold text-gray-700 mb-2">Quick Summary</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <strong className="text-gray-800">Converging Lens (Convex):</strong>
-                      <ul className="ml-4 mt-1">
-                        <li>• Brings light rays together</li>
-                        <li>• Can form real or virtual images</li>
-                        <li>• Used in magnifying glasses, cameras</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <strong className="text-gray-800">Diverging Lens (Concave):</strong>
-                      <ul className="ml-4 mt-1">
-                        <li>• Spreads light rays apart</li>
-                        <li>• Only forms virtual images</li>
-                        <li>• Used in eyeglasses for nearsightedness</li>
-                      </ul>
+                  {/* Summary Box */}
+                  <div className="mt-6 bg-gray-100 p-4 rounded-lg border border-gray-300">
+                    <h5 className="font-semibold text-gray-700 mb-2">Quick Summary</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <strong className="text-gray-800">Converging Lens (Convex):</strong>
+                        <ul className="ml-4 mt-1">
+                          <li>• Brings light rays together</li>
+                          <li>• Can form real or virtual images</li>
+                          <li>• Used in magnifying glasses, cameras</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <strong className="text-gray-800">Diverging Lens (Concave):</strong>
+                        <ul className="ml-4 mt-1">
+                          <li>• Spreads light rays apart</li>
+                          <li>• Only forms virtual images</li>
+                          <li>• Used in eyeglasses for nearsightedness</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">AI Accordion component not available. Content hidden.</p>
+          </div>
+        )}
 
         {/* Ray Diagrams and Lens Equations Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsRayDiagramsOpen(!isRayDiagramsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Ray Diagrams and Lens Equations</h3>
-            <span className="text-blue-600">{isRayDiagramsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isRayDiagramsOpen && (
-            <div className="mt-4">
+        {AIAccordion ? (
+          <div className="mb-6">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item value="ray-diagrams" title="Ray Diagrams and Lens Equations" theme="blue" onAskAI={onAIAccordionContent}>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
                 {/* Ray Diagram Rules for Converging Lenses */}
@@ -916,22 +902,20 @@ const OpticsLenses = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">AI Accordion component not available. Content hidden.</p>
+          </div>
+        )}
 
         {/* Example 1: Converging Lens Problem */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1: Converging Lens Problem</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
+        {AIAccordion ? (
+          <div className="mb-6">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item value="example1" title="Example 1: Converging Lens Problem" theme="blue" onAskAI={onAIAccordionContent}>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
@@ -993,22 +977,20 @@ const OpticsLenses = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">AI Accordion component not available. Content hidden.</p>
+          </div>
+        )}
 
         {/* Example 2: Diverging Lens Problem */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2: Diverging Lens Problem</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
+        {AIAccordion ? (
+          <div className="mb-6">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item value="example2" title="Example 2: Diverging Lens Problem" theme="blue" onAskAI={onAIAccordionContent}>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
@@ -1070,22 +1052,20 @@ const OpticsLenses = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">AI Accordion component not available. Content hidden.</p>
+          </div>
+        )}
 
         {/* Example 3: Mystery Optical Device */}
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3: Mystery Optical Device</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
-            <div className="mt-4">
+        {AIAccordion ? (
+          <div className="mb-6">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item value="example3" title="Example 3: Mystery Optical Device" theme="blue" onAskAI={onAIAccordionContent}>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
@@ -1155,9 +1135,14 @@ const OpticsLenses = ({ course, courseId = '2' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">AI Accordion component not available. Content hidden.</p>
+          </div>
+        )}
 
       </TextSection>
 
