@@ -25,88 +25,88 @@
     },
     "lessonOverrides": {
       "exam_section_1": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "exam_section_2": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "exam_section_3": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_3": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_4": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l5_7": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l8_9": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_12": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l13_14": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l15_18": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_18": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l19_21": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l22_24": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_24": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l25_27": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l28_30": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l31_33": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_34": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l35_36": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l37_38": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       },
       "assignment_l1_38": {
-        "minimumPercentage": 1,
-        "requireAllQuestions": false
+        "minimumPercentage": 0,
+        "requireAllQuestions": true
       }
     }
   },
