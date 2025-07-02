@@ -4,11 +4,9 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const DiffractionGratings = ({ course, courseId = 'default' }) => {
-  const [isPoissonOpen, setIsPoissonOpen] = useState(false);
-  const [isGratingsOpen, setIsGratingsOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
+const DiffractionGratings = ({ course, courseId = 'default', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+AIAccordion, onAIAccordionContent }) => {
+  // Note: Manual dropdown states removed - now using AIAccordion
   
   // Animation states for Poisson's bright spot
   const [showWaves, setShowWaves] = useState(true);
@@ -35,18 +33,17 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
       metadata={{ estimated_time: '45 minutes' }}
     >
       <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPoissonOpen(!isPoissonOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Poisson's Bright Spot</h3>
-            <span className="text-blue-600">{isPoissonOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isPoissonOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        {/* AI-Enhanced Content Sections */}
+        {AIAccordion ? (
+          <div className="my-8">
+            <AIAccordion className="space-y-0">
+              <AIAccordion.Item
+                value="poisson-spot"
+                title="Poisson's Bright Spot"
+                theme="purple"
+                onAskAI={onAIAccordionContent}
+              >
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
                   Thomas Young published the results from his double-slit experiment in 
                   1807 which put the wave theory of light on a firm footing. However, 
@@ -80,7 +77,7 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
                   the disk, and the whole is referred to as a diffraction pattern.
                 </p>
                 
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6 mb-6">
                   <h4 className="font-semibold text-green-800 mb-2">Historical Significance:</h4>
                   <p className="text-green-900 text-sm">
                     Poisson's bright spot provided crucial evidence for the wave theory of light. 
@@ -89,241 +86,38 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
                   </p>
                 </div>
                 
-                {/* Interactive Poisson's Bright Spot Animation */}
-                <div className="bg-white p-6 rounded border border-gray-300 mt-6">
-                  <h4 className="text-center font-semibold text-gray-800 mb-4">Interactive Poisson's Bright Spot Demonstration</h4>
-                  <p className="text-center text-sm text-gray-600 mb-4">
-                    Observe how light diffracts around a circular disk and creates a bright spot in the center of its shadow
+                {/* Poisson's Bright Spot Video Demonstration */}
+                <div className="bg-white p-6 rounded border border-gray-300 mb-6">
+                  <h5 className="text-center font-semibold text-gray-800 mb-4">Poisson's Bright Spot - Experimental Demonstration</h5>
+                  <div className="aspect-w-16 aspect-h-9 mb-4">
+                    <iframe 
+                      width="560" 
+                      height="315" 
+                      src="https://www.youtube.com/embed/TM9alPcOMcU?si=iArsu5UlN6yoegnh" 
+                      title="YouTube video player" 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                      referrerPolicy="strict-origin-when-cross-origin" 
+                      allowFullScreen
+                      className="w-full h-full rounded"
+                    ></iframe>
+                  </div>
+                  <p className="text-sm text-gray-700 text-center">
+                    See Poisson's bright spot in action! This video shows the actual experimental setup and results 
+                    that confirmed Fresnel's wave theory and revolutionized our understanding of light.
                   </p>
-                  
-                  {/* Controls */}
-                  <div className="flex flex-wrap justify-center items-center gap-4 mb-6">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Disk Size:</label>
-                      <input
-                        type="range"
-                        min="20"
-                        max="50"
-                        value={diskSize}
-                        onChange={(e) => setDiskSize(parseInt(e.target.value))}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-gray-600">{diskSize}px</span>
-                    </div>
-                    
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showWaves}
-                        onChange={(e) => setShowWaves(e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">Show Waves</span>
-                    </label>
-                    
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showInterference}
-                        onChange={(e) => setShowInterference(e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">Show Shadow Pattern</span>
-                    </label>
-                    
-                    <button
-                      onClick={() => setIsAnimating(!isAnimating)}
-                      className={`px-4 py-2 rounded font-medium text-sm transition-colors ${
-                        isAnimating 
-                          ? 'bg-red-500 text-white hover:bg-red-600' 
-                          : 'bg-green-500 text-white hover:bg-green-600'
-                      }`}
-                    >
-                      {isAnimating ? 'Stop' : 'Start'} Animation
-                    </button>
-                  </div>
-                  
-                  {/* Animation Canvas */}
-                  <div className="flex justify-center">
-                    <svg width="700" height="400" viewBox="0 0 700 400" className="border border-blue-300 bg-gray-50 rounded">
-                      <defs>
-                        <radialGradient id="shadowGradient" cx="50%" cy="50%">
-                          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-                          <stop offset="5%" stopColor="#e0e0e0" stopOpacity="0.6" />
-                          <stop offset="20%" stopColor="#808080" stopOpacity="0.3" />
-                          <stop offset="50%" stopColor="#404040" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                        </radialGradient>
-                        
-                        <filter id="brightSpot">
-                          <feGaussianBlur stdDeviation="2" />
-                        </filter>
-                      </defs>
-                      
-                      {/* Light source */}
-                      <circle cx="100" cy="200" r="8" fill="#fbbf24" stroke="#f59e0b" strokeWidth="2">
-                        <animate attributeName="r" values="8;10;8" dur="2s" repeatCount="indefinite" />
-                      </circle>
-                      <text x="100" y="230" textAnchor="middle" className="text-sm font-semibold fill-gray-700">Point Source</text>
-                      
-                      {/* Incident waves */}
-                      {showWaves && Array.from({length: 6}, (_, i) => {
-                        const radius = 30 + i * 40 + (animationTime * 20) % 40;
-                        return radius < 300 ? (
-                          <circle
-                            key={`wave-${i}`}
-                            cx="100"
-                            cy="200"
-                            r={radius}
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="1.5"
-                            opacity={0.5 - radius / 600}
-                          />
-                        ) : null;
-                      })}
-                      
-                      {/* Disk obstacle */}
-                      <circle 
-                        cx="350" 
-                        cy="200" 
-                        r={diskSize} 
-                        fill="#374151" 
-                        stroke="#1f2937" 
-                        strokeWidth="2"
-                      />
-                      <text x="350" y={200 + diskSize + 20} textAnchor="middle" className="text-sm font-semibold fill-gray-700">Circular Disk</text>
-                      
-                      {/* Screen */}
-                      <rect x="550" y="50" width="10" height="300" fill="#6b7280" />
-                      <text x="570" y="200" textAnchor="start" className="text-sm fill-gray-700">Screen</text>
-                      
-                      {/* Shadow region with interference pattern */}
-                      {showInterference && (
-                        <>
-                          {/* Main shadow */}
-                          <rect x="560" y={200 - diskSize * 1.5} width="10" height={diskSize * 3} fill="#2d3748" opacity="0.7" />
-                          
-                          {/* Bright spot in center */}
-                          <circle 
-                            cx="565" 
-                            cy="200" 
-                            r="3" 
-                            fill="#ffffff" 
-                            filter="url(#brightSpot)"
-                          >
-                            <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
-                          </circle>
-                          
-                          {/* Diffraction fringes around shadow */}
-                          {Array.from({length: 8}, (_, i) => {
-                            const y = 200 + (i - 4) * (diskSize / 2);
-                            const intensity = Math.cos((i - 4) * Math.PI / 2) ** 2;
-                            return (
-                              <rect
-                                key={`fringe-${i}`}
-                                x="560"
-                                y={y - 2}
-                                width="10"
-                                height="4"
-                                fill={i % 2 === 0 ? "#ffffff" : "#000000"}
-                                opacity={intensity * 0.3}
-                              />
-                            );
-                          })}
-                        </>
-                      )}
-                      
-                      {/* Diffracted waves around disk edges */}
-                      {showWaves && (
-                        <>
-                          {/* Top edge diffraction */}
-                          {Array.from({length: 3}, (_, i) => {
-                            const radius = 10 + i * 20 + (animationTime * 15) % 20;
-                            return (
-                              <circle
-                                key={`top-diff-${i}`}
-                                cx="350"
-                                cy={200 - diskSize}
-                                r={radius}
-                                fill="none"
-                                stroke="#ef4444"
-                                strokeWidth="1"
-                                opacity={0.4 - radius / 100}
-                                clipPath="url(#rightSide)"
-                              />
-                            );
-                          })}
-                          
-                          {/* Bottom edge diffraction */}
-                          {Array.from({length: 3}, (_, i) => {
-                            const radius = 10 + i * 20 + (animationTime * 15) % 20;
-                            return (
-                              <circle
-                                key={`bottom-diff-${i}`}
-                                cx="350"
-                                cy={200 + diskSize}
-                                r={radius}
-                                fill="none"
-                                stroke="#ef4444"
-                                strokeWidth="1"
-                                opacity={0.4 - radius / 100}
-                                clipPath="url(#rightSide)"
-                              />
-                            );
-                          })}
-                        </>
-                      )}
-                      
-                      {/* Clip path to show only right side of diffracted waves */}
-                      <defs>
-                        <clipPath id="rightSide">
-                          <rect x="350" y="0" width="350" height="400" />
-                        </clipPath>
-                      </defs>
-                      
-                      {/* Labels and annotations */}
-                      <g transform="translate(20, 300)">
-                        <rect x="0" y="0" width="660" height="90" fill="white" stroke="#d1d5db" strokeWidth="1" rx="5" opacity="0.9" />
-                        <text x="10" y="20" className="text-sm font-semibold fill-gray-800">What's Happening:</text>
-                        <text x="10" y="38" className="text-xs fill-gray-700">• Light from point source encounters circular disk obstacle</text>
-                        <text x="10" y="53" className="text-xs fill-gray-700">• Waves diffract around edges and interfere constructively at shadow center → Poisson's bright spot!</text>
-                        <text x="10" y="68" className="text-xs fill-gray-700">• Fresnel predicted this; Poisson thought it was absurd</text>
-                        <text x="10" y="83" className="text-xs fill-gray-700">• Arago's experiment confirmed it, proving wave theory</text>
-                      </g>
-                    </svg>
-                  </div>
-                  
-                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h5 className="font-semibold text-yellow-800 mb-2">Key Observations:</h5>
-                    <ul className="text-sm text-yellow-900 space-y-1">
-                      <li>• <strong>Bright spot:</strong> Appears at the exact center of the circular shadow</li>
-                      <li>• <strong>Mechanism:</strong> Waves diffracted from all points around the disk's edge travel equal distances to the center</li>
-                      <li>• <strong>Equal path lengths:</strong> All diffracted waves arrive in phase, creating constructive interference</li>
-                      <li>• <strong>Diffraction fringes:</strong> Additional bright and dark bands appear around the shadow edge</li>
-                      <li>• <strong>Disk size effect:</strong> Larger disks produce dimmer central spots; smaller disks produce brighter ones</li>
-                    </ul>
-                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
+                
+                </div>
+              </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsGratingsOpen(!isGratingsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Diffraction Gratings</h3>
-            <span className="text-blue-600">{isGratingsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isGratingsOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <AIAccordion.Item
+                value="diffraction-gratings"
+                title="Diffraction Gratings"
+                theme="blue"
+                onAskAI={onAIAccordionContent}
+              >
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
                   A large number of equally spaced parallel slits is called a diffraction grating. (Refer to 
                   Pearson pages 692 to 694.) Gratings are often made by ruling very fine lines on glass 
@@ -409,25 +203,16 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
                     <li>• Can contain thousands of slits per centimeter for high resolution</li>
                   </ul>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
+                </div>
+              </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Finding Wavelength from Angle</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <AIAccordion.Item
+                value="example1"
+                title="Example 1 - Finding Wavelength from Angle"
+                theme="green"
+                onAskAI={onAIAccordionContent}
+              >
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A monochromatic light source shines on a diffraction grating of 10,000 lines/cm and
@@ -490,24 +275,15 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
+              </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2 - Finding Wavelength from Screen Position</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <AIAccordion.Item
+                value="example2"
+                title="Example 2 - Finding Wavelength from Screen Position"
+                theme="green"
+                onAskAI={onAIAccordionContent}
+              >
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
                 <p className="mb-4">
                   A monochromatic light source shines on a diffraction grating of 10,000 lines/cm and
@@ -583,12 +359,22 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+              </AIAccordion.Item>
+            </AIAccordion>
+          </div>
+        ) : (
+          // Fallback to manual accordion if AIAccordion not available
+          <div className="my-8 p-4 bg-gray-100 rounded-lg">
+            <p className="text-gray-600">AIAccordion component not available. Please check the implementation.</p>
+          </div>
+        )}
       </TextSection>
 
       <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="19-diffraction-gratings"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
         title="Diffraction Gratings - Knowledge Check"
         questions={[
           {
