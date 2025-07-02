@@ -10,7 +10,7 @@
  * 4. Copy this file to: functions/courses/[COURSE_ID]/[LAB_FOLDER_NAME]/assessments.js
  */
 
-const { createLabSubmission } = require('../../../shared/assessment-types/lab-submission');
+const { createLabSubmission } = require('../shared/assessment-types/lab-submission');
 
 /**
  * Lab: [LAB NAME]

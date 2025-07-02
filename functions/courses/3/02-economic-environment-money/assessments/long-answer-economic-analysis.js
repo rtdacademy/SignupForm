@@ -1,4 +1,4 @@
-const { createAILongAnswer } = require('shared/assessment-types/ai-long-answer');
+const { createAILongAnswer } = require('../../shared/assessment-types/ai-long-answer');
 
 // Question 5: Economic Analysis Long Answer
 exports.course3_02_economic_environment_longAnswer = createAILongAnswer({

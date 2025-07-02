@@ -397,11 +397,17 @@ const SlideshowKnowledgeCheck = ({
           />;
         } else {
           // Cloud function question - load on demand (no preloading)
+          const originalQuestionId = question.questionId || questionId;
+          const cloudFunctionName = (courseId === '2' && originalQuestionId.startsWith('course2_')) 
+            ? 'course2_assessments' 
+            : originalQuestionId;
+          
           return (
             <StandardMultipleChoiceQuestion
               key={questionId}
               courseId={courseId}
-              cloudFunctionName={question.questionId || questionId}
+              cloudFunctionName={cloudFunctionName}
+              assessmentId={originalQuestionId}
               title={question.title || `Question ${questionNumber}`}
               theme={themeConfig.name}
               maxAttempts={9999}
@@ -417,11 +423,17 @@ const SlideshowKnowledgeCheck = ({
         }
       
       case 'ai-short-answer':
+        const originalAIQuestionId = question.questionId || questionId;
+        const aiCloudFunctionName = (courseId === '2' && originalAIQuestionId.startsWith('course2_')) 
+          ? 'course2_assessments' 
+          : originalAIQuestionId;
+        
         return (
           <AIShortAnswerQuestion
             key={questionId}
             courseId={courseId}
-            cloudFunctionName={question.questionId || questionId}
+            cloudFunctionName={aiCloudFunctionName}
+            assessmentId={originalAIQuestionId}
             title={question.title || `Question ${questionNumber}`}
             theme={theme}
             maxAttempts={9999}

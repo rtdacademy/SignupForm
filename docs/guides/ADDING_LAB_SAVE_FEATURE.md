@@ -37,7 +37,7 @@ mkdir -p functions/courses/[courseId]/[lab-folder]
  * Content: [lab-folder]
  */
 
-const { createLabSubmission } = require('../../../shared/assessment-types/lab-submission');
+const { createLabSubmission } = require('../shared/assessment-types/lab-submission');
 
 /**
  * Lab: [Lab Name]

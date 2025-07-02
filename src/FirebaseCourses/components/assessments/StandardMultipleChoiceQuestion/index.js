@@ -289,8 +289,8 @@ const StandardMultipleChoiceQuestion = ({
   // AI Assistant props (following AIAccordion pattern)
   onAIAccordionContent = null, // Callback to send extracted content to AI chat
 }) => {
-  // Use cloudFunctionName as assessmentId, with fallback for backward compatibility
-  const finalAssessmentId = cloudFunctionName || assessmentId;
+  // Use assessmentId if provided, otherwise fall back to cloudFunctionName for backward compatibility
+  const finalAssessmentId = assessmentId || cloudFunctionName;
   
   if (!finalAssessmentId) {
     console.error('StandardMultipleChoiceQuestion: cloudFunctionName is required');
@@ -661,6 +661,13 @@ const StandardMultipleChoiceQuestion = ({
         difficulty: difficultyFromData
       };
 
+      console.log('DEBUG - Generate operation props:', {
+        cloudFunctionName,
+        assessmentId,
+        finalAssessmentId,
+        functionParams
+      });
+
 
       const result = await assessmentFunction(functionParams);
 
@@ -736,6 +743,13 @@ const StandardMultipleChoiceQuestion = ({
         topic: topicFromData,
         difficulty: difficultyFromData
       };
+
+      console.log('DEBUG - Submit operation props:', {
+        cloudFunctionName,
+        assessmentId,
+        finalAssessmentId,
+        functionParams
+      });
 
 
       const result = await assessmentFunction(functionParams);

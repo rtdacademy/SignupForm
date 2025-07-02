@@ -32,7 +32,7 @@ src/FirebaseCourses/courses/[COURSE_ID]/content/[LAB_FOLDER]/
 ### 1. Assessments Configuration
 ```javascript
 // functions/courses/[COURSE_ID]/[LAB_FOLDER]/assessments.js
-const { createLabSubmission } = require('../../../shared/assessment-types/lab-submission');
+const { createLabSubmission } = require('../shared/assessment-types/lab-submission');
 
 exports.course[ID]_[NAME] = createLabSubmission({
   labTitle: 'Lab Name',

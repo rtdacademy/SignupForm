@@ -4,7 +4,7 @@
  */
 
 const admin = require('firebase-admin');
-const { sanitizeEmail } = require('../../utils');
+const { sanitizeEmail } = require('../utils/utils');
 
 // Helper function to get category weights
 const getCategoryWeight = (type) => {

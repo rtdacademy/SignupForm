@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('../../shared/assessment-types/standard-multiple-choice');
 
 // Question 4: Economic Cycles and Financial Strategy (Standard Multiple Choice)
 exports.course3_02_economic_environment_question4 = createStandardMultipleChoice({

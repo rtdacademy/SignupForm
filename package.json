@@ -145,7 +145,15 @@
     "create-course": "node scripts/create-course.js",
     "generate-slideshow": "node scripts/generate-slideshow-questions.js",
     "create-course-from-structure": "node scripts/create-course.js",
-    "delete-course": "node scripts/delete-course.js"
+    "delete-course": "node scripts/delete-course.js",
+    "prepare-shared": "node scripts/prepare-shared.js",
+    "deploy:course-2a": "npm run prepare-shared && cd functions/courses/2a && npm install && firebase deploy --only functions:course-2a",
+    "deploy:course-2a2": "npm run prepare-shared && cd functions/courses/2a2 && npm install && firebase deploy --only functions:course-2a2",
+    "deploy:course-2b": "npm run prepare-shared && cd functions/courses/2b && npm install && firebase deploy --only functions:course-2b",
+    "deploy:course-2c": "npm run prepare-shared && cd functions/courses/2c && npm install && firebase deploy --only functions:course-2c",
+    "deploy:course-3": "npm run prepare-shared && cd functions/courses/3 && npm install && firebase deploy --only functions:course-3",
+    "deploy:course-4": "npm run prepare-shared && cd functions/courses/4 && npm install && firebase deploy --only functions:course-4",
+    "gemini": "env-cmd -f .env npx @google/gemini-cli"
   },
   "browserslist": [
     ">0.2%",

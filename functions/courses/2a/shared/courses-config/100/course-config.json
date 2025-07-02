@@ -1,0 +1,47 @@
+{
+  "courseId": "100",
+  "title": "Sample Course",
+  "fullTitle": "100 - Sample Course",
+  "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
+  "credits": 1,
+  "grade": "10",
+  "prerequisites": [],
+  "instructors": [],
+  "duration": "1 semester",
+  "contentFolder": "content",
+  "functionsFolder": "functions/100",
+  "weights": {
+    "lesson": 0.2,
+    "assignment": 0.4,
+    "exam": 0.4
+  },
+  "settings": {
+    "allowLateSubmissions": true,
+    "latePenaltyPerDay": 0.1,
+    "maxLateDays": 7,
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableAIQuestions": true,
+    "enableTextToSpeech": true,
+    "enableCollaboration": false,
+    "requireSequentialProgress": false
+  },
+  "theme": {
+    "primaryColor": "purple",
+    "secondaryColor": "blue",
+    "customCSS": ""
+  },
+  "notifications": {
+    "enableEmailNotifications": true,
+    "enableInAppNotifications": true,
+    "notifyOnGrade": true,
+    "notifyOnFeedback": true,
+    "notifyOnAnnouncement": true
+  },
+  "metadata": {
+    "createdDate": "2025-05-28T14:43:10.048Z",
+    "lastModified": "2025-05-28T14:43:10.048Z",
+    "version": "1.0.0",
+    "status": "draft"
+  }
+}

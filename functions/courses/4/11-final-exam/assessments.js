@@ -1,6 +1,6 @@
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
-const { createAIShortAnswer } = require('../../../shared/assessment-types/ai-short-answer');
-const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { createAIShortAnswer } = require('../shared/assessment-types/ai-short-answer');
+const { createAILongAnswer } = require('../shared/assessment-types/ai-long-answer');
 
 exports.course4_11_final_exam_question1 = createStandardMultipleChoice({
   questions: [

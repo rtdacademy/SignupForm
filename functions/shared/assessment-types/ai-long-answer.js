@@ -30,7 +30,7 @@
  * ======
  * 
  * ```javascript
- * const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
+ * const { createAILongAnswer } = require('../shared/assessment-types/ai-long-answer');
  * 
  * exports.yourFunctionName = createAILongAnswer({
  *   // Configuration object - see ACCEPTED PARAMETERS below
@@ -179,7 +179,7 @@ const {
   LongAnswerFunctionParametersSchema 
 } = require('../schemas/assessment-schemas');
 const { applyPromptModules } = require('../prompt-modules');
-const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../../utils/aiModels');
+const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../utils/aiModels');
 
 // Initialize AI instance if we have an API key
 let ai = null;

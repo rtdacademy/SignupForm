@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createStandardMultipleChoice } = require('shared/assessment-types/standard-multiple-choice');
 
 exports.course3_08_accounting_equation_assessment = createStandardMultipleChoice({
   questionId: 'course3_08_accounting_equation_assessment',

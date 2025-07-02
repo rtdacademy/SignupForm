@@ -1,4 +1,4 @@
-const { createAIMultipleChoice } = require('shared/assessment-types/ai-multiple-choice');
+const { createAIMultipleChoice } = require('../../shared/assessment-types/ai-multiple-choice');
 const { ECONOMIC_ENVIRONMENT_FALLBACK_QUESTIONS } = require('../fallback-questions');
 
 // Course 3 - Lesson 2: The Economic Environment and Your Money
