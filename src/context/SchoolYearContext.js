@@ -606,9 +606,10 @@ export const SchoolYearProvider = ({ children }) => {
         const latestPasiRecord = getLatestPasiRecord(matchingPasiRecords);
         
         // Merge student summary with latest PASI record
+        // IMPORTANT: Student summary status fields should take precedence over PASI data
         const merged = {
-          ...summary, // Student summary data first
-          ...latestPasiRecord, // PASI record data second (overwrites conflicts)
+          ...latestPasiRecord, // PASI record data first
+          ...summary, // Student summary data second (overwrites conflicts - preserves status updates)
           pasiRecordCount: matchingPasiRecords.length, // Show how many PASI records exist
           recordType: 'linked' // This record is linked (has both summary and PASI)
         };

@@ -541,3 +541,130 @@ exports.course2_03_plasticene_collision = createStandardMultipleChoice({
   showFeedback: true,
   theme: 'blue'
 });
+
+// ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
+// Export all assessment configurations for use by the master function
+const assessmentConfigs = {
+  'course2_03_car_truck_2d_collision': {
+    questions: [
+      createCarTruckCollision2DQuestion(),
+      createCarTruckCollision2DQuestion(),
+      createCarTruckCollision2DQuestion(),
+      createCarTruckCollision2DQuestion(),
+      createCarTruckCollision2DQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_nuclear_decay_2d': {
+    questions: [
+      createNuclearDecayQuestion(),
+      createNuclearDecayQuestion(),
+      createNuclearDecayQuestion(),
+      createNuclearDecayQuestion(),
+      createNuclearDecayQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_glancing_collision_2d': {
+    questions: [
+      createGlancingCollisionQuestion(),
+      createGlancingCollisionQuestion(),
+      createGlancingCollisionQuestion(),
+      createGlancingCollisionQuestion(),
+      createGlancingCollisionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_space_capsule_projectile': {
+    questions: [
+      createSpaceCapsuleQuestion(),
+      createSpaceCapsuleQuestion(),
+      createSpaceCapsuleQuestion(),
+      createSpaceCapsuleQuestion(),
+      createSpaceCapsuleQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_steel_ball_deflection': {
+    questions: [
+      createSteelBallDeflectionQuestion(),
+      createSteelBallDeflectionQuestion(),
+      createSteelBallDeflectionQuestion(),
+      createSteelBallDeflectionQuestion(),
+      createSteelBallDeflectionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_mass_explosion': {
+    questions: [
+      createMassExplosionQuestion(),
+      createMassExplosionQuestion(),
+      createMassExplosionQuestion(),
+      createMassExplosionQuestion(),
+      createMassExplosionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_elastic_collision_90': {
+    questions: [
+      createElasticCollision90Question(),
+      createElasticCollision90Question(),
+      createElasticCollision90Question(),
+      createElasticCollision90Question(),
+      createElasticCollision90Question()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_03_plasticene_collision': {
+    questions: [
+      createPlasticeneCollisionQuestion(),
+      createPlasticeneCollisionQuestion(),
+      createPlasticeneCollisionQuestion(),
+      createPlasticeneCollisionQuestion(),
+      createPlasticeneCollisionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

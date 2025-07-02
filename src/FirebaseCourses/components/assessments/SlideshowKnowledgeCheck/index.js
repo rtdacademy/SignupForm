@@ -398,7 +398,7 @@ const SlideshowKnowledgeCheck = ({
         } else {
           // Cloud function question - load on demand (no preloading)
           const originalQuestionId = question.questionId || questionId;
-          const cloudFunctionName = (courseId === '2' && originalQuestionId.startsWith('course2_')) 
+          const cloudFunctionName = (String(courseId) === '2' && originalQuestionId.startsWith('course2_')) 
             ? 'course2_assessments' 
             : originalQuestionId;
           
@@ -424,7 +424,7 @@ const SlideshowKnowledgeCheck = ({
       
       case 'ai-short-answer':
         const originalAIQuestionId = question.questionId || questionId;
-        const aiCloudFunctionName = (courseId === '2' && originalAIQuestionId.startsWith('course2_')) 
+        const aiCloudFunctionName = (String(courseId) === '2' && originalAIQuestionId.startsWith('course2_')) 
           ? 'course2_assessments' 
           : originalAIQuestionId;
         

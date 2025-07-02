@@ -262,3 +262,93 @@ exports.course2_05_l13_question12 = createStandardMultipleChoice({
   maxAttempts: 1,
   pointsValue: 1
 });
+
+// Export assessment configurations for master function
+const assessmentConfigs = {
+  'course2_05_l13_question1': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question2': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question3': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question4': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question5': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question6': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question7': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question8': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question9': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question10': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question11': {
+    questions: [questions[10]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_05_l13_question12': {
+    questions: [questions[11]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

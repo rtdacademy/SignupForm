@@ -1543,6 +1543,8 @@ exports.course2_01_physics_20_review_dynamics_q8 = createStandardMultipleChoice(
   showFeedback: true
 });
 
+*/
+
 // Helper function to create randomized angled pull with friction question
 const createRandomAngledPullFrictionQuestion = () => {
   const mass = randInt(20, 30);
@@ -1588,4 +1590,373 @@ exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice(
   showFeedback: true
 });
 
-*/
+// ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
+// Export all assessment configurations for use by the master function
+const assessmentConfigs = {
+  'course2_01_physics_20_review_question1': {
+    questions: [
+      createRandomDisplacementQuestion(),
+      createRandomDisplacementQuestion(),
+      createRandomDisplacementQuestion(),
+      createRandomDisplacementQuestion(),
+      createRandomDisplacementQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question2': {
+    questions: [
+      createRandomSpeedTimeQuestion(),
+      createRandomSpeedTimeQuestion(),
+      createRandomSpeedTimeQuestion(),
+      createRandomSpeedTimeQuestion(),
+      createRandomSpeedTimeQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question3': {
+    questions: [
+      createRandomAverageSpeedQuestion(),
+      createRandomAverageSpeedQuestion(),
+      createRandomAverageSpeedQuestion(),
+      createRandomAverageSpeedQuestion(),
+      createRandomAverageSpeedQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question4': {
+    questions: [
+      createRandomAccelerationQuestion(),
+      createRandomAccelerationQuestion(),
+      createRandomAccelerationQuestion(),
+      createRandomAccelerationQuestion(),
+      createRandomAccelerationQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question5': {
+    questions: [
+      createRandomVerticalMotionQuestion(),
+      createRandomVerticalMotionQuestion(),
+      createRandomVerticalMotionQuestion(),
+      createRandomVerticalMotionQuestion(),
+      createRandomVerticalMotionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question6': {
+    questions: [
+      createRandomSlopeMotionQuestion(),
+      createRandomSlopeMotionQuestion(),
+      createRandomSlopeMotionQuestion(),
+      createRandomSlopeMotionQuestion(),
+      createRandomSlopeMotionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question7': {
+    questions: [
+      createRandomElectronAccelerationQuestion(),
+      createRandomElectronAccelerationQuestion(),
+      createRandomElectronAccelerationQuestion(),
+      createRandomElectronAccelerationQuestion(),
+      createRandomElectronAccelerationQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question8': {
+    questions: [
+      createRandomProjectileTimeQuestion(),
+      createRandomProjectileTimeQuestion(),
+      createRandomProjectileTimeQuestion(),
+      createRandomProjectileTimeQuestion(),
+      createRandomProjectileTimeQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question9': {
+    questions: [
+      createRandomFallingObjectQuestion(),
+      createRandomFallingObjectQuestion(),
+      createRandomFallingObjectQuestion(),
+      createRandomFallingObjectQuestion(),
+      createRandomFallingObjectQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question10': {
+    questions: [
+      createRandomFreeFallQuestion(),
+      createRandomFreeFallQuestion(),
+      createRandomFreeFallQuestion(),
+      createRandomFreeFallQuestion(),
+      createRandomFreeFallQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question11': {
+    questions: [
+      createRandomMaxHeightQuestion(),
+      createRandomMaxHeightQuestion(),
+      createRandomMaxHeightQuestion(),
+      createRandomMaxHeightQuestion(),
+      createRandomMaxHeightQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_question12': {
+    questions: [
+      createRandomHorizontalProjectileQuestion(),
+      createRandomHorizontalProjectileQuestion(),
+      createRandomHorizontalProjectileQuestion(),
+      createRandomHorizontalProjectileQuestion(),
+      createRandomHorizontalProjectileQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_vector_q1': {
+    questions: [
+      createRandomSkiLiftQuestion(),
+      createRandomSkiLiftQuestion(),
+      createRandomSkiLiftQuestion(),
+      createRandomSkiLiftQuestion(),
+      createRandomSkiLiftQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_vector_q2': {
+    questions: [
+      createRandomDistanceBearingQuestion(),
+      createRandomDistanceBearingQuestion(),
+      createRandomDistanceBearingQuestion(),
+      createRandomDistanceBearingQuestion(),
+      createRandomDistanceBearingQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_circular_q1': {
+    questions: [
+      createRandomCircularMotionQuestion(),
+      createRandomCircularMotionQuestion(),
+      createRandomCircularMotionQuestion(),
+      createRandomCircularMotionQuestion(),
+      createRandomCircularMotionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_circular_q2': {
+    questions: [
+      createRandomCarCorneringQuestion(),
+      createRandomCarCorneringQuestion(),
+      createRandomCarCorneringQuestion(),
+      createRandomCarCorneringQuestion(),
+      createRandomCarCorneringQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_circular_q3': {
+    questions: [
+      createRandomSatelliteMotionQuestion(),
+      createRandomSatelliteMotionQuestion(),
+      createRandomSatelliteMotionQuestion(),
+      createRandomSatelliteMotionQuestion(),
+      createRandomSatelliteMotionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q1a': {
+    questions: [
+      createRandomNetForceQuestion(),
+      createRandomNetForceQuestion(),
+      createRandomNetForceQuestion(),
+      createRandomNetForceQuestion(),
+      createRandomNetForceQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q2': {
+    questions: [
+      createRandomFrictionForceQuestion(),
+      createRandomFrictionForceQuestion(),
+      createRandomFrictionForceQuestion(),
+      createRandomFrictionForceQuestion(),
+      createRandomFrictionForceQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q3': {
+    questions: [
+      createRandomInclinedPlaneQuestion(),
+      createRandomInclinedPlaneQuestion(),
+      createRandomInclinedPlaneQuestion(),
+      createRandomInclinedPlaneQuestion(),
+      createRandomInclinedPlaneQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q4': {
+    questions: [
+      createRandomTensionQuestion(),
+      createRandomTensionQuestion(),
+      createRandomTensionQuestion(),
+      createRandomTensionQuestion(),
+      createRandomTensionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q5': {
+    questions: [
+      createRandomCoefficientFrictionQuestion(),
+      createRandomCoefficientFrictionQuestion(),
+      createRandomCoefficientFrictionQuestion(),
+      createRandomCoefficientFrictionQuestion(),
+      createRandomCoefficientFrictionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q6': {
+    questions: [
+      createRandomNormalForceQuestion(),
+      createRandomNormalForceQuestion(),
+      createRandomNormalForceQuestion(),
+      createRandomNormalForceQuestion(),
+      createRandomNormalForceQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q7': {
+    questions: [
+      createRandomAccelerationVectorQuestion(),
+      createRandomAccelerationVectorQuestion(),
+      createRandomAccelerationVectorQuestion(),
+      createRandomAccelerationVectorQuestion(),
+      createRandomAccelerationVectorQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q8': {
+    questions: [
+      createRandomElevatorQuestion(),
+      createRandomElevatorQuestion(),
+      createRandomElevatorQuestion(),
+      createRandomElevatorQuestion(),
+      createRandomElevatorQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_01_physics_20_review_dynamics_q9': {
+    questions: [
+      createRandomStaticFrictionQuestion(),
+      createRandomStaticFrictionQuestion(),
+      createRandomStaticFrictionQuestion(),
+      createRandomStaticFrictionQuestion(),
+      createRandomStaticFrictionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

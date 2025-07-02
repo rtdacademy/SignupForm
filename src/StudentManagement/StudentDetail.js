@@ -164,7 +164,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     
     try {
       const functions = getFunctions();
-      const fetchLMSStudentId = httpsCallable(functions, 'fetchLMSStudentId');
+      const fetchLMSStudentId = httpsCallable(functions, 'fetchLMSStudentIdV2');
       
       const result = await fetchLMSStudentId({
         email: studentSummary.StudentEmail,

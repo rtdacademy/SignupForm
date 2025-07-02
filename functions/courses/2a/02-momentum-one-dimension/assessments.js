@@ -2110,3 +2110,276 @@ exports.course2_02_momentum_one_dimension_kc_q19 = createStandardMultipleChoice(
   maxAttempts: 9999,
   showFeedback: true
 });
+
+// ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
+// Export all assessment configurations for use by the master function
+const assessmentConfigs = {
+  'course2_02_momentum_one_dimension_kc_q1': {
+    questions: [
+      createInertiaMomentumConceptQuestion(),
+      createInertiaMomentumConceptQuestion(),
+      createInertiaMomentumConceptQuestion(),
+      createInertiaMomentumConceptQuestion(),
+      createInertiaMomentumConceptQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q2': {
+    questions: [
+      createKcBowlingBallMomentumQuestion(),
+      createKcBowlingBallMomentumQuestion(),
+      createKcBowlingBallMomentumQuestion(),
+      createKcBowlingBallMomentumQuestion(),
+      createKcBowlingBallMomentumQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q3': {
+    questions: [
+      createKcBulletVelocityQuestion(),
+      createKcBulletVelocityQuestion(),
+      createKcBulletVelocityQuestion(),
+      createKcBulletVelocityQuestion(),
+      createKcBulletVelocityQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q4': {
+    questions: [
+      createKcHockeyPuckMassQuestion(),
+      createKcHockeyPuckMassQuestion(),
+      createKcHockeyPuckMassQuestion(),
+      createKcHockeyPuckMassQuestion(),
+      createKcHockeyPuckMassQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q5': {
+    questions: [
+      createKcJetMomentumQuestion(),
+      createKcJetMomentumQuestion(),
+      createKcJetMomentumQuestion(),
+      createKcJetMomentumQuestion(),
+      createKcJetMomentumQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q6': {
+    questions: [
+      createKcTwoObjectCollisionQuestion(),
+      createKcTwoObjectCollisionQuestion(),
+      createKcTwoObjectCollisionQuestion(),
+      createKcTwoObjectCollisionQuestion(),
+      createKcTwoObjectCollisionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q7': {
+    questions: [
+      createKcBallElasticityQuestion(),
+      createKcBallElasticityQuestion(),
+      createKcBallElasticityQuestion(),
+      createKcBallElasticityQuestion(),
+      createKcBallElasticityQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q8': {
+    questions: [
+      createKcCarTruckUnknownMassQuestion(),
+      createKcCarTruckUnknownMassQuestion(),
+      createKcCarTruckUnknownMassQuestion(),
+      createKcCarTruckUnknownMassQuestion(),
+      createKcCarTruckUnknownMassQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q9': {
+    questions: [
+      createKcFootballTackleQuestion(),
+      createKcFootballTackleQuestion(),
+      createKcFootballTackleQuestion(),
+      createKcFootballTackleQuestion(),
+      createKcFootballTackleQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q10': {
+    questions: [
+      createKcArrowAppleQuestion(),
+      createKcArrowAppleQuestion(),
+      createKcArrowAppleQuestion(),
+      createKcArrowAppleQuestion(),
+      createKcArrowAppleQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q11': {
+    questions: [
+      createKcTruckCarHeadOnQuestion(),
+      createKcTruckCarHeadOnQuestion(),
+      createKcTruckCarHeadOnQuestion(),
+      createKcTruckCarHeadOnQuestion(),
+      createKcTruckCarHeadOnQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q12': {
+    questions: [
+      createKcAstronautRecoilQuestion(),
+      createKcAstronautRecoilQuestion(),
+      createKcAstronautRecoilQuestion(),
+      createKcAstronautRecoilQuestion(),
+      createKcAstronautRecoilQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q13': {
+    questions: [
+      createKcRocketSeparationQuestion(),
+      createKcRocketSeparationQuestion(),
+      createKcRocketSeparationQuestion(),
+      createKcRocketSeparationQuestion(),
+      createKcRocketSeparationQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q14': {
+    questions: [
+      createKcMachineGunRecoilQuestion(),
+      createKcMachineGunRecoilQuestion(),
+      createKcMachineGunRecoilQuestion(),
+      createKcMachineGunRecoilQuestion(),
+      createKcMachineGunRecoilQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q15': {
+    questions: [
+      createKcUraniumDisintegrationQuestion(),
+      createKcUraniumDisintegrationQuestion(),
+      createKcUraniumDisintegrationQuestion(),
+      createKcUraniumDisintegrationQuestion(),
+      createKcUraniumDisintegrationQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q16': {
+    questions: [
+      createKcBallisticPendulumQuestion(),
+      createKcBallisticPendulumQuestion(),
+      createKcBallisticPendulumQuestion(),
+      createKcBallisticPendulumQuestion(),
+      createKcBallisticPendulumQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q17': {
+    questions: [
+      createKcCanoeComparisonQuestion(),
+      createKcCanoeComparisonQuestion(),
+      createKcCanoeComparisonQuestion(),
+      createKcCanoeComparisonQuestion(),
+      createKcCanoeComparisonQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q18': {
+    questions: [
+      createKcCartJumpingQuestion(),
+      createKcCartJumpingQuestion(),
+      createKcCartJumpingQuestion(),
+      createKcCartJumpingQuestion(),
+      createKcCartJumpingQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  },
+  'course2_02_momentum_one_dimension_kc_q19': {
+    questions: [
+      createKcElasticAtomicCollisionQuestion(),
+      createKcElasticAtomicCollisionQuestion(),
+      createKcElasticAtomicCollisionQuestion(),
+      createKcElasticAtomicCollisionQuestion(),
+      createKcElasticAtomicCollisionQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

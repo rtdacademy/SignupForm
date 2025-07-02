@@ -605,3 +605,163 @@ exports.course2_04_water_turbine = createStandardMultipleChoice({
   showFeedback: true,
   theme: 'blue'
 });
+
+// ===== CONFIGURATION EXPORTS FOR MASTER FUNCTION =====
+// Export raw configurations that can be imported by the master function
+// This allows consolidation without needing to deploy individual functions
+
+const assessmentConfigs = {
+  'course2_04_basic_impulse': {
+    questions: [
+      createBasicImpulseQuestion(),
+      createBasicImpulseQuestion(),
+      createBasicImpulseQuestion(),
+      createBasicImpulseQuestion(),
+      createBasicImpulseQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_person_falling': {
+    questions: [
+      createPersonFallingQuestion(),
+      createPersonFallingQuestion(),
+      createPersonFallingQuestion(),
+      createPersonFallingQuestion(),
+      createPersonFallingQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_impulse_quantities': {
+    questions: [
+      createImpulseQuantitiesQuestion(),
+      createImpulseQuantitiesQuestion(),
+      createImpulseQuantitiesQuestion(),
+      createImpulseQuantitiesQuestion(),
+      createImpulseQuantitiesQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 2,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_karate_board': {
+    questions: [
+      createKarateBoardQuestion(),
+      createKarateBoardQuestion(),
+      createKarateBoardQuestion(),
+      createKarateBoardQuestion(),
+      createKarateBoardQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_safety_features': {
+    questions: [
+      createSafetyFeaturesQuestion(),
+      createSafetyFeaturesQuestion(),
+      createSafetyFeaturesQuestion(),
+      createSafetyFeaturesQuestion(),
+      createSafetyFeaturesQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_golf_ball_driver': {
+    questions: [
+      createGolfBallDriverQuestion(),
+      createGolfBallDriverQuestion(),
+      createGolfBallDriverQuestion(),
+      createGolfBallDriverQuestion(),
+      createGolfBallDriverQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_child_ball': {
+    questions: [
+      createChildBallQuestion(),
+      createChildBallQuestion(),
+      createChildBallQuestion(),
+      createChildBallQuestion(),
+      createChildBallQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 3,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_ball_bat': {
+    questions: [
+      createBallBatQuestion(),
+      createBallBatQuestion(),
+      createBallBatQuestion(),
+      createBallBatQuestion(),
+      createBallBatQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_bullet_wood': {
+    questions: [
+      createBulletWoodQuestion(),
+      createBulletWoodQuestion(),
+      createBulletWoodQuestion(),
+      createBulletWoodQuestion(),
+      createBulletWoodQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_04_water_turbine': {
+    questions: [
+      createWaterTurbineQuestion(),
+      createWaterTurbineQuestion(),
+      createWaterTurbineQuestion(),
+      createWaterTurbineQuestion(),
+      createWaterTurbineQuestion()
+    ],
+    randomizeQuestions: true,
+    allowSameQuestion: false,
+    pointsValue: 4,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  }
+};
+
+// Export the configurations for use by master functions
+exports.assessmentConfigs = assessmentConfigs;

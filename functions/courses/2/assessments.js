@@ -1,105 +1,127 @@
 /**
  * Master Cloud Function for Course 2 (Physics 30) Assessments
  * 
- * This consolidated function routes all assessment requests to their specific
- * cloud functions, reducing the number of deployed functions from ~200+ to just 1.
+ * This consolidated function handles all assessment requests directly using the core logic,
+ * reducing the number of deployed functions from ~200+ to just 1.
  * 
  * ARCHITECTURE:
- * - Imports existing cloud functions from lesson folders
- * - Uses assessmentId to route to the correct function
- * - Maintains all existing functionality and data patterns
- * - No changes needed to existing assessment files
+ * - Imports the core assessment logic (not the cloud functions)
+ * - Uses assessmentId to route to the correct assessment configuration
+ * - Handles the logic directly without calling other cloud functions
+ * - Only this master function needs to be deployed
  */
 
-const functions = require('firebase-functions');
+const { onCall } = require('firebase-functions/v2/https');
+const admin = require('firebase-admin');
+const { sanitizeEmail } = require('../../utils');
 
-// Import all assessment modules
-// Note: We import from the 2a folder where the existing assessments are located
+// Initialize Firebase Admin globally - this needs to happen before any other imports
+// that might use admin services
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
-const impulseAssessments = require('../2a/04-impulse-momentum-change/assessments');
-// Add more imports as needed for other lessons:
-// const physicsReviewAssessments = require('../2a/01-physics-20-review/assessments');
-// const momentumAssessments = require('../2a/02-momentum-one-dimension/assessments');
-// etc.
+const { StandardMultipleChoiceCore } = require('../../shared/assessment-types/standard-multiple-choice');
+
+// We need to extract and recreate the question generator functions from the original file
+// Rather than importing the cloud functions, we'll recreate the core logic here
+
+// Import assessment configurations from all lesson files
+const { assessmentConfigs: physicsReviewConfigs } = require('../2a/01-physics-20-review/assessments');
+const { assessmentConfigs: momentum1DConfigs } = require('../2a/02-momentum-one-dimension/assessments');
+const { assessmentConfigs: momentum2DConfigs } = require('../2a/03-momentum-two-dimensions/assessments');
+const { assessmentConfigs: impulseConfigs } = require('../2a/04-impulse-momentum-change/assessments');
 
 /**
- * Assessment Function Mapping
- * Maps assessmentId to the appropriate cloud function
+ * Assessment Configuration Mapping
+ * Maps assessmentId to the appropriate assessment configuration
+ * Now imports directly from the original assessment files
  */
-const assessmentFunctionMap = {
+const getAllAssessmentConfigs = () => {
+  return {
+    ...physicsReviewConfigs,
+    ...momentum1DConfigs,
+    ...momentum2DConfigs,
+    ...impulseConfigs
+  };
+};
 
-  
-  // Course 2 impulse-momentum questions
-  'course2_04_basic_impulse': impulseAssessments.course2_04_basic_impulse,
-  'course2_04_person_falling': impulseAssessments.course2_04_person_falling,
-  'course2_04_impulse_quantities': impulseAssessments.course2_04_impulse_quantities,
-  'course2_04_karate_board': impulseAssessments.course2_04_karate_board,
-  'course2_04_safety_features': impulseAssessments.course2_04_safety_features,
-  'course2_04_golf_ball_driver': impulseAssessments.course2_04_golf_ball_driver,
-  'course2_04_child_ball': impulseAssessments.course2_04_child_ball,
-  'course2_04_ball_bat': impulseAssessments.course2_04_ball_bat,
-  'course2_04_bullet_wood': impulseAssessments.course2_04_bullet_wood,
-  'course2_04_water_turbine': impulseAssessments.course2_04_water_turbine,
-  
-  // Add more mappings as you consolidate other lessons:
-  // 'course2_01_physics_20_review_question1': physicsReviewAssessments.course2_01_physics_20_review_question1,
-  // 'course2_02_momentum_one_dimension_aiQuestion': momentumAssessments.course2_02_momentum_one_dimension_aiQuestion,
-  // etc.
+const getAssessmentConfig = (assessmentId) => {
+  const allConfigs = getAllAssessmentConfigs();
+  return allConfigs[assessmentId] || null;
 };
 
 /**
- * Master cloud function that handles all course 2 assessments
- * Routes requests to the appropriate assessment function based on assessmentId
+ * Master cloud function (v2) that handles all course 2 assessments
+ * Routes requests to the appropriate assessment configuration and processes directly
  */
-exports.course2_assessments = functions.https.onCall(async (data, context) => {
+exports.course2_assessments = onCall(async (request) => {
   try {
-    // Extract assessmentId from the request
-    const { assessmentId, ...otherData } = data;
+    console.log('🚀 NEW v2 FUNCTION RUNNING - SIMPLIFIED VERSION');
+    const data = request.data;
     
-    console.log(`Master function received request for assessment: ${assessmentId}`);
-    console.log('Full data object received:', JSON.stringify(data, null, 2));
-    console.log('All data keys:', Object.keys(data));
-    console.log('assessmentId type:', typeof assessmentId);
-    console.log('assessmentId value:', assessmentId);
+    console.log('=== DEBUGGING v2 FUNCTION ===');
+    console.log('Request type:', typeof request);
+    console.log('Data type:', typeof data);
+    console.log('Data exists:', !!data);
     
-    // Find the appropriate function for this assessment
-    const assessmentFunction = assessmentFunctionMap[assessmentId];
-    
-    if (!assessmentFunction) {
-      console.error(`No assessment function found for assessmentId: ${assessmentId}`);
-      throw new functions.https.HttpsError(
-        'not-found',
-        `Assessment function not found for: ${assessmentId}`
-      );
+    if (data) {
+      console.log('Data keys:', Object.keys(data));
+      for (const key of Object.keys(data)) {
+        console.log(`${key}:`, data[key]);
+      }
     }
     
-    // Get the handler function (the actual cloud function)
-    // Firebase functions v1 structure: the function is the handler itself
-    const handler = assessmentFunction;
+    // Extract assessmentId from the request
+    const { assessmentId, ...otherData } = data || {};
     
-    // Call the specific assessment function with the same data and context
-    // For Firebase Functions v1, we need to simulate the call
-    console.log(`Routing to assessment function for: ${assessmentId}`);
+    console.log(`Master function received request for assessment: ${assessmentId}`);
     
-    // Since these are onCall functions, they expect (data, context) directly
-    // We pass through all the data including assessmentId
-    const result = await handler(data, context);
+    // Get the assessment configuration for this assessmentId
+    const assessmentConfig = getAssessmentConfig(assessmentId);
     
-    console.log(`Assessment ${assessmentId} completed successfully`);
-    return result;
+    if (!assessmentConfig) {
+      console.error(`No assessment configuration found for assessmentId: ${assessmentId}`);
+      throw new Error(`Assessment configuration not found for: ${assessmentId}`);
+    }
+    
+    console.log(`Processing assessment directly for: ${assessmentId}`);
+    
+    // Create the core handler with the assessment configuration
+    const coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
+    
+    // Extract operation parameters (this mimics what the individual functions do)
+    const params = {
+      courseId: data.courseId,
+      assessmentId: assessmentId,
+      operation: data.operation,
+      studentEmail: data.studentEmail,
+      studentKey: sanitizeEmail(data.studentEmail), // Add sanitized student key for database path
+      userId: data.userId,
+      topic: data.topic || 'general',
+      difficulty: data.difficulty || 'intermediate',
+      answer: data.answer // For evaluation operations
+    };
+    
+    // Handle the request directly using the core logic
+    if (params.operation === 'generate') {
+      console.log(`Generating question for: ${assessmentId}`);
+      const result = await coreHandler.handleGenerate(params);
+      console.log(`Question generated successfully for: ${assessmentId}`);
+      return result;
+    } 
+    else if (params.operation === 'evaluate') {
+      console.log(`Evaluating answer for: ${assessmentId}`);
+      const result = await coreHandler.handleEvaluate(params);
+      console.log(`Answer evaluated successfully for: ${assessmentId}`);
+      return result;
+    }
+    else {
+      throw new Error(`Invalid operation: ${params.operation}. Supported operations are "generate" and "evaluate".`);
+    }
     
   } catch (error) {
     console.error('Error in master assessment function:', error);
-    
-    // If it's already an HttpsError, pass it through
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    }
-    
-    // Otherwise, wrap it in an HttpsError
-    throw new functions.https.HttpsError(
-      'internal',
-      `Assessment processing failed: ${error.message}`
-    );
+    throw new Error(`Assessment processing failed: ${error.message}`);
   }
 });

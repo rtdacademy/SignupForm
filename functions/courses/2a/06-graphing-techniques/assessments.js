@@ -244,3 +244,53 @@ exports.course2_06_graphing_techniques_question4 = createStandardMultipleChoice(
   showFeedback: true,
   theme: 'blue'
 });
+
+// Export assessment configurations for master function
+const assessmentConfigs = {
+  'course2_06_graphing_techniques_question1': {
+    questions: [
+      createDistanceVsTimeQuestion()
+    ],
+    randomizeQuestions: false,
+    allowSameQuestion: false,
+    pointsValue: 2,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_06_graphing_techniques_question2': {
+    questions: [
+      createForceVsAccelerationQuestion()
+    ],
+    randomizeQuestions: false,
+    allowSameQuestion: false,
+    pointsValue: 2,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_06_graphing_techniques_question3': {
+    questions: [
+      createVelocityVsTimeQuestion()
+    ],
+    randomizeQuestions: false,
+    allowSameQuestion: false,
+    pointsValue: 2,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  },
+  'course2_06_graphing_techniques_question4': {
+    questions: [
+      createCurrentVsVoltageQuestion()
+    ],
+    randomizeQuestions: false,
+    allowSameQuestion: false,
+    pointsValue: 2,
+    maxAttempts: 9999,
+    showFeedback: true,
+    theme: 'blue'
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

@@ -895,116 +895,7 @@
         "type": "lesson",
         "contentPath": "02-momentum-one-dimension",
         "questions": [
-          {
-            "questionId": "course2_02_momentum_one_dimension_aiQuestion",
-            "title": "Momentum One Dimension Aiquestion",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_momentum_one_dimension_aiLongAnswer",
-            "title": "Momentum One Dimension Ailonganswer",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_momentum_inertia_difference",
-            "title": "Momentum Inertia Difference",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_bowling_ball_momentum",
-            "title": "Bowling Ball Momentum",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_bullet_velocity",
-            "title": "Bullet Velocity",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_hockey_puck_mass",
-            "title": "Hockey Puck Mass",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_jet_momentum_a",
-            "title": "Jet Momentum A",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_jet_momentum_b",
-            "title": "Jet Momentum B",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_collision_rebound",
-            "title": "Collision Rebound",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_ball_collision_type",
-            "title": "Ball Collision Type",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_unknown_mass_collision",
-            "title": "Unknown Mass Collision",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_football_tackle_mass",
-            "title": "Football Tackle Mass",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_arrow_apple_mass",
-            "title": "Arrow Apple Mass",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_truck_car_headon",
-            "title": "Truck Car Headon",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_astronaut_recoil",
-            "title": "Astronaut Recoil",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_rocket_separation",
-            "title": "Rocket Separation",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_machine_gun_recoil",
-            "title": "Machine Gun Recoil",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_uranium_disintegration",
-            "title": "Uranium Disintegration",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_ballistic_pendulum",
-            "title": "Ballistic Pendulum",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_canoe_comparison",
-            "title": "Canoe Comparison",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_cart_jumping",
-            "title": "Cart Jumping",
-            "points": 1
-          },
-          {
-            "questionId": "course2_02_atom_collision",
-            "title": "Atom Collision",
-            "points": 1
-          },
+        
           {
             "questionId": "course2_02_momentum_one_dimension_kc_q1",
             "title": "Momentum One Dimension Kc Q1",
@@ -1110,42 +1001,42 @@
           {
             "questionId": "course2_03_car_truck_2d_collision",
             "title": "Car Truck 2d Collision",
-            "points": 1
+            "points": 3
           },
           {
             "questionId": "course2_03_nuclear_decay_2d",
             "title": "Nuclear Decay 2d",
-            "points": 1
+            "points": 3
           },
           {
             "questionId": "course2_03_glancing_collision_2d",
             "title": "Glancing Collision 2d",
-            "points": 1
+            "points": 3
           },
           {
             "questionId": "course2_03_space_capsule_projectile",
             "title": "Space Capsule Projectile",
-            "points": 1
+            "points": 3
           },
           {
             "questionId": "course2_03_steel_ball_deflection",
             "title": "Steel Ball Deflection",
-            "points": 1
+            "points": 4
           },
           {
             "questionId": "course2_03_mass_explosion",
             "title": "Mass Explosion",
-            "points": 1
+            "points": 4
           },
           {
             "questionId": "course2_03_elastic_collision_90",
             "title": "Elastic Collision 90",
-            "points": 1
+            "points": 4
           },
           {
             "questionId": "course2_03_plasticene_collision",
             "title": "Plasticene Collision",
-            "points": 1
+            "points": 4
           }
         ]
       },

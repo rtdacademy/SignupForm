@@ -9,82 +9,9 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "*.local",
-        ".cache",
-        "courses/**"
+        ".cache"
       ],
       "predeploy": []
-    },
-    {
-      "source": "functions/courses/2a",
-      "codebase": "course-2a",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
-    },
-    {
-      "source": "functions/courses/2a2",
-      "codebase": "course-2a2",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
-    },
-    {
-      "source": "functions/courses/2b",
-      "codebase": "course-2b",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
-    },
-    {
-      "source": "functions/courses/2c",
-      "codebase": "course-2c",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
-    },
-    {
-      "source": "functions/courses/3",
-      "codebase": "course-3",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
-    },
-    {
-      "source": "functions/courses/4",
-      "codebase": "course-4",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local",
-        ".cache"
-      ]
     }
   ],
   "hosting": [

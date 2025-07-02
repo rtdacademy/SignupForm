@@ -6,6 +6,11 @@
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('../utils/utils');
 
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
 // Helper function to get category weights
 const getCategoryWeight = (type) => {
   const weights = {

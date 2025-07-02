@@ -1130,7 +1130,10 @@ const FirebaseCourseWrapperContent = ({
                             style={{ width: `${lessonScore.percentage}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm font-semibold text-green-600 w-12 text-right">{Math.round(lessonScore.percentage)}%</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-green-600">{Math.round(lessonScore.percentage)}%</span>
+                          <span className="text-sm text-gray-500">({lessonScore.score}/{lessonScore.total})</span>
+                        </div>
                       </div>
                       
                       {/* Points Display */}
