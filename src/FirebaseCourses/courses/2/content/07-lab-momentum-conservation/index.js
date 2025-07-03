@@ -36,7 +36,73 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   // Track saving/loading state
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+
+  // Print PDF function
+  const handlePrintPDF = () => {
+    const printWindow = window.open('', '_blank');
+    
+    // Get the lab content
+    const labContent = document.getElementById('lab-content');
+    if (!labContent) {
+      alert('Lab content not found. Please try again.');
+      return;
+    }
+
+    // Create a clean copy of the content for printing
+    const printContent = labContent.cloneNode(true);
+    
+    // Remove interactive elements that shouldn't be printed
+    printContent.querySelectorAll('button, .sticky, .bg-gray-50').forEach(el => {
+      if (el.classList.contains('sticky') || el.classList.contains('bg-gray-50')) {
+        el.remove();
+      } else if (el.tagName === 'BUTTON') {
+        el.style.display = 'none';
+      }
+    });
+
+    // Create print document
+    const printDoc = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Lab 1 - Conservation of Momentum</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+            color: #333;
+          }
+          h1, h2, h3 { color: #2563eb; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .formula { background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .no-print { display: none !important; }
+          canvas { border: 1px solid #ccc; }
+          @media print {
+            body { margin: 0; }
+            .section { page-break-inside: avoid; }
+            canvas { break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        ${printContent.innerHTML}
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printDoc);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
   // Clean separation: Each collision type only stores data relevant to that type
   const [trialData, setTrialData] = useState({
     '1D': {
@@ -1708,7 +1774,7 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div id="lab-content" className="space-y-6">
       <style dangerouslySetInnerHTML={{__html: `
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
@@ -1766,6 +1832,12 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
                 className="px-4 py-2 bg-green-600 text-white font-medium rounded border border-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
               >
                 {isSaving ? 'Saving...' : 'Save Progress'}
+              </button>
+              <button 
+                onClick={handlePrintPDF}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+              >
+                Print PDF
               </button>
               <button 
                 onClick={saveAndEnd}

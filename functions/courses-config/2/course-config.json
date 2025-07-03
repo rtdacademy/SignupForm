@@ -107,6 +107,46 @@
       "assignment_l1_38": {
         "minimumPercentage": 0,
         "requireAllQuestions": true
+      },
+      "lab_momentum_conservation": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_mirrors_lenses": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_laser_wavelength": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_electrostatic": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_electric_fields": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_electromagnet": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_plancks_constant": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_millikans_oil_drop": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_marshmallow_speed_light": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "lab_half_life": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
       }
     }
   },

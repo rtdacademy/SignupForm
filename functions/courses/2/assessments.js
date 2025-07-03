@@ -32,6 +32,13 @@ const { assessmentConfigs: momentum1DConfigs } = require('../2a/02-momentum-one-
 const { assessmentConfigs: momentum2DConfigs } = require('../2a/03-momentum-two-dimensions/assessments');
 const { assessmentConfigs: impulseConfigs } = require('../2a/04-impulse-momentum-change/assessments');
 const { assessmentConfigs: l13AssignmentConfigs } = require('../2a/05-l1-3-assignment/assessments');
+const { assessmentConfigs: graphingTechniquesConfigs } = require('../2a/06-graphing-techniques/assessments');
+const { assessmentConfigs: labMomentumConfigs } = require('../2a/07-lab-momentum-conservation/assessments');
+const { assessmentConfigs: l14CumulativeConfigs } = require('../2a/08-l1-4-cumulative-assignment/assessments');
+const { assessmentConfigs: introToLightConfigs } = require('../2a/09-introduction-to-light/assessments');
+const { assessmentConfigs: reflectionOfLightConfigs } = require('../2a/10-reflection-of-light/assessments');
+const { assessmentConfigs: curvedMirrorsConfigs } = require('../2a/11-curved-mirrors/assessments');
+const { assessmentConfigs: l57AssignmentConfigs } = require('../2a/12-l5-7-assignment/assessments');
 
 /**
  * Assessment Configuration Mapping
@@ -44,7 +51,14 @@ const getAllAssessmentConfigs = () => {
     ...momentum1DConfigs,
     ...momentum2DConfigs,
     ...impulseConfigs,
-    ...l13AssignmentConfigs
+    ...l13AssignmentConfigs,
+    ...graphingTechniquesConfigs,
+    ...labMomentumConfigs,
+    ...l14CumulativeConfigs,
+    ...introToLightConfigs,
+    ...reflectionOfLightConfigs,
+    ...curvedMirrorsConfigs,
+    ...l57AssignmentConfigs
   };
 };
 
@@ -84,12 +98,26 @@ exports.course2_assessments = onCall(async (request) => {
     
     if (!assessmentConfig) {
       console.error(`No assessment configuration found for assessmentId: ${assessmentId}`);
+      // Log all available assessment IDs for debugging
+      const allConfigs = getAllAssessmentConfigs();
+      console.log('Available assessment IDs:', Object.keys(allConfigs));
       throw new Error(`Assessment configuration not found for: ${assessmentId}`);
     }
+    
+    console.log(`Found assessment config for: ${assessmentId}`);
+    console.log(`Config structure:`, JSON.stringify(assessmentConfig, null, 2));
     
     console.log(`Processing assessment directly for: ${assessmentId}`);
     
     // Create the core handler with the assessment configuration
+    try {
+      const coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
+      console.log(`Core handler created successfully for: ${assessmentId}`);
+    } catch (configError) {
+      console.error(`Error creating core handler for ${assessmentId}:`, configError);
+      throw new Error(`Failed to create assessment handler: ${configError.message}`);
+    }
+    
     const coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
     
     // Extract operation parameters (this mimics what the individual functions do)
