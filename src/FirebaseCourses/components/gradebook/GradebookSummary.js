@@ -4,10 +4,13 @@ import { Progress } from '../../../components/ui/progress';
 import { 
   validateGradeDataStructures, 
   calculateLessonScore, 
+  calculateCategoryScores,
   checkLessonCompletion 
 } from '../../utils/gradeCalculations';
+import { useAuth } from '../../../context/AuthContext';
 
-const GradebookSummary = ({ course, allCourseItems = [] }) => {
+const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
+  const { currentUser } = useAuth();
   
   // Validate that we have the required data structures
   const validation = validateGradeDataStructures(course);
@@ -28,10 +31,14 @@ const GradebookSummary = ({ course, allCourseItems = [] }) => {
   const actualGrades = course?.Grades?.assessments || {};
   const weights = course?.Gradebook?.courseConfig?.weights || {};
 
-  // Calculate all stats using new reliable data sources
-  const overallStats = calculateOverallStats(course);
-  const categoryStats = calculateCategoryStats(course, allCourseItems);
-  const courseItemStats = calculateCourseItemStats(course, allCourseItems);
+  // Get student email for session-based scoring
+  const studentEmail = profile?.StudentEmail || currentUser?.email;
+
+  // Calculate all stats using session-aware utility functions
+  const baseCategoryStats = calculateCategoryScores(course, studentEmail);
+  const categoryStats = enhanceCategoryStatsWithItemCounts(baseCategoryStats, allCourseItems, weights);
+  const overallStats = calculateOverallStatsFromCategories(categoryStats, weights);
+  const courseItemStats = calculateCourseItemStats(course, allCourseItems, studentEmail);
   
   const passingGrade = 60; // Could be made configurable
 
@@ -228,42 +235,28 @@ const getRelativeTime = (timestamp) => {
   return 'Just now';
 };
 
-const calculateOverallStats = (course) => {
-  const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
-  const actualGrades = course?.Grades?.assessments || {};
-  const weights = course?.Gradebook?.courseConfig?.weights || {};
-  
+// Calculate overall stats from category scores (replaces old calculateOverallStats)
+const calculateOverallStatsFromCategories = (categoryStats, weights) => {
   let totalPoints = 0;
   let totalPossible = 0;
   let attemptedPoints = 0;
   let attemptedPossible = 0;
-  
-  // Calculate points for all items regardless of category
-  Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
-    if (!itemConfig?.questions) return;
-    
-    itemConfig.questions.forEach(questionConfig => {
-      const questionId = questionConfig.questionId;
-      const points = questionConfig.points || 0;
-      const actualGrade = actualGrades[questionId] || 0;
-      
-      totalPossible += points;
-      totalPoints += actualGrade;
-      
-      // If student attempted this question (grade exists)
-      if (actualGrades.hasOwnProperty(questionId)) {
-        attemptedPossible += points;
-        attemptedPoints += actualGrade;
-      }
-    });
-  });
-  
-  // Calculate weighted course grade using category stats
-  const categoryStats = calculateCategoryStats(course);
   let weightedGrade = 0;
   
+  // Sum up category data
   Object.entries(categoryStats).forEach(([categoryType, categoryData]) => {
-    const weight = weights[categoryType] || 0;
+    totalPoints += categoryData.score || 0;
+    totalPossible += categoryData.total || 0;
+    
+    // For attempted calculation, use items that have some score
+    const attemptedItems = categoryData.items?.filter(item => item.score > 0 || item.attempted > 0) || [];
+    attemptedItems.forEach(item => {
+      attemptedPoints += item.score || 0;
+      attemptedPossible += item.total || 0;
+    });
+    
+    // Calculate weighted grade
+    const weight = (weights[categoryType] || 0);
     const categoryPercentage = categoryData.percentage || 0;
     weightedGrade += (categoryPercentage * weight);
   });
@@ -282,87 +275,47 @@ const calculateOverallStats = (course) => {
   };
 };
 
-const calculateCategoryStats = (course, allCourseItems = []) => {
-  const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
-  const actualGrades = course?.Grades?.assessments || {};
-  const weights = course?.Gradebook?.courseConfig?.weights || {};
+// Enhanced category stats that adds item counts from allCourseItems
+const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], weights = {}) => {
+  // Add item counts from allCourseItems to the category stats from our utility
+  const enhanced = { ...categoryStats };
   
-  const categories = {};
-  
-  // Initialize all categories from weights
+  // Initialize missing categories and add item counts
   Object.keys(weights).forEach(categoryType => {
-    categories[categoryType] = {
-      earned: 0,
-      possible: 0,
-      items: [],
-      categoryWeight: (weights[categoryType] || 0) * 100,
-      totalItemCount: 0 // Will be populated from allCourseItems
-    };
+    if (!enhanced[categoryType]) {
+      enhanced[categoryType] = {
+        score: 0,
+        total: 0,
+        percentage: 0,
+        items: [],
+        categoryWeight: (weights[categoryType] || 0) * 100,
+        totalItemCount: 0
+      };
+    } else {
+      enhanced[categoryType].categoryWeight = (weights[categoryType] || 0) * 100;
+    }
   });
   
-  // Count all items by type from allCourseItems (not just configured ones)
+  // Count all items by type from allCourseItems
   allCourseItems.forEach(courseItem => {
     const categoryType = courseItem.type || 'lesson';
-    if (!categories[categoryType]) {
-      categories[categoryType] = {
-        earned: 0,
-        possible: 0,
+    if (!enhanced[categoryType]) {
+      enhanced[categoryType] = {
+        score: 0,
+        total: 0,
+        percentage: 0,
         items: [],
         categoryWeight: 0,
         totalItemCount: 0
       };
     }
-    categories[categoryType].totalItemCount += 1;
+    enhanced[categoryType].totalItemCount = (enhanced[categoryType].totalItemCount || 0) + 1;
   });
   
-  // Process each item in itemStructure for scoring (only configured items)
-  Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
-    if (!itemConfig?.questions) return;
-    
-    const categoryType = itemConfig.type || 'lesson';
-    if (!categories[categoryType]) {
-      categories[categoryType] = {
-        earned: 0,
-        possible: 0,
-        items: [],
-        categoryWeight: 0,
-        totalItemCount: 0
-      };
-    }
-    
-    let itemEarned = 0;
-    let itemPossible = 0;
-    
-    itemConfig.questions.forEach(questionConfig => {
-      const questionId = questionConfig.questionId;
-      const points = questionConfig.points || 0;
-      const actualGrade = actualGrades[questionId] || 0;
-      
-      itemPossible += points;
-      itemEarned += actualGrade;
-    });
-    
-    categories[categoryType].earned += itemEarned;
-    categories[categoryType].possible += itemPossible;
-    categories[categoryType].items.push({
-      id: itemId,
-      title: itemConfig.title || itemId,
-      earned: itemEarned,
-      possible: itemPossible
-    });
-  });
-  
-  // Calculate percentages and weighted scores
-  Object.keys(categories).forEach(categoryType => {
-    const categoryData = categories[categoryType];
-    categoryData.percentage = categoryData.possible > 0 ? (categoryData.earned / categoryData.possible) * 100 : 0;
-    categoryData.weightedScore = categoryData.percentage * (weights[categoryType] || 0);
-  });
-  
-  return categories;
+  return enhanced;
 };
 
-const calculateCourseItemStats = (course, allCourseItems = []) => {
+const calculateCourseItemStats = (course, allCourseItems = [], studentEmail = null) => {
   // Use allCourseItems passed from parent for consistency with navigation and progress
   // Process ALL course items (lessons, assignments, exams, labs, etc.) not just lessons
   
@@ -374,9 +327,9 @@ const calculateCourseItemStats = (course, allCourseItems = []) => {
     };
   }
   
-  // Count completed items using the reliable completion check
+  // Count completed items using session-aware completion check
   const completedCount = allCourseItems.filter(courseItem => {
-    return checkLessonCompletion(courseItem.itemId, course);
+    return checkLessonCompletion(courseItem.itemId, course, studentEmail);
   }).length;
   
   const total = allCourseItems.length;

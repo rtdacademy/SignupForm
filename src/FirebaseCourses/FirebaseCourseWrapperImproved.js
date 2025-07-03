@@ -875,8 +875,9 @@ const FirebaseCourseWrapperContent = ({
     Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
       if (!lessonConfig || lessonConfig.type !== 'lesson') return;
       
-      // Use new grade calculation function for accurate scores
-      const lessonScore = calculateLessonScore(lessonKey, course);
+      // Use new grade calculation function for accurate scores with session support
+      const studentEmail = profile?.StudentEmail || currentUser?.email;
+      const lessonScore = calculateLessonScore(lessonKey, course, studentEmail);
       
       if (!lessonScore.valid) {
         return; // Skip if calculation failed
@@ -912,7 +913,7 @@ const FirebaseCourseWrapperContent = ({
     });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments]);
+  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, profile?.StudentEmail, currentUser?.email]);
 
  
   
@@ -1095,10 +1096,18 @@ const FirebaseCourseWrapperContent = ({
                 </div>
               )}
               
-              {/* Lesson Progress Bars */}
+              {/* Lesson Progress Bars - Hidden for AssessmentSession lessons */}
               {currentActiveItem && (() => {
-                // Use new grade calculation function for accurate data
-                const lessonScore = calculateLessonScore(currentActiveItem.itemId, course);
+                // Hide progress bars for assignments, exams, and quizzes (which use AssessmentSession)
+                if (currentActiveItem.type === 'assignment' || 
+                    currentActiveItem.type === 'exam' || 
+                    currentActiveItem.type === 'quiz') {
+                  return null;
+                }
+                
+                // Use new grade calculation function for accurate data with session support
+                const studentEmail = profile?.StudentEmail || currentUser?.email;
+                const lessonScore = calculateLessonScore(currentActiveItem.itemId, course, studentEmail);
                 
                 if (!lessonScore.valid || lessonScore.totalQuestions === 0) {
                   return null;
@@ -1201,7 +1210,7 @@ const FirebaseCourseWrapperContent = ({
           )}
           
           {(activeTab === 'progress' || activeTab === 'grades') && (
-            <GradebookDashboard course={course} allCourseItems={allCourseItems} />
+            <GradebookDashboard course={course} allCourseItems={allCourseItems} profile={profile} />
           )}
           
           {/* Debug tab - only accessible by authorized users when developer mode is active */}

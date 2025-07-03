@@ -61,7 +61,6 @@ exports.startExamSession = onCall({
     
     // Get course config to validate exam settings
     const courseConfig = await getCourseConfig(courseId);
-    const examConfig = courseConfig?.activityTypes?.exam || {};
     
     // Check for existing sessions and validate attempt limits
     const basePath = isStaff ? 'staff_testing' : 'students';
@@ -72,7 +71,7 @@ exports.startExamSession = onCall({
     
     // Filter sessions for this specific exam
     const examSessions = Object.values(allSessions).filter(session => 
-      session.examItemId === examItemId
+      session.examItemId === itemId
     );
     
     // Check for active session
@@ -81,9 +80,22 @@ exports.startExamSession = onCall({
       throw new Error(`An active exam session already exists for this exam. Session ID: ${activeSession.sessionId}`);
     }
     
+    // Get maxAttempts - try assessment-specific first, then general exam config
+    let maxAttempts = 1; // Default fallback
+    
+    if (courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.maxAttempts) {
+      // Use assessment-specific maxAttempts from course config
+      maxAttempts = courseConfig.gradebook.itemStructure[itemId].assessmentSettings.maxAttempts;
+      console.log(`📋 Using assessment-specific maxAttempts: ${maxAttempts} for ${itemId}`);
+    } else {
+      // Fallback to general exam config
+      const examConfig = courseConfig?.activityTypes?.exam || {};
+      maxAttempts = examConfig.maxAttempts || 1;
+      console.log(`📋 Using general exam maxAttempts: ${maxAttempts} for ${itemId}`);
+    }
+    
     // Check attempt limits
     const completedSessions = examSessions.filter(session => session.status === 'completed');
-    const maxAttempts = examConfig.maxAttempts || 1;
     const attemptsUsed = completedSessions.length;
     
     if (attemptsUsed >= maxAttempts) {
@@ -120,13 +132,16 @@ exports.startExamSession = onCall({
       
       // Attempt tracking
       attemptNumber: attemptNumber,
-      maxAttempts: examConfig.maxAttempts || 1,
+      maxAttempts: maxAttempts,
       previousAttempts: completedSessions.length,
       
-      // Exam configuration
-      showDetailedFeedback: examConfig.showDetailedFeedback !== false, // Show after completion
-      enableHints: examConfig.enableHints || false,
-      theme: examConfig.theme || 'red'
+      // Exam configuration - use assessment-specific settings if available
+      showDetailedFeedback: courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.showDetailedFeedback ?? 
+                            courseConfig?.activityTypes?.exam?.showDetailedFeedback ?? true,
+      enableHints: courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.enableHints ?? 
+                   courseConfig?.activityTypes?.exam?.enableHints ?? false,
+      theme: courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.theme ?? 
+             courseConfig?.activityTypes?.exam?.theme ?? 'red'
     };
 
     // Save session to database
@@ -134,9 +149,42 @@ exports.startExamSession = onCall({
     
     await admin.database().ref(sessionPath).set(sessionData);
     
-    // Also create assessment entries for each question (as placeholders)
+    // Clean up stale placeholders and create new assessment entries
     console.log('Questions array received:', JSON.stringify(questions, null, 2));
     
+    // First, clean up any stale exam_in_progress placeholders from abandoned sessions
+    const cleanupPromises = questions.map(async (question) => {
+      const questionId = typeof question === 'string' ? question : question.questionId;
+      if (!questionId) return;
+      
+      const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+      const assessmentRef = admin.database().ref(assessmentPath);
+      const snapshot = await assessmentRef.once('value');
+      const existingData = snapshot.val();
+      
+      if (existingData && existingData.status === 'exam_in_progress' && existingData.examSessionId) {
+        // Check if this belongs to an abandoned session
+        console.log(`🔍 Found existing exam_in_progress for ${questionId}, checking session ${existingData.examSessionId}`);
+        
+        // If it's from a different session, it's stale - remove it
+        if (existingData.examSessionId !== sessionId) {
+          // Verify the session is not active
+          const oldSessionPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions/${existingData.examSessionId}`;
+          const oldSessionSnapshot = await admin.database().ref(oldSessionPath).once('value');
+          const oldSession = oldSessionSnapshot.val();
+          
+          if (!oldSession || oldSession.status !== 'in_progress') {
+            console.log(`🗑️ Cleaning up stale placeholder for ${questionId} from abandoned session ${existingData.examSessionId}`);
+            await assessmentRef.remove();
+          }
+        }
+      }
+    });
+    
+    await Promise.all(cleanupPromises);
+    console.log('✅ Cleaned up stale placeholders');
+    
+    // Now create fresh placeholders for the new session
     const assessmentPromises = questions.map(async (question) => {
       // Handle both string questionId and object with questionId property
       const questionId = typeof question === 'string' ? question : question.questionId;
@@ -149,7 +197,7 @@ exports.startExamSession = onCall({
       const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
       const assessmentRef = admin.database().ref(assessmentPath);
       
-      // Check if assessment already exists
+      // Check if assessment already exists (after cleanup)
       const snapshot = await assessmentRef.once('value');
       if (!snapshot.exists()) {
         // Create placeholder assessment
@@ -165,6 +213,9 @@ exports.startExamSession = onCall({
             enableHints: false
           }
         });
+        console.log(`✅ Created placeholder for ${questionId}`);
+      } else {
+        console.log(`⚠️ Assessment ${questionId} already exists after cleanup, skipping placeholder creation`);
       }
     });
     
@@ -599,30 +650,105 @@ exports.detectActiveExamSession = onCall({
     // Find active session (in_progress)
     const activeSession = examSessions.find(session => session.status === 'in_progress');
     
+    // Find resumable session (exited but not expired)
+    const currentTime = Date.now();
+    const resumableSession = examSessions.find(session => {
+      // Must be exited status
+      if (session.status !== 'exited') return false;
+      
+      // Must have endTime and not be expired
+      if (!session.endTime) return false;
+      const endTime = new Date(session.endTime).getTime();
+      
+      // Session is resumable if it hasn't expired
+      return endTime > currentTime;
+    });
+    
+    // Clean up stale placeholders if there's no active or resumable session
+    if (!activeSession && !resumableSession && examSessions.length > 0) {
+      console.log(`🧹 No active session found, checking for stale placeholders to clean up`);
+      
+      // Get all questions from any previous exam session for this itemId
+      const questionsToCheck = new Set();
+      examSessions.forEach(session => {
+        if (session.questions && Array.isArray(session.questions)) {
+          session.questions.forEach(q => {
+            const questionId = typeof q === 'string' ? q : q.questionId;
+            if (questionId) questionsToCheck.add(questionId);
+          });
+        }
+      });
+      
+      // Check each question for stale placeholders
+      const cleanupPromises = Array.from(questionsToCheck).map(async (questionId) => {
+        const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+        const assessmentRef = admin.database().ref(assessmentPath);
+        const snapshot = await assessmentRef.once('value');
+        const data = snapshot.val();
+        
+        if (data && data.status === 'exam_in_progress' && data.examSessionId) {
+          // Verify this session is not active
+          const sessionExists = allSessions[data.examSessionId];
+          if (!sessionExists || sessionExists.status !== 'in_progress') {
+            console.log(`🗑️ Cleaning up stale placeholder for ${questionId} from session ${data.examSessionId}`);
+            await assessmentRef.remove();
+          }
+        }
+      });
+      
+      if (cleanupPromises.length > 0) {
+        await Promise.all(cleanupPromises);
+        console.log(`✅ Cleaned up ${cleanupPromises.length} potential stale placeholders`);
+      }
+    }
+    
     // Find completed sessions
     const completedSessions = examSessions.filter(session => session.status === 'completed');
     
     // Get course config to check attempt limits
     const courseConfig = await getCourseConfig(courseId);
-    const examConfig = courseConfig?.activityTypes?.exam || {};
-    const maxAttempts = examConfig.maxAttempts || 1;
     
-    // Calculate attempts used (completed + active sessions)
-    const attemptsUsed = completedSessions.length + (activeSession ? 1 : 0);
+    // First try to get maxAttempts from specific assessment settings
+    let maxAttempts = 1; // Default fallback
+    
+    if (courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.maxAttempts) {
+      // Use assessment-specific maxAttempts from course config
+      maxAttempts = courseConfig.gradebook.itemStructure[itemId].assessmentSettings.maxAttempts;
+      console.log(`📋 Using assessment-specific maxAttempts: ${maxAttempts} for ${itemId}`);
+    } else {
+      // Fallback to general exam config
+      const examConfig = courseConfig?.activityTypes?.exam || {};
+      maxAttempts = examConfig.maxAttempts || 1;
+      console.log(`📋 Using general exam maxAttempts: ${maxAttempts} for ${itemId}`);
+    }
+    
+    // Calculate attempts used (completed + active + resumable sessions)
+    const attemptsUsed = completedSessions.length + (activeSession ? 1 : 0) + (resumableSession ? 1 : 0);
     const attemptsRemaining = Math.max(0, maxAttempts - attemptsUsed);
     
     console.log(`📊 Exam session summary: ${attemptsUsed}/${maxAttempts} attempts used, ${attemptsRemaining} remaining`);
     
+    if (activeSession) {
+      console.log(`🔄 Active session found: ${activeSession.sessionId} (status: ${activeSession.status})`);
+    }
+    
+    if (resumableSession) {
+      const timeRemaining = new Date(resumableSession.endTime).getTime() - currentTime;
+      const minutesRemaining = Math.floor(timeRemaining / (1000 * 60));
+      console.log(`⏰ Resumable session found: ${resumableSession.sessionId} (status: ${resumableSession.status}, ${minutesRemaining} minutes remaining)`);
+    }
+    
     return {
       success: true,
       activeSession: activeSession || null,
+      resumableSession: resumableSession || null,
       completedSessions: completedSessions,
       allExamSessions: examSessions,
       attemptsSummary: {
         maxAttempts: maxAttempts,
         attemptsUsed: attemptsUsed,
         attemptsRemaining: attemptsRemaining,
-        canStartNewAttempt: attemptsRemaining > 0 && !activeSession
+        canStartNewAttempt: attemptsRemaining > 0 && !activeSession && !resumableSession
       }
     };
     

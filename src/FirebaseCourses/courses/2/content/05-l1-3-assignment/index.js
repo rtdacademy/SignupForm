@@ -1,13 +1,12 @@
 import React from 'react';
 import AssessmentSession from '../../../../components/AssessmentSession';
 
-const L13Assignment = ({ courseId, studentEmail }) => {
+const L13Assignment = ({ courseId, studentEmail, course }) => {
   const assessmentConfig = {
     assessmentId: 'assignment_l1_3',
     activityType: 'assignment',
     title: 'L1-3 Assignment - Momentum and Impulse',
     description: 'Assessment covering momentum conservation in one dimension, momentum conservation in two dimensions, and impulse-momentum theorem from Lessons 1-3.',
-    timeLimit: 80, // 80 minutes
     questions: [
       {
         questionId: 'course2_05_l13_question1',
@@ -83,7 +82,6 @@ const L13Assignment = ({ courseId, studentEmail }) => {
       }
     ],
     instructions: [
-      'This assignment has a 80-minute time limit, but you can exit and return as needed.',
       'Use appropriate physics formulas for momentum and impulse calculations.',
       'Pay attention to vector directions (positive/negative, angles).',
       'Show your understanding of momentum conservation principles.',
@@ -98,6 +96,7 @@ const L13Assignment = ({ courseId, studentEmail }) => {
       courseId={courseId}
       studentEmail={studentEmail}
       assessmentConfig={assessmentConfig}
+      course={course}
       activityType="assignment"
     />
   );

@@ -293,7 +293,10 @@ class StandardMultipleChoiceCore {
       usedQuestionIds = existingAssessment.usedQuestionIds || [];
     }
     
-    console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
+    // Check if this is an exam mode generation
+    const isExamMode = params.examMode === true || params.topic === 'exam' || params.topic === 'quiz' || params.topic === 'assignment';
+    
+    console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}. Exam mode: ${isExamMode}`);
     
     // Look up course settings to get max attempts
     const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
@@ -309,10 +312,16 @@ class StandardMultipleChoiceCore {
     console.log(`Max attempts configuration: courseConfig=${config.maxAttempts}, activityConfig=${activityConfig.maxAttempts}, final=${maxAttempts}`);
     console.log(`Max attempts allowed: ${maxAttempts}`);
     
-    // Verify the student hasn't exceeded the max attempts
-    if (isRegeneration && currentAttempts >= maxAttempts) {
-      console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
-      throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
+    // In exam mode, skip attempt validation for question generation
+    // Individual question attempt limits don't apply when generating questions for an exam session
+    if (isExamMode) {
+      console.log(`Exam mode: Skipping individual question attempt validation for question generation`);
+    } else {
+      // Verify the student hasn't exceeded the max attempts (only for non-exam modes)
+      if (isRegeneration && currentAttempts >= maxAttempts) {
+        console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
+        throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
+      }
     }
     
     // Select question from pool
