@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 // No longer using gradebook context - data comes from course prop
 import { 
   Search, 
@@ -14,7 +15,8 @@ import {
 import { 
   validateGradeDataStructures, 
   calculateLessonScore, 
-  checkLessonCompletion 
+  checkLessonCompletion,
+  findAssessmentSessions 
 } from '../../utils/gradeCalculations';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
@@ -28,14 +30,18 @@ import {
 } from '../../../components/ui/select';
 import LessonDetailModal from './LessonDetailModal';
 
-const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [] }) => {
+const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profile }) => {
   // Validate that we have the required data structures
   const validation = validateGradeDataStructures(course);
+  const { currentUser } = useAuth();
   
   // Extract data from the new reliable sources
   const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
   const actualGrades = course?.Grades?.assessments || {};
   const assessments = course?.Assessments || {};
+  
+  // Get student email for session-based scoring
+  const studentEmail = profile?.StudentEmail || currentUser?.email;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -79,6 +85,21 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [] }) => 
       const questions = [];
       let lastActivity = 0;
       let totalAttempts = 0;
+      
+      // Find session data for assignments, exams, and quizzes
+      let sessionData = null;
+      const sessionTypes = ['assignment', 'exam', 'quiz'];
+      if (sessionTypes.includes(courseItem.type) && studentEmail) {
+        const sessions = findAssessmentSessions(courseItem.itemId, course, studentEmail);
+        if (sessions.length > 0) {
+          sessionData = {
+            sessions: sessions,
+            sessionCount: sessions.length,
+            latestSession: sessions[0], // Sessions are sorted by completion time (newest first)
+            hasMultipleAttempts: sessions.length > 1
+          };
+        }
+      }
       
       // If lesson is configured, get detailed question data
       if (lessonConfig && lessonConfig.questions) {
@@ -125,14 +146,15 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [] }) => 
         status: status,
         totalAttempts: totalAttempts,
         lastActivity: lastActivity,
-        isConfigured: !!lessonConfig // Flag to show if lesson has been configured
+        isConfigured: !!lessonConfig, // Flag to show if lesson has been configured
+        sessionData: sessionData // Include session data for assignments/exams/quizzes
       };
       
       lessons.push(lesson);
     });
     
     return lessons;
-  }, [allCourseItems, course, itemStructure, actualGrades, assessments]);
+  }, [allCourseItems, course, itemStructure, actualGrades, assessments, studentEmail]);
 
   // Filter and sort lessons
   const filteredLessons = useMemo(() => {

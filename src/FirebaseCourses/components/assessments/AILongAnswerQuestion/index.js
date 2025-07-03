@@ -406,7 +406,19 @@ const AILongAnswerQuestion = ({
 
         const unsubscribe = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
+          const validStatuses = ['active', 'exam_in_progress', 'completed', 'attempted', 'failed'];
+          
           if (data) {
+            // Check if the assessment has a valid status for display
+            const hasValidStatus = validStatuses.includes(data.status);
+            
+            // If status is not valid, don't load the question (prevents loading stale data)
+            if (!hasValidStatus) {
+              console.log(`Assessment ${effectiveAssessmentId} has invalid status: ${data.status}. Waiting for valid status...`);
+              // Don't set loading to false yet - wait for valid status
+              return;
+            }
+            
             console.log("Long answer question data received:", data);
             
             const maxAttemptsReached = data.attempts >= data.maxAttempts;
@@ -427,10 +439,22 @@ const AILongAnswerQuestion = ({
               setAnswer(data.lastSubmission.answer || '');
             }
           } else {
+            // No data exists yet
+            // In exam mode, wait for exam session to create the question
+            if (isExamMode || examMode) {
+              console.log(`Waiting for exam session to create question ${effectiveAssessmentId}...`);
+              // Don't generate - exam session manager will create it
+              // Keep loading state until exam creates the question
+              return;
+            }
+            
             console.log("No long answer data found, generating new question");
             generateQuestion();
           }
-          setLoading(false);
+          // Only set loading to false if we have valid data or are generating
+          if ((data && validStatuses.includes(data.status)) || (!data && !isExamMode && !examMode)) {
+            setLoading(false);
+          }
         }, (error) => {
           console.error("Error in database listener:", error);
           setError("Failed to load question data");

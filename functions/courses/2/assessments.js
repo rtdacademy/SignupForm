@@ -78,6 +78,7 @@ exports.course2_assessments = onCall(async (request) => {
     const { assessmentId, ...otherData } = data || {};
     
     console.log(`Master function received request for assessment: ${assessmentId}`);
+    console.log(`Exam mode parameter: ${data.examMode}`);
     
     // Get the assessment configuration for this assessmentId
     const assessmentConfig = getAssessmentConfig(assessmentId);
@@ -102,7 +103,8 @@ exports.course2_assessments = onCall(async (request) => {
       userId: data.userId,
       topic: data.topic || 'general',
       difficulty: data.difficulty || 'intermediate',
-      answer: data.answer // For evaluation operations
+      answer: data.answer, // For evaluation operations
+      examMode: data.examMode || false // Pass through exam mode parameter
     };
     
     // Handle the request directly using the core logic

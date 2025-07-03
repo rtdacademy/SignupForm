@@ -1090,8 +1090,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccord
             {
               type: 'multiple-choice',
               question: 'Child Hitting Ball',
-              questionId: 'course2_04_child_ball',
-              points: 3
+              questionId: 'course2_04_child_ball'
             },
             {
               type: 'multiple-choice',
