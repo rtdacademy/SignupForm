@@ -830,27 +830,27 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
             questions={[
               {
                 type: 'multiple-choice',
-                questionId: 'pinhole_distance_calculation',
+                questionId: 'course2_09_pinhole_distance_calculation',
                 title: 'Question 1: Pinhole Camera Distance Calculation'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'building_height_calculation',
+                questionId: 'course2_09_building_height_calculation',
                 title: 'Question 2: Building Height Calculation'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'shadow_size_calculation',
+                questionId: 'course2_09_shadow_size_calculation',
                 title: 'Question 3: Shadow Size Calculation'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'shadow_area_calculation',
+                questionId: 'course2_09_shadow_area_calculation',
                 title: 'Question 4: Shadow Area Calculation'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'fence_shadow_calculation',
+                questionId: 'course2_09_fence_shadow_calculation',
                 title: 'Question 5: Fence Shadow Length Calculation'
               }
             ]}
@@ -1450,22 +1450,22 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
             questions={[
               {
                 type: 'multiple-choice',
-                questionId: 'michelson_six_sided_calculation',
+                questionId: 'course2_09_michelson_six_sided_calculation',
                 title: 'Question 13: Six-sided Mirror Speed Calculation'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'michelson_eight_sided_frequency',
+                questionId: 'course2_09_michelson_eight_sided_frequency',
                 title: 'Question 14: Eight-sided Mirror Frequency'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'michelson_pentagonal_frequency',
+                questionId: 'course2_09_michelson_pentagonal_frequency',
                 title: 'Question 15: Pentagonal Mirror Frequency'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'michelson_twelve_sided_distance',
+                questionId: 'course2_09_michelson_twelve_sided_distance',
                 title: 'Question 16: Twelve-sided Mirror Distance'
               }
             ]}
@@ -1592,42 +1592,42 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
           questions={[
             {
               type: 'multiple-choice',
-              questionId: 'space_station_radio_signal',
+              questionId: 'course2_09_space_station_radio_signal',
               title: 'Question 17: Space Station Communication Time'
             },
             {
               type: 'multiple-choice',
-              questionId: 'light_travel_three_years',
+              questionId: 'course2_09_light_travel_three_years',
               title: 'Question 18: Light Travel Distance Calculation'
             },
             {
               type: 'multiple-choice',
-              questionId: 'star_explosion_observation',
+              questionId: 'course2_09_star_explosion_observation',
               title: 'Question 19: Stellar Event Observation Delay'
             },
             {
               type: 'multiple-choice',
-              questionId: 'proxima_centauri_distance',
+              questionId: 'course2_09_proxima_centauri_distance',
               title: 'Question 20: Proxima Centauri Distance Conversion'
             },
             {
               type: 'multiple-choice',
-              questionId: 'spacecraft_travel_time',
+              questionId: 'course2_09_spacecraft_travel_time',
               title: 'Question 21: Interstellar Spacecraft Journey'
             },
             {
               type: 'multiple-choice',
-              questionId: 'sunlight_travel_time',
+              questionId: 'course2_09_sunlight_travel_time',
               title: 'Question 22: Sunlight Travel Time to Earth'
             },
             {
               type: 'multiple-choice',
-              questionId: 'galileo_light_travel',
+              questionId: 'course2_09_galileo_light_travel',
               title: 'Question 23: Historical Jupiter Distance Calculation'
             },
             {
               type: 'multiple-choice',
-              questionId: 'earth_jupiter_speed_calculation',
+              questionId: 'course2_09_earth_jupiter_speed_calculation',
               title: 'Question 24: Earth-Jupiter Distance from Light Travel'
             }
           ]}

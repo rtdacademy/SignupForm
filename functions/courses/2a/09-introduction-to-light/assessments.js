@@ -466,7 +466,20 @@ exports.earth_jupiter_speed_calculation = createStandardMultipleChoice({
 
 // Export assessment configurations for master function
 const assessmentConfigs = {
+  // Old IDs (for backward compatibility)
   'pinhole_distance_calculation': {
+    questions: [questions[0]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  // New IDs (with course2_09_ prefix)
+  'course2_09_pinhole_distance_calculation': {
     questions: [questions[0]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -643,6 +656,184 @@ const assessmentConfigs = {
     theme: activityDefaults.theme || 'purple'
   },
   'earth_jupiter_speed_calculation': {
+    questions: [questions[16]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  
+  // New IDs with course2_09_ prefix (add all remaining ones)
+  'course2_09_building_height_calculation': {
+    questions: [questions[1]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_shadow_size_calculation': {
+    questions: [questions[2]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_shadow_area_calculation': {
+    questions: [questions[3]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_fence_shadow_calculation': {
+    questions: [questions[4]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_michelson_six_sided_calculation': {
+    questions: [questions[5]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_michelson_eight_sided_frequency': {
+    questions: [questions[6]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_michelson_pentagonal_frequency': {
+    questions: [questions[7]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_michelson_twelve_sided_distance': {
+    questions: [questions[8]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_space_station_radio_signal': {
+    questions: [questions[9]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_light_travel_three_years': {
+    questions: [questions[10]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_star_explosion_observation': {
+    questions: [questions[11]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_proxima_centauri_distance': {
+    questions: [questions[12]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_spacecraft_travel_time': {
+    questions: [questions[13]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_sunlight_travel_time': {
+    questions: [questions[14]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_galileo_light_travel': {
+    questions: [questions[15]],
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1,
+    showFeedback: true,
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_09_earth_jupiter_speed_calculation': {
     questions: [questions[16]],
     activityType: 'lesson',
     maxAttempts: 9999,

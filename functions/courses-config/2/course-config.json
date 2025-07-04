@@ -1274,7 +1274,6 @@
         "title": "Lab - Momentum Conservation",
         "type": "lab",
         "contentPath": "07-lab-momentum-conservation",
-        "inDevelopment": true,
         "questions": [
           {
             "questionId": "course2_lab_momentum_conservation",
@@ -1768,88 +1767,88 @@
         "contentPath": "09-introduction-to-light",
         "questions": [
           {
-            "questionId": "course2_09_introduction_to_light_question1",
-            "title": "Introduction to Light Question1",
+            "questionId": "course2_09_pinhole_distance_calculation",
+            "title": "Pinhole Distance Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question2",
-            "title": "Introduction to Light Question2",
+            "questionId": "course2_09_building_height_calculation",
+            "title": "Building Height Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question3",
-            "title": "Introduction to Light Question3",
+            "questionId": "course2_09_shadow_size_calculation",
+            "title": "Shadow Size Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question4",
-            "title": "Introduction to Light Question4",
+            "questionId": "course2_09_shadow_area_calculation",
+            "title": "Shadow Area Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question5",
-            "title": "Introduction to Light Question5",
+            "questionId": "course2_09_fence_shadow_calculation",
+            "title": "Fence Shadow Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question6",
-            "title": "Introduction to Light Question6",
+            "questionId": "course2_09_michelson_six_sided_calculation",
+            "title": "Michelson Six-Sided Mirror Calculation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question7",
-            "title": "Introduction to Light Question7",
+            "questionId": "course2_09_michelson_eight_sided_frequency",
+            "title": "Michelson Eight-Sided Frequency",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question8",
-            "title": "Introduction to Light Question8",
+            "questionId": "course2_09_michelson_pentagonal_frequency",
+            "title": "Michelson Pentagonal Frequency",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question9",
-            "title": "Introduction to Light Question9",
+            "questionId": "course2_09_michelson_twelve_sided_distance",
+            "title": "Michelson Twelve-Sided Distance",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question10",
-            "title": "Introduction to Light Question10",
+            "questionId": "course2_09_space_station_radio_signal",
+            "title": "Space Station Radio Signal",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question11",
-            "title": "Introduction to Light Question11",
+            "questionId": "course2_09_light_travel_three_years",
+            "title": "Light Travel Three Years",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question12",
-            "title": "Introduction to Light Question12",
+            "questionId": "course2_09_star_explosion_observation",
+            "title": "Star Explosion Observation",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question13",
-            "title": "Introduction to Light Question13",
+            "questionId": "course2_09_proxima_centauri_distance",
+            "title": "Proxima Centauri Distance",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question14",
-            "title": "Introduction to Light Question14",
+            "questionId": "course2_09_spacecraft_travel_time",
+            "title": "Spacecraft Travel Time",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question15",
-            "title": "Introduction to Light Question15",
+            "questionId": "course2_09_sunlight_travel_time",
+            "title": "Sunlight Travel Time",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question16",
-            "title": "Introduction to Light Question16",
+            "questionId": "course2_09_galileo_light_travel",
+            "title": "Galileo Light Travel",
             "points": 1
           },
           {
-            "questionId": "course2_09_introduction_to_light_question17",
-            "title": "Introduction to Light Question17",
+            "questionId": "course2_09_earth_jupiter_speed_calculation",
+            "title": "Earth Jupiter Speed Calculation",
             "points": 1
           }
         ]

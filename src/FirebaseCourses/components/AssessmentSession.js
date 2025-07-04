@@ -893,8 +893,8 @@ const AssessmentSession = ({
             <div className="bg-gray-50 rounded-lg shadow-md border p-8 text-center">
               <div className="mb-6">
                 <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4 animate-pulse" />
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Checking Exam Status...</h1>
-                <p className="text-gray-600">Please wait while we check for existing exam sessions.</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Checking Assessment Status...</h1>
+                <p className="text-gray-600">Please wait while we check for existing assessment sessions.</p>
               </div>
             </div>
           </div>

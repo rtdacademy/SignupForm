@@ -98,8 +98,7 @@ const getAssessmentConfig = (assessmentId) => {
  */
 exports.course2_assessments = onCall({
   memory: '1GiB',
-  cpu: 1,
-  minInstances: 1
+  cpu: 1
 }, async (request) => {
   try {
     console.log('🚀 NEW v2 FUNCTION RUNNING - SIMPLIFIED VERSION');
