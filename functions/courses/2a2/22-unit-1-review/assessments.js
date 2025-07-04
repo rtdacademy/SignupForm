@@ -98,10 +98,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 3b: Hammer and nail - force
-  },
   'course2_22_unit1_q3b': {
   questions: [{
     questionText: "A 12 kg hammer strikes a nail at 8.5 m/s and stops in 8.0 ms. What is the average force acting on the nail?",
@@ -120,10 +119,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 4a: Hockey puck - impulse
-  },
   'course2_22_unit1_q4a': {
   questions: [{
     questionText: "A hockey player makes a slap shot, exerting a force of 30 N on the hockey puck for 0.16 seconds. What impulse is given to the puck?",
@@ -142,10 +140,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 4b: Hockey puck - velocity
-  },
   'course2_22_unit1_q4b': {
   questions: [{
     questionText: "If the hockey puck has a mass of 0.115 kg and was at rest before the shot (impulse = 4.8 N·s), what speed does it head towards the net?",
@@ -164,10 +161,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 5: Skier friction
-  },
   'course2_22_unit1_q5': {
   questions: [{
     questionText: "A constant friction force of 25 N acts on a 65 kg skier for 20 s. What is the skier's change in velocity?",
@@ -186,10 +182,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 6: Tennis ball force
-  },
   'course2_22_unit1_q6': {
   questions: [{
     questionText: "For a top tennis player, a tennis ball may leave the racket on the serve with a speed of 55 m/s. If the ball has a mass of 0.060 kg and is in contact with the racket for about 4.0 ms, estimate the average force of the ball. Would this force be large enough to lift a 60 kg person?",
@@ -208,10 +203,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 7: Water force
-  },
   'course2_22_unit1_q7': {
   questions: [{
     questionText: "Water leaves a hose at a rate of 1.5 kg/s with a speed of 20 m/s and is aimed at the side of a car, which stops it. (That is, we ignore any splashing back). What is the force exerted by the water on the car?",
@@ -230,10 +224,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 8: Impulse concept
-  },
   'course2_22_unit1_q8': {
   questions: [{
     questionText: "Is it possible for an object to receive a larger impulse from a small force than from a large force? Explain.",
@@ -252,10 +245,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 9a: Inelastic collision - velocity
-  },
   'course2_22_unit1_q9a': {
   questions: [{
     questionText: "An object travelling east at 40 m/s and having a mass of 50 kg collides with an object with a mass of 40 kg and travelling east at 20 m/s. If they stick together on contact, what is the resultant velocity of the combined mass?",
@@ -274,10 +266,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 9b: Kinetic energy
-  },
   'course2_22_unit1_q9b': {
   questions: [{
     questionText: "From the previous collision (combined mass of 90 kg moving at 31.1 m/s), what is the kinetic energy of the combined mass?",
@@ -296,10 +287,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 10: Complex collision
-  },
   'course2_22_unit1_q10': {
   questions: [{
     questionText: "A 68 kg object travelling west at 45,750 m/s collides with a 56,975 kg object travelling east at 0.0078 m/s. If the 68 kg object ends up travelling east at 22,456 m/s, what is the velocity of the 56,975 kg object?",
@@ -318,10 +308,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 11: Football tackle
-  },
   'course2_22_unit1_q11': {
   questions: [{
     questionText: "A 95 kg halfback moving at 4.1 m/s on an apparent breakaway for a touchdown is tackled from behind. When he was tackled by an 85 kg cornerback running at 5.5 m/s in the same direction, what is their mutual speed immediately after the tackle?",
@@ -340,10 +329,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 12: Rifle recoil
-  },
   'course2_22_unit1_q12': {
   questions: [{
     questionText: "Calculate the recoil velocity of a 5.0 kg rifle that shoots a 0.020 kg bullet at a speed of 620 m/s?",
@@ -362,10 +350,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 13a: Railroad cars - velocity
-  },
   'course2_22_unit1_q13a': {
   questions: [{
     questionText: "A 10000 kg railroad car, A, travelling at a speed of 24.0 m/s strikes an identical car, B, at rest. If the cars lock together as a result of the collision, what is their common speed just after the collision?",
@@ -384,10 +371,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 13b: Energy loss
-  },
   'course2_22_unit1_q13b': {
   questions: [{
     questionText: "Is the railroad car collision elastic or inelastic? If the collision is inelastic, calculate how much of the initial kinetic energy is transformed to thermal or other forms of energy.",
@@ -406,10 +392,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 14: 2D billiard ball collision
-  },
   'course2_22_unit1_q14': {
   questions: [{
     questionText: "Billiard ball A of mass 0.400 kg moving with speed 1.80 m/s strikes ball B, initially at rest of mass 0.500 kg. As a result of the collision, ball A is deflected at an angle of 30.0° with a speed of 1.10 m/s. Find the resultant velocity of ball B.",
@@ -428,10 +413,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 15: 2D collision
-  },
   'course2_22_unit1_q15': {
   questions: [{
     questionText: "A mass of 50 kg travelling north at 45 m/s collides with a mass of 60 kg travelling 50 m/s at 28° N of W. If they stick together on contact, what is the resulting velocity of the combined masses?",
@@ -450,10 +434,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 16: Three-part explosion
-  },
   'course2_22_unit1_q16': {
   questions: [{
     questionText: "A 100 kg mass explodes into three parts. The first part travels away at 50 m/s straight north and has a mass of 20 kg. The second part travels away at 35 m/s straight west and has a mass of 50 kg. What is the resultant velocity of the third part?",
@@ -472,10 +455,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 17: Data analysis
-  },
   'course2_22_unit1_q17': {
   questions: [{
     questionText: `The following data relates the mass and change in velocity for various objects having the same impulse over a 3.0 second time interval. Find the average force exerted on the objects during the impulse.

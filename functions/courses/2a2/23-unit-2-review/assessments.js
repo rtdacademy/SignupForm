@@ -41,10 +41,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 2: Rotating mirror frequency
-  },
   'course2_23_unit2_q2': {
   questions: [{
     questionText: "When verifying the speed of light, a student set up a hexagonal rotating mirror and a reflecting mirror 40 km away. At what minimum frequency must the mirror rotate so that the reflected light is seen by the observer?",
@@ -63,10 +62,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 3: Two mirrors at 135° angle
-  },
   'course2_23_unit2_q3': {
   questions: [{
     questionText: "Two mirrors meet at a 135° angle. If light rays strike one mirror at 40°, at what angle do they leave the second mirror?",
@@ -85,10 +83,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 4: Concave mirror image beyond C
-  },
   'course2_23_unit2_q4': {
   questions: [{
     questionText: "Describe the image formed by a concave mirror when the object is beyond C (center of curvature).",
@@ -107,10 +104,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 5a: Diamond ring image position
-  },
   'course2_23_unit2_q5a': {
   questions: [{
     questionText: "A 1.50 cm high diamond ring is placed 20.0 cm from a concave mirror with radius of curvature of 30.0 cm. Determine the position of the image.",
@@ -129,10 +125,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 5b: Diamond ring image size
-  },
   'course2_23_unit2_q5b': {
   questions: [{
     questionText: "A 1.50 cm high diamond ring is placed 20.0 cm from a concave mirror with radius of curvature of 30.0 cm. Determine the image size.",
@@ -151,10 +146,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 6a: Object at 10 cm from concave mirror - position
-  },
   'course2_23_unit2_q6a': {
   questions: [{
     questionText: "A 1.00 cm high object is placed 10.0 cm from a concave mirror whose radius of curvature is 30.0 cm. Determine the position of the image analytically.",
@@ -173,10 +167,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 6b: Object at 10 cm from concave mirror - magnification
-  },
   'course2_23_unit2_q6b': {
   questions: [{
     questionText: "A 1.00 cm high object is placed 10.0 cm from a concave mirror whose radius of curvature is 30.0 cm. Determine the magnification analytically.",
@@ -195,10 +188,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 7a: Convex car mirror - image location
-  },
   'course2_23_unit2_q7a': {
   questions: [{
     questionText: "An external rearview car mirror is convex with a radius of curvature of 16.0 m. Determine the location of the image for an object 10.0 m from the mirror.",
@@ -217,10 +209,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 7b: Convex car mirror - magnification
-  },
   'course2_23_unit2_q7b': {
   questions: [{
     questionText: "An external rearview car mirror is convex with a radius of curvature of 16.0 m. Determine the magnification for an object 10.0 m from the mirror.",
@@ -239,10 +230,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 8a: Refraction through glass - angle in glass
-  },
   'course2_23_unit2_q8a': {
   questions: [{
     questionText: "Light traveling in air strikes a flat piece of thick glass at an incident angle of 60°. If the index of refraction in the glass is 1.50, what is the angle of refraction in the glass?",
@@ -261,10 +251,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 8b: Light emerging from glass
-  },
   'course2_23_unit2_q8b': {
   questions: [{
     questionText: "Light traveling in air strikes a flat piece of thick glass at an incident angle of 60°. What is the angle at which the ray emerges from the glass?",
@@ -283,10 +272,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 9: Equilateral prism
-  },
   'course2_23_unit2_q9': {
   questions: [{
     questionText: "Light is incident on an equilateral glass prism at a 40.0° angle to one face. Calculate the angle at which light emerges from the opposite face. Assume that n = 1.58 for the prism.",
@@ -305,10 +293,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 10: Total internal reflection
-  },
   'course2_23_unit2_q10': {
   questions: [{
     questionText: "A beam of light is emitted 8.0 cm beneath the surface of a liquid and strikes the surface 7.0 cm from the point directly above the source. If total internal reflection occurs, what is the index of refraction of the liquid?",
@@ -327,10 +314,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 11a: Convex lens image position
-  },
   'course2_23_unit2_q11a': {
   questions: [{
     questionText: "What is the position of the image of a 7.6 cm high flower placed 1.00 m from a convex camera lens with a focal length of 50.0 mm?",
@@ -349,10 +335,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 11b: Convex lens image size
-  },
   'course2_23_unit2_q11b': {
   questions: [{
     questionText: "What is the size of the image of a 7.6 cm high flower placed 1.00 m from a convex camera lens with a focal length of 50.0 mm?",
@@ -371,10 +356,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 12a: Converging lens virtual image position
-  },
   'course2_23_unit2_q12a': {
   questions: [{
     questionText: "An object is placed 10 cm from a converging lens with a focal length of 15 cm. Determine the image position analytically.",
@@ -393,10 +377,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 12b: Converging lens virtual image magnification
-  },
   'course2_23_unit2_q12b': {
   questions: [{
     questionText: "An object is placed 10 cm from a converging lens with a focal length of 15 cm. Determine the magnification analytically.",
@@ -415,10 +398,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 13: Diverging lens
-  },
   'course2_23_unit2_q13': {
   questions: [{
     questionText: "Where must a small insect be placed if a diverging lens with a focal length of 25 cm is to form a virtual image that is 20 cm in front of the lens?",
@@ -437,10 +419,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 14: Color appearance
-  },
   'course2_23_unit2_q14': {
   questions: [{
     questionText: "An object appears red in white light. What colour will it appear to be if it is illuminated by cyan light?",
@@ -459,10 +440,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 15: Polarizing sunglasses
-  },
   'course2_23_unit2_q15': {
   questions: [{
     questionText: "How can you tell if a pair of sunglasses is polarizing or not?",
@@ -481,10 +461,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 16: Double slit interference
-  },
   'course2_23_unit2_q16': {
   questions: [{
     questionText: "At what angle will 560 nm light produce a second order maximum when passing through double slits that are 1.45 × 10⁻² cm apart?",
@@ -503,10 +482,9 @@ const assessmentConfigs = {
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  },
 
 // Question 17: Fringe separation
-  },
   'course2_23_unit2_q17': {
   questions: [{
     questionText: "An interference pattern is formed when light of wavelength 648 nm is directed through two slits. If the slits are 52 μm apart and the screen is 3.5 m away, what will be the separation between bright fringes?",
