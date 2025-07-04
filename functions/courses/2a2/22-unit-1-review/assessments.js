@@ -21,8 +21,9 @@ const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== UNIT 1 REVIEW QUESTIONS =====
 
-// Question 1a: Susan drops onto sled
-exports.course2_22_unit1_q1a = createStandardMultipleChoice({
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_22_unit1_q1a': {
   questions: [{
     questionText: "An empty sled is sliding on frictionless ice when Susan drops vertically from a tree above onto the sled. When she lands, does the sled speed up, slow down, or keep the same speed?",
     options: [
@@ -40,10 +41,8 @@ exports.course2_22_unit1_q1a = createStandardMultipleChoice({
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
-
-// Question 1b: Susan falls off sled
-exports.course2_22_unit1_q1b = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q1b': {
   questions: [{
     questionText: "Later, Susan falls sideways off the sled. When she drops off, does the sled speed up, slow down, or keep the same speed?",
     options: [
@@ -61,10 +60,8 @@ exports.course2_22_unit1_q1b = createStandardMultipleChoice({
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
-
-// Question 2: Baseball hitting distance
-exports.course2_22_unit1_q2 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q2': {
   questions: [{
     questionText: "Why can a batter hit a pitched baseball further than a ball tossed in the air by the batter?",
     options: [
@@ -82,10 +79,8 @@ exports.course2_22_unit1_q2 = createStandardMultipleChoice({
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
-
-// Question 3a: Hammer and nail - impulse
-exports.course2_22_unit1_q3a = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q3a': {
   questions: [{
     questionText: "A 12 kg hammer strikes a nail at a velocity of 8.5 m/s and comes to rest in a time interval of 8.0 ms. What is the impulse imparted to the nail?",
     options: [
@@ -106,7 +101,8 @@ exports.course2_22_unit1_q3a = createStandardMultipleChoice({
 });
 
 // Question 3b: Hammer and nail - force
-exports.course2_22_unit1_q3b = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q3b': {
   questions: [{
     questionText: "A 12 kg hammer strikes a nail at 8.5 m/s and stops in 8.0 ms. What is the average force acting on the nail?",
     options: [
@@ -127,7 +123,8 @@ exports.course2_22_unit1_q3b = createStandardMultipleChoice({
 });
 
 // Question 4a: Hockey puck - impulse
-exports.course2_22_unit1_q4a = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q4a': {
   questions: [{
     questionText: "A hockey player makes a slap shot, exerting a force of 30 N on the hockey puck for 0.16 seconds. What impulse is given to the puck?",
     options: [
@@ -148,7 +145,8 @@ exports.course2_22_unit1_q4a = createStandardMultipleChoice({
 });
 
 // Question 4b: Hockey puck - velocity
-exports.course2_22_unit1_q4b = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q4b': {
   questions: [{
     questionText: "If the hockey puck has a mass of 0.115 kg and was at rest before the shot (impulse = 4.8 N·s), what speed does it head towards the net?",
     options: [
@@ -169,7 +167,8 @@ exports.course2_22_unit1_q4b = createStandardMultipleChoice({
 });
 
 // Question 5: Skier friction
-exports.course2_22_unit1_q5 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q5': {
   questions: [{
     questionText: "A constant friction force of 25 N acts on a 65 kg skier for 20 s. What is the skier's change in velocity?",
     options: [
@@ -190,7 +189,8 @@ exports.course2_22_unit1_q5 = createStandardMultipleChoice({
 });
 
 // Question 6: Tennis ball force
-exports.course2_22_unit1_q6 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q6': {
   questions: [{
     questionText: "For a top tennis player, a tennis ball may leave the racket on the serve with a speed of 55 m/s. If the ball has a mass of 0.060 kg and is in contact with the racket for about 4.0 ms, estimate the average force of the ball. Would this force be large enough to lift a 60 kg person?",
     options: [
@@ -211,7 +211,8 @@ exports.course2_22_unit1_q6 = createStandardMultipleChoice({
 });
 
 // Question 7: Water force
-exports.course2_22_unit1_q7 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q7': {
   questions: [{
     questionText: "Water leaves a hose at a rate of 1.5 kg/s with a speed of 20 m/s and is aimed at the side of a car, which stops it. (That is, we ignore any splashing back). What is the force exerted by the water on the car?",
     options: [
@@ -232,7 +233,8 @@ exports.course2_22_unit1_q7 = createStandardMultipleChoice({
 });
 
 // Question 8: Impulse concept
-exports.course2_22_unit1_q8 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q8': {
   questions: [{
     questionText: "Is it possible for an object to receive a larger impulse from a small force than from a large force? Explain.",
     options: [
@@ -253,7 +255,8 @@ exports.course2_22_unit1_q8 = createStandardMultipleChoice({
 });
 
 // Question 9a: Inelastic collision - velocity
-exports.course2_22_unit1_q9a = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q9a': {
   questions: [{
     questionText: "An object travelling east at 40 m/s and having a mass of 50 kg collides with an object with a mass of 40 kg and travelling east at 20 m/s. If they stick together on contact, what is the resultant velocity of the combined mass?",
     options: [
@@ -274,7 +277,8 @@ exports.course2_22_unit1_q9a = createStandardMultipleChoice({
 });
 
 // Question 9b: Kinetic energy
-exports.course2_22_unit1_q9b = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q9b': {
   questions: [{
     questionText: "From the previous collision (combined mass of 90 kg moving at 31.1 m/s), what is the kinetic energy of the combined mass?",
     options: [
@@ -295,7 +299,8 @@ exports.course2_22_unit1_q9b = createStandardMultipleChoice({
 });
 
 // Question 10: Complex collision
-exports.course2_22_unit1_q10 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q10': {
   questions: [{
     questionText: "A 68 kg object travelling west at 45,750 m/s collides with a 56,975 kg object travelling east at 0.0078 m/s. If the 68 kg object ends up travelling east at 22,456 m/s, what is the velocity of the 56,975 kg object?",
     options: [
@@ -316,7 +321,8 @@ exports.course2_22_unit1_q10 = createStandardMultipleChoice({
 });
 
 // Question 11: Football tackle
-exports.course2_22_unit1_q11 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q11': {
   questions: [{
     questionText: "A 95 kg halfback moving at 4.1 m/s on an apparent breakaway for a touchdown is tackled from behind. When he was tackled by an 85 kg cornerback running at 5.5 m/s in the same direction, what is their mutual speed immediately after the tackle?",
     options: [
@@ -337,7 +343,8 @@ exports.course2_22_unit1_q11 = createStandardMultipleChoice({
 });
 
 // Question 12: Rifle recoil
-exports.course2_22_unit1_q12 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q12': {
   questions: [{
     questionText: "Calculate the recoil velocity of a 5.0 kg rifle that shoots a 0.020 kg bullet at a speed of 620 m/s?",
     options: [
@@ -358,7 +365,8 @@ exports.course2_22_unit1_q12 = createStandardMultipleChoice({
 });
 
 // Question 13a: Railroad cars - velocity
-exports.course2_22_unit1_q13a = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q13a': {
   questions: [{
     questionText: "A 10000 kg railroad car, A, travelling at a speed of 24.0 m/s strikes an identical car, B, at rest. If the cars lock together as a result of the collision, what is their common speed just after the collision?",
     options: [
@@ -379,7 +387,8 @@ exports.course2_22_unit1_q13a = createStandardMultipleChoice({
 });
 
 // Question 13b: Energy loss
-exports.course2_22_unit1_q13b = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q13b': {
   questions: [{
     questionText: "Is the railroad car collision elastic or inelastic? If the collision is inelastic, calculate how much of the initial kinetic energy is transformed to thermal or other forms of energy.",
     options: [
@@ -400,7 +409,8 @@ exports.course2_22_unit1_q13b = createStandardMultipleChoice({
 });
 
 // Question 14: 2D billiard ball collision
-exports.course2_22_unit1_q14 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q14': {
   questions: [{
     questionText: "Billiard ball A of mass 0.400 kg moving with speed 1.80 m/s strikes ball B, initially at rest of mass 0.500 kg. As a result of the collision, ball A is deflected at an angle of 30.0° with a speed of 1.10 m/s. Find the resultant velocity of ball B.",
     options: [
@@ -421,7 +431,8 @@ exports.course2_22_unit1_q14 = createStandardMultipleChoice({
 });
 
 // Question 15: 2D collision
-exports.course2_22_unit1_q15 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q15': {
   questions: [{
     questionText: "A mass of 50 kg travelling north at 45 m/s collides with a mass of 60 kg travelling 50 m/s at 28° N of W. If they stick together on contact, what is the resulting velocity of the combined masses?",
     options: [
@@ -442,7 +453,8 @@ exports.course2_22_unit1_q15 = createStandardMultipleChoice({
 });
 
 // Question 16: Three-part explosion
-exports.course2_22_unit1_q16 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q16': {
   questions: [{
     questionText: "A 100 kg mass explodes into three parts. The first part travels away at 50 m/s straight north and has a mass of 20 kg. The second part travels away at 35 m/s straight west and has a mass of 50 kg. What is the resultant velocity of the third part?",
     options: [
@@ -463,7 +475,8 @@ exports.course2_22_unit1_q16 = createStandardMultipleChoice({
 });
 
 // Question 17: Data analysis
-exports.course2_22_unit1_q17 = createStandardMultipleChoice({
+  },
+  'course2_22_unit1_q17': {
   questions: [{
     questionText: `The following data relates the mass and change in velocity for various objects having the same impulse over a 3.0 second time interval. Find the average force exerted on the objects during the impulse.
 
@@ -484,4 +497,7 @@ Mass (kg): 37.5, 50.0, 62.5, 75.3, 93.8, 125
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

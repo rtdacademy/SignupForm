@@ -1233,6 +1233,98 @@
           }
         ]
       },
+      "09_introduction_to_light": {
+        "title": "Introduction to Light",
+        "type": "lesson",
+        "contentPath": "09-introduction-to-light",
+        "questions": [
+          {
+            "questionId": "pinhole_distance_calculation",
+            "title": "Pinhole Distance Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "building_height_calculation",
+            "title": "Building Height Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "shadow_size_calculation",
+            "title": "Shadow Size Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "shadow_area_calculation",
+            "title": "Shadow Area Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "fence_shadow_calculation",
+            "title": "Fence Shadow Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "michelson_six_sided_calculation",
+            "title": "Michelson Six Sided Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "michelson_eight_sided_frequency",
+            "title": "Michelson Eight Sided Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "michelson_pentagonal_frequency",
+            "title": "Michelson Pentagonal Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "michelson_twelve_sided_distance",
+            "title": "Michelson Twelve Sided Distance",
+            "points": 1
+          },
+          {
+            "questionId": "space_station_radio_signal",
+            "title": "Space Station Radio Signal",
+            "points": 1
+          },
+          {
+            "questionId": "light_travel_three_years",
+            "title": "Light Travel Three Years",
+            "points": 1
+          },
+          {
+            "questionId": "star_explosion_observation",
+            "title": "Star Explosion Observation",
+            "points": 1
+          },
+          {
+            "questionId": "proxima_centauri_distance",
+            "title": "Proxima Centauri Distance",
+            "points": 1
+          },
+          {
+            "questionId": "spacecraft_travel_time",
+            "title": "Spacecraft Travel Time",
+            "points": 1
+          },
+          {
+            "questionId": "sunlight_travel_time",
+            "title": "Sunlight Travel Time",
+            "points": 1
+          },
+          {
+            "questionId": "galileo_light_travel",
+            "title": "Galileo Light Travel",
+            "points": 1
+          },
+          {
+            "questionId": "earth_jupiter_speed_calculation",
+            "title": "Earth Jupiter Speed Calculation",
+            "points": 1
+          }
+        ]
+      },
       "13_refraction_of_light": {
         "title": "Refraction of Light",
         "type": "lesson",

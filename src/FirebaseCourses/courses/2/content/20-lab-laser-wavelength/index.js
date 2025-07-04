@@ -885,7 +885,7 @@ const LabLaserWavelength = ({ courseId = '2' }) => {
   if (!labStarted) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Lab 20 - Laser Wavelength</h1>
+        <h1 className="text-2xl font-bold">Lab 3 - Laser Wavelength</h1>
         
         {/* Introduction Section */}
         <div className="max-w-4xl mx-auto">
@@ -965,7 +965,7 @@ const LabLaserWavelength = ({ courseId = '2' }) => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10 shadow-sm">
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold">Lab 20 - Laser Wavelength</h1>
+          <h1 className="text-xl font-bold">Lab 3 - Laser Wavelength</h1>
           
           <div className="flex items-center gap-4">
             {/* Navigation Menu */}

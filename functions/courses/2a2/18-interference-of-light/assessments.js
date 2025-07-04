@@ -134,83 +134,78 @@ const questions = [
   }
 ];
 
-// Export individual question handlers
-exports.course2_18_constructive_amplitude = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_18_constructive_amplitude': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_destructive_amplitude': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_dark_fringes_cause': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_wavelength_fringe_spacing': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_path_difference_interference': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_coherence_requirement': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_single_slit_blocking': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_lightbulb_incoherence': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_fringe_count_factors': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_18_sound_dead_spots': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  }
+};
 
-exports.course2_18_destructive_amplitude = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_dark_fringes_cause = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_wavelength_fringe_spacing = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_path_difference_interference = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_coherence_requirement = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_single_slit_blocking = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_lightbulb_incoherence = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_fringe_count_factors = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_18_sound_dead_spots = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+exports.assessmentConfigs = assessmentConfigs;

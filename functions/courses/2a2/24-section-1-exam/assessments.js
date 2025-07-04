@@ -357,214 +357,233 @@ const longAnswerQuestion2 = createStandardLongAnswer({
   randomizeQuestions: false
 });
 
-// Export individual multiple choice questions
-exports.course2_24_section1_exam_q1 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[0]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false // Exam mode - no feedback during exam
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_24_section1_exam_q1': {
+    questions: [multipleChoiceQuestions[0]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q2 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[1]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q2': {
+    questions: [multipleChoiceQuestions[1]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q3 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[2]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q3': {
+    questions: [multipleChoiceQuestions[2]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q4 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[3]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q4': {
+    questions: [multipleChoiceQuestions[3]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q5 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[4]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q5': {
+    questions: [multipleChoiceQuestions[4]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q6 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[5]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q6': {
+    questions: [multipleChoiceQuestions[5]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q7 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[6]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q7': {
+    questions: [multipleChoiceQuestions[6]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q8 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[7]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q8': {
+    questions: [multipleChoiceQuestions[7]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q9 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[8]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q9': {
+    questions: [multipleChoiceQuestions[8]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q10 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[9]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q10': {
+    questions: [multipleChoiceQuestions[9]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q11 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[10]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q11': {
+    questions: [multipleChoiceQuestions[10]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q12 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[11]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q12': {
+    questions: [multipleChoiceQuestions[11]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q13 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[12]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q13': {
+    questions: [multipleChoiceQuestions[12]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q14 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[13]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q14': {
+    questions: [multipleChoiceQuestions[13]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q15 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[14]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q15': {
+    questions: [multipleChoiceQuestions[14]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q16 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[15]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q16': {
+    questions: [multipleChoiceQuestions[15]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q17 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[16]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q17': {
+    questions: [multipleChoiceQuestions[16]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q18 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[17]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q18': {
+    questions: [multipleChoiceQuestions[17]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q19 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[18]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q19': {
+    questions: [multipleChoiceQuestions[18]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q20 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[19]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q20': {
+    questions: [multipleChoiceQuestions[19]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q21 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[20]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q21': {
+    questions: [multipleChoiceQuestions[20]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q22 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[21]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q22': {
+    questions: [multipleChoiceQuestions[21]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-exports.course2_24_section1_exam_q23 = createStandardMultipleChoice({
-  questions: [multipleChoiceQuestions[22]],
-  randomizeOptions: true,
-  activityType: 'exam',
-  maxAttempts: 1,
-  pointsValue: 1,
-  showFeedback: false
-});
+  'course2_24_section1_exam_q23': {
+    questions: [multipleChoiceQuestions[22]],
+    randomizeOptions: true,
+    activityType: 'exam',
+    maxAttempts: 1,
+    pointsValue: 1,
+    showFeedback: false
+  },
 
-// Export long answer questions
-exports.course2_24_section1_exam_long1 = longAnswerQuestion1;
-exports.course2_24_section1_exam_long2 = longAnswerQuestion2;
+  'course2_24_section1_exam_long1': longAnswerQuestion1.questions ? {
+    questions: longAnswerQuestion1.questions,
+    activityType: longAnswerQuestion1.activityType,
+    maxAttempts: longAnswerQuestion1.maxAttempts,
+    showRubric: longAnswerQuestion1.showRubric,
+    showWordCount: longAnswerQuestion1.showWordCount,
+    theme: longAnswerQuestion1.theme,
+    randomizeQuestions: longAnswerQuestion1.randomizeQuestions
+  } : longAnswerQuestion1,
+  'course2_24_section1_exam_long2': longAnswerQuestion2.questions ? {
+    questions: longAnswerQuestion2.questions,
+    activityType: longAnswerQuestion2.activityType,
+    maxAttempts: longAnswerQuestion2.maxAttempts,
+    showRubric: longAnswerQuestion2.showRubric,
+    showWordCount: longAnswerQuestion2.showWordCount,
+    theme: longAnswerQuestion2.theme,
+    randomizeQuestions: longAnswerQuestion2.randomizeQuestions
+  } : longAnswerQuestion2
+};
+
+exports.assessmentConfigs = assessmentConfigs;

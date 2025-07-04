@@ -134,83 +134,78 @@ const questions = [
   }
 ];
 
-// Export individual question handlers
-exports.course2_17_dispersion_air_speeds = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_17_dispersion_air_speeds': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_diamond_dispersion': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_microscopy_scattering': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_clothing_color_heat': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_red_orange_difference': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_stage_lighting_color': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_window_glass_dispersion': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_green_object_lighting': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_cat_color_vision': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_17_moonlight_colorless': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  }
+};
 
-exports.course2_17_diamond_dispersion = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_microscopy_scattering = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_clothing_color_heat = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_red_orange_difference = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_stage_lighting_color = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_window_glass_dispersion = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_green_object_lighting = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_cat_color_vision = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_17_moonlight_colorless = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+exports.assessmentConfigs = assessmentConfigs;

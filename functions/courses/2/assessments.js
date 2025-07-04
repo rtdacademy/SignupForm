@@ -39,6 +39,18 @@ const { assessmentConfigs: introToLightConfigs } = require('../2a/09-introductio
 const { assessmentConfigs: reflectionOfLightConfigs } = require('../2a/10-reflection-of-light/assessments');
 const { assessmentConfigs: curvedMirrorsConfigs } = require('../2a/11-curved-mirrors/assessments');
 const { assessmentConfigs: l57AssignmentConfigs } = require('../2a/12-l5-7-assignment/assessments');
+const { assessmentConfigs: refractionConfigs } = require('../2a2/13-refraction-of-light/assessments');
+const { assessmentConfigs: opticsLensesConfigs } = require('../2a2/14-optics-lenses/assessments');
+const { assessmentConfigs: labMirrorsLensesConfigs } = require('../2a2/15-lab-mirrors-lenses/assessments');
+const { assessmentConfigs: l89AssignmentConfigs } = require('../2a2/16-l8-9-assignment/assessments');
+const { assessmentConfigs: dispersionScatteringConfigs } = require('../2a2/17-dispersion-scattering/assessments');
+const { assessmentConfigs: interferenceOfLightConfigs } = require('../2a2/18-interference-of-light/assessments');
+const { assessmentConfigs: diffractionGratingsConfigs } = require('../2a2/19-diffraction-gratings/assessments');
+const { assessmentConfigs: labLaserWavelengthConfigs } = require('../2a2/20-lab-laser-wavelength/assessments');
+const { assessmentConfigs: l112CumulativeConfigs } = require('../2a2/21-l1-12-cumulative-assignment/assessments');
+const { assessmentConfigs: unit1ReviewConfigs } = require('../2a2/22-unit-1-review/assessments');
+const { assessmentConfigs: unit2ReviewConfigs } = require('../2a2/23-unit-2-review/assessments');
+const { assessmentConfigs: section1ExamConfigs } = require('../2a2/24-section-1-exam/assessments');
 
 /**
  * Assessment Configuration Mapping
@@ -58,7 +70,19 @@ const getAllAssessmentConfigs = () => {
     ...introToLightConfigs,
     ...reflectionOfLightConfigs,
     ...curvedMirrorsConfigs,
-    ...l57AssignmentConfigs
+    ...l57AssignmentConfigs,
+    ...refractionConfigs,
+    ...opticsLensesConfigs,
+    ...labMirrorsLensesConfigs,
+    ...l89AssignmentConfigs,
+    ...dispersionScatteringConfigs,
+    ...interferenceOfLightConfigs,
+    ...diffractionGratingsConfigs,
+    ...labLaserWavelengthConfigs,
+    ...l112CumulativeConfigs,
+    ...unit1ReviewConfigs,
+    ...unit2ReviewConfigs,
+    ...section1ExamConfigs
   };
 };
 

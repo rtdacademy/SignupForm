@@ -21,8 +21,9 @@ const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== UNIT 2 REVIEW QUESTIONS =====
 
-// Question 1: Pinhole camera image size
-exports.course2_23_unit2_q1 = createStandardMultipleChoice({
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_23_unit2_q1': {
   questions: [{
     questionText: "What is the size of the image of a person that is 1.75 m tall and is standing 8 m from a pinhole camera that is 20 cm long?",
     options: [
@@ -43,7 +44,8 @@ exports.course2_23_unit2_q1 = createStandardMultipleChoice({
 });
 
 // Question 2: Rotating mirror frequency
-exports.course2_23_unit2_q2 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q2': {
   questions: [{
     questionText: "When verifying the speed of light, a student set up a hexagonal rotating mirror and a reflecting mirror 40 km away. At what minimum frequency must the mirror rotate so that the reflected light is seen by the observer?",
     options: [
@@ -64,7 +66,8 @@ exports.course2_23_unit2_q2 = createStandardMultipleChoice({
 });
 
 // Question 3: Two mirrors at 135° angle
-exports.course2_23_unit2_q3 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q3': {
   questions: [{
     questionText: "Two mirrors meet at a 135° angle. If light rays strike one mirror at 40°, at what angle do they leave the second mirror?",
     options: [
@@ -85,7 +88,8 @@ exports.course2_23_unit2_q3 = createStandardMultipleChoice({
 });
 
 // Question 4: Concave mirror image beyond C
-exports.course2_23_unit2_q4 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q4': {
   questions: [{
     questionText: "Describe the image formed by a concave mirror when the object is beyond C (center of curvature).",
     options: [
@@ -106,7 +110,8 @@ exports.course2_23_unit2_q4 = createStandardMultipleChoice({
 });
 
 // Question 5a: Diamond ring image position
-exports.course2_23_unit2_q5a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q5a': {
   questions: [{
     questionText: "A 1.50 cm high diamond ring is placed 20.0 cm from a concave mirror with radius of curvature of 30.0 cm. Determine the position of the image.",
     options: [
@@ -127,7 +132,8 @@ exports.course2_23_unit2_q5a = createStandardMultipleChoice({
 });
 
 // Question 5b: Diamond ring image size
-exports.course2_23_unit2_q5b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q5b': {
   questions: [{
     questionText: "A 1.50 cm high diamond ring is placed 20.0 cm from a concave mirror with radius of curvature of 30.0 cm. Determine the image size.",
     options: [
@@ -148,7 +154,8 @@ exports.course2_23_unit2_q5b = createStandardMultipleChoice({
 });
 
 // Question 6a: Object at 10 cm from concave mirror - position
-exports.course2_23_unit2_q6a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q6a': {
   questions: [{
     questionText: "A 1.00 cm high object is placed 10.0 cm from a concave mirror whose radius of curvature is 30.0 cm. Determine the position of the image analytically.",
     options: [
@@ -169,7 +176,8 @@ exports.course2_23_unit2_q6a = createStandardMultipleChoice({
 });
 
 // Question 6b: Object at 10 cm from concave mirror - magnification
-exports.course2_23_unit2_q6b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q6b': {
   questions: [{
     questionText: "A 1.00 cm high object is placed 10.0 cm from a concave mirror whose radius of curvature is 30.0 cm. Determine the magnification analytically.",
     options: [
@@ -190,7 +198,8 @@ exports.course2_23_unit2_q6b = createStandardMultipleChoice({
 });
 
 // Question 7a: Convex car mirror - image location
-exports.course2_23_unit2_q7a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q7a': {
   questions: [{
     questionText: "An external rearview car mirror is convex with a radius of curvature of 16.0 m. Determine the location of the image for an object 10.0 m from the mirror.",
     options: [
@@ -211,7 +220,8 @@ exports.course2_23_unit2_q7a = createStandardMultipleChoice({
 });
 
 // Question 7b: Convex car mirror - magnification
-exports.course2_23_unit2_q7b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q7b': {
   questions: [{
     questionText: "An external rearview car mirror is convex with a radius of curvature of 16.0 m. Determine the magnification for an object 10.0 m from the mirror.",
     options: [
@@ -232,7 +242,8 @@ exports.course2_23_unit2_q7b = createStandardMultipleChoice({
 });
 
 // Question 8a: Refraction through glass - angle in glass
-exports.course2_23_unit2_q8a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q8a': {
   questions: [{
     questionText: "Light traveling in air strikes a flat piece of thick glass at an incident angle of 60°. If the index of refraction in the glass is 1.50, what is the angle of refraction in the glass?",
     options: [
@@ -253,7 +264,8 @@ exports.course2_23_unit2_q8a = createStandardMultipleChoice({
 });
 
 // Question 8b: Light emerging from glass
-exports.course2_23_unit2_q8b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q8b': {
   questions: [{
     questionText: "Light traveling in air strikes a flat piece of thick glass at an incident angle of 60°. What is the angle at which the ray emerges from the glass?",
     options: [
@@ -274,7 +286,8 @@ exports.course2_23_unit2_q8b = createStandardMultipleChoice({
 });
 
 // Question 9: Equilateral prism
-exports.course2_23_unit2_q9 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q9': {
   questions: [{
     questionText: "Light is incident on an equilateral glass prism at a 40.0° angle to one face. Calculate the angle at which light emerges from the opposite face. Assume that n = 1.58 for the prism.",
     options: [
@@ -295,7 +308,8 @@ exports.course2_23_unit2_q9 = createStandardMultipleChoice({
 });
 
 // Question 10: Total internal reflection
-exports.course2_23_unit2_q10 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q10': {
   questions: [{
     questionText: "A beam of light is emitted 8.0 cm beneath the surface of a liquid and strikes the surface 7.0 cm from the point directly above the source. If total internal reflection occurs, what is the index of refraction of the liquid?",
     options: [
@@ -316,7 +330,8 @@ exports.course2_23_unit2_q10 = createStandardMultipleChoice({
 });
 
 // Question 11a: Convex lens image position
-exports.course2_23_unit2_q11a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q11a': {
   questions: [{
     questionText: "What is the position of the image of a 7.6 cm high flower placed 1.00 m from a convex camera lens with a focal length of 50.0 mm?",
     options: [
@@ -337,7 +352,8 @@ exports.course2_23_unit2_q11a = createStandardMultipleChoice({
 });
 
 // Question 11b: Convex lens image size
-exports.course2_23_unit2_q11b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q11b': {
   questions: [{
     questionText: "What is the size of the image of a 7.6 cm high flower placed 1.00 m from a convex camera lens with a focal length of 50.0 mm?",
     options: [
@@ -358,7 +374,8 @@ exports.course2_23_unit2_q11b = createStandardMultipleChoice({
 });
 
 // Question 12a: Converging lens virtual image position
-exports.course2_23_unit2_q12a = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q12a': {
   questions: [{
     questionText: "An object is placed 10 cm from a converging lens with a focal length of 15 cm. Determine the image position analytically.",
     options: [
@@ -379,7 +396,8 @@ exports.course2_23_unit2_q12a = createStandardMultipleChoice({
 });
 
 // Question 12b: Converging lens virtual image magnification
-exports.course2_23_unit2_q12b = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q12b': {
   questions: [{
     questionText: "An object is placed 10 cm from a converging lens with a focal length of 15 cm. Determine the magnification analytically.",
     options: [
@@ -400,7 +418,8 @@ exports.course2_23_unit2_q12b = createStandardMultipleChoice({
 });
 
 // Question 13: Diverging lens
-exports.course2_23_unit2_q13 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q13': {
   questions: [{
     questionText: "Where must a small insect be placed if a diverging lens with a focal length of 25 cm is to form a virtual image that is 20 cm in front of the lens?",
     options: [
@@ -421,7 +440,8 @@ exports.course2_23_unit2_q13 = createStandardMultipleChoice({
 });
 
 // Question 14: Color appearance
-exports.course2_23_unit2_q14 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q14': {
   questions: [{
     questionText: "An object appears red in white light. What colour will it appear to be if it is illuminated by cyan light?",
     options: [
@@ -442,7 +462,8 @@ exports.course2_23_unit2_q14 = createStandardMultipleChoice({
 });
 
 // Question 15: Polarizing sunglasses
-exports.course2_23_unit2_q15 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q15': {
   questions: [{
     questionText: "How can you tell if a pair of sunglasses is polarizing or not?",
     options: [
@@ -463,7 +484,8 @@ exports.course2_23_unit2_q15 = createStandardMultipleChoice({
 });
 
 // Question 16: Double slit interference
-exports.course2_23_unit2_q16 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q16': {
   questions: [{
     questionText: "At what angle will 560 nm light produce a second order maximum when passing through double slits that are 1.45 × 10⁻² cm apart?",
     options: [
@@ -484,7 +506,8 @@ exports.course2_23_unit2_q16 = createStandardMultipleChoice({
 });
 
 // Question 17: Fringe separation
-exports.course2_23_unit2_q17 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q17': {
   questions: [{
     questionText: "An interference pattern is formed when light of wavelength 648 nm is directed through two slits. If the slits are 52 μm apart and the screen is 3.5 m away, what will be the separation between bright fringes?",
     options: [
@@ -502,10 +525,8 @@ exports.course2_23_unit2_q17 = createStandardMultipleChoice({
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
-
-// Question 18: Diffraction grating
-exports.course2_23_unit2_q18 = createStandardMultipleChoice({
+  },
+  'course2_23_unit2_q18': {
   questions: [{
     questionText: "A 3500 line/cm grating produces a third-order fringe at a 28.0° angle. What wavelength of light is being used?",
     options: [
@@ -523,4 +544,7 @@ exports.course2_23_unit2_q18 = createStandardMultipleChoice({
   activityType: 'lesson',
   maxAttempts: 9999,
   pointsValue: 1
-});
+  }
+};
+
+exports.assessmentConfigs = assessmentConfigs;

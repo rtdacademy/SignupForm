@@ -108,162 +108,153 @@ const questions = [
   }
 ];
 
-// Export individual question handlers for slideshow compatibility
-exports.course2_13_refraction_kc_q1 = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_13_refraction_kc_q1': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q2': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q3': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q4': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q5': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q6': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_refraction_kc_q7': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 3,
+    pointsValue: 2
+  },
+  'course2_13_slideshow_q1': {
+    questions: [{
+      questionText: "A light ray passes from air into glass at an angle of 45°. If the glass has a refractive index of 1.5, what happens to the light ray?",
+      options: [
+        { id: 'a', text: 'It bends away from the normal and travels at the same speed', feedback: 'Incorrect. Light bends toward the normal when entering a denser medium.' },
+        { id: 'b', text: 'It bends toward the normal and slows down', feedback: 'Correct! Light bends toward the normal and travels slower in the denser glass.' },
+        { id: 'c', text: 'It travels straight through without bending', feedback: 'Incorrect. Light only travels straight when hitting the interface at 0° (perpendicular).' },
+        { id: 'd', text: 'It reflects completely back into the air', feedback: 'Incorrect. Total internal reflection only occurs when going from dense to less dense medium.' }
+      ],
+      correctOptionId: 'b',
+      explanation: 'When light enters a denser medium like glass, it bends toward the normal according to Snell\'s law and travels slower due to the higher refractive index.',
+      difficulty: 'intermediate',
+      tags: ['refraction', 'Snells-law', 'dense-medium']
+    }],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 2
+  },
+  'course2_13_slideshow_q2': {
+    questions: [{
+      questionText: "In a prism, white light separates into different colors because:",
+      options: [
+        { id: 'a', text: 'Different colors have different refractive indices in the glass', feedback: 'Correct! This phenomenon is called dispersion - each color has a slightly different refractive index.' },
+        { id: 'b', text: 'The prism adds color to the white light', feedback: 'Incorrect. The prism doesn\'t add colors; it separates the colors already present in white light.' },
+        { id: 'c', text: 'All colors bend by exactly the same amount', feedback: 'Incorrect. If all colors bent the same amount, they would not separate.' },
+        { id: 'd', text: 'Only red and blue light can pass through glass', feedback: 'Incorrect. All visible colors can pass through glass, just at different angles.' }
+      ],
+      correctOptionId: 'a',
+      explanation: 'Dispersion occurs because different wavelengths (colors) of light have slightly different refractive indices in the glass, causing them to bend by different amounts and separate.',
+      difficulty: 'intermediate',
+      tags: ['dispersion', 'prism', 'refractive-index']
+    }],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 2
+  },
+  'course2_13_critical_q1': {
+    questions: [{
+      questionText: "The critical angle from rock salt into air is 40.5°. What is the index of refraction for rock salt?",
+      options: [
+        { id: 'a', text: '1.24', feedback: 'Incorrect. Check your calculation using sin(θc) = n₂/n₁.' },
+        { id: 'b', text: '1.54', feedback: 'Correct! Using sin(θc) = n₂/n₁, we get n₁ = n₂/sin(θc) = 1.00/sin(40.5°) = 1.54' },
+        { id: 'c', text: '1.84', feedback: 'Incorrect. Make sure you\'re using the correct formula for critical angle.' },
+        { id: 'd', text: '2.04', feedback: 'Incorrect. Review the relationship between critical angle and refractive index.' }
+      ],
+      correctOptionId: 'b',
+      explanation: 'At the critical angle, sin(θc) = n₂/n₁. Since light goes from rock salt to air: sin(40.5°) = 1.00/n₁. Therefore, n₁ = 1.00/sin(40.5°) = 1.00/0.649 = 1.54.',
+      difficulty: 'intermediate',
+      tags: ['critical-angle', 'refractive-index', 'rock-salt']
+    }],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 2
+  },
+  'course2_13_critical_q2': {
+    questions: [{
+      questionText: "The critical angle for a certain liquid-air surface is 61°. What is the liquid's index of refraction?",
+      options: [
+        { id: 'a', text: '1.04', feedback: 'Incorrect. Check your trigonometric calculation.' },
+        { id: 'b', text: '1.14', feedback: 'Correct! Using sin(θc) = n₂/n₁, we get n₁ = 1.00/sin(61°) = 1.00/0.875 = 1.14' },
+        { id: 'c', text: '1.34', feedback: 'Incorrect. Make sure you\'re using the correct angle in your calculation.' },
+        { id: 'd', text: '1.44', feedback: 'Incorrect. Review the critical angle formula.' }
+      ],
+      correctOptionId: 'b',
+      explanation: 'At the critical angle, sin(θc) = n₂/n₁. For liquid to air: sin(61°) = 1.00/n₁. Therefore, n₁ = 1.00/sin(61°) = 1.00/0.875 = 1.14.',
+      difficulty: 'intermediate',
+      tags: ['critical-angle', 'refractive-index', 'liquid']
+    }],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 2
+  },
+  'course2_13_critical_q3': {
+    questions: [{
+      questionText: "The refractive indices of diamond and crown glass are 2.5 and 1.5 respectively. What is the critical angle between diamond and glass?",
+      options: [
+        { id: 'a', text: '27°', feedback: 'Incorrect. Check your calculation using sin(θc) = n₂/n₁.' },
+        { id: 'b', text: '37°', feedback: 'Correct! Using sin(θc) = n₂/n₁ = 1.5/2.5 = 0.6, so θc = arcsin(0.6) = 37°' },
+        { id: 'c', text: '47°', feedback: 'Incorrect. Make sure you\'re using the correct ratio of refractive indices.' },
+        { id: 'd', text: '57°', feedback: 'Incorrect. Review which refractive index goes in the numerator and denominator.' }
+      ],
+      correctOptionId: 'b',
+      explanation: 'For diamond to glass interface: sin(θc) = n_glass/n_diamond = 1.5/2.5 = 0.6. Therefore, θc = arcsin(0.6) = 37°. Light must travel from the denser medium (diamond) to the less dense medium (glass).',
+      difficulty: 'intermediate',
+      tags: ['critical-angle', 'diamond', 'crown-glass']
+    }],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 2
+  }
+};
 
-exports.course2_13_refraction_kc_q2 = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-exports.course2_13_refraction_kc_q3 = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-exports.course2_13_refraction_kc_q4 = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-exports.course2_13_refraction_kc_q5 = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-exports.course2_13_refraction_kc_q6 = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-exports.course2_13_refraction_kc_q7 = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 3,
-  pointsValue: 2
-});
-
-// Slideshow Knowledge Check Questions - Post Example 7
-exports.course2_13_slideshow_q1 = createStandardMultipleChoice({
-  questions: [{
-    questionText: "A light ray passes from air into glass at an angle of 45°. If the glass has a refractive index of 1.5, what happens to the light ray?",
-    options: [
-      { id: 'a', text: 'It bends away from the normal and travels at the same speed', feedback: 'Incorrect. Light bends toward the normal when entering a denser medium.' },
-      { id: 'b', text: 'It bends toward the normal and slows down', feedback: 'Correct! Light bends toward the normal and travels slower in the denser glass.' },
-      { id: 'c', text: 'It travels straight through without bending', feedback: 'Incorrect. Light only travels straight when hitting the interface at 0° (perpendicular).' },
-      { id: 'd', text: 'It reflects completely back into the air', feedback: 'Incorrect. Total internal reflection only occurs when going from dense to less dense medium.' }
-    ],
-    correctOptionId: 'b',
-    explanation: 'When light enters a denser medium like glass, it bends toward the normal according to Snell\'s law and travels slower due to the higher refractive index.',
-    difficulty: 'intermediate',
-    tags: ['refraction', 'Snells-law', 'dense-medium']
-  }],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 2
-});
-
-exports.course2_13_slideshow_q2 = createStandardMultipleChoice({
-  questions: [{
-    questionText: "In a prism, white light separates into different colors because:",
-    options: [
-      { id: 'a', text: 'Different colors have different refractive indices in the glass', feedback: 'Correct! This phenomenon is called dispersion - each color has a slightly different refractive index.' },
-      { id: 'b', text: 'The prism adds color to the white light', feedback: 'Incorrect. The prism doesn\'t add colors; it separates the colors already present in white light.' },
-      { id: 'c', text: 'All colors bend by exactly the same amount', feedback: 'Incorrect. If all colors bent the same amount, they would not separate.' },
-      { id: 'd', text: 'Only red and blue light can pass through glass', feedback: 'Incorrect. All visible colors can pass through glass, just at different angles.' }
-    ],
-    correctOptionId: 'a',
-    explanation: 'Dispersion occurs because different wavelengths (colors) of light have slightly different refractive indices in the glass, causing them to bend by different amounts and separate.',
-    difficulty: 'intermediate',
-    tags: ['dispersion', 'prism', 'refractive-index']
-  }],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 2
-});
-
-// Critical Angle Slideshow Knowledge Check Questions - Post Example 9
-exports.course2_13_critical_q1 = createStandardMultipleChoice({
-  questions: [{
-    questionText: "The critical angle from rock salt into air is 40.5°. What is the index of refraction for rock salt?",
-    options: [
-      { id: 'a', text: '1.24', feedback: 'Incorrect. Check your calculation using sin(θc) = n₂/n₁.' },
-      { id: 'b', text: '1.54', feedback: 'Correct! Using sin(θc) = n₂/n₁, we get n₁ = n₂/sin(θc) = 1.00/sin(40.5°) = 1.54' },
-      { id: 'c', text: '1.84', feedback: 'Incorrect. Make sure you\'re using the correct formula for critical angle.' },
-      { id: 'd', text: '2.04', feedback: 'Incorrect. Review the relationship between critical angle and refractive index.' }
-    ],
-    correctOptionId: 'b',
-    explanation: 'At the critical angle, sin(θc) = n₂/n₁. Since light goes from rock salt to air: sin(40.5°) = 1.00/n₁. Therefore, n₁ = 1.00/sin(40.5°) = 1.00/0.649 = 1.54.',
-    difficulty: 'intermediate',
-    tags: ['critical-angle', 'refractive-index', 'rock-salt']
-  }],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 2
-});
-
-exports.course2_13_critical_q2 = createStandardMultipleChoice({
-  questions: [{
-    questionText: "The critical angle for a certain liquid-air surface is 61°. What is the liquid's index of refraction?",
-    options: [
-      { id: 'a', text: '1.04', feedback: 'Incorrect. Check your trigonometric calculation.' },
-      { id: 'b', text: '1.14', feedback: 'Correct! Using sin(θc) = n₂/n₁, we get n₁ = 1.00/sin(61°) = 1.00/0.875 = 1.14' },
-      { id: 'c', text: '1.34', feedback: 'Incorrect. Make sure you\'re using the correct angle in your calculation.' },
-      { id: 'd', text: '1.44', feedback: 'Incorrect. Review the critical angle formula.' }
-    ],
-    correctOptionId: 'b',
-    explanation: 'At the critical angle, sin(θc) = n₂/n₁. For liquid to air: sin(61°) = 1.00/n₁. Therefore, n₁ = 1.00/sin(61°) = 1.00/0.875 = 1.14.',
-    difficulty: 'intermediate',
-    tags: ['critical-angle', 'refractive-index', 'liquid']
-  }],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 2
-});
-
-exports.course2_13_critical_q3 = createStandardMultipleChoice({
-  questions: [{
-    questionText: "The refractive indices of diamond and crown glass are 2.5 and 1.5 respectively. What is the critical angle between diamond and glass?",
-    options: [
-      { id: 'a', text: '27°', feedback: 'Incorrect. Check your calculation using sin(θc) = n₂/n₁.' },
-      { id: 'b', text: '37°', feedback: 'Correct! Using sin(θc) = n₂/n₁ = 1.5/2.5 = 0.6, so θc = arcsin(0.6) = 37°' },
-      { id: 'c', text: '47°', feedback: 'Incorrect. Make sure you\'re using the correct ratio of refractive indices.' },
-      { id: 'd', text: '57°', feedback: 'Incorrect. Review which refractive index goes in the numerator and denominator.' }
-    ],
-    correctOptionId: 'b',
-    explanation: 'For diamond to glass interface: sin(θc) = n_glass/n_diamond = 1.5/2.5 = 0.6. Therefore, θc = arcsin(0.6) = 37°. Light must travel from the denser medium (diamond) to the less dense medium (glass).',
-    difficulty: 'intermediate',
-    tags: ['critical-angle', 'diamond', 'crown-glass']
-  }],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 2
-});
+exports.assessmentConfigs = assessmentConfigs;
 

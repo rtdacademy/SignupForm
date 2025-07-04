@@ -134,83 +134,78 @@ const questions = [
   }
 ];
 
-// Export the handlers for Firebase Functions
-exports.course2_21_l112_question1 = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_21_l112_question1': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question2': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question3': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question4': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question5': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question6': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question7': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question8': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question9': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  },
+  'course2_21_l112_question10': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'assignment',
+    maxAttempts: 1,
+    pointsValue: 1
+  }
+};
 
-exports.course2_21_l112_question2 = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question3 = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question4 = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question5 = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question6 = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question7 = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question8 = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question9 = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
-
-exports.course2_21_l112_question10 = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 1,
-  pointsValue: 1
-});
+exports.assessmentConfigs = assessmentConfigs;

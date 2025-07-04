@@ -1,4 +1,17 @@
 const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+// Set the activity type for all assessments in this content module
+// Options: 'lesson', 'assignment', 'lab', 'exam'
+// This determines which default settings are used from course-config.json
+const ACTIVITY_TYPE = 'lesson';
+
+// Get the default settings for this activity type
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 /**
  * Introduction to Light Practice Problems - 17 Questions
@@ -461,7 +474,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'building_height_calculation': {
     questions: [questions[1]],

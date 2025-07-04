@@ -1236,6 +1236,232 @@
           }
         ]
       },
+      "09_introduction_to_light": {
+        "title": "Introduction to Light",
+        "type": "lesson",
+        "contentPath": "09-introduction-to-light",
+        "questions": [
+          {
+            "questionId": "course2_09_introduction_to_light_question1",
+            "title": "Introduction to Light Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question2",
+            "title": "Introduction to Light Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question3",
+            "title": "Introduction to Light Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question4",
+            "title": "Introduction to Light Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question5",
+            "title": "Introduction to Light Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question6",
+            "title": "Introduction to Light Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question7",
+            "title": "Introduction to Light Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question8",
+            "title": "Introduction to Light Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question9",
+            "title": "Introduction to Light Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question10",
+            "title": "Introduction to Light Question10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question11",
+            "title": "Introduction to Light Question11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question12",
+            "title": "Introduction to Light Question12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question13",
+            "title": "Introduction to Light Question13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question14",
+            "title": "Introduction to Light Question14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question15",
+            "title": "Introduction to Light Question15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question16",
+            "title": "Introduction to Light Question16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_09_introduction_to_light_question17",
+            "title": "Introduction to Light Question17",
+            "points": 1
+          }
+        ]
+      },
+      "10_reflection_of_light": {
+        "title": "Reflection of Light",
+        "type": "lesson",
+        "contentPath": "10-reflection-of-light",
+        "questions": [
+          {
+            "questionId": "course2_10_reflection_of_light_question1",
+            "title": "Reflection of Light Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question2",
+            "title": "Reflection of Light Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question3",
+            "title": "Reflection of Light Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question4",
+            "title": "Reflection of Light Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question5",
+            "title": "Reflection of Light Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question6",
+            "title": "Reflection of Light Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_10_reflection_of_light_question7",
+            "title": "Reflection of Light Question7",
+            "points": 1
+          }
+        ]
+      },
+      "11_curved_mirrors": {
+        "title": "Curved Mirrors",
+        "type": "lesson",
+        "contentPath": "11-curved-mirrors",
+        "questions": [
+          {
+            "questionId": "course2_11_curved_mirrors_question1",
+            "title": "Curved Mirrors Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question2",
+            "title": "Curved Mirrors Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question3",
+            "title": "Curved Mirrors Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question4",
+            "title": "Curved Mirrors Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question5",
+            "title": "Curved Mirrors Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question6",
+            "title": "Curved Mirrors Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question7",
+            "title": "Curved Mirrors Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question8",
+            "title": "Curved Mirrors Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question9",
+            "title": "Curved Mirrors Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question10",
+            "title": "Curved Mirrors Question10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question11",
+            "title": "Curved Mirrors Question11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question12",
+            "title": "Curved Mirrors Question12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question13",
+            "title": "Curved Mirrors Question13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question14",
+            "title": "Curved Mirrors Question14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question15",
+            "title": "Curved Mirrors Question15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question16",
+            "title": "Curved Mirrors Question16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_11_curved_mirrors_question17",
+            "title": "Curved Mirrors Question17",
+            "points": 1
+          }
+        ]
+      },
       "13_refraction_of_light": {
         "title": "Refraction of Light",
         "type": "lesson",
@@ -1299,6 +1525,88 @@
           {
             "questionId": "course2_13_critical_q3",
             "title": "Critical Q3",
+            "points": 1
+          }
+        ]
+      },
+      "14_optics_lenses": {
+        "title": "Optics and Lenses",
+        "type": "lesson",
+        "contentPath": "14-optics-lenses",
+        "questions": [
+          {
+            "questionId": "course2_14_optics_lenses_question1",
+            "title": "Optics and Lenses Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question2",
+            "title": "Optics and Lenses Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question3",
+            "title": "Optics and Lenses Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question4",
+            "title": "Optics and Lenses Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question5",
+            "title": "Optics and Lenses Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question6",
+            "title": "Optics and Lenses Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question7",
+            "title": "Optics and Lenses Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question8",
+            "title": "Optics and Lenses Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question9",
+            "title": "Optics and Lenses Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question10",
+            "title": "Optics and Lenses Question10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question11",
+            "title": "Optics and Lenses Question11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question12",
+            "title": "Optics and Lenses Question12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question13",
+            "title": "Optics and Lenses Question13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question14",
+            "title": "Optics and Lenses Question14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_14_optics_lenses_question15",
+            "title": "Optics and Lenses Question15",
             "points": 1
           }
         ]

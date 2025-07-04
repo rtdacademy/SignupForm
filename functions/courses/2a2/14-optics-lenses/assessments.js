@@ -228,123 +228,113 @@ const questions = [
   }
 ];
 
-// Export individual question handlers following the working pattern
-exports.converging_lens_position = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'converging_lens_position': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'converging_lens_height': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'diverging_lens_position': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'diverging_lens_height': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'camera_lens_calculation': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'camera_image_size': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'infinity_focus': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'slide_projector_screen': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'slide_projector_image_size': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'slide_projector_adjustment': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'object_image_separation': {
+    questions: [questions[10]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'projector_focal_length': {
+    questions: [questions[11]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'optical_bench_problem': {
+    questions: [questions[12]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'optical_bench_image_size': {
+    questions: [questions[13]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'camera_film_distance': {
+    questions: [questions[14]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  }
+};
 
-exports.converging_lens_height = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.diverging_lens_position = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.diverging_lens_height = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.camera_lens_calculation = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.camera_image_size = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.infinity_focus = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.slide_projector_screen = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.slide_projector_image_size = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.slide_projector_adjustment = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.object_image_separation = createStandardMultipleChoice({
-  questions: [questions[10]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.projector_focal_length = createStandardMultipleChoice({
-  questions: [questions[11]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.optical_bench_problem = createStandardMultipleChoice({
-  questions: [questions[12]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.optical_bench_image_size = createStandardMultipleChoice({
-  questions: [questions[13]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.camera_film_distance = createStandardMultipleChoice({
-  questions: [questions[14]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+exports.assessmentConfigs = assessmentConfigs;

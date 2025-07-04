@@ -160,99 +160,92 @@ const questions = [
   }
 ];
 
-// Export individual question handlers
-exports.course2_19_green_light_grating = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+// Assessment configurations for the master function
+const assessmentConfigs = {
+  'course2_19_green_light_grating': {
+    questions: [questions[0]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_second_order_minimum': {
+    questions: [questions[1]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_yellow_light_spacing': {
+    questions: [questions[2]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_frequency_third_order': {
+    questions: [questions[3]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_spectral_orders_red': {
+    questions: [questions[4]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_water_trough_fringes': {
+    questions: [questions[5]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_cd_player_laser': {
+    questions: [questions[6]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_bright_dark_bands': {
+    questions: [questions[7]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_frequency_measurement': {
+    questions: [questions[8]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_grating_change': {
+    questions: [questions[9]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_distance_change': {
+    questions: [questions[10]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  },
+  'course2_19_frequency_change': {
+    questions: [questions[11]],
+    randomizeOptions: true,
+    activityType: 'lesson',
+    maxAttempts: 9999,
+    pointsValue: 1
+  }
+};
 
-exports.course2_19_second_order_minimum = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_yellow_light_spacing = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_frequency_third_order = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_spectral_orders_red = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_water_trough_fringes = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_cd_player_laser = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_bright_dark_bands = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_frequency_measurement = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_grating_change = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_distance_change = createStandardMultipleChoice({
-  questions: [questions[10]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
-
-exports.course2_19_frequency_change = createStandardMultipleChoice({
-  questions: [questions[11]],
-  randomizeOptions: true,
-  activityType: 'lesson',
-  maxAttempts: 9999,
-  pointsValue: 1
-});
+exports.assessmentConfigs = assessmentConfigs;
