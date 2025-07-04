@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getDatabase, ref, set, update, onValue, serverTimestamp } from 'firebase/database';
 import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 /**
  * Lab 1 - Conservation of Momentum for Physics 30
@@ -41,8 +43,6 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
   // Track if student has saved progress
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
-  // Track notifications
-  const [notification, setNotification] = useState({ message: '', type: '', visible: false });
   
   // Track saving state
   const [isSaving, setIsSaving] = useState(false);
@@ -419,16 +419,6 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
         if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
         
         setHasSavedProgress(true);
-        setNotification({ 
-          message: 'Previous progress loaded!', 
-          type: 'success', 
-          visible: true 
-        });
-        
-        // Hide notification after 2 seconds
-        setTimeout(() => {
-          setNotification(prev => ({ ...prev, visible: false }));
-        }, 2000);
       } else {
         console.log('📝 No previous lab data found, starting fresh');
       }
@@ -464,8 +454,8 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
 
 
 
-  const saveAndEnd = async () => {
-    // Data is automatically saved via auto-save, just end the lab
+  const endLabSession = () => {
+    // Just end the lab session - data is automatically saved
     setLabStarted(false);
     setNotification({ 
       message: 'Lab session ended. Your progress has been saved automatically.', 
@@ -477,11 +467,7 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
   // Submit lab for teacher review
   const submitLab = async () => {
     if (!currentUser?.uid) {
-      setNotification({
-        message: 'You must be logged in to submit your lab.',
-        type: 'error',
-        visible: true
-      });
+      toast.error('You must be logged in to submit your lab.');
       return;
     }
 
@@ -496,7 +482,6 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       const result = await submitLabFunction({
         courseId: courseId,
         questionId: questionId,
-        studentKey: currentUser.uid,
         studentEmail: currentUser.email,
         userId: currentUser.uid,
         isStaff: false
@@ -504,24 +489,11 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       
       console.log('✅ Lab submitted successfully:', result.data);
       
-      setNotification({
-        message: 'Lab submitted successfully! Your teacher can now review your work.',
-        type: 'success',
-        visible: true
-      });
-      
-      // Hide notification after 5 seconds
-      setTimeout(() => {
-        setNotification(prev => ({ ...prev, visible: false }));
-      }, 5000);
+      toast.success('Lab submitted successfully! Your teacher can now review your work.');
       
     } catch (error) {
       console.error('❌ Lab submission failed:', error);
-      setNotification({
-        message: `Failed to submit lab: ${error.message}`,
-        type: 'error',
-        visible: true
-      });
+      toast.error(`Failed to submit lab: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -1033,9 +1005,9 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       const trial = trialData['1D'][trialKey];
       
       // Check the 3 input fields for each 1D trial
-      if (trial?.percentDifference1D?.difference?.trim()) filledInputBoxes++;
-      if (trial?.percentDifference1D?.average?.trim()) filledInputBoxes++;
-      if (trial?.percentDifference1D?.percentage?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference?.difference?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference?.average?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference?.percentage?.trim()) filledInputBoxes++;
     });
 
     // Check 2D percent difference table boxes (18 boxes: 3 trials × 6 fields each)
@@ -1045,10 +1017,10 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       // Check the 6 input fields for each 2D trial (x and y components, each with 3 fields)
       if (trial?.percentDifference2D?.x?.difference?.trim()) filledInputBoxes++;
       if (trial?.percentDifference2D?.x?.average?.trim()) filledInputBoxes++;
-      if (trial?.percentDifference2D?.x?.percentage?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.x?.percent?.trim()) filledInputBoxes++;
       if (trial?.percentDifference2D?.y?.difference?.trim()) filledInputBoxes++;
       if (trial?.percentDifference2D?.y?.average?.trim()) filledInputBoxes++;
-      if (trial?.percentDifference2D?.y?.percentage?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.y?.percent?.trim()) filledInputBoxes++;
     });
 
     // Check average percent difference inputs (2 boxes)
@@ -1838,12 +1810,20 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
     }
   };
 
-  const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
-  const inProgressCount = Object.values(sectionStatus).filter(status => status === 'in-progress').length;  // Show start lab screen if lab hasn't started
+  // Calculate completion counts with correct simulation status
+  const completedCount = Object.entries(sectionStatus).filter(([section, status]) => {
+    const currentStatus = section === 'simulation' ? getSimulationStatus() : status;
+    return currentStatus === 'completed';
+  }).length;
+  
+  const inProgressCount = Object.entries(sectionStatus).filter(([section, status]) => {
+    const currentStatus = section === 'simulation' ? getSimulationStatus() : status;
+    return currentStatus === 'in-progress';
+  }).length;  // Show start lab screen if lab hasn't started
   if (!labStarted) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Lab 1 - Conservation of Momentum</h1>
+     
           {/* Introduction Section */}
         <div className="max-w-4xl mx-auto">
           <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
@@ -1923,34 +1903,6 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
 
   return (
     <div id="lab-content" className="space-y-6">
-      {/* Notification System */}
-      {notification.visible && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
-          notification.type === 'success' ? 'bg-green-500 text-white' :
-          notification.type === 'error' ? 'bg-red-500 text-white' :
-          'bg-blue-500 text-white'
-        }`}>
-          <div className="flex items-center space-x-2">
-            {notification.type === 'success' ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : notification.type === 'error' ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            <span>{notification.message}</span>
-            {isSaving && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
-            )}
-          </div>
-        </div>
-      )}
       <style dangerouslySetInnerHTML={{__html: `
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
@@ -1962,14 +1914,14 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
           -moz-appearance: textfield;
         }
       `}} />
-      <h1 className="text-2xl font-bold">Lab 1 - Conservation of Momentum</h1>      {/* Combined Navigation & Progress */}
-      <div className="sticky top-0 z-10 bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-md">
+       
+      <div className="sticky top-14 z-10 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-md">
         <div className="flex items-center justify-between">
-          <h3 className="text-md font-semibold text-gray-800">Lab Progress</h3>
+          <h3 className="text-base font-semibold text-gray-800">Lab Progress</h3>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {/* Navigation Buttons */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
               {[
                 { key: 'hypothesis', label: 'Hypothesis' },
                 { key: 'procedure', label: 'Procedure' },
@@ -1985,7 +1937,7 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
                   <button
                     key={section.key}
                     onClick={() => scrollToSection(section.key)}
-                    className={`px-3 py-2 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
+                    className={`px-3 py-1 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
                       sectionStatusValue === 'completed'
                         ? 'bg-green-100 border-green-300 text-green-700'
                         : sectionStatusValue === 'in-progress'
@@ -2000,50 +1952,9 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
               })}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex space-x-3">
-              <button 
-                onClick={() => saveLabProgress(false)}
-                disabled={isSaving || !currentUser}
-                className="px-4 py-2 bg-green-600 text-white font-medium rounded border border-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {isSaving ? 'Saving...' : 'Save Progress'}
-              </button>
-              <button 
-                onClick={handlePrintPDF}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 transition-all duration-200"
-              >
-                Print PDF
-              </button>
-              <button 
-                onClick={saveAndEnd}
-                disabled={isSaving || !currentUser}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                Save and End
-              </button>
-            </div>
           </div>        </div>
       </div>
 
-      {/* Notification Component */}
-      {notification.visible && (
-        <div className={`fixed top-4 right-4 z-50 max-w-sm rounded-lg shadow-lg p-4 transition-all duration-300 ${
-          notification.type === 'success' 
-            ? 'bg-green-100 border border-green-400 text-green-800' 
-            : 'bg-red-100 border border-red-400 text-red-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{notification.message}</span>
-            <button 
-              onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
-              className="ml-2 text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Status Indicators */}
       {autoSaveEnabled && (
@@ -2056,6 +1967,16 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
           )}
         </div>
       )}
+
+      {/* Print PDF Button */}
+      <div className="flex justify-end mb-6">
+        <button 
+          onClick={handlePrintPDF}
+          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+        >
+          Print PDF
+        </button>
+      </div>
 
       {/* Hypothesis Section */}
       <div id="section-hypothesis" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.hypothesis)}`}>
@@ -2284,33 +2205,47 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
                   <h3 className="text-lg font-semibold mb-4">Select Trial to Add Data</h3>
                   <p className="text-gray-600 mb-4">Choose which trial to populate with the collision data from this simulation:</p>
                   
-                  <div className="space-y-3 mb-6">                    {[1, 2, 3].map(trialNum => (
-                      <button
-                        key={trialNum}
-                        onClick={() => addDataToTrial(trialNum)}
-                        className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors"
-                      >                        <div className="font-medium">Trial {trialNum}</div>
-                        <div className="text-sm text-gray-500">
-                          {(() => {
-                            const currentTrialData = trialData[simulationState.collisionType][`trial${trialNum}`];
-                            // Check if trial has data based on collision type
-                            if (simulationState.collisionType === '1D') {
-                              const hasData = currentTrialData?.beforeCollision?.puck1?.spacing || 
-                                            currentTrialData?.beforeCollision?.puck1?.momentum ||
-                                            currentTrialData?.afterCollision?.puck1?.spacing ||
-                                            currentTrialData?.afterCollision?.puck1?.momentum;
-                              return hasData ? 'Has data - will overwrite' : 'Empty - ready for data';
-                            } else {
-                              const hasData = currentTrialData?.beforeCollision?.puck1?.spacing || 
-                                            currentTrialData?.beforeCollision?.puck1?.momentumX ||
-                                            currentTrialData?.afterCollision?.puck1?.spacing ||
-                                            currentTrialData?.afterCollision?.puck1?.momentumX;
-                              return hasData ? 'Has data - will overwrite' : 'Empty - ready for data';
-                            }
-                          })()}
-                        </div>
-                      </button>
-                    ))}
+                  <div className="space-y-3 mb-6">                    {[1, 2, 3].map(trialNum => {
+                      const currentTrialData = trialData[simulationState.collisionType][`trial${trialNum}`];
+                      
+                      // Check if trial has data based on collision type
+                      let hasData = false;
+                      if (simulationState.collisionType === '1D') {
+                        hasData = currentTrialData?.beforeCollision?.puck1?.spacing || 
+                                  currentTrialData?.beforeCollision?.puck1?.momentum ||
+                                  currentTrialData?.afterCollision?.puck1?.spacing ||
+                                  currentTrialData?.afterCollision?.puck1?.momentum;
+                      } else {
+                        hasData = currentTrialData?.beforeCollision?.puck1?.spacing || 
+                                  currentTrialData?.beforeCollision?.puck1?.momentumX ||
+                                  currentTrialData?.afterCollision?.puck1?.spacing ||
+                                  currentTrialData?.afterCollision?.puck1?.momentumX;
+                      }
+                      
+                      return (
+                        <button
+                          key={trialNum}
+                          onClick={() => addDataToTrial(trialNum)}
+                          className={`w-full p-3 text-left border-2 rounded-lg transition-all duration-200 ${
+                            hasData 
+                              ? 'border-orange-300 bg-orange-50 hover:bg-orange-100' 
+                              : 'border-green-300 bg-green-50 hover:bg-green-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">Trial {trialNum}</div>
+                            {hasData ? (
+                              <AlertTriangle className="h-5 w-5 text-orange-600" />
+                            ) : (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            )}
+                          </div>
+                          <div className={`text-sm mt-1 ${hasData ? 'text-orange-700' : 'text-green-700'}`}>
+                            {hasData ? '⚠️ Has data - will overwrite existing data' : '✅ Empty - ready for new data'}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   
                   <div className="flex gap-3">
@@ -3387,21 +3322,26 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
           <div className="bg-white border border-blue-200 rounded-lg p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Lab Progress Summary</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {Object.entries(sectionStatus).map(([section, status]) => (
-                <div key={section} className="flex items-center gap-2">
-                  <span className={`text-sm ${
-                    status === 'completed' ? 'text-green-600' : 
-                    status === 'in-progress' ? 'text-yellow-600' : 
-                    'text-gray-400'
-                  }`}>
-                    {status === 'completed' ? '✓' : 
-                     status === 'in-progress' ? '◐' : '○'}
-                  </span>
-                  <span className="text-sm text-gray-600 capitalize">
-                    {section}
-                  </span>
-                </div>
-              ))}
+              {Object.entries(sectionStatus).map(([section, status]) => {
+                // Use getSimulationStatus() for simulation section, regular status for others
+                const currentStatus = section === 'simulation' ? getSimulationStatus() : status;
+                
+                return (
+                  <div key={section} className="flex items-center gap-2">
+                    <span className={`text-sm ${
+                      currentStatus === 'completed' ? 'text-green-600' : 
+                      currentStatus === 'in-progress' ? 'text-yellow-600' : 
+                      'text-gray-400'
+                    }`}>
+                      {currentStatus === 'completed' ? '✓' : 
+                       currentStatus === 'in-progress' ? '◐' : '○'}
+                    </span>
+                    <span className="text-sm text-gray-600 capitalize">
+                      {section}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-3 text-sm text-gray-600">
               <strong>{completedCount} of 7 sections completed</strong>
