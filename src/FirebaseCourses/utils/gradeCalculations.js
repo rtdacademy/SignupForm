@@ -166,6 +166,10 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
       categories[itemType] = {
         score: 0,
         total: 0,
+        attemptedScore: 0,
+        attemptedTotal: 0,
+        attemptedCount: 0,
+        totalCount: 0,
         items: []
       };
     }
@@ -174,8 +178,21 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
     if (lessonScore.valid) {
       categories[itemType].score += lessonScore.score;
       categories[itemType].total += lessonScore.total;
+      categories[itemType].totalCount += 1;
+      
+      // Track attempted work separately
+      const hasBeenAttempted = lessonScore.attempted > 0 || 
+                               (lessonScore.source === 'session' && lessonScore.sessionsCount > 0);
+      
+      if (hasBeenAttempted) {
+        categories[itemType].attemptedScore += lessonScore.score;
+        categories[itemType].attemptedTotal += lessonScore.total;
+        categories[itemType].attemptedCount += 1;
+      }
+      
       categories[itemType].items.push({
         itemId,
+        hasBeenAttempted,
         ...lessonScore
       });
     }
@@ -183,7 +200,18 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
 
   // Calculate percentages for each category
   Object.values(categories).forEach(category => {
+    // Overall percentage (includes 0s for unstarted work)
     category.percentage = category.total > 0 ? (category.score / category.total) * 100 : 0;
+    
+    // Performance percentage (only attempted work)
+    category.attemptedPercentage = category.attemptedTotal > 0 
+      ? (category.attemptedScore / category.attemptedTotal) * 100 
+      : null; // null indicates no work attempted
+    
+    // Completion percentage
+    category.completionPercentage = category.totalCount > 0
+      ? (category.attemptedCount / category.totalCount) * 100
+      : 0;
   });
 
   return categories;

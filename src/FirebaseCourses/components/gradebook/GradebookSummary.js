@@ -82,13 +82,39 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
 
       {/* Weighted Course Grade */}
       {overallStats.totalPossible > 0 && (
-        <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
-          <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Current Performance */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
             <div>
-              <h4 className="text-md font-medium text-gray-700">Overall Course Grade</h4>
+              <h4 className="text-md font-medium text-gray-700">Current Performance</h4>
+              {overallStats.currentWeightedGrade !== null ? (
+                <>
+                  <span className="text-3xl font-bold text-green-700">{Math.round(overallStats.currentWeightedGrade)}%</span>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Based on completed work
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="text-3xl font-bold text-gray-400">--</span>
+                  <p className="text-sm text-gray-500 mt-1">
+                    No assessments attempted yet
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Projected Final Grade */}
+          <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
+            <div>
+              <h4 className="text-md font-medium text-gray-700">Projected Final Grade</h4>
               <span className="text-3xl font-bold text-purple-700">{Math.round(overallStats.weightedGrade)}%</span>
-              <p className="text-sm text-gray-600">
-                Weighted by category (assignments: 20%, exams: 60%, labs: 20%, lessons: 0%)
+              <p className="text-sm text-gray-600 mt-1">
+                If remaining work not completed
+              </p>
+              <p className="text-xs text-gray-500">
+                Weighted by: {Object.entries(weights).filter(([_, weight]) => weight > 0).map(([type, weight]) => `${type}: ${weight * 100}%`).join(', ')}
               </p>
             </div>
           </div>
@@ -107,33 +133,6 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
         ))}
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Items Completed"
-          value={`${courseItemStats.completed} / ${courseItemStats.total}`}
-          subtext="Course activities finished"
-          color="green"
-        />
-        <StatCard
-          label="Points Earned"
-          value={`${overallStats.attemptedPoints} / ${overallStats.attemptedPossible}`}
-          subtext="On attempted work"
-          color="blue"
-        />
-        <StatCard
-          label="Course Total"
-          value={`${overallStats.totalPoints || 0} / ${overallStats.totalPossible || 0}`}
-          subtext="All possible points"
-          color="purple"
-        />
-        <StatCard
-          label="Last Updated"
-          value={getRelativeTime(getLastActivityTime(course))}
-          subtext="Most recent activity"
-          color="gray"
-        />
-      </div>
     </div>
   );
 };
@@ -149,7 +148,8 @@ const CategoryCard = ({ type, data }) => {
   };
 
   const config = categoryConfig[type] || { color: 'gray', icon: '📄', label: type };
-  const percentage = data.percentage || 0;
+  const attemptedPercentage = data.attemptedPercentage;
+  const completionPercentage = data.completionPercentage || 0;
   const weight = data.categoryWeight || 0;
 
   return (
@@ -164,47 +164,32 @@ const CategoryCard = ({ type, data }) => {
         </span>
       </div>
       
-      <div className="space-y-2">
+      <div className="space-y-3">
+        {/* Performance on attempted work */}
         <div className="flex items-baseline justify-between">
-          <span className={`text-2xl font-bold text-${config.color}-700`}>{Math.round(percentage)}%</span>
+          {attemptedPercentage !== null ? (
+            <span className={`text-2xl font-bold text-${config.color}-700`}>{Math.round(attemptedPercentage)}%</span>
+          ) : (
+            <span className="text-2xl font-bold text-gray-400">--</span>
+          )}
+          <span className="text-xs text-gray-600">
+            {attemptedPercentage !== null ? 'Current score' : 'Not started'}
+          </span>
         </div>
         
-        <Progress value={percentage} className="h-1.5" />
         
-        <div className="text-xs text-gray-600">
-          {data.totalItemCount || 0} items • Weighted: {Math.round(data.weightedScore || 0)}%
-        </div>
+        {/* Projected contribution */}
+        {attemptedPercentage !== null && (
+          <div className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
+            Contributes {Math.round(data.percentage * weight / 100)}% to final grade
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-// Stat Card Component
-const StatCard = ({ label, value, subtext, color }) => (
-  <div className={`bg-${color}-50 rounded-lg p-3 border border-${color}-100`}>
-    <div className="text-xs font-medium text-gray-600">{label}</div>
-    <div className={`text-lg font-bold text-${color}-700 mt-1`}>{value}</div>
-    <div className="text-xs text-gray-500">{subtext}</div>
-  </div>
-);
-
 // Helper functions
-
-const getCompletedCount = (categories) => {
-  let count = 0;
-  Object.values(categories).forEach(cat => {
-    count += cat.items?.filter(item => item.score > 0).length || 0;
-  });
-  return count;
-};
-
-const getTotalCount = (categories) => {
-  let count = 0;
-  Object.values(categories).forEach(cat => {
-    count += cat.items?.length || 0;
-  });
-  return count;
-};
 
 const getLastActivityTime = (course) => {
   const assessments = course?.Assessments || {};
@@ -241,25 +226,36 @@ const calculateOverallStatsFromCategories = (categoryStats, weights) => {
   let totalPossible = 0;
   let attemptedPoints = 0;
   let attemptedPossible = 0;
-  let weightedGrade = 0;
+  let weightedGrade = 0; // Projected grade (includes 0s for unstarted work)
+  let currentWeightedGrade = 0; // Current grade based on attempted work only
+  let totalWeightForAttempted = 0; // Sum of weights for categories with attempted work
   
   // Sum up category data
   Object.entries(categoryStats).forEach(([categoryType, categoryData]) => {
     totalPoints += categoryData.score || 0;
     totalPossible += categoryData.total || 0;
+    attemptedPoints += categoryData.attemptedScore || 0;
+    attemptedPossible += categoryData.attemptedTotal || 0;
     
-    // For attempted calculation, use items that have some score
-    const attemptedItems = categoryData.items?.filter(item => item.score > 0 || item.attempted > 0) || [];
-    attemptedItems.forEach(item => {
-      attemptedPoints += item.score || 0;
-      attemptedPossible += item.total || 0;
-    });
-    
-    // Calculate weighted grade
+    // Calculate projected weighted grade (includes all work)
     const weight = (weights[categoryType] || 0);
     const categoryPercentage = categoryData.percentage || 0;
     weightedGrade += (categoryPercentage * weight);
+    
+    // Calculate current weighted grade (only attempted work)
+    if (categoryData.attemptedPercentage !== null && categoryData.attemptedCount > 0) {
+      currentWeightedGrade += (categoryData.attemptedPercentage * weight);
+      totalWeightForAttempted += weight;
+    }
   });
+  
+  // Normalize current weighted grade to show performance on attempted work
+  // This gives us the weighted average of only the categories with attempts
+  if (totalWeightForAttempted > 0) {
+    currentWeightedGrade = currentWeightedGrade / totalWeightForAttempted;
+  } else {
+    currentWeightedGrade = null; // No work attempted
+  }
   
   const overallPercentage = totalPossible > 0 ? (totalPoints / totalPossible) * 100 : 0;
   const performancePercentage = attemptedPossible > 0 ? (attemptedPoints / attemptedPossible) * 100 : 0;
@@ -271,7 +267,9 @@ const calculateOverallStatsFromCategories = (categoryStats, weights) => {
     attemptedPoints,
     attemptedPossible,
     performancePercentage,
-    weightedGrade // This is the true course grade using category weights
+    weightedGrade, // Projected final grade if all remaining work scores 0%
+    currentWeightedGrade, // Current grade based only on attempted work
+    hasAttemptedWork: attemptedPossible > 0
   };
 };
 
@@ -286,7 +284,13 @@ const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], 
       enhanced[categoryType] = {
         score: 0,
         total: 0,
+        attemptedScore: 0,
+        attemptedTotal: 0,
+        attemptedCount: 0,
+        totalCount: 0,
         percentage: 0,
+        attemptedPercentage: null,
+        completionPercentage: 0,
         items: [],
         categoryWeight: (weights[categoryType] || 0) * 100,
         totalItemCount: 0
@@ -296,14 +300,21 @@ const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], 
     }
   });
   
-  // Count all items by type from allCourseItems
+  // The totalCount should already be set from calculateCategoryScores,
+  // but totalItemCount from allCourseItems gives us a double-check
   allCourseItems.forEach(courseItem => {
     const categoryType = courseItem.type || 'lesson';
     if (!enhanced[categoryType]) {
       enhanced[categoryType] = {
         score: 0,
         total: 0,
+        attemptedScore: 0,
+        attemptedTotal: 0,
+        attemptedCount: 0,
+        totalCount: 0,
         percentage: 0,
+        attemptedPercentage: null,
+        completionPercentage: 0,
         items: [],
         categoryWeight: 0,
         totalItemCount: 0
@@ -341,5 +352,8 @@ const calculateCourseItemStats = (course, allCourseItems = [], studentEmail = nu
     completionPercentage
   };
 };
+
+// Export utility functions for use in parent components
+export { getLastActivityTime, getRelativeTime };
 
 export default GradebookSummary;

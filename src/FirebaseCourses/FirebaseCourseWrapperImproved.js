@@ -606,7 +606,13 @@ const FirebaseCourseWrapperContent = ({
         assessments: course?.Grades?.assessments || {}
       }
     };
-    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebookWithGrades);
+    
+    // Pass developer bypass information to handle inDevelopment restrictions
+    const isDeveloperBypass = shouldBypass;
+    
+    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebookWithGrades, {
+      isDeveloperBypass
+    });
   }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive]);
   
   // Find the current active item for the info panel
@@ -1210,7 +1216,7 @@ const FirebaseCourseWrapperContent = ({
           )}
           
           {(activeTab === 'progress' || activeTab === 'grades') && (
-            <GradebookDashboard course={course} allCourseItems={allCourseItems} profile={profile} />
+            <GradebookDashboard course={course} allCourseItems={allCourseItems} profile={profile} lessonAccessibility={lessonAccessibility} />
           )}
           
           {/* Debug tab - only accessible by authorized users when developer mode is active */}
