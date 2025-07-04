@@ -308,6 +308,26 @@
         "title": "Section 1 Exam - Momentum and Optics",
         "type": "exam",
         "contentPath": "24-section-1-exam",
+        "assessmentSettings": {
+          "activityType": "exam",
+          "timeLimit": 180,
+          "maxAttempts": 1,
+          "allowEasyExit": false,
+          "showExitButton": false,
+          "useSession": true,
+          "allowImmediateFeedback": false,
+          "secureModeIntensity": "high",
+          "title": "Exam in Progress",
+          "badge": { "text": "EXAM MODE", "color": "bg-red-100 text-red-800 border-red-300" },
+          "theme": {
+            "gradient": "from-red-600 to-rose-600",
+            "gradientHover": "from-red-700 to-rose-700",
+            "accent": "red-600",
+            "light": "red-100",
+            "border": "red-200",
+            "ring": "ring-red-200"
+          }
+        },
         "questions": [
           {
             "questionId": "course2_24_section1_exam_q1",
@@ -430,18 +450,79 @@
         "title": "Section 2 Exam - Electricity and Magnetism",
         "type": "exam",
         "contentPath": "48-section-2-exam",
+        "assessmentSettings": {
+          "activityType": "exam",
+          "timeLimit": 180,
+          "maxAttempts": 1,
+          "allowEasyExit": false,
+          "showExitButton": false,
+          "useSession": true,
+          "allowImmediateFeedback": false,
+          "secureModeIntensity": "high",
+          "title": "Exam in Progress",
+          "badge": { "text": "EXAM MODE", "color": "bg-red-100 text-red-800 border-red-300" },
+          "theme": {
+            "gradient": "from-red-600 to-rose-600",
+            "gradientHover": "from-red-700 to-rose-700",
+            "accent": "red-600",
+            "light": "red-100",
+            "border": "red-200",
+            "ring": "ring-red-200"
+          }
+        },
         "questions": []
       },
       "exam_section_3": {
         "title": "Section 3 Exam - Atomic Physics and Nuclear",
         "type": "exam",
         "contentPath": "76-section-3-exam",
+        "assessmentSettings": {
+          "activityType": "exam",
+          "timeLimit": 180,
+          "maxAttempts": 1,
+          "allowEasyExit": false,
+          "showExitButton": false,
+          "useSession": true,
+          "allowImmediateFeedback": false,
+          "secureModeIntensity": "high",
+          "title": "Exam in Progress",
+          "badge": { "text": "EXAM MODE", "color": "bg-red-100 text-red-800 border-red-300" },
+          "theme": {
+            "gradient": "from-red-600 to-rose-600",
+            "gradientHover": "from-red-700 to-rose-700",
+            "accent": "red-600",
+            "light": "red-100",
+            "border": "red-200",
+            "ring": "ring-red-200"
+          }
+        },
         "questions": []
       },
       "assignment_l1_3": {
         "title": "Assignment L1-3 - Momentum Fundamentals",
         "type": "assignment",
         "contentPath": "05-l1-3-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 80,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "sessionScoring":"takeHighest",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": [
           {
 
@@ -512,6 +593,26 @@
         "title": "Assignment L1-4 - Momentum Cumulative",
         "type": "assignment",
         "contentPath": "08-l1-4-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 60,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": [
           {
             "questionId": "course2_08_l14_question1",
@@ -569,6 +670,26 @@
         "title": "Assignment L5-7 - Optics Fundamentals",
         "type": "assignment",
         "contentPath": "12-l5-7-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 75,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": [
           {
             "questionId": "course2_12_l57_question1",
@@ -626,6 +747,26 @@
         "title": "Assignment L8-9 - Advanced Optics",
         "type": "assignment",
         "contentPath": "16-l8-9-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 70,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": [
           {
 
@@ -674,6 +815,26 @@
         "title": "Assignment L1-12 - Unit 1 Cumulative",
         "type": "assignment",
         "contentPath": "21-l1-12-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 90,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": [
           {
             "questionId": "course2_21_l112_question1",
@@ -731,78 +892,338 @@
         "title": "Assignment L13-14 - Electrostatics",
         "type": "assignment",
         "contentPath": "28-l13-14-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 60,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l15_18": {
         "title": "Assignment L15-18 - Electric Circuits",
         "type": "assignment",
         "contentPath": "34-l15-18-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 75,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l1_18": {
         "title": "Assignment L1-18 - Unit 2 Cumulative",
         "type": "assignment",
         "contentPath": "35-l1-18-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 90,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l19_21": {
         "title": "Assignment L19-21 - Magnetism",
         "type": "assignment",
         "contentPath": "39-l19-21-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 70,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l22_24": {
         "title": "Assignment L22-24 - Electromagnetic Induction",
         "type": "assignment",
         "contentPath": "44-l22-24-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 75,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l1_24": {
         "title": "Assignment L1-24 - Unit 3-4 Cumulative",
         "type": "assignment",
         "contentPath": "45-l1-24-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 95,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l25_27": {
         "title": "Assignment L25-27 - Early Atomic Models",
         "type": "assignment",
         "contentPath": "52-l25-27-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 65,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l28_30": {
         "title": "Assignment L28-30 - Quantum Effects",
         "type": "assignment",
         "contentPath": "59-l28-30-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 70,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l31_33": {
         "title": "Assignment L31-33 - Wave-Particle Duality",
         "type": "assignment",
         "contentPath": "63-l31-33-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 75,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l1_34": {
         "title": "Assignment L1-34 - Unit 5 Cumulative",
         "type": "assignment",
         "contentPath": "65-l1-34-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 90,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l35_36": {
         "title": "Assignment L35-36 - Nuclear Physics",
         "type": "assignment",
         "contentPath": "69-l35-36-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 70,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l37_38": {
         "title": "Assignment L37-38 - Particle Physics",
         "type": "assignment",
         "contentPath": "72-l37-38-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 65,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "assignment_l1_38": {
         "title": "Assignment L1-38 - Final Cumulative",
         "type": "assignment",
         "contentPath": "73-l1-38-cumulative-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 120,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "low",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "theme": {
+            "gradient": "from-green-600 to-emerald-600",
+            "gradientHover": "from-green-700 to-emerald-700",
+            "accent": "green-600",
+            "light": "green-100",
+            "border": "green-200",
+            "ring": "ring-green-200"
+          }
+        },
         "questions": []
       },
       "lab_momentum_conservation": {

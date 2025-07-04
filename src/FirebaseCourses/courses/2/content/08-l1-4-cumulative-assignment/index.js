@@ -1,13 +1,12 @@
 import React from 'react';
 import AssessmentSession from '../../../../components/AssessmentSession';
 
-const L14CumulativeAssignment = ({ courseId, studentEmail }) => {
+const L14CumulativeAssignment = ({ courseId, studentEmail, course }) => {
   const assessmentConfig = {
     assessmentId: 'assignment_l1_4_cumulative',
     activityType: 'assignment',
     title: 'L1-4 Cumulative Assignment - Momentum and Impulse',
     description: 'Comprehensive assessment covering all concepts from Lessons 1-4: momentum conservation, collisions, impulse, and problem-solving applications.',
-    timeLimit: 60, // 60 minutes for cumulative assignment
     questions: [
       {
         questionId: 'course2_08_l14_question1',
@@ -71,7 +70,6 @@ const L14CumulativeAssignment = ({ courseId, studentEmail }) => {
       }
     ],
     instructions: [
-      'This cumulative assignment has a 60-minute time limit, but you can exit and return as needed.',
       'Questions cover all topics from Lessons 1-4.',
       'Use appropriate physics formulas and show clear reasoning.',
       'Pay careful attention to units and vector directions.',
@@ -86,6 +84,7 @@ const L14CumulativeAssignment = ({ courseId, studentEmail }) => {
       courseId={courseId}
       studentEmail={studentEmail}
       assessmentConfig={assessmentConfig}
+      course={course}
       activityType="assignment"
     />
   );

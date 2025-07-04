@@ -4,7 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
-import { Infinity, Bot } from 'lucide-react';
+import { Infinity, Bot, Clipboard } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
@@ -280,6 +280,7 @@ const StandardMultipleChoiceQuestion = ({
   
   // Pre-loading optimization props
   skipInitialGeneration = false, // Skip initial cloud function call (when question is pre-loaded)
+  isWaitingForQuestions = false, // Whether parent is still waiting for questions to be ready
   
   // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
@@ -459,7 +460,18 @@ const StandardMultipleChoiceQuestion = ({
 
         unsubscribeRef = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
+          const validStatuses = ['active', 'exam_in_progress', 'completed', 'attempted', 'failed'];
+          
           if (data) {
+            // Check if the assessment has a valid status for display
+            const hasValidStatus = validStatuses.includes(data.status);
+            
+            // If status is not valid, don't load the question (prevents loading stale data)
+            if (!hasValidStatus) {
+              console.log(`Assessment ${finalAssessmentId} has invalid status: ${data.status}. Waiting for valid status...`);
+              // Don't set loading to false yet - wait for valid status
+              return;
+            }
             
             // Check if maxAttempts has been reached - use value from data rather than default
             const maxAttemptsFromData = data.maxAttempts; // No fallback needed, we want to use what's in the data
@@ -514,11 +526,21 @@ const StandardMultipleChoiceQuestion = ({
                 // Reset result if present
                 if (data.lastSubmission) {
                   setResult(data.lastSubmission);
-                  // Preselect the last submitted answer
-                  setSelectedAnswer(data.lastSubmission.answer || '');
+                  // In exam mode, use currentSavedAnswer prop if provided, otherwise use lastSubmission
+                  if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+                    setSelectedAnswer(currentSavedAnswer);
+                  } else {
+                    // Preselect the last submitted answer for non-exam mode
+                    setSelectedAnswer(data.lastSubmission.answer || '');
+                  }
                 } else {
                   setResult(null);
-                  setSelectedAnswer('');
+                  // In exam mode, use currentSavedAnswer even if no lastSubmission
+                  if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+                    setSelectedAnswer(currentSavedAnswer);
+                  } else {
+                    setSelectedAnswer('');
+                  }
                 }
               } else {
                 // Log that we're still waiting for a truly new question
@@ -547,12 +569,20 @@ const StandardMultipleChoiceQuestion = ({
               // If there's a last submission, set the result and preselect the answer
               if (data.lastSubmission) {
                 setResult(data.lastSubmission);
-                // Preselect the last submitted answer
-                setSelectedAnswer(data.lastSubmission.answer || '');
+                // In exam mode, use currentSavedAnswer prop if provided, otherwise use lastSubmission
+                if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+                  setSelectedAnswer(currentSavedAnswer);
+                } else {
+                  // Preselect the last submitted answer for non-exam mode
+                  setSelectedAnswer(data.lastSubmission.answer || '');
+                }
+              } else if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+                // In exam mode, even without lastSubmission, use currentSavedAnswer if provided
+                setSelectedAnswer(currentSavedAnswer);
               }
               
-              // If max attempts reached, show appropriate message
-              if (maxAttemptsReached) {
+              // If max attempts reached, show appropriate message (but not in exam mode)
+              if (maxAttemptsReached && !isExamMode) {
                 // Only set the error if there's not already a result showing (to avoid confusion)
                 if (!data.lastSubmission) {
                   setError("You've reached the maximum number of attempts for this question.");
@@ -560,6 +590,15 @@ const StandardMultipleChoiceQuestion = ({
               }
             }
           } else {
+            // No data exists yet
+            // In exam mode, wait for exam session to create the question
+            if (isExamMode || examMode) {
+              console.log(`Waiting for exam session to create question ${finalAssessmentId}...`);
+              // Don't generate - exam session manager will create it
+              // Keep loading state until exam creates the question
+              return;
+            }
+            
             // Only generate question if skipInitialGeneration is false
             if (!skipInitialGeneration) {
               generateQuestion();
@@ -569,10 +608,15 @@ const StandardMultipleChoiceQuestion = ({
               setLoading(false);
             }
           }
-          // If we're not skipping generation OR we have data, stop loading
-          if (!skipInitialGeneration || data) {
+          // Update loading state based on what happened
+          if (data && validStatuses.includes(data.status)) {
+            // We have valid data, stop loading
+            setLoading(false);
+          } else if (!data && !isExamMode && !examMode && skipInitialGeneration) {
+            // No data, not exam mode, and skipping generation - stop loading
             setLoading(false);
           }
+          // Otherwise keep loading (waiting for valid status or exam to create question)
         }, (error) => {
           console.error("Error in database listener:", error);
           setError("Failed to load question data");
@@ -595,6 +639,17 @@ const StandardMultipleChoiceQuestion = ({
       }
     };
   }, [currentUser, courseId, finalAssessmentId, db, skipInitialGeneration]);
+
+  // Effect to handle currentSavedAnswer prop changes in exam mode
+  useEffect(() => {
+    if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+      // Only update if the current selection is different from the saved answer
+      if (selectedAnswer !== currentSavedAnswer) {
+        console.log(`🔄 Updating selected answer from prop: ${currentSavedAnswer} (was: ${selectedAnswer})`);
+        setSelectedAnswer(currentSavedAnswer);
+      }
+    }
+  }, [currentSavedAnswer, isExamMode, selectedAnswer]);
 
   // Generate a new question using cloud function with debouncing
   const generateQuestion = async () => {
@@ -694,7 +749,10 @@ const StandardMultipleChoiceQuestion = ({
             attemptsExhausted: true
           });
         }
-        setError("You've reached the maximum number of attempts for this question.");
+        // Only show error in non-exam mode
+        if (!isExamMode) {
+          setError("You've reached the maximum number of attempts for this question.");
+        }
       } else {
         // Generic error
         setError("Failed to generate question: " + (err.message || err));
@@ -781,7 +839,10 @@ const StandardMultipleChoiceQuestion = ({
             attemptsExhausted: true
           });
         }
-        setError("You've reached the maximum number of attempts for this question.");
+        // Only show error in non-exam mode
+        if (!isExamMode) {
+          setError("You've reached the maximum number of attempts for this question.");
+        }
       } else {
         // Generic error
         setError("Failed to submit your answer. Please try again: " + (err.message || err));
@@ -831,9 +892,9 @@ const StandardMultipleChoiceQuestion = ({
       return;
     }
     
-    // Check if we've exceeded or reached max attempts allowed
+    // Check if we've exceeded or reached max attempts allowed (not in exam mode)
     // Note: This only applies to the regenerate button; the server will enforce this too
-    if (question && question.attempts >= question.maxAttempts) {
+    if (question && question.attempts >= question.maxAttempts && !isExamMode) {
       setError(`You have reached the maximum number of attempts (${question.maxAttempts}).`);
       return;
     }
@@ -1285,9 +1346,7 @@ This student answered correctly! Reinforce their understanding and help them con
           </h3>
           <div className="flex items-center gap-2">
             {isExamMode && (
-              <span className="text-xs py-1 px-2 rounded bg-red-100 text-red-800 font-medium">
-                EXAM MODE
-              </span>
+              <Clipboard className="w-6 h-6 text-white" title="Assessment Session" />
             )}
             {question && question.enableAIChat !== false && !isExamMode && (
               <Button
@@ -1304,8 +1363,8 @@ This student answered correctly! Reinforce their understanding and help them con
           </div>
         </div>
         
-        {/* Display attempts counter when question is loaded */}
-        {question && (
+        {/* Display attempts counter when question is loaded (hidden in exam mode) */}
+        {question && !isExamMode && (
           <div className="flex items-center text-xs text-white/90 mt-1">
             <span className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1326,14 +1385,14 @@ This student answered correctly! Reinforce their understanding and help them con
 
       {/* Content */}
       <div ref={contentRef} className="p-5 bg-white/80">
-        {error && (
+        {error && !isExamMode && (
           <div className="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-300">
             {error}
           </div>
         )}
 
         <AnimatePresence mode="wait">
-          {loading || regenerating ? (
+          {loading || regenerating || isWaitingForQuestions ? (
             <motion.div
               key="loading"
               variants={animations.fadeIn}
@@ -1342,9 +1401,15 @@ This student answered correctly! Reinforce their understanding and help them con
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
-              <div className="animate-pulse space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              {isWaitingForQuestions ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin h-6 w-6 border-3 border-blue-600 border-t-transparent rounded-full mx-auto mb-3"></div>
+                  <p className="text-gray-600">Waiting for questions to be prepared...</p>
+                </div>
+              ) : (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 <div className="space-y-2">
                   {[1, 2, 3, 4].map((i) => (
                     <motion.div
@@ -1356,7 +1421,8 @@ This student answered correctly! Reinforce their understanding and help them con
                     ></motion.div>
                   ))}
                 </div>
-              </div>
+                </div>
+              )}
             </motion.div>
           ) : question ? (
             <motion.div
