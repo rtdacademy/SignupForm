@@ -485,7 +485,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'shadow_size_calculation': {
     questions: [questions[2]],
@@ -495,7 +496,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'shadow_area_calculation': {
     questions: [questions[3]],
@@ -505,7 +507,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'fence_shadow_calculation': {
     questions: [questions[4]],
@@ -515,7 +518,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'michelson_six_sided_calculation': {
     questions: [questions[5]],
@@ -525,7 +529,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'michelson_eight_sided_frequency': {
     questions: [questions[6]],
@@ -535,7 +540,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'michelson_pentagonal_frequency': {
     questions: [questions[7]],
@@ -545,7 +551,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'michelson_twelve_sided_distance': {
     questions: [questions[8]],
@@ -555,7 +562,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'space_station_radio_signal': {
     questions: [questions[9]],
@@ -565,7 +573,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'light_travel_three_years': {
     questions: [questions[10]],
@@ -575,7 +584,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'star_explosion_observation': {
     questions: [questions[11]],
@@ -585,7 +595,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'proxima_centauri_distance': {
     questions: [questions[12]],
@@ -595,7 +606,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'spacecraft_travel_time': {
     questions: [questions[13]],
@@ -605,7 +617,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'sunlight_travel_time': {
     questions: [questions[14]],
@@ -615,7 +628,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'galileo_light_travel': {
     questions: [questions[15]],
@@ -625,7 +639,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   },
   'earth_jupiter_speed_calculation': {
     questions: [questions[16]],
@@ -635,7 +650,8 @@ const assessmentConfigs = {
     showFeedback: true,
     randomizeQuestions: false,
     randomizeOptions: true,
-    allowSameQuestion: true
+    allowSameQuestion: true,
+    theme: activityDefaults.theme || 'purple'
   }
 };
 

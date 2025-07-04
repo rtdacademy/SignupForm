@@ -147,6 +147,50 @@
       "lab_half_life": {
         "minimumPercentage": 0,
         "requireAllQuestions": false
+      },
+      "09_introduction_to_light": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "10_reflection_of_light": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "11_curved_mirrors": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "12_l5_7_assignment": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "13_refraction_of_light": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "14_optics_lenses": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "16_l8_9_assignment": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "17_dispersion_scattering": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "18_interference_of_light": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "19_diffraction_gratings": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "21_l1_12_cumulative_assignment": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
       }
     }
   },
