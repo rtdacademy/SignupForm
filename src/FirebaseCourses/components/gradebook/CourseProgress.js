@@ -6,11 +6,14 @@ import { Button } from '../../../components/ui/button';
 import { 
   validateGradeDataStructures, 
   calculateLessonScore, 
-  checkLessonCompletion 
+  checkLessonCompletion,
+  findAssessmentSessions 
 } from '../../utils/gradeCalculations';
+import { useAuth } from '../../../context/AuthContext';
 import LessonDetailModal from './LessonDetailModal';
 
-const CourseProgress = ({ course, allCourseItems = [] }) => {
+const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibility = {} }) => {
+  const { currentUser } = useAuth();
   // State for lesson detail modal
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,6 +24,7 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
   const gradebook = course?.Gradebook || {};
   const courseStructure = gradebook?.courseStructure || {};
   const grades = course?.Grades?.assessments || {}; // Use reliable grades source
+  const assessments = course?.Assessments || {};
   const itemStructure = gradebook?.courseConfig?.gradebook?.itemStructure || {};
   const progressionRequirements = gradebook?.courseConfig?.progressionRequirements || {};
   
@@ -56,8 +60,11 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
       // Use reliable calculation function for lesson scores
       const lessonScore = calculateLessonScore(lessonId, course);
       
+      // Get student email for consistent checking
+      const studentEmail = profile?.StudentEmail || currentUser?.email;
+      
       // Check if lesson meets completion requirements
-      const isCompleted = checkLessonCompletion(lessonId, course);
+      const isCompleted = checkLessonCompletion(lessonId, course, studentEmail);
       
       // Calculate completion rate and status
       const completionRate = lessonScore.totalQuestions > 0 ? 
@@ -68,17 +75,64 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
         status = isCompleted ? 'completed' : 'in_progress';
       }
       
-      // Determine unlock status
-      let isUnlocked = true; // Default to unlocked
-      if (globalIndex > 0 && progressionRequirements.enabled !== false) {
-        // Check if previous item is completed
-        const previousItemId = allCourseItems[globalIndex - 1].itemId;
-        const previousCompleted = checkLessonCompletion(previousItemId, course);
-        isUnlocked = previousCompleted;
-      }
+      // Use the same lesson accessibility as navigation for consistency
+      const accessInfo = lessonAccessibility[lessonId] || { accessible: true, reason: 'Default access' };
+      const isUnlocked = accessInfo.accessible;
       
       // Global item number: 1, 2, 3, 4, 5... across all units
       const itemNumber = globalIndex + 1;
+      
+      // Get detailed question information if configured
+      const normalizedLessonId = lessonId.replace(/-/g, '_');
+      const lessonConfig = itemStructure[normalizedLessonId];
+      const questions = [];
+      let lastActivity = 0;
+      let totalAttempts = 0;
+      
+      // Find session data for assignments, exams, and quizzes
+      let sessionData = null;
+      const sessionTypes = ['assignment', 'exam', 'quiz'];
+      if (sessionTypes.includes(courseItem.type) && studentEmail) {
+        const sessions = findAssessmentSessions(lessonId, course, studentEmail);
+        if (sessions.length > 0) {
+          sessionData = {
+            sessions: sessions,
+            sessionCount: sessions.length,
+            latestSession: sessions[0], // Sessions are sorted by completion time (newest first)
+            hasMultipleAttempts: sessions.length > 1
+          };
+        }
+      }
+      
+      // If lesson is configured, get detailed question data
+      if (lessonConfig && lessonConfig.questions) {
+        lessonConfig.questions.forEach(questionConfig => {
+          const questionId = questionConfig.questionId;
+          const actualGrade = grades[questionId] || 0;
+          const assessmentData = assessments[questionId];
+          const maxPoints = questionConfig.points || 0;
+          
+          // Track last activity from assessment submission
+          if (assessmentData?.lastSubmission?.timestamp > lastActivity) {
+            lastActivity = assessmentData.lastSubmission.timestamp;
+          }
+          
+          // Count attempts
+          if (grades.hasOwnProperty(questionId)) {
+            totalAttempts += assessmentData?.attempts || 1;
+          }
+          
+          // Add question to lesson with complete data
+          questions.push({
+            id: questionId,
+            title: questionConfig.title || questionId,
+            points: maxPoints,
+            actualGrade: actualGrade,
+            attempted: grades.hasOwnProperty(questionId),
+            assessmentData: assessmentData
+          });
+        });
+      }
       
       return {
         lessonId: lessonId,
@@ -86,6 +140,7 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
         lessonTitle: courseItem.title || `${courseItem.type || 'Item'} ${itemNumber}`,
         activityType: courseItem.type || 'lesson',
         contentPath: courseItem.contentPath || lessonId,
+        questions: questions,
         totalQuestions: lessonScore.totalQuestions,
         completedQuestions: lessonScore.attempted,
         totalScore: lessonScore.score,
@@ -93,6 +148,10 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
         completionRate: completionRate,
         averageScore: lessonScore.percentage,
         status: status,
+        totalAttempts: totalAttempts,
+        lastActivity: lastActivity,
+        isConfigured: !!lessonConfig,
+        sessionData: sessionData,
         isUnlocked: isUnlocked,
         meetsRequirements: isCompleted,
         valid: lessonScore.valid
@@ -100,7 +159,7 @@ const CourseProgress = ({ course, allCourseItems = [] }) => {
     });
     
     return items;
-  }, [allCourseItems, course, progressionRequirements]);
+  }, [allCourseItems, course, itemStructure, grades, assessments, profile, lessonAccessibility]);
 
   // Calculate overall stats based on all course items
   const stats = useMemo(() => {
@@ -343,7 +402,7 @@ const LessonProgressRow = ({ lesson, onViewDetails }) => {
       </td>
       
       <td className="px-6 py-4 text-center">
-        {lesson.totalQuestions > 0 ? (
+        {lesson.isConfigured && lesson.questions.length > 0 ? (
           <Button
             size="sm"
             variant="ghost"
@@ -353,8 +412,10 @@ const LessonProgressRow = ({ lesson, onViewDetails }) => {
             <Eye className="h-4 w-4" />
             View Details
           </Button>
-        ) : (
+        ) : lesson.isConfigured ? (
           <span className="text-xs text-gray-400">No questions</span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
     </tr>

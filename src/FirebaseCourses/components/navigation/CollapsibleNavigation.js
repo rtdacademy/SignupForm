@@ -410,6 +410,9 @@ const CollapsibleNavigation = ({
     const accessInfo = lessonAccessibility[item.itemId] || { accessible: true, reason: 'Default access' };
     const isAccessible = accessInfo.accessible;
     
+    // Check if lesson is in development
+    const isInDevelopment = item.inDevelopment === true;
+    
     // Determine if this is the next recommended item
     const hasStarted = attemptedQuestions > 0 || lessonPercentage > 0;
     const isNextItem = !isCompleted && hasStarted;
@@ -429,6 +432,9 @@ const CollapsibleNavigation = ({
     // SEQUENTIAL_ACCESS_UPDATE: Updated styling and click handler for lesson access control
     // Original styling (before sequential access): Only had isActive, isNextItem, isCompleted states
     const getItemStyling = () => {
+      if (isInDevelopment && !isAccessible) {
+        return 'bg-yellow-100 text-yellow-600 cursor-not-allowed opacity-70 border border-yellow-200';
+      }
       if (!isAccessible) {
         return 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60';
       }
@@ -452,6 +458,10 @@ const CollapsibleNavigation = ({
             onClick={() => {
               // SEQUENTIAL_ACCESS_UPDATE: Added access control to click handler
               // Original click handler (before sequential access): onClick={() => onItemSelect(item.itemId)}
+              if (isInDevelopment && !isAccessible) {
+                toast.info('This lesson is currently being developed. Check back soon!');
+                return;
+              }
               if (isAccessible) {
                 onItemSelect(item.itemId);
                 // Close navigation after selecting a lesson
@@ -466,7 +476,9 @@ const CollapsibleNavigation = ({
                 <div className="mt-0.5 flex-shrink-0">
                   {/* SEQUENTIAL_ACCESS_UPDATE: Added lock icon for inaccessible lessons */}
                   {/* Original icon logic (before sequential access): Only had isCompleted, isNextItem, and default type icons */}
-                  {!isAccessible ? (
+                  {isInDevelopment && !isAccessible ? (
+                    <AlertCircle className="text-yellow-500 h-4 w-4" />
+                  ) : !isAccessible ? (
                     <Lock className="text-gray-400 h-4 w-4" />
                   ) : isCompleted ? (
                     <CheckCircle className="text-green-500 h-4 w-4" />
@@ -488,6 +500,11 @@ const CollapsibleNavigation = ({
                     {Math.round(gradePercentage)}%
                   </span>
                 )}
+                {isInDevelopment && (
+                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs py-0.5 px-2 min-h-0 h-5">
+                    Dev
+                  </Badge>
+                )}
                 <Badge
                   className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs py-0.5 px-2 min-h-0 h-5`}
                 >
@@ -502,7 +519,10 @@ const CollapsibleNavigation = ({
             <p className="font-medium">{item.title}</p>
             {/* SEQUENTIAL_ACCESS_UPDATE: Added accessibility information to tooltip */}
             {/* Original tooltip (before sequential access): Only showed gradebook info and completion status */}
-            {!isAccessible && (
+            {isInDevelopment && !isAccessible && (
+              <p className="text-sm text-yellow-600 font-medium">🚧 {accessInfo.reason}</p>
+            )}
+            {!isAccessible && !isInDevelopment && (
               <>
                 <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
                 {accessInfo.requiredPercentage && accessInfo.requiredPercentage > 0 && (
@@ -511,6 +531,9 @@ const CollapsibleNavigation = ({
                   </p>
                 )}
               </>
+            )}
+            {isInDevelopment && isAccessible && (
+              <p className="text-sm text-orange-600 font-medium">🔧 Developer Access - In Development</p>
             )}
             {(lessonScore > 0 || attemptedQuestions > 0 || gradebookItem) && (
               <>

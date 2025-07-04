@@ -71,7 +71,11 @@ const getAssessmentConfig = (assessmentId) => {
  * Master cloud function (v2) that handles all course 2 assessments
  * Routes requests to the appropriate assessment configuration and processes directly
  */
-exports.course2_assessments = onCall(async (request) => {
+exports.course2_assessments = onCall({
+  memory: '1GiB',
+  cpu: 1,
+  minInstances: 1
+}, async (request) => {
   try {
     console.log('🚀 NEW v2 FUNCTION RUNNING - SIMPLIFIED VERSION');
     const data = request.data;

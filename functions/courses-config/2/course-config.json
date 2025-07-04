@@ -1230,61 +1230,122 @@
         "title": "Lab - Momentum Conservation",
         "type": "lab",
         "contentPath": "07-lab-momentum-conservation",
-        "questions": []
+        "inDevelopment": true,
+        "questions": [
+          {
+            "questionId": "course2_lab_momentum_conservation",
+            "title": "Lab - Momentum Conservation",
+            "points": 15
+          }
+        ]
       },
       "lab_mirrors_lenses": {
         "title": "Lab - Mirrors and Lenses",
         "type": "lab",
         "contentPath": "15-lab-mirrors-lenses",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_mirrors_lenses",
+            "title": "Lab - Mirrors and Lenses",
+            "points": 15
+          }
+        ]
       },
       "lab_laser_wavelength": {
         "title": "Lab - Laser Wavelength",
         "type": "lab",
         "contentPath": "20-lab-laser-wavelength",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_laser_wavelength",
+            "title": "Lab - Laser Wavelength",
+            "points": 15
+          }
+        ]
       },
       "lab_electrostatic": {
         "title": "Lab - Electrostatic Forces",
         "type": "lab",
         "contentPath": "27-lab-electrostatic",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_electrostatic",
+            "title": "Lab - Electrostatic Forces",
+            "points": 15
+          }
+        ]
       },
       "lab_electric_fields": {
         "title": "Lab - Electric Fields",
         "type": "lab",
         "contentPath": "33-lab-electric-fields",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_electric_fields",
+            "title": "Lab - Electric Fields",
+            "points": 15
+          }
+        ]
       },
       "lab_electromagnet": {
         "title": "Lab - Electromagnet",
         "type": "lab",
         "contentPath": "43-lab-electromagnet",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_electromagnet",
+            "title": "Lab - Electromagnet",
+            "points": 15
+          }
+        ]
       },
       "lab_plancks_constant": {
         "title": "Lab - Planck's Constant",
         "type": "lab",
         "contentPath": "54-lab-plancks-constant",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_plancks_constant",
+            "title": "Lab - Planck's Constant",
+            "points": 15
+          }
+        ]
       },
       "lab_millikans_oil_drop": {
         "title": "Lab - Millikan's Oil Drop",
         "type": "lab",
         "contentPath": "56-lab-millikans-oil-drop",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_millikans_oil_drop",
+            "title": "Lab - Millikan's Oil Drop",
+            "points": 15
+          }
+        ]
       },
       "lab_marshmallow_speed_light": {
         "title": "Lab - Speed of Light with Marshmallows",
         "type": "lab",
         "contentPath": "58-lab-marshmallow-speed-light",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_marshmallow_speed_light",
+            "title": "Lab - Speed of Light with Marshmallows",
+            "points": 15
+          }
+        ]
       },
       "lab_half_life": {
         "title": "Lab - Radioactive Half-Life",
         "type": "lab",
         "contentPath": "68-lab-half-life",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_lab_half_life",
+            "title": "Lab - Radioactive Half-Life",
+            "points": 15
+          }
+        ]
       },
       "01_physics_20_review": {
         "title": "Physics 20 Review",

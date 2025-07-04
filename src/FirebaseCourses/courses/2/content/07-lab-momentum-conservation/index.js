@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getDatabase, ref, set, update, onValue, serverTimestamp } from 'firebase/database';
 import { useAuth } from '../../../../../context/AuthContext';
-import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 /**
  * Lab 1 - Conservation of Momentum for Physics 30
  * Item ID: assignment_1747283296776_954
  * Unit: Momentum and Energy
  */
-const LabMomentumConservation = ({ courseId = '2' }) => {
+const LabMomentumConservation = ({ courseId = '2', course }) => {
   const { currentUser } = useAuth();
+  const database = getDatabase();
+  
+  // Get questionId from course config
+  const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.['lab_momentum_conservation']?.questions?.[0]?.questionId || 'course2_lab_momentum_conservation';
+  console.log('📋 Lab questionId:', questionId);
+  
+  // Create database reference for this lab using questionId
+  const labDataRef = currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  
+  // Ref to track if component is mounted (for cleanup)
+  const isMountedRef = useRef(true);
   
   // Track completion status for each section
   const [sectionStatus, setSectionStatus] = useState({
@@ -33,10 +44,44 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   // Track notifications
   const [notification, setNotification] = useState({ message: '', type: '', visible: false });
   
-  // Track saving/loading state
+  // Track saving state
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+
+  // Save specific data to Firebase
+  const saveToFirebase = useCallback(async (dataToUpdate) => {
+    if (!currentUser?.uid || !labDataRef) {
+      console.log('🚫 Save blocked: no user or ref');
+      return;
+    }
+    
+    try {
+      console.log('💾 Saving to Firebase:', dataToUpdate);
+      
+      // Create the complete data object to save
+      const dataToSave = {
+        ...dataToUpdate,
+        lastModified: serverTimestamp(),
+        courseId: courseId,
+        labId: '07-lab-momentum-conservation'
+      };
+      
+      // Use update instead of set to only update specific fields
+      await update(labDataRef, dataToSave);
+      console.log('✅ Save successful!');
+      
+      setHasSavedProgress(true);
+      
+    } catch (error) {
+      console.error('❌ Save failed:', error);
+      setNotification({
+        message: 'Failed to save data. Please try again.',
+        type: 'error',
+        visible: true
+      });
+    }
+  }, [currentUser?.uid, labDataRef, courseId]);
+
 
   // Print PDF function
   const handlePrintPDF = () => {
@@ -295,7 +340,8 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   });
 
   const [showTrialSelector, setShowTrialSelector] = useState(false);
-    // Simulation state
+
+  // Simulation state
   const [simulationState, setSimulationState] = useState({
     isRunning: false,
     hasBeenStarted: false, // Track if simulation has been started (even after it finishes)
@@ -327,6 +373,10 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   const [labStarted, setLabStarted] = useState(false);
   const startLab = () => {
     setLabStarted(true);
+    
+    // Save lab started state to Firebase
+    saveToFirebase({ labStarted: true });
+    
     // Scroll to hypothesis section after a brief delay to ensure DOM is ready
     setTimeout(() => {
       const element = document.getElementById('section-hypothesis');
@@ -335,98 +385,28 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       }
     }, 100);
   };
-  // Save lab progress to database
-  const saveLabProgress = async (isAutoSave = false) => {
-    if (!currentUser) {
-      setNotification({ 
-        message: 'Please log in to save your progress', 
-        type: 'error', 
-        visible: true 
-      });
-      return false;
+
+  // Load saved data on component mount (only once)
+  useEffect(() => {
+    if (!currentUser?.uid || !labDataRef) {
+      console.log('🔍 No user or lab ref, skipping load');
+      return;
     }
 
-    try {
-      setIsSaving(true);
-      
-      const functions = getFunctions();
-      const saveFunction = httpsCallable(functions, 'course2_lab_momentum_conservation');
-      
-      const studentKey = sanitizeEmail(currentUser.email);
-      
-      // Prepare lab data for saving
-      const labData = {
-        sectionStatus,
-        sectionContent,
-        procedureRead,
-        trialData,
-        averagePercentDifference,
-        simulationState,
-        currentSection,
-        labStarted,
-        timestamp: new Date().toISOString()
-      };
-      
-      const result = await saveFunction({
-        operation: 'save',
-        studentKey: studentKey,
-        courseId: courseId,
-        assessmentId: 'lab_momentum_conservation',
-        labData: labData,
-        saveType: isAutoSave ? 'auto' : 'manual',
-        studentEmail: currentUser.email,
-        userId: currentUser.uid
-      });
-      
-      if (result.data.success) {
-        setHasSavedProgress(true);
-        if (!isAutoSave) {
-          setNotification({ 
-            message: `Lab progress saved successfully! (${result.data.completionPercentage}% complete)`, 
-            type: 'success', 
-            visible: true 
-          });
-        }
-        return true;
-      } else {
-        throw new Error('Save operation failed');
-      }
-    } catch (error) {
-      console.error('Error saving lab progress:', error);
-      setNotification({ 
-        message: `Failed to save progress: ${error.message}`, 
-        type: 'error', 
-        visible: true 
-      });
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    console.log('🔄 Loading initial lab data...');
 
-  // Load lab progress from database
-  const loadLabProgress = async () => {
-    if (!currentUser) return;
-
-    try {
-      setIsLoading(true);
+    // Use a one-time listener that auto-unsubscribes
+    let hasLoaded = false;
+    const unsubscribe = onValue(labDataRef, (snapshot) => {
+      if (hasLoaded) return; // Prevent multiple loads
+      hasLoaded = true;
       
-      const functions = getFunctions();
-      const loadFunction = httpsCallable(functions, 'course2_lab_momentum_conservation');
+      console.log('📡 Firebase data fetched:', snapshot.exists());
       
-      const studentKey = sanitizeEmail(currentUser.email);
+      const savedData = snapshot.val();
       
-      const result = await loadFunction({
-        operation: 'load',
-        studentKey: studentKey,
-        courseId: courseId,
-        assessmentId: 'lab_momentum_conservation',
-        studentEmail: currentUser.email,
-        userId: currentUser.uid
-      });
-      
-      if (result.data.success && result.data.found) {
-        const savedData = result.data.labData;
+      if (savedData) {
+        console.log('✅ Lab data found:', Object.keys(savedData));
         
         // Restore saved state
         if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
@@ -440,40 +420,132 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
         
         setHasSavedProgress(true);
         setNotification({ 
-          message: `Previous progress loaded! (${result.data.completionPercentage}% complete)`, 
+          message: 'Previous progress loaded!', 
           type: 'success', 
           visible: true 
         });
+        
+        // Hide notification after 2 seconds
+        setTimeout(() => {
+          setNotification(prev => ({ ...prev, visible: false }));
+        }, 2000);
+      } else {
+        console.log('📝 No previous lab data found, starting fresh');
       }
-    } catch (error) {
-      console.error('Error loading lab progress:', error);
+      
+      // Unsubscribe after first load
+      unsubscribe();
+    }, (error) => {
+      if (hasLoaded) return;
+      hasLoaded = true;
+      
+      console.error('❌ Firebase load error:', error);
       setNotification({ 
-        message: 'Failed to load previous progress', 
+        message: 'Failed to load lab data', 
         type: 'error', 
         visible: true 
       });
+      unsubscribe();
+    });
+    
+    // Return cleanup function for useEffect
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser?.uid]);
+
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+
+
+  const saveAndEnd = async () => {
+    // Data is automatically saved via auto-save, just end the lab
+    setLabStarted(false);
+    setNotification({ 
+      message: 'Lab session ended. Your progress has been saved automatically.', 
+      type: 'success', 
+      visible: true 
+    });
+  };
+
+  // Submit lab for teacher review
+  const submitLab = async () => {
+    if (!currentUser?.uid) {
+      setNotification({
+        message: 'You must be logged in to submit your lab.',
+        type: 'error',
+        visible: true
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      const functions = getFunctions();
+      const submitLabFunction = httpsCallable(functions, 'course2_lab_submit');
+      
+      console.log('🚀 Submitting lab for review...');
+      
+      const result = await submitLabFunction({
+        courseId: courseId,
+        questionId: questionId,
+        studentKey: currentUser.uid,
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        isStaff: false
+      });
+      
+      console.log('✅ Lab submitted successfully:', result.data);
+      
+      setNotification({
+        message: 'Lab submitted successfully! Your teacher can now review your work.',
+        type: 'success',
+        visible: true
+      });
+      
+      // Hide notification after 5 seconds
+      setTimeout(() => {
+        setNotification(prev => ({ ...prev, visible: false }));
+      }, 5000);
+      
+    } catch (error) {
+      console.error('❌ Lab submission failed:', error);
+      setNotification({
+        message: `Failed to submit lab: ${error.message}`,
+        type: 'error',
+        visible: true
+      });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const saveAndEnd = async () => {
-    const saved = await saveLabProgress(false);
-    if (saved) {
-      setLabStarted(false);
-    }
+  // Check if lab is ready for submission (basic validation)
+  const isReadyForSubmission = () => {
+    const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
+    return completedSections >= 3; // Require at least 3 sections completed
   };
 
   const updateSectionContent = (section, content) => {
-    setSectionContent(prev => ({
-      ...prev,
+    // Update local state
+    const newSectionContent = {
+      ...sectionContent,
       [section]: content
-    }));
+    };
+    setSectionContent(newSectionContent);
     
-    // Update status based on content
+    // Determine completion status
+    let isCompleted = false;
+    let newStatus = 'not-started';
+    
     if (content.trim().length > 0) {
-      let isCompleted = false;
-      
       if (section === 'hypothesis') {
         // Check for required words: if, then, because
         const lowerContent = content.toLowerCase();
@@ -488,17 +560,21 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       } else {
         isCompleted = content.trim().length > 20;
       }
-      
-      setSectionStatus(prev => ({
-        ...prev,
-        [section]: isCompleted ? 'completed' : 'in-progress'
-      }));
-    } else {
-      setSectionStatus(prev => ({
-        ...prev,
-        [section]: 'not-started'
-      }));
+      newStatus = isCompleted ? 'completed' : 'in-progress';
     }
+    
+    // Update local status state
+    const newSectionStatus = {
+      ...sectionStatus,
+      [section]: newStatus
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      sectionContent: newSectionContent,
+      sectionStatus: newSectionStatus
+    });
   };
 
   // Helper function to count sentences
@@ -530,11 +606,20 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
   };
   // Handle procedure read confirmation
   const handleProcedureReadChange = (checked) => {
+    // Update local state
     setProcedureRead(checked);
-    setSectionStatus(prev => ({
-      ...prev,
+    
+    const newSectionStatus = {
+      ...sectionStatus,
       procedure: checked ? 'completed' : 'not-started'
-    }));
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      procedureRead: checked,
+      sectionStatus: newSectionStatus
+    });
   };
 
   // Show notification function
@@ -752,6 +837,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       // Check observations progress after updating data
       checkObservationsProgress(updatedData);
       
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
+      
       return updatedData;
     });
   };  const updateUserMomentum2D = (trial, phase, puck, component, value) => {
@@ -782,6 +870,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       // Check observations progress after updating data
       checkObservationsProgress(updatedData);
       
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
+      
       return updatedData;
     });
   };
@@ -808,6 +899,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       
       // Check analysis progress after updating data
       checkAnalysisProgress(updatedData);
+      
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
       
       return updatedData;
     });
@@ -854,6 +948,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       
       // Check analysis progress after updating data
       checkAnalysisProgress(updatedData);
+      
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
       
       return updatedData;
     });
@@ -1124,19 +1221,33 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     }
 
     // Update the trial data for the specific collision type
-    setTrialData(prev => ({
-      ...prev,
-      [currentCollisionType]: {
-        ...prev[currentCollisionType],
-        [`trial${trialNumber}`]: newTrialData
-      }
-    }));
+    setTrialData(prev => {
+      const updatedData = {
+        ...prev,
+        [currentCollisionType]: {
+          ...prev[currentCollisionType],
+          [`trial${trialNumber}`]: newTrialData
+        }
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
+      
+      return updatedData;
+    });
 
     // Mark this collision data as used by storing it
-    setSimulationState(prev => ({
-      ...prev,
-      dataUsedForTrial: trialNumber
-    }));
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        dataUsedForTrial: trialNumber
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
 
     setShowTrialSelector(false);
     showNotification(`Data added to Trial ${trialNumber} (${currentCollisionType} mode)`, 'success');
@@ -1349,10 +1460,17 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     if (animationId) {
       cancelAnimationFrame(animationId);
     }
-    setSimulationState(prev => ({
-      ...prev,
-      isRunning: false
-    }));
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        isRunning: false
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
   };  const resetSimulation = () => {
     if (animationId) {
       cancelAnimationFrame(animationId);
@@ -1365,19 +1483,28 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     const effectiveAngle = simulationState.collisionType === '1D' ? 0 : simulationState.launchAngle;
     const angleRad = ((effectiveAngle + 180) * Math.PI) / 180;
     const initialPuck1X = circleCenter.x + radius * Math.cos(angleRad);
-    const initialPuck1Y = circleCenter.y + radius * Math.sin(angleRad);setSimulationState(prev => ({
-      ...prev,
-      isRunning: false,
-      hasBeenStarted: false, // Reset the started flag so Start button becomes visible again
-      hasCollided: false,
-      puck1: { x: initialPuck1X, y: initialPuck1Y, vx: 0, vy: 0, mass: 505, radius: 20 },
-      puck2: { x: 300, y: 200, vx: 0, vy: 0, mass: 505, radius: 20 },
-      sparkTrail: [], // Clear the spark trail on reset
-      frameCounter: 0,
-      pucksVisible: true,
-      simulationEndTime: null,
-      dataUsedForTrial: null // Reset the data used flag
-    }));
+    const initialPuck1Y = circleCenter.y + radius * Math.sin(angleRad);
+
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        isRunning: false,
+        hasBeenStarted: false, // Reset the started flag so Start button becomes visible again
+        hasCollided: false,
+        puck1: { x: initialPuck1X, y: initialPuck1Y, vx: 0, vy: 0, mass: 505, radius: 20 },
+        puck2: { x: 300, y: 200, vx: 0, vy: 0, mass: 505, radius: 20 },
+        sparkTrail: [], // Clear the spark trail on reset
+        frameCounter: 0,
+        pucksVisible: true,
+        simulationEndTime: null,
+        dataUsedForTrial: null // Reset the data used flag
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
   };const updateLaunchAngle = (angle) => {
     // Calculate circular position for puck 1 around a center point to the right of puck 2
     const puck2Center = { x: 300, y: 200 }; // Fixed position for puck 2
@@ -1390,20 +1517,34 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     const newPuck1X = circleCenter.x + radius * Math.cos(angleRad);
     const newPuck1Y = circleCenter.y + radius * Math.sin(angleRad);
     
-    setSimulationState(prev => ({
-      ...prev,
-      launchAngle: angle,
-      puck1: {
-        ...prev.puck1,
-        x: newPuck1X,
-        y: newPuck1Y
-      }
-    }));
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        launchAngle: angle,
+        puck1: {
+          ...prev.puck1,
+          x: newPuck1X,
+          y: newPuck1Y
+        }
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
   };  const updateLaunchSpeed = (speed) => {
-    setSimulationState(prev => ({
-      ...prev,
-      launchSpeed: speed
-    }));
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        launchSpeed: speed
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
   };  const updateCollisionMode = (mode) => {
     // Calculate the appropriate puck 1 position based on the new mode
     const puck2Center = { x: 300, y: 200 };
@@ -1426,23 +1567,30 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     const newPuck1X = circleCenter.x + radius * Math.cos(angleRad);
     const newPuck1Y = circleCenter.y + radius * Math.sin(angleRad);
 
-    setSimulationState(prev => ({
-      ...prev,
-      collisionType: mode,
-      launchAngle: newAngle,
-      puck1: {
-        ...prev.puck1,
-        x: newPuck1X,
-        y: newPuck1Y,
-        vx: 0,
-        vy: 0
-      },
-      // Reset collision data when switching modes
-      hasCollided: false,
-      sparkTrail: [],
-      frameCounter: 0,
-      dataUsedForTrial: null
-    }));
+    setSimulationState(prev => {
+      const updatedState = {
+        ...prev,
+        collisionType: mode,
+        launchAngle: newAngle,
+        puck1: {
+          ...prev.puck1,
+          x: newPuck1X,
+          y: newPuck1Y,
+          vx: 0,
+          vy: 0
+        },
+        // Reset collision data when switching modes
+        hasCollided: false,
+        sparkTrail: [],
+        frameCounter: 0,
+        dataUsedForTrial: null
+      };
+      
+      // Save to Firebase
+      saveToFirebase({ simulationState: updatedState });
+      
+      return updatedState;
+    });
   };
 
   // Helper function to check if current collision data can be used
@@ -1538,23 +1686,7 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
     checkErrorProgress(averagePercentDifference);
   }, [averagePercentDifference]);
 
-  // Load saved progress on component mount
-  React.useEffect(() => {
-    if (currentUser) {
-      loadLabProgress();
-    }
-  }, [currentUser]);
 
-  // Auto-save functionality
-  React.useEffect(() => {
-    if (!autoSaveEnabled || !currentUser || !hasSavedProgress) return;
-
-    const autoSaveInterval = setInterval(() => {
-      saveLabProgress(true); // Auto-save
-    }, 30000); // Auto-save every 30 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [autoSaveEnabled, currentUser, hasSavedProgress, sectionStatus, sectionContent, trialData, averagePercentDifference]);
 
   // Function to update percent difference values for 1D collisions
   const updatePercentDifference1D = (trial, field, value) => {
@@ -1579,6 +1711,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       // Check error progress after updating data
       checkErrorProgress(averagePercentDifference);
       
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
+      
       return updatedData;
     });
   };
@@ -1593,6 +1728,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       
       // Check error progress after updating data
       checkErrorProgress(updatedData);
+      
+      // Save to Firebase
+      saveToFirebase({ averagePercentDifference: updatedData });
       
       return updatedData;
     });
@@ -1623,6 +1761,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       // Check error progress after updating data
       checkErrorProgress(averagePercentDifference);
       
+      // Save to Firebase
+      saveToFirebase({ trialData: updatedData });
+      
       return updatedData;
     });
   };
@@ -1637,6 +1778,9 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       
       // Check error progress after updating data
       checkErrorProgress(updatedData);
+      
+      // Save to Firebase
+      saveToFirebase({ averagePercentDifference: updatedData });
       
       return updatedData;
     });
@@ -1684,6 +1828,10 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
 
   const scrollToSection = (sectionName) => {
     setCurrentSection(sectionName);
+    
+    // Save current section to Firebase
+    saveToFirebase({ currentSection: sectionName });
+    
     const element = document.getElementById(`section-${sectionName}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1775,6 +1923,34 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
 
   return (
     <div id="lab-content" className="space-y-6">
+      {/* Notification System */}
+      {notification.visible && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+          notification.type === 'success' ? 'bg-green-500 text-white' :
+          notification.type === 'error' ? 'bg-red-500 text-white' :
+          'bg-blue-500 text-white'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {notification.type === 'success' ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : notification.type === 'error' ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <span>{notification.message}</span>
+            {isSaving && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
+            )}
+          </div>
+        </div>
+      )}
       <style dangerouslySetInnerHTML={{__html: `
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
@@ -1870,14 +2046,8 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
       )}
 
       {/* Status Indicators */}
-      {(isLoading || autoSaveEnabled) && (
+      {autoSaveEnabled && (
         <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
-          {isLoading && (
-            <div className="flex items-center text-blue-600 mb-1">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-              Loading progress...
-            </div>
-          )}
           {autoSaveEnabled && currentUser && hasSavedProgress && (
             <div className="flex items-center text-green-600">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
@@ -3205,6 +3375,85 @@ const LabMomentumConservation = ({ courseId = '2' }) => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Lab Submission Section */}
+      <div className="border rounded-lg shadow-sm p-6 scroll-mt-32 bg-blue-50 border-blue-200">
+        <h2 className="text-lg font-semibold mb-4 text-blue-700">Submit Lab for Review</h2>
+        
+        <div className="space-y-4">
+          {/* Progress Summary */}
+          <div className="bg-white border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Lab Progress Summary</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {Object.entries(sectionStatus).map(([section, status]) => (
+                <div key={section} className="flex items-center gap-2">
+                  <span className={`text-sm ${
+                    status === 'completed' ? 'text-green-600' : 
+                    status === 'in-progress' ? 'text-yellow-600' : 
+                    'text-gray-400'
+                  }`}>
+                    {status === 'completed' ? '✓' : 
+                     status === 'in-progress' ? '◐' : '○'}
+                  </span>
+                  <span className="text-sm text-gray-600 capitalize">
+                    {section}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-sm text-gray-600">
+              <strong>{completedCount} of 7 sections completed</strong>
+              {inProgressCount > 0 && (
+                <span className="ml-2 text-yellow-600">({inProgressCount} in progress)</span>
+              )}
+            </div>
+          </div>
+
+          {/* Submission Instructions */}
+          <div className="bg-white border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Before Submitting:</h3>
+            <ul className="text-sm text-gray-600 space-y-1 list-disc ml-5">
+              <li>Complete all sections of your lab report</li>
+              <li>Review your data and calculations for accuracy</li>
+              <li>Ensure your hypothesis and conclusion are well-written</li>
+              <li>Check that you've completed both 1D and 2D collision trials</li>
+            </ul>
+            <p className="mt-2 text-sm text-blue-600 italic">
+              Once submitted, your teacher will be able to review and grade your work.
+            </p>
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex justify-center">
+            <button
+              onClick={submitLab}
+              disabled={isSaving || !isReadyForSubmission()}
+              className={`px-8 py-3 rounded-lg font-medium text-white transition-all duration-200 ${
+                isSaving
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : isReadyForSubmission()
+                  ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
+                  : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isSaving ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Submitting...
+                </div>
+              ) : (
+                'Submit Lab for Review'
+              )}
+            </button>
+          </div>
+          
+          {!isReadyForSubmission() && (
+            <p className="text-center text-sm text-gray-500">
+              Complete at least 3 sections to enable submission
+            </p>
+          )}
         </div>
       </div>
     </div>

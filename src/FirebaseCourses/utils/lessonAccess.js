@@ -30,19 +30,31 @@ export const isSequentialAccessEnabled = (courseStructure, courseGradebook = nul
  * @param {Object} courseStructure - Course structure with units and items
  * @param {Object} assessmentData - Student assessment/gradebook data (read from Firebase) - legacy fallback
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
+ * @param {Object} options - Additional options like developer bypass
  * @returns {Object} - Map of itemId to accessibility info
  */
-export const getLessonAccessibility = (courseStructure, assessmentData = {}, courseGradebook = null) => {
+export const getLessonAccessibility = (courseStructure, assessmentData = {}, courseGradebook = null, options = {}) => {
   const accessibility = {};
+  const { isDeveloperBypass = false } = options;
   
-  // If sequential access is not enabled, all lessons are accessible
+  // If sequential access is not enabled, check for development status
   if (!isSequentialAccessEnabled(courseStructure, courseGradebook)) {
     const allItems = getAllCourseItems(courseStructure);
     allItems.forEach(item => {
-      accessibility[item.itemId] = {
-        accessible: true,
-        reason: 'Sequential access not required'
-      };
+      // Check if lesson is in development and user is not a developer
+      if (item.inDevelopment === true && !isDeveloperBypass) {
+        accessibility[item.itemId] = {
+          accessible: false,
+          reason: 'This lesson is currently being developed'
+        };
+      } else {
+        accessibility[item.itemId] = {
+          accessible: true,
+          reason: item.inDevelopment === true && isDeveloperBypass 
+            ? 'In development - Developer access granted' 
+            : 'Sequential access not required'
+        };
+      }
     });
     return accessibility;
   }
@@ -73,6 +85,15 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
   for (let i = 1; i < sortedItems.length; i++) {
     const currentItem = sortedItems[i];
     const previousItem = sortedItems[i - 1];
+    
+    // Check if current lesson is in development and user is not a developer
+    if (currentItem.inDevelopment === true && !isDeveloperBypass) {
+      accessibility[currentItem.itemId] = {
+        accessible: false,
+        reason: 'This lesson is currently being developed'
+      };
+      continue;
+    }
     
     // Check if previous lesson has assessment attempts/completion
     // Pass actual grades for more accurate checking
@@ -164,6 +185,11 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       } else {
         detailedReason = `Answer ${requirementText} in "${previousItem.title}" to unlock`;
       }
+    }
+    
+    // Special handling for lessons in development that are accessible to developers
+    if (currentItem.inDevelopment === true && isDeveloperBypass) {
+      detailedReason = 'In development - Developer access granted';
     }
     
     accessibility[currentItem.itemId] = {
