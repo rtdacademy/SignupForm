@@ -6,5 +6,18 @@
       "@/lib/*": ["lib/*"],
       "@/components/*": ["components/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "functions/node_modules",
+    "functions/.genkit",
+    "build",
+    "dist",
+    "coverage",
+    ".firebase",
+    "public",
+    "temp",
+    "**/*.min.js"
+  ]
 }

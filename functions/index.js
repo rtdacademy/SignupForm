@@ -265,3 +265,6 @@ exports.exitExamSession = examSessionFunctions.exitExamSession;
 // Course 2 (Physics 30) Master Assessment Function
 const course2AssessmentFunctions = require('./courses/2/assessments');
 exports.course2_assessments = course2AssessmentFunctions.course2_assessments;
+
+// Course 2 Lab Submission Function (consolidated with assessments)
+exports.course2_lab_submit = course2AssessmentFunctions.course2_lab_submit;
