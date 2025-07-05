@@ -448,25 +448,25 @@ const convex_mirror_one_sixth_distance = createStandardMultipleChoice({
 });
 
 // Export assessment configurations for the master function
-module.exports = {
-  assessmentConfigs: {
-    'concave-mirror-image-distance': concave_mirror_image_distance,
-    'concave-mirror-image-size': concave_mirror_image_size,
-    'concave-mirror-image-description': concave_mirror_image_description,
-    'convex-mirror-image-distance': convex_mirror_image_distance,
-    'convex-mirror-image-size': convex_mirror_image_size,
-    'convex-mirror-image-description': convex_mirror_image_description,
-    'mirror-type-erect-80cm': mirror_type_erect_80cm,
-    'mirror-type-identification-erect': mirror_type_identification_erect,
-    'mirror-radius-inverted-120cm': mirror_radius_inverted_120cm,
-    'mirror-type-inverted-120cm': mirror_type_inverted_120cm,
-    'convex-mirror-radius-20cm': convex_mirror_radius_20cm,
-    'convex-mirror-type-identification': convex_mirror_type_identification,
-    'object-movement-image-size': object_movement_image_size,
-    'object-movement-image-size-change': object_movement_image_size_change,
-    'concave-mirror-3x-inverted-distance': concave_mirror_3x_inverted_distance,
-    'concave-mirror-2x-erect-distance': concave_mirror_2x_erect_distance,
-    'convex-mirror-one-sixth-distance': convex_mirror_one_sixth_distance
-  }
+const assessmentConfigs = {
+  'course2_11_concave_mirror_image_distance': concave_mirror_image_distance,
+  'course2_11_concave_mirror_image_size': concave_mirror_image_size,
+  'course2_11_concave_mirror_image_description': concave_mirror_image_description,
+  'course2_11_convex_mirror_image_distance': convex_mirror_image_distance,
+  'course2_11_convex_mirror_image_size': convex_mirror_image_size,
+  'course2_11_convex_mirror_image_description': convex_mirror_image_description,
+  'course2_11_mirror_type_erect_80cm': mirror_type_erect_80cm,
+  'course2_11_mirror_type_identification_erect': mirror_type_identification_erect,
+  'course2_11_mirror_radius_inverted_120cm': mirror_radius_inverted_120cm,
+  'course2_11_mirror_type_inverted_120cm': mirror_type_inverted_120cm,
+  'course2_11_convex_mirror_radius_20cm': convex_mirror_radius_20cm,
+  'course2_11_convex_mirror_type_identification': convex_mirror_type_identification,
+  'course2_11_object_movement_image_size': object_movement_image_size,
+  'course2_11_object_movement_image_size_change': object_movement_image_size_change,
+  'course2_11_concave_mirror_3x_inverted_distance': concave_mirror_3x_inverted_distance,
+  'course2_11_concave_mirror_2x_erect_distance': concave_mirror_2x_erect_distance,
+  'course2_11_convex_mirror_one_sixth_distance': convex_mirror_one_sixth_distance
 };
+
+exports.assessmentConfigs = assessmentConfigs;
 

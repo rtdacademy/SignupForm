@@ -277,7 +277,7 @@ const questions = [
 ];
 
 // Export individual question handlers for compatibility
-exports.pinhole_distance_calculation = createStandardMultipleChoice({
+exports.course2_09_pinhole_distance_calculation = createStandardMultipleChoice({
   questions: [questions[0]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -288,7 +288,7 @@ exports.pinhole_distance_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.building_height_calculation = createStandardMultipleChoice({
+exports.course2_09_building_height_calculation = createStandardMultipleChoice({
   questions: [questions[1]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -299,7 +299,7 @@ exports.building_height_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.shadow_size_calculation = createStandardMultipleChoice({
+exports.course2_09_shadow_size_calculation = createStandardMultipleChoice({
   questions: [questions[2]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -310,7 +310,7 @@ exports.shadow_size_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.shadow_area_calculation = createStandardMultipleChoice({
+exports.course2_09_shadow_area_calculation = createStandardMultipleChoice({
   questions: [questions[3]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -321,7 +321,7 @@ exports.shadow_area_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.fence_shadow_calculation = createStandardMultipleChoice({
+exports.course2_09_fence_shadow_calculation = createStandardMultipleChoice({
   questions: [questions[4]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -332,7 +332,7 @@ exports.fence_shadow_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.michelson_six_sided_calculation = createStandardMultipleChoice({
+exports.course2_09_michelson_six_sided_calculation = createStandardMultipleChoice({
   questions: [questions[5]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -343,7 +343,7 @@ exports.michelson_six_sided_calculation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.michelson_eight_sided_frequency = createStandardMultipleChoice({
+exports.course2_09_michelson_eight_sided_frequency = createStandardMultipleChoice({
   questions: [questions[6]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -354,7 +354,7 @@ exports.michelson_eight_sided_frequency = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.michelson_pentagonal_frequency = createStandardMultipleChoice({
+exports.course2_09_michelson_pentagonal_frequency = createStandardMultipleChoice({
   questions: [questions[7]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -365,7 +365,7 @@ exports.michelson_pentagonal_frequency = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.michelson_twelve_sided_distance = createStandardMultipleChoice({
+exports.course2_09_michelson_twelve_sided_distance = createStandardMultipleChoice({
   questions: [questions[8]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -376,7 +376,7 @@ exports.michelson_twelve_sided_distance = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.space_station_radio_signal = createStandardMultipleChoice({
+exports.course2_09_space_station_radio_signal = createStandardMultipleChoice({
   questions: [questions[9]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -387,7 +387,7 @@ exports.space_station_radio_signal = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.light_travel_three_years = createStandardMultipleChoice({
+exports.course2_09_light_travel_three_years = createStandardMultipleChoice({
   questions: [questions[10]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -398,7 +398,7 @@ exports.light_travel_three_years = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.star_explosion_observation = createStandardMultipleChoice({
+exports.course2_09_star_explosion_observation = createStandardMultipleChoice({
   questions: [questions[11]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -409,7 +409,7 @@ exports.star_explosion_observation = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.proxima_centauri_distance = createStandardMultipleChoice({
+exports.course2_09_proxima_centauri_distance = createStandardMultipleChoice({
   questions: [questions[12]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -420,7 +420,7 @@ exports.proxima_centauri_distance = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.spacecraft_travel_time = createStandardMultipleChoice({
+exports.course2_09_spacecraft_travel_time = createStandardMultipleChoice({
   questions: [questions[13]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -431,7 +431,7 @@ exports.spacecraft_travel_time = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.sunlight_travel_time = createStandardMultipleChoice({
+exports.course2_09_sunlight_travel_time = createStandardMultipleChoice({
   questions: [questions[14]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -442,7 +442,7 @@ exports.sunlight_travel_time = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.galileo_light_travel = createStandardMultipleChoice({
+exports.course2_09_galileo_light_travel = createStandardMultipleChoice({
   questions: [questions[15]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -453,7 +453,7 @@ exports.galileo_light_travel = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.earth_jupiter_speed_calculation = createStandardMultipleChoice({
+exports.course2_09_earth_jupiter_speed_calculation = createStandardMultipleChoice({
   questions: [questions[16]],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -466,7 +466,7 @@ exports.earth_jupiter_speed_calculation = createStandardMultipleChoice({
 
 // Export assessment configurations for master function
 const assessmentConfigs = {
-  'pinhole_distance_calculation': {
+  'course2_09_pinhole_distance_calculation': {
     questions: [questions[0]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -477,7 +477,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'building_height_calculation': {
+  'course2_09_building_height_calculation': {
     questions: [questions[1]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -488,7 +488,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'shadow_size_calculation': {
+  'course2_09_shadow_size_calculation': {
     questions: [questions[2]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -499,7 +499,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'shadow_area_calculation': {
+  'course2_09_shadow_area_calculation': {
     questions: [questions[3]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -510,7 +510,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'fence_shadow_calculation': {
+  'course2_09_fence_shadow_calculation': {
     questions: [questions[4]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -521,7 +521,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'michelson_six_sided_calculation': {
+  'course2_09_michelson_six_sided_calculation': {
     questions: [questions[5]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -532,7 +532,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'michelson_eight_sided_frequency': {
+  'course2_09_michelson_eight_sided_frequency': {
     questions: [questions[6]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -543,7 +543,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'michelson_pentagonal_frequency': {
+  'course2_09_michelson_pentagonal_frequency': {
     questions: [questions[7]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -554,7 +554,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'michelson_twelve_sided_distance': {
+  'course2_09_michelson_twelve_sided_distance': {
     questions: [questions[8]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -565,7 +565,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'space_station_radio_signal': {
+  'course2_09_space_station_radio_signal': {
     questions: [questions[9]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -576,7 +576,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'light_travel_three_years': {
+  'course2_09_light_travel_three_years': {
     questions: [questions[10]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -587,7 +587,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'star_explosion_observation': {
+  'course2_09_star_explosion_observation': {
     questions: [questions[11]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -598,7 +598,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'proxima_centauri_distance': {
+  'course2_09_proxima_centauri_distance': {
     questions: [questions[12]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -609,7 +609,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'spacecraft_travel_time': {
+  'course2_09_spacecraft_travel_time': {
     questions: [questions[13]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -620,7 +620,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'sunlight_travel_time': {
+  'course2_09_sunlight_travel_time': {
     questions: [questions[14]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -631,7 +631,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'galileo_light_travel': {
+  'course2_09_galileo_light_travel': {
     questions: [questions[15]],
     activityType: 'lesson',
     maxAttempts: 9999,
@@ -642,7 +642,7 @@ const assessmentConfigs = {
     allowSameQuestion: true,
     theme: activityDefaults.theme || 'purple'
   },
-  'earth_jupiter_speed_calculation': {
+  'course2_09_earth_jupiter_speed_calculation': {
     questions: [questions[16]],
     activityType: 'lesson',
     maxAttempts: 9999,

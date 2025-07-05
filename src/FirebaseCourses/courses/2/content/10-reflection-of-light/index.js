@@ -892,37 +892,37 @@ const ReflectionOfLight = ({ course, courseId = '2', AIAccordion, onAIAccordionC
         questions={[
           {
             type: 'multiple-choice',
-            questionId: 'angle_of_incidence_basic',
+            questionId: 'course2_10_angle_of_incidence_basic',
             title: 'Question 1: Basic Law of Reflection'
           },
           {
             type: 'multiple-choice',
-            questionId: 'surface_to_normal_angle',
+            questionId: 'course2_10_surface_to_normal_angle',
             title: 'Question 2: Surface vs Normal Angles'
           },
           {
             type: 'multiple-choice',
-            questionId: 'total_angle_between_rays',
+            questionId: 'course2_10_total_angle_between_rays',
             title: 'Question 3: Angle Between Rays'
           },
           {
             type: 'multiple-choice',
-            questionId: 'two_mirrors_scenario_a',
+            questionId: 'course2_10_two_mirrors_scenario_a',
             title: 'Question 4: Two Mirrors - Scenario A'
           },
           {
             type: 'multiple-choice',
-            questionId: 'two_mirrors_scenario_b',
+            questionId: 'course2_10_two_mirrors_scenario_b',
             title: 'Question 5: Two Mirrors - Scenario B'
           },
           {
             type: 'multiple-choice',
-            questionId: 'mirror_image_description',
+            questionId: 'course2_10_mirror_image_description',
             title: 'Question 6: Mirror Image Properties'
           },
           {
             type: 'multiple-choice',
-            questionId: 'mirror_time_reading',
+            questionId: 'course2_10_mirror_time_reading',
             title: 'Question 7: Mirror Time Reading'
           }
         ]}

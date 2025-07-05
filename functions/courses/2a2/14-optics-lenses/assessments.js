@@ -230,105 +230,105 @@ const questions = [
 
 // Assessment configurations for the master function
 const assessmentConfigs = {
-  'converging_lens_position': {
+  'course2_14_converging_lens_position': {
     questions: [questions[0]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'converging_lens_height': {
+  'course2_14_converging_lens_height': {
     questions: [questions[1]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'diverging_lens_position': {
+  'course2_14_diverging_lens_position': {
     questions: [questions[2]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'diverging_lens_height': {
+  'course2_14_diverging_lens_height': {
     questions: [questions[3]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'camera_lens_calculation': {
+  'course2_14_camera_lens_calculation': {
     questions: [questions[4]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'camera_image_size': {
+  'course2_14_camera_image_size': {
     questions: [questions[5]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'infinity_focus': {
+  'course2_14_infinity_focus': {
     questions: [questions[6]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'slide_projector_screen': {
+  'course2_14_slide_projector_screen': {
     questions: [questions[7]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'slide_projector_image_size': {
+  'course2_14_slide_projector_image_size': {
     questions: [questions[8]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'slide_projector_adjustment': {
+  'course2_14_slide_projector_adjustment': {
     questions: [questions[9]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'object_image_separation': {
+  'course2_14_object_image_separation': {
     questions: [questions[10]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'projector_focal_length': {
+  'course2_14_projector_focal_length': {
     questions: [questions[11]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'optical_bench_problem': {
+  'course2_14_optical_bench_problem': {
     questions: [questions[12]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'optical_bench_image_size': {
+  'course2_14_optical_bench_image_size': {
     questions: [questions[13]],
     randomizeOptions: true,
     activityType: 'lesson',
     maxAttempts: 9999,
     pointsValue: 1
   },
-  'camera_film_distance': {
+  'course2_14_camera_film_distance': {
     questions: [questions[14]],
     randomizeOptions: true,
     activityType: 'lesson',

@@ -1153,77 +1153,77 @@ AIAccordion, onAIAccordionContent }) => {
         questions={[
           {
             type: 'multiple-choice',
-            questionId: 'converging_lens_position',
+            questionId: 'course2_14_converging_lens_position',
             title: 'Question 1: Converging Lens - Image Position'
           },
           {
             type: 'multiple-choice',
-            questionId: 'converging_lens_height',
+            questionId: 'course2_14_converging_lens_height',
             title: 'Question 2: Converging Lens - Image Height'
           },
           {
             type: 'multiple-choice',
-            questionId: 'diverging_lens_position',
+            questionId: 'course2_14_diverging_lens_position',
             title: 'Question 3: Diverging Lens - Image Position'
           },
           {
             type: 'multiple-choice',
-            questionId: 'diverging_lens_height',
+            questionId: 'course2_14_diverging_lens_height',
             title: 'Question 4: Diverging Lens - Image Height'
           },
           {
             type: 'multiple-choice',
-            questionId: 'camera_lens_calculation',
+            questionId: 'course2_14_camera_lens_calculation',
             title: 'Question 5: Camera Lens Calculations'
           },
           {
             type: 'multiple-choice',
-            questionId: 'camera_image_size',
+            questionId: 'course2_14_camera_image_size',
             title: 'Question 6: Camera Image Size'
           },
           {
             type: 'multiple-choice',
-            questionId: 'infinity_focus',
+            questionId: 'course2_14_infinity_focus',
             title: 'Question 7: Infinity Focus'
           },
           {
             type: 'multiple-choice',
-            questionId: 'slide_projector_screen',
+            questionId: 'course2_14_slide_projector_screen',
             title: 'Question 8a: Slide Projector - Screen Distance'
           },
           {
             type: 'multiple-choice',
-            questionId: 'slide_projector_image_size',
+            questionId: 'course2_14_slide_projector_image_size',
             title: 'Question 8b: Slide Projector - Image Size'
           },
           {
             type: 'multiple-choice',
-            questionId: 'slide_projector_adjustment',
+            questionId: 'course2_14_slide_projector_adjustment',
             title: 'Question 8c: Slide Projector - Position Adjustment'
           },
           {
             type: 'multiple-choice',
-            questionId: 'object_image_separation',
+            questionId: 'course2_14_object_image_separation',
             title: 'Question 9: Object-Image Separation'
           },
           {
             type: 'multiple-choice',
-            questionId: 'projector_focal_length',
+            questionId: 'course2_14_projector_focal_length',
             title: 'Question 10: Projector Focal Length'
           },
           {
             type: 'multiple-choice',
-            questionId: 'optical_bench_problem',
+            questionId: 'course2_14_optical_bench_problem',
             title: 'Question 11: Optical Bench - Image Position'
           },
           {
             type: 'multiple-choice',
-            questionId: 'optical_bench_image_size',
+            questionId: 'course2_14_optical_bench_image_size',
             title: 'Question 12: Optical Bench - Image Size'
           },
           {
             type: 'multiple-choice',
-            questionId: 'camera_film_distance',
+            questionId: 'course2_14_camera_film_distance',
             title: 'Question 13: Camera Film Distance'
           }
         ]}

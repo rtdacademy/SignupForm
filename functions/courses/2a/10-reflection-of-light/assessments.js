@@ -118,8 +118,8 @@ const createMirrorTimeReadingQuestion = () => {
   };
 };
 
-// Export individual question handlers for ExamSession compatibility
-exports.angle_of_incidence_basic = createStandardMultipleChoice({
+// Create assessment objects
+const course2_10_angle_of_incidence_basic = createStandardMultipleChoice({
   questions: [createAngleOfIncidenceQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -130,7 +130,7 @@ exports.angle_of_incidence_basic = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.surface_to_normal_angle = createStandardMultipleChoice({
+const course2_10_surface_to_normal_angle = createStandardMultipleChoice({
   questions: [createSurfaceToNormalQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -141,7 +141,7 @@ exports.surface_to_normal_angle = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.total_angle_between_rays = createStandardMultipleChoice({
+const course2_10_total_angle_between_rays = createStandardMultipleChoice({
   questions: [createTotalAngleBetweenRaysQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -152,7 +152,7 @@ exports.total_angle_between_rays = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.two_mirrors_scenario_a = createStandardMultipleChoice({
+const course2_10_two_mirrors_scenario_a = createStandardMultipleChoice({
   questions: [createTwoMirrorsScenarioAQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -163,7 +163,7 @@ exports.two_mirrors_scenario_a = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.two_mirrors_scenario_b = createStandardMultipleChoice({
+const course2_10_two_mirrors_scenario_b = createStandardMultipleChoice({
   questions: [createTwoMirrorsScenarioBQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -174,7 +174,7 @@ exports.two_mirrors_scenario_b = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.mirror_image_description = createStandardMultipleChoice({
+const course2_10_mirror_image_description = createStandardMultipleChoice({
   questions: [createMirrorImageQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -185,7 +185,7 @@ exports.mirror_image_description = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
-exports.mirror_time_reading = createStandardMultipleChoice({
+const course2_10_mirror_time_reading = createStandardMultipleChoice({
   questions: [createMirrorTimeReadingQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -196,71 +196,24 @@ exports.mirror_time_reading = createStandardMultipleChoice({
   allowSameQuestion: true
 });
 
+// Export individual question handlers for ExamSession compatibility
+exports.course2_10_angle_of_incidence_basic = course2_10_angle_of_incidence_basic;
+exports.course2_10_surface_to_normal_angle = course2_10_surface_to_normal_angle;
+exports.course2_10_total_angle_between_rays = course2_10_total_angle_between_rays;
+exports.course2_10_two_mirrors_scenario_a = course2_10_two_mirrors_scenario_a;
+exports.course2_10_two_mirrors_scenario_b = course2_10_two_mirrors_scenario_b;
+exports.course2_10_mirror_image_description = course2_10_mirror_image_description;
+exports.course2_10_mirror_time_reading = course2_10_mirror_time_reading;
+
 // Export assessment configurations for master function
 const assessmentConfigs = {
-  'angle_of_incidence_basic': {
-    questions: [createAngleOfIncidenceQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'surface_to_normal_angle': {
-    questions: [createSurfaceToNormalQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'total_angle_between_rays': {
-    questions: [createTotalAngleBetweenRaysQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'two_mirrors_scenario_a': {
-    questions: [createTwoMirrorsScenarioAQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'two_mirrors_scenario_b': {
-    questions: [createTwoMirrorsScenarioBQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'mirror_image_description': {
-    questions: [createMirrorImageQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  },
-  'mirror_time_reading': {
-    questions: [createMirrorTimeReadingQuestion()],
-    randomizeQuestions: false,
-    allowSameQuestion: false,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    theme: 'blue'
-  }
+  'course2_10_angle_of_incidence_basic': course2_10_angle_of_incidence_basic,
+  'course2_10_surface_to_normal_angle': course2_10_surface_to_normal_angle,
+  'course2_10_total_angle_between_rays': course2_10_total_angle_between_rays,
+  'course2_10_two_mirrors_scenario_a': course2_10_two_mirrors_scenario_a,
+  'course2_10_two_mirrors_scenario_b': course2_10_two_mirrors_scenario_b,
+  'course2_10_mirror_image_description': course2_10_mirror_image_description,
+  'course2_10_mirror_time_reading': course2_10_mirror_time_reading
 };
 
 exports.assessmentConfigs = assessmentConfigs;
