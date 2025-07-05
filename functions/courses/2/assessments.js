@@ -14,6 +14,7 @@
 const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('../../utils');
+const { getDatabase } = require('firebase-admin/database');
 
 // Initialize Firebase Admin globally - this needs to happen before any other imports
 // that might use admin services
@@ -97,8 +98,7 @@ const getAssessmentConfig = (assessmentId) => {
  */
 exports.course2_assessments = onCall({
   memory: '1GiB',
-  cpu: 1,
-  minInstances: 1
+  cpu: 1
 }, async (request) => {
   try {
     console.log('🚀 NEW v2 FUNCTION RUNNING - SIMPLIFIED VERSION');
@@ -183,5 +183,92 @@ exports.course2_assessments = onCall({
   } catch (error) {
     console.error('Error in master assessment function:', error);
     throw new Error(`Assessment processing failed: ${error.message}`);
+  }
+});
+
+/**
+ * Universal Lab Submission Function for Course 2
+ * Copies lab data from working storage to assessment system for teacher marking
+ * Works with any lab by using the questionId parameter
+ */
+exports.course2_lab_submit = onCall({
+  region: 'us-central1',
+  timeoutSeconds: 60,
+  memory: '512MiB',
+  enforceAppCheck: false,
+}, async (request) => {
+  const data = request.data;
+  
+  const {
+    courseId = '2',
+    questionId,
+    studentEmail,
+    userId,
+    isStaff = false
+  } = data;
+  
+  // Validate required parameters
+  if (!questionId) {
+    throw new Error("Missing required parameter: questionId");
+  }
+  
+  if (!studentEmail) {
+    throw new Error("Missing required parameter: studentEmail");
+  }
+  
+  if (!userId) {
+    throw new Error("Missing required parameter: userId");
+  }
+  
+  // Generate studentKey from email using sanitizeEmail function
+  const studentKey = sanitizeEmail(studentEmail);
+  
+  try {
+    const db = getDatabase();
+    
+    // Read lab data from working storage using questionId
+    const workingDataRef = db.ref(`users/${userId}/FirebaseCourses/${courseId}/${questionId}`);
+    const workingDataSnapshot = await workingDataRef.once('value');
+    const workingData = workingDataSnapshot.val();
+    
+    if (!workingData) {
+      throw new Error('No lab data found to submit. Please complete some work first.');
+    }
+    
+    console.log('📋 Submitting lab data for student:', studentKey, 'questionId:', questionId);
+    
+    // Prepare submission data
+    const submissionData = {
+      ...workingData,
+      submittedAt: Date.now(),
+      submissionType: 'lab',
+      assessmentId: questionId,
+      studentKey: studentKey,
+      studentEmail: studentEmail,
+      status: 'submitted',
+      questionId: questionId
+    };
+    
+    // Save to assessment system path using questionId
+    const assessmentPath = isStaff 
+      ? `staff_testing/${studentKey}/courses/${courseId}/Assessments/${questionId}`
+      : `students/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+    
+    const assessmentRef = db.ref(assessmentPath);
+    await assessmentRef.set(submissionData);
+    
+    console.log('✅ Lab submitted successfully to:', assessmentPath);
+    
+    return {
+      success: true,
+      message: 'Lab submitted successfully for teacher review',
+      submittedAt: submissionData.submittedAt,
+      assessmentId: questionId,
+      questionId: questionId
+    };
+    
+  } catch (error) {
+    console.error('❌ Lab submission failed:', error);
+    throw new Error('Failed to submit lab: ' + error.message);
   }
 });
