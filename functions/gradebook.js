@@ -117,60 +117,6 @@ exports.updateStudentGradebookOnChange = onValueUpdated({
 });
 
 
-/**
- * Callable function: Track lesson access from frontend
- */
-exports.trackLessonAccess = onCall({
-  region: 'us-central1',
-  memory: '256MiB',
-  timeoutSeconds: 30,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
-}, async (data, context) => {
-  try {
-    // Debug logging
-    console.log('📧 trackLessonAccess received data:', data);
-    console.log('📧 trackLessonAccess context auth:', context.auth?.token?.email);
-    
-    // Extract parameters
-    const actualData = data.data || data;
-    const { courseId, lessonId, lessonInfo, studentEmail: dataStudentEmail } = actualData;
-    
-    // Get user info - check both data and auth context
-    let studentEmail = dataStudentEmail || data.studentEmail;
-    if (!studentEmail && context.auth?.token?.email) {
-      studentEmail = context.auth.token.email;
-    }
-    
-    console.log('📧 Final studentEmail:', studentEmail);
-    
-    if (!studentEmail) {
-      throw new Error('No student email provided');
-    }
-    
-    if (!courseId || !lessonId) {
-      throw new Error('Missing required parameters: courseId, lessonId');
-    }
-    
-    // Sanitize email for database key
-    const studentKey = sanitizeEmail(studentEmail);
-    
-    // Track lesson access
-    await trackLessonAccess(studentKey, courseId, lessonId, lessonInfo);
-    
-    console.log(`📚 Tracked lesson access via callable function: ${lessonId}`);
-    
-    return { 
-      success: true, 
-      message: 'Lesson access tracked successfully' 
-    };
-    
-  } catch (error) {
-    console.error('Error in trackLessonAccess callable function:', error);
-    throw new Error(`Failed to track lesson access: ${error.message}`);
-  }
-});
-
-
 
 
 /**

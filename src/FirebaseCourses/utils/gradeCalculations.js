@@ -19,12 +19,6 @@ export const validateGradeDataStructures = (course) => {
   if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure) {
     missing.push('course.Gradebook.courseConfig.gradebook.itemStructure');
   }
-  if (!course?.Gradebook?.courseConfig?.weights) {
-    missing.push('course.Gradebook.courseConfig.weights');
-  }
-  if (!course?.Grades?.assessments) {
-    missing.push('course.Grades.assessments');
-  }
   
   return {
     valid: missing.length === 0,
@@ -42,6 +36,11 @@ export const getQuestionGrade = (questionId, course) => {
   const validation = validateGradeDataStructures(course);
   if (!validation.valid) {
     console.warn('Grade data structures missing:', validation.missing);
+    return 0;
+  }
+  
+  // Handle case where assessments don't exist yet (new student)
+  if (!course?.Grades?.assessments) {
     return 0;
   }
   
@@ -130,7 +129,8 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     };
   }
 
-  const grades = course.Grades.assessments;
+  // Handle case where assessments don't exist yet (new student)
+  const grades = course.Grades?.assessments || {};
   let totalScore = 0;
   let totalPossible = 0;
   let attemptedQuestions = 0;

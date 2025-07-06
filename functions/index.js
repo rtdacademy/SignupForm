@@ -242,7 +242,7 @@ exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
 // Gradebook functions
 exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
 exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
-exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
+//exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
 exports.validateGradebookStructure = gradebookFunctions.validateGradebookStructure;
 
 // Exam session management functions

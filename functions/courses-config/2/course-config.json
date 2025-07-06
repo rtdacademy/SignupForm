@@ -110,87 +110,87 @@
       },
       "lab_momentum_conservation": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_mirrors_lenses": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_laser_wavelength": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_electrostatic": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_electric_fields": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_electromagnet": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_plancks_constant": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_millikans_oil_drop": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_marshmallow_speed_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "lab_half_life": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "09_introduction_to_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "10_reflection_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "11_curved_mirrors": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "12_l5_7_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "13_refraction_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "14_optics_lenses": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "16_l8_9_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "17_dispersion_scattering": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "18_interference_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "19_diffraction_gratings": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       },
       "21_l1_12_cumulative_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": false
+        "requireAllQuestions": true
       }
     }
   },

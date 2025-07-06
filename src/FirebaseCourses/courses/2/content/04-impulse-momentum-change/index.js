@@ -717,6 +717,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccord
 
       <TextSection>
         <SlideshowKnowledgeCheck
+        onAIAccordionContent={onAIAccordionContent} 
           courseId="2"
           lessonPath="04-impulse-momentum-change-basics"
           questions={[
@@ -1084,6 +1085,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccord
 
       <TextSection>
         <SlideshowKnowledgeCheck
+        onAIAccordionContent={onAIAccordionContent} 
           courseId="2"
           lessonPath="04-impulse-momentum-change-advanced"
           questions={[

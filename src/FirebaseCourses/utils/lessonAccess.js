@@ -6,6 +6,7 @@
  */
 
 import { shouldBypassAllRestrictions } from './authUtils';
+import { getLessonOverride, getOverrideReason } from './staffOverrides';
 
 /**
  * Determines if sequential access is enabled for a course
@@ -30,17 +31,28 @@ export const isSequentialAccessEnabled = (courseStructure, courseGradebook = nul
  * @param {Object} courseStructure - Course structure with units and items
  * @param {Object} assessmentData - Student assessment/gradebook data (read from Firebase) - legacy fallback
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
- * @param {Object} options - Additional options like developer bypass
+ * @param {Object} options - Additional options like developer bypass and staff overrides
  * @returns {Object} - Map of itemId to accessibility info
  */
 export const getLessonAccessibility = (courseStructure, assessmentData = {}, courseGradebook = null, options = {}) => {
   const accessibility = {};
-  const { isDeveloperBypass = false } = options;
+  const { isDeveloperBypass = false, staffOverrides = {} } = options;
   
-  // If sequential access is not enabled, check for development status
+  // If sequential access is not enabled, check for development status and staff overrides
   if (!isSequentialAccessEnabled(courseStructure, courseGradebook)) {
     const allItems = getAllCourseItems(courseStructure);
     allItems.forEach(item => {
+      // Check for staff override first
+      const override = getLessonOverride(staffOverrides, item.itemId);
+      if (override) {
+        accessibility[item.itemId] = {
+          accessible: override.accessible,
+          reason: getOverrideReason(override),
+          isStaffOverride: true
+        };
+        return;
+      }
+
       // Check if lesson is in development and user is not a developer
       if (item.inDevelopment === true && !isDeveloperBypass) {
         accessibility[item.itemId] = {
@@ -73,18 +85,40 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     return (a.sequence || 0) - (b.sequence || 0);
   });
   
-  // First lesson is always accessible
+  // First lesson is always accessible (unless staff override says otherwise)
   if (sortedItems.length > 0) {
-    accessibility[sortedItems[0].itemId] = {
-      accessible: true,
-      reason: 'First lesson'
-    };
+    const firstItem = sortedItems[0];
+    const override = getLessonOverride(staffOverrides, firstItem.itemId);
+    
+    if (override) {
+      accessibility[firstItem.itemId] = {
+        accessible: override.accessible,
+        reason: getOverrideReason(override),
+        isStaffOverride: true
+      };
+    } else {
+      accessibility[firstItem.itemId] = {
+        accessible: true,
+        reason: 'First lesson'
+      };
+    }
   }
   
   // Check each subsequent lesson based on assessment completion
   for (let i = 1; i < sortedItems.length; i++) {
     const currentItem = sortedItems[i];
     const previousItem = sortedItems[i - 1];
+    
+    // Check for staff override first - staff overrides take precedence over all other rules
+    const override = getLessonOverride(staffOverrides, currentItem.itemId);
+    if (override) {
+      accessibility[currentItem.itemId] = {
+        accessible: override.accessible,
+        reason: getOverrideReason(override),
+        isStaffOverride: true
+      };
+      continue;
+    }
     
     // Check if current lesson is in development and user is not a developer
     if (currentItem.inDevelopment === true && !isDeveloperBypass) {
@@ -376,10 +410,11 @@ const hasBasicCompletionCheck = (lessonId, assessmentData) => {
  * @param {Object} courseStructure - Course structure
  * @param {Object} assessmentData - Student assessment data
  * @param {Object} courseGradebook - Full course gradebook object
+ * @param {Object} options - Options including staff overrides
  * @returns {string|null} - ItemId of next accessible lesson, or null
  */
-export const getNextAccessibleLesson = (courseStructure, assessmentData, courseGradebook = null) => {
-  const accessibility = getLessonAccessibility(courseStructure, assessmentData, courseGradebook);
+export const getNextAccessibleLesson = (courseStructure, assessmentData, courseGradebook = null, options = {}) => {
+  const accessibility = getLessonAccessibility(courseStructure, assessmentData, courseGradebook, options);
   const allItems = getAllCourseItems(courseStructure);
   
   // Find the first accessible lesson
@@ -397,10 +432,11 @@ export const getNextAccessibleLesson = (courseStructure, assessmentData, courseG
  * @param {Object} courseStructure - Course structure
  * @param {Object} assessmentData - Student assessment data
  * @param {Object} courseGradebook - Full course gradebook object
+ * @param {Object} options - Options including staff overrides
  * @returns {string|null} - ItemId of highest accessible lesson
  */
-export const getHighestAccessibleLesson = (courseStructure, assessmentData, courseGradebook = null) => {
-  const accessibility = getLessonAccessibility(courseStructure, assessmentData, courseGradebook);
+export const getHighestAccessibleLesson = (courseStructure, assessmentData, courseGradebook = null, options = {}) => {
+  const accessibility = getLessonAccessibility(courseStructure, assessmentData, courseGradebook, options);
   const allItems = getAllCourseItems(courseStructure);
   
   // Sort items and find the last accessible one

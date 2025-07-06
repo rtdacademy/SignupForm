@@ -891,6 +891,7 @@ const MomentumTwoDimensions = ({ course, courseId = '2', AIAccordion, onAIAccord
         <SlideshowKnowledgeCheck
           courseId="2"
           lessonPath="03-momentum-two-dimensions"
+          onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
               type: 'multiple-choice',
@@ -1387,6 +1388,7 @@ const MomentumTwoDimensions = ({ course, courseId = '2', AIAccordion, onAIAccord
         <SlideshowKnowledgeCheck
           courseId="2"
           lessonPath="03-momentum-two-dimensions-advanced"
+          onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
               type: 'multiple-choice',

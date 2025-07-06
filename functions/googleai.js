@@ -359,7 +359,7 @@ const sendChatMessage = onCall({
   memory: '1GiB',
   timeoutSeconds: 60,
   cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
-}, async (request) => {
+}, async (request, response) => {
   const data = request.data;
 
   try {
@@ -466,6 +466,21 @@ const sendChatMessage = onCall({
           if (chunk.text) {
             fullText += chunk.text;
             chunkCount++;
+            
+            // Send chunk immediately to clients that support streaming
+            // Check if sendChunk is available (production feature, not always in emulator)
+            if (request.acceptsStreaming && typeof response.sendChunk === 'function' && process.env.FUNCTIONS_EMULATOR !== 'true') {
+              try {
+                response.sendChunk({
+                  text: chunk.text,
+                  isComplete: false,
+                  chunkIndex: chunkCount
+                });
+              } catch (chunkError) {
+                console.warn('Failed to send chunk:', chunkError.message);
+                // Continue collecting for fallback
+              }
+            }
           }
         }
         console.log(`Streaming completed successfully. Chunks: ${chunkCount}, Length: ${fullText.length}`);
@@ -505,6 +520,20 @@ const sendChatMessage = onCall({
       // Validate we got something
       if (!fullText || fullText.trim().length === 0) {
         throw new Error('Empty response received from AI model');
+      }
+      
+      // Send final completion marker for streaming clients
+      if (request.acceptsStreaming && typeof response.sendChunk === 'function' && process.env.FUNCTIONS_EMULATOR !== 'true') {
+        try {
+          response.sendChunk({
+            text: '',
+            isComplete: true,
+            totalChunks: chunkCount,
+            fullText: fullText
+          });
+        } catch (chunkError) {
+          console.warn('Failed to send completion chunk:', chunkError.message);
+        }
       }
       
       return {

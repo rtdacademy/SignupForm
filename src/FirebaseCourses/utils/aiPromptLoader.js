@@ -118,12 +118,96 @@ const getLessonFolder = (itemId) => {
     return `${lessonNumber}-${lessonName}`;
   }
   
-  // Special case for some lesson IDs that might not follow the pattern
-  // Based on looking at actual course files
+  // Pattern 5: Handle numbered lessons like "01_physics_20_review", "02_momentum_one_dimension"
+  const numberedLessonPattern = /^(\d{2})_(.+)$/;
+  const numberedMatch = itemId.match(numberedLessonPattern);
+  if (numberedMatch) {
+    const lessonNumber = numberedMatch[1];
+    const lessonName = numberedMatch[2].replace(/_/g, '-');
+    return `${lessonNumber}-${lessonName}`;
+  }
+  
+  // Pattern 6: Handle lab format like "lab_momentum_conservation"
+  if (itemId.startsWith('lab_')) {
+    // Find the lesson number by looking at the actual folder structure
+    // For now, we'll use a mapping for known labs
+    const labMappings = {
+      'lab_momentum_conservation': '07-lab-momentum-conservation',
+      'lab_mirrors_lenses': '15-lab-mirrors-lenses',
+      'lab_laser_wavelength': '20-lab-laser-wavelength',
+      'lab_electrostatic': '27-lab-electrostatic',
+      'lab_electric_fields': '33-lab-electric-fields',
+      'lab_electromagnet': '43-lab-electromagnet',
+      'lab_plancks_constant': '54-lab-plancks-constant',
+      'lab_millikans_oil_drop': '56-lab-millikans-oil-drop',
+      'lab_marshmallow_speed_light': '58-lab-marshmallow-speed-light',
+      'lab_half_life': '68-lab-half-life'
+    };
+    
+    if (labMappings[itemId]) {
+      return labMappings[itemId];
+    }
+  }
+  
+  // Pattern 7: Handle assignment format like "assignment_l1_3"
+  if (itemId.startsWith('assignment_')) {
+    const assignmentMappings = {
+      'assignment_l1_3': '05-l1-3-assignment',
+      'assignment_l1_4': '08-l1-4-cumulative-assignment',
+      'assignment_l5_7': '12-l5-7-assignment',
+      'assignment_l8_9': '16-l8-9-assignment',
+      'assignment_l1_12': '21-l1-12-cumulative-assignment',
+      'assignment_l13_14': '28-l13-14-assignment',
+      'assignment_l15_18': '34-l15-18-assignment',
+      'assignment_l1_18': '35-l1-18-cumulative-assignment',
+      'assignment_l19_21': '39-l19-21-assignment',
+      'assignment_l22_24': '44-l22-24-assignment',
+      'assignment_l1_24': '45-l1-24-cumulative-assignment',
+      'assignment_l25_27': '52-l25-27-assignment',
+      'assignment_l28_30': '59-l28-30-assignment',
+      'assignment_l31_33': '63-l31-33-assignment',
+      'assignment_l1_34': '65-l1-34-cumulative-assignment',
+      'assignment_l35_36': '69-l35-36-assignment',
+      'assignment_l37_38': '72-l37-38-assignment',
+      'assignment_l1_38': '73-l1-38-cumulative-assignment'
+    };
+    
+    if (assignmentMappings[itemId]) {
+      return assignmentMappings[itemId];
+    }
+  }
+  
+  // Pattern 8: Handle exam format like "exam_section_1"
+  if (itemId.startsWith('exam_')) {
+    const examMappings = {
+      'exam_section_1': '24-section-1-exam',
+      'exam_section_2': '48-section-2-exam',
+      'exam_section_3': '76-section-3-exam'
+    };
+    
+    if (examMappings[itemId]) {
+      return examMappings[itemId];
+    }
+  }
+  
+  // Keep the old special mappings as a fallback
   const specialMappings = {
     'q1_physics_20_review': '01-physics-20-review',
     'q2_momentum_1d': '02-momentum-one-dimension',
     'q3_momentum_2d': '03-momentum-two-dimensions',
+    // Add current itemId mappings based on actual course structure
+    '01_physics_20_review': '01-physics-20-review',
+    '02_momentum_one_dimension': '02-momentum-one-dimension',
+    '03_momentum_two_dimensions': '03-momentum-two-dimensions',
+    '04_impulse_momentum_change': '04-impulse-momentum-change',
+    '05_l1_3_assignment': '05-l1-3-assignment',
+    '06_graphing_techniques': '06-graphing-techniques',
+    '07_lab_momentum_conservation': '07-lab-momentum-conservation',
+    '08_l1_4_cumulative_assignment': '08-l1-4-cumulative-assignment',
+    '09_introduction_to_light': '09-introduction-to-light',
+    '10_reflection_of_light': '10-reflection-of-light',
+    '11_curved_mirrors': '11-curved-mirrors',
+    '12_l5_7_assignment': '12-l5-7-assignment',
     // Add more mappings as needed
   };
   
