@@ -135,8 +135,8 @@ const TeacherFirebaseCourseViewContent = () => {
     );
   }
 
-  // Show course not found or not Firebase course
-  if (!targetCourse || !isFirebaseCourse) {
+  // Show course not found (removing Firebase course check to prevent rerender issues)
+  if (!targetCourse) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-7xl mx-auto">
@@ -151,10 +151,7 @@ const TeacherFirebaseCourseViewContent = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {!targetCourse 
-                    ? `Course ${courseId} not found for student ${studentEmail}` 
-                    : `Course ${courseId} is not a Firebase course`
-                  }
+                  Course {courseId} not found for student {studentEmail}
                 </AlertDescription>
               </Alert>
               <Button onClick={handleBack} className="mt-4" variant="outline">
@@ -214,17 +211,7 @@ const TeacherFirebaseCourseViewContent = () => {
         </div>
       </div>
 
-      {/* Teacher Mode Notice */}
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <Alert>
-          <Eye className="h-4 w-4" />
-          <AlertDescription>
-            You are viewing this Firebase course as the student would see it. 
-            Your interactions (like answering questions) will be recorded under your teacher account, 
-            not the student's account. The student's actual progress and data remain unchanged.
-          </AlertDescription>
-        </Alert>
-      </div>
+   
 
       {/* Firebase Course Content */}
       <div className="max-w-7xl mx-auto px-4 pb-6">

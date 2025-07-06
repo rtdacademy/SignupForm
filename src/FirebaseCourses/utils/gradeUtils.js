@@ -91,6 +91,27 @@ export const formatGrade = (grade, includePercent = true) => {
 };
 
 /**
+ * Format a numerical score for display with 1 decimal place only if not a whole number
+ * @param {Number} score - Numerical score
+ * @returns {String} - Formatted score (e.g., "85" or "85.5")
+ */
+export const formatScore = (score) => {
+  if (score === null || score === undefined || isNaN(score)) {
+    return '0';
+  }
+  
+  const numScore = Number(score);
+  
+  // If it's a whole number, return without decimal
+  if (numScore === Math.floor(numScore)) {
+    return numScore.toString();
+  }
+  
+  // If it has decimals, round to 1 decimal place
+  return (Math.round(numScore * 10) / 10).toString();
+};
+
+/**
  * Calculate progress percentage based on completed items
  * @param {Object} progress - Progress object with item IDs as keys
  * @param {Array} courseItems - Full list of course items

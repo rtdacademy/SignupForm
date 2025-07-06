@@ -131,23 +131,10 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   }
 
   const grades = course.Grades.assessments;
-  const assessmentData = course.Assessments || {};
   let totalScore = 0;
   let totalPossible = 0;
   let attemptedQuestions = 0;
   const totalQuestions = lessonConfig.questions.length;
-
-  // Helper function to check if a question has been attempted or manually graded
-  const isQuestionAttempted = (questionId) => {
-    // Check if grade exists (traditional method)
-    const hasGrade = grades.hasOwnProperty(questionId);
-    
-    // Check if assessment status indicates manual grading
-    const assessmentStatus = assessmentData[questionId]?.status;
-    const isManuallyGraded = assessmentStatus === 'manually_graded';
-    
-    return hasGrade || isManuallyGraded;
-  };
 
   lessonConfig.questions.forEach(question => {
     const questionId = question.questionId;
@@ -156,8 +143,8 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     
     totalPossible += maxPoints;
     
-    // If grade exists (even if 0) or question is manually graded, student has attempted
-    if (isQuestionAttempted(questionId)) {
+    // If grade exists (even if 0), student has attempted
+    if (grades.hasOwnProperty(questionId)) {
       attemptedQuestions += 1;
       totalScore += actualGrade;
     }
@@ -295,6 +282,18 @@ export const checkLessonCompletion = (lessonId, course, studentEmail = null) => 
   const validation = validateGradeDataStructures(course);
   if (!validation.valid) {
     return false;
+  }
+  
+  // Check for manual completion status first (overrides score-based completion)
+  const gradebook = course?.Gradebook;
+  const courseStructureItem = gradebook?.courseStructureItems?.[lessonId];
+  const gradebookItem = gradebook?.items?.[lessonId];
+  
+  // If manually graded or explicitly marked as completed, consider it complete
+  if (courseStructureItem?.completed || 
+      gradebookItem?.status === 'completed' || 
+      gradebookItem?.status === 'manually_graded') {
+    return true;
   }
   
   const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements || {};

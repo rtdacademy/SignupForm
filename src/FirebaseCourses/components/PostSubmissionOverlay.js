@@ -1,0 +1,677 @@
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, BookOpen, BarChart3, ArrowRight, X, Edit3, Save, MessageSquare } from 'lucide-react';
+import { getDatabase, ref, set, onValue, off } from 'firebase/database';
+import { useAuth } from '../../context/AuthContext';
+
+// Import QuillEditor directly
+import QuillEditor from '../../courses/CourseEditor/QuillEditor';
+
+/**
+ * Post-Submission Overlay Component
+ * 
+ * Shows a congratulatory overlay after lab submission that:
+ * - Prevents students from modifying their work
+ * - Allows staff members to continue interacting with the component
+ * - Provides next steps and completion feedback
+ * 
+ * @param {Object} props
+ * @param {boolean} props.isVisible - Whether the overlay should be shown
+ * @param {boolean} props.isStaffView - Whether the current user is staff
+ * @param {Object} props.submissionData - Data about the submission
+ * @param {string} props.submissionData.labTitle - Title of the completed lab
+ * @param {number} props.submissionData.completionPercentage - Percentage completed (0-100)
+ * @param {string} props.submissionData.status - Submission status ('completed', 'in-progress')
+ * @param {string} props.submissionData.timestamp - Submission timestamp
+ * @param {Object} props.course - Course data object for grading (staff only)
+ * @param {string} props.questionId - Question ID for this assessment
+ * @param {Function} props.onContinue - Callback for "Continue to Next Lesson" action
+ * @param {Function} props.onViewGradebook - Callback for "View Gradebook" action
+ * @param {Function} props.onClose - Callback for closing overlay (staff only)
+ */
+const PostSubmissionOverlay = ({
+  isVisible,
+  isStaffView = false,
+  submissionData = {},
+  course = null,
+  questionId = null,
+  onContinue,
+  onViewGradebook,
+  onClose
+}) => {
+  // Don't render overlay when not visible
+  if (!isVisible) {
+    return null;
+  }
+
+  // State for staff grading
+  const [currentGrade, setCurrentGrade] = useState('');
+  const [originalGrade, setOriginalGrade] = useState('');
+  const [maxPoints, setMaxPoints] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  
+  
+  // State for teacher comments
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [teacherComment, setTeacherComment] = useState('');
+  const [originalComment, setOriginalComment] = useState('');
+  const [isCommentSaving, setIsCommentSaving] = useState(false);
+  const [currentEditorContent, setCurrentEditorContent] = useState('');
+  
+  const database = getDatabase();
+  const { user } = useAuth();
+
+  // Helper function to resolve itemId from questionId
+  const resolveItemIdFromQuestionId = (questionId, itemStructure) => {
+    if (!questionId || !itemStructure) return null;
+    
+    // Search through all items in itemStructure to find one with matching questionId
+    for (const [itemId, itemConfig] of Object.entries(itemStructure)) {
+      if (itemConfig?.questions?.[0]?.questionId === questionId) {
+        return itemId;
+      }
+    }
+    
+    // Fallback: try to extract itemId from questionId pattern
+    // e.g., "course2_lab_momentum_conservation" -> "lab_momentum_conservation"
+    const questionIdParts = questionId.split('_');
+    if (questionIdParts.length > 1) {
+      // Remove course prefix (e.g., "course2") and rejoin
+      const possibleItemId = questionIdParts.slice(1).join('_');
+      if (itemStructure[possibleItemId]) {
+        return possibleItemId;
+      }
+    }
+    
+    return null;
+  };
+
+  // Extract grading data and set initial grade
+  useEffect(() => {
+    if (course && questionId) {
+      // Get max points from course config by resolving the correct itemId
+      const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
+      const itemId = resolveItemIdFromQuestionId(questionId, itemStructure);
+      
+      if (itemId && itemStructure?.[itemId]) {
+        const points = itemStructure[itemId]?.questions?.[0]?.points;
+        if (points) {
+          setMaxPoints(points);
+        }
+      }
+
+      // Set initial grade from course object (works for both staff and student views)
+      const existingGrade = course.Grades?.assessments?.[questionId];
+      if (existingGrade !== undefined && existingGrade !== null) {
+        const gradeStr = existingGrade.toString();
+        setCurrentGrade(gradeStr);
+        setOriginalGrade(gradeStr);
+      }
+    }
+  }, [course, questionId]);
+
+  // Load teacher comment from course object or Firebase
+  useEffect(() => {
+    if (!course?.CourseID || !questionId) return;
+    
+    // First, check if comments are already available in the course object
+    // This matches the structure we fixed in CollapsibleNavigation
+    if (course?.TeacherComments) {
+      const commentData = course.TeacherComments[questionId]?.lab_review;
+      if (commentData?.content && commentData.content.trim()) {
+        console.log('📄 Found teacher comment in course object:', commentData);
+        setTeacherComment(commentData.content);
+        setOriginalComment(commentData.content);
+        return; // Found in course object, no need to check Firebase
+      }
+    }
+    
+    // If not found in course object, fall back to Firebase database loading
+    // For teacher view, we need to get the student key from teacherViewStudent
+    // For student view, we can use the logged-in user's email
+    let studentIdentifier = null;
+    let commentPath = null;
+    
+    if (isStaffView && course?.studentKey) {
+      // Teacher viewing student's work - use course.studentKey
+      studentIdentifier = course.studentKey;
+      commentPath = `students/${studentIdentifier}/courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
+      console.log('📄 Teacher view - loading comment from Firebase:', commentPath);
+    } else if (!isStaffView && user?.email) {
+      // Student viewing their own work - check Firebase database paths
+      const emailKey = user.email.replace(/[.#$[\]]/g, '_');
+      commentPath = `courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
+      
+      // Also check the student-specific path
+      const studentCommentPath = `students/${emailKey}/courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
+      
+      // Try course-level first, then student-level
+      const commentRef = ref(database, commentPath);
+      const studentCommentRef = ref(database, studentCommentPath);
+      
+      console.log('📄 Loading comment from Firebase paths:', { commentPath, studentCommentPath });
+      
+      const unsubscribe1 = onValue(commentRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data?.content) {
+          console.log('📄 Found comment in course-level Firebase path:', data);
+          setTeacherComment(data.content);
+          setOriginalComment(data.content);
+        }
+      });
+      
+      const unsubscribe2 = onValue(studentCommentRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data?.content) {
+          console.log('📄 Found comment in student-level Firebase path:', data);
+          setTeacherComment(data.content);
+          setOriginalComment(data.content);
+        }
+      });
+
+      return () => {
+        off(commentRef, 'value', unsubscribe1);
+        off(studentCommentRef, 'value', unsubscribe2);
+      };
+    }
+    
+    if (commentPath && studentIdentifier) {
+      console.log('📄 Loading teacher comment from Firebase:', commentPath);
+      const commentRef = ref(database, commentPath);
+      
+      const unsubscribe = onValue(commentRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data?.content) {
+          console.log('📄 Found comment in Firebase:', data);
+          setTeacherComment(data.content);
+          setOriginalComment(data.content);
+        }
+      });
+
+      return () => off(commentRef, 'value', unsubscribe);
+    }
+  }, [course, questionId, database, isStaffView, user]);
+
+  // Save grade to database with metadata
+  const saveGrade = async () => {
+    if (!isStaffView || !course || !questionId || !currentGrade) return;
+
+    const grade = parseFloat(currentGrade);
+    if (isNaN(grade) || grade < 0 || grade > maxPoints) {
+      return; // Invalid grade, don't save
+    }
+
+    setIsSaving(true);
+    try {
+      const studentKey = course.studentKey;
+      const courseId = course.CourseID;
+      const timestamp = Date.now();
+      
+      // Save the grade
+      const gradeRef = ref(database, `students/${studentKey}/courses/${courseId}/Grades/assessments/${questionId}`);
+      await set(gradeRef, grade);
+      
+      // Save metadata
+      const metadataRef = ref(database, `students/${studentKey}/courses/${courseId}/Grades/metadata/${questionId}`);
+      const metadata = {
+        currentScore: grade,
+        bestScore: grade,
+        previousBestScore: originalGrade ? parseFloat(originalGrade) : 0,
+        pointsValue: maxPoints,
+        lastGradedAt: timestamp,
+        gradedBy: user?.email || 'unknown_staff',
+        gradeHistory: [
+          {
+            score: grade,
+            timestamp: timestamp,
+            gradedBy: user?.email || 'unknown_staff',
+            gradedByRole: 'staff_manual',
+            sourceActivityType: 'lab_submission',
+            sourceAssessmentId: questionId
+          }
+        ],
+        gradeUpdatePolicy: 'manual_override',
+        wasImprovement: !originalGrade || grade > parseFloat(originalGrade)
+      };
+      
+      await set(metadataRef, metadata);
+      
+      // Update local state
+      setOriginalGrade(currentGrade);
+      setHasChanges(false);
+      
+    } catch (error) {
+      console.error('Error saving grade:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle grade input changes with validation
+  const handleGradeChange = (value) => {
+    // Allow empty string for clearing
+    if (value === '') {
+      setCurrentGrade('');
+      setHasChanges(originalGrade !== '');
+      return;
+    }
+
+    // Parse and validate the input
+    const numValue = parseFloat(value);
+    
+    // Check if it's a valid number
+    if (isNaN(numValue)) return;
+    
+    // Check bounds
+    if (numValue < 0 || numValue > maxPoints) return;
+    
+    // Check decimal places (max 1 decimal place)
+    const decimalParts = value.split('.');
+    if (decimalParts.length > 2) return; // More than one decimal point
+    if (decimalParts[1] && decimalParts[1].length > 1) return; // More than 1 decimal place
+    
+    // Update the grade
+    setCurrentGrade(value);
+    setHasChanges(value !== originalGrade);
+  };
+
+  // Revert to original grade
+  const revertGrade = () => {
+    setCurrentGrade(originalGrade);
+    setHasChanges(false);
+  };
+
+  // Save teacher comment to Firebase
+  const saveTeacherComment = async () => {
+    if (!isStaffView || !course?.studentKey || !course?.CourseID || !questionId) return;
+
+    setIsCommentSaving(true);
+    try {
+      const commentPath = `students/${course.studentKey}/courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
+      const timestamp = Date.now();
+      
+      const commentData = {
+        content: teacherComment,
+        lastModified: timestamp,
+        teacherEmail: user?.email || 'unknown_staff',
+        context: 'Lab Review Comment',
+        version: 1
+      };
+
+      await set(ref(database, commentPath), commentData);
+      setOriginalComment(teacherComment);
+      console.log('✅ Teacher comment saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving teacher comment:', error);
+    } finally {
+      setIsCommentSaving(false);
+    }
+  };
+
+  // Handle comment content change
+  const handleCommentChange = (content) => {
+    console.log('Comment content changed:', content);
+    setTeacherComment(content);
+    setCurrentEditorContent(content);
+  };
+
+  // Handle save and close from QuillEditor
+  const handleCommentSaveAndClose = async (contentToSave = null) => {
+    // Use the passed content or fall back to current editor content or state
+    const content = contentToSave || currentEditorContent || teacherComment;
+    console.log('💾 Attempting to save and close with content:', content);
+    
+    // Update the state first
+    setTeacherComment(content);
+    
+    // Then save to Firebase
+    if (!isStaffView || !course?.CourseID || !questionId) {
+      console.log('❌ Missing required data for save:', { isStaffView, courseId: course?.CourseID, questionId });
+      return;
+    }
+
+    // Use course.studentKey directly
+    if (!course?.studentKey) {
+      console.log('❌ No student key found in course object. Available data:', {
+        courseKeys: course ? Object.keys(course) : 'course is null',
+        studentKey: course?.studentKey
+      });
+      return;
+    }
+    
+    const commentPath = `students/${course.studentKey}/courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
+    console.log('📍 Using course.studentKey:', course.studentKey, 'for path:', commentPath);
+
+    setIsCommentSaving(true);
+    try {
+      const timestamp = Date.now();
+      
+      const commentData = {
+        content: content,
+        lastModified: timestamp,
+        teacherEmail: user?.email || 'unknown_staff',
+        context: 'Lab Review Comment',
+        version: 1
+      };
+
+      console.log('💾 Saving to path:', commentPath, 'with data:', commentData);
+      await set(ref(database, commentPath), commentData);
+      setOriginalComment(content);
+      console.log('✅ Teacher comment saved and closing modal');
+      
+      // Close the modal after successful save
+      setShowCommentModal(false);
+    } catch (error) {
+      console.error('❌ Error saving teacher comment:', error);
+    } finally {
+      setIsCommentSaving(false);
+    }
+  };
+
+
+  const {
+    labTitle = 'Lab Assignment',
+    completionPercentage = 100,
+    status = 'completed',
+    timestamp
+  } = submissionData;
+
+  // Format timestamp for display
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Get completion message based on percentage
+  const getCompletionMessage = (percentage) => {
+    if (percentage >= 100) {
+      return "Excellent work! You've completed this lab assignment.";
+    } else if (percentage >= 80) {
+      return "Great job! You've successfully submitted your lab work.";
+    } else {
+      return "Lab submitted! Your work has been saved for review.";
+    }
+  };
+
+  // Get completion color based on percentage
+  const getCompletionColor = (percentage) => {
+    if (percentage >= 100) return 'text-green-600';
+    if (percentage >= 80) return 'text-blue-600';
+    return 'text-orange-600';
+  };
+
+  return (
+    <>
+      {/* Notification badge in top-right corner */}
+      <div className="fixed top-16 right-4 z-[9999] pointer-events-auto">
+        <div className={`${isStaffView ? 'bg-blue-100 border-blue-300' : 'bg-white border-gray-300'} border rounded-lg p-3 shadow-lg pointer-events-auto ${
+          !isStaffView && teacherComment?.trim() 
+            ? 'min-w-96 max-w-2xl' 
+            : 'min-w-64'
+        }`}>
+          <div className="space-y-2">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className={`h-4 w-4 ${isStaffView ? 'text-blue-600' : 'text-gray-600'}`} />
+                <span className={`text-sm font-medium ${isStaffView ? 'text-blue-800' : 'text-gray-800'}`}>
+                  {isStaffView ? 'Lab Review (Staff)' : (currentGrade && maxPoints > 0 ? 'Lab Graded' : 'Lab Submitted')}
+                </span>
+              </div>
+              
+              {/* Comment button - only show for staff */}
+              {isStaffView && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    console.log('💬 Comment button clicked, teacherComment:', teacherComment);
+                    setShowCommentModal(true);
+                  }}
+                  className={`relative p-1.5 rounded-md transition-all duration-200 cursor-pointer pointer-events-auto z-[10000] ${
+                    teacherComment?.trim()
+                      ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  }`}
+                  title="Add/Edit teacher comment"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Teacher Comment Display for Students */}
+            {!isStaffView && teacherComment?.trim() && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquare className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-800">Teacher Feedback</span>
+                </div>
+                <div 
+                  className="prose prose-sm max-w-none text-gray-800 bg-white p-3 rounded border border-blue-100"
+                  dangerouslySetInnerHTML={{ __html: teacherComment }}
+                />
+              </div>
+            )}
+
+            {/* Grading Interface */}
+            {maxPoints > 0 && (
+              <div className="space-y-2 pt-2 border-t border-gray-200">
+                {isStaffView ? (
+                  /* Staff Grading Interface */
+                  <>
+                    {/* Original Grade Display */}
+                    {originalGrade && (
+                      <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                        Original: {originalGrade} / {maxPoints} points
+                      </div>
+                    )}
+                    
+                    {/* Grade Input */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max={maxPoints}
+                        step="0.1"
+                        value={currentGrade}
+                        onChange={(e) => handleGradeChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && hasChanges && !isSaving) {
+                            saveGrade();
+                          }
+                        }}
+                        className="w-16 px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-blue-600">
+                        / {maxPoints} points
+                      </span>
+                      {currentGrade && (
+                        <span className="text-xs text-blue-700 font-medium">
+                          ({Math.round((parseFloat(currentGrade) / maxPoints) * 100)}%)
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    {hasChanges && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={saveGrade}
+                          disabled={isSaving}
+                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          <Save className="w-3 h-3" />
+                          {isSaving ? 'Saving...' : 'Save Grade'}
+                        </button>
+                        
+                        {originalGrade && (
+                          <button
+                            onClick={revertGrade}
+                            className="flex items-center gap-1 px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                          >
+                            Revert
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Save Status */}
+                    {!hasChanges && !isSaving && originalGrade && (
+                      <div className="flex items-center gap-1 justify-center">
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span className="text-xs text-green-600">Grade saved</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Student Grade Display */
+                  <div className="text-center">
+                    {currentGrade && parseFloat(currentGrade) > 0 ? (
+                      <>
+                        <div className="text-2xl font-bold text-gray-800">
+                          {currentGrade} / {maxPoints}
+                        </div>
+                        <div className="text-lg font-semibold text-blue-600">
+                          {Math.round((parseFloat(currentGrade) / maxPoints) * 100)}%
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {Math.round((parseFloat(currentGrade) / maxPoints) * 100) >= 80 ? 'Great work!' : 
+                           Math.round((parseFloat(currentGrade) / maxPoints) * 100) >= 60 ? 'Good effort!' : 
+                           'Keep improving!'}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-gray-600">
+                        Lab submitted - awaiting grade
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
+
+
+      {/* Teacher Comment Modal */}
+      {showCommentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl max-h-[90vh] w-full overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {isStaffView ? 'Add Teacher Comment' : 'Teacher Comment'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {isStaffView 
+                      ? 'Provide feedback and comments for this lab submission'
+                      : 'Feedback and comments from your teacher'
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                title="Close comment modal"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-4 overflow-auto max-h-[calc(90vh-160px)]">
+              {isStaffView ? (
+                /* Staff Comment Editor */
+                <div className="space-y-4">
+                  <QuillEditor
+                    courseId={course?.CourseID}
+                    unitId="teacher_comments"
+                    itemId={`${questionId}_lab_review`}
+                    initialContent={teacherComment}
+                    onSave={handleCommentChange}
+                    onError={(error) => console.error('Quill error:', error)}
+                    fixedHeight="300px"
+                    hideSaveButton={true}
+                  />
+                  
+               
+                </div>
+              ) : (
+                /* Student Comment Display */
+                <div>
+                  {teacherComment?.trim() ? (
+                    <div 
+                      className="prose prose-sm max-w-none border border-gray-200 rounded-lg p-4 bg-gray-50 min-h-[200px]"
+                      dangerouslySetInnerHTML={{ __html: teacherComment }}
+                    />
+                  ) : (
+                    <div className="text-center text-gray-500 py-12">
+                      <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg">No teacher comments yet</p>
+                      <p className="text-sm">Your teacher hasn't added any feedback for this lab.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                {isStaffView ? (
+                  <span>Use "Save & Close" to save comments, or × to discard changes</span>
+                ) : (
+                  'This feedback was provided by your teacher'
+                )}
+              </div>
+              
+              <button
+                onClick={isStaffView ? () => {
+                  console.log('🔘 Save & Close button clicked');
+                  handleCommentSaveAndClose();
+                } : () => setShowCommentModal(false)}
+                disabled={isCommentSaving}
+                className={`px-4 py-2 text-white rounded-md transition-colors ${
+                  isStaffView 
+                    ? 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50' 
+                    : 'bg-gray-600 hover:bg-gray-700'
+                }`}
+              >
+                {isStaffView ? (
+                  <>
+                    <Save className="w-4 h-4 mr-2 inline" />
+                    {isCommentSaving ? 'Saving...' : 'Save & Close'}
+                  </>
+                ) : (
+                  'Close'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default PostSubmissionOverlay;

@@ -33,6 +33,7 @@ const gradebookFunctions = require('./gradebook');
 // Course management
 const categoryFunctions = require('./categories');
 const summaryFunctions = require('./summaries');
+const sessionScoreRecalculationFunctions = require('./sessionScoreRecalculation');
 const ltiFunctions = require('./lti');
 const IMathASFunctions = require('./IMathAS_Database');
 const normalizedScheduleFunctions = require('./normalizedSchedule');
@@ -99,6 +100,10 @@ exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSum
 exports.updateStudentCourseSummaryV2 = summaryFunctions.updateStudentCourseSummaryV2;
 exports.createStudentCourseSummaryOnCourseCreateV2 = summaryFunctions.createStudentCourseSummaryOnCourseCreateV2;
 exports.batchSyncStudentDataV2 = summaryFunctions.batchSyncStudentDataV2;
+
+// Session score recalculation functions
+exports.recalculateSessionScores = sessionScoreRecalculationFunctions.recalculateSessionScores;
+exports.handleManualOverrideModeChange = sessionScoreRecalculationFunctions.handleManualOverrideModeChange;
 
 // Email functions
 exports.sendBulkEmailsV2 = emailFunctions.sendBulkEmailsV2;

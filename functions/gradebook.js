@@ -55,21 +55,18 @@ exports.updateStudentGradebook = onValueCreated({
       // All other configuration will be determined from course-config.json
     };
     
-    // Check if this is a staff member
-    const isStaff = studentKey.includes('@rtdacademy.com') || studentKey.includes('staff');
-    
     // Initialize gradebook if it doesn't exist
-    const gradebookPath = `${isStaff ? 'staff_testing' : 'students'}/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookPath = `students/${studentKey}/courses/${courseId}/Gradebook`;
     const gradebookRef = admin.database().ref(gradebookPath);
     const gradebookSnapshot = await gradebookRef.once('value');
     
     if (!gradebookSnapshot.exists()) {
       console.log('Initializing gradebook for student');
-      await initializeGradebook(studentKey, courseId, isStaff);
+      await initializeGradebook(studentKey, courseId);
     }
     
     // Update gradebook item
-    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig, isStaff);
+    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig);
     
     console.log(`✅ Gradebook updated successfully for ${assessmentId}`);
     
@@ -109,11 +106,8 @@ exports.updateStudentGradebookOnChange = onValueUpdated({
       // All other configuration will be determined from course-config.json
     };
     
-    // Check if this is a staff member
-    const isStaff = studentKey.includes('@rtdacademy.com') || studentKey.includes('staff');
-    
     // Update gradebook item
-    await updateGradebookItem(studentKey, courseId, assessmentId, newScore, itemConfig, isStaff);
+    await updateGradebookItem(studentKey, courseId, assessmentId, newScore, itemConfig);
     
     console.log(`✅ Gradebook updated successfully for ${assessmentId} (score changed)`);
     
@@ -159,10 +153,9 @@ exports.trackLessonAccess = onCall({
     
     // Sanitize email for database key
     const studentKey = sanitizeEmail(studentEmail);
-    const isStaff = studentEmail.includes('@rtdacademy.com');
     
     // Track lesson access
-    await trackLessonAccess(studentKey, courseId, lessonId, lessonInfo, isStaff);
+    await trackLessonAccess(studentKey, courseId, lessonId, lessonInfo);
     
     console.log(`📚 Tracked lesson access via callable function: ${lessonId}`);
     
@@ -203,12 +196,11 @@ exports.validateGradebookStructure = onCall({
     
     // Sanitize email for database key
     const studentKey = sanitizeEmail(userEmail);
-    const isStaff = userEmail.includes('@rtdacademy.com');
     
     console.log(`🔍 Validating gradebook structure for ${userEmail} in course ${courseId}`);
     
     // Call the validation function
-    const validationResult = await validateGradebookStructure(studentKey, courseId, isStaff);
+    const validationResult = await validateGradebookStructure(studentKey, courseId);
     
     console.log(`✅ Gradebook validation completed for course ${courseId}:`, {
       isValid: validationResult.isValid,

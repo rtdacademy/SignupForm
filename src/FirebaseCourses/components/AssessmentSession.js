@@ -12,6 +12,207 @@ import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
+import 'katex/dist/katex.min.css';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import remarkEmoji from 'remark-emoji';
+import remarkDeflist from 'remark-deflist';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+
+/**
+ * Helper function to detect if text contains markdown patterns
+ */
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  // Look for more precise patterns to reduce false positives
+  const markdownPatterns = [
+    /^#+\s+.+$/m,                  // Headers: # Header
+    /\*\*.+\*\*/,                  // Bold: **bold**
+    /\*.+\*/,                      // Italic: *italic*
+    /```[\s\S]*```/,               // Code block: ```code```
+    /`[^`]+`/,                     // Inline code: `code`
+    /\[.+\]\(.+\)/,                // Links: [text](url)
+    /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
+    /^\s*>\s+.+$/m,                // Blockquotes: > quote
+    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
+    /!\[.+\]\(.+\)/,               // Images: ![alt](url)
+    /~~.+~~/,                      // Strikethrough: ~~text~~
+    /\$\$.+\$\$/,                  // Math blocks: $$math$$
+    /\$.+\$/,                      // Inline math: $math$
+    /\\[a-zA-Z]+/,                 // LaTeX commands: \alpha, \beta, etc.
+    /\\begin\{/,                   // LaTeX environments: \begin{...}
+    /\\end\{/,                     // LaTeX environments: \end{...}
+    /\\frac\{/,                    // LaTeX fractions: \frac{...}
+    /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
+    /\\left/,                      // LaTeX brackets: \left(...
+    /\\right/,                     // LaTeX brackets: \right)...
+  ];
+  
+  // Check for simple text indicators first for better performance
+  const quickCheck = (
+    text.includes('#') || 
+    text.includes('**') || 
+    text.includes('*') ||
+    text.includes('```') ||
+    text.includes('`') ||
+    text.includes('[') ||
+    text.includes('|') ||
+    text.includes('> ') ||
+    text.includes('- ') ||
+    text.includes('1. ') ||
+    text.includes('$') ||  // Math delimiters
+    text.includes('\\')    // LaTeX commands
+  );
+  
+  // If quick check passes, do more precise checking
+  if (quickCheck) {
+    // Check for common markdown patterns
+    for (const pattern of markdownPatterns) {
+      if (pattern.test(text)) {
+        return true;
+      }
+    }
+    
+    // Special case for tables which can be tricky to detect
+    if (text.includes('|')) {
+      // Count pipe characters in the text
+      const pipeCount = (text.match(/\|/g) || []).length;
+      // If there are multiple pipe characters, it's likely a table
+      if (pipeCount >= 4) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
+
+/**
+ * Helper function to format scientific notation for display
+ */
+const formatScientificNotation = (text) => {
+  if (!text) return text;
+  
+  // Pattern to match scientific notation (e.g., 3.4e+8, 1.2e-5, 6.02e23)
+  const scientificPattern = /(\d+\.?\d*)[eE]([+-]?\d+)/g;
+  
+  return text.replace(scientificPattern, (match, coefficient, exponent) => {
+    // Remove leading + from exponent if present
+    const cleanExponent = exponent.replace(/^\+/, '');
+    // Format as proper scientific notation with × and superscript using HTML
+    return `${coefficient} × 10<sup>${cleanExponent}</sup>`;
+  });
+};
+
+/**
+ * Enhanced text rendering that handles both markdown and LaTeX math
+ */
+const renderEnhancedText = (text) => {
+  if (!text) return text;
+  
+  // First, format any scientific notation
+  text = formatScientificNotation(text);
+  
+  // If text contains markdown patterns, use ReactMarkdown with enhanced configuration
+  if (containsMarkdown(text)) {
+    return (
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+          rehypePlugins={[
+            [rehypeSanitize, {
+              // Standard HTML elements plus additional elements for enhanced content
+              allowedElements: [
+                // Standard markdown elements
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
+                'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span',
+                // Additional elements we want to allow
+                'details', 'summary', 'dl', 'dt', 'dd',
+                // Scientific notation formatting
+                'sup', 'sub'
+              ],
+              // Allow certain attributes
+              allowedAttributes: {
+                // Allow href and target for links
+                a: ['href', 'target', 'rel'],
+                // Allow src and alt for images
+                img: ['src', 'alt', 'title'],
+                // Allow class and style for common elements
+                div: ['className', 'class', 'style'],
+                span: ['className', 'class', 'style'],
+                code: ['className', 'class', 'language'],
+                pre: ['className', 'class'],
+                // Allow open attribute for details
+                details: ['open']
+              }
+            }],
+            rehypeKatex,
+            rehypeRaw
+          ]}
+          components={{
+            // Make headings slightly smaller in question contexts
+            h1: ({node, ...props}) => <h2 className="text-xl font-bold mt-1 mb-2" {...props} />,
+            h2: ({node, ...props}) => <h3 className="text-lg font-bold mt-1 mb-2" {...props} />,
+            h3: ({node, ...props}) => <h4 className="text-base font-bold mt-1 mb-1" {...props} />,
+            
+            // Enhanced code handling
+            code: ({node, inline, className, children, ...props}) => {
+              if (inline) {
+                return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+              }
+              return <code {...props}>{children}</code>
+            },
+            
+            // Make lists more compact
+            ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
+            ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
+            li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+            
+            // Make sure paragraphs preserve spacing
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            
+            // Make links open in new tab and have proper styling
+            a: ({node, ...props}) => <a target="_blank" rel="noopener noreferrer" className="font-medium underline" {...props} />,
+            
+            // Style tables to fit in content areas
+            table: ({node, ...props}) => (
+              <div className="overflow-x-auto my-2">
+                <table className="border-collapse border border-gray-300 text-sm" {...props} />
+              </div>
+            ),
+            th: ({node, ...props}) => <th className="border border-gray-300 px-2 py-1 bg-gray-100" {...props} />,
+            td: ({node, ...props}) => <td className="border border-gray-300 px-2 py-1" {...props} />,
+            
+            // Handle details/summary elements
+            details: ({node, ...props}) => <details className="border rounded-md p-2 my-2" {...props} />,
+            summary: ({node, ...props}) => <summary className="font-medium cursor-pointer" {...props} />,
+            
+            // Definition lists
+            dl: ({node, ...props}) => <dl className="my-2" {...props} />,
+            dt: ({node, ...props}) => <dt className="font-bold mt-2" {...props} />,
+            dd: ({node, ...props}) => <dd className="ml-4 mt-1" {...props} />,
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+  
+  // For simple text without markdown, preserve line breaks and handle any HTML we added (like sup tags)
+  return (
+    <div 
+      style={{ whiteSpace: 'pre-wrap' }}
+      dangerouslySetInnerHTML={{ __html: text }}
+    />
+  );
+};
 
 /**
  * AssessmentSession Component
@@ -569,18 +770,13 @@ const AssessmentSession = ({
     
     setIsStartingAssessment(true);
     try {
-      // First, set up all the questions (generate for exams, use pre-defined for assignments)
-      const questions = await generateAssessmentQuestions();
-      if (questions.length === 0) {
-        throw new Error('No questions were set up for the assessment');
-      }
-      
+      // First, create the exam session (this will clean up old questions and create placeholders)
       const startExamFunction = httpsCallable(functions, 'startExamSession');
       
       const result = await startExamFunction({
         courseId: courseId,
         assessmentItemId: assessmentConfig.assessmentId,
-        questions: questions,
+        questions: assessmentConfig.questions, // Pass the question config, not generated questions
         timeLimit: activityConfig.timeLimit || assessmentConfig.timeLimit,
         studentEmail: currentUser.email,
         userId: currentUser.uid
@@ -589,6 +785,12 @@ const AssessmentSession = ({
       console.log('Exam session started:', result.data);
       console.log('🆕 New session responses:', result.data.session.responses);
       setAssessmentSession(result.data.session);
+      
+      // Now generate the actual questions (after session is created)
+      const questions = await generateAssessmentQuestions();
+      if (questions.length === 0) {
+        throw new Error('No questions were set up for the assessment');
+      }
       
       // If session was created with questions, set questionsReady immediately
       if (result.data.session.questions && questions.length > 0) {
@@ -762,20 +964,24 @@ const AssessmentSession = ({
       // Step 2: Submit exam session (this will read the results from database)
       const submitExamFunction = httpsCallable(functions, 'submitExamSession');
       
-      // Execute both in parallel, but we want question evaluations to finish first
-      const [questionResults, examResult] = await Promise.all([
-        Promise.all(questionSubmissionPromises),
-        // Add a small delay to ensure question evaluations complete first
-        new Promise(resolve => setTimeout(resolve, 1000)).then(() => 
-          submitExamFunction({
-            courseId: courseId,
-            sessionId: assessmentSession.sessionId,
-            responses: savedAnswers,
-            studentEmail: currentUser.email,
-            autoSubmit: autoSubmit
-          })
-        )
-      ]);
+      // Execute question evaluations first, then submit exam session
+      console.log('🎯 Starting question evaluations...');
+      const questionResults = await Promise.all(questionSubmissionPromises);
+      console.log('✅ All question evaluations completed');
+      
+      // Add a delay to ensure database writes are fully completed
+      console.log('⏳ Waiting for database writes to complete...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Now submit the exam session
+      console.log('🎯 Submitting exam session...');
+      const examResult = await submitExamFunction({
+        courseId: courseId,
+        sessionId: assessmentSession.sessionId,
+        responses: savedAnswers,
+        studentEmail: currentUser.email,
+        autoSubmit: autoSubmit
+      });
       
       console.log('📊 Question evaluation results:', questionResults);
       console.log('🎯 Exam session completed:', examResult.data);
@@ -911,7 +1117,7 @@ const AssessmentSession = ({
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">No More Attempts Available</h1>
                 <p className="text-gray-700">
-                  You have used all {sessionDetection.attemptsSummary.maxAttempts} available attempt(s) for this exam.
+                  You have used all {sessionDetection.attemptsSummary.maxAttempts} available attempt(s) for this assessment.
                 </p>
               </div>
               
@@ -944,7 +1150,13 @@ const AssessmentSession = ({
         <div className="bg-gray-50 rounded-lg shadow-md border p-8 text-center">
           <div className="mb-6">
             <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Ready to Start Your {currentActivityType === 'assignment' ? 'Assignment' : currentActivityType === 'quiz' ? 'Quiz' : 'Exam'}?</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Ready to Start Your {
+                (activityConfig.timeLimit || assessmentConfig?.timeLimit) 
+                  ? `Timed ${currentActivityType === 'assignment' ? 'Assessment' : currentActivityType === 'quiz' ? 'Quiz' : 'Exam'}` 
+                  : currentActivityType === 'assignment' ? 'Assignment' : currentActivityType === 'quiz' ? 'Quiz' : 'Exam'
+              }?
+            </h1>
             <p className="text-gray-600">
               This {currentActivityType} contains {assessmentConfig?.questions?.length || 0} questions.
               {(activityConfig.timeLimit || assessmentConfig?.timeLimit) && (
@@ -967,6 +1179,33 @@ const AssessmentSession = ({
                   </span>
                 )}
               </p>
+            </div>
+          )}
+
+          {/* Timed Assessment Warning */}
+          {(activityConfig.timeLimit || assessmentConfig?.timeLimit) && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-bold text-amber-800 mb-2">⏰ TIMED ASSESSMENT - Important Notice</h3>
+                  <div className="text-sm text-amber-700 space-y-2">
+                    <p>
+                      <strong>This is a timed assessment with a {activityConfig.timeLimit || assessmentConfig.timeLimit}-minute limit.</strong>
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Once you start, the timer will begin immediately</li>
+                      <li>You cannot pause or stop the timer once started</li>
+                      <li>The assessment will auto-submit when time expires</li>
+                      <li>You should not leave this page during the assessment</li>
+                      <li>Make sure you have a stable internet connection</li>
+                    </ul>
+                    <p className="font-medium">
+                      💡 Only start when you're ready to complete the entire assessment in one session!
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1024,22 +1263,7 @@ const AssessmentSession = ({
             </div>
           )}
           
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-left">
-            <h3 className="font-medium text-gray-700 mb-2">{currentActivityType === 'assignment' ? 'Assignment' : currentActivityType === 'quiz' ? 'Quiz' : 'Exam'} Instructions:</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• The {currentActivityType} will open in a dedicated full-screen interface</li>
-              <li>• You can navigate between questions and change your answers</li>
-              <li>• Your answers are saved automatically</li>
-              {activityConfig.allowImmediateFeedback ? 
-                <li>• You will see feedback immediately after answering each question</li> :
-                <li>• You will see your results only after submitting the entire {currentActivityType}</li>
-              }
-              {(activityConfig.timeLimit || assessmentConfig?.timeLimit) && <li>• The {currentActivityType} will auto-submit when time expires</li>}
-              <li>• Make sure you have a stable internet connection</li>
-              <li>• Do not refresh the page or navigate away during the {currentActivityType}</li>
-            </ul>
-          </div>
-          
+        
           {/* Show Resume button if there's a resumable session */}
           {resumableSession ? (
             <div className="space-y-3">
@@ -1064,11 +1288,17 @@ const AssessmentSession = ({
             <Button
               onClick={handleStartAssessment}
               disabled={isStartingAssessment || isGeneratingQuestions}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
+              className={`px-8 py-3 text-lg ${
+                (activityConfig.timeLimit || assessmentConfig?.timeLimit) 
+                  ? 'bg-amber-600 hover:bg-amber-700' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white`}
             >
               {isStartingAssessment 
                 ? (isGeneratingQuestions ? 'Preparing Questions...' : 'Starting Assessment...') 
-                : sessionDetection?.attemptsSummary?.attemptsUsed > 0 ? 'Start New Attempt' : 'Start Assessment'}
+                : (activityConfig.timeLimit || assessmentConfig?.timeLimit)
+                  ? (sessionDetection?.attemptsSummary?.attemptsUsed > 0 ? 'Start New Timed Attempt' : 'Start Timed Assessment')
+                  : (sessionDetection?.attemptsSummary?.attemptsUsed > 0 ? 'Start New Attempt' : 'Start Assessment')}
             </Button>
           )}
         </div>
@@ -1085,15 +1315,12 @@ const AssessmentSession = ({
         <div className="bg-gray-50 rounded-lg shadow-md border p-8">
           <div className="text-center mb-6">
             <CheckCircle className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Exam Completed!</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Completed!</h1>
             <p className="text-gray-600">Here are your results:</p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-blue-700">{assessmentResults.score}</div>
-              <div className="text-sm text-blue-600">Score</div>
-            </div>
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+          
             <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-emerald-700">{assessmentResults.percentage}%</div>
               <div className="text-sm text-emerald-600">Percentage</div>
@@ -1109,30 +1336,90 @@ const AssessmentSession = ({
           {/* Question-by-question results */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold mb-4">Question Details:</h3>
-            {assessmentResults.questionResults?.map((result, index) => (
-              <div key={result.questionId} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Question {index + 1}</span>
-                  <span className={`px-2 py-1 rounded text-sm font-medium ${
-                    result.isCorrect 
-                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
-                      : 'bg-red-100 text-red-700 border border-red-300'
-                  }`}>
-                    {result.isCorrect ? 'Correct' : 'Incorrect'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">{result.questionText}</p>
-                <div className="text-sm">
-                  <p><strong>Your Answer:</strong> {result.studentAnswer}</p>
-                  {!result.isCorrect && (
-                    <p><strong>Correct Answer:</strong> {result.correctAnswer}</p>
+            {assessmentResults.questionResults?.map((result, index) => {
+              // Get detailed question info from course data if available
+              const questionDetails = course?.Assessments?.[result.questionId];
+              const questionText = questionDetails?.questionText || result.questionText;
+              const options = questionDetails?.options || [];
+              
+              // Find the text for student answer and correct answer
+              const studentAnswerText = options.find(opt => opt.id === result.studentAnswer)?.text || result.studentAnswer;
+              const correctAnswerText = options.find(opt => opt.id === result.correctAnswer)?.text || result.correctAnswer;
+              
+              return (
+                <div key={result.questionId} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium">Question {index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">{result.points}/{result.maxPoints} pts</span>
+                      <span className={`px-2 py-1 rounded text-sm font-medium ${
+                        result.isCorrect 
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
+                          : 'bg-red-100 text-red-700 border border-red-300'
+                      }`}>
+                        {result.isCorrect ? 'Correct' : 'Incorrect'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Question Text */}
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-800 font-medium mb-2">Question:</p>
+                    <div className="text-gray-700">{renderEnhancedText(questionText)}</div>
+                  </div>
+                  
+                  {/* Answer Options (for multiple choice) */}
+                  {options.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Options:</p>
+                      <div className="space-y-1">
+                        {options.map((option) => (
+                          <div 
+                            key={option.id} 
+                            className={`p-2 rounded text-sm ${
+                              option.id === result.correctAnswer 
+                                ? 'bg-green-50 border border-green-200 text-green-800' 
+                                : option.id === result.studentAnswer && !result.isCorrect
+                                ? 'bg-red-50 border border-red-200 text-red-800'
+                                : 'bg-gray-50 border border-gray-200 text-gray-700'
+                            }`}
+                          >
+                            <span className="font-medium">{option.id.toUpperCase()})</span> <div className="inline">{renderEnhancedText(option.text)}</div>
+                            {option.id === result.correctAnswer && (
+                              <span className="ml-2 text-green-600 font-medium">✓ Correct Answer</span>
+                            )}
+                            {option.id === result.studentAnswer && !result.isCorrect && (
+                              <span className="ml-2 text-red-600 font-medium">✗ Your Answer</span>
+                            )}
+                            {option.id === result.studentAnswer && result.isCorrect && (
+                              <span className="ml-2 text-green-600 font-medium">✓ Your Answer</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
+                  
+                  {/* Answer Summary for non-multiple choice or when options aren't available */}
+                  {options.length === 0 && (
+                    <div className="text-sm mb-3">
+                      <p><strong>Your Answer:</strong> {studentAnswerText}</p>
+                      {!result.isCorrect && (
+                        <p><strong>Correct Answer:</strong> {correctAnswerText}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Feedback/Explanation */}
                   {result.feedback && (
-                    <p className="mt-2 text-gray-700"><strong>Explanation:</strong> {result.feedback}</p>
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm font-medium text-blue-800 mb-1">Explanation:</p>
+                      <p className="text-sm text-blue-700">{result.feedback}</p>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
         </div>
@@ -1230,8 +1517,8 @@ const AssessmentSession = ({
                ) : 'Finish Assessment'}
             </Button>
             
-            {/* Activity-specific exit button for assignments and quizzes */}
-            {activityConfig.showExitButton && (
+            {/* Activity-specific exit button for assignments and quizzes - hide when there's a time limit */}
+            {activityConfig.showExitButton && !timeRemaining && (
               <button
                 onClick={handleExitAssessment}
                 className={`flex items-center justify-center w-8 h-8 rounded-md border-2 hover:bg-gray-100 transition-colors ${activityConfig.theme.border} text-${activityConfig.theme.accent}`}

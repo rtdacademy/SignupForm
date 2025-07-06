@@ -265,7 +265,10 @@ const QuillEditor = forwardRef(({
   initialContent = '',
   contentPath = null, // Add default to prevent undefined errors
   onSave = () => {},
+  onSaveAndClose = null,
   onError = () => {},
+  fixedHeight = null,
+  hideSaveButton = false,
 }, ref) => {
   const [content, setContent] = useState(initialContent);
   const [saving, setSaving] = useState(false);
@@ -350,6 +353,12 @@ const QuillEditor = forwardRef(({
 
       // Return the content to parent component for state updates
       onSave(html);
+      
+      // If onSaveAndClose is provided, call it instead of just onSave
+      if (onSaveAndClose) {
+        onSaveAndClose(html);
+        return; // Exit early to prevent showing save button
+      }
     } catch (err) {
       console.error('Error saving content:', err);
       const errorMessage = err.message || 'Failed to save content. Please try again.';
@@ -383,8 +392,50 @@ const QuillEditor = forwardRef(({
     }
   };
 
+  // Dynamic height class based on fixedHeight prop
+  const getHeightClass = () => {
+    if (fixedHeight) {
+      return `quill-fixed-height`;
+    }
+    return "h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto";
+  };
+
+  // Add dynamic CSS for fixed height if provided
+  React.useEffect(() => {
+    if (fixedHeight) {
+      const styleId = 'quill-fixed-height-style';
+      let style = document.getElementById(styleId);
+      
+      if (!style) {
+        style = document.createElement('style');
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      
+      style.textContent = `
+        .quill-fixed-height .ql-container {
+          height: ${fixedHeight} !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        .quill-fixed-height .ql-editor {
+          height: calc(${fixedHeight} - 42px) !important;
+          overflow-y: auto !important;
+          min-height: calc(${fixedHeight} - 42px) !important;
+          flex: 1 !important;
+        }
+        .quill-fixed-height .ql-toolbar {
+          flex-shrink: 0 !important;
+        }
+      `;
+      
+      console.log('Fixed height CSS applied:', fixedHeight);
+    }
+  }, [fixedHeight]);
+
+
   return (
-    <div className="flex flex-col h-full overflow-visible quill-editor-container">
+    <div className={`flex flex-col overflow-visible quill-editor-container ${fixedHeight ? 'h-auto' : 'h-full'}`}>
       {error && (
         <Alert variant="destructive" className="mb-4">
           <AlertDescription>{error}</AlertDescription>
@@ -397,8 +448,8 @@ const QuillEditor = forwardRef(({
         onInsert={handleInsertVideo}
       />
 
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-[calc(100%-4rem)] overflow-visible">
+      <div className={fixedHeight ? "overflow-hidden" : "flex-1 overflow-hidden"} style={{ minHeight: fixedHeight || 'auto' }}>
+        {fixedHeight ? (
           <ReactQuill
             ref={quillRef}
             theme="snow"
@@ -406,20 +457,34 @@ const QuillEditor = forwardRef(({
             onChange={setContent}
             modules={modules}
             placeholder="Start creating your content..."
-            className="h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto"
+            className={getHeightClass()}
           />
-        </ScrollArea>
+        ) : (
+          <ScrollArea className="h-[calc(100%-4rem)] overflow-visible">
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
+              value={content}
+              onChange={setContent}
+              modules={modules}
+              placeholder="Start creating your content..."
+              className={getHeightClass()}
+            />
+          </ScrollArea>
+        )}
       </div>
 
-      <div className="flex justify-end pt-4 mt-auto">
-        <Button 
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {saving ? 'Saving...' : 'Save Content'}
-        </Button>
-      </div>
+      {!hideSaveButton && (
+        <div className="flex justify-end pt-4 mt-auto">
+          <Button 
+            onClick={handleSave}
+            disabled={saving}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Saving...' : (onSaveAndClose ? 'Save & Close' : 'Save Content')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 });

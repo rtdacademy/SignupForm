@@ -4,10 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui
 import GradebookSummary, { getLastActivityTime, getRelativeTime } from './GradebookSummary';
 import AssessmentGrid from './AssessmentGrid';
 import CourseProgress from './CourseProgress';
-import CourseItemDetailModal from './CourseItemDetailModal';
-import QuestionReviewModal from './QuestionReviewModal';
+//import CourseItemDetailModal from './CourseItemDetailModal';
+//import QuestionReviewModal from './QuestionReviewModal';
 
-const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccessibility = {} }) => {
+const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccessibility = {}, showHeader = true }) => {
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -23,19 +23,21 @@ const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccess
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      {/* Page Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Gradebook</h1>
-            <p className="text-gray-600 mt-1">Track your progress and manage your learning journey</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Last updated</p>
-            <p className="text-sm font-medium text-gray-700">{getRelativeTime(getLastActivityTime(course))}</p>
+      {/* Page Header - conditionally rendered */}
+      {showHeader && (
+        <div className="border-b border-gray-200 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Gradebook</h1>
+              <p className="text-gray-600 mt-1">Track your progress and manage your learning journey</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Last updated</p>
+              <p className="text-sm font-medium text-gray-700">{getRelativeTime(getLastActivityTime(course))}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
@@ -82,16 +84,6 @@ const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccess
         />
       )}
 
-      {selectedAssessment && (
-        <QuestionReviewModal
-          isOpen={reviewModalOpen}
-          onClose={() => {
-            setReviewModalOpen(false);
-            setSelectedAssessment(null);
-          }}
-          assessment={selectedAssessment}
-        />
-      )}
     </div>
   );
 };

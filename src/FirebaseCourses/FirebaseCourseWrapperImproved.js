@@ -151,8 +151,47 @@ const FirebaseCourseWrapperContent = ({
     );
   }
   
-  // Check if current user is an authorized developer
-  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
+  // Check if current user is an authorized developer with caching to prevent flickering
+  // Use a ref to track previous authorization state for persistence
+  const previousAuthRef = useRef({ wasAuthorized: false, userEmail: null, courseId: null });
+  
+  const isAuthorizedDeveloper = useMemo(() => {
+    // Calculate current authorization status
+    const currentAuth = isUserAuthorizedDeveloper(currentUser, course);
+    const currentUserEmail = currentUser?.email;
+    const currentCourseId = course?.CourseID || course?.courseId;
+    
+    // If we have valid data and user is currently authorized, cache it
+    if (currentAuth && currentUserEmail && currentCourseId) {
+      previousAuthRef.current = {
+        wasAuthorized: true,
+        userEmail: currentUserEmail,
+        courseId: currentCourseId
+      };
+      return true;
+    }
+    
+    // If current check fails but we had previous authorization for same user/course, use cached result
+    const { wasAuthorized, userEmail, courseId } = previousAuthRef.current;
+    if (wasAuthorized && 
+        currentUserEmail === userEmail && 
+        currentCourseId === courseId &&
+        currentUserEmail && currentCourseId) {
+      console.log('🔧 Using cached developer authorization to prevent flickering');
+      return true;
+    }
+    
+    // If user or course changed, clear cache and use current auth result
+    if (currentUserEmail !== userEmail || currentCourseId !== courseId) {
+      previousAuthRef.current = {
+        wasAuthorized: currentAuth,
+        userEmail: currentUserEmail,
+        courseId: currentCourseId
+      };
+    }
+    
+    return currentAuth;
+  }, [currentUser?.email, course?.CourseID, course?.courseId, currentUser, course]);
   const [activeTab, setActiveTab] = useState('content');
   
   // Developer mode toggle state - only active if user is authorized
@@ -249,6 +288,13 @@ const FirebaseCourseWrapperContent = ({
     window.scrollTo(0, 0);
   }, []);
   
+  // Clear developer authorization cache when user logs out
+  useEffect(() => {
+    if (!currentUser) {
+      previousAuthRef.current = { wasAuthorized: false, userEmail: null, courseId: null };
+    }
+  }, [currentUser]);
+
   // Initialize developer mode state from localStorage when course loads
   useEffect(() => {
     if (isAuthorizedDeveloper && course) {
@@ -601,8 +647,7 @@ const FirebaseCourseWrapperContent = ({
       ...gradebook,
       grades: {
         assessments: course?.Grades?.assessments || {}
-      },
-      assessments: course?.Assessments || {}
+      }
     };
     
     // Pass developer bypass information to handle inDevelopment restrictions

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
@@ -30,6 +30,8 @@ import PaymentInfo from './PaymentInfo';
 import PASIManager from './PASIManager';
 import StudentGradesDisplay from './StudentGradesDisplay';
 import StudentActivitySheet from './StudentActivitySheet';
+import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
+import GradebookDashboard from '../FirebaseCourses/components/gradebook/GradebookDashboard';
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -45,8 +47,24 @@ const getColorFromInitials = (initials) => {
 };
 
 function StudentDetail({ studentSummary, isMobile, onRefresh }) {
+  // Add the teacher hook just for debugging purposes
+  const studentEmailKey = studentSummary?.StudentEmail ? sanitizeEmail(studentSummary.StudentEmail) : null;
+  const teacherPermissions = {
+    canViewStudentData: true,
+    isStaff: true,
+    isTeacher: true
+  };
+  
+  const { 
+    courses: hookCourses, 
+    profile: hookProfile, 
+    loading: hookLoading, 
+    error: hookError,
+    studentExists 
+  } = useTeacherStudentData(studentEmailKey, teacherPermissions);
+  
   const [studentData, setStudentData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isComparisonSheetOpen, setIsComparisonSheetOpen] = useState(false);
@@ -67,7 +85,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const { preferences, updatePreferences } = useUserPreferences();
   const [newLMSId, setNewLMSId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
+  const [localLMSStudentID, setLocalLMSStudentID] = useState(null);
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
   
   // Notes visibility state
@@ -89,6 +107,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   // Activity sheet state
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   
+  // Firebase course detection state
+  const [isCurrentCourseFirebase, setIsCurrentCourseFirebase] = useState(false);
+  
   // Notes panel width - store it for user preference
   const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
   
@@ -96,6 +117,28 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const nameRef = useRef(null);
   const containerRef = useRef(null);
   const [nameFontSize, setNameFontSize] = useState(20);
+
+  // Effect to check if current course is a Firebase course
+  useEffect(() => {
+    const checkFirebaseCourse = async () => {
+      if (!courseId) {
+        setIsCurrentCourseFirebase(false);
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        const courseRef = ref(db, `courses/${courseId}/firebaseCourse`);
+        const snapshot = await get(courseRef);
+        setIsCurrentCourseFirebase(snapshot.val() === true);
+      } catch (error) {
+        console.error('Error checking Firebase course status:', error);
+        setIsCurrentCourseFirebase(false);
+      }
+    };
+
+    checkFirebaseCourse();
+  }, [courseId]);
 
   const [comparisonTab, setComparisonTab] = useState("unified");
   const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
@@ -128,7 +171,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
-    const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`);
+    const studentRef = ref(db, `students/${studentEmailKey}`);
     const updates = {
       [`courses/${courseId}/showStats`]: checked,
       [`courses/${courseId}/enrollmentHistory/lastChange`]: {
@@ -140,6 +183,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     update(studentRef, updates)
       .then(() => {
         console.log('Successfully updated student showStats');
+        // The hook will automatically update with the new data
+        // We can still update local state for immediate UI feedback
         setStudentData(prev => ({
           ...prev,
           courses: {
@@ -153,7 +198,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
       })
       .catch((error) => {
         console.error('Error updating student stats setting:', error);
-        alert('An error occurred while updating the student stats setting.');
+        toast.error('An error occurred while updating the student stats setting.');
       });
   };
 
@@ -207,7 +252,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     try {
       // Update the student's LMS Student ID with lastChange tracking
       await update(
-        ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`),
+        ref(db, `students/${studentEmailKey}`),
         {
           [`courses/${courseId}/LMSStudentID`]: newLMSId,
           [`courses/${courseId}/enrollmentHistory/lastChange`]: {
@@ -218,7 +263,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         }
       );
       
-      // Update local state
+      // Update local state for immediate UI feedback
       setStudentData(prev => ({
         ...prev,
         courses: {
@@ -229,6 +274,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           }
         }
       }));
+      
+      setLocalLMSStudentID(newLMSId);
   
       toast.success('LMS Student ID updated successfully');
       setNewLMSId('');
@@ -298,8 +345,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     }
   }, [currentMode, studentData, courseId, isMobile, preferences, ltiLinksComplete]);
 
+  // Original Firebase data fetching logic
   useEffect(() => {
-    if (!studentSummary) {
+    if (!studentSummary || !studentEmailKey) {
       setStudentData(null);
       setNotes([]);
       setCourseId(null);
@@ -308,133 +356,110 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
     setLoading(true);
     const db = getDatabase();
-    const sanitizedEmail = sanitizeEmail(studentSummary.StudentEmail);
-    const studentRef = ref(db, `students/${sanitizedEmail}`);
-    const paymentsRef = ref(db, `payments/${sanitizedEmail}/courses`);
-
-    const unsubscribe = onValue(studentRef, async (snapshot) => {
+    const studentRef = ref(db, `students/${studentEmailKey}`);
+    
+    const unsubscribe = onValue(studentRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
+        setStudentData(data);
+        
+        // Set course ID from the student summary
         const selectedCourseId = studentSummary.CourseID;
-
-        try {
-          // Fetch payments data
-          const paymentsSnapshot = await get(paymentsRef);
-          const paymentsData = paymentsSnapshot.val() || {};
-          
-          // Merge payments data with course data if courses exist
-          if (data.courses) {
-            Object.keys(data.courses).forEach(courseId => {
-              if (paymentsData[courseId]) {
-                data.courses[courseId].paymentDetails = paymentsData[courseId];
-              }
-            });
-          }
-
-          setStudentData(data);
-
-          // Check if the course still exists
-          if (data.courses && data.courses[selectedCourseId]) {
-            setCourseId(selectedCourseId);
-            const courseData = data.courses[selectedCourseId];
-
-            // Fetch additional course information including ltiLinksComplete
-            const courseFetchRef = ref(db, `courses/${selectedCourseId}`);
-            try {
-              const courseSnapshot = await get(courseFetchRef);
-              if (courseSnapshot.exists()) {
-                const fullCourseData = courseSnapshot.val();
-                setCourseData(fullCourseData);
-                setCourseTitle(fullCourseData.Title || 'Unknown Course');
-                setLtiLinksComplete(!!fullCourseData.ltiLinksComplete); // Set ltiLinksComplete flag
-              } else {
-                setCourseTitle('Unknown Course');
-                setLtiLinksComplete(false);
-              }
-            } catch (error) {
-              console.error('Error fetching course data:', error);
-              setCourseTitle('Unknown Course');
-              setLtiLinksComplete(false);
-            }
-
-            setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
-            setScheduleJSON(courseData.ScheduleJSON || null);
-            setJsonGradebook(courseData.jsonGradebook || null);
-
-            if (!courseData.jsonStudentNotes) {
-              const legacyNote = {
-                id: 'legacy-note',
-                content: data.profile.StudentNotes || '',
-                timestamp: 'Legacy Note',
-                author: '',
-                noteType: '📝'
-              };
-              const jsonStudentNotes = [legacyNote];
-              await update(ref(db, `students/${sanitizedEmail}`), {
-                [`courses/${selectedCourseId}/jsonStudentNotes`]: jsonStudentNotes,
-                'profileHistory/lastChange': {
-                  userEmail: user?.email || 'unknown',
-                  timestamp: Date.now(),
-                  field: 'jsonStudentNotes'
-                }
-              });
-              setNotes(jsonStudentNotes);
-            } else {
-              setNotes(courseData.jsonStudentNotes);
-            }
-
-            const staffSnapshot = await get(ref(db, `courses/${selectedCourseId}`));
-            if (staffSnapshot.exists()) {
-              const courseData = staffSnapshot.val();
-              const teacherEmails = courseData.Teachers || [];
-              const supportEmails = courseData.SupportStaff || [];
-
-              const staffPromises = [
-                ...teacherEmails.map(email =>
-                  get(ref(db, `staff/${sanitizeEmail(email)}`))
-                    .then(snap => ({ ...snap.val(), role: 'Teacher' }))
-                ),
-                ...supportEmails.map(email =>
-                  get(ref(db, `staff/${sanitizeEmail(email)}`))
-                    .then(snap => ({ ...snap.val(), role: 'Support Staff' }))
-                )
-              ];
-
-              const staffData = await Promise.all(staffPromises);
-              setAssignedStaff(staffData.filter(Boolean));
-            }
-          } else {
-            // Course was deleted or doesn't exist
-            setCourseId(null);
-            setJsonGradebookSchedule(null);
-            setScheduleJSON(null);
-            setJsonGradebook(null);
-            setNotes([]);
-            setLtiLinksComplete(false);
-          }
-
-          if (prevDataRef.current) {
-            setChangedFields(findChangedFields(prevDataRef.current, data));
-          }
-          prevDataRef.current = data;
-        } catch (error) {
-          console.error('Error fetching additional data:', error);
-          setStudentData(data); // Still set the basic student data even if additional fetches fail
+        setCourseId(selectedCourseId);
+        
+        // Set course-specific data
+        if (data.courses && data.courses[selectedCourseId]) {
+          const courseData = data.courses[selectedCourseId];
+          setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
+          setScheduleJSON(courseData.ScheduleJSON || null);
+          setJsonGradebook(courseData.jsonGradebook || null);
+          setNotes(courseData.jsonStudentNotes || []);
+          setLocalLMSStudentID(courseData.LMSStudentID || null);
         }
+        
+        // Track field changes
+        if (prevDataRef.current) {
+          setChangedFields(findChangedFields(prevDataRef.current, data));
+        }
+        prevDataRef.current = data;
       } else {
-        // Student data doesn't exist
         setStudentData(null);
+        setNotes([]);
         setCourseId(null);
-        setLtiLinksComplete(false);
       }
       setLoading(false);
+    }, (error) => {
+      console.error('Error fetching student data:', error);
+      setLoading(false);
     });
+    
+    return () => unsubscribe();
+  }, [studentSummary, studentEmailKey]);
 
-    return () => {
-      off(studentRef);
-      unsubscribe();
-    };
-  }, [studentSummary]);
+  // Fetch course data separately
+  useEffect(() => {
+    if (!courseId) return;
+    
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${courseId}`);
+    
+    const unsubscribe = onValue(courseRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setCourseData(data);
+        setCourseTitle(data.Title || 'Unknown Course');
+        setLtiLinksComplete(!!data.ltiLinksComplete);
+        
+        // Extract staff information
+        const teachers = data.teachers || {};
+        const supportStaff = data.supportStaff || {};
+        
+        const staffArray = [
+          ...Object.values(teachers).map(teacher => ({ ...teacher, role: 'Teacher' })),
+          ...Object.values(supportStaff).map(support => ({ ...support, role: 'Support Staff' }))
+        ];
+        
+        setAssignedStaff(staffArray.filter(Boolean));
+      } else {
+        setCourseTitle('Unknown Course');
+        setLtiLinksComplete(false);
+        setAssignedStaff([]);
+      }
+    }, (error) => {
+      console.error('Error fetching course data:', error);
+    });
+    
+    return () => unsubscribe();
+  }, [courseId]);
+
+  // Add a debugging useEffect to log the course from the hook
+  useEffect(() => {
+    if (hookCourses && hookCourses.length > 0 && studentSummary?.CourseID) {
+      const selectedCourseId = studentSummary.CourseID;
+      
+      // Enhanced debugging with type checking
+      console.log('🔍 STUDENT DETAIL - Hook Course Debug:', {
+        selectedCourseId,
+        selectedCourseIdType: typeof selectedCourseId,
+        hookCoursesCount: hookCourses.length,
+        hookCourseIds: hookCourses.map(c => ({ id: c.id, type: typeof c.id })),
+        studentEmailKey,
+        hookLoading,
+        hookError,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      
+      // Try both strict and loose comparison
+      const foundCourseStrict = hookCourses.find(course => course.id === selectedCourseId);
+      const foundCourseLoose = hookCourses.find(course => String(course.id) === String(selectedCourseId));
+      
+      // Log the raw course object for debugging
+      console.log('Raw course object from hook (strict):', foundCourseStrict);
+      console.log('Raw course object from hook (loose):', foundCourseLoose);
+      
+   
+    }
+  }, [hookCourses, studentSummary, studentEmailKey, hookLoading, hookError]);
 
   // Update the font sizing useEffect
   useEffect(() => {
@@ -678,13 +703,33 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
       );
     }
 
+    // Check if this is a Firebase course
+    if (isCurrentCourseFirebase) {
+      // Use data from useTeacherStudentData hook for Firebase courses
+      const course = hookCourses?.[courseId];
+      const allCourseItems = []; // This would need to be populated if needed
+      const lessonAccessibility = {}; // This would need to be populated if needed
+      
+      return (
+        <div className="h-full">
+          <GradebookDashboard 
+            course={course}
+            allCourseItems={allCourseItems}
+            profile={hookProfile}
+            lessonAccessibility={lessonAccessibility}
+            showHeader={false}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="h-full">
         <div className="flex justify-end mb-2">
          
         </div>
         <StudentGradesDisplay
-          studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+          studentKey={studentEmailKey}
           courseId={courseId}
           useSheet={false}
           className="h-full"
@@ -877,6 +922,16 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+    );
+  }
+
   if (!studentSummary || !studentData || !courseId || !studentData.courses || !studentData.courses[courseId]) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -886,16 +941,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             <p className="text-sm">Select a student from the list to view or manage their courses.</p>
           )}
         </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
       </div>
     );
   }
@@ -1243,7 +1288,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             </div>
             <div className="h-[calc(100%-2rem)] overflow-hidden">
               <StudentNotes
-                studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+                studentEmail={studentEmailKey}
                 courseId={courseId}
                 initialNotes={notes}
                 onNotesUpdate={setNotes}
@@ -1485,7 +1530,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               courseData={studentData?.courses[courseId]}
               changedFields={changedFields}
               courseId={courseId}
-              studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+              studentKey={studentEmailKey}
               onClose={() => setIsSheetOpen(false)}
             />
           </SheetContent>
@@ -1532,7 +1577,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               {/* Payment Content */}
               <div className="flex-1 overflow-auto">
                 <PaymentInfo 
-                  studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+                  studentKey={studentEmailKey}
                   courseId={courseId}
                   paymentStatus={studentData.courses[courseId].payment_status?.status}
                   paymentDetails={studentData.courses[courseId].paymentDetails}
@@ -1592,7 +1637,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               {/* Notes Content */}
               <div className="flex-1 overflow-auto">
                 <StudentNotes
-                  studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+                  studentEmail={studentEmailKey}
                   courseId={courseId}
                   initialNotes={notes}
                   onNotesUpdate={setNotes}
@@ -1658,7 +1703,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               {courseId ? (
                 <div className="flex-1">
                   <ScheduleMaker 
-                    studentKey={sanitizeEmail(studentSummary.StudentEmail)} 
+                    studentKey={studentEmailKey} 
                     courseId={courseId} 
                     onClose={() => setIsScheduleDialogOpen(false)}
                   />

@@ -289,6 +289,10 @@ const StandardMultipleChoiceQuestion = ({
   
   // AI Assistant props (following AIAccordion pattern)
   onAIAccordionContent = null, // Callback to send extracted content to AI chat
+  
+  // Manual grading props
+  manualGradeData = null, // Manual grade data from Grades.assessments
+  manualGradeMetadata = null, // Manual grade metadata from Grades.metadata
 }) => {
   // Use assessmentId if provided, otherwise fall back to cloudFunctionName for backward compatibility
   const finalAssessmentId = assessmentId || cloudFunctionName;
@@ -460,7 +464,7 @@ const StandardMultipleChoiceQuestion = ({
 
         unsubscribeRef = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
-          const validStatuses = ['active', 'exam_in_progress', 'completed', 'attempted', 'failed'];
+          const validStatuses = ['active', 'exam_in_progress', 'completed', 'attempted', 'failed', 'manually_graded'];
           
           if (data) {
             // Check if the assessment has a valid status for display
@@ -1445,14 +1449,16 @@ This student answered correctly! Reinforce their understanding and help them con
                     custom={index}
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    className={`flex items-center p-3.5 border rounded-md cursor-pointer transition-all duration-200 ${
+                    className={`flex items-center p-3.5 border rounded-md transition-all duration-200 ${
                       selectedAnswer === option.id
                         ? `bg-${themeConfig.light} border-${themeConfig.accent} ring-1 ${themeConfig.ring}`
+                        : question?.status === 'manually_graded' && question?.lastSubmission?.answer === option.id
+                        ? 'bg-indigo-50 border-indigo-300'
                         : 'bg-white hover:bg-gray-50 border-gray-200'
-                    }`}
+                    } ${question?.status === 'manually_graded' ? '' : 'cursor-pointer'}`}
                     onClick={() => {
-                      // Only allow selection if there's no result yet
-                      if (!result) {
+                      // Only allow selection if there's no result yet and not manually graded
+                      if (!result && question?.status !== 'manually_graded') {
                         setSelectedAnswer(option.id);
                       }
                     }}
@@ -1463,8 +1469,8 @@ This student answered correctly! Reinforce their understanding and help them con
                       name={instanceId}
                       value={option.id}
                       checked={selectedAnswer === option.id}
-                      onChange={() => !result && setSelectedAnswer(option.id)}
-                      disabled={result !== null} // Disable after submission
+                      onChange={() => !result && question?.status !== 'manually_graded' && setSelectedAnswer(option.id)}
+                      disabled={result !== null || question?.status === 'manually_graded'} // Disable after submission or manual grading
                       className={`mr-3 h-4 w-4 cursor-pointer text-${themeConfig.accent} focus:ring-${themeConfig.accent}`}
                     />
                     <label 
@@ -1475,21 +1481,29 @@ This student answered correctly! Reinforce their understanding and help them con
                     </label>
 
                     {/* Show the correct/incorrect icon if there's a result (but NOT in exam mode) */}
-                    {!isExamMode && result?.isCorrect && selectedAnswer === option.id && (
-                      <span className="text-green-600 ml-2">✓</span>
-                    )}
-                    {!isExamMode && result?.correctOptionId === option.id && !result.isCorrect && (
-                      <span className="text-green-600 ml-2">✓</span>
-                    )}
-                    {!isExamMode && !result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
-                      <span className="text-red-600 ml-2">✗</span>
+                    {!isExamMode && result && (
+                      <>
+                        {/* Show checkmark on the correct answer */}
+                        {result.correctOptionId === option.id && (
+                          <span className="text-green-600 ml-2">✓</span>
+                        )}
+                        {/* Show X on the student's incorrect answer (only if it's different from correct) */}
+                        {!result.isCorrect && (
+                          // Use result.answer if available, otherwise fall back to selectedAnswer for immediate display
+                          ((result.answer && result.answer === option.id) || (!result.answer && selectedAnswer === option.id)) &&
+                          // Make sure it's different from the correct answer
+                          ((result.answer && result.answer !== result.correctOptionId) || (!result.answer && selectedAnswer !== result.correctOptionId))
+                        ) && (
+                          <span className="text-red-600 ml-2">✗</span>
+                        )}
+                      </>
                     )}
                   </motion.div>
                 ))}
               </div>
 
               {/* Submit/Save button - behavior depends on exam mode */}
-              {!result && !showExamFeedback && (
+              {!result && !showExamFeedback && question?.status !== 'manually_graded' && (
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !selectedAnswer}
@@ -1506,6 +1520,24 @@ This student answered correctly! Reinforce their understanding and help them con
                       'Submit Answer'
                   }
                 </Button>
+              )}
+
+              {/* Manual Grade Display */}
+              {question?.status === 'manually_graded' && (
+                <motion.div
+                  variants={animations.slideUp}
+                  initial="hidden"
+                  animate="show"
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                  className="mt-5 p-4 rounded-md shadow-sm bg-indigo-50 border border-indigo-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold text-indigo-900">Manually Graded</h4>
+                    <div className="text-2xl font-bold text-indigo-700">
+                      {manualGradeMetadata?.currentScore || question?.correctOverall ? 1 : 0} / {manualGradeMetadata?.pointsValue || question?.pointsValue || 1}
+                    </div>
+                  </div>
+                </motion.div>
               )}
 
               {/* Result feedback - hidden in exam mode unless exam is completed */}
