@@ -13,15 +13,12 @@ import {
 } from './utils/gradeCalculations';
 import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
-import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
 import CourseOutline from './components/CourseOutline';
 import CourseResources from './components/CourseResources';
 // Import the comprehensive GradebookDashboard component
 import { 
-  GradebookDashboard,
-  CourseItemDetailModal, 
-  QuestionReviewModal 
+  GradebookDashboard
 } from './components/gradebook';
 import { Skeleton } from '../components/ui/skeleton';
 import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
@@ -186,7 +183,7 @@ const FirebaseCourseWrapperContent = ({
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [reviewQuestion, setReviewQuestion] = useState(null);
-  const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
+  //const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
@@ -604,7 +601,8 @@ const FirebaseCourseWrapperContent = ({
       ...gradebook,
       grades: {
         assessments: course?.Grades?.assessments || {}
-      }
+      },
+      assessments: course?.Assessments || {}
     };
     
     // Pass developer bypass information to handle inDevelopment restrictions
@@ -663,6 +661,8 @@ const FirebaseCourseWrapperContent = ({
   }, [course?.CourseID, courseModuleLoaded]);
 
   // Validate gradebook structure and sync course config when course loads
+  // TEMPORARILY COMMENTED OUT FOR TESTING - Kyle
+  /*
   useEffect(() => {
     const validateAndSyncCourseConfig = async () => {
       // Only validate for authenticated users with a valid course
@@ -715,6 +715,7 @@ const FirebaseCourseWrapperContent = ({
       return () => clearTimeout(timer);
     }
   }, [course?.CourseID, currentUser?.email, allCourseItems.length, isStaffView, devMode]);
+  */
 
   // Set content ready state when all necessary data is loaded including course module
   useEffect(() => {
@@ -806,7 +807,7 @@ const FirebaseCourseWrapperContent = ({
           const completedCount = allCourseItems.filter(item => {
             const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
             const gradebookItem = gradebook?.items?.[item.itemId];
-            return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+            return courseStructureItem?.completed || gradebookItem?.status === 'completed' || gradebookItem?.status === 'manually_graded';
           }).length;
           courseProgress = Math.round((completedCount / allCourseItems.length) * 100);
         }
@@ -919,7 +920,7 @@ const FirebaseCourseWrapperContent = ({
     });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, profile?.StudentEmail, currentUser?.email]);
+  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, course?.Assessments, profile?.StudentEmail, currentUser?.email]);
 
  
   
@@ -1093,21 +1094,15 @@ const FirebaseCourseWrapperContent = ({
         <main className="flex-1 p-6">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
-              {(isStaffView && devMode) && (
-                <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
-                  <span className="font-medium text-yellow-800">Staff Developer Mode:</span>
-                  <span className="ml-2 text-yellow-700">
-                    You can directly interact with the database in this view for testing questions.
-                  </span>
-                </div>
-              )}
+          
               
-              {/* Lesson Progress Bars - Hidden for AssessmentSession lessons */}
+              {/* Lesson Progress Bars - Hidden for AssessmentSession lessons and labs */}
               {currentActiveItem && (() => {
-                // Hide progress bars for assignments, exams, and quizzes (which use AssessmentSession)
+                // Hide progress bars for assignments, exams, quizzes, and labs
                 if (currentActiveItem.type === 'assignment' || 
                     currentActiveItem.type === 'exam' || 
-                    currentActiveItem.type === 'quiz') {
+                    currentActiveItem.type === 'quiz' ||
+                    currentActiveItem.type === 'lab') {
                   return null;
                 }
                 
@@ -1363,29 +1358,8 @@ const FirebaseCourseWrapperContent = ({
         </button>
       )}
       
-      {/* Course Item Detail Modal */}
-      <CourseItemDetailModal
-        item={selectedCourseItem}
-        isOpen={isItemDetailModalOpen}
-        onClose={() => {
-          setIsItemDetailModalOpen(false);
-          setSelectedCourseItem(null);
-        }}
-        onReviewQuestion={(question) => {
-          setReviewQuestion(question);
-          setIsQuestionReviewModalOpen(true);
-        }}
-      />
-      
-      {/* Question Review Modal */}
-      <QuestionReviewModal
-        question={reviewQuestion}
-        isOpen={isQuestionReviewModalOpen}
-        onClose={() => {
-          setIsQuestionReviewModalOpen(false);
-          setReviewQuestion(null);
-        }}
-      />
+
+ 
       
       {/* Course Outline Modal */}
       <CourseOutline

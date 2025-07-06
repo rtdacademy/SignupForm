@@ -90,13 +90,31 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     };
   }
 
-  // Check if this assessment has session-based scoring
-  if (studentEmail && hasSessionBasedScoring(normalizedLessonId, course, studentEmail)) {
-    console.log(`🎯 Using session-based scoring for ${normalizedLessonId}`);
-    return calculateSessionBasedScore(normalizedLessonId, course, studentEmail);
+  // Check if this assessment should use session-based scoring
+  if (studentEmail && shouldUseSessionBasedScoring(normalizedLessonId, course)) {
+    console.log(`🎯 Assessment ${normalizedLessonId} should use session-based scoring`);
+    
+    // Check if sessions actually exist
+    if (hasSessionBasedScoring(normalizedLessonId, course, studentEmail)) {
+      return calculateSessionBasedScore(normalizedLessonId, course, studentEmail);
+    } else {
+      // Should use sessions but none exist - return 0 score
+      console.log(`⚠️ No sessions found for ${normalizedLessonId} - returning 0 score`);
+      return {
+        score: 0,
+        total: 0,
+        percentage: 0,
+        attempted: 0,
+        totalQuestions: 0,
+        valid: true,
+        source: 'session',
+        strategy: getSessionScoringStrategy(normalizedLessonId, course),
+        sessionsCount: 0
+      };
+    }
   }
 
-  // Fall back to individual question scoring
+  // Fall back to individual question scoring for lessons
   console.log(`📝 Using individual question scoring for ${normalizedLessonId}`);
   
   if (!lessonConfig.questions) {
@@ -113,10 +131,23 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   }
 
   const grades = course.Grades.assessments;
+  const assessmentData = course.Assessments || {};
   let totalScore = 0;
   let totalPossible = 0;
   let attemptedQuestions = 0;
   const totalQuestions = lessonConfig.questions.length;
+
+  // Helper function to check if a question has been attempted or manually graded
+  const isQuestionAttempted = (questionId) => {
+    // Check if grade exists (traditional method)
+    const hasGrade = grades.hasOwnProperty(questionId);
+    
+    // Check if assessment status indicates manual grading
+    const assessmentStatus = assessmentData[questionId]?.status;
+    const isManuallyGraded = assessmentStatus === 'manually_graded';
+    
+    return hasGrade || isManuallyGraded;
+  };
 
   lessonConfig.questions.forEach(question => {
     const questionId = question.questionId;
@@ -125,8 +156,8 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     
     totalPossible += maxPoints;
     
-    // If grade exists (even if 0), student has attempted
-    if (grades.hasOwnProperty(questionId)) {
+    // If grade exists (even if 0) or question is manually graded, student has attempted
+    if (isQuestionAttempted(questionId)) {
       attemptedQuestions += 1;
       totalScore += actualGrade;
     }
@@ -320,18 +351,28 @@ export const findAssessmentSessions = (assessmentId, course, studentEmail) => {
   Object.entries(course.ExamSessions).forEach(([sessionId, sessionData]) => {
     // Check if session matches criteria:
     // 1. Same examItemId (assessment)
-    // 2. Completed status
+    // 2. Any status (completed, in_progress, exited)
     // 3. Session key contains sanitized email
     if (sessionData.examItemId === assessmentId && 
-        sessionData.status === 'completed' &&
-        sessionId.includes(sanitizedEmail) &&
-        sessionData.finalResults) {
-      sessions.push(sessionData);
+        sessionId.includes(sanitizedEmail)) {
+      // Calculate progress within the session based on responses
+      const totalQuestions = sessionData.questions?.length || 0;
+      const answeredQuestions = Object.keys(sessionData.responses || {}).length;
+      const sessionProgress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+      
+      // Add progress info to session data
+      sessions.push({
+        ...sessionData,
+        sessionId: sessionId,
+        totalQuestions: totalQuestions,
+        answeredQuestions: answeredQuestions,
+        sessionProgress: sessionProgress
+      });
     }
   });
   
-  // Sort by completion time (newest first)
-  sessions.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+  // Sort by last updated time (newest first)
+  sessions.sort((a, b) => (b.lastUpdated || b.completedAt || 0) - (a.lastUpdated || a.completedAt || 0));
   
   return sessions;
 };
@@ -407,6 +448,32 @@ export const aggregateSessionScores = (sessions, strategy) => {
 };
 
 /**
+ * Check if an assessment SHOULD use session-based scoring (based on type/config)
+ * @param {string} assessmentId - The assessment ID
+ * @param {Object} course - The course object
+ * @returns {boolean} - True if this assessment should use session-based scoring
+ */
+export const shouldUseSessionBasedScoring = (assessmentId, course) => {
+  const normalizedAssessmentId = assessmentId.replace(/-/g, '_');
+  const itemStructure = course.Gradebook?.courseConfig?.gradebook?.itemStructure;
+  
+  if (!itemStructure || !itemStructure[normalizedAssessmentId]) {
+    return false;
+  }
+  
+  const itemConfig = itemStructure[normalizedAssessmentId];
+  
+  // Check if explicitly configured for session scoring
+  if (itemConfig.assessmentSettings?.sessionScoring) {
+    return true;
+  }
+  
+  // Check item type - assignments, exams, quizzes should use sessions
+  const itemType = itemConfig.type;
+  return itemType === 'assignment' || itemType === 'exam' || itemType === 'quiz';
+};
+
+/**
  * Check if an assessment has session-based scoring (completed exam sessions exist)
  * @param {string} assessmentId - The assessment ID
  * @param {Object} course - The course object
@@ -441,17 +508,43 @@ export const calculateSessionBasedScore = (assessmentId, course, studentEmail) =
   }
   
   const strategy = getSessionScoringStrategy(assessmentId, course);
-  const selectedSession = aggregateSessionScores(sessions, strategy);
+  
+  // Filter completed sessions for scoring strategy
+  const completedSessions = sessions.filter(session => session.status === 'completed' && session.finalResults);
+  
+  if (completedSessions.length === 0) {
+    // No completed sessions, but sessions exist - return progress info
+    const latestSession = sessions[0]; // Most recent session
+    return {
+      score: 0,
+      total: latestSession.totalQuestions || 0,
+      percentage: 0,
+      attempted: latestSession.answeredQuestions || 0,
+      totalQuestions: latestSession.totalQuestions || 0,
+      valid: true,
+      source: 'session',
+      strategy: strategy,
+      sessionsCount: sessions.length,
+      sessionStatus: latestSession.status,
+      sessionProgress: latestSession.sessionProgress || 0
+    };
+  }
+  
+  // Use completed sessions for scoring
+  const selectedSession = aggregateSessionScores(completedSessions, strategy);
   
   return {
     score: selectedSession.finalResults.score,
     total: selectedSession.finalResults.maxScore,
     percentage: selectedSession.finalResults.percentage,
-    attempted: sessions.length, // Number of attempts made
+    attempted: sessions.length, // Total number of attempts (including incomplete)
     totalQuestions: selectedSession.finalResults.totalQuestions,
     valid: true,
     source: 'session',
     strategy: strategy,
-    sessionsCount: sessions.length
+    sessionsCount: sessions.length,
+    completedSessionsCount: completedSessions.length,
+    sessionStatus: sessions[0].status, // Status of most recent session
+    sessionProgress: sessions[0].sessionProgress || 0
   };
 };

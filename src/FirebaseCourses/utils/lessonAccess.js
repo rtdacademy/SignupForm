@@ -228,6 +228,21 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   const itemStructure = courseConfig?.gradebook?.itemStructure;
   const actualGrades = courseGradebook.grades?.assessments || {}; // course.Grades.assessments
   
+  // Access assessment status data (course.Assessments)
+  const assessmentData = courseGradebook.assessments || {};
+  
+  // Helper function to check if a question has been attempted or manually graded
+  const isQuestionAttempted = (questionId) => {
+    // Check if grade exists (traditional method)
+    const hasGrade = actualGrades.hasOwnProperty(questionId);
+    
+    // Check if assessment status indicates manual grading
+    const assessmentStatus = assessmentData[questionId]?.status;
+    const isManuallyGraded = assessmentStatus === 'manually_graded';
+    
+    return hasGrade || isManuallyGraded;
+  };
+  
   if (!itemStructure || !actualGrades) {
     console.warn('Missing required data structures for lesson access checking:', {
       hasItemStructure: !!itemStructure,
@@ -277,8 +292,8 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     
     totalPossible += maxPoints;
     
-    // If grade exists (even if 0), student has attempted
-    if (actualGrades.hasOwnProperty(questionId)) {
+    // If grade exists (even if 0) or question is manually graded, student has attempted
+    if (isQuestionAttempted(questionId)) {
       attemptedQuestions += 1;
       totalScore += actualGrade;
     }
@@ -493,9 +508,10 @@ const getTotalQuestionsForLesson = (lessonId, courseConfig) => {
  * @param {Object} assessmentData - Assessment/gradebook data from Firebase (legacy - may not have actual grades)
  * @param {Object} courseConfig - Course configuration with itemStructure
  * @param {Object} actualGrades - course.Grades.assessments object
+ * @param {Object} assessmentStatusData - course.Assessments object with status information
  * @returns {number} - Number of questions attempted (with at least one attempt)
  */
-const getAttemptedQuestionsForLesson = (lessonId, assessmentData, courseConfig = null, actualGrades = null) => {
+const getAttemptedQuestionsForLesson = (lessonId, assessmentData, courseConfig = null, actualGrades = null, assessmentStatusData = null) => {
   // If we have the new data structure, use it
   if (courseConfig && actualGrades) {
     const gradebookStructure = courseConfig?.gradebook?.itemStructure;
@@ -511,11 +527,26 @@ const getAttemptedQuestionsForLesson = (lessonId, assessmentData, courseConfig =
       return 0;
     }
     
-    // Count questions that have been attempted (grade exists, even if 0)
+    // Helper function to check if a question has been attempted or manually graded
+    const isQuestionAttempted = (questionId) => {
+      // Check if grade exists (traditional method)
+      const hasGrade = actualGrades.hasOwnProperty(questionId);
+      
+      // Check if assessment status indicates manual grading
+      if (assessmentStatusData) {
+        const assessmentStatus = assessmentStatusData[questionId]?.status;
+        const isManuallyGraded = assessmentStatus === 'manually_graded';
+        return hasGrade || isManuallyGraded;
+      }
+      
+      return hasGrade;
+    };
+
+    // Count questions that have been attempted (grade exists, even if 0, or manually graded)
     let attemptedCount = 0;
     lessonStructure.questions.forEach(question => {
       const questionId = question.questionId;
-      if (actualGrades.hasOwnProperty(questionId)) {
+      if (isQuestionAttempted(questionId)) {
         attemptedCount++;
       }
     });
