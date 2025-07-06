@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   processNotificationsForCourses as processNotificationsUtil,
 } from '../../utils/notificationFilterUtils';
+import { sanitizeEmail } from '../../utils/sanitizeEmail';
 
 /**
  * Teacher version of useStudentData that allows teachers to fetch and construct
@@ -337,6 +338,9 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             (Array.isArray(course.allowedEmails) && course.allowedEmails.includes(userEmail));
 
           if (includeForUser) {
+            // Generate studentKey from the user's email
+            const studentKey = sanitizeEmail(userEmail);
+
             // Format the required course to match the structure of student courses
             requiredCourses.push({
               id,
@@ -344,6 +348,7 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
               Course: { Value: course.Title },
               ActiveFutureArchived: { Value: "Active" },
               Created: course.Created || new Date().toISOString(),
+              studentKey, // Add studentKey to required course data
               // Include the full course object here without modifications
               courseDetails: course,
               payment: {
@@ -399,10 +404,14 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
           // Fetch payment info (teachers can see this for administrative purposes)
           const paymentInfo = await fetchPaymentDetails(id);
 
+          // Generate studentKey from the student's email
+          const studentKey = studentData.profile?.StudentEmail ? sanitizeEmail(studentData.profile.StudentEmail) : null;
+
           // Build the enhanced course object with proper Gradebook structure
           const enhancedCourse = {
             id,
             ...studentCourse,
+            studentKey, // Add studentKey to course data
             courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time
             payment: paymentInfo || {
               status: 'unpaid',

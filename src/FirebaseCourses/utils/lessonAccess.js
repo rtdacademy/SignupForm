@@ -103,6 +103,9 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       grades: { assessments: actualGrades }
     });
     
+    // Debug logging for lesson access
+    console.log(`🔓 Access Check: "${currentItem.title}" - Previous lesson "${previousItem.title}" completed: ${isPreviousCompleted}`);
+    
     // Get required criteria info for better error messages
     let requiredPercentage = null;
     let detailedReason = isPreviousCompleted 
@@ -216,6 +219,17 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
+  // Check for manual completion status first (overrides score-based completion)
+  const courseStructureItem = courseGradebook?.courseStructureItems?.[lessonId];
+  const gradebookItem = courseGradebook?.items?.[lessonId];
+  
+  // If manually graded or explicitly marked as completed, consider it complete
+  if (courseStructureItem?.completed || 
+      gradebookItem?.status === 'completed' || 
+      gradebookItem?.status === 'manually_graded') {
+    return true;
+  }
+  
   const courseConfig = courseGradebook.courseConfig;
   const progressionRequirements = courseConfig?.progressionRequirements;
   
@@ -227,6 +241,15 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   // Use new data sources for reliable calculations
   const itemStructure = courseConfig?.gradebook?.itemStructure;
   const actualGrades = courseGradebook.grades?.assessments || {}; // course.Grades.assessments
+  
+  if (!itemStructure || !actualGrades) {
+    console.warn('Missing required data structures for lesson access checking:', {
+      hasItemStructure: !!itemStructure,
+      hasActualGrades: !!actualGrades,
+      lessonId
+    });
+    return hasBasicCompletionCheck(lessonId, assessmentData);
+  }
   
   if (!itemStructure || !actualGrades) {
     console.warn('Missing required data structures for lesson access checking:', {

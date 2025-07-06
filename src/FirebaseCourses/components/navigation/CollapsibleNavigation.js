@@ -16,7 +16,9 @@ import {
   TrendingDown,
   // SEQUENTIAL_ACCESS_UPDATE: Added Lock icon for lesson access control
   Lock,
-  RefreshCw
+  RefreshCw,
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
@@ -26,6 +28,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { 
   isUserAuthorizedDeveloper
 } from '../../utils/authUtils';
+// Import grade calculation utilities for session-based scoring
+import { calculateLessonScore, shouldUseSessionBasedScoring, checkLessonCompletion } from '../../utils/gradeCalculations';
+import { formatScore } from '../../utils/gradeUtils';
 import { 
   Accordion,
   AccordionItem,
@@ -170,81 +175,16 @@ const CollapsibleNavigation = ({
   const overallProgress = useMemo(() => {
     if (!allCourseItems.length) return 0;
     
-    const gradebook = course?.Gradebook;
-    const itemStructure = gradebook?.courseConfig?.gradebook?.itemStructure;
-    const actualGrades = course?.Grades?.assessments || {};
-    const progressionRequirements = gradebook?.courseConfig?.progressionRequirements;
+    const studentEmail = currentUser?.email || user?.email;
     
-    // If we don't have the new data structure, fall back to old logic
-    if (!itemStructure || !progressionRequirements?.enabled) {
-      const completedCount = allCourseItems.filter(item => {
-        const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
-        const gradebookItem = gradebook?.items?.[item.itemId];
-        return courseStructureItem?.completed || gradebookItem?.status === 'completed';
-      }).length;
-      return Math.round((completedCount / allCourseItems.length) * 100);
-    }
-    
-    // Use progression requirements to determine completion
+    // Use the same calculation method as CourseProgress.js
     const completedCount = allCourseItems.filter(item => {
-      // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
-      const normalizedItemId = item.itemId.replace(/-/g, '_');
-      const itemConfig = itemStructure[normalizedItemId];
-      
-      if (!itemConfig || !itemConfig.questions) {
-        return false; // Can't be completed if no questions
-      }
-      
-      // Get progression criteria for this item
-      const itemOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[normalizedItemId];
-      const defaultCriteria = progressionRequirements.defaultCriteria || {};
-      
-      const criteria = {
-        minimumPercentage: itemOverride?.minimumPercentage ?? 
-                          defaultCriteria.minimumPercentage ?? 
-                          50,
-        requireAllQuestions: itemOverride?.requireAllQuestions ?? 
-                            defaultCriteria.requireAllQuestions ?? 
-                            true
-      };
-      
-      // Calculate item score using actual grades
-      let totalScore = 0;
-      let totalPossible = 0;
-      let attemptedQuestions = 0;
-      const totalQuestions = itemConfig.questions.length;
-      
-      itemConfig.questions.forEach(question => {
-        const questionId = question.questionId;
-        const maxPoints = question.points || 1;
-        const actualGrade = actualGrades[questionId] || 0;
-        
-        totalPossible += maxPoints;
-        
-        if (actualGrades.hasOwnProperty(questionId)) {
-          attemptedQuestions += 1;
-          totalScore += actualGrade;
-        }
-      });
-      
-      const itemPercentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
-      const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
-      
-      // Check if item meets completion requirements
-      let isCompleted = false;
-      if (criteria.requireAllQuestions) {
-        // Must attempt all questions AND meet minimum score
-        isCompleted = completionRate >= 100 && itemPercentage >= criteria.minimumPercentage;
-      } else {
-        // Only need to meet minimum score (allows partial completion)
-        isCompleted = itemPercentage >= criteria.minimumPercentage;
-      }
-      
-      return isCompleted;
+      // Use checkLessonCompletion for consistency with CourseProgress component
+      return checkLessonCompletion(item.itemId, course, studentEmail);
     }).length;
     
     return Math.round((completedCount / allCourseItems.length) * 100);
-  }, [allCourseItems, course]);
+  }, [allCourseItems, course, currentUser, user]);
 
   // SEQUENTIAL_ACCESS_UPDATE: Now receives lesson accessibility as a prop from parent
   // Original code (before sequential access): Only had overallProgress calculation above
@@ -330,59 +270,74 @@ const CollapsibleNavigation = ({
     }
   };
   
+  // Helper function to check if an item has teacher comments
+  const hasTeacherComments = (itemId) => {
+    if (!course?.TeacherComments || !itemId) return false;
+    
+    // First try to get the questionId from the gradebook course config
+    let questionId = itemId; // fallback to original itemId
+    
+    try {
+      // Look up the questionId for this itemId in the gradebook configuration
+      const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[itemId];
+      if (itemStructure?.questions?.[0]?.questionId) {
+        questionId = itemStructure.questions[0].questionId;
+      }
+    } catch (error) {
+      console.warn(`Could not resolve questionId for itemId: ${itemId}`, error);
+    }
+    
+    // Check if this item has any teacher comments using the resolved questionId
+    const itemComments = course.TeacherComments[questionId];
+    if (!itemComments) {
+      // Also try with the original itemId as fallback
+      const fallbackComments = course.TeacherComments[itemId];
+      if (!fallbackComments) return false;
+      
+      // Check all comment types for fallback
+      return Object.values(fallbackComments).some(comment => 
+        comment && typeof comment === 'object' && comment.content && comment.content.trim()
+      );
+    }
+    
+    // Check all comment types for this item
+    return Object.values(itemComments).some(comment => 
+      comment && typeof comment === 'object' && comment.content && comment.content.trim()
+    );
+  };
+
   const renderItem = (item, unitIndex, itemIndex) => {
     // Use the same reliable calculation as the progress bars at the top
     const gradebook = course?.Gradebook;
     const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
     const gradebookItem = gradebook?.items?.[item.itemId];
     
-    // Calculate lesson score using the correct data sources (same as calculateLessonScore)
-    let lessonPercentage = 0;
-    let lessonScore = 0;
-    let lessonTotal = 0;
-    let attemptedQuestions = 0;
-    let totalQuestions = 0;
+    // Get student email for session-based scoring
+    const studentEmail = currentUser?.email || user?.email;
     
-    // Use new reliable data sources
-    const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
-    const actualGrades = course?.Grades?.assessments || {};
+    // Use the unified grade calculation function that supports both individual and session-based scoring
+    const scoreData = calculateLessonScore(item.itemId, course, studentEmail);
     
-    if (itemStructure && actualGrades) {
-      // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
-      const normalizedItemId = item.itemId.replace(/-/g, '_');
-      const lessonConfig = itemStructure[normalizedItemId];
-      
-      if (lessonConfig && lessonConfig.questions) {
-        totalQuestions = lessonConfig.questions.length;
-        
-        lessonConfig.questions.forEach(question => {
-          const questionId = question.questionId;
-          const maxPoints = question.points || 1;
-          const actualGrade = actualGrades[questionId] || 0;
-          
-          lessonTotal += maxPoints;
-          
-          // If grade exists (even if 0), student has attempted
-          if (actualGrades.hasOwnProperty(questionId)) {
-            attemptedQuestions += 1;
-            lessonScore += actualGrade;
-          }
-        });
-        
-        lessonPercentage = lessonTotal > 0 ? (lessonScore / lessonTotal) * 100 : 0;
-      }
-    }
+    // Extract values from the unified calculation
+    let lessonPercentage = scoreData.valid ? scoreData.percentage : 0;
+    let lessonScore = scoreData.valid ? scoreData.score : 0;
+    let lessonTotal = scoreData.valid ? scoreData.total : 0;
+    let attemptedQuestions = scoreData.valid ? scoreData.attempted : 0;
+    let totalQuestions = scoreData.valid ? scoreData.totalQuestions : 0;
+    const isSessionBased = scoreData.source === 'session';
+    const sessionCount = scoreData.sessionsCount || 0;
+    const scoringStrategy = scoreData.strategy || null;
     
-    // Fallback to courseStructureItems if new data structure is not available
-    if (lessonTotal === 0 && courseStructureItem) {
-      lessonPercentage = courseStructureItem.percentage || 0;
-      lessonScore = courseStructureItem.totalScore || 0;
-      lessonTotal = courseStructureItem.totalPossible || 0;
-    }
+    // Check if this should be session-based but has no sessions
+    const shouldBeSessionBased = shouldUseSessionBasedScoring(item.itemId, course);
+    const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
+    
+    // Show error if calculation failed instead of falling back
+    const hasCalculationError = !scoreData.valid;
     
     // Determine completion based on progression requirements if available
     let isCompleted = false;
-    if (totalQuestions > 0 && course?.Gradebook?.courseConfig?.progressionRequirements?.enabled) {
+    if (scoreData.valid && course?.Gradebook?.courseConfig?.progressionRequirements?.enabled) {
       const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
       const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
       const defaultCriteria = progressionRequirements.defaultCriteria || {};
@@ -394,14 +349,20 @@ const CollapsibleNavigation = ({
       
       const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
       
-      if (criteria.requireAllQuestions) {
+      if (isSessionBased) {
+        // For session-based items, completion is based on having sessions and meeting minimum score
+        isCompleted = sessionCount > 0 && lessonPercentage >= criteria.minimumPercentage;
+      } else if (criteria.requireAllQuestions) {
         isCompleted = completionRate >= 100 && lessonPercentage >= criteria.minimumPercentage;
       } else {
         isCompleted = lessonPercentage >= criteria.minimumPercentage;
       }
-    } else {
-      // Fallback completion logic
-      isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
+    } else if (!hasCalculationError) {
+      // Only use legacy completion logic if no calculation error
+      isCompleted = courseStructureItem?.completed || 
+                   gradebookItem?.status === 'completed' || 
+                   gradebookItem?.status === 'manually_graded' || 
+                   lessonPercentage >= 100;
     }
     
     const isActive = activeItemId === item.itemId;
@@ -476,7 +437,9 @@ const CollapsibleNavigation = ({
                 <div className="mt-0.5 flex-shrink-0">
                   {/* SEQUENTIAL_ACCESS_UPDATE: Added lock icon for inaccessible lessons */}
                   {/* Original icon logic (before sequential access): Only had isCompleted, isNextItem, and default type icons */}
-                  {isInDevelopment && !isAccessible ? (
+                  {hasCalculationError ? (
+                    <AlertCircle className="text-red-500 h-4 w-4" />
+                  ) : isInDevelopment && !isAccessible ? (
                     <AlertCircle className="text-yellow-500 h-4 w-4" />
                   ) : !isAccessible ? (
                     <Lock className="text-gray-400 h-4 w-4" />
@@ -495,10 +458,37 @@ const CollapsibleNavigation = ({
                 </span>
               </div>
               <div className="flex items-center gap-2 ml-2">
-                {gradePercentage !== null && (
-                  <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
-                    {Math.round(gradePercentage)}%
+                {hasCalculationError ? (
+                  <span className="text-xs font-semibold text-red-600">
+                    ERROR
                   </span>
+                ) : !hasNoSessions && gradePercentage !== null ? (
+                  <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
+                    {formatScore(gradePercentage)}%
+                  </span>
+                ) : null}
+                {!hasCalculationError && isSessionBased && sessionCount > 0 && (
+                  <span className="text-xs text-purple-600 font-medium">
+                    {sessionCount}x
+                  </span>
+                )}
+                {!isStaffView && hasTeacherComments(item.itemId) && (
+                  <div 
+                    className="relative cursor-pointer hover:bg-blue-100 rounded p-1 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Navigate to the lesson to see the comment
+                      onItemSelect(item.itemId);
+                      // Show a helpful toast
+                      if (typeof toast !== 'undefined') {
+                        toast.info('Comment available');
+                      }
+                    }}
+                    title="Click to view teacher comment"
+                  >
+                    <MessageSquare className="w-3 h-3 text-blue-600" />
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                  </div>
                 )}
                 {isInDevelopment && (
                   <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs py-0.5 px-2 min-h-0 h-5">
@@ -517,9 +507,13 @@ const CollapsibleNavigation = ({
         <TooltipContent side="right" className="max-w-xs">
           <div className="space-y-1">
             <p className="font-medium">{item.title}</p>
+            {/* Show calculation error first */}
+            {hasCalculationError && (
+              <p className="text-sm text-red-600 font-medium">❌ Grade calculation error - missing required data</p>
+            )}
             {/* SEQUENTIAL_ACCESS_UPDATE: Added accessibility information to tooltip */}
             {/* Original tooltip (before sequential access): Only showed gradebook info and completion status */}
-            {isInDevelopment && !isAccessible && (
+            {!hasCalculationError && isInDevelopment && !isAccessible && (
               <p className="text-sm text-yellow-600 font-medium">🚧 {accessInfo.reason}</p>
             )}
             {!isAccessible && !isInDevelopment && (
@@ -535,19 +529,53 @@ const CollapsibleNavigation = ({
             {isInDevelopment && isAccessible && (
               <p className="text-sm text-orange-600 font-medium">🔧 Developer Access - In Development</p>
             )}
-            {(lessonScore > 0 || attemptedQuestions > 0 || gradebookItem) && (
+            {!hasCalculationError && (
               <>
-                {(lessonScore > 0 || totalQuestions > 0) && (
+                {shouldBeSessionBased ? (
                   <>
-                    <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({Math.round(gradePercentage || 0)}%)</p>
-                    <p className="text-sm">Questions: {attemptedQuestions}/{totalQuestions} attempted</p>
+                    <p className="text-sm font-medium text-purple-600">📊 Session-Based Assessment</p>
+                    {hasNoSessions ? (
+                      <p className="text-sm text-gray-600">No assessment sessions started yet</p>
+                    ) : (
+                      <>
+                        {scoreData.sessionStatus === 'completed' ? (
+                          <>
+                            <p className="text-sm">Score: {formatScore(lessonScore)}/{lessonTotal} ({formatScore(gradePercentage || 0)}%)</p>
+                            <p className="text-sm">Sessions completed: {scoreData.completedSessionsCount || sessionCount}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm">Status: {scoreData.sessionStatus || 'In progress'}</p>
+                            <p className="text-sm">Progress: {scoreData.attempted}/{scoreData.totalQuestions} questions answered ({formatScore(scoreData.sessionProgress || 0)}%)</p>
+                            <p className="text-sm">Total sessions: {sessionCount}</p>
+                          </>
+                        )}
+                        {scoringStrategy && (
+                          <p className="text-sm">Scoring: {
+                            scoringStrategy === 'takeHighest' ? 'Highest attempt' :
+                            scoringStrategy === 'latest' ? 'Most recent attempt' :
+                            scoringStrategy === 'average' ? 'Average of all attempts' :
+                            scoringStrategy
+                          }</p>
+                        )}
+                      </>
+                    )}
                   </>
-                )}
-                {gradebookItem && (
+                ) : (lessonScore > 0 || attemptedQuestions > 0 || gradebookItem) && (
                   <>
-                    <p className="text-sm">Individual Attempts: {gradebookItem.attempts || 0}</p>
-                    {gradebookItem.lastAttempt && (
-                      <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                    {(lessonScore > 0 || totalQuestions > 0) && (
+                      <>
+                        <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({formatScore(gradePercentage || 0)}%)</p>
+                        <p className="text-sm">Questions: {attemptedQuestions}/{totalQuestions} attempted</p>
+                      </>
+                    )}
+                    {gradebookItem && (
+                      <>
+                        <p className="text-sm">Individual Attempts: {gradebookItem.attempts || 0}</p>
+                        {gradebookItem.lastAttempt && (
+                          <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                        )}
+                      </>
                     )}
                   </>
                 )}
@@ -731,11 +759,8 @@ const CollapsibleNavigation = ({
         </div>
       </div>
       
-      <div className="p-3 bg-white flex items-center justify-between text-sm">
-        <div className="font-medium text-gray-700">Course Progress</div>
-        <div className="text-blue-600 font-medium">{overallProgress}%</div>
-      </div>
-      <div className="px-2 pb-2">
+      <div className="p-3 bg-white text-sm">
+        <div className="font-medium text-gray-700 mb-2">Course Progress</div>
         <div className="w-full bg-gray-200 rounded-full h-1.5">
           <div 
             className="bg-blue-600 rounded-full h-1.5" 
@@ -784,7 +809,9 @@ const CollapsibleNavigation = ({
                     const unitCompletedCount = unitItems.filter(item => {
                       const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
                       const gradebookItem = gradebook?.items?.[item.itemId];
-                      return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+                      return courseStructureItem?.completed || 
+                             gradebookItem?.status === 'completed' || 
+                             gradebookItem?.status === 'manually_graded';
                     }).length;
                     const unitPercentage = unitItems.length > 0
                       ? Math.round((unitCompletedCount / unitItems.length) * 100)

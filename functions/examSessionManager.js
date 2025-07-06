@@ -149,45 +149,41 @@ exports.startExamSession = onCall({
     
     await admin.database().ref(sessionPath).set(sessionData);
     
-    // Clean up stale placeholders and create new assessment entries
-    console.log('Questions array received:', JSON.stringify(questions, null, 2));
+    // COMPREHENSIVE CLEANUP: Remove ALL existing assessment data for exam questions
+    // This prevents version mismatches between student data and secure data
+    console.log(`🧹 Starting comprehensive cleanup for ${normalizedQuestions.length} questions after session creation`);
     
-    // First, clean up any stale exam_in_progress placeholders from abandoned sessions
-    const cleanupPromises = questions.map(async (question) => {
-      const questionId = typeof question === 'string' ? question : question.questionId;
+    const cleanupPromises = normalizedQuestions.map(async (question) => {
+      const questionId = question.questionId;
       if (!questionId) return;
       
-      const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
-      const assessmentRef = admin.database().ref(assessmentPath);
-      const snapshot = await assessmentRef.once('value');
-      const existingData = snapshot.val();
-      
-      if (existingData && existingData.status === 'exam_in_progress' && existingData.examSessionId) {
-        // Check if this belongs to an abandoned session
-        console.log(`🔍 Found existing exam_in_progress for ${questionId}, checking session ${existingData.examSessionId}`);
+      try {
+        // Clean up student assessment data
+        const studentAssessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+        console.log(`🗑️ Cleaning up student assessment: ${studentAssessmentPath}`);
+        await admin.database().ref(studentAssessmentPath).remove();
         
-        // If it's from a different session, it's stale - remove it
-        if (existingData.examSessionId !== sessionId) {
-          // Verify the session is not active
-          const oldSessionPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions/${existingData.examSessionId}`;
-          const oldSessionSnapshot = await admin.database().ref(oldSessionPath).once('value');
-          const oldSession = oldSessionSnapshot.val();
-          
-          if (!oldSession || oldSession.status !== 'in_progress') {
-            console.log(`🗑️ Cleaning up stale placeholder for ${questionId} from abandoned session ${existingData.examSessionId}`);
-            await assessmentRef.remove();
-          }
-        }
+        // Clean up secure assessment data
+        const secureAssessmentPath = `courses_secure/${courseId}/assessments/${questionId}/${studentKey}`;
+        console.log(`🗑️ Cleaning up secure assessment: ${secureAssessmentPath}`);
+        await admin.database().ref(secureAssessmentPath).remove();
+        
+        console.log(`✅ Cleaned up all data for question: ${questionId}`);
+      } catch (error) {
+        console.warn(`⚠️ Error cleaning up question ${questionId}:`, error.message);
+        // Continue with other questions even if one cleanup fails
       }
     });
     
+    // Wait for all cleanup to complete
     await Promise.all(cleanupPromises);
-    console.log('✅ Cleaned up stale placeholders');
+    console.log(`🧹 Comprehensive cleanup completed - ready for fresh question generation`);
     
     // Now create fresh placeholders for the new session
-    const assessmentPromises = questions.map(async (question) => {
+    console.log(`📝 Creating placeholders for ${normalizedQuestions.length} questions`);
+    const assessmentPromises = normalizedQuestions.map(async (question) => {
       // Handle both string questionId and object with questionId property
-      const questionId = typeof question === 'string' ? question : question.questionId;
+      const questionId = question.questionId;
       
       if (!questionId) {
         console.error('Invalid question object:', question);
@@ -197,29 +193,24 @@ exports.startExamSession = onCall({
       const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
       const assessmentRef = admin.database().ref(assessmentPath);
       
-      // Check if assessment already exists (after cleanup)
-      const snapshot = await assessmentRef.once('value');
-      if (!snapshot.exists()) {
-        // Create placeholder assessment
-        await assessmentRef.set({
-          activityType: 'exam',
-          status: 'exam_in_progress',
-          examSessionId: sessionId,
-          attempts: 0,
-          timestamp: getServerTimestamp(),
-          settings: {
-            theme: 'red',
-            showFeedback: false, // No feedback during exam
-            enableHints: false
-          }
-        });
-        console.log(`✅ Created placeholder for ${questionId}`);
-      } else {
-        console.log(`⚠️ Assessment ${questionId} already exists after cleanup, skipping placeholder creation`);
-      }
+      // Create placeholder assessment
+      await assessmentRef.set({
+        activityType: 'exam',
+        status: 'exam_in_progress',
+        examSessionId: sessionId,
+        attempts: 0,
+        timestamp: getServerTimestamp(),
+        settings: {
+          theme: 'red',
+          showFeedback: false, // No feedback during exam
+          enableHints: false
+        }
+      });
+      console.log(`✅ Created placeholder for ${questionId}`);
     });
     
     await Promise.all(assessmentPromises);
+    console.log(`✅ All placeholders created for ${normalizedQuestions.length} questions`);
     
     console.log(`✅ Exam session started: ${sessionId} with ${questions.length} questions`);
     

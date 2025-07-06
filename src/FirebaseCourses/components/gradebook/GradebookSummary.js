@@ -7,6 +7,7 @@ import {
   calculateCategoryScores,
   checkLessonCompletion 
 } from '../../utils/gradeCalculations';
+import { formatScore } from '../../utils/gradeUtils';
 import { useAuth } from '../../../context/AuthContext';
 
 const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
@@ -34,6 +35,9 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
   // Get student email for session-based scoring
   const studentEmail = profile?.StudentEmail || currentUser?.email;
 
+  // 📊 Debug: Log raw course data
+  console.log('📊 GradebookSummary - Raw Course Data:', course);
+
   // Calculate all stats using session-aware utility functions
   const baseCategoryStats = calculateCategoryScores(course, studentEmail);
   const categoryStats = enhanceCategoryStatsWithItemCounts(baseCategoryStats, allCourseItems, weights);
@@ -50,7 +54,7 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
           <div>
             <h3 className="text-lg font-medium text-gray-700 mb-1">Course Progress</h3>
             <div className="flex items-baseline gap-3">
-              <span className="text-5xl font-bold text-blue-700">{Math.round(courseItemStats.completionPercentage)}%</span>
+              <span className="text-5xl font-bold text-blue-700">{formatScore(courseItemStats.completionPercentage)}%</span>
             </div>
            
             <div className="mt-3 flex items-center gap-2">
@@ -60,10 +64,16 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
               </span>
             </div>
           </div>
-          <div className="text-blue-600">
-            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
+          <div className="flex flex-col items-end">
+            <div className="text-blue-600 mb-2">
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Last updated</p>
+              <p className="text-xs font-medium text-gray-700">{getRelativeTime(getLastActivityTime(course))}</p>
+            </div>
           </div>
         </div>
         
@@ -71,7 +81,7 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
         <div className="mt-4">
           <div className="flex justify-between text-sm text-gray-600 mb-1">
             <span>Overall Progress</span>
-            <span>{Math.round(courseItemStats.completionPercentage)}%</span>
+            <span>{formatScore(courseItemStats.completionPercentage)}%</span>
           </div>
           <Progress 
             value={courseItemStats.completionPercentage} 
@@ -89,7 +99,7 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
               <h4 className="text-md font-medium text-gray-700">Current Performance</h4>
               {overallStats.currentWeightedGrade !== null ? (
                 <>
-                  <span className="text-3xl font-bold text-green-700">{Math.round(overallStats.currentWeightedGrade)}%</span>
+                  <span className="text-3xl font-bold text-green-700">{formatScore(overallStats.currentWeightedGrade)}%</span>
                   <p className="text-sm text-gray-600 mt-1">
                     Based on completed work
                   </p>
@@ -109,7 +119,7 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
           <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
             <div>
               <h4 className="text-md font-medium text-gray-700">Projected Final Grade</h4>
-              <span className="text-3xl font-bold text-purple-700">{Math.round(overallStats.weightedGrade)}%</span>
+              <span className="text-3xl font-bold text-purple-700">{formatScore(overallStats.weightedGrade)}%</span>
               <p className="text-sm text-gray-600 mt-1">
                 If remaining work not completed
               </p>
@@ -168,7 +178,7 @@ const CategoryCard = ({ type, data }) => {
         {/* Performance on attempted work */}
         <div className="flex items-baseline justify-between">
           {attemptedPercentage !== null ? (
-            <span className={`text-2xl font-bold text-${config.color}-700`}>{Math.round(attemptedPercentage)}%</span>
+            <span className={`text-2xl font-bold text-${config.color}-700`}>{formatScore(attemptedPercentage)}%</span>
           ) : (
             <span className="text-2xl font-bold text-gray-400">--</span>
           )}
@@ -181,7 +191,7 @@ const CategoryCard = ({ type, data }) => {
         {/* Projected contribution */}
         {attemptedPercentage !== null && (
           <div className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
-            Contributes {Math.round(data.percentage * weight / 100)}% to final grade
+            Contributes {formatScore(data.percentage * weight / 100)}% to final grade
           </div>
         )}
       </div>

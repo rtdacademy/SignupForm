@@ -10,7 +10,6 @@ import MomentumTwoDimensions from './lessons/MomentumTwoDimensions';
 // Assignments
 import ReflectionAssignment from './assignments/ReflectionAssignment';
 import L1_3_Assignment from './assignments/L1_3_Assignment';
-import Lab1_ConservationOfMomentum from './assignments/Lab1_ConservationOfMomentum';
 
 // Exams
 // import FinalExam from './exams/FinalExam';
@@ -26,7 +25,6 @@ const contentRegistry = {
     // Assignments
   "reflection_assignment": ReflectionAssignment,
   "assignment_1747281808385_436": L1_3_Assignment,
-  "assignment_1747283296776_954": Lab1_ConservationOfMomentum,
 
   // Exams
   // "final_exam": FinalExam,

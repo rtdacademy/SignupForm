@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { formatScore } from '../../utils/gradeUtils';
 // No longer using gradebook context - data comes from course prop
 import { 
   Search, 
@@ -10,13 +11,15 @@ import {
   CheckCircle, 
   XCircle,
   Clock,
-  RotateCcw
+  RotateCcw,
+  ChevronRight
 } from 'lucide-react';
 import { 
   validateGradeDataStructures, 
   calculateLessonScore, 
   checkLessonCompletion,
-  findAssessmentSessions 
+  findAssessmentSessions,
+  shouldUseSessionBasedScoring 
 } from '../../utils/gradeCalculations';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
@@ -42,6 +45,10 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   
   // Get student email for session-based scoring
   const studentEmail = profile?.StudentEmail || currentUser?.email;
+  
+  // Determine if this is a staff view (teacher looking at student data)
+  const isStaffView = currentUser?.email && studentEmail && 
+                      currentUser.email !== studentEmail;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -61,19 +68,38 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
     
     // Process all course items in the same order as CourseProgress
     allCourseItems.forEach((courseItem, globalIndex) => {
-      // Use reliable calculation function for lesson scores
-      const lessonScore = calculateLessonScore(courseItem.itemId, course);
+      // Use reliable calculation function for lesson scores with student email for session-based scoring
+      const lessonScore = calculateLessonScore(courseItem.itemId, course, studentEmail);
       
       // Check if lesson meets completion requirements
-      const isCompleted = checkLessonCompletion(courseItem.itemId, course);
+      const isCompleted = checkLessonCompletion(courseItem.itemId, course, studentEmail);
+      
+      // Check if this should be session-based but has no sessions
+      const shouldBeSessionBased = shouldUseSessionBasedScoring(courseItem.itemId, course);
+      const isSessionBased = lessonScore.source === 'session';
+      const sessionCount = lessonScore.sessionsCount || 0;
+      const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
       
       // Calculate completion rate and status
       const completionRate = lessonScore.totalQuestions > 0 ? 
         (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
       
       let status = 'not_started';
-      if (lessonScore.attempted > 0) {
-        status = isCompleted ? 'completed' : 'in_progress';
+      if (shouldBeSessionBased) {
+        // For session-based items, status depends on sessions
+        if (sessionCount > 0) {
+          status = isCompleted ? 'completed' : 'in_progress';
+        }
+      } else {
+        // For individual question items, status depends on attempts and completion
+        if (lessonScore.attempted > 0) {
+          // Check if all questions are completed (attempted === totalQuestions)
+          if (lessonScore.attempted === lessonScore.totalQuestions) {
+            status = 'completed';
+          } else {
+            status = 'in_progress';
+          }
+        }
       }
       
       // Global lesson number: 1, 2, 3, 4, 5... across all units (same as CourseProgress)
@@ -147,7 +173,14 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         totalAttempts: totalAttempts,
         lastActivity: lastActivity,
         isConfigured: !!lessonConfig, // Flag to show if lesson has been configured
-        sessionData: sessionData // Include session data for assignments/exams/quizzes
+        sessionData: sessionData, // Include session data for assignments/exams/quizzes
+        // Session-based scoring information
+        shouldBeSessionBased: shouldBeSessionBased,
+        isSessionBased: isSessionBased,
+        sessionCount: sessionCount,
+        hasNoSessions: hasNoSessions,
+        scoringStrategy: lessonScore.strategy || null,
+        sessionStatus: lessonScore.sessionStatus || null
       };
       
       lessons.push(lesson);
@@ -322,15 +355,6 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => toggleSort('type')}
-                >
-                  <div className="flex items-center gap-1">
-                    Type
-                    <SortIcon field="type" currentSort={sortBy} sortOrder={sortOrder} />
-                  </div>
-                </th>
-                <th 
                   className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('score')}
                 >
@@ -353,9 +377,6 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                     Last Activity
                     <SortIcon field="date" currentSort={sortBy} sortOrder={sortOrder} />
                   </div>
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
                 </th>
               </tr>
             </thead>
@@ -384,6 +405,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         onClose={handleCloseModal}
         lesson={selectedLesson}
         course={course}
+        isStaffView={isStaffView}
       />
     </div>
   );
@@ -391,6 +413,15 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
 
 // Lesson Row Component
 const LessonRow = ({ lesson, onViewDetails }) => {
+  // Handle row click to open details modal
+  const handleRowClick = () => {
+    if (lesson.isConfigured && lesson.questions.length > 0) {
+      onViewDetails();
+    }
+  };
+
+  // Determine if row should be clickable
+  const isClickable = lesson.isConfigured && lesson.questions.length > 0;
   const getScoreColor = (pct) => {
     if (pct >= 90) return 'text-green-700 bg-green-50';
     if (pct >= 80) return 'text-blue-700 bg-blue-50';
@@ -400,12 +431,23 @@ const LessonRow = ({ lesson, onViewDetails }) => {
   };
 
   const getStatusIcon = () => {
-    if (lesson.status === 'completed') {
-      return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (lesson.status === 'in_progress') {
-      return <RotateCcw className="h-5 w-5 text-yellow-500" />;
+    // For session-based assessments, use session status
+    if (lesson.shouldBeSessionBased && lesson.sessionCount > 0) {
+      if (lesson.sessionStatus === 'completed') {
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      } else if (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') {
+        return <RotateCcw className="h-4 w-4 text-yellow-500" />;
+      }
+      return <Clock className="h-4 w-4 text-gray-400" />;
     }
-    return <Clock className="h-5 w-5 text-gray-400" />;
+    
+    // For all non-session-based items, check actual completion
+    if (lesson.completedQuestions === lesson.totalQuestions && lesson.totalQuestions > 0) {
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    } else if (lesson.completedQuestions > 0) {
+      return <RotateCcw className="h-4 w-4 text-yellow-500" />;
+    }
+    return <Clock className="h-4 w-4 text-gray-400" />;
   };
 
   const getTypeColor = (type) => {
@@ -420,48 +462,106 @@ const LessonRow = ({ lesson, onViewDetails }) => {
   };
 
   return (
-    <tr className="hover:bg-gray-50">
+    <tr 
+      className={`${
+        isClickable
+          ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group' 
+          : 'hover:bg-gray-50'
+      }`}
+      onClick={handleRowClick}
+      title={isClickable ? 'Click to view details' : undefined}
+    >
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1">
             {lesson.lessonNumber.toString().padStart(2, '0')}
           </div>
-          <div>
-            <div className="text-sm font-medium text-gray-900">
-              {lesson.lessonTitle}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium text-gray-900">
+                {lesson.lessonTitle}
+              </div>
+              {isClickable && (
+                <Eye className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-150" 
+                     title="Click to view details" />
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
+                {lesson.activityType}
+              </Badge>
             </div>
           </div>
         </div>
       </td>
-      <td className="px-6 py-4">
-        <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
-          {lesson.activityType}
-        </Badge>
-      </td>
       <td className="px-6 py-4 text-center">
-        {lesson.isConfigured && lesson.totalAttempts > 0 ? (
-          <div className="flex flex-col items-center">
-            <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
-              {lesson.totalScore} / {lesson.maxScore}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">{Math.round(lesson.averageScore)}%</div>
-          </div>
-        ) : lesson.isConfigured ? (
-          <span className="text-sm text-gray-400">-</span>
+        {lesson.isConfigured ? (
+          <>
+            {lesson.shouldBeSessionBased ? (
+              // Session-based assessment display
+              lesson.hasNoSessions ? (
+                <span className="text-sm text-gray-400">-</span>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                    {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
+                  {lesson.sessionCount > 1 && (
+                    <div className="text-xs text-purple-600 font-medium">{lesson.sessionCount} attempts</div>
+                  )}
+                </div>
+              )
+            ) : (
+              // Individual question-based display
+              lesson.totalAttempts > 0 ? (
+                <div className="flex flex-col items-center">
+                  <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                    {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
+                </div>
+              ) : (
+                <span className="text-sm text-gray-400">-</span>
+              )
+            )}
+          </>
         ) : (
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
       <td className="px-6 py-4 text-center">
         {lesson.isConfigured ? (
-          <div>
-            <div className="text-sm text-gray-600">
-              {lesson.completedQuestions} / {lesson.totalQuestions}
-            </div>
-            <div className="text-xs text-gray-500">
-              {Math.round(lesson.completionRate)}% complete
-            </div>
-          </div>
+          <>
+            {lesson.shouldBeSessionBased ? (
+              // Session-based assessment display
+              lesson.hasNoSessions ? (
+                <span className="text-sm text-gray-400">No sessions</span>
+              ) : (
+                <div>
+                  <div className="text-sm text-gray-600">
+                    {lesson.sessionCount} session{lesson.sessionCount !== 1 ? 's' : ''}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {lesson.scoringStrategy === 'takeHighest' ? 'Highest score' :
+                     lesson.scoringStrategy === 'latest' ? 'Latest attempt' :
+                     lesson.scoringStrategy === 'average' ? 'Average score' :
+                     'Session-based'}
+                  </div>
+                </div>
+              )
+            ) : (
+              // Individual question-based display
+              <div>
+                <div className="text-sm text-gray-600">
+                  {lesson.completedQuestions} / {lesson.totalQuestions}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {Math.round(lesson.completionRate)}% complete
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
@@ -470,38 +570,37 @@ const LessonRow = ({ lesson, onViewDetails }) => {
         <div className="flex items-center justify-center gap-2">
           {getStatusIcon()}
           <span className="text-xs text-gray-600 capitalize">
-            {lesson.status === 'completed' ? 'Completed' : 
-             lesson.status === 'in_progress' ? 'In Progress' : 'Not Started'}
+            {lesson.shouldBeSessionBased && lesson.sessionCount > 0 ? (
+              // Show actual session status for session-based assessments
+              lesson.sessionStatus === 'completed' ? 'Completed' :
+              lesson.sessionStatus === 'in_progress' ? 'In Progress' :
+              lesson.sessionStatus === 'exited' ? 'Exited' :
+              lesson.sessionStatus || 'Unknown'
+            ) : (
+              // Show status based on actual question completion for all non-session-based items
+              lesson.completedQuestions === lesson.totalQuestions && lesson.totalQuestions > 0 ? 'Completed' :
+              lesson.completedQuestions > 0 ? 'In Progress' : 'Not Started'
+            )}
           </span>
         </div>
       </td>
       <td className="px-6 py-4">
-        {lesson.isConfigured && lesson.lastActivity ? (
-          <div className="text-sm text-gray-600">
-            {new Date(lesson.lastActivity).toLocaleDateString()}
+        <div className="flex items-center justify-between">
+          <div>
+            {lesson.isConfigured && lesson.lastActivity ? (
+              <div className="text-sm text-gray-600">
+                {new Date(lesson.lastActivity).toLocaleDateString()}
+              </div>
+            ) : lesson.isConfigured ? (
+              <span className="text-sm text-gray-400">-</span>
+            ) : (
+              <span className="text-xs text-gray-400 italic">Coming soon</span>
+            )}
           </div>
-        ) : lesson.isConfigured ? (
-          <span className="text-sm text-gray-400">-</span>
-        ) : (
-          <span className="text-xs text-gray-400 italic">Coming soon</span>
-        )}
-      </td>
-      <td className="px-6 py-4 text-center">
-        {lesson.isConfigured && lesson.questions.length > 0 ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onViewDetails}
-            className="flex items-center gap-1"
-          >
-            <Eye className="h-4 w-4" />
-            View Details
-          </Button>
-        ) : lesson.isConfigured ? (
-          <span className="text-xs text-gray-400">No questions</span>
-        ) : (
-          <span className="text-xs text-gray-400 italic">Coming soon</span>
-        )}
+          {isClickable && (
+            <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-blue-500 transition-colors duration-150 ml-1" />
+          )}
+        </div>
       </td>
     </tr>
   );

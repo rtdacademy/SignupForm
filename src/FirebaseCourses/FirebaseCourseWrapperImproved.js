@@ -13,15 +13,12 @@ import {
 } from './utils/gradeCalculations';
 import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
-import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
 import CourseOutline from './components/CourseOutline';
 import CourseResources from './components/CourseResources';
 // Import the comprehensive GradebookDashboard component
 import { 
-  GradebookDashboard,
-  CourseItemDetailModal, 
-  QuestionReviewModal 
+  GradebookDashboard
 } from './components/gradebook';
 import { Skeleton } from '../components/ui/skeleton';
 import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
@@ -154,8 +151,47 @@ const FirebaseCourseWrapperContent = ({
     );
   }
   
-  // Check if current user is an authorized developer
-  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
+  // Check if current user is an authorized developer with caching to prevent flickering
+  // Use a ref to track previous authorization state for persistence
+  const previousAuthRef = useRef({ wasAuthorized: false, userEmail: null, courseId: null });
+  
+  const isAuthorizedDeveloper = useMemo(() => {
+    // Calculate current authorization status
+    const currentAuth = isUserAuthorizedDeveloper(currentUser, course);
+    const currentUserEmail = currentUser?.email;
+    const currentCourseId = course?.CourseID || course?.courseId;
+    
+    // If we have valid data and user is currently authorized, cache it
+    if (currentAuth && currentUserEmail && currentCourseId) {
+      previousAuthRef.current = {
+        wasAuthorized: true,
+        userEmail: currentUserEmail,
+        courseId: currentCourseId
+      };
+      return true;
+    }
+    
+    // If current check fails but we had previous authorization for same user/course, use cached result
+    const { wasAuthorized, userEmail, courseId } = previousAuthRef.current;
+    if (wasAuthorized && 
+        currentUserEmail === userEmail && 
+        currentCourseId === courseId &&
+        currentUserEmail && currentCourseId) {
+      console.log('🔧 Using cached developer authorization to prevent flickering');
+      return true;
+    }
+    
+    // If user or course changed, clear cache and use current auth result
+    if (currentUserEmail !== userEmail || currentCourseId !== courseId) {
+      previousAuthRef.current = {
+        wasAuthorized: currentAuth,
+        userEmail: currentUserEmail,
+        courseId: currentCourseId
+      };
+    }
+    
+    return currentAuth;
+  }, [currentUser?.email, course?.CourseID, course?.courseId, currentUser, course]);
   const [activeTab, setActiveTab] = useState('content');
   
   // Developer mode toggle state - only active if user is authorized
@@ -186,7 +222,7 @@ const FirebaseCourseWrapperContent = ({
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [reviewQuestion, setReviewQuestion] = useState(null);
-  const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
+  //const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
@@ -252,6 +288,13 @@ const FirebaseCourseWrapperContent = ({
     window.scrollTo(0, 0);
   }, []);
   
+  // Clear developer authorization cache when user logs out
+  useEffect(() => {
+    if (!currentUser) {
+      previousAuthRef.current = { wasAuthorized: false, userEmail: null, courseId: null };
+    }
+  }, [currentUser]);
+
   // Initialize developer mode state from localStorage when course loads
   useEffect(() => {
     if (isAuthorizedDeveloper && course) {
@@ -663,6 +706,8 @@ const FirebaseCourseWrapperContent = ({
   }, [course?.CourseID, courseModuleLoaded]);
 
   // Validate gradebook structure and sync course config when course loads
+  // TEMPORARILY COMMENTED OUT FOR TESTING - Kyle
+  /*
   useEffect(() => {
     const validateAndSyncCourseConfig = async () => {
       // Only validate for authenticated users with a valid course
@@ -715,6 +760,7 @@ const FirebaseCourseWrapperContent = ({
       return () => clearTimeout(timer);
     }
   }, [course?.CourseID, currentUser?.email, allCourseItems.length, isStaffView, devMode]);
+  */
 
   // Set content ready state when all necessary data is loaded including course module
   useEffect(() => {
@@ -806,7 +852,7 @@ const FirebaseCourseWrapperContent = ({
           const completedCount = allCourseItems.filter(item => {
             const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
             const gradebookItem = gradebook?.items?.[item.itemId];
-            return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+            return courseStructureItem?.completed || gradebookItem?.status === 'completed' || gradebookItem?.status === 'manually_graded';
           }).length;
           courseProgress = Math.round((completedCount / allCourseItems.length) * 100);
         }
@@ -919,7 +965,7 @@ const FirebaseCourseWrapperContent = ({
     });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, profile?.StudentEmail, currentUser?.email]);
+  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, course?.Assessments, profile?.StudentEmail, currentUser?.email]);
 
  
   
@@ -1093,21 +1139,15 @@ const FirebaseCourseWrapperContent = ({
         <main className="flex-1 p-6">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
-              {(isStaffView && devMode) && (
-                <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
-                  <span className="font-medium text-yellow-800">Staff Developer Mode:</span>
-                  <span className="ml-2 text-yellow-700">
-                    You can directly interact with the database in this view for testing questions.
-                  </span>
-                </div>
-              )}
+          
               
-              {/* Lesson Progress Bars - Hidden for AssessmentSession lessons */}
+              {/* Lesson Progress Bars - Hidden for AssessmentSession lessons and labs */}
               {currentActiveItem && (() => {
-                // Hide progress bars for assignments, exams, and quizzes (which use AssessmentSession)
+                // Hide progress bars for assignments, exams, quizzes, and labs
                 if (currentActiveItem.type === 'assignment' || 
                     currentActiveItem.type === 'exam' || 
-                    currentActiveItem.type === 'quiz') {
+                    currentActiveItem.type === 'quiz' ||
+                    currentActiveItem.type === 'lab') {
                   return null;
                 }
                 
@@ -1363,29 +1403,8 @@ const FirebaseCourseWrapperContent = ({
         </button>
       )}
       
-      {/* Course Item Detail Modal */}
-      <CourseItemDetailModal
-        item={selectedCourseItem}
-        isOpen={isItemDetailModalOpen}
-        onClose={() => {
-          setIsItemDetailModalOpen(false);
-          setSelectedCourseItem(null);
-        }}
-        onReviewQuestion={(question) => {
-          setReviewQuestion(question);
-          setIsQuestionReviewModalOpen(true);
-        }}
-      />
-      
-      {/* Question Review Modal */}
-      <QuestionReviewModal
-        question={reviewQuestion}
-        isOpen={isQuestionReviewModalOpen}
-        onClose={() => {
-          setIsQuestionReviewModalOpen(false);
-          setReviewQuestion(null);
-        }}
-      />
+
+ 
       
       {/* Course Outline Modal */}
       <CourseOutline
