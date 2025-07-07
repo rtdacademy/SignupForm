@@ -118,8 +118,8 @@ const createMirrorTimeReadingQuestion = () => {
   };
 };
 
-// Create assessment objects
-const course2_10_angle_of_incidence_basic = createStandardMultipleChoice({
+// Create assessment configuration objects (not cloud functions)
+const course2_10_angle_of_incidence_basic = {
   questions: [createAngleOfIncidenceQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -127,10 +127,11 @@ const course2_10_angle_of_incidence_basic = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_surface_to_normal_angle = createStandardMultipleChoice({
+const course2_10_surface_to_normal_angle = {
   questions: [createSurfaceToNormalQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -138,10 +139,11 @@ const course2_10_surface_to_normal_angle = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_total_angle_between_rays = createStandardMultipleChoice({
+const course2_10_total_angle_between_rays = {
   questions: [createTotalAngleBetweenRaysQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -149,10 +151,11 @@ const course2_10_total_angle_between_rays = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_two_mirrors_scenario_a = createStandardMultipleChoice({
+const course2_10_two_mirrors_scenario_a = {
   questions: [createTwoMirrorsScenarioAQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -160,10 +163,11 @@ const course2_10_two_mirrors_scenario_a = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_two_mirrors_scenario_b = createStandardMultipleChoice({
+const course2_10_two_mirrors_scenario_b = {
   questions: [createTwoMirrorsScenarioBQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -171,10 +175,11 @@ const course2_10_two_mirrors_scenario_b = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_mirror_image_description = createStandardMultipleChoice({
+const course2_10_mirror_image_description = {
   questions: [createMirrorImageQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -182,10 +187,11 @@ const course2_10_mirror_image_description = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-const course2_10_mirror_time_reading = createStandardMultipleChoice({
+const course2_10_mirror_time_reading = {
   questions: [createMirrorTimeReadingQuestion()],
   activityType: 'lesson',
   maxAttempts: 9999,
@@ -193,19 +199,20 @@ const course2_10_mirror_time_reading = createStandardMultipleChoice({
   showFeedback: true,
   randomizeQuestions: false,
   randomizeOptions: true,
-  allowSameQuestion: true
-});
+  allowSameQuestion: true,
+  type: 'multiple-choice'
+};
 
-// Export individual question handlers for ExamSession compatibility
-exports.course2_10_angle_of_incidence_basic = course2_10_angle_of_incidence_basic;
-exports.course2_10_surface_to_normal_angle = course2_10_surface_to_normal_angle;
-exports.course2_10_total_angle_between_rays = course2_10_total_angle_between_rays;
-exports.course2_10_two_mirrors_scenario_a = course2_10_two_mirrors_scenario_a;
-exports.course2_10_two_mirrors_scenario_b = course2_10_two_mirrors_scenario_b;
-exports.course2_10_mirror_image_description = course2_10_mirror_image_description;
-exports.course2_10_mirror_time_reading = course2_10_mirror_time_reading;
+// Export individual question handlers for ExamSession compatibility (create cloud functions)
+exports.course2_10_angle_of_incidence_basic = createStandardMultipleChoice(course2_10_angle_of_incidence_basic);
+exports.course2_10_surface_to_normal_angle = createStandardMultipleChoice(course2_10_surface_to_normal_angle);
+exports.course2_10_total_angle_between_rays = createStandardMultipleChoice(course2_10_total_angle_between_rays);
+exports.course2_10_two_mirrors_scenario_a = createStandardMultipleChoice(course2_10_two_mirrors_scenario_a);
+exports.course2_10_two_mirrors_scenario_b = createStandardMultipleChoice(course2_10_two_mirrors_scenario_b);
+exports.course2_10_mirror_image_description = createStandardMultipleChoice(course2_10_mirror_image_description);
+exports.course2_10_mirror_time_reading = createStandardMultipleChoice(course2_10_mirror_time_reading);
 
-// Export assessment configurations for master function
+// Export assessment configurations for master function (raw config objects)
 const assessmentConfigs = {
   'course2_10_angle_of_incidence_basic': course2_10_angle_of_incidence_basic,
   'course2_10_surface_to_normal_angle': course2_10_surface_to_normal_angle,

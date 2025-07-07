@@ -15,7 +15,9 @@ import {
   FaFire,
   FaEnvelope,
   FaSync,
-  FaDatabase
+  FaDatabase,
+  FaGraduationCap,
+  FaPercentage
 } from 'react-icons/fa';
 import { BookOpen } from 'lucide-react';
 import Modal from 'react-modal';
@@ -338,6 +340,315 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// Component for managing individual lesson progression overrides
+function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLessonIdChange, isEditing }) {
+  const handlePercentageChange = (e) => {
+    const value = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+    onChange({
+      ...override,
+      minimumPercentage: value
+    });
+  };
+
+  const handleRequireAllChange = (checked) => {
+    onChange({
+      ...override,
+      requireAllQuestions: checked
+    });
+  };
+
+  const handleLessonIdChange = (e) => {
+    if (onLessonIdChange) {
+      onLessonIdChange(e.target.value);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-4 bg-white">
+      <div className="space-y-4">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lesson ID
+            </label>
+            <Input
+              type="text"
+              value={lessonId}
+              onChange={handleLessonIdChange}
+              disabled={!isEditing}
+              className="text-sm font-mono"
+              placeholder="e.g., 09_introduction_to_light"
+            />
+          </div>
+          {isEditing && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDelete}
+              type="button"
+              className="ml-4 mt-6"
+            >
+              <FaTrash className="mr-1" /> Delete
+            </Button>
+          )}
+        </div>
+
+        <div className="flex space-x-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Minimum Percentage
+            </label>
+            <div className="flex items-center space-x-2">
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={override.minimumPercentage || 0}
+                onChange={handlePercentageChange}
+                disabled={!isEditing}
+                className="flex-1"
+              />
+              <FaPercentage className="text-gray-400" />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 mt-6">
+            <Switch
+              checked={override.requireAllQuestions || false}
+              onCheckedChange={handleRequireAllChange}
+              disabled={!isEditing}
+            />
+            <label className="text-sm font-medium text-gray-700">
+              Require All Questions
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Component for managing course progression requirements
+function ProgressionRequirementsManager({ courseId, progressionRequirements, isEditing }) {
+  const [requirements, setRequirements] = useState(progressionRequirements || {
+    enabled: false,
+    defaultCriteria: {
+      minimumPercentage: 50,
+      requireAllQuestions: true
+    },
+    lessonOverrides: {}
+  });
+
+  useEffect(() => {
+    setRequirements(progressionRequirements || {
+      enabled: false,
+      defaultCriteria: {
+        minimumPercentage: 50,
+        requireAllQuestions: true
+      },
+      lessonOverrides: {}
+    });
+  }, [progressionRequirements]);
+
+  const updateDatabase = async (updatedRequirements) => {
+    try {
+      const db = getDatabase();
+      const courseRef = ref(db, `courses/${courseId}`);
+      await update(courseRef, { 
+        progressionRequirements: updatedRequirements.enabled ? updatedRequirements : null 
+      });
+      console.log('Successfully updated progression requirements:', updatedRequirements);
+    } catch (error) {
+      console.error('Error updating progression requirements:', error);
+      toast.error('Failed to update progression requirements');
+    }
+  };
+
+  const handleEnabledChange = (checked) => {
+    const updatedRequirements = {
+      ...requirements,
+      enabled: checked
+    };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const handleDefaultCriteriaChange = (field, value) => {
+    const updatedRequirements = {
+      ...requirements,
+      defaultCriteria: {
+        ...requirements.defaultCriteria,
+        [field]: value
+      }
+    };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const handleAddOverride = () => {
+    if (!isEditing) return;
+
+    const newLessonId = `lesson_${Date.now()}`;
+    const updatedRequirements = {
+      ...requirements,
+      lessonOverrides: {
+        ...requirements.lessonOverrides,
+        [newLessonId]: {
+          minimumPercentage: 0,
+          requireAllQuestions: false
+        }
+      }
+    };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const handleOverrideChange = (oldLessonId, newLessonId, override) => {
+    if (!isEditing) return;
+
+    const updatedOverrides = { ...requirements.lessonOverrides };
+    
+    // If lesson ID changed, remove old and add new
+    if (oldLessonId !== newLessonId) {
+      delete updatedOverrides[oldLessonId];
+      updatedOverrides[newLessonId] = override;
+    } else {
+      updatedOverrides[oldLessonId] = override;
+    }
+
+    const updatedRequirements = {
+      ...requirements,
+      lessonOverrides: updatedOverrides
+    };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const handleDeleteOverride = (lessonId) => {
+    if (!isEditing) return;
+
+    const updatedOverrides = { ...requirements.lessonOverrides };
+    delete updatedOverrides[lessonId];
+
+    const updatedRequirements = {
+      ...requirements,
+      lessonOverrides: updatedOverrides
+    };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const overrideEntries = Object.entries(requirements.lessonOverrides || {});
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <FaGraduationCap className="text-blue-500" />
+          Course Progression Requirements
+        </h3>
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={requirements.enabled || false}
+            onCheckedChange={handleEnabledChange}
+            disabled={!isEditing}
+          />
+          <label className="text-sm font-medium text-gray-700">
+            Enable Progression Requirements
+          </label>
+        </div>
+      </div>
+
+      {requirements.enabled && (
+        <div className="space-y-6">
+          {/* Default Criteria */}
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-md font-semibold text-blue-800 mb-3">Default Criteria</h4>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex-1 min-w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Percentage
+                </label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={requirements.defaultCriteria?.minimumPercentage || 50}
+                    onChange={(e) => handleDefaultCriteriaChange('minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                    disabled={!isEditing}
+                    className="flex-1"
+                  />
+                  <FaPercentage className="text-gray-400" />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-6">
+                <Switch
+                  checked={requirements.defaultCriteria?.requireAllQuestions || false}
+                  onCheckedChange={(checked) => handleDefaultCriteriaChange('requireAllQuestions', checked)}
+                  disabled={!isEditing}
+                />
+                <label className="text-sm font-medium text-gray-700">
+                  Require All Questions
+                </label>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              These criteria apply to all lessons unless overridden below.
+            </p>
+          </div>
+
+          {/* Lesson Overrides */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h4 className="text-md font-semibold text-gray-800">Lesson Overrides</h4>
+              {isEditing && (
+                <Button 
+                  onClick={handleAddOverride}
+                  type="button"
+                  className="flex items-center"
+                  size="sm"
+                >
+                  <FaPlus className="mr-2" /> Add Override
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {overrideEntries.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                  No lesson overrides configured. All lessons will use the default criteria.
+                </p>
+              ) : (
+                overrideEntries.map(([lessonId, override]) => (
+                  <LessonOverrideEditor
+                    key={lessonId}
+                    lessonId={lessonId}
+                    override={override}
+                    onChange={(newOverride) => handleOverrideChange(lessonId, lessonId, newOverride)}
+                    onLessonIdChange={(newLessonId) => handleOverrideChange(lessonId, newLessonId, override)}
+                    onDelete={() => handleDeleteOverride(lessonId)}
+                    isEditing={isEditing}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!requirements.enabled && (
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+          <p className="text-gray-600">
+            Progression requirements are disabled. Enable them to configure lesson completion criteria.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -2014,6 +2325,14 @@ function Courses({
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Firebase Course Configuration</h3>
                       <DatabaseCourseConfig courseId={selectedCourseId} isEditing={courseIsEditing} />
+                    </div>
+                    
+                    <div>
+                      <ProgressionRequirementsManager 
+                        courseId={selectedCourseId}
+                        progressionRequirements={courseData.progressionRequirements}
+                        isEditing={courseIsEditing}
+                      />
                     </div>
                   </div>
                 ) : (

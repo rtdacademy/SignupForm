@@ -634,7 +634,7 @@ const FirebaseCourseWrapperContent = ({
     
     // Only apply sequential access if enabled
     if (!gradebook.courseConfig?.globalSettings?.requireSequentialProgress || 
-        !gradebook.courseConfig?.progressionRequirements?.enabled) {
+        !course.courseDetails?.progressionRequirements?.enabled) {
       const accessibility = {};
       allCourseItems.forEach(item => {
         accessibility[item.itemId] = { accessible: true, reason: 'Sequential access disabled' };
@@ -921,7 +921,7 @@ const FirebaseCourseWrapperContent = ({
     }
     
     const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
-    const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements || {};
+    const progressionRequirements = course.courseDetails?.progressionRequirements || {};
     
     // Process each lesson from itemStructure using new calculation functions
     Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
@@ -1640,8 +1640,8 @@ const FirebaseCourseWrapperContent = ({
                   lessonQuestions: currentAIPrompt.lessonQuestions || {}
                 }}
                 // Dynamic chat configuration from AI prompt
-                showYouTube={currentAIPrompt.chatConfig?.showYouTube ?? true}
-                showUpload={currentAIPrompt.chatConfig?.showUpload ?? true}
+                showYouTube= {false} // Disabled YouTube for now
+                showUpload={false} // Disabled file upload for now
                 allowContentRemoval={currentAIPrompt.chatConfig?.allowContentRemoval ?? true}
                 showResourcesAtTop={currentAIPrompt.chatConfig?.showResourcesAtTop ?? false}
                 // Predefined content from lesson configuration

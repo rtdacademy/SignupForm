@@ -305,7 +305,7 @@ export const checkLessonCompletion = (lessonId, course, studentEmail = null) => 
     return true;
   }
   
-  const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements || {};
+  const progressionRequirements = course.courseDetails?.progressionRequirements || {};
   const lessonScore = calculateLessonScore(lessonId, course, studentEmail);
   
   if (!lessonScore.valid) {
