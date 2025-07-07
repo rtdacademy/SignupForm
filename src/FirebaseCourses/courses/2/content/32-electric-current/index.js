@@ -3,16 +3,9 @@ import LessonContent, { TextSection, LessonSummary } from '../../../../component
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricCurrent = ({ course, courseId = 'default' }) => {
-  const [isElectrochemicalOpen, setIsElectrochemicalOpen] = useState(false);
-  const [isCurrentFlowOpen, setIsCurrentFlowOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isResistanceOpen, setIsResistanceOpen] = useState(false);
-  const [isOhmsLawOpen, setIsOhmsLawOpen] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isCurrentDirectionOpen, setIsCurrentDirectionOpen] = useState(false);
+const ElectricCurrent = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   const [currentFlowType, setCurrentFlowType] = useState('conventional'); // 'conventional' or 'electron'
+  const [isCurrentDirectionOpen, setIsCurrentDirectionOpen] = useState(false);
 
   return (
     <LessonContent
@@ -20,17 +13,11 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
       title="Lesson 18 - Electric Current"
       metadata={{ estimated_time: '40 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectrochemicalOpen(!isElectrochemicalOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">The Electrochemical Cell</h3>
-            <span className="text-blue-600">{isElectrochemicalOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectrochemicalOpen && (
+      {/* AI-Enhanced Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="electrochemical" title="The Electrochemical Cell" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -90,21 +77,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsCurrentFlowOpen(!isCurrentFlowOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Current Flow</h3>
-            <span className="text-blue-600">{isCurrentFlowOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isCurrentFlowOpen && (
+            <AIAccordion.Item value="current-flow" title="Current Flow" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -145,21 +120,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -208,21 +171,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsResistanceOpen(!isResistanceOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Resistance</h3>
-            <span className="text-blue-600">{isResistanceOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isResistanceOpen && (
+            <AIAccordion.Item value="resistance" title="Resistance" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -299,21 +250,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsOhmsLawOpen(!isOhmsLawOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Ohm's Law</h3>
-            <span className="text-blue-600">{isOhmsLawOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isOhmsLawOpen && (
+            <AIAccordion.Item value="ohms-law" title="Ohm's Law" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -371,21 +310,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
+            <AIAccordion.Item value="example2" title="Example 2" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -428,21 +355,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
+            <AIAccordion.Item value="example3" title="Example 3" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -482,21 +397,9 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsCurrentDirectionOpen(!isCurrentDirectionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">The Direction of Electric Current</h3>
-            <span className="text-blue-600">{isCurrentDirectionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isCurrentDirectionOpen && (
+            <AIAccordion.Item value="current-direction" title="The Direction of Electric Current" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -690,9 +593,53 @@ const ElectricCurrent = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
+            </AIAccordion.Item>
+
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div className="space-y-6">
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">The Electrochemical Cell</h3>
+            <p>The electrochemical cell was discovered by Italian scientist Alessandro Volta...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Current Flow</h3>
+            <p>Andreas Ampere quickly made use of Volta's cell to study the flow of charge...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Example 1</h3>
+            <p>Calculate current from electron flow...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Resistance</h3>
+            <p>George Simon Ohm is responsible for the early study of conductivity...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Ohm's Law</h3>
+            <p>Ohm is remembered for the simple relationship V = IR...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Example 2</h3>
+            <p>Apply Ohm's Law to calculate current...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">Example 3</h3>
+            <p>Apply Ohm's Law to calculate voltage...</p>
+          </TextSection>
+          
+          <TextSection>
+            <h3 className="text-xl font-semibold mb-3">The Direction of Electric Current</h3>
+            <p>Benjamin Franklin's assumptions about current direction...</p>
+          </TextSection>
+        </div>
+      )}
 
       <LessonSummary
         points={[

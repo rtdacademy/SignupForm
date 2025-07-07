@@ -3,18 +3,9 @@ import LessonContent, { TextSection, LessonSummary } from '../../../../component
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ParallelPlates = ({ course, courseId = 'default' }) => {
-  const [isParallelPlatesOpen, setIsParallelPlatesOpen] = useState(false);
+const ParallelPlates = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   const [animationState, setAnimationState] = useState('initial'); // 'initial', 'charging', 'charged'
   const [showBattery, setShowBattery] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isPotentialDifferenceOpen, setIsPotentialDifferenceOpen] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isElectricGravitationalOpen, setIsElectricGravitationalOpen] = useState(false);
-  const [isExample5Open, setIsExample5Open] = useState(false);
-  const [isMillikanOpen, setIsMillikanOpen] = useState(false);
   const [milliklanAnimationState, setMillikanAnimationState] = useState('off'); // 'off', 'spraying', 'balancing'
   const [voltage, setVoltage] = useState(0);
   const [dropletPosition, setDropletPosition] = useState(150);
@@ -69,17 +60,11 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
       title="Lesson 17 - Parallel Plates"
       metadata={{ estimated_time: '40 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsParallelPlatesOpen(!isParallelPlatesOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Parallel Plates − Uniform Electric Fields</h3>
-            <span className="text-blue-600">{isParallelPlatesOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isParallelPlatesOpen && (
+      {/* AI-Enhanced Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="parallel-plates" title="Parallel Plates − Uniform Electric Fields" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -267,21 +252,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Electron Acceleration in Parallel Plates</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1 - Electron Acceleration in Parallel Plates" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -340,21 +313,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2 - Electric Field Strength and Plate Separation</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
+            <AIAccordion.Item value="example2" title="Example 2 - Electric Field Strength and Plate Separation" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -415,21 +376,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPotentialDifferenceOpen(!isPotentialDifferenceOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Parallel Plates − Potential Difference</h3>
-            <span className="text-blue-600">{isPotentialDifferenceOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isPotentialDifferenceOpen && (
+            <AIAccordion.Item value="potential-difference" title="Parallel Plates − Potential Difference" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -449,21 +398,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3 - Alpha Particle Speed Change in Electric Field</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
+            <AIAccordion.Item value="example3" title="Example 3 - Alpha Particle Speed Change in Electric Field" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -580,21 +517,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 4 - Maximum Speed from Potential Difference</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
+            <AIAccordion.Item value="example4" title="Example 4 - Maximum Speed from Potential Difference" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -658,21 +583,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectricGravitationalOpen(!isElectricGravitationalOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Forces and Gravitational Forces</h3>
-            <span className="text-blue-600">{isElectricGravitationalOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectricGravitationalOpen && (
+            <AIAccordion.Item value="electric-gravitational" title="Electric Forces and Gravitational Forces" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -719,21 +632,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 5 - Suspended Charged Particle</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample5Open && (
+            <AIAccordion.Item value="example5" title="Example 5 - Suspended Charged Particle" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -892,21 +793,9 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsMillikanOpen(!isMillikanOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Millikan's Oil-Drop Experiment</h3>
-            <span className="text-blue-600">{isMillikanOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isMillikanOpen && (
+            <AIAccordion.Item value="millikan" title="Millikan's Oil-Drop Experiment" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -1130,8 +1019,17 @@ const ParallelPlates = ({ course, courseId = 'default' }) => {
               </div>
             </div>
           )}
+            </AIAccordion.Item>
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div>
+          {/* Fallback content when AIAccordion is not available */}
+          <p className="text-gray-600 p-4 bg-gray-100 rounded">
+            This lesson contains interactive content that requires the AI-enhanced accordion feature.
+          </p>
+        </div>
+      )}
 
       <LessonSummary
         points={[

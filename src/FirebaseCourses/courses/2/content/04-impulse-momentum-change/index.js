@@ -4,6 +4,7 @@ import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
+import { useLessonMetadata } from '../../../../hooks/useLessonConfig';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -13,6 +14,9 @@ import { InlineMath, BlockMath } from 'react-katex';
  */
 const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const { currentUser } = useAuth();
+  
+  // Get lesson metadata from course config
+  const { metadata } = useLessonMetadata(courseId, '04-impulse-momentum-change');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -165,7 +169,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2', AIAccordion, onAIAccord
     <LessonContent
       lessonId="lesson_1747281791045_100"
       title="Lesson 3 - Impulse & Change in Momentum"
-      metadata={{ estimated_time: '60 minutes' }}
+      metadata={metadata}
     >
       {AIAccordion ? (
         <AIAccordion theme="blue">

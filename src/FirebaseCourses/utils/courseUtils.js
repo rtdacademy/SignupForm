@@ -2,6 +2,85 @@
  * Utility functions for Firebase courses
  */
 
+// Cache for course configs to avoid repeated fetches
+const configCache = new Map();
+
+/**
+ * Load course configuration from the functions directory
+ * @param {String} courseId - ID of the course
+ * @returns {Promise<Object|null>} The course configuration or null if not found
+ */
+export const loadCourseConfig = async (courseId) => {
+  // Check cache first
+  if (configCache.has(courseId)) {
+    return configCache.get(courseId);
+  }
+
+  try {
+    // Import the course config dynamically
+    const configModule = await import(`../../../functions/courses-config/${courseId}/course-config.json`);
+    const config = configModule.default || configModule;
+    
+    // Cache the result
+    configCache.set(courseId, config);
+    return config;
+  } catch (error) {
+    console.error(`Failed to load course config for course ${courseId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Find an item in course config by content path
+ * @param {Object} courseConfig - The course configuration object
+ * @param {String} contentPath - The content path (e.g., "01-physics-20-review")
+ * @returns {Object|null} The found item with estimatedTime or null
+ */
+export const findItemByContentPath = (courseConfig, contentPath) => {
+  if (!courseConfig?.courseStructure?.units || !contentPath) {
+    return null;
+  }
+
+  for (const unit of courseConfig.courseStructure.units) {
+    if (!unit.items) continue;
+    
+    const item = unit.items.find(item => item.contentPath === contentPath);
+    if (item) return item;
+  }
+  
+  return null;
+};
+
+/**
+ * Get estimated time for a lesson by content path
+ * @param {String} courseId - ID of the course
+ * @param {String} contentPath - The content path (e.g., "01-physics-20-review")
+ * @returns {Promise<Number|null>} Estimated time in minutes or null if not found
+ */
+export const getEstimatedTime = async (courseId, contentPath) => {
+  try {
+    const config = await loadCourseConfig(courseId);
+    if (!config) return null;
+    
+    const item = findItemByContentPath(config, contentPath);
+    return item?.estimatedTime || null;
+  } catch (error) {
+    console.error(`Failed to get estimated time for ${contentPath}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Format estimated time for display
+ * @param {Number} minutes - Time in minutes
+ * @returns {String} Formatted time string (e.g., "120 minutes")
+ */
+export const formatEstimatedTime = (minutes) => {
+  if (!minutes || minutes <= 0) return '';
+  
+  return `${minutes} minutes`;
+};
+
 /**
  * Flattens a course structure into a single array of all items
  * @param {Array} units - Array of course units
@@ -227,6 +306,10 @@ const getLetterGrade = (grade) => {
 };
 
 export default {
+  loadCourseConfig,
+  findItemByContentPath,
+  getEstimatedTime,
+  formatEstimatedTime,
   flattenCourseItems,
   findCourseItemById,
   findUnitByItemId,

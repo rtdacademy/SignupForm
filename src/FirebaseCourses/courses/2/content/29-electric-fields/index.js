@@ -3,21 +3,11 @@ import LessonContent, { TextSection, LessonSummary } from '../../../../component
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricFields = ({ course, courseId = 'default' }) => {
-  const [isFieldsOpen, setIsFieldsOpen] = useState(false);
-  const [isElectricFieldsOpen, setIsElectricFieldsOpen] = useState(false);
+const ElectricFields = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   const [testChargeDemo, setTestChargeDemo] = useState('positive'); // 'positive' or 'negative'
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isPointChargeOpen, setIsPointChargeOpen] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isFieldDiagramsOpen, setIsFieldDiagramsOpen] = useState(false);
   const [fieldDiagramType, setFieldDiagramType] = useState('single-positive'); // 'single-positive', 'single-negative', 'dipole'
-  const [isConductorsOpen, setIsConductorsOpen] = useState(false);
   const [conductorShape, setConductorShape] = useState('sphere'); // 'sphere', 'plate', 'irregular'
   const [animateCharges, setAnimateCharges] = useState(false);
-  const [isFieldsWithinOpen, setIsFieldsWithinOpen] = useState(false);
   const [faradayDemo, setFaradayDemo] = useState('off'); // 'off', 'charging', 'charged'
   const [showPerson, setShowPerson] = useState(false);
 
@@ -28,17 +18,11 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
       course={course}
       courseId={courseId}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsFieldsOpen(!isFieldsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Fields</h3>
-            <span className="text-blue-600">{isFieldsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isFieldsOpen && (
+      {/* AI-Enhanced Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="fields" title="Fields" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -130,21 +114,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectricFieldsOpen(!isElectricFieldsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Fields</h3>
-            <span className="text-blue-600">{isElectricFieldsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectricFieldsOpen && (
+            <AIAccordion.Item value="electric-fields" title="Electric Fields" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -404,21 +376,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Finding Electric Field Strength from Force</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1 - Finding Electric Field Strength from Force" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -465,21 +425,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPointChargeOpen(!isPointChargeOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Field Strength Around a Point Charge</h3>
-            <span className="text-blue-600">{isPointChargeOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isPointChargeOpen && (
+            <AIAccordion.Item value="point-charge" title="Electric Field Strength Around a Point Charge" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -560,21 +508,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2 - Finding Charge from Electric Field</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
+            <AIAccordion.Item value="example2" title="Example 2 - Finding Charge from Electric Field" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -634,21 +570,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3 - Electric Field from Multiple Charges</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
+            <AIAccordion.Item value="example3" title="Example 3 - Electric Field from Multiple Charges" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -817,21 +741,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 4 - 2D Electric Field Vector Addition</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
+            <AIAccordion.Item value="example4" title="Example 4 - 2D Electric Field Vector Addition" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1052,21 +964,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsFieldDiagramsOpen(!isFieldDiagramsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Field Diagrams</h3>
-            <span className="text-blue-600">{isFieldDiagramsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isFieldDiagramsOpen && (
+            <AIAccordion.Item value="field-diagrams" title="Electric Field Diagrams" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -1315,21 +1215,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsConductorsOpen(!isConductorsOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Conductors and Electric Fields</h3>
-            <span className="text-blue-600">{isConductorsOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isConductorsOpen && (
+            <AIAccordion.Item value="conductors" title="Conductors and Electric Fields" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -1673,21 +1561,9 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsFieldsWithinOpen(!isFieldsWithinOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Fields Within Conductors</h3>
-            <span className="text-blue-600">{isFieldsWithinOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isFieldsWithinOpen && (
+            <AIAccordion.Item value="fields-within" title="Electric Fields Within Conductors" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="space-y-4">
@@ -1943,8 +1819,17 @@ const ElectricFields = ({ course, courseId = 'default' }) => {
               </div>
             </div>
           )}
+            </AIAccordion.Item>
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div>
+          {/* Fallback content when AIAccordion is not available */}
+          <p className="text-gray-600 p-4 bg-gray-100 rounded">
+            This lesson contains interactive content that requires the AI-enhanced accordion feature.
+          </p>
+        </div>
+      )}
 
       <LessonSummary
         points={[

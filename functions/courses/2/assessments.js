@@ -53,6 +53,9 @@ const { assessmentConfigs: unit1ReviewConfigs } = require('../2a2/22-unit-1-revi
 const { assessmentConfigs: unit2ReviewConfigs } = require('../2a2/23-unit-2-review/assessments');
 const { assessmentConfigs: section1ExamConfigs } = require('../2a2/24-section-1-exam/assessments');
 
+const { assessmentConfigs: electrostaticsConfigs } = require('../2b/25-electrostatics/assessments');
+const { assessmentConfigs: coulombsLawConfigs } = require('../2b/26-coulombs-law/assessments');
+
 /**
  * Assessment Configuration Mapping
  * Maps assessmentId to the appropriate assessment configuration
@@ -83,7 +86,9 @@ const getAllAssessmentConfigs = () => {
     ...l112CumulativeConfigs,
     ...unit1ReviewConfigs,
     ...unit2ReviewConfigs,
-    ...section1ExamConfigs
+    ...section1ExamConfigs,
+    ...electrostaticsConfigs,
+    ...coulombsLawConfigs
   };
 };
 
