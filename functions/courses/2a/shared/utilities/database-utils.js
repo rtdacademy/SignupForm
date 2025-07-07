@@ -246,7 +246,7 @@ const GRADEBOOK_PATHS = {
   
   gradebookCategories: (studentKey, courseId, isStaff = false) =>
     isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Gradebook/categories`
-            : `students/${studentKey}/courses/${courseId}/Gradebook/categories`,
+            : `students/${studentKey}/courses/${courseId}/Gradebook/categories/1`,
   
   gradebookItems: (studentKey, courseId, isStaff = false) =>
     isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Gradebook/items`
@@ -670,10 +670,10 @@ async function recalculateCategoryGrades(studentKey, courseId, isStaff = false) 
       }
     });
     
-    // Save category grades
-    const categoriesPath = GRADEBOOK_PATHS.gradebookCategories(studentKey, courseId, isStaff);
-    const categoriesRef = admin.database().ref(categoriesPath);
-    await categoriesRef.set(categories);
+    // Save category grades - DISABLED to avoid updating categories node
+    // const categoriesPath = GRADEBOOK_PATHS.gradebookCategories(studentKey, courseId, isStaff);
+    // const categoriesRef = admin.database().ref(categoriesPath);
+    // await categoriesRef.set(categories);
     
     console.log(`📊 Recalculated category grades for ${studentKey} in course ${courseId}`);
     return { categories, totalWeightedScore, totalWeight };

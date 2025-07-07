@@ -1,17 +1,17 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+//const { createStandardMultipleChoice } = require('../../../../shared/assessment-types/standard-multiple-choice');
+//const { getActivityTypeSettings } = require('../../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+//const courseConfig = require('../../../../shared/courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
 // Options: 'lesson', 'assignment', 'lab', 'exam'
 // This determines which default settings are used from course-config.json
-const ACTIVITY_TYPE = 'lesson';
+//const ACTIVITY_TYPE = 'lesson';
 
 // Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+//const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Helper function to format numbers in scientific notation
 const formatScientific = (num, sigFigs = 2) => {
@@ -101,21 +101,6 @@ const createRandomDisplacementQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question1 = createStandardMultipleChoice({
-  questions: [
-    createRandomDisplacementQuestion(),
-    createRandomDisplacementQuestion(),
-    createRandomDisplacementQuestion(),
-    createRandomDisplacementQuestion(),
-    createRandomDisplacementQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function to create a randomized speed/time question
 const createRandomSpeedTimeQuestion = () => {
   const speed = randFloat(1.0, 2.0, 1) * Math.pow(10, 5); // 1.0-2.0 × 10⁵ m/s
@@ -137,21 +122,6 @@ const createRandomSpeedTimeQuestion = () => {
     topic: "Time Calculation"
   };
 };
-
-exports.course2_01_physics_20_review_question2 = createStandardMultipleChoice({
-  questions: [
-    createRandomSpeedTimeQuestion(),
-    createRandomSpeedTimeQuestion(),
-    createRandomSpeedTimeQuestion(),
-    createRandomSpeedTimeQuestion(),
-    createRandomSpeedTimeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized average speed question
 const createRandomAverageSpeedQuestion = () => {
@@ -181,21 +151,6 @@ const createRandomAverageSpeedQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question3 = createStandardMultipleChoice({
-  questions: [
-    createRandomAverageSpeedQuestion(),
-    createRandomAverageSpeedQuestion(),
-    createRandomAverageSpeedQuestion(),
-    createRandomAverageSpeedQuestion(),
-    createRandomAverageSpeedQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function to create a randomized acceleration question
 const createRandomAccelerationQuestion = () => {
   const v_i = randInt(5, 20);
@@ -218,21 +173,6 @@ const createRandomAccelerationQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question4 = createStandardMultipleChoice({
-  questions: [
-    createRandomAccelerationQuestion(),
-    createRandomAccelerationQuestion(),
-    createRandomAccelerationQuestion(),
-    createRandomAccelerationQuestion(),
-    createRandomAccelerationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function to create a randomized vertical motion question
 const createRandomVerticalMotionQuestion = () => {
   const v_i = randInt(30, 50);
@@ -253,21 +193,6 @@ const createRandomVerticalMotionQuestion = () => {
     topic: "Vertical Motion"
   };
 };
-
-exports.course2_01_physics_20_review_question5 = createStandardMultipleChoice({
-  questions: [
-    createRandomVerticalMotionQuestion(),
-    createRandomVerticalMotionQuestion(),
-    createRandomVerticalMotionQuestion(),
-    createRandomVerticalMotionQuestion(),
-    createRandomVerticalMotionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized slope motion question
 const createRandomSlopeMotionQuestion = () => {
@@ -291,21 +216,6 @@ const createRandomSlopeMotionQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question6 = createStandardMultipleChoice({
-  questions: [
-    createRandomSlopeMotionQuestion(),
-    createRandomSlopeMotionQuestion(),
-    createRandomSlopeMotionQuestion(),
-    createRandomSlopeMotionQuestion(),
-    createRandomSlopeMotionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function to create a randomized electron acceleration question
 const createRandomElectronAccelerationQuestion = () => {
   const finalVelocity = randFloat(1.5, 2.5, 1) * Math.pow(10, 7);
@@ -327,20 +237,6 @@ const createRandomElectronAccelerationQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question7 = createStandardMultipleChoice({
-  questions: [
-    createRandomElectronAccelerationQuestion(),
-    createRandomElectronAccelerationQuestion(),
-    createRandomElectronAccelerationQuestion(),
-    createRandomElectronAccelerationQuestion(),
-    createRandomElectronAccelerationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized projectile time question
 const createRandomProjectileTimeQuestion = () => {
@@ -362,20 +258,6 @@ const createRandomProjectileTimeQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question8 = createStandardMultipleChoice({
-  questions: [
-    createRandomProjectileTimeQuestion(),
-    createRandomProjectileTimeQuestion(),
-    createRandomProjectileTimeQuestion(),
-    createRandomProjectileTimeQuestion(),
-    createRandomProjectileTimeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized falling object question
 const createRandomFallingObjectQuestion = () => {
@@ -402,20 +284,6 @@ const createRandomFallingObjectQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question9 = createStandardMultipleChoice({
-  questions: [
-    createRandomFallingObjectQuestion(),
-    createRandomFallingObjectQuestion(),
-    createRandomFallingObjectQuestion(),
-    createRandomFallingObjectQuestion(),
-    createRandomFallingObjectQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized free fall question
 const createRandomFreeFallQuestion = () => {
@@ -437,20 +305,6 @@ const createRandomFreeFallQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question10 = createStandardMultipleChoice({
-  questions: [
-    createRandomFreeFallQuestion(),
-    createRandomFreeFallQuestion(),
-    createRandomFreeFallQuestion(),
-    createRandomFreeFallQuestion(),
-    createRandomFreeFallQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized maximum height question
 const createRandomMaxHeightQuestion = () => {
@@ -472,20 +326,6 @@ const createRandomMaxHeightQuestion = () => {
   };
 };
 
-exports.course2_01_physics_20_review_question11 = createStandardMultipleChoice({
-  questions: [
-    createRandomMaxHeightQuestion(),
-    createRandomMaxHeightQuestion(),
-    createRandomMaxHeightQuestion(),
-    createRandomMaxHeightQuestion(),
-    createRandomMaxHeightQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create a randomized horizontal projectile question
 const createRandomHorizontalProjectileQuestion = () => {
@@ -507,21 +347,6 @@ const createRandomHorizontalProjectileQuestion = () => {
     topic: "Horizontal Projectile"
   };
 };
-
-exports.course2_01_physics_20_review_question12 = createStandardMultipleChoice({
-  questions: [
-    createRandomHorizontalProjectileQuestion(),
-    createRandomHorizontalProjectileQuestion(),
-    createRandomHorizontalProjectileQuestion(),
-    createRandomHorizontalProjectileQuestion(),
-    createRandomHorizontalProjectileQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // ===== VECTOR KNOWLEDGE CHECK ASSESSMENTS =====
 
@@ -547,21 +372,6 @@ const createRandomSkiLiftQuestion = () => {
   };
 };
 
-// Vector Question 1: Ski lift trigonometry
-exports.course2_01_physics_20_review_vector_q1 = createStandardMultipleChoice({
-  questions: [
-    createRandomSkiLiftQuestion(),
-    createRandomSkiLiftQuestion(),
-    createRandomSkiLiftQuestion(),
-    createRandomSkiLiftQuestion(),
-    createRandomSkiLiftQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create randomized distance and bearing question
 const createRandomDistanceBearingQuestion = () => {
@@ -584,27 +394,6 @@ const createRandomDistanceBearingQuestion = () => {
     topic: "Vector Magnitude and Direction"
   };
 };
-
-// Vector Question 2: Distance and bearing
-exports.course2_01_physics_20_review_vector_q2 = createStandardMultipleChoice({
-  questions: [
-    createRandomDistanceBearingQuestion(),
-    createRandomDistanceBearingQuestion(),
-    createRandomDistanceBearingQuestion(),
-    createRandomDistanceBearingQuestion(),
-    createRandomDistanceBearingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-
-
-
-
 
 // ===== CIRCULAR MOTION KNOWLEDGE CHECK ASSESSMENTS =====
 
@@ -631,21 +420,6 @@ const createRandomCircularMotionQuestion = () => {
   };
 };
 
-// Circular Motion Question 1: Ball on rope
-exports.course2_01_physics_20_review_circular_q1 = createStandardMultipleChoice({
-  questions: [
-    createRandomCircularMotionQuestion(),
-    createRandomCircularMotionQuestion(),
-    createRandomCircularMotionQuestion(),
-    createRandomCircularMotionQuestion(),
-    createRandomCircularMotionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create randomized car cornering question
 const createRandomCarCorneringQuestion = () => {
@@ -669,21 +443,6 @@ const createRandomCarCorneringQuestion = () => {
   };
 };
 
-// Circular Motion Question 2: Car cornering
-exports.course2_01_physics_20_review_circular_q2 = createStandardMultipleChoice({
-  questions: [
-    createRandomCarCorneringQuestion(),
-    createRandomCarCorneringQuestion(),
-    createRandomCarCorneringQuestion(),
-    createRandomCarCorneringQuestion(),
-    createRandomCarCorneringQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create randomized satellite motion question
 const createRandomSatelliteMotionQuestion = () => {
@@ -708,21 +467,6 @@ const createRandomSatelliteMotionQuestion = () => {
   };
 };
 
-// Circular Motion Question 3: Satellite motion
-exports.course2_01_physics_20_review_circular_q3 = createStandardMultipleChoice({
-  questions: [
-    createRandomSatelliteMotionQuestion(),
-    createRandomSatelliteMotionQuestion(),
-    createRandomSatelliteMotionQuestion(),
-    createRandomSatelliteMotionQuestion(),
-    createRandomSatelliteMotionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // ===== DYNAMICS KNOWLEDGE CHECK ASSESSMENTS =====
 
@@ -747,21 +491,7 @@ const createRandomNetForceQuestion = () => {
   };
 };
 
-// Dynamics Question 1: Net force and acceleration
-exports.course2_01_physics_20_review_dynamics_q1a = createStandardMultipleChoice({
-  questions: [
-    createRandomNetForceQuestion(),
-    createRandomNetForceQuestion(),
-    createRandomNetForceQuestion(),
-    createRandomNetForceQuestion(),
-    createRandomNetForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized friction force question
 const createRandomFrictionForceQuestion = () => {
@@ -786,21 +516,6 @@ const createRandomFrictionForceQuestion = () => {
   };
 };
 
-// Dynamics Question 2: Friction force
-exports.course2_01_physics_20_review_dynamics_q2 = createStandardMultipleChoice({
-  questions: [
-    createRandomFrictionForceQuestion(),
-    createRandomFrictionForceQuestion(),
-    createRandomFrictionForceQuestion(),
-    createRandomFrictionForceQuestion(),
-    createRandomFrictionForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create randomized inclined plane question
 const createRandomInclinedPlaneQuestion = () => {
@@ -824,21 +539,7 @@ const createRandomInclinedPlaneQuestion = () => {
   };
 };
 
-// Dynamics Question 3: Inclined plane
-exports.course2_01_physics_20_review_dynamics_q3 = createStandardMultipleChoice({
-  questions: [
-    createRandomInclinedPlaneQuestion(),
-    createRandomInclinedPlaneQuestion(),
-    createRandomInclinedPlaneQuestion(),
-    createRandomInclinedPlaneQuestion(),
-    createRandomInclinedPlaneQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized tension question
 const createRandomTensionQuestion = () => {
@@ -863,21 +564,7 @@ const createRandomTensionQuestion = () => {
   };
 };
 
-// Dynamics Question 4: Tension in rope
-exports.course2_01_physics_20_review_dynamics_q4 = createStandardMultipleChoice({
-  questions: [
-    createRandomTensionQuestion(),
-    createRandomTensionQuestion(),
-    createRandomTensionQuestion(),
-    createRandomTensionQuestion(),
-    createRandomTensionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized coefficient of friction question
 const createRandomCoefficientFrictionQuestion = () => {
@@ -900,21 +587,7 @@ const createRandomCoefficientFrictionQuestion = () => {
   };
 };
 
-// Dynamics Question 5: Coefficient of friction
-exports.course2_01_physics_20_review_dynamics_q5 = createStandardMultipleChoice({
-  questions: [
-    createRandomCoefficientFrictionQuestion(),
-    createRandomCoefficientFrictionQuestion(),
-    createRandomCoefficientFrictionQuestion(),
-    createRandomCoefficientFrictionQuestion(),
-    createRandomCoefficientFrictionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized normal force question
 const createRandomNormalForceQuestion = () => {
@@ -937,21 +610,7 @@ const createRandomNormalForceQuestion = () => {
   };
 };
 
-// Dynamics Question 6: Normal force on incline
-exports.course2_01_physics_20_review_dynamics_q6 = createStandardMultipleChoice({
-  questions: [
-    createRandomNormalForceQuestion(),
-    createRandomNormalForceQuestion(),
-    createRandomNormalForceQuestion(),
-    createRandomNormalForceQuestion(),
-    createRandomNormalForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized acceleration question
 const createRandomAccelerationVectorQuestion = () => {
@@ -977,21 +636,7 @@ const createRandomAccelerationVectorQuestion = () => {
   };
 };
 
-// Dynamics Question 7: Vector acceleration
-exports.course2_01_physics_20_review_dynamics_q7 = createStandardMultipleChoice({
-  questions: [
-    createRandomAccelerationVectorQuestion(),
-    createRandomAccelerationVectorQuestion(),
-    createRandomAccelerationVectorQuestion(),
-    createRandomAccelerationVectorQuestion(),
-    createRandomAccelerationVectorQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized elevator question
 const createRandomElevatorQuestion = () => {
@@ -1021,21 +666,6 @@ const createRandomElevatorQuestion = () => {
   };
 };
 
-// Dynamics Question 8: Elevator (apparent weight)
-exports.course2_01_physics_20_review_dynamics_q8 = createStandardMultipleChoice({
-  questions: [
-    createRandomElevatorQuestion(),
-    createRandomElevatorQuestion(),
-    createRandomElevatorQuestion(),
-    createRandomElevatorQuestion(),
-    createRandomElevatorQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function to create randomized static friction question
 const createRandomStaticFrictionQuestion = () => {
@@ -1059,21 +689,7 @@ const createRandomStaticFrictionQuestion = () => {
   };
 };
 
-// Dynamics Question 9: Static friction
-exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice({
-  questions: [
-    createRandomStaticFrictionQuestion(),
-    createRandomStaticFrictionQuestion(),
-    createRandomStaticFrictionQuestion(),
-    createRandomStaticFrictionQuestion(),
-    createRandomStaticFrictionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized ball speed question for circular motion
 const createRandomBallSpeedQuestion = () => {
@@ -1096,21 +712,7 @@ const createRandomBallSpeedQuestion = () => {
   };
 };
 
-// Circular Motion Question 1: Ball speed calculation
-exports.course2_01_physics_20_review_circular_q1 = createStandardMultipleChoice({
-  questions: [
-    createRandomBallSpeedQuestion(),
-    createRandomBallSpeedQuestion(),
-    createRandomBallSpeedQuestion(),
-    createRandomBallSpeedQuestion(),
-    createRandomBallSpeedQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized rope tension question
 const createRandomRopeTensionQuestion = () => {
@@ -1145,21 +747,7 @@ const createRandomRopeTensionQuestion = () => {
   };
 };
 
-// Circular Motion Question 2: Rope tension calculation
-exports.course2_01_physics_20_review_circular_q2 = createStandardMultipleChoice({
-  questions: [
-    createRandomRopeTensionQuestion(),
-    createRandomRopeTensionQuestion(),
-    createRandomRopeTensionQuestion(),
-    createRandomRopeTensionQuestion(),
-    createRandomRopeTensionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function to create randomized car friction question
 const createRandomCarFrictionQuestion = () => {
@@ -1187,363 +775,10 @@ const createRandomCarFrictionQuestion = () => {
   };
 };
 
-// Circular Motion Question 3: Car on curve
-exports.course2_01_physics_20_review_circular_q3 = createStandardMultipleChoice({
-  questions: [
-    createRandomCarFrictionQuestion(),
-    createRandomCarFrictionQuestion(),
-    createRandomCarFrictionQuestion(),
-    createRandomCarFrictionQuestion(),
-    createRandomCarFrictionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 
-// ===== DYNAMICS KNOWLEDGE CHECK ASSESSMENTS =====
-/*
-// Helper function to create randomized net force and acceleration question
-const createRandomNetForceAccelerationQuestion = () => {
-  const mass = randFloat(4.5, 6.0, 1);
-  const northForce = randInt(12, 18);
-  const westForce = randInt(20, 30);
-  const southEastForce = randInt(18, 25);
-  const southEastAngle = randInt(25, 35);
-  
-  // Calculate force components
-  const seForceEast = southEastForce * Math.cos(southEastAngle * Math.PI / 180);
-  const seForceSouth = southEastForce * Math.sin(southEastAngle * Math.PI / 180);
-  
-  // Net force components
-  const netForceEast = seForceEast - westForce;
-  const netForceNorth = northForce - seForceSouth;
-  
-  const netForceMagnitude = Math.sqrt(netForceEast * netForceEast + netForceNorth * netForceNorth);
-  const acceleration = netForceMagnitude / mass;
-  
-  let direction;
-  if (netForceEast < 0 && netForceNorth < 0) {
-    const angle = Math.atan(Math.abs(netForceNorth) / Math.abs(netForceEast)) * (180 / Math.PI);
-    direction = `${angle.toFixed(0)}° S of W`;
-  } else if (netForceEast < 0 && netForceNorth > 0) {
-    const angle = Math.atan(netForceNorth / Math.abs(netForceEast)) * (180 / Math.PI);
-    direction = `${angle.toFixed(0)}° N of W`;
-  } else if (netForceEast > 0 && netForceNorth < 0) {
-    const angle = Math.atan(Math.abs(netForceNorth) / netForceEast) * (180 / Math.PI);
-    direction = `${angle.toFixed(0)}° S of E`;
-  } else {
-    const angle = Math.atan(netForceNorth / netForceEast) * (180 / Math.PI);
-    direction = `${angle.toFixed(0)}° N of E`;
-  }
-  
-  return {
-    questionText: `A ${mass} kg object is acted upon by three forces: ${northForce} N North, ${westForce} N West, and ${southEastForce} N at ${southEastAngle}° S of E. What is the acceleration of the object?`,
-    options: [
-      { id: 'a', text: `${acceleration.toFixed(1)} m/s² @ ${direction}`, feedback: `Correct! Net force components: East = ${seForceEast.toFixed(1)} - ${westForce} = ${netForceEast.toFixed(1)} N, North = ${northForce} - ${seForceSouth.toFixed(1)} = ${netForceNorth.toFixed(1)} N. Net force = √(${netForceEast.toFixed(1)}² + ${netForceNorth.toFixed(1)}²) = ${netForceMagnitude.toFixed(1)} N. Acceleration = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
-      { id: 'b', text: `${(acceleration * 0.9).toFixed(1)} m/s² @ ${direction}`, feedback: `Direction is correct but magnitude is too small. Check your force component calculations and Newton's second law.` },
-      { id: 'c', text: `${acceleration.toFixed(1)} m/s² @ ${(Math.random() * 20 + 50).toFixed(0)}° S of W`, feedback: `Magnitude is correct but direction is wrong. Calculate net force components carefully.` },
-      { id: 'd', text: `${(acceleration * 1.15).toFixed(1)} m/s² @ ${direction}`, feedback: `Direction is correct but magnitude is too large. Use F_net = ma, so a = F_net/m.` }
-    ],
-    correctOptionId: 'a',
-    explanation: `Find net force components: Fx = 0 + (-${westForce}) + ${southEastForce}cos(${southEastAngle}°) = ${netForceEast.toFixed(1)} N, Fy = ${northForce} + 0 + (-${southEastForce}sin(${southEastAngle}°)) = ${netForceNorth.toFixed(1)} N. Net force = √(${netForceEast.toFixed(1)}² + ${netForceNorth.toFixed(1)}²) = ${netForceMagnitude.toFixed(1)} N. Acceleration = F_net/m = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²`,
-    difficulty: "advanced",
-    topic: "Newton's Second Law"
-  };
-};
-*/
-// Dynamics Question 1: Net force and acceleration (DUPLICATE - COMMENTED OUT)
-// exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
-//   questions: [
-//     createRandomNetForceAccelerationQuestion(),
-//     createRandomNetForceAccelerationQuestion(),
-//     createRandomNetForceAccelerationQuestion(),
-//     createRandomNetForceAccelerationQuestion(),
-//     createRandomNetForceAccelerationQuestion()
-//   ],
-//   randomizeQuestions: true,
-//   allowSameQuestion: false,
-//   pointsValue: 1,
-//   maxAttempts: 9999,
-//   showFeedback: true
-// });
-/*
-// Helper function to create randomized upward force question
-const createRandomUpwardForceQuestion = () => {
-  const mass = randInt(40, 60);
-  const acceleration = randFloat(1.5, 2.5, 1);
-  const requiredForce = mass * (acceleration + 9.8);
-  
-  return {
-    questionText: `What is the force required to accelerate a ${mass} kg object upward at ${acceleration} m/s²?`,
-    options: [
-      { id: 'a', text: `${requiredForce.toFixed(0)} N`, feedback: `Correct! Apply Newton's second law: F - mg = ma, so F = m(a + g) = ${mass}(${acceleration} + 9.8) = ${requiredForce.toFixed(0)} N upward` },
-      { id: 'b', text: `${(mass * 9.8).toFixed(0)} N`, feedback: `This is just the weight. You need additional force for upward acceleration: F = m(a + g)` },
-      { id: 'c', text: `${(mass * acceleration).toFixed(0)} N`, feedback: `This is only the force for acceleration. You must also overcome weight: F = ma + mg = m(a + g)` },
-      { id: 'd', text: `${(requiredForce * 1.2).toFixed(0)} N`, feedback: `This is too large. Use F = m(a + g) = ${mass}(${acceleration} + 9.8) = ${requiredForce.toFixed(0)} N` }
-    ],
-    correctOptionId: 'a',
-    explanation: `For upward motion, the net upward force must overcome weight and provide acceleration. Using Newton's second law: F - mg = ma, so F = m(a + g) = ${mass} kg × (${acceleration} + 9.8) m/s² = ${requiredForce.toFixed(0)} N`,
-    difficulty: "intermediate",
-    topic: "Newton's Second Law - Vertical Motion"
-  };
-};
 
-// Dynamics Question 2: Upward force calculation
-exports.course2_01_physics_20_review_dynamics_q2 = createStandardMultipleChoice({
-  questions: [
-    createRandomUpwardForceQuestion(),
-    createRandomUpwardForceQuestion(),
-    createRandomUpwardForceQuestion(),
-    createRandomUpwardForceQuestion(),
-    createRandomUpwardForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
-// Helper function to create randomized horizontal force with friction question
-const createRandomHorizontalFrictionQuestion = () => {
-  const mass = randFloat(1.8, 2.5, 1);
-  const appliedForce = randInt(12, 18);
-  const frictionForce = randFloat(6, 10, 1);
-  const netForce = appliedForce - frictionForce;
-  const acceleration = netForce / mass;
-  
-  return {
-    questionText: `A ${mass} kg object rests on a table. If a horizontal force of ${appliedForce} N is applied and the frictional force is ${frictionForce} N, what is the acceleration?`,
-    options: [
-      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: `Correct! Net force = Applied force - Friction = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N. Using F = ma: a = F/m = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
-      { id: 'b', text: `${(appliedForce / mass).toFixed(1)} m/s²`, feedback: `This ignores friction. Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N, so a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
-      { id: 'c', text: `${(acceleration * 0.7).toFixed(1)} m/s²`, feedback: `This is too small. Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N, so a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
-      { id: 'd', text: `${(acceleration * 1.5).toFixed(1)} m/s²`, feedback: `This is too large. Make sure to subtract friction: Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N` }
-    ],
-    correctOptionId: 'a',
-    explanation: `The net horizontal force is the applied force minus friction: F_net = ${appliedForce} N - ${frictionForce} N = ${netForce.toFixed(1)} N. Using Newton's second law: a = F_net/m = ${netForce.toFixed(1)} N / ${mass} kg = ${acceleration.toFixed(1)} m/s²`,
-    difficulty: "intermediate",
-    topic: "Newton's Second Law - Friction"
-  };
-};
-
-// Dynamics Question 3: Horizontal force with friction
-exports.course2_01_physics_20_review_dynamics_q3 = createStandardMultipleChoice({
-  questions: [
-    createRandomHorizontalFrictionQuestion(),
-    createRandomHorizontalFrictionQuestion(),
-    createRandomHorizontalFrictionQuestion(),
-    createRandomHorizontalFrictionQuestion(),
-    createRandomHorizontalFrictionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-// Helper function to create randomized angled force question
-const createRandomAngledForceQuestion = () => {
-  const mass = randInt(35, 45);
-  const appliedForce = randInt(80, 100);
-  const angle = randInt(25, 35);
-  const frictionForce = randFloat(25, 30, 2);
-  
-  const horizontalComponent = appliedForce * Math.cos(angle * Math.PI / 180);
-  const netHorizontalForce = horizontalComponent - frictionForce;
-  const acceleration = netHorizontalForce / mass;
-  
-  return {
-    questionText: `A force of ${appliedForce} N is applied to a wagon (mass ${mass} kg) at an angle of ${angle}° to the horizontal. If the frictional force is ${frictionForce} N, what is the resulting acceleration?`,
-    options: [
-      { id: 'a', text: `${acceleration.toFixed(2)} m/s²`, feedback: `Correct! Horizontal component: Fx = ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N. Net horizontal force = ${horizontalComponent.toFixed(2)} - ${frictionForce} = ${netHorizontalForce.toFixed(2)} N. Acceleration = F/m = ${netHorizontalForce.toFixed(2)}/${mass} = ${acceleration.toFixed(2)} m/s²` },
-      { id: 'b', text: `${(appliedForce / mass).toFixed(2)} m/s²`, feedback: `This uses the total force, not just the horizontal component. Use Fx = ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N` },
-      { id: 'c', text: `${(acceleration * 0.8).toFixed(2)} m/s²`, feedback: `This is too small. Check your horizontal component calculation: ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N` },
-      { id: 'd', text: `${(acceleration * 1.3).toFixed(2)} m/s²`, feedback: `This is too large. Make sure to subtract friction from the horizontal force component.` }
-    ],
-    correctOptionId: 'a',
-    explanation: `Only the horizontal component of the applied force contributes to horizontal acceleration. Horizontal component: Fx = ${appliedForce} × cos(${angle}°) = ${horizontalComponent.toFixed(2)} N. Net horizontal force = ${horizontalComponent.toFixed(2)} - ${frictionForce} = ${netHorizontalForce.toFixed(2)} N. Acceleration = F_net/m = ${netHorizontalForce.toFixed(2)}/${mass} = ${acceleration.toFixed(2)} m/s²`,
-    difficulty: "intermediate",
-    topic: "Newton's Second Law - Angled Forces"
-  };
-};
-
-// Dynamics Question 4: Angled force with friction
-exports.course2_01_physics_20_review_dynamics_q4 = createStandardMultipleChoice({
-  questions: [
-    createRandomAngledForceQuestion(),
-    createRandomAngledForceQuestion(),
-    createRandomAngledForceQuestion(),
-    createRandomAngledForceQuestion(),
-    createRandomAngledForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-// Helper function to create randomized simple force calculation question
-const createRandomSimpleForceQuestion = () => {
-  const mass = randInt(40, 50);
-  const acceleration = randFloat(1.0, 1.5, 1);
-  const force = mass * acceleration;
-  
-  return {
-    questionText: `An object has a mass of ${mass} kg. What net force is required to give it an acceleration of ${acceleration} m/s²?`,
-    options: [
-      { id: 'a', text: `${force.toFixed(0)} N`, feedback: `Correct! Using Newton's second law: F = ma = ${mass} kg × ${acceleration} m/s² = ${force.toFixed(0)} N` },
-      { id: 'b', text: `${(force * 0.8).toFixed(0)} N`, feedback: `This is too small. Use F = ma = ${mass} × ${acceleration} = ${force.toFixed(0)} N` },
-      { id: 'c', text: `${(mass + acceleration).toFixed(0)} N`, feedback: `You added instead of multiplied. Use F = ma = ${mass} × ${acceleration} = ${force.toFixed(0)} N` },
-      { id: 'd', text: `${(mass / acceleration).toFixed(0)} N`, feedback: `You divided instead of multiplied. Newton's second law is F = ma, not F = m/a` }
-    ],
-    correctOptionId: 'a',
-    explanation: `Newton's second law states that F = ma. Therefore, F = ${mass} kg × ${acceleration} m/s² = ${force.toFixed(0)} N`,
-    difficulty: "basic",
-    topic: "Newton's Second Law - Basic"
-  };
-};
-
-// Dynamics Question 5: Simple force calculation
-exports.course2_01_physics_20_review_dynamics_q5 = createStandardMultipleChoice({
-  questions: [
-    createRandomSimpleForceQuestion(),
-    createRandomSimpleForceQuestion(),
-    createRandomSimpleForceQuestion(),
-    createRandomSimpleForceQuestion(),
-    createRandomSimpleForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-// Helper function to create randomized coefficient of friction question
-const createRandomFrictionCoefficientQuestion = () => {
-  const mass = randInt(8, 12);
-  const appliedForce = randInt(35, 45);
-  const normalForce = mass * 9.8;
-  const coefficient = appliedForce / normalForce;
-  
-  return {
-    questionText: `A ${mass} kg box is dragged over a horizontal surface by a force of ${appliedForce} N. If the box moves with a constant speed, what is the coefficient of kinetic friction?`,
-    options: [
-      { id: 'a', text: `${coefficient.toFixed(2)}`, feedback: `Correct! At constant velocity, forces are balanced: friction = applied force = ${appliedForce} N. Normal force = mg = ${mass} × 9.8 = ${normalForce.toFixed(0)} N. Coefficient of friction μk = f/N = ${appliedForce}/${normalForce.toFixed(0)} = ${coefficient.toFixed(2)}` },
-      { id: 'b', text: `${(coefficient * 0.7).toFixed(2)}`, feedback: `This is too small. At constant velocity, friction force equals applied force: ${appliedForce} N` },
-      { id: 'c', text: `${(coefficient * 1.3).toFixed(2)}`, feedback: `This is too large. Use μk = f/N = ${appliedForce}/${normalForce.toFixed(0)} = ${coefficient.toFixed(2)}` },
-      { id: 'd', text: `${(appliedForce / mass).toFixed(2)}`, feedback: `You divided by mass instead of normal force. Use μk = f/N where N = mg = ${normalForce.toFixed(0)} N` }
-    ],
-    correctOptionId: 'a',
-    explanation: `At constant velocity, the net force is zero, so friction force equals applied force (${appliedForce} N). Normal force = mg = ${mass} kg × 9.8 m/s² = ${normalForce.toFixed(0)} N. Coefficient of kinetic friction μk = f/N = ${appliedForce} N / ${normalForce.toFixed(0)} N = ${coefficient.toFixed(2)}`,
-    difficulty: "intermediate",
-    topic: "Friction and Equilibrium"
-  };
-};
-
-// Dynamics Question 6: Coefficient of friction
-exports.course2_01_physics_20_review_dynamics_q6 = createStandardMultipleChoice({
-  questions: [
-    createRandomFrictionCoefficientQuestion(),
-    createRandomFrictionCoefficientQuestion(),
-    createRandomFrictionCoefficientQuestion(),
-    createRandomFrictionCoefficientQuestion(),
-    createRandomFrictionCoefficientQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-// Helper function to create randomized two forces magnitude question
-const createRandomTwoForcesMagnitudeQuestion = () => {
-  const mass = randFloat(2.5, 3.5, 1);
-  const horizontalForce = randInt(10, 14);
-  const verticalForce = randFloat(6, 10, 1);
-  const netForceMagnitude = Math.sqrt(horizontalForce * horizontalForce + verticalForce * verticalForce);
-  const acceleration = netForceMagnitude / mass;
-  
-  return {
-    questionText: `Two forces act on a ${mass} kg object: ${horizontalForce} N horizontally to the right, and ${verticalForce} N vertically upward. What is the magnitude of the acceleration?`,
-    options: [
-      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: `Correct! Net force components: Fx = ${horizontalForce} N, Fy = ${verticalForce} N. Net force magnitude = √(${horizontalForce}² + ${verticalForce}²) = √(${horizontalForce * horizontalForce} + ${(verticalForce * verticalForce).toFixed(0)}) = ${netForceMagnitude.toFixed(1)} N. Acceleration = F/m = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
-      { id: 'b', text: `${(horizontalForce / mass).toFixed(1)} m/s²`, feedback: `This only uses the horizontal force. You need the magnitude of the resultant force: √(${horizontalForce}² + ${verticalForce}²)` },
-      { id: 'c', text: `${((horizontalForce + verticalForce) / mass).toFixed(1)} m/s²`, feedback: `This adds the magnitudes instead of using vector addition. Use the Pythagorean theorem: √(${horizontalForce}² + ${verticalForce}²)` },
-      { id: 'd', text: `${(acceleration * 0.8).toFixed(1)} m/s²`, feedback: `This is too small. Net force = √(${horizontalForce}² + ${verticalForce}²) = ${netForceMagnitude.toFixed(1)} N, so a = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` }
-    ],
-    correctOptionId: 'a',
-    explanation: `The two perpendicular forces combine as vectors. Net force magnitude = √(Fx² + Fy²) = √(${horizontalForce}² + ${verticalForce}²) = √(${horizontalForce * horizontalForce + verticalForce * verticalForce}) = ${netForceMagnitude.toFixed(1)} N. Using F = ma: a = ${netForceMagnitude.toFixed(1)} N / ${mass} kg = ${acceleration.toFixed(1)} m/s²`,
-    difficulty: "intermediate",
-    topic: "Vector Forces"
-  };
-};
-
-// Dynamics Question 7: Two perpendicular forces
-exports.course2_01_physics_20_review_dynamics_q7 = createStandardMultipleChoice({
-  questions: [
-    createRandomTwoForcesMagnitudeQuestion(),
-    createRandomTwoForcesMagnitudeQuestion(),
-    createRandomTwoForcesMagnitudeQuestion(),
-    createRandomTwoForcesMagnitudeQuestion(),
-    createRandomTwoForcesMagnitudeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-// Helper function to create randomized car acceleration force question
-const createRandomCarAccelerationQuestion = () => {
-  const mass = randInt(1100, 1300);
-  const initialVelocity = 0;
-  const finalVelocity = randInt(20, 30);
-  const time = randFloat(7, 9, 1);
-  const acceleration = (finalVelocity - initialVelocity) / time;
-  const netForce = mass * acceleration;
-  
-  return {
-    questionText: `A car with a mass of ${mass} kg accelerates from rest to ${finalVelocity} m/s in ${time} s. What is the net force acting on the car?`,
-    options: [
-      { id: 'a', text: `${netForce.toFixed(0)} N`, feedback: `Correct! First find acceleration: a = Δv/t = (${finalVelocity} - 0)/${time} = ${acceleration.toFixed(2)} m/s². Then F = ma = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` },
-      { id: 'b', text: `${(netForce * 0.8).toFixed(0)} N`, feedback: `This is too small. Acceleration = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², so F = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` },
-      { id: 'c', text: `${(mass * finalVelocity).toFixed(0)} N`, feedback: `This uses velocity instead of acceleration. First find a = Δv/t = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², then F = ma` },
-      { id: 'd', text: `${(netForce * 1.2).toFixed(0)} N`, feedback: `This is too large. Check your calculation: a = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², F = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` }
-    ],
-    correctOptionId: 'a',
-    explanation: `Step 1: Find acceleration using a = Δv/t = (${finalVelocity} - 0)/${time} = ${acceleration.toFixed(2)} m/s². Step 2: Apply Newton's second law: F = ma = ${mass} kg × ${acceleration.toFixed(2)} m/s² = ${netForce.toFixed(0)} N`,
-    difficulty: "intermediate",
-    topic: "Newton's Second Law - Kinematics"
-  };
-};
-
-// Dynamics Question 8: Car acceleration force
-exports.course2_01_physics_20_review_dynamics_q8 = createStandardMultipleChoice({
-  questions: [
-    createRandomCarAccelerationQuestion(),
-    createRandomCarAccelerationQuestion(),
-    createRandomCarAccelerationQuestion(),
-    createRandomCarAccelerationQuestion(),
-    createRandomCarAccelerationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-*/
 
 // Helper function to create randomized angled pull with friction question
 const createRandomAngledPullFrictionQuestion = () => {
@@ -1574,21 +809,7 @@ const createRandomAngledPullFrictionQuestion = () => {
   };
 };
 
-// Dynamics Question 9: Angled pull with friction
-exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice({
-  questions: [
-    createRandomAngledPullFrictionQuestion(),
-    createRandomAngledPullFrictionQuestion(),
-    createRandomAngledPullFrictionQuestion(),
-    createRandomAngledPullFrictionQuestion(),
-    createRandomAngledPullFrictionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
 // Export all assessment configurations for use by the master function

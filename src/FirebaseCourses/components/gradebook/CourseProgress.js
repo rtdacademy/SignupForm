@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { CheckCircle, Circle, Clock, Target, BookOpen, Award, Lock, Play, Eye } from 'lucide-react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { CheckCircle, Circle, Clock, Target, BookOpen, Award, Lock, Play, Eye, ChevronRight, Unlock, Shield } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -7,16 +7,119 @@ import {
   validateGradeDataStructures, 
   calculateLessonScore, 
   checkLessonCompletion,
-  findAssessmentSessions 
+  findAssessmentSessions,
+  shouldUseSessionBasedScoring 
 } from '../../utils/gradeCalculations';
+import { formatScore } from '../../utils/gradeUtils';
 import { useAuth } from '../../../context/AuthContext';
 import LessonDetailModal from './LessonDetailModal';
+import { 
+  hasStaffOverridePermissions, 
+  setLessonAccessOverride, 
+  removeLessonAccessOverride,
+  getLessonAccessOverrides 
+} from '../../utils/staffOverrides';
 
 const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibility = {} }) => {
   const { currentUser } = useAuth();
   // State for lesson detail modal
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // State for staff overrides
+  const [staffOverrides, setStaffOverrides] = useState({});
+  const [overrideLoading, setOverrideLoading] = useState({});
+  const [overridesLoaded, setOverridesLoaded] = useState(false);
+  
+  // Get student email for session-based scoring
+  const studentEmail = profile?.StudentEmail || currentUser?.email;
+  
+  // Determine if this is a staff view (teacher looking at student data)
+  const isStaffView = currentUser?.email && studentEmail && 
+                      currentUser.email !== studentEmail;
+                      
+  // Check if current user has staff override permissions
+  const canOverride = hasStaffOverridePermissions(currentUser);
+  
+  // Get course ID for override operations
+  const courseId = course?.courseId || course?.id;
+  
+  // Load staff overrides if user has permissions and we're viewing student data
+  const loadStaffOverrides = useCallback(async () => {
+    if (!canOverride || !studentEmail || !courseId || overridesLoaded) {
+      return;
+    }
+    
+    try {
+      const overrides = await getLessonAccessOverrides(studentEmail, courseId);
+      setStaffOverrides(overrides);
+      setOverridesLoaded(true);
+    } catch (error) {
+      console.error('Failed to load staff overrides:', error);
+    }
+  }, [canOverride, studentEmail, courseId, overridesLoaded]);
+
+  // Load overrides when component mounts or dependencies change
+  React.useEffect(() => {
+    loadStaffOverrides();
+  }, [loadStaffOverrides]);
+
+  // Handle staff override toggle
+  const handleOverrideToggle = useCallback(async (lessonId, currentlyAccessible) => {
+    if (!canOverride || !studentEmail || !courseId || !currentUser?.email) {
+      return;
+    }
+    
+    setOverrideLoading(prev => ({ ...prev, [lessonId]: true }));
+    
+    try {
+      const newAccessible = !currentlyAccessible;
+      
+      if (newAccessible) {
+        // Grant access
+        const success = await setLessonAccessOverride(
+          studentEmail, 
+          courseId, 
+          lessonId, 
+          true, 
+          currentUser.email,
+          'Staff override - Access granted'
+        );
+        
+        if (success) {
+          setStaffOverrides(prev => ({
+            ...prev,
+            [lessonId]: {
+              accessible: true,
+              overriddenBy: currentUser.email,
+              overrideDate: Date.now(),
+              reason: 'Staff override - Access granted'
+            }
+          }));
+        }
+      } else {
+        // Remove access override (revert to normal progression)
+        const success = await removeLessonAccessOverride(
+          studentEmail, 
+          courseId, 
+          lessonId, 
+          currentUser.email
+        );
+        
+        if (success) {
+          setStaffOverrides(prev => {
+            const newOverrides = { ...prev };
+            delete newOverrides[lessonId];
+            return newOverrides;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle override:', error);
+    } finally {
+      setOverrideLoading(prev => ({ ...prev, [lessonId]: false }));
+    }
+  }, [canOverride, studentEmail, courseId, currentUser]);
   
   // Validate that we have the required data structures
   const validation = validateGradeDataStructures(course);
@@ -57,27 +160,59 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
     const items = allCourseItems.map((courseItem, globalIndex) => {
       const lessonId = courseItem.itemId;
       
-      // Use reliable calculation function for lesson scores
-      const lessonScore = calculateLessonScore(lessonId, course);
+      // Use the studentEmail defined above for consistent checking
       
-      // Get student email for consistent checking
-      const studentEmail = profile?.StudentEmail || currentUser?.email;
+      // Use reliable calculation function for lesson scores with student email for session-based scoring
+      const lessonScore = calculateLessonScore(lessonId, course, studentEmail);
       
       // Check if lesson meets completion requirements
       const isCompleted = checkLessonCompletion(lessonId, course, studentEmail);
       
-      // Calculate completion rate and status
-      const completionRate = lessonScore.totalQuestions > 0 ? 
-        (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+      // Check if this should be session-based
+      const shouldBeSessionBased = shouldUseSessionBasedScoring(lessonId, course);
+      const isSessionBased = lessonScore.source === 'session';
+      const sessionCount = lessonScore.sessionsCount || 0;
+      const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
       
+      // Calculate completion rate and status based on assessment type
+      let completionRate = 0;
       let status = 'not_started';
-      if (lessonScore.attempted > 0) {
-        status = isCompleted ? 'completed' : 'in_progress';
+      
+      if (shouldBeSessionBased) {
+        // For session-based assessments, use session data for status
+        if (sessionCount > 0) {
+          // Use the session progress information from the lesson score calculation
+          const sessionStatus = lessonScore.sessionStatus;
+          const sessionProgress = lessonScore.sessionProgress || 0;
+          
+          if (sessionStatus === 'completed') {
+            status = isCompleted ? 'completed' : 'in_progress';
+            completionRate = 100; // Session was completed
+          } else if (sessionStatus === 'in_progress' || sessionStatus === 'exited') {
+            status = 'in_progress';
+            // Use actual progress based on answered questions
+            completionRate = sessionProgress;
+          }
+        }
+        // If no sessions, status remains 'not_started' and completionRate remains 0
+      } else {
+        // For individual question-based items, use question progress
+        completionRate = lessonScore.totalQuestions > 0 ? 
+          (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
+        
+        if (lessonScore.attempted > 0) {
+          status = isCompleted ? 'completed' : 'in_progress';
+        }
       }
       
       // Use the same lesson accessibility as navigation for consistency
-      const accessInfo = lessonAccessibility[lessonId] || { accessible: true, reason: 'Default access' };
+      const accessInfo = lessonAccessibility[lessonId] || { accessible: false, reason: 'Access not determined' };
       const isUnlocked = accessInfo.accessible;
+      
+      // Check for staff override
+      const override = staffOverrides[lessonId];
+      const hasStaffOverride = !!override;
+      const overrideAccessible = override?.accessible;
       
       // Global item number: 1, 2, 3, 4, 5... across all units
       const itemNumber = globalIndex + 1;
@@ -154,12 +289,23 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
         sessionData: sessionData,
         isUnlocked: isUnlocked,
         meetsRequirements: isCompleted,
-        valid: lessonScore.valid
+        valid: lessonScore.valid,
+        // Session-based information
+        shouldBeSessionBased: shouldBeSessionBased,
+        isSessionBased: isSessionBased,
+        sessionCount: sessionCount,
+        hasNoSessions: hasNoSessions,
+        scoringStrategy: lessonScore.strategy || null,
+        sessionStatus: lessonScore.sessionStatus || null,
+        // Staff override information
+        hasStaffOverride: hasStaffOverride,
+        overrideAccessible: overrideAccessible,
+        overrideData: override
       };
     });
     
     return items;
-  }, [allCourseItems, course, itemStructure, grades, assessments, profile, lessonAccessibility]);
+  }, [allCourseItems, course, itemStructure, grades, assessments, profile, lessonAccessibility, studentEmail, staffOverrides]);
 
   // Calculate overall stats based on all course items
   const stats = useMemo(() => {
@@ -234,7 +380,7 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
           <ProgressStat 
             icon={<Target className="h-4 w-4 text-blue-600" />}
             label="Overall"
-            value={Math.round(stats.completionPercentage)}
+            value={formatScore(stats.completionPercentage)}
             suffix="%"
             color="blue"
           />
@@ -243,7 +389,7 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-600">
             <span>Course Items Completed</span>
-            <span>{stats.completed} / {stats.total} ({Math.round(stats.completionPercentage)}%)</span>
+            <span>{stats.completed} / {stats.total} ({formatScore(stats.completionPercentage)}%)</span>
           </div>
           <Progress value={stats.completionPercentage} className="h-3" />
         </div>
@@ -279,9 +425,11 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Access
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {canOverride && (
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Staff Override
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -290,6 +438,9 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
                     key={item.lessonId} 
                     lesson={item} 
                     onViewDetails={() => handleViewDetails(item)}
+                    canOverride={canOverride}
+                    onOverrideToggle={handleOverrideToggle}
+                    overrideLoading={overrideLoading[item.lessonId] || false}
                   />
                 ))}
               </tbody>
@@ -304,6 +455,7 @@ const CourseProgress = ({ course, allCourseItems = [], profile, lessonAccessibil
         onClose={handleCloseModal}
         lesson={selectedLesson}
         course={course}
+        isStaffView={isStaffView}
       />
     </div>
   );
@@ -324,8 +476,19 @@ const ProgressStat = ({ icon, label, value, total, suffix = '', color }) => (
 );
 
 // Lesson Progress Row Component
-const LessonProgressRow = ({ lesson, onViewDetails }) => {
+const LessonProgressRow = ({ lesson, onViewDetails, canOverride, onOverrideToggle, overrideLoading }) => {
   const getStatusIcon = () => {
+    // For session-based assessments, use session status
+    if (lesson.shouldBeSessionBased && lesson.sessionCount > 0) {
+      if (lesson.sessionStatus === 'completed') {
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      } else if (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') {
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      }
+      return <Circle className="h-5 w-5 text-gray-400" />;
+    }
+    
+    // For individual question-based items, use traditional status
     if (lesson.status === 'completed') {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
     } else if (lesson.status === 'in_progress') {
@@ -348,16 +511,42 @@ const LessonProgressRow = ({ lesson, onViewDetails }) => {
     return 'bg-gray-300';
   };
 
+  // Handle row click to open details modal
+  const handleRowClick = () => {
+    if (lesson.isConfigured && lesson.questions.length > 0) {
+      onViewDetails();
+    }
+  };
+
+  // Determine if row should be clickable
+  const isClickable = lesson.isConfigured && lesson.questions.length > 0;
+
   return (
-    <tr className={`${lesson.isUnlocked ? 'hover:bg-gray-50' : 'bg-gray-50 opacity-60'}`}>
+    <tr 
+      className={`${
+        lesson.isUnlocked 
+          ? isClickable
+            ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm' 
+            : 'hover:bg-gray-50'
+          : 'bg-gray-50 opacity-60'
+      } ${isClickable ? 'group' : ''}`}
+      onClick={handleRowClick}
+      title={isClickable ? 'Click to view details' : undefined}
+    >
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1">
             {lesson.lessonNumber.toString().padStart(2, '0')}
           </div>
-          <div>
-            <div className="text-sm font-medium text-gray-900">
-              {lesson.lessonTitle}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium text-gray-900">
+                {lesson.lessonTitle}
+              </div>
+              {isClickable && (
+                <Eye className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-150" 
+                     title="Click to view details" />
+              )}
             </div>
             <div className="text-xs text-gray-500">{lesson.activityType}</div>
           </div>
@@ -365,29 +554,59 @@ const LessonProgressRow = ({ lesson, onViewDetails }) => {
       </td>
       
       <td className="px-6 py-4 text-center">
-        <div className="flex flex-col items-center">
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+        <div className="flex justify-center">
+          <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className={`h-2 rounded-full ${getProgressColor(lesson.completionRate)}`}
               style={{ width: `${lesson.completionRate}%` }}
             ></div>
           </div>
-          <div className="text-xs text-gray-600">{Math.round(lesson.completionRate)}%</div>
         </div>
       </td>
       
       <td className="px-6 py-4 text-center">
-        <div className="text-sm text-gray-600">
-          {lesson.completedQuestions} / {lesson.totalQuestions}
-        </div>
+        {lesson.shouldBeSessionBased ? (
+          // Session-based assessment display
+          lesson.hasNoSessions ? (
+            <div className="text-sm text-gray-400">
+              No sessions
+            </div>
+          ) : (
+            <div>
+              <div className="text-sm text-gray-600">
+                {lesson.sessionCount} session{lesson.sessionCount !== 1 ? 's' : ''}
+              </div>
+              <div className="text-xs text-gray-500">
+                {lesson.scoringStrategy === 'takeHighest' ? 'Highest score' :
+                 lesson.scoringStrategy === 'latest' ? 'Latest attempt' :
+                 lesson.scoringStrategy === 'average' ? 'Average score' :
+                 'Session-based'}
+              </div>
+            </div>
+          )
+        ) : (
+          // Individual question-based display
+          <div className="text-sm text-gray-600">
+            {lesson.completedQuestions} / {lesson.totalQuestions}
+          </div>
+        )}
       </td>
       
       <td className="px-6 py-4">
         <div className="flex items-center justify-center gap-2">
           {getStatusIcon()}
           <span className="text-xs text-gray-600 capitalize">
-            {lesson.status === 'completed' ? 'Completed' : 
-             lesson.status === 'in_progress' ? 'In Progress' : 'Not Started'}
+            {lesson.shouldBeSessionBased && lesson.sessionCount > 0 ? (
+              // Show actual session status for session-based assessments
+              lesson.sessionStatus === 'completed' ? 'Completed' :
+              lesson.sessionStatus === 'in_progress' ? 'In Progress' :
+              lesson.sessionStatus === 'exited' ? 'Exited' :
+              lesson.sessionStatus || 'Unknown'
+            ) : (
+              // Show traditional status for individual question-based items
+              lesson.status === 'completed' ? 'Completed' : 
+              lesson.status === 'in_progress' ? 'In Progress' : 'Not Started'
+            )}
           </span>
         </div>
       </td>
@@ -398,26 +617,46 @@ const LessonProgressRow = ({ lesson, onViewDetails }) => {
           <span className="text-xs text-gray-600">
             {lesson.isUnlocked ? 'Unlocked' : 'Locked'}
           </span>
+          {isClickable && lesson.isUnlocked && (
+            <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-blue-500 transition-colors duration-150 ml-1" />
+          )}
         </div>
       </td>
       
-      <td className="px-6 py-4 text-center">
-        {lesson.isConfigured && lesson.questions.length > 0 ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onViewDetails}
-            className="flex items-center gap-1"
-          >
-            <Eye className="h-4 w-4" />
-            View Details
-          </Button>
-        ) : lesson.isConfigured ? (
-          <span className="text-xs text-gray-400">No questions</span>
-        ) : (
-          <span className="text-xs text-gray-400 italic">Coming soon</span>
-        )}
-      </td>
+      {canOverride && (
+        <td className="px-6 py-4">
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              size="sm"
+              variant={lesson.hasStaffOverride ? "destructive" : "outline"}
+              onClick={() => onOverrideToggle(lesson.lessonId, lesson.hasStaffOverride ? lesson.overrideAccessible : lesson.isUnlocked)}
+              disabled={overrideLoading}
+              className="h-8 w-8 p-0"
+              title={
+                lesson.hasStaffOverride 
+                  ? `Remove override (Currently: ${lesson.overrideAccessible ? 'Accessible' : 'Restricted'})` 
+                  : `Override access (Currently: ${lesson.isUnlocked ? 'Unlocked' : 'Locked'})`
+              }
+            >
+              {overrideLoading ? (
+                <Clock className="h-4 w-4 animate-spin" />
+              ) : lesson.hasStaffOverride ? (
+                <Shield className="h-4 w-4" />
+              ) : lesson.isUnlocked ? (
+                <Lock className="h-4 w-4" />
+              ) : (
+                <Unlock className="h-4 w-4" />
+              )}
+            </Button>
+            {lesson.hasStaffOverride && (
+              <div className="text-xs text-orange-600 flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                <span>Override</span>
+              </div>
+            )}
+          </div>
+        </td>
+      )}
     </tr>
   );
 };

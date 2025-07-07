@@ -5,6 +5,8 @@ import { useSchoolYear } from '../context/SchoolYearContext';
 import { useCourse } from '../context/CourseContext';
 import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { getAllCourseItems } from '../FirebaseCourses/utils/gradeCalculations';
+import { getLessonAccessibility } from '../FirebaseCourses/utils/lessonAccess';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
 import StudentDetail from './StudentDetail';
@@ -78,6 +80,9 @@ function StudentManagement({
   const [studentAsns, setStudentAsns] = useState({});
   const [showMultipleAsnsOnly, setShowMultipleAsnsOnly] = useState(false);
   const [recordTypeFilter, setRecordTypeFilter] = useState('yourway'); // Default to 'yourway' (hide PASI-only records)
+  
+  // State to track if selected student's course is a Firebase course
+  const [selectedStudentHasFirebaseCourse, setSelectedStudentHasFirebaseCourse] = useState(false);
 
   const { user_email_key, user } = useAuth();
   const { getCourseById } = useCourse();
@@ -89,25 +94,38 @@ function StudentManagement({
     setDetailRefreshKey(prev => prev + 1);
   }, []);
 
-  // Check if selected student has Firebase courses
-  const selectedStudentHasFirebaseCourse = useMemo(() => {
-    if (!selectedStudent?.CourseID) {
-      console.log('🔍 Firebase Course Check - No Course ID:', selectedStudent);
-      return false;
-    }
-    const courseData = getCourseById(selectedStudent.CourseID);
-    const isFirebase = courseData?.firebaseCourse === true;
-    
-    console.log('🔍 Firebase Course Check:', {
-      studentName: selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'None',
-      courseId: selectedStudent.CourseID,
-      courseData,
-      isFirebaseCourse: isFirebase,
-      timestamp: new Date().toLocaleTimeString()
-    });
-    
-    return isFirebase;
-  }, [selectedStudent?.CourseID, getCourseById]);
+  // Effect to check if selected student's course is a Firebase course
+  useEffect(() => {
+    const checkFirebaseCourse = async () => {
+      if (!selectedStudent?.CourseID) {
+        console.log('🔍 Firebase Course Check - No Course ID:', selectedStudent);
+        setSelectedStudentHasFirebaseCourse(false);
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        const courseRef = ref(db, `courses/${selectedStudent.CourseID}/firebaseCourse`);
+        const snapshot = await get(courseRef);
+        const isFirebase = snapshot.val() === true;
+        
+        console.log('🔍 Firebase Course Check (Database):', {
+          studentName: selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'None',
+          courseId: selectedStudent.CourseID,
+          firebaseCourseValue: snapshot.val(),
+          isFirebaseCourse: isFirebase,
+          timestamp: new Date().toLocaleTimeString()
+        });
+        
+        setSelectedStudentHasFirebaseCourse(isFirebase);
+      } catch (error) {
+        console.error('Error checking Firebase course status:', error);
+        setSelectedStudentHasFirebaseCourse(false);
+      }
+    };
+
+    checkFirebaseCourse();
+  }, [selectedStudent?.CourseID]);
 
   // Get student email key for teacher data hook
   const selectedStudentEmailKey = useMemo(() => {
@@ -443,13 +461,50 @@ function StudentManagement({
     });
 
     // If the selected student has a Firebase course, show the GradebookDashboard
-    if (selectedStudentHasFirebaseCourse && studentFirebaseData.courses) {
-      const targetCourse = studentFirebaseData.courses.find(course => course.id === selectedStudent.CourseID);
+    if (selectedStudentHasFirebaseCourse && studentFirebaseData.courses && studentFirebaseData.courses.length > 0) {
+      // Try to find the course by exact match first, then by string conversion
+      let targetCourse = studentFirebaseData.courses.find(course => course.id === selectedStudent.CourseID);
+      
+      // If not found, try string/number conversion
+      if (!targetCourse) {
+        targetCourse = studentFirebaseData.courses.find(course => 
+          String(course.id) === String(selectedStudent.CourseID) ||
+          course.CourseID === selectedStudent.CourseID ||
+          String(course.CourseID) === String(selectedStudent.CourseID)
+        );
+      }
+      
+      // Calculate required props for GradebookDashboard
+      const allCourseItems = getAllCourseItems(targetCourse);
+      
+      // Calculate actual student lesson accessibility based on their progress
+      // This shows the real accessibility status that the student experiences
+      const courseStructure = targetCourse.Gradebook?.courseConfig?.courseStructure || 
+                             targetCourse.Gradebook?.courseStructure || 
+                             targetCourse.courseStructure;
+      
+      const gradebookWithGrades = {
+        ...targetCourse.Gradebook,
+        grades: {
+          assessments: targetCourse?.Grades?.assessments || {}
+        }
+      };
+      
+      const lessonAccessibility = getLessonAccessibility(
+        courseStructure, 
+        targetCourse.Gradebook?.items || {}, 
+        gradebookWithGrades,
+        {
+          isDeveloperBypass: false // Show actual student restrictions in teacher view
+        }
+      );
       
       console.log('🎯 STUDENT MANAGEMENT - Firebase Course Search:', {
         selectedStudentCourseId: selectedStudent.CourseID,
         availableCourseIds: studentFirebaseData.courses.map(c => c.id),
+        availableCoursesData: studentFirebaseData.courses.map(c => ({ id: c.id, CourseID: c.CourseID, firebaseCourse: c.courseDetails?.firebaseCourse })),
         targetCourseFound: !!targetCourse,
+        allCoursesData: studentFirebaseData.courses,
         timestamp: new Date().toLocaleTimeString()
       });
       
@@ -464,6 +519,9 @@ function StudentManagement({
           courseStructure: targetCourse.Gradebook?.courseConfig?.courseStructure || targetCourse.Gradebook?.courseStructure,
           gradebookItems: targetCourse.Gradebook?.items,
           gradebookSummary: targetCourse.Gradebook?.summary,
+          allCourseItemsCount: allCourseItems.length,
+          profileData: studentFirebaseData.profile,
+          lessonAccessibilityCount: Object.keys(lessonAccessibility).length,
           timestamp: new Date().toLocaleTimeString()
         });
 
@@ -471,27 +529,16 @@ function StudentManagement({
           <Card className="h-full bg-white shadow-md">
             <CardContent className="h-full p-2 overflow-auto">
               {/* Teacher Context Header */}
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Flame className="h-5 w-5 text-orange-600" />
-                    <span className="font-medium text-orange-900">Firebase Course View</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-4 w-4" />
-                    {selectedStudent.firstName} {selectedStudent.lastName}
-                  </div>
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                    Teacher View
-                  </Badge>
-                </div>
-                <p className="text-sm text-orange-700 mt-1">
-                  Viewing student's gradebook data exactly as they would see it
-                </p>
-              </div>
+            
 
               {/* GradebookDashboard Component */}
-              <GradebookDashboard course={targetCourse} />
+              <GradebookDashboard 
+                course={targetCourse}
+                allCourseItems={allCourseItems}
+                profile={studentFirebaseData.profile}
+                lessonAccessibility={lessonAccessibility}
+                showHeader={false}
+              />
             </CardContent>
           </Card>
         );

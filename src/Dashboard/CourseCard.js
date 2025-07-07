@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FaUser,
   FaExternalLinkAlt,
@@ -108,6 +108,19 @@ const CourseCard = ({
   const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
   const [remainingSchedules, setRemainingSchedules] = useState(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  
+  // Cache course details to prevent button disappearing
+  const [cachedCourseDetails, setCachedCourseDetails] = useState(null);
+  
+  // Update cached course details when they become available or change
+  useEffect(() => {
+    if (course.courseDetails) {
+      setCachedCourseDetails(course.courseDetails);
+    }
+  }, [course.courseDetails]);
+  
+  // Use cached details if current ones are unavailable
+  const effectiveCourseDetails = course.courseDetails || cachedCourseDetails;
 
   // Determine if a schedule exists by checking if ScheduleJSON is present
   const hasSchedule = !!course.ScheduleJSON;
@@ -128,12 +141,13 @@ const CourseCard = ({
   // Check if current user is a developer for this course
   const isDeveloper = (() => {
     const userEmail = currentUser?.email;
-    const allowedEmails = course.courseDetails?.allowedEmails || [];
+    const allowedEmails = effectiveCourseDetails?.allowedEmails || [];
     return userEmail && allowedEmails.includes(userEmail);
   })();
 
   // Check if course details are still loading (prevents race condition on dashboard re-entry)
-  const courseDetailsLoading = !course.courseDetails && course.id;
+  // Now only true if we have never loaded course details (no cached version either)
+  const courseDetailsLoading = !effectiveCourseDetails && course.id;
 
   // Update computedPaymentStatus to silently handle legacy courses
   const computedPaymentStatus = (() => {
@@ -232,7 +246,7 @@ const CourseCard = ({
     }
 
     // Check for course access restriction
-    if (course.courseDetails?.restrictCourseAccess === true) {
+    if (effectiveCourseDetails?.restrictCourseAccess === true) {
       // Allow developers to bypass course access restrictions
       if (!isDeveloper) {
         toast.error("Access to this course is currently restricted");
@@ -243,7 +257,7 @@ const CourseCard = ({
     // Allow developers to bypass all other restrictions
     if (isDeveloper) {
       // Use appropriate handler based on course type
-      if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
+      if (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse) {
         if (onGoToFirebaseCourse) {
           onGoToFirebaseCourse(course);
         } else if (onGoToCourse) {
@@ -260,7 +274,7 @@ const CourseCard = ({
     }    
     
     // Handle Firebase Courses and regular courses differently
-    if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
+    if (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse) {
       // For Firebase courses, only restrict if Archived or Pending
       if (status === 'Archived' || status === 'Pending') {
         toast.error("This course is not currently available for access");
@@ -302,7 +316,7 @@ const CourseCard = ({
     }
 
     // For regular courses, check for schedule (unless doesNotRequireSchedule is true)
-    if (!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) {
+    if (!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) {
       toast.error("Please create a schedule before accessing the course");
       return;
     }
@@ -479,17 +493,17 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
   // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
     // Don't render schedule buttons if courseDetails.units doesn't exist
-    if (!course.courseDetails?.units) {
+    if (!effectiveCourseDetails?.units) {
       return null;
     }
 
     // Don't render schedule buttons if course doesn't require a schedule
-    if (course.courseDetails?.doesNotRequireSchedule) {
+    if (effectiveCourseDetails?.doesNotRequireSchedule) {
       return null;
     }
 
     // Don't render schedule buttons for Firebase courses
-    if (course.courseDetails?.firebaseCourse) {
+    if (effectiveCourseDetails?.firebaseCourse) {
       return (
         <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
           <DialogTrigger asChild>
@@ -594,7 +608,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
       );
     }
     
-    if (course.courseDetails?.restrictCourseAccess === true && !isDeveloper) {
+    if (effectiveCourseDetails?.restrictCourseAccess === true && !isDeveloper) {
       return (
         <Alert className="mb-4 bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -609,7 +623,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     }
   
     // Different messaging for Firebase courses
-    if (course.courseDetails?.firebaseCourse) {
+    if (effectiveCourseDetails?.firebaseCourse) {
       return (
         <Alert className="mb-4 bg-green-50 border-green-200">
           <FaCheckCircle className="h-4 w-4 text-green-500" />
@@ -917,14 +931,14 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             {/* Course description if it exists */}
-            {course.courseDetails?.description && (
+            {effectiveCourseDetails?.description && (
               <Alert className="mb-4 bg-blue-50 border-blue-200">
                 <Info className="h-4 w-4 text-blue-500" />
                 <AlertDescription className="text-blue-700">
                   <p className="font-medium mb-1">Course Description</p>
                   <div className="prose prose-sm max-w-none">
                     <p className="text-blue-700 mt-0 mb-0">
-                      {course.courseDetails.description}
+                      {effectiveCourseDetails.description}
                     </p>
                   </div>
                 </AlertDescription>
@@ -932,20 +946,20 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             {/* Course resources if they exist */}
-            {course.courseDetails?.resources && (
+            {effectiveCourseDetails?.resources && (
               <Alert className="mb-4 bg-green-50 border-green-200">
                 <FaFileAlt className="h-4 w-4 text-green-500" />
                 <AlertDescription className="text-green-700">
                   <p className="font-medium mb-2">Course Resources</p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
                     <li>
-                      <a href={course.courseDetails.resources.courseOutline} 
+                      <a href={effectiveCourseDetails.resources.courseOutline} 
                          className="text-green-600 hover:text-green-800 underline">
                         Course Outline
                       </a>
                     </li>
                     <li>
-                      <a href={course.courseDetails.resources.dataBooklet} 
+                      <a href={effectiveCourseDetails.resources.dataBooklet} 
                          target="_blank" 
                          rel="noopener noreferrer"
                          className="text-green-600 hover:text-green-800 underline">
@@ -953,7 +967,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                       </a>
                     </li>
                     <li>
-                      <a href={course.courseDetails.resources.textbook} 
+                      <a href={effectiveCourseDetails.resources.textbook} 
                          target="_blank" 
                          rel="noopener noreferrer"
                          className="text-green-600 hover:text-green-800 underline">
@@ -1045,47 +1059,51 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             <div className="space-y-4">
-              <div className={`grid ${course.courseDetails?.units && !course.courseDetails?.doesNotRequireSchedule ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+              <div className={`grid ${effectiveCourseDetails?.units && !effectiveCourseDetails?.doesNotRequireSchedule ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
-                {/* Hide entire button if course details are loading OR if course access is restricted and user is not developer */}
-                {!courseDetailsLoading && !(course.courseDetails?.restrictCourseAccess === true && !isDeveloper) && (
+                {/* Show button in disabled state while loading or if course access is restricted and user is not developer */}
+                {!(effectiveCourseDetails?.restrictCourseAccess === true && !isDeveloper) && (
                   <Button
-                    onClick={handleGoToCourse}
+                    onClick={courseDetailsLoading ? undefined : handleGoToCourse}
                     className={`
                       w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
-                      ${course.isRequiredCourse
-                        ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                        : isDeveloper
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                          : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
-                            ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                              ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                            : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                              ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                      ${courseDetailsLoading
+                        ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-wait opacity-60'
+                        : course.isRequiredCourse
+                          ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                          : isDeveloper
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                            : (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse)
+                              ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                                ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                                ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                       }
                     `}
-                    disabled={!course.isRequiredCourse && !isDeveloper && (
-                      (course.courseDetails?.firebaseCourse || course.firebaseCourse)
+                    disabled={courseDetailsLoading || (!course.isRequiredCourse && !isDeveloper && (
+                      (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse)
                         ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                        : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                    )}
+                        : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                    ))}
                   >
                     <FaExternalLinkAlt className="h-4 w-4" />
                     <span>
-                      {course.isRequiredCourse
-                        ? 'Go to Required Course'
-                        : isDeveloper
-                          ? 'Go to Course (Developer)'
-                          : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
-                            ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
-                              ? 'Course Unavailable'
-                              : 'Go to Course'
-                            : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                              ? 'Course Unavailable'
-                              : 'Go to Course'
+                      {courseDetailsLoading
+                        ? 'Loading Course...'
+                        : course.isRequiredCourse
+                          ? 'Go to Required Course'
+                          : isDeveloper
+                            ? 'Go to Course (Developer)'
+                            : (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse)
+                              ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                                ? 'Course Unavailable'
+                                : 'Go to Course'
+                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                                ? 'Course Unavailable'
+                                : 'Go to Course'
                       }
                     </span>
                   </Button>

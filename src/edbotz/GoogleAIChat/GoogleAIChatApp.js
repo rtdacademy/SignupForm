@@ -2167,50 +2167,82 @@ const handleSendMessage = async () => {
       console.groupEnd();
     }
     
-    const result = await sendChatMessage({
-      message: messageToSend, // The actual text message to send
-      systemInstruction: systemMessage, // Using our combined system message
-      streaming: true, // Enable streaming mode
-      messages: conversationHistory, // Include conversation history for multi-turn context
-      // Removed session-related parameters since we're using stateless generate()
-      // mediaItems support can be added later if needed with the stable API
-    });
+    // Try streaming first, fallback to regular call if not supported
+    let modelResponse = '';
+    let fallbackUsed = false;
+    
+    try {
+      // Check if streaming is available
+      if (typeof sendChatMessage.stream === 'function') {
+        // Use the streaming method if available
+        const streamingCall = sendChatMessage.stream({
+          message: messageToSend,
+          systemInstruction: systemMessage,
+          streaming: true,
+          messages: conversationHistory,
+        });
+        
+        // Handle streaming responses
+        for await (const chunk of streamingCall) {
+          if (chunk.message) {
+            // This is a streaming chunk
+            const chunkData = chunk.message;
+            if (chunkData.text && !chunkData.isComplete) {
+              modelResponse += chunkData.text;
+              
+              // Update the message in real-time
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
+                )
+              );
+            } else if (chunkData.isComplete) {
+              // Final chunk - we're done
+              console.log(`Streaming completed with ${chunkData.totalChunks} chunks`);
+              break;
+            }
+          } else if (chunk.result) {
+            // This is the final result (fallback for non-streaming clients)
+            modelResponse = chunk.result.text;
+            fallbackUsed = true;
+            break;
+          }
+        }
+      } else {
+        // Streaming not available, use regular call
+        throw new Error('Streaming method not available');
+      }
+    } catch (streamError) {
+      console.warn('Streaming failed or not available, falling back to regular call:', streamError);
+      
+      // Fallback to regular function call
+      const result = await sendChatMessage({
+        message: messageToSend,
+        systemInstruction: systemMessage,
+        streaming: false,
+        messages: conversationHistory,
+      });
+      
+      modelResponse = result.data.text;
+      fallbackUsed = true;
+    }
     
     // Now that we have a response, stop the processing animations
     setIsProcessing(false);
     setProcessingMedia(null);
-    
-    // Update the model message with the response
-    const modelResponse = result.data.text;
-    const fallbackUsed = result.data.fallbackUsed || false;
     
     // Log if fallback was used
     if (fallbackUsed) {
       console.log('⚠️ Streaming failed, using fallback complete response');
     }
     
-    // Simulate progressive typing effect only if streaming worked
-    if (result.data.streaming && !fallbackUsed) {
-      let displayedText = '';
-      const fullText = modelResponse;
-      const words = fullText.split(' ');
-      
-      for (let i = 0; i < words.length; i++) {
-        displayedText += words[i] + ' ';
-        
-        // Update message with current text
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === modelMessageId ? { ...msg, text: displayedText } : msg
-          )
-        );
-        
-        // Small delay to simulate typing
-        // This creates a visual effect of streaming
-        if (i < words.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
+    // Ensure final message is set (for fallback cases)
+    if (fallbackUsed) {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
+        )
+      );
     } else {
       // Debug table formatting
       if (modelResponse.includes('|')) {

@@ -4,13 +4,19 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import PostSubmissionOverlay from '../../../../components/PostSubmissionOverlay';
 
 /**
  * Lab 1 - Conservation of Momentum for Physics 30
  * Item ID: assignment_1747283296776_954
  * Unit: Momentum and Energy
  */
-const LabMomentumConservation = ({ courseId = '2', course }) => {
+const LabMomentumConservation = ({ 
+  courseId = '2', 
+  course,
+  isStaffView = false,
+  devMode = false
+}) => {
   const { currentUser } = useAuth();
   const database = getDatabase();
   
@@ -47,6 +53,12 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
   // Track saving state
   const [isSaving, setIsSaving] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
+  // Check if lab has been submitted
+  const isSubmitted = course?.Assessments?.[questionId] !== undefined;
+  
+  // Overlay state
+  const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
 
   // Save specific data to Firebase
   const saveToFirebase = useCallback(async (dataToUpdate) => {
@@ -388,6 +400,27 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
 
   // Load saved data on component mount (only once)
   useEffect(() => {
+    // If lab is submitted, use data from course.Assessments instead of users node
+    if (isSubmitted && course?.Assessments?.[questionId]) {
+      console.log('📋 Lab is submitted, loading data from course.Assessments');
+      const submittedData = course.Assessments[questionId];
+      
+      // Restore saved state from submitted assessment data
+      if (submittedData.sectionStatus) setSectionStatus(submittedData.sectionStatus);
+      if (submittedData.sectionContent) setSectionContent(submittedData.sectionContent);
+      if (submittedData.procedureRead !== undefined) setProcedureRead(submittedData.procedureRead);
+      if (submittedData.trialData) setTrialData(submittedData.trialData);
+      if (submittedData.averagePercentDifference) setAveragePercentDifference(submittedData.averagePercentDifference);
+      if (submittedData.simulationState) setSimulationState(submittedData.simulationState);
+      if (submittedData.currentSection) setCurrentSection(submittedData.currentSection);
+      if (submittedData.labStarted !== undefined) setLabStarted(submittedData.labStarted);
+      
+      setHasSavedProgress(true);
+      console.log('✅ Submitted lab data loaded from course.Assessments');
+      return;
+    }
+
+    // If not submitted, load from users node as before
     if (!currentUser?.uid || !labDataRef) {
       console.log('🔍 No user or lab ref, skipping load');
       return;
@@ -442,7 +475,7 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
     return () => {
       unsubscribe();
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, isSubmitted, course?.Assessments, questionId]);
 
 
   // Cleanup on component unmount
@@ -491,6 +524,11 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       
       toast.success('Lab submitted successfully! Your teacher can now review your work.');
       
+      // Show overlay for students (not staff)
+      if (!isStaffView) {
+        setShowSubmissionOverlay(true);
+      }
+      
     } catch (error) {
       console.error('❌ Lab submission failed:', error);
       toast.error(`Failed to submit lab: ${error.message}`);
@@ -503,6 +541,19 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
   const isReadyForSubmission = () => {
     const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
     return completedSections >= 3; // Require at least 3 sections completed
+  };
+
+  // Overlay handler functions
+  const handleContinueToNext = () => {
+    setShowSubmissionOverlay(false);
+    // This would navigate to the next lesson in a real implementation
+    console.log('Navigate to next lesson');
+  };
+
+  const handleViewGradebook = () => {
+    setShowSubmissionOverlay(false);
+    // This would open the gradebook in a real implementation
+    console.log('Open gradebook');
   };
 
   const updateSectionContent = (section, content) => {
@@ -1902,7 +1953,7 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
   }
 
   return (
-    <div id="lab-content" className="space-y-6">
+    <div id="lab-content" className={`space-y-6 relative ${isSubmitted && !isStaffView ? 'lab-input-disabled' : ''}`}>
       <style dangerouslySetInnerHTML={{__html: `
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
@@ -1913,7 +1964,26 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
         input[type=number] {
           -moz-appearance: textfield;
         }
+        
+        /* Disable inputs for submitted labs (student view only) */
+        .lab-input-disabled input,
+        .lab-input-disabled textarea,
+        .lab-input-disabled button:not(.staff-only),
+        .lab-input-disabled select {
+          pointer-events: none !important;
+          opacity: 0.7 !important;
+          cursor: not-allowed !important;
+          background-color: #f9fafb !important;
+        }
+        
+        /* Keep certain elements interactive for staff */
+        .lab-input-disabled .staff-only {
+          pointer-events: auto !important;
+          opacity: 1 !important;
+          cursor: pointer !important;
+        }
       `}} />
+      
        
       <div className="sticky top-14 z-10 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-md">
         <div className="flex items-center justify-between">
@@ -1937,7 +2007,7 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
                   <button
                     key={section.key}
                     onClick={() => scrollToSection(section.key)}
-                    className={`px-3 py-1 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
+                    className={`px-3 py-1 text-xs font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
                       sectionStatusValue === 'completed'
                         ? 'bg-green-100 border-green-300 text-green-700'
                         : sectionStatusValue === 'in-progress'
@@ -1956,9 +2026,9 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
       </div>
 
 
-      {/* Status Indicators */}
-      {autoSaveEnabled && (
-        <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+      {/* Status Indicators - Hide when submitted */}
+      {autoSaveEnabled && !isSubmitted && (
+        <div className="fixed top-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
           {autoSaveEnabled && currentUser && hasSavedProgress && (
             <div className="flex items-center text-green-600">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
@@ -2024,7 +2094,9 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
             </div>
           </div>
         </div>
-      </div>      {/* Procedure Section */}
+      </div>
+
+      {/* Procedure Section */}
       <div id="section-procedure" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.procedure)}`}>
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
           <span>Procedure</span>
@@ -3365,37 +3437,74 @@ const LabMomentumConservation = ({ courseId = '2', course }) => {
             </p>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={submitLab}
-              disabled={isSaving || !isReadyForSubmission()}
-              className={`px-8 py-3 rounded-lg font-medium text-white transition-all duration-200 ${
-                isSaving
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : isReadyForSubmission()
-                  ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
-                  : 'bg-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isSaving ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Submitting...
-                </div>
-              ) : (
-                'Submit Lab for Review'
+          {/* Submit Button - Only show if not submitted */}
+          {!isSubmitted && (
+            <>
+              <div className="flex justify-center">
+                <button
+                  onClick={submitLab}
+                  disabled={isSaving || !isReadyForSubmission()}
+                  className={`px-8 py-3 rounded-lg font-medium text-white transition-all duration-200 ${
+                    isSaving
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : isReadyForSubmission()
+                      ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isSaving ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Submitting...
+                    </div>
+                  ) : (
+                    'Submit Lab for Review'
+                  )}
+                </button>
+              </div>
+              
+              {!isReadyForSubmission() && (
+                <p className="text-center text-sm text-gray-500">
+                  Complete at least 3 sections to enable submission
+                </p>
               )}
-            </button>
-          </div>
+            </>
+          )}
           
-          {!isReadyForSubmission() && (
-            <p className="text-center text-sm text-gray-500">
-              Complete at least 3 sections to enable submission
-            </p>
+          {/* Submitted status message */}
+          {isSubmitted && (
+            <div className="flex justify-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-md">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-green-800">Lab Successfully Submitted</h3>
+                    <p className="text-xs text-green-700">Your lab has been submitted and is being reviewed by your teacher.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Post-Submission Overlay */}
+      <PostSubmissionOverlay
+        isVisible={showSubmissionOverlay || isSubmitted}
+        isStaffView={isStaffView}
+        course={course}
+        questionId={questionId}
+        submissionData={{
+          labTitle: 'Conservation of Momentum Lab',
+          completionPercentage: Object.values(sectionStatus).filter(status => status === 'completed').length * (100 / 7), // 7 sections total
+          status: isSubmitted ? 'completed' : 'in-progress',
+          timestamp: course?.Assessments?.[questionId]?.timestamp || new Date().toISOString()
+        }}
+        onContinue={handleContinueToNext}
+        onViewGradebook={handleViewGradebook}
+        onClose={() => setShowSubmissionOverlay(false)}
+      />
+
     </div>
   );
 };

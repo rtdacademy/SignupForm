@@ -825,6 +825,7 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
         {/* Pinhole Camera Practice Problems */}
         <div className="mb-6">
           <SlideshowKnowledgeCheck
+          onAIAccordionContent={onAIAccordionContent} 
             courseId={effectiveCourseId}
             lessonPath="09-introduction-to-light"
             questions={[
@@ -1445,6 +1446,7 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
         {/* Michelson Method Practice Problems */}
         <div className="mb-6">
           <SlideshowKnowledgeCheck
+          onAIAccordionContent={onAIAccordionContent} 
             courseId={effectiveCourseId}
             lessonPath="09-introduction-to-light-michelson"
             questions={[
@@ -1585,8 +1587,9 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
         )}
 
         {/* SlideshowKnowledgeCheck: Light-Year and Space Communication Practice */}
-        <TextSection>
+         
         <SlideshowKnowledgeCheck
+        onAIAccordionContent={onAIAccordionContent} 
           courseId={effectiveCourseId}
           lessonPath="09-introduction-to-light"
           questions={[
@@ -1633,7 +1636,7 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
           ]}
           theme="purple"
         />
-      </TextSection>
+       
 
       <LessonSummary
         points={[

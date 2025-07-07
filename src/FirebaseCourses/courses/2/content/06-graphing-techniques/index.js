@@ -1055,6 +1055,8 @@ const GraphingTechniques = ({ course, courseId = '2', AIAccordion, onAIAccordion
           </div>
           
           <SlideshowKnowledgeCheck
+          onAIAccordionContent={onAIAccordionContent} 
+onAIAccordionContent={onAIAccordionContent}
             courseId={courseId}
             lessonPath="06-graphing-techniques"
             questions={[

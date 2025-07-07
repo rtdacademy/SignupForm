@@ -887,6 +887,7 @@ const ReflectionOfLight = ({ course, courseId = '2', AIAccordion, onAIAccordionC
 
       {/* Reflection of Light Practice Questions */}
       <SlideshowKnowledgeCheck
+      onAIAccordionContent={onAIAccordionContent}
         courseId={effectiveCourseId}
         lessonPath="10-reflection-of-light"
         questions={[
