@@ -46,15 +46,15 @@
       },
       "assignment_l5_7": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "assignment_l8_9": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "assignment_l1_12": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "assignment_l13_14": {
         "minimumPercentage": 0,
@@ -114,11 +114,11 @@
       },
       "lab_mirrors_lenses": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "lab_laser_wavelength": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "lab_electrostatic": {
         "minimumPercentage": 0,
@@ -150,47 +150,55 @@
       },
       "09_introduction_to_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "10_reflection_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "11_curved_mirrors": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "12_l5_7_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "13_refraction_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "14_optics_lenses": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "16_l8_9_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "17_dispersion_scattering": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "18_interference_of_light": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "19_diffraction_gratings": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "21_l1_12_cumulative_assignment": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
+      },
+      "22_unit_1_review": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
+      },
+      "23_unit_2_review": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
       }
     }
   },
@@ -355,7 +363,7 @@
         "assessmentSettings": {
           "activityType": "exam",
           "timeLimit": 180,
-          "maxAttempts": 1,
+          "maxAttempts": 10,
           "allowEasyExit": false,
           "showExitButton": false,
           "useSession": true,
