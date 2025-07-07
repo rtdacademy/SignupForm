@@ -137,8 +137,6 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       grades: { assessments: actualGrades }
     });
     
-    // Debug logging for lesson access
-    console.log(`🔓 Access Check: "${currentItem.title}" - Previous lesson "${previousItem.title}" completed: ${isPreviousCompleted}`);
     
     // Get required criteria info for better error messages
     let requiredPercentage = null;
@@ -299,7 +297,6 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   const lessonConfig = itemStructure[normalizedLessonId];
   
   if (!lessonConfig || !lessonConfig.questions) {
-    console.warn(`No lesson config found for: ${normalizedLessonId}`);
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
@@ -351,20 +348,16 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     // Must answer ALL questions
     meetsQuestionRequirement = attemptedQuestions >= totalQuestions;
     
-    console.log(`📊 ${lessonId} Question Requirement (ALL): ${attemptedQuestions}/${totalQuestions} - ${meetsQuestionRequirement ? 'MET' : 'NOT MET'}`);
   } else if (criteria.questionCompletionPercentage !== null && criteria.questionCompletionPercentage > 0) {
     // Must answer specified percentage of questions
     const questionCompletionPercentage = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
     meetsQuestionRequirement = questionCompletionPercentage >= criteria.questionCompletionPercentage;
     
-    console.log(`📊 ${lessonId} Question Requirement (${criteria.questionCompletionPercentage}%): ${attemptedQuestions}/${totalQuestions} (${Math.round(questionCompletionPercentage)}%) - ${meetsQuestionRequirement ? 'MET' : 'NOT MET'}`);
   }
   
   // Must meet ALL criteria (AND logic)
   const meetsAllRequirements = meetsPercentageRequirement && meetsQuestionRequirement;
   
-  // Log for debugging
-  console.log(`📊 Lesson ${lessonId}: Score ${Math.round(lessonPercentage)}% (required: ${criteria.minimumPercentage}%) & Questions ${meetsQuestionRequirement ? 'MET' : 'NOT MET'} - ${meetsAllRequirements ? 'UNLOCKED' : 'LOCKED'}`);
   
   return meetsAllRequirements;
 };

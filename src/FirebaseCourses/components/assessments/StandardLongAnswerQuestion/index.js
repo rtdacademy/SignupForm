@@ -6,13 +6,48 @@ import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import SimpleQuillEditor from '../../../../components/SimpleQuillEditor';
-import { Save, Send, FileText, BookOpen } from 'lucide-react';
+import { Save, Send, FileText, BookOpen, Clipboard, Infinity } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+
+// Theme configuration with gradient colors (matching StandardMultipleChoiceQuestion)
+const getThemeConfig = (theme) => {
+  const themes = {
+    purple: {
+      gradient: 'from-purple-600 to-indigo-600',
+      gradientHover: 'from-purple-700 to-indigo-700',
+      accent: 'purple-600',
+      light: 'purple-100',
+      border: 'purple-200',
+      ring: 'ring-purple-200',
+      name: 'purple'
+    },
+    blue: {
+      gradient: 'from-blue-600 to-cyan-600',
+      gradientHover: 'from-blue-700 to-cyan-700',
+      accent: 'blue-600',
+      light: 'blue-100',
+      border: 'blue-200',
+      ring: 'ring-blue-200',
+      name: 'blue'
+    },
+    green: {
+      gradient: 'from-emerald-600 to-teal-600',
+      gradientHover: 'from-emerald-700 to-teal-700',
+      accent: 'emerald-600',
+      light: 'emerald-100',
+      border: 'emerald-200',
+      ring: 'ring-emerald-200',
+      name: 'green'
+    }
+  };
+  
+  return themes[theme] || themes.purple;
+};
 
 /**
  * Helper function to detect if text contains markdown patterns
@@ -27,6 +62,7 @@ const containsMarkdown = (text) => {
     /```[\s\S]*```/,               // Code block
     /`[^`]+`/,                     // Inline code
     /\[.+\]\(.+\)/,                // Links
+    /!\[.*\]\(.+\)/,               // Images: ![alt](url)
     /\$\$.+\$\$/,                  // Math blocks
     /\$.+\$/,                      // Inline math
     /\\[a-zA-Z]+/,                 // LaTeX commands
@@ -47,6 +83,26 @@ const renderEnhancedText = (text) => {
         <ReactMarkdown
           remarkPlugins={[remarkMath, remarkGfm]}
           rehypePlugins={[rehypeKatex, rehypeRaw]}
+          components={{
+            // Style images to be responsive and centered
+            img: ({node, ...props}) => (
+              <div className="my-4 text-center">
+                <img 
+                  {...props} 
+                  className="max-w-full h-auto mx-auto rounded-lg shadow-md border border-gray-200"
+                  style={{ maxHeight: '400px' }}
+                />
+              </div>
+            ),
+            // Style other elements
+            h1: ({node, ...props}) => <h2 className="text-xl font-bold mt-4 mb-2" {...props} />,
+            h2: ({node, ...props}) => <h3 className="text-lg font-bold mt-3 mb-2" {...props} />,
+            h3: ({node, ...props}) => <h4 className="text-base font-bold mt-2 mb-1" {...props} />,
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            ul: ({node, ...props}) => <ul className="my-2 pl-5 list-disc" {...props} />,
+            ol: ({node, ...props}) => <ol className="my-2 pl-5 list-decimal" {...props} />,
+            li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+          }}
         >
           {text}
         </ReactMarkdown>
@@ -70,29 +126,44 @@ const renderEnhancedText = (text) => {
 const StandardLongAnswerQuestion = ({
   // Required props
   courseId,                // Course identifier
-  cloudFunctionName,       // Name of the cloud function to call
-  assessmentId,            // Assessment identifier
+  cloudFunctionName,       // Name of the cloud function to call (also used as assessmentId)
+  assessmentId,            // DEPRECATED: Use cloudFunctionName instead - kept for backward compatibility
   topic,                   // Topic for question context (optional)
 
-  // Styling props
-  theme = 'purple',        // Color theme
-  title,                   // Custom title for the question
+  // Styling props only - all other configuration comes from the database
+  theme = 'purple',        // Color theme: 'blue', 'green', 'purple', etc.
+  title,                   // Custom title for the question (fallback if not in database)
   questionClassName = '',  // Additional class name for question container
   
   // Exam mode props
   examMode = false,        // Whether this question is part of an exam
   examSessionId = null,    // Exam session ID if in exam mode
   onExamAnswerSave = () => {}, // Callback when answer is saved in exam mode
+  hasExistingAnswer = false, // Whether this question already has a saved answer
+  currentSavedAnswer = null, // The currently saved answer for this question
+  
+  // Pre-loading optimization props
+  skipInitialGeneration = false, // Skip initial cloud function call (when question is pre-loaded)
+  isWaitingForQuestions = false, // Whether parent is still waiting for questions to be ready
   
   // Callback functions
   onSave = () => {},       // Callback when answer is saved
   onSubmit = () => {},     // Callback when answer is submitted
   onComplete = () => {},   // Callback when assessment is completed
+  onCorrectAnswer = () => {}, // Callback when answer is correct (for consistency with multiple choice)
+  onAttempt = () => {},    // Callback on each attempt
+  
+  // AI Assistant props (following AIAccordion pattern)
+  onAIAccordionContent = null, // Callback to send extracted content to AI chat
+  
+  // Manual grading props
+  manualGradeData = null, // Manual grade data from Grades.assessments
+  manualGradeMetadata = null, // Manual grade metadata from Grades.metadata
 }) => {
-  // Use cloudFunctionName as assessmentId if not provided
+  // Use assessmentId if provided, otherwise fall back to cloudFunctionName for backward compatibility
   const finalAssessmentId = assessmentId || cloudFunctionName;
   
-  if (!cloudFunctionName || !finalAssessmentId) {
+  if (!finalAssessmentId) {
     console.error('StandardLongAnswerQuestion: cloudFunctionName is required');
     return <div className="p-4 bg-red-50 text-red-600 rounded">Error: cloudFunctionName is required</div>;
   }
@@ -108,6 +179,7 @@ const StandardLongAnswerQuestion = ({
   const [lastSavedAnswer, setLastSavedAnswer] = useState('');
   const [showRubric, setShowRubric] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [realTimeWordCount, setRealTimeWordCount] = useState(0);
   
   // Refs for the editor
   const editorRef = useRef(null);
@@ -116,10 +188,25 @@ const StandardLongAnswerQuestion = ({
   const functions = getFunctions();
   const db = getDatabase();
 
-  // Get theme colors
-  const themeColors = getThemeColors(theme);
+  // Detect exam mode from course configuration or explicit prop
+  const isExamMode = examMode || question?.activityType === 'exam';
+  
+  // Check if current answer differs from saved answer
+  const hasUnsavedChanges = isExamMode && currentSavedAnswer && answer && answer !== currentSavedAnswer;
+  
+  // Check if answer is saved (for button styling)
+  const isAnswerSaved = isExamMode && currentSavedAnswer && answer && answer === currentSavedAnswer;
+  
+  // Get theme colors - prioritize prop theme over question settings when passed from parent component
+  const activeTheme = (isExamMode ? 'purple' : theme) || question?.settings?.theme || 'purple';
+  
+  // Get gradient theme configuration (matching StandardMultipleChoiceQuestion)
+  const themeConfig = getThemeConfig(activeTheme);
+  
+  // Keep legacy theme colors for backwards compatibility
+  const themeColors = getThemeColors(activeTheme);
 
-  // Calculate word count
+  // Calculate word count (fallback for initial content)
   const getWordCount = (text) => {
     if (!text) return 0;
     // Strip HTML tags for accurate word count
@@ -127,7 +214,8 @@ const StandardLongAnswerQuestion = ({
     return strippedText.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
 
-  const wordCount = getWordCount(answer);
+  // Use real-time word count when available, fallback to calculated count
+  const wordCount = realTimeWordCount > 0 ? realTimeWordCount : getWordCount(answer);
 
   useEffect(() => {
     if (!currentUser || !currentUser.email) {
@@ -180,11 +268,27 @@ const StandardLongAnswerQuestion = ({
               setLastSavedAnswer(data.lastSubmission.answer);
             }
             
+            // In exam mode, use currentSavedAnswer if provided
+            if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+              setAnswer(currentSavedAnswer);
+              // Update real-time word count for the saved answer
+              setRealTimeWordCount(getWordCount(currentSavedAnswer));
+            }
+            
             // If submitted, show appropriate message
             if (data.status === 'submitted') {
               console.log("Answer already submitted for this assessment");
             }
           } else {
+            // No data exists yet
+            // In exam mode, wait for exam session to create the question
+            if (isExamMode || examMode) {
+              console.log(`Waiting for exam session to create question ${finalAssessmentId}...`);
+              // Don't generate - exam session manager will create it
+              // Keep loading state until exam creates the question
+              return;
+            }
+            
             console.log("No standard long answer data found in database, generating new question");
             generateQuestion();
           }
@@ -212,7 +316,17 @@ const StandardLongAnswerQuestion = ({
     };
   }, [currentUser, courseId, finalAssessmentId, db]);
 
-  // Generate a new question using cloud function
+  // Effect to handle currentSavedAnswer prop changes in exam mode
+  useEffect(() => {
+    if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+      // Set the answer to the saved answer when component mounts or currentSavedAnswer changes
+      setAnswer(currentSavedAnswer);
+      // Update real-time word count for the saved answer
+      setRealTimeWordCount(getWordCount(currentSavedAnswer));
+    }
+  }, [currentSavedAnswer, isExamMode]);
+
+  // Generate a new question using master cloud function
   const generateQuestion = async () => {
     if (!currentUser || !currentUser.email) return;
     
@@ -221,7 +335,8 @@ const StandardLongAnswerQuestion = ({
     setLastSavedAnswer('');
 
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // Use the master cloud function for Course 2
+      const assessmentFunction = httpsCallable(functions, 'course2_assessments');
 
       const functionParams = {
         courseId: courseId,
@@ -233,7 +348,7 @@ const StandardLongAnswerQuestion = ({
         difficulty: 'intermediate'
       };
 
-      console.log(`Calling cloud function ${cloudFunctionName} to generate standard long answer question`, functionParams);
+      console.log(`Calling master cloud function course2_assessments to generate standard long answer question`, functionParams);
 
       const result = await assessmentFunction(functionParams);
       console.log("Standard long answer generation successful:", result);
@@ -258,7 +373,8 @@ const StandardLongAnswerQuestion = ({
 
     setSaving(true);
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // Use the master cloud function for Course 2
+      const assessmentFunction = httpsCallable(functions, 'course2_assessments');
 
       const functionParams = {
         courseId: courseId,
@@ -269,7 +385,7 @@ const StandardLongAnswerQuestion = ({
         userId: currentUser.uid
       };
 
-      console.log(`Calling cloud function ${cloudFunctionName} to save draft answer`);
+      console.log(`Calling master cloud function course2_assessments to save draft answer`);
 
       const result = await assessmentFunction(functionParams);
       console.log("Answer saved successfully:", result);
@@ -288,25 +404,32 @@ const StandardLongAnswerQuestion = ({
   // Handle submission of the answer (final)
   const handleSubmit = async () => {
     if (!answer || answer.trim().length === 0) {
-      alert("Please write an answer before submitting");
+      alert("Please write an answer before saving");
       return;
     }
 
-    // Check word count requirements
-    const currentWordCount = getWordCount(answer);
-    const wordLimit = question?.wordLimit || { min: 100, max: 500 };
-    
-    if (currentWordCount < wordLimit.min) {
-      alert(`Your answer is too short. Minimum ${wordLimit.min} words required, you have ${currentWordCount} words.`);
-      return;
+    // Check word count requirements if they exist
+    if (question?.wordLimit) {
+      const currentWordCount = getWordCount(answer);
+      
+      if (currentWordCount < question.wordLimit.min) {
+        alert(`Your answer is too short. Minimum ${question.wordLimit.min} words required, you have ${currentWordCount} words.`);
+        return;
+      }
+      
+      if (currentWordCount > question.wordLimit.max) {
+        alert(`Your answer is too long. Maximum ${question.wordLimit.max} words allowed, you have ${currentWordCount} words.`);
+        return;
+      }
     }
-    
-    if (currentWordCount > wordLimit.max) {
-      alert(`Your answer is too long. Maximum ${wordLimit.max} words allowed, you have ${currentWordCount} words.`);
+
+    // In exam mode, just save without confirmation (can be done multiple times)
+    if (isExamMode) {
+      await handleExamAnswerSave();
       return;
     }
 
-    // Confirm submission
+    // Non-exam mode: Show confirmation and use attempts
     const confirmSubmit = window.confirm(
       "Are you sure you want to submit your answer? This action cannot be undone and will use one of your attempts."
     );
@@ -315,15 +438,10 @@ const StandardLongAnswerQuestion = ({
       return;
     }
 
-    // Check if this is exam mode
-    if (examMode) {
-      await handleExamAnswerSave();
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // Use the master cloud function for Course 2
+      const assessmentFunction = httpsCallable(functions, 'course2_assessments');
 
       const functionParams = {
         courseId: courseId,
@@ -334,7 +452,7 @@ const StandardLongAnswerQuestion = ({
         userId: currentUser.uid
       };
 
-      console.log(`Calling cloud function ${cloudFunctionName} to submit answer for grading`);
+      console.log(`Calling master cloud function course2_assessments to submit answer for grading`);
 
       const result = await assessmentFunction(functionParams);
       console.log("Answer submitted successfully:", result);
@@ -377,6 +495,9 @@ const StandardLongAnswerQuestion = ({
       console.log(`Saving exam answer: ${finalAssessmentId}`);
       await saveExamAnswerFunction(saveParams);
 
+      // Update the saved answer state for UI feedback
+      setLastSavedAnswer(answer);
+      
       onExamAnswerSave(answer, finalAssessmentId);
       
     } catch (err) {
@@ -430,42 +551,48 @@ const StandardLongAnswerQuestion = ({
   };
 
   return (
-    <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName}`} style={{
-      backgroundColor: themeColors.bgLight,
-      borderColor: themeColors.border
-    }}>
+    <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName} bg-white/75 backdrop-blur-sm border-${themeConfig.border}`}>
       {/* Header */}
-      <div className="px-4 py-3 border-b"
-           style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
+      <div className={`px-4 py-3 border-b bg-gradient-to-r ${themeConfig.gradient} bg-opacity-75 border-${themeConfig.border}`}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
+          <h3 className="text-lg font-medium text-white">
             {question?.title || title || 'Long Answer Question'}
           </h3>
           <div className="flex items-center gap-2">
-            {examMode && (
-              <span className="text-xs py-1 px-2 rounded bg-red-100 text-red-800 font-medium">
-                EXAM MODE
-              </span>
+            {isExamMode && (
+              <Clipboard className="w-6 h-6 text-white" title="Assessment Session" />
             )}
-            <span className="text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 font-medium">
-              Standard
-            </span>
           </div>
         </div>
         
         {/* Display attempts counter and word count */}
         {question && (
-          <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
-            <span className="flex items-center">
-              <FileText className="h-3.5 w-3.5 mr-1" />
-              Attempts: <span className="font-medium ml-1">{question.attempts || 0} / {question.maxAttempts}</span>
-            </span>
-            {question.settings?.showWordCount !== false && (
+          <div className="flex items-center justify-between text-xs text-white/90 mt-1">
+            {/* Attempts counter (hidden in exam mode) */}
+            {!isExamMode && (
               <span className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
+                <span className="mx-1">/</span>
+                {question.maxAttempts && question.maxAttempts > 500 ? (
+                  <Infinity className="h-3.5 w-3.5 inline-block text-white/90" />
+                ) : (
+                  <span className="font-medium">{question.maxAttempts}</span>
+                )}
+              </span>
+            )}
+            
+            {/* Word count (always shown when enabled) */}
+            {question.settings?.showWordCount !== false && question.wordLimit && (
+              <span className="flex items-center">
+                <FileText className="h-3.5 w-3.5 mr-1" />
                 Words: <span className={`font-medium ml-1 ${
-                  wordCount < (question.wordLimit?.min || 100) ? 'text-red-600' :
-                  wordCount > (question.wordLimit?.max || 500) ? 'text-red-600' :
-                  'text-green-600'
+                  wordCount < (question.wordLimit?.min || 100) ? 'text-red-200' :
+                  wordCount > (question.wordLimit?.max || 500) ? 'text-red-200' :
+                  'text-green-200'
                 }`}>
                   {wordCount} / {question.wordLimit?.min || 100}-{question.wordLimit?.max || 500}
                 </span>
@@ -476,8 +603,8 @@ const StandardLongAnswerQuestion = ({
       </div>
 
       {/* Content */}
-      <div className="p-5">
-        {error && (
+      <div className="p-5 bg-white/80">
+        {error && !isExamMode && (
           <div className="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-300">
             {error}
           </div>
@@ -564,7 +691,19 @@ const StandardLongAnswerQuestion = ({
               {/* Answer Editor */}
               {question.status !== 'submitted' ? (
                 <div className="mb-5">
-                  <div className="border rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
+                  {/* Word Count Requirements (moved above editor) */}
+                  {question.wordLimit && question.settings?.showWordCount !== false && (
+                    <div className="mb-2 text-sm text-gray-600">
+                      Word count: <span className={`font-medium ${
+                        wordCount < question.wordLimit.min ? 'text-red-600' :
+                        wordCount > question.wordLimit.max ? 'text-red-600' :
+                        'text-green-600'
+                      }`}>
+                        {wordCount}
+                      </span> / {question.wordLimit.min}-{question.wordLimit.max} words required
+                    </div>
+                  )}
+                  <div className={`border rounded-lg overflow-hidden border-${themeConfig.border}`}>
                     <SimpleQuillEditor
                       ref={editorRef}
                       courseId={courseId}
@@ -573,6 +712,8 @@ const StandardLongAnswerQuestion = ({
                       initialContent={answer}
                       onSave={(content) => setAnswer(content)}
                       onError={(error) => setError(error)}
+                      onWordCountChange={setRealTimeWordCount}
+                      onContentChange={setAnswer}
                     />
                   </div>
                 </div>
@@ -593,9 +734,9 @@ const StandardLongAnswerQuestion = ({
               )}
 
               {/* Action Buttons */}
-              {question.status !== 'submitted' && !question.maxAttemptsReached && (
+              {question.status !== 'submitted' && (isExamMode || !question.maxAttemptsReached) && (
                 <div className="flex gap-3">
-                  {!examMode && (
+                  {!isExamMode && (
                     <Button
                       onClick={handleSave}
                       disabled={saving || submitting || !answer}
@@ -610,17 +751,23 @@ const StandardLongAnswerQuestion = ({
                   <Button
                     onClick={handleSubmit}
                     disabled={submitting || saving || !answer}
-                    style={{
-                      backgroundColor: examMode ? '#ef4444' : themeColors.accent,
-                      color: 'white',
-                    }}
-                    className="flex items-center gap-2 text-white"
+                    className={`mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md ${
+                      hasUnsavedChanges 
+                        ? 'bg-amber-500 ring-2 ring-amber-300 ring-opacity-50' 
+                        : isAnswerSaved
+                        ? 'bg-green-500 hover:bg-green-600'
+                        : `bg-gradient-to-r ${themeConfig.gradient}`
+                    }`}
                   >
-                    <Send className="w-4 h-4" />
-                    {submitting ? 'Submitting...' : examMode ? 'Save Answer' : 'Submit for Grading'}
+                    {submitting ? 
+                      (isExamMode ? 'Saving...' : 'Submitting...') : 
+                      isExamMode ? 
+                        (hasUnsavedChanges ? 'Save Changes' : hasExistingAnswer ? 'Update Answer' : isAnswerSaved ? 'Answer Saved ✓' : 'Save Answer') : 
+                        'Submit for Grading'
+                    }
                   </Button>
 
-                  {!examMode && question.attempts < question.maxAttempts - 1 && (
+                  {!isExamMode && question && question.attempts < question.maxAttempts - 1 && (
                     <Button
                       onClick={handleRegenerate}
                       disabled={regenerating}
@@ -634,7 +781,7 @@ const StandardLongAnswerQuestion = ({
               )}
 
               {/* Max attempts reached message */}
-              {question.maxAttemptsReached && question.status !== 'submitted' && (
+              {question.maxAttemptsReached && question.status !== 'submitted' && !isExamMode && (
                 <div className="mt-4 text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
                   <p className="font-medium">Maximum attempts reached</p>
                   <p>You have used all {question.maxAttempts} available attempts for this question.</p>

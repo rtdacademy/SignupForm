@@ -404,8 +404,9 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
           // Fetch payment info (teachers can see this for administrative purposes)
           const paymentInfo = await fetchPaymentDetails(id);
 
-          // Generate studentKey from the student's email
-          const studentKey = studentData.profile?.StudentEmail ? sanitizeEmail(studentData.profile.StudentEmail) : null;
+          // Generate studentKey reliably from the studentEmailKey parameter
+          // This ensures studentKey is always consistent, even during real-time updates
+          const studentKey = studentEmailKey;
 
           // Build the enhanced course object with proper Gradebook structure
           const enhancedCourse = {
@@ -483,7 +484,7 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
   // Effect to re-process courses when course details change
   useEffect(() => {
     // Only re-process if we have student data and course details have been updated
-    if (studentData.loading || !studentData.profile) return;
+    if (studentData.loading || !studentData.profile || !studentEmailKey) return;
     
     console.log('🔄 Teacher view: Course details changed, re-processing courses...', {
       courseDetailsKeys: Object.keys(courseDetails),
@@ -544,7 +545,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     let datesReceived = false;
     let notificationsReceived = false;
     
-    console.log('Teacher view: useTeacherStudentData effect running, studentEmailKey:', studentEmailKey);
     
     // Check teacher permissions first
     if (!hasTeacherPermission()) {
@@ -567,8 +567,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         ]);
         
         if (isMounted) {
-          console.log('Teacher view: Fetched ImportantDates:', !!dates);
-          console.log('Teacher view: Fetched Notifications:', notifications.length);
           
           setStudentData(prev => ({
             ...prev,
@@ -670,11 +668,14 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         checkLoadingComplete();
       }, handleError);
 
-      // Listen for course changes
+      // Listen for course changes with deep monitoring
       const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
         if (!isMounted) return;
 
-        console.log('Teacher view: Courses received for student:', studentEmailKey);
+        console.log('Teacher view: Courses data update received for student:', studentEmailKey, {
+          timestamp: new Date().toLocaleTimeString(),
+          exists: coursesSnapshot.exists()
+        });
 
         if (coursesSnapshot.exists()) {
           const coursesData = coursesSnapshot.val();
@@ -753,20 +754,72 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     };
   }, [studentEmailKey, user]);
 
-  // Add logging for teacher view
-  if (!studentData.loading && studentData.profile) {
-    console.log('🎓 Teacher View: Student data loaded', {
-      studentEmail: studentData.profile.StudentEmail,
-      courseCount: studentData.courses?.length || 0,
-      firebaseCourses: studentData.courses?.filter(c => c.courseDetails?.firebaseCourse).length || 0,
-      timestamp: new Date().toLocaleTimeString()
-    });
-  }
+
+  // Add a function to force refresh data
+  const forceRefresh = async () => {
+    console.log("Teacher view: Force refresh requested!");
+    
+    try {
+      if (!studentEmailKey) return false;
+      
+      const db = getDatabase();
+      
+      // Re-fetch all data
+      const [coursesSnapshot, notifications] = await Promise.all([
+        get(ref(db, `students/${studentEmailKey}/courses`)),
+        fetchNotifications()
+      ]);
+      
+      if (coursesSnapshot.exists()) {
+        const coursesData = coursesSnapshot.val();
+        
+        // Remove jsonStudentNotes from each course before processing
+        const sanitizedCoursesData = Object.fromEntries(
+          Object.entries(coursesData).map(([courseId, courseData]) => {
+            if (courseData && typeof courseData === 'object') {
+              const { jsonStudentNotes, ...sanitizedCourseData } = courseData;
+              return [courseId, sanitizedCourseData];
+            }
+            return [courseId, courseData];
+          })
+        );
+        
+        // Re-process courses
+        const processedCourses = await processCourses(sanitizedCoursesData);
+        
+        // Re-process notifications for courses if we have data
+        let updatedCourses = processedCourses;
+        if (studentData.profile && processedCourses.length > 0) {
+          updatedCourses = processNotificationsForCourses(
+            processedCourses,
+            studentData.profile,
+            notifications
+          );
+        }
+        
+        // Update state with new data
+        setStudentData(prev => ({
+          ...prev,
+          allNotifications: notifications,
+          courses: updatedCourses
+        }));
+        
+        console.log("Teacher view: Force refresh completed");
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Teacher view: Error during force refresh:", error);
+      return false;
+    }
+  };
 
   // Return the data with teacher-specific flags
   return {
     ...studentData,
     isTeacherView: true,
-    hasPermissions: hasTeacherPermission()
+    hasPermissions: hasTeacherPermission(),
+    forceRefresh
   };
 };

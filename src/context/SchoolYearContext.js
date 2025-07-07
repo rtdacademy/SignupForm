@@ -197,7 +197,6 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
     
-    console.log('Setting up Firebase listeners for school year:', currentSchoolYear);
     setIsLoadingStudents(true);
     const db = getDatabase();
     const studentSummariesRef = ref(db, 'studentCourseSummaries');
@@ -237,7 +236,6 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
-    console.log('Setting up Firebase listeners for next school year:', nextYear);
     setIsLoadingNextYear(true);
     const db = getDatabase();
     const studentSummariesRef = ref(db, 'studentCourseSummaries');
@@ -319,7 +317,6 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
-    console.log('Fetching PASI records (new structure) for', currentSchoolYear);
     setIsLoadingPasiNew(true);
     const db = getDatabase();
 
@@ -328,7 +325,6 @@ export const SchoolYearProvider = ({ children }) => {
     let formattedYear = '';
     if (yearParts.length === 2 && yearParts[0].length >= 2 && yearParts[1].length >= 2) {
       formattedYear = `${yearParts[0].slice(-2)}_${yearParts[1].slice(-2)}`;
-      console.log('Formatted school year for PASI query:', formattedYear);
     } else {
       console.error('Invalid currentSchoolYear format:', currentSchoolYear);
       setError('Invalid school year format for PASI query.');
@@ -356,7 +352,6 @@ export const SchoolYearProvider = ({ children }) => {
           records.push({ id: recordId, ...record });
         });
         
-        console.log(`Loaded ${records.length} PASI records (new structure) for ${formattedYear}`);
         
         // Sort by student name for consistency
         const sortedRecords = records.sort((a, b) => {
@@ -394,7 +389,6 @@ export const SchoolYearProvider = ({ children }) => {
     const nextYear = getNextSchoolYear(currentSchoolYear);
     if (!nextYear) return;
 
-    console.log('Fetching next year PASI records (new structure) for', nextYear);
     const db = getDatabase();
 
     // Format next year, e.g., "2024/2025" -> "24_25"
@@ -413,7 +407,6 @@ export const SchoolYearProvider = ({ children }) => {
     const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          console.log(`No next year PASI records (new structure) found for year ${formattedYear}`);
           setNextYearPasiRecordsNew([]);
           return;
         }
@@ -515,7 +508,6 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
     
-    console.log('Fetching ASNs records for staff user');
     setIsLoadingAsns(true);
     const db = getDatabase();
     const asnsRef = ref(db, 'ASNs');

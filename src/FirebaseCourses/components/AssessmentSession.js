@@ -1329,7 +1329,20 @@ const AssessmentSession = ({
               <div className="text-2xl font-bold text-slate-700">
                 {assessmentResults.correctAnswers}/{assessmentResults.totalQuestions}
               </div>
-              <div className="text-sm text-slate-600">Correct</div>
+              <div className="text-sm text-slate-600">
+                {(() => {
+                  const manualGradingQuestions = assessmentResults.questionResults?.filter(q => q.requiresManualGrading) || [];
+                  const autoGradedQuestions = assessmentResults.questionResults?.filter(q => !q.requiresManualGrading) || [];
+                  
+                  if (manualGradingQuestions.length > 0 && autoGradedQuestions.length > 0) {
+                    return `Auto-graded: ${autoGradedQuestions.filter(q => q.isCorrect).length}/${autoGradedQuestions.length} • Manual: ${manualGradingQuestions.length} pending`;
+                  } else if (manualGradingQuestions.length > 0) {
+                    return `${manualGradingQuestions.length} pending manual grading`;
+                  } else {
+                    return 'Correct';
+                  }
+                })()}
+              </div>
             </div>
           </div>
           
@@ -1353,11 +1366,13 @@ const AssessmentSession = ({
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">{result.points}/{result.maxPoints} pts</span>
                       <span className={`px-2 py-1 rounded text-sm font-medium ${
-                        result.isCorrect 
+                        result.requiresManualGrading 
+                          ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                          : result.isCorrect 
                           ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
                           : 'bg-red-100 text-red-700 border border-red-300'
                       }`}>
-                        {result.isCorrect ? 'Correct' : 'Incorrect'}
+                        {result.requiresManualGrading ? 'Pending Grading' : result.isCorrect ? 'Correct' : 'Incorrect'}
                       </span>
                     </div>
                   </div>
@@ -1403,8 +1418,23 @@ const AssessmentSession = ({
                   {/* Answer Summary for non-multiple choice or when options aren't available */}
                   {options.length === 0 && (
                     <div className="text-sm mb-3">
-                      <p><strong>Your Answer:</strong> {studentAnswerText}</p>
-                      {!result.isCorrect && (
+                      <div className="mb-2">
+                        <strong>Your Answer:</strong>
+                        <div className="mt-1 p-2 bg-gray-50 rounded border">
+                          {result.requiresManualGrading ? (
+                            <div dangerouslySetInnerHTML={{ __html: studentAnswerText }} />
+                          ) : (
+                            studentAnswerText
+                          )}
+                        </div>
+                      </div>
+                      {result.requiresManualGrading ? (
+                        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
+                          <p className="text-amber-700 text-sm font-medium">
+                            📝 This answer requires manual marking by your instructor
+                          </p>
+                        </div>
+                      ) : !result.isCorrect && (
                         <p><strong>Correct Answer:</strong> {correctAnswerText}</p>
                       )}
                     </div>
@@ -1443,7 +1473,11 @@ const AssessmentSession = ({
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <FileText className="h-6 w-6 text-gray-600" />
+              {questionsReady ? (
+                <FileText className="h-6 w-6 text-gray-600" />
+              ) : (
+                <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              )}
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-lg font-bold text-gray-900">{activityConfig.title}</h1>
@@ -1457,8 +1491,11 @@ const AssessmentSession = ({
                   )}
                 </div>
                 <p className="text-sm text-gray-600">
-                  Question {currentQuestionIndex + 1} of {generatedQuestions.length} • 
-                  {answeredCount} answered
+                  {questionsReady ? (
+                    <>Question {currentQuestionIndex + 1} of {generatedQuestions.length} • {answeredCount} answered</>
+                  ) : (
+                    <>Preparing questions...</>
+                  )}
                 </p>
               </div>
             </div>
@@ -1533,33 +1570,41 @@ const AssessmentSession = ({
       </Card>
 
       {/* Show loading state when questions are being prepared */}
-      {generatedQuestions.length > 0 && !questionsReady && (
+      {!questionsReady && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
           <div className="mb-6">
             <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <h3 className="text-xl font-medium text-blue-900 mb-3">Preparing Questions...</h3>
+            <h3 className="text-xl font-medium text-blue-900 mb-3">
+              {generatedQuestions.length === 0 ? 'Loading Assessment...' : 'Preparing Questions...'}
+            </h3>
             <p className="text-blue-700 text-lg">
-              Setting up {generatedQuestions.length} question{generatedQuestions.length !== 1 ? 's' : ''} for your assessment.
+              {generatedQuestions.length === 0 ? (
+                'Setting up your assessment questions.'
+              ) : (
+                `Setting up ${generatedQuestions.length} question${generatedQuestions.length !== 1 ? 's' : ''} for your assessment.`
+              )}
             </p>
           </div>
-          <div className="bg-white border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-            <div className="text-sm text-blue-600">
-              <div className="flex justify-between items-center mb-3">
-                <span className="font-medium">Questions Ready:</span>
-                <span className="font-bold text-lg">
-                  {Object.values(questionReadyStates).filter(Boolean).length} / {generatedQuestions.length}
-                </span>
-              </div>
-              <div className="w-full bg-blue-100 rounded-full h-3">
-                <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${(Object.values(questionReadyStates).filter(Boolean).length / Math.max(generatedQuestions.length, 1)) * 100}%`
-                  }}
-                ></div>
+          {generatedQuestions.length > 0 && (
+            <div className="bg-white border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+              <div className="text-sm text-blue-600">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-medium">Questions Ready:</span>
+                  <span className="font-bold text-lg">
+                    {Object.values(questionReadyStates).filter(Boolean).length} / {generatedQuestions.length}
+                  </span>
+                </div>
+                <div className="w-full bg-blue-100 rounded-full h-3">
+                  <div 
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(Object.values(questionReadyStates).filter(Boolean).length / Math.max(generatedQuestions.length, 1)) * 100}%`
+                    }}
+                  ></div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1736,13 +1781,14 @@ const AssessmentSession = ({
                   {currentQuestion.type === 'standard-long-answer' && (
                     <StandardLongAnswerQuestion
                       courseId={courseId}
-                      cloudFunctionName="course2_assessments"
-                      assessmentId={currentQuestion.questionId}
+                      cloudFunctionName={currentQuestion.questionId}
                       examMode={true}
                       examSessionId={assessmentSession.sessionId}
-                      onAssessmentAnswerSave={handleAnswerSave}
+                      onExamAnswerSave={handleAnswerSave}
                       theme="slate"
                       isWaitingForQuestions={!questionsReady}
+                      hasExistingAnswer={!!(pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId])}
+                      currentSavedAnswer={pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId]}
                     />
                   )}
                 </>

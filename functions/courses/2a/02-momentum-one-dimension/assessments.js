@@ -2379,6 +2379,50 @@ const assessmentConfigs = {
     pointsValue: 1,
     maxAttempts: 9999,
     showFeedback: true
+  },
+  
+  // ===== LONG ANSWER ASSESSMENT EXAMPLE =====
+  'course2_02_momentum_long_answer_1': {
+    type: 'long-answer', // REQUIRED: Identifies this as a long answer question
+    questions: [
+      {
+        questionText: "A 0.40 kg puck moving at 5.0 m/s strikes a 0.60 kg puck at rest. They stick together. **a)** Calculate their final velocity. (3 points) **b)** Is this collision elastic or inelastic? Justify your answer with calculations. (2 points)",
+        rubric: [
+          { criterion: "Momentum Conservation Setup", points: 1, description: "Correctly applies conservation of momentum equation: m₁v₁ + m₂v₂ = (m₁ + m₂)vf" },
+          { criterion: "Calculation of Final Velocity", points: 2, description: "Correctly substitutes values and calculates final velocity as 2.0 m/s" },
+          { criterion: "Collision Type Identification", points: 1, description: "Correctly identifies this as an inelastic collision" },
+          { criterion: "Justification with Energy", points: 1, description: "Shows that kinetic energy is not conserved (KEᵢ = 5.0 J, KEf = 2.0 J)" }
+        ],
+        maxPoints: 5,
+        wordLimit: { min: 50, max: 300 },
+        sampleAnswer: "a) Using conservation of momentum: m₁v₁ + m₂v₂ = (m₁ + m₂)vf. Substituting values: (0.40 kg)(5.0 m/s) + (0.60 kg)(0 m/s) = (1.0 kg)vf. Therefore: 2.0 kg⋅m/s = 1.0 kg × vf, so vf = 2.0 m/s. b) This is an inelastic collision because the objects stick together after collision, and kinetic energy is not conserved (initial KE = ½(0.40)(5.0)² = 5.0 J, final KE = ½(1.0)(2.0)² = 2.0 J).",
+        difficulty: "intermediate",
+        topic: "Momentum and Collisions",
+        tags: ["momentum", "conservation", "inelastic-collision"]
+      },
+      {
+        questionText: "A 1500 kg car traveling at 20 m/s collides head-on with a 1200 kg car traveling at 15 m/s in the opposite direction. After collision, they move together. **a)** Calculate their final velocity. (3 points) **b)** Calculate the kinetic energy lost in the collision. (2 points)",
+        rubric: [
+          { criterion: "Momentum Conservation Setup", points: 1, description: "Correctly applies conservation of momentum with proper signs for opposite directions" },
+          { criterion: "Final Velocity Calculation", points: 2, description: "Correctly calculates final velocity considering direction" },
+          { criterion: "Initial Kinetic Energy", points: 1, description: "Correctly calculates total initial kinetic energy" },
+          { criterion: "Energy Loss Calculation", points: 1, description: "Correctly determines energy lost in collision" }
+        ],
+        maxPoints: 5,
+        wordLimit: { min: 60, max: 350 },
+        sampleAnswer: "a) Using conservation of momentum: m₁v₁ + m₂v₂ = (m₁ + m₂)vf. Taking rightward as positive: (1500 kg)(20 m/s) + (1200 kg)(-15 m/s) = (2700 kg)vf. 30000 - 18000 = 2700vf, so vf = 4.44 m/s rightward. b) Initial KE = ½(1500)(20)² + ½(1200)(15)² = 300000 + 135000 = 435000 J. Final KE = ½(2700)(4.44)² = 26667 J. Energy lost = 435000 - 26667 = 408333 J.",
+        difficulty: "intermediate",
+        topic: "Momentum and Collisions",
+        tags: ["momentum", "conservation", "energy-loss", "collision"]
+      }
+    ],
+    activityType: 'assignment', // Override the lesson default for this specific assessment
+    maxAttempts: 2,
+    showRubric: true,
+    showWordCount: true,
+    theme: 'blue',
+    randomizeQuestions: true,
+    allowSameQuestion: false
   }
 };
 

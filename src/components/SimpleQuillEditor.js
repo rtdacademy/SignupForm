@@ -266,6 +266,8 @@ const SimpleQuillEditor = forwardRef(({
   contentPath = null, // Add default to prevent undefined errors
   onSave = () => {},
   onError = () => {},
+  onWordCountChange = () => {}, // NEW: Callback for word count updates
+  onContentChange = () => {}, // NEW: Callback for real-time content changes
 }, ref) => {
   const [content, setContent] = useState(initialContent);
   const [saving, setSaving] = useState(false);
@@ -279,6 +281,19 @@ const SimpleQuillEditor = forwardRef(({
   useEffect(() => {
     setContent(initialContent || '');
   }, [initialContent]);
+
+  // Handle content changes with word count tracking
+  const handleContentChange = (value, delta, source, editor) => {
+    setContent(value);
+    
+    // Calculate word count from plain text (strips HTML)
+    const text = editor.getText();
+    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Call the callbacks
+    onWordCountChange(wordCount);
+    onContentChange(value); // Notify parent of content changes in real-time
+  };
 
   useEffect(() => {
     if (!quillRef.current) return;
@@ -403,7 +418,7 @@ const SimpleQuillEditor = forwardRef(({
             ref={quillRef}
             theme="snow"
             value={content}
-            onChange={setContent}
+            onChange={handleContentChange}
             modules={modules}
             placeholder="Start creating your content..."
             className="h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto"
@@ -411,15 +426,6 @@ const SimpleQuillEditor = forwardRef(({
         </ScrollArea>
       </div>
 
-      <div className="flex justify-end pt-4 mt-auto">
-        <Button 
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {saving ? 'Saving...' : 'Save Content'}
-        </Button>
-      </div>
     </div>
   );
 });

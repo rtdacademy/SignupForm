@@ -23,6 +23,7 @@ if (!admin.apps.length) {
 }
 
 const { StandardMultipleChoiceCore } = require('../../shared/assessment-types/standard-multiple-choice');
+const { StandardLongAnswerCore } = require('../../shared/assessment-types/standard-long-answer');
 
 // We need to extract and recreate the question generator functions from the original file
 // Rather than importing the cloud functions, we'll recreate the core logic here
@@ -143,16 +144,25 @@ exports.course2_assessments = onCall({
     
     console.log(`Processing assessment directly for: ${assessmentId}`);
     
-    // Create the core handler with the assessment configuration
+    // Determine assessment type from configuration
+    const assessmentType = assessmentConfig.type || 'multiple-choice'; // Default to multiple choice for backward compatibility
+    console.log(`Assessment type: ${assessmentType} for ${assessmentId}`);
+    
+    // Create the appropriate core handler based on assessment type
+    let coreHandler;
     try {
-      const coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
-      console.log(`Core handler created successfully for: ${assessmentId}`);
+      if (assessmentType === 'long-answer') {
+        coreHandler = new StandardLongAnswerCore(assessmentConfig);
+        console.log(`Long answer core handler created successfully for: ${assessmentId}`);
+      } else {
+        // Default to multiple choice for backward compatibility
+        coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
+        console.log(`Multiple choice core handler created successfully for: ${assessmentId}`);
+      }
     } catch (configError) {
-      console.error(`Error creating core handler for ${assessmentId}:`, configError);
+      console.error(`Error creating ${assessmentType} core handler for ${assessmentId}:`, configError);
       throw new Error(`Failed to create assessment handler: ${configError.message}`);
     }
-    
-    const coreHandler = new StandardMultipleChoiceCore(assessmentConfig);
     
     // Extract operation parameters (this mimics what the individual functions do)
     const params = {
@@ -181,8 +191,31 @@ exports.course2_assessments = onCall({
       console.log(`Answer evaluated successfully for: ${assessmentId}`);
       return result;
     }
+    else if (params.operation === 'save') {
+      console.log(`Saving answer for: ${assessmentId}`);
+      const result = await coreHandler.handleSave(params);
+      console.log(`Answer saved successfully for: ${assessmentId}`);
+      return result;
+    }
+    else if (params.operation === 'submit') {
+      console.log(`Submitting answer for: ${assessmentId}`);
+      // For long answer, submit maps to handleSave with submit operation
+      if (assessmentType === 'long-answer') {
+        const result = await coreHandler.handleSave({ ...params, operation: 'submit' });
+        console.log(`Answer submitted successfully for: ${assessmentId}`);
+        return result;
+      } else {
+        // For multiple choice, submit maps to handleEvaluate
+        const result = await coreHandler.handleEvaluate(params);
+        console.log(`Answer submitted successfully for: ${assessmentId}`);
+        return result;
+      }
+    }
     else {
-      throw new Error(`Invalid operation: ${params.operation}. Supported operations are "generate" and "evaluate".`);
+      const supportedOps = assessmentType === 'long-answer' ? 
+        '"generate", "save", and "submit"' : 
+        '"generate" and "evaluate"';
+      throw new Error(`Invalid operation: ${params.operation}. Supported operations are ${supportedOps}.`);
     }
     
   } catch (error) {

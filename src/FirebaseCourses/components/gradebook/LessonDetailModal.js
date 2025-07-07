@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, CheckCircle, XCircle, Clock, Award, RotateCcw, Eye, ChevronLeft, FileText, Save, Edit3 } from 'lucide-react';
 import { getDatabase, ref, set, get, onValue } from 'firebase/database';
 import { useAuth } from '../../../context/AuthContext';
@@ -413,60 +413,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
               {/* Lab Activities */}
               {lesson.activityType === 'lab' && (
                 <div className="flex flex-col h-full">
-                  {/* Grade Header */}
-                  <div className="px-6 py-4 border-b bg-blue-50">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                      <Award className="h-5 w-5 text-blue-600" />
-                      Lab Grade Summary
-                    </h3>
-                    
-                    {(() => {
-                      // Get grade information
-                      const itemConfig = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[lesson.lessonId];
-                      const questionId = itemConfig?.questions?.[0]?.questionId;
-                      const maxPoints = itemConfig?.questions?.[0]?.points || 100;
-                      const gradeData = course?.Grades?.assessments?.[questionId];
-                      const actualPoints = gradeData?.points || 0;
-                      const percentage = maxPoints > 0 ? (actualPoints / maxPoints) * 100 : 0;
-                      
-                      const getScoreColor = (pct) => {
-                        if (pct >= 90) return 'text-green-700 bg-green-50 border-green-200';
-                        if (pct >= 80) return 'text-blue-700 bg-blue-50 border-blue-200';
-                        if (pct >= 70) return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-                        if (pct >= 60) return 'text-orange-700 bg-orange-50 border-orange-200';
-                        return 'text-red-700 bg-red-50 border-red-200';
-                      };
-                      
-                      return (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="text-center">
-                            <div className={`text-2xl font-bold px-4 py-2 rounded border ${getScoreColor(percentage)}`}>
-                              {formatScore(actualPoints)} / {maxPoints}
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">Points</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-600">
-                              {formatScore(percentage)}%
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">Score</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-gray-600">
-                              {gradeData ? (
-                                <span className="flex items-center justify-center gap-2">
-                                  Submitted <CheckCircle className="h-5 w-5 text-green-500" />
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">Not Submitted</span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">Status</div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
+               
                   
                   {/* Lab Component */}
                   <div className="flex-1 overflow-auto bg-gray-50">
@@ -476,6 +423,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                           lessonId={lesson.lessonId} 
                           courseId={course?.courseId || '2'}
                           course={course}
+                          isStaffView={isStaffView}
                         />
                       </div>
                     </div>
@@ -500,6 +448,23 @@ const truncateQuestionText = (text, maxLength = 100) => {
 
 // Session Detail View Component
 const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber, isStaffView = false }) => {
+  console.log('🎬 SessionDetailView rendered', {
+    sessionId: session?.sessionId,
+    studentKey: course?.studentKey,
+    CourseID: course?.CourseID,
+    isStaffView,
+    timestamp: new Date().toLocaleTimeString()
+  });
+  
+  // Memoize stable course properties to prevent unnecessary effect re-runs
+  const stableCourseProps = useMemo(() => ({
+    studentKey: course?.studentKey,
+    CourseID: course?.CourseID
+  }), [course?.studentKey, course?.CourseID]);
+  
+  // Memoize stable session property to prevent unnecessary effect re-runs
+  const stableSessionId = useMemo(() => session?.sessionId, [session?.sessionId]);
+  
   // Real-time listeners for session score and percentage
   const [realtimeScore, setRealtimeScore] = useState(session.finalResults?.score || 0);
   const [realtimePercentage, setRealtimePercentage] = useState(session.finalResults?.percentage || 0);
@@ -509,17 +474,25 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
   const [manualScore, setManualScore] = useState('');
   const [isEditingManualScore, setIsEditingManualScore] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'success', 'error'
+  
+  // Component mount/unmount tracking
+  useEffect(() => {
+    console.log('🎬 SessionDetailView mounted');
+    return () => {
+      console.log('🎭 SessionDetailView unmounted');
+    };
+  }, []);
 
   // Set up real-time listeners for session finalResults
   useEffect(() => {
-    if (!course?.studentKey || !course?.CourseID || !session?.sessionId) {
+    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId) {
       return;
     }
 
     const db = getDatabase();
     
     // Listen to score changes
-    const scoreRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/score`);
+    const scoreRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/score`);
     const scoreUnsubscribe = onValue(scoreRef, (snapshot) => {
       const score = snapshot.val();
       if (score !== null && score !== undefined) {
@@ -528,7 +501,7 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
     });
 
     // Listen to percentage changes
-    const percentageRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/percentage`);
+    const percentageRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/percentage`);
     const percentageUnsubscribe = onValue(percentageRef, (snapshot) => {
       const percentage = snapshot.val();
       if (percentage !== null && percentage !== undefined) {
@@ -537,7 +510,7 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
     });
 
     // Listen to manual override mode state
-    const overrideModeRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/isManualOverrideMode`);
+    const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
     const overrideModeUnsubscribe = onValue(overrideModeRef, (snapshot) => {
       const overrideMode = snapshot.val();
       if (overrideMode !== null && overrideMode !== undefined) {
@@ -554,18 +527,18 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
       percentageUnsubscribe();
       overrideModeUnsubscribe();
     };
-  }, [course?.studentKey, course?.CourseID, session?.sessionId, realtimeScore]);
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, realtimeScore]);
 
   // Load initial toggle state from Firebase on component mount
   useEffect(() => {
     const loadInitialToggleState = async () => {
-      if (!course?.studentKey || !course?.CourseID || !session?.sessionId) {
+      if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId) {
         return;
       }
 
       try {
         const db = getDatabase();
-        const overrideModeRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/isManualOverrideMode`);
+        const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
         const snapshot = await get(overrideModeRef);
         
         if (snapshot.exists()) {
@@ -584,11 +557,19 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
     };
 
     loadInitialToggleState();
-  }, [course?.studentKey, course?.CourseID, session?.sessionId, realtimeScore]);
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, realtimeScore]);
 
-  // Handle manual score override toggle
-  const handleToggleOverrideMode = async () => {
-    if (!course?.studentKey || !course?.CourseID || !session?.sessionId || !isStaffView) {
+  // Handle manual score override toggle - use useCallback to prevent recreation
+  const handleToggleOverrideMode = useCallback(async () => {
+    console.log('🔄 handleToggleOverrideMode called', {
+      stableCourseProps,
+      stableSessionId,
+      isStaffView,
+      currentMode: isManualOverrideMode
+    });
+    
+    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId || !isStaffView) {
+      console.log('❌ handleToggleOverrideMode early return - missing data');
       return;
     }
 
@@ -596,7 +577,7 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
     
     try {
       const db = getDatabase();
-      const overrideModeRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/isManualOverrideMode`);
+      const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
       
       // Save the toggle state to Firebase
       await set(overrideModeRef, newOverrideMode);
@@ -617,37 +598,49 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
       console.error('Error saving override mode state:', error);
       // Could optionally show an error message to the user
     }
-  };
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, isStaffView, isManualOverrideMode]);
 
-  // Handle manual score save
-  const handleSaveManualScore = async () => {
-    if (!course?.studentKey || !course?.CourseID || !session?.sessionId || !isStaffView) {
+  // Handle manual score save - use useCallback to prevent recreation
+  const handleSaveManualScore = useCallback(async () => {
+    console.log('💾 handleSaveManualScore called', {
+      stableCourseProps,
+      stableSessionId,
+      isStaffView,
+      manualScore,
+      saveStatus
+    });
+    
+    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId || !isStaffView) {
+      console.log('❌ handleSaveManualScore early return - missing data');
       return;
     }
 
     const scoreValue = parseFloat(manualScore);
     if (isNaN(scoreValue) || scoreValue < 0) {
+      console.log('❌ handleSaveManualScore - invalid score value');
       setSaveStatus('error');
       return;
     }
 
     const maxScore = session.finalResults?.maxScore || 0;
     if (scoreValue > maxScore) {
+      console.log('❌ handleSaveManualScore - score exceeds max');
       setSaveStatus('error');
       return;
     }
 
+    console.log('💾 Starting save process...');
     setSaveStatus('saving');
 
     try {
       const db = getDatabase();
-      const scoreRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/score`);
+      const scoreRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/score`);
       
       await set(scoreRef, scoreValue);
       
       // Also calculate and update percentage
       const percentage = maxScore > 0 ? (scoreValue / maxScore) * 100 : 0;
-      const percentageRef = ref(db, `students/${course.studentKey}/courses/${course.CourseID}/ExamSessions/${session.sessionId}/finalResults/percentage`);
+      const percentageRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/percentage`);
       await set(percentageRef, percentage);
 
       setSaveStatus('success');
@@ -659,14 +652,14 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
       console.error('Error saving manual score:', error);
       setSaveStatus('error');
     }
-  };
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, isStaffView, manualScore, session.finalResults?.maxScore]);
 
-  // Handle manual score cancel
-  const handleCancelManualScore = () => {
+  // Handle manual score cancel - use useCallback to prevent recreation
+  const handleCancelManualScore = useCallback(() => {
     setManualScore(realtimeScore.toString());
     setIsEditingManualScore(false);
     setSaveStatus(null);
-  };
+  }, [realtimeScore]);
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Unknown';
@@ -1598,7 +1591,7 @@ const QuestionCard = ({ question, assessmentData, questionNumber, activityType, 
 };
 
 // Lab Component Loader - Dynamically loads lab components
-const LabComponentLoader = ({ lessonId, courseId, course }) => {
+const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false }) => {
   const [LabComponent, setLabComponent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1669,7 +1662,7 @@ const LabComponentLoader = ({ lessonId, courseId, course }) => {
   }
 
   // Render the lab component with required props
-  return <LabComponent courseId={courseId} course={course} />;
+  return <LabComponent courseId={courseId} course={course} isStaffView={isStaffView} />;
 };
 
 // Grade Display/Editor Component

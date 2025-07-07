@@ -281,7 +281,7 @@
     },
     "exam": {
       "displayName": "Exam",
-      "maxAttempts": 1,
+      "maxAttempts": 2,
       "attemptPenalty": 0,
       "pointValue": 25,
       "theme": "red",

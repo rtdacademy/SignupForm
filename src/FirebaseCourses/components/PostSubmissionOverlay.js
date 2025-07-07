@@ -110,6 +110,7 @@ const PostSubmissionOverlay = ({
     }
   }, [course, questionId]);
 
+
   // Load teacher comment from course object or Firebase
   useEffect(() => {
     if (!course?.CourseID || !questionId) return;
@@ -194,22 +195,70 @@ const PostSubmissionOverlay = ({
 
   // Save grade to database with metadata
   const saveGrade = async () => {
-    if (!isStaffView || !course || !questionId || !currentGrade) return;
+    console.log('💾 saveGrade called:', {
+      isStaffView,
+      hasCourse: !!course,
+      questionId,
+      currentGrade,
+      originalGrade,
+      hasChanges,
+      isSaving,
+      maxPoints
+    });
 
-    const grade = parseFloat(currentGrade);
-    if (isNaN(grade) || grade < 0 || grade > maxPoints) {
-      return; // Invalid grade, don't save
+    if (!isStaffView) {
+      console.log('❌ Not staff view, cannot save');
+      return;
+    }
+    if (!course) {
+      console.log('❌ No course object');
+      return;
+    }
+    if (!questionId) {
+      console.log('❌ No questionId');
+      return;
+    }
+    if (!currentGrade) {
+      console.log('❌ No currentGrade');
+      return;
     }
 
+    const grade = parseFloat(currentGrade);
+    if (isNaN(grade)) {
+      console.log('❌ Grade is not a number:', currentGrade);
+      return;
+    }
+    if (grade < 0 || grade > maxPoints) {
+      console.log('❌ Grade out of bounds:', { grade, maxPoints });
+      return;
+    }
+
+    console.log('🚀 Starting save process:', { grade, questionId });
     setIsSaving(true);
+    
     try {
       const studentKey = course.studentKey;
       const courseId = course.CourseID;
       const timestamp = Date.now();
       
+      if (!studentKey) {
+        console.log('❌ No studentKey in course object');
+        throw new Error('Cannot determine student key for grade save');
+      }
+      
+      console.log('📍 Save details:', {
+        studentKey,
+        courseId,
+        questionId,
+        grade,
+        path: `students/${studentKey}/courses/${courseId}/Grades/assessments/${questionId}`
+      });
+      
       // Save the grade
       const gradeRef = ref(database, `students/${studentKey}/courses/${courseId}/Grades/assessments/${questionId}`);
+      console.log('💾 About to save grade to Firebase...');
       await set(gradeRef, grade);
+      console.log('✅ Grade saved to Firebase successfully');
       
       // Save metadata
       const metadataRef = ref(database, `students/${studentKey}/courses/${courseId}/Grades/metadata/${questionId}`);
@@ -236,21 +285,42 @@ const PostSubmissionOverlay = ({
       
       await set(metadataRef, metadata);
       
-      // Update local state
+      console.log('✅ Grade and metadata saved successfully:', { questionId, grade, studentKey, courseId });
+      
+      // Update local state after successful save
+      console.log('🔄 Updating local state:', {
+        oldOriginalGrade: originalGrade,
+        newOriginalGrade: currentGrade,
+        oldHasChanges: hasChanges,
+        newHasChanges: false
+      });
+      
       setOriginalGrade(currentGrade);
       setHasChanges(false);
       
+      console.log('✅ Local state updated - ready for next grade change');
+      
     } catch (error) {
-      console.error('Error saving grade:', error);
+      console.error('❌ Error saving grade:', error);
     } finally {
+      console.log('🏁 Setting isSaving to false');
       setIsSaving(false);
     }
   };
 
   // Handle grade input changes with validation
   const handleGradeChange = (value) => {
+    console.log('🎯 handleGradeChange called:', {
+      newValue: value,
+      currentGrade,
+      originalGrade,
+      hasChanges,
+      maxPoints
+    });
+
     // Allow empty string for clearing
     if (value === '') {
+      console.log('📝 Clearing grade input');
       setCurrentGrade('');
       setHasChanges(originalGrade !== '');
       return;
@@ -260,19 +330,38 @@ const PostSubmissionOverlay = ({
     const numValue = parseFloat(value);
     
     // Check if it's a valid number
-    if (isNaN(numValue)) return;
+    if (isNaN(numValue)) {
+      console.log('❌ Invalid number:', value);
+      return;
+    }
     
     // Check bounds
-    if (numValue < 0 || numValue > maxPoints) return;
+    if (numValue < 0 || numValue > maxPoints) {
+      console.log('❌ Value out of bounds:', { numValue, maxPoints });
+      return;
+    }
     
     // Check decimal places (max 1 decimal place)
     const decimalParts = value.split('.');
-    if (decimalParts.length > 2) return; // More than one decimal point
-    if (decimalParts[1] && decimalParts[1].length > 1) return; // More than 1 decimal place
+    if (decimalParts.length > 2) {
+      console.log('❌ Too many decimal points');
+      return;
+    }
+    if (decimalParts[1] && decimalParts[1].length > 1) {
+      console.log('❌ Too many decimal places');
+      return;
+    }
     
     // Update the grade
+    const newHasChanges = value !== originalGrade;
+    console.log('✅ Setting new grade:', {
+      newValue: value,
+      originalGrade,
+      newHasChanges
+    });
+    
     setCurrentGrade(value);
-    setHasChanges(value !== originalGrade);
+    setHasChanges(newHasChanges);
   };
 
   // Revert to original grade
@@ -426,7 +515,7 @@ const PostSubmissionOverlay = ({
               <div className="flex items-center gap-2">
                 <CheckCircle className={`h-4 w-4 ${isStaffView ? 'text-blue-600' : 'text-gray-600'}`} />
                 <span className={`text-sm font-medium ${isStaffView ? 'text-blue-800' : 'text-gray-800'}`}>
-                  {isStaffView ? 'Lab Review (Staff)' : (currentGrade && maxPoints > 0 ? 'Lab Graded' : 'Lab Submitted')}
+                  {isStaffView ? 'Final Grade' : (currentGrade && maxPoints > 0 ? 'Lab Graded' : 'Lab Submitted')}
                 </span>
               </div>
               

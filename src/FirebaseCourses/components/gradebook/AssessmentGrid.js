@@ -1,6 +1,47 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { formatScore } from '../../utils/gradeUtils';
+
+// Helper function to format timestamps in a friendly format
+const formatFriendlyDate = (timestamp) => {
+  if (!timestamp) return null;
+  
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  
+  // If it's today
+  if (diffDays === 0) {
+    if (diffHours === 0) {
+      if (diffMinutes === 0) {
+        return 'Just now';
+      } else if (diffMinutes === 1) {
+        return '1 minute ago';
+      } else {
+        return `${diffMinutes} minutes ago`;
+      }
+    } else if (diffHours === 1) {
+      return '1 hour ago';
+    } else {
+      return `${diffHours} hours ago`;
+    }
+  }
+  // If it's yesterday
+  else if (diffDays === 1) {
+    return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  // If it's within the last week
+  else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  }
+  // Otherwise, show the full date
+  else {
+    return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+};
 // No longer using gradebook context - data comes from course prop
 import { 
   Search, 
@@ -85,7 +126,27 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
       
       let status = 'not_started';
-      if (shouldBeSessionBased) {
+      
+      // Special handling for lab-type assessments
+      if (courseItem.type === 'lab') {
+        // For labs, check if there's a submission in course.Assessments
+        const normalizedLessonId = courseItem.itemId.replace(/-/g, '_');
+        const lessonConfig = itemStructure[normalizedLessonId];
+        const questionId = lessonConfig?.questions?.[0]?.questionId;
+        
+        if (questionId && course?.Assessments?.[questionId]) {
+          const labSubmission = course.Assessments[questionId];
+          // Lab is submitted if there's assessment data
+          if (labSubmission.status === 'completed' || labSubmission.status === 'submitted') {
+            status = 'completed';
+          } else {
+            status = 'in_progress';
+          }
+        } else if (lessonScore.attempted > 0 || lessonScore.score > 0) {
+          // Fallback: if there's a grade but no submission data, consider it completed
+          status = 'completed';
+        }
+      } else if (shouldBeSessionBased) {
         // For session-based items, status depends on sessions
         if (sessionCount > 0) {
           status = isCompleted ? 'completed' : 'in_progress';
@@ -135,9 +196,40 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
           const assessmentData = assessments[questionId];
           const maxPoints = questionConfig.points || 0;
           
-          // Track last activity from assessment submission
-          if (assessmentData?.lastSubmission?.timestamp > lastActivity) {
-            lastActivity = assessmentData.lastSubmission.timestamp;
+          // Track last activity from multiple sources and use the highest timestamp
+          const timestamps = [];
+          
+          // Check lastSubmission timestamp
+          if (assessmentData?.lastSubmission?.timestamp) {
+            timestamps.push(assessmentData.lastSubmission.timestamp);
+          }
+          
+          // Check submittedAt timestamp (for labs)
+          if (assessmentData?.submittedAt) {
+            timestamps.push(assessmentData.submittedAt);
+          }
+          
+          // Check other potential timestamp fields
+          if (assessmentData?.timestamp) {
+            timestamps.push(assessmentData.timestamp);
+          }
+          
+          // Check for multiple submission versions and get the highest timestamp
+          if (assessmentData?.submissions && typeof assessmentData.submissions === 'object') {
+            Object.values(assessmentData.submissions).forEach(submission => {
+              if (submission?.timestamp) {
+                timestamps.push(submission.timestamp);
+              }
+              if (submission?.submittedAt) {
+                timestamps.push(submission.submittedAt);
+              }
+            });
+          }
+          
+          // Use the highest timestamp found
+          const highestTimestamp = timestamps.length > 0 ? Math.max(...timestamps) : 0;
+          if (highestTimestamp > lastActivity) {
+            lastActivity = highestTimestamp;
           }
           
           // Count attempts
@@ -385,6 +477,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                 <LessonRow 
                   key={lesson.lessonId}
                   lesson={lesson}
+                  course={course}
                   onViewDetails={() => handleViewDetails(lesson)}
                 />
               ))}
@@ -412,7 +505,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
 };
 
 // Lesson Row Component
-const LessonRow = ({ lesson, onViewDetails }) => {
+const LessonRow = ({ lesson, course, onViewDetails }) => {
   // Handle row click to open details modal
   const handleRowClick = () => {
     if (lesson.isConfigured && lesson.questions.length > 0) {
@@ -514,12 +607,49 @@ const LessonRow = ({ lesson, onViewDetails }) => {
               )
             ) : (
               // Individual question-based display
-              lesson.totalAttempts > 0 ? (
+              lesson.totalAttempts > 0 || (lesson.activityType === 'lab' && lesson.status === 'completed') ? (
                 <div className="flex flex-col items-center">
-                  <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
-                    {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
+                  {lesson.totalScore > 0 || lesson.maxScore === 0 ? (
+                    // Show score if there's a grade
+                    <>
+                      <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                        {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
+                    </>
+                  ) : (
+                    // Show "Submitted" for labs that are submitted but not graded
+                    lesson.activityType === 'lab' ? (
+                      <div className="flex flex-col items-center">
+                        <div className="text-sm font-medium px-2 py-1 rounded bg-blue-50 text-blue-700">
+                          Submitted
+                        </div>
+                        {(() => {
+                          // Get submission timestamp for the lab
+                          const normalizedLessonId = lesson.lessonId.replace(/-/g, '_');
+                          const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
+                          const lessonConfig = itemStructure[normalizedLessonId];
+                          const questionId = lessonConfig?.questions?.[0]?.questionId;
+                          const labSubmission = questionId ? course?.Assessments?.[questionId] : null;
+                          const submissionTimestamp = labSubmission?.submittedAt;
+                          
+                          if (submissionTimestamp) {
+                            const friendlyDate = formatFriendlyDate(submissionTimestamp);
+                            return (
+                              <div className="text-xs text-gray-500 mt-1" title={new Date(submissionTimestamp).toLocaleString()}>
+                                {friendlyDate}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()} 
+                      </div>
+                    ) : (
+                      <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                        {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                      </div>
+                    )
+                  )}
                 </div>
               ) : (
                 <span className="text-sm text-gray-400">-</span>
@@ -588,8 +718,8 @@ const LessonRow = ({ lesson, onViewDetails }) => {
         <div className="flex items-center justify-between">
           <div>
             {lesson.isConfigured && lesson.lastActivity ? (
-              <div className="text-sm text-gray-600">
-                {new Date(lesson.lastActivity).toLocaleDateString()}
+              <div className="text-sm text-gray-600" title={new Date(lesson.lastActivity).toLocaleString()}>
+                {formatFriendlyDate(lesson.lastActivity)}
               </div>
             ) : lesson.isConfigured ? (
               <span className="text-sm text-gray-400">-</span>

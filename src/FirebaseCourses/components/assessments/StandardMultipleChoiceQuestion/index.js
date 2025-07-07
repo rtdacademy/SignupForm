@@ -187,6 +187,17 @@ const renderEnhancedText = (text) => {
             rehypeRaw
           ]}
           components={{
+            // Style images to be responsive and centered
+            img: ({node, ...props}) => (
+              <div className="my-4 text-center">
+                <img 
+                  {...props} 
+                  className="max-w-full h-auto mx-auto rounded-lg shadow-md border border-gray-200"
+                  style={{ maxHeight: '400px' }}
+                />
+              </div>
+            ),
+            
             // Make headings slightly smaller in question contexts
             h1: ({node, ...props}) => <h2 className="text-xl font-bold mt-1 mb-2" {...props} />,
             h2: ({node, ...props}) => <h3 className="text-lg font-bold mt-1 mb-2" {...props} />,
@@ -336,6 +347,9 @@ const StandardMultipleChoiceQuestion = ({
   
   // Check if current selection differs from saved answer
   const hasUnsavedChanges = isExamMode && currentSavedAnswer && selectedAnswer && selectedAnswer !== currentSavedAnswer;
+  
+  // Check if answer is saved (for button styling)
+  const isAnswerSaved = isExamMode && currentSavedAnswer && selectedAnswer && selectedAnswer === currentSavedAnswer;
   
   // Get theme colors - prioritize prop theme over question settings when passed from parent component
   const activeTheme = (isExamMode ? 'purple' : theme) || question?.settings?.theme || 'purple';
@@ -1510,13 +1524,15 @@ This student answered correctly! Reinforce their understanding and help them con
                   className={`mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md ${
                     hasUnsavedChanges 
                       ? 'bg-amber-500 ring-2 ring-amber-300 ring-opacity-50' 
+                      : isAnswerSaved
+                      ? 'bg-green-500 hover:bg-green-600'
                       : `bg-gradient-to-r ${themeConfig.gradient}`
                   }`}
                 >
                   {submitting ? 
                     (isExamMode ? 'Saving...' : 'Submitting...') : 
                     isExamMode ? 
-                      (hasUnsavedChanges ? 'Save Changes' : hasExistingAnswer ? 'Update Answer' : 'Save Answer') : 
+                      (hasUnsavedChanges ? 'Save Changes' : hasExistingAnswer ? 'Update Answer' : isAnswerSaved ? 'Answer Saved ✓' : 'Save Answer') : 
                       'Submit Answer'
                   }
                 </Button>

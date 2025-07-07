@@ -77,7 +77,7 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   const lessonConfig = itemStructure[normalizedLessonId];
   
   if (!lessonConfig) {
-    console.warn(`No lesson config found for: ${normalizedLessonId}`);
+    //console.warn(`No lesson config found for: ${normalizedLessonId}`);
     return {
       score: 0,
       total: 0,
@@ -91,14 +91,11 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
 
   // Check if this assessment should use session-based scoring
   if (studentEmail && shouldUseSessionBasedScoring(normalizedLessonId, course)) {
-    console.log(`🎯 Assessment ${normalizedLessonId} should use session-based scoring`);
-    
     // Check if sessions actually exist
     if (hasSessionBasedScoring(normalizedLessonId, course, studentEmail)) {
       return calculateSessionBasedScore(normalizedLessonId, course, studentEmail);
     } else {
       // Should use sessions but none exist - return 0 score
-      console.log(`⚠️ No sessions found for ${normalizedLessonId} - returning 0 score`);
       return {
         score: 0,
         total: 0,
@@ -114,7 +111,6 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   }
 
   // Fall back to individual question scoring for lessons
-  console.log(`📝 Using individual question scoring for ${normalizedLessonId}`);
   
   if (!lessonConfig.questions) {
     console.warn(`No questions found for lesson: ${normalizedLessonId}`);
@@ -131,6 +127,7 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
 
   // Handle case where assessments don't exist yet (new student)
   const grades = course.Grades?.assessments || {};
+  const submissions = course.Assessments || {};
   let totalScore = 0;
   let totalPossible = 0;
   let attemptedQuestions = 0;
@@ -143,10 +140,22 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     
     totalPossible += maxPoints;
     
-    // If grade exists (even if 0), student has attempted
+    // Check if student has attempted this question
+    let hasAttempted = false;
+    
+    // First check if there's a grade (even if 0)
     if (grades.hasOwnProperty(questionId)) {
-      attemptedQuestions += 1;
+      hasAttempted = true;
       totalScore += actualGrade;
+    } 
+    // For labs, also check if there's a submission without a grade
+    else if (submissions[questionId]) {
+      hasAttempted = true;
+      // No grade yet, but submission exists - score remains 0 for now
+    }
+    
+    if (hasAttempted) {
+      attemptedQuestions += 1;
     }
   });
 

@@ -98,7 +98,6 @@ function StudentManagement({
   useEffect(() => {
     const checkFirebaseCourse = async () => {
       if (!selectedStudent?.CourseID) {
-        console.log('🔍 Firebase Course Check - No Course ID:', selectedStudent);
         setSelectedStudentHasFirebaseCourse(false);
         return;
       }
@@ -150,6 +149,11 @@ function StudentManagement({
     selectedStudentHasFirebaseCourse ? selectedStudentEmailKey : null,
     teacherPermissions
   );
+
+  // Memoize the specific Firebase data we need to prevent unnecessary re-renders
+  const memoizedFirebaseCourses = useMemo(() => studentFirebaseData.courses, [studentFirebaseData.courses]);
+  const memoizedFirebaseProfile = useMemo(() => studentFirebaseData.profile, [studentFirebaseData.profile]);
+  const memoizedFirebaseLoading = useMemo(() => studentFirebaseData.loading, [studentFirebaseData.loading]);
 
   // Handle toggle for filtering by multiple ASNs
   const handleToggleMultipleAsnsOnly = useCallback(() => {
@@ -314,7 +318,6 @@ function StudentManagement({
     fetchTeacherNames();
 
     return () => {
-      console.log('useEffect cleanup - Teacher categories listener removed');
       unsubscribe();
     };
   }, [user_email_key]);
@@ -447,27 +450,15 @@ function StudentManagement({
 
   // Render student detail
   const renderStudentDetail = useCallback(() => {
-    // Debug logging for Firebase course detection
-    console.log('🔍 STUDENT MANAGEMENT - renderStudentDetail Debug:', {
-      selectedStudent: selectedStudent ? {
-        name: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-        courseId: selectedStudent.CourseID
-      } : null,
-      selectedStudentHasFirebaseCourse,
-      studentFirebaseDataLoading: studentFirebaseData.loading,
-      studentFirebaseDataCourses: studentFirebaseData.courses ? studentFirebaseData.courses.length : 0,
-      studentFirebaseDataError: studentFirebaseData.error,
-      timestamp: new Date().toLocaleTimeString()
-    });
 
     // If the selected student has a Firebase course, show the GradebookDashboard
-    if (selectedStudentHasFirebaseCourse && studentFirebaseData.courses && studentFirebaseData.courses.length > 0) {
+    if (selectedStudentHasFirebaseCourse && memoizedFirebaseCourses && memoizedFirebaseCourses.length > 0) {
       // Try to find the course by exact match first, then by string conversion
-      let targetCourse = studentFirebaseData.courses.find(course => course.id === selectedStudent.CourseID);
+      let targetCourse = memoizedFirebaseCourses.find(course => course.id === selectedStudent.CourseID);
       
       // If not found, try string/number conversion
       if (!targetCourse) {
-        targetCourse = studentFirebaseData.courses.find(course => 
+        targetCourse = memoizedFirebaseCourses.find(course => 
           String(course.id) === String(selectedStudent.CourseID) ||
           course.CourseID === selectedStudent.CourseID ||
           String(course.CourseID) === String(selectedStudent.CourseID)
@@ -499,31 +490,8 @@ function StudentManagement({
         }
       );
       
-      console.log('🎯 STUDENT MANAGEMENT - Firebase Course Search:', {
-        selectedStudentCourseId: selectedStudent.CourseID,
-        availableCourseIds: studentFirebaseData.courses.map(c => c.id),
-        availableCoursesData: studentFirebaseData.courses.map(c => ({ id: c.id, CourseID: c.CourseID, firebaseCourse: c.courseDetails?.firebaseCourse })),
-        targetCourseFound: !!targetCourse,
-        allCoursesData: studentFirebaseData.courses,
-        timestamp: new Date().toLocaleTimeString()
-      });
       
       if (targetCourse) {
-        // Console log for reviewing the course object passed to GradebookDashboard
-        console.log('📊 STUDENT MANAGEMENT - GradebookDashboard Course Data:', {
-          studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-          courseId: selectedStudent.CourseID,
-          targetCourse,
-          gradebookData: targetCourse.Gradebook,
-          courseConfig: targetCourse.Gradebook?.courseConfig,
-          courseStructure: targetCourse.Gradebook?.courseConfig?.courseStructure || targetCourse.Gradebook?.courseStructure,
-          gradebookItems: targetCourse.Gradebook?.items,
-          gradebookSummary: targetCourse.Gradebook?.summary,
-          allCourseItemsCount: allCourseItems.length,
-          profileData: studentFirebaseData.profile,
-          lessonAccessibilityCount: Object.keys(lessonAccessibility).length,
-          timestamp: new Date().toLocaleTimeString()
-        });
 
         return (
           <Card className="h-full bg-white shadow-md">
@@ -535,7 +503,7 @@ function StudentManagement({
               <GradebookDashboard 
                 course={targetCourse}
                 allCourseItems={allCourseItems}
-                profile={studentFirebaseData.profile}
+                profile={memoizedFirebaseProfile}
                 lessonAccessibility={lessonAccessibility}
                 showHeader={false}
               />
@@ -561,7 +529,10 @@ function StudentManagement({
   }, [
     selectedStudent, 
     selectedStudentHasFirebaseCourse,
-    studentFirebaseData.courses,
+    memoizedFirebaseCourses,
+    memoizedFirebaseProfile,
+    memoizedFirebaseLoading,
+    studentFirebaseData.error,
     isMobile, 
     detailRefreshKey,
     handleRefreshStudent

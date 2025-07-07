@@ -306,9 +306,15 @@ const multipleChoiceQuestions = [
 
 // Long Answer Question Configurations
 const longAnswerQuestion1Config = {
+  type: 'long-answer', // REQUIRED: Identifies this as a long answer question for master function routing
+  requiresManualGrading: true, // Flag to indicate this question type requires manual marking
   questions: [
     {
-      questionText: "A 0.40 kg puck moving at 5.0 m/s strikes a 0.60 kg puck at rest. They stick together. a) Calculate their final velocity. (3 points) b) Is this collision elastic or inelastic? Justify your answer with calculations. (2 points)",
+      questionText: `A 0.40 kg puck moving at 5.0 m/s strikes a 0.60 kg puck at rest. They stick together.
+
+**a)** Calculate their final velocity. *(3 points)*
+
+**b)** Is this collision elastic or inelastic? Justify your answer with calculations. *(2 points)*`,
       rubric: [
         { criterion: "Momentum Conservation Setup", points: 1, description: "Correctly applies conservation of momentum equation: m₁v₁ + m₂v₂ = (m₁ + m₂)vf" },
         { criterion: "Calculation of Final Velocity", points: 2, description: "Correctly substitutes values and calculates final velocity as 2.0 m/s" },
@@ -317,7 +323,18 @@ const longAnswerQuestion1Config = {
       ],
       maxPoints: 5,
       wordLimit: { min: 50, max: 300 },
-      sampleAnswer: "a) Using conservation of momentum: m₁v₁ + m₂v₂ = (m₁ + m₂)vf. Substituting values: (0.40 kg)(5.0 m/s) + (0.60 kg)(0 m/s) = (1.0 kg)vf. Therefore: 2.0 kg⋅m/s = 1.0 kg × vf, so vf = 2.0 m/s. b) This is an inelastic collision because the objects stick together after collision, and kinetic energy is not conserved (initial KE = ½(0.40)(5.0)² = 5.0 J, final KE = ½(1.0)(2.0)² = 2.0 J).",
+      sampleAnswer: `**a)** Using conservation of momentum:
+- $m_1v_1 + m_2v_2 = (m_1 + m_2)v_f$
+- Substituting values: $(0.40 \text{ kg})(5.0 \text{ m/s}) + (0.60 \text{ kg})(0 \text{ m/s}) = (1.0 \text{ kg})v_f$
+- Therefore: $2.0 \text{ kg⋅m/s} = 1.0 \text{ kg} × v_f$
+- So $v_f = 2.0 \text{ m/s}$
+
+**b)** This is an **inelastic collision** because:
+- The objects stick together after collision
+- Kinetic energy is not conserved:
+  - Initial KE: $KE_i = \frac{1}{2}(0.40)(5.0)^2 = 5.0 \text{ J}$
+  - Final KE: $KE_f = \frac{1}{2}(1.0)(2.0)^2 = 2.0 \text{ J}$
+  - Energy lost: $5.0 - 2.0 = 3.0 \text{ J}$`,
       difficulty: "intermediate",
       topic: "Momentum and Collisions",
       tags: ["momentum", "conservation", "inelastic-collision"]
@@ -332,9 +349,15 @@ const longAnswerQuestion1Config = {
 };
 
 const longAnswerQuestion2Config = {
+  type: 'long-answer', // REQUIRED: Identifies this as a long answer question for master function routing
+  requiresManualGrading: true, // Flag to indicate this question type requires manual marking
   questions: [
     {
-      questionText: "A light ray travels from air into crown glass (n = 1.52) at an incident angle of 35°. a) Calculate the angle of refraction. (2 points) b) Explain what happens to the speed of light when it enters the glass and why this occurs. (2 points)",
+      questionText: `A light ray travels from air into crown glass (n = 1.52) at an incident angle of 35°.
+
+**a)** Calculate the angle of refraction. *(2 points)*
+
+**b)** Explain what happens to the speed of light when it enters the glass and why this occurs. *(2 points)*`,
       rubric: [
         { criterion: "Snell's Law Application", points: 1, description: "Correctly applies Snell's law: n₁sin(θ₁) = n₂sin(θ₂)" },
         { criterion: "Angle Calculation", points: 1, description: "Correctly calculates the angle of refraction as 22.2°" },
@@ -343,7 +366,16 @@ const longAnswerQuestion2Config = {
       ],
       maxPoints: 4,
       wordLimit: { min: 40, max: 200 },
-      sampleAnswer: "a) Using Snell's law: n₁sin(θ₁) = n₂sin(θ₂). With n₁ = 1.00 (air), θ₁ = 35°, n₂ = 1.52 (crown glass): sin(θ₂) = (1.00)(sin35°)/1.52 = 0.574/1.52 = 0.378. Therefore θ₂ = arcsin(0.378) = 22.2°. b) The light slows down when entering glass because glass has a higher refractive index than air, meaning light travels slower in the denser optical medium.",
+      sampleAnswer: `**a)** Using Snell's law:
+- $n_1\sin(\theta_1) = n_2\sin(\theta_2)$
+- Given: $n_1 = 1.00$ (air), $\theta_1 = 35°$, $n_2 = 1.52$ (crown glass)
+- $\sin(\theta_2) = \frac{n_1\sin(\theta_1)}{n_2} = \frac{(1.00)\sin(35°)}{1.52} = \frac{0.574}{1.52} = 0.378$
+- Therefore: $\theta_2 = \arcsin(0.378) = 22.2°$
+
+**b)** The light **slows down** when entering glass because:
+- Glass has a higher refractive index than air ($n_{glass} > n_{air}$)
+- The refractive index is defined as $n = \frac{c}{v}$, where $c$ is the speed of light in vacuum and $v$ is the speed in the medium
+- Since $n_{glass} = 1.52 > 1$, the speed of light in glass is $v = \frac{c}{1.52}$, which is slower than in air`,
       difficulty: "intermediate",
       topic: "Light and Refraction",
       tags: ["refraction", "snells-law", "refractive-index"]

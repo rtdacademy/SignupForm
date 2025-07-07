@@ -315,8 +315,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   };
 
   useEffect(() => {
-    console.log("StudentDetail MOUNTED (or re-mounted)");
-    return () => console.log("StudentDetail UNMOUNTED");
+    return () => {};
   }, []);
 
   useEffect(() => {
