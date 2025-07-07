@@ -3,17 +3,7 @@ import LessonContent, { TextSection, LessonSummary } from '../../../../component
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricPotential = ({ course, courseId = 'default' }) => {
-  const [isGravitationalOpen, setIsGravitationalOpen] = useState(false);
-  const [isElectricPotentialEnergyOpen, setIsElectricPotentialEnergyOpen] = useState(false);
-  const [isElectricPotentialOpen, setIsElectricPotentialOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isEquipotentialOpen, setIsEquipotentialOpen] = useState(false);
-  const [isExample5Open, setIsExample5Open] = useState(false);
-  const [isExample6Open, setIsExample6Open] = useState(false);
+const ElectricPotential = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent
@@ -21,17 +11,11 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
       title="Lesson 16 - Electric Potential"
       metadata={{ estimated_time: '45 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsGravitationalOpen(!isGravitationalOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Gravitational Potential Energy − Revisited</h3>
-            <span className="text-blue-600">{isGravitationalOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isGravitationalOpen && (
+      {/* AI-Enhanced Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="gravitational" title="Gravitational Potential Energy − Revisited" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -132,21 +116,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectricPotentialEnergyOpen(!isElectricPotentialEnergyOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Potential Energy</h3>
-            <span className="text-blue-600">{isElectricPotentialEnergyOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectricPotentialEnergyOpen && (
+            <AIAccordion.Item value="electric-potential-energy" title="Electric Potential Energy" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
@@ -269,21 +241,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectricPotentialOpen(!isElectricPotentialOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electric Potential</h3>
-            <span className="text-blue-600">{isElectricPotentialOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectricPotentialOpen && (
+            <AIAccordion.Item value="electric-potential" title="Electric Potential" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -421,21 +381,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Finding Electric Potential Difference</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1 - Finding Electric Potential Difference" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -479,21 +427,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2 - Proton in Electric Field</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
+            <AIAccordion.Item value="example2" title="Example 2 - Proton in Electric Field" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -537,21 +473,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3 - Work Required to Move Charge</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
+            <AIAccordion.Item value="example3" title="Example 3 - Work Required to Move Charge" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -595,21 +519,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 4 - Alpha Particle Speed from Electric Potential</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
+            <AIAccordion.Item value="example4" title="Example 4 - Alpha Particle Speed from Electric Potential" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -687,21 +599,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsEquipotentialOpen(!isEquipotentialOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Equipotential Lines</h3>
-            <span className="text-blue-600">{isEquipotentialOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isEquipotentialOpen && (
+            <AIAccordion.Item value="equipotential" title="Equipotential Lines" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-gray-700 mb-4">
@@ -852,21 +752,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 5 - Parallel Plate System Calculations</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample5Open && (
+            <AIAccordion.Item value="example5" title="Example 5 - Parallel Plate System Calculations" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -960,21 +848,9 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample6Open(!isExample6Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 6 - Finding Mass from Electric Acceleration</h3>
-            <span className="text-blue-600">{isExample6Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample6Open && (
+            <AIAccordion.Item value="example6" title="Example 6 - Finding Mass from Electric Acceleration" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1058,8 +934,17 @@ const ElectricPotential = ({ course, courseId = 'default' }) => {
               </div>
             </div>
           )}
+            </AIAccordion.Item>
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div>
+          {/* Fallback content when AIAccordion is not available */}
+          <p className="text-gray-600 p-4 bg-gray-100 rounded">
+            This lesson contains interactive content that requires the AI-enhanced accordion feature.
+          </p>
+        </div>
+      )}
 
       <LessonSummary
         points={[

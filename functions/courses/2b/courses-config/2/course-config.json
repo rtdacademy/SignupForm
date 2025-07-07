@@ -619,7 +619,58 @@
         "title": "Assignment L13-14 - Electrostatics",
         "type": "assignment",
         "contentPath": "28-l13-14-assignment",
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_28_l1314_question1",
+            "title": "L1314 Question1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question2",
+            "title": "L1314 Question2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question3",
+            "title": "L1314 Question3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question4",
+            "title": "L1314 Question4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question5",
+            "title": "L1314 Question5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question6",
+            "title": "L1314 Question6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question7",
+            "title": "L1314 Question7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question8",
+            "title": "L1314 Question8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question9",
+            "title": "L1314 Question9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_28_l1314_question10",
+            "title": "L1314 Question10",
+            "points": 1
+          }
+        ]
       },
       "assignment_l15_18": {
         "title": "Assignment L15-18 - Electric Circuits",

@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
 import { MultipleChoiceQuestion, DynamicQuestion } from '../../../../components/assessments';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
+import { useLessonMetadata } from '../../../../hooks/useLessonConfig';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -531,7 +532,10 @@ AIAccordion, onAIAccordionContent }) => {
   // TEMPORARY FIX: Removed useAuth dependency to avoid permission errors
   // const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Get lesson metadata from course config
+  const { metadata } = useLessonMetadata(courseId, '02-momentum-one-dimension');  const [isMomentumConceptOpen, setIsMomentumConceptOpen] = useState(false);
   const [isExplosionsOpen, setIsExplosionsOpen] = useState(false);  const [isExample2Open, setIsExample2Open] = useState(false);
   const [isExample4Open, setIsExample4Open] = useState(false);
   const [isExample5Open, setIsExample5Open] = useState(false);
@@ -797,7 +801,7 @@ AIAccordion, onAIAccordionContent }) => {
     <LessonContent
       lessonId="lesson_1747281764415_851"
       title="Lesson 1 - Momentum and Conservation of Momentum in One Dimension"
-      metadata={{ estimated_time: '120 minutes' }}
+      metadata={metadata}
     >
      
         <AIAccordion theme="blue">

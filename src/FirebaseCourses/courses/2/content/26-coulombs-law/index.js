@@ -1,22 +1,10 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const CoulombsLaw = ({ course, courseId = 'default' }) => {
-  const [isHistoricalOpen, setIsHistoricalOpen] = useState(false);
-  const [isFranklinOpen, setIsFranklinOpen] = useState(false);
-  const [isPriestlyOpen, setIsPriestlyOpen] = useState(false);
-  const [isCoulombOpen, setIsCoulombOpen] = useState(false);
-  const [isLawOpen, setIsLawOpen] = useState(false);
-  const [isUsingLawOpen, setIsUsingLawOpen] = useState(false);
-  const [isNewtonThirdOpen, setIsNewtonThirdOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isExample2Open, setIsExample2Open] = useState(false);
-  const [isExample3Open, setIsExample3Open] = useState(false);
-  const [isExample4Open, setIsExample4Open] = useState(false);
-  const [isExample5Open, setIsExample5Open] = useState(false);
-  const [isExample6Open, setIsExample6Open] = useState(false);
+const CoulombsLaw = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   
   // Interactive states for Franklin's experiment
   const [franklinExperiment, setFranklinExperiment] = useState('outside'); // 'outside' or 'inside'
@@ -27,7 +15,6 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
   const [chargeValue1, setChargeValue1] = useState(2);
   const [chargeValue2, setChargeValue2] = useState(2);
   const [distanceValue, setDistanceValue] = useState(2);
-  const [showTorsionBalance, setShowTorsionBalance] = useState(false);
   
   // Interactive states for using Coulomb's Law
   const [selectedExample, setSelectedExample] = useState(1); // 1 or 2
@@ -87,17 +74,11 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
       title="Lesson 14 - Coulomb's Law"
       metadata={{ estimated_time: '50 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsHistoricalOpen(!isHistoricalOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Historical Development of Coulomb's Law</h3>
-            <span className="text-blue-600">{isHistoricalOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isHistoricalOpen && (
+      {/* AI-Enhanced Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="historical" title="Historical Development of Coulomb's Law" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -138,21 +119,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsFranklinOpen(!isFranklinOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Franklin's Cork Experiment (1775)</h3>
-            <span className="text-blue-600">{isFranklinOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isFranklinOpen && (
+            <AIAccordion.Item value="franklin" title="Franklin's Cork Experiment (1775)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -356,21 +325,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsPriestlyOpen(!isPriestlyOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Priestley's Insight (1775)</h3>
-            <span className="text-blue-600">{isPriestlyOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isPriestlyOpen && (
+            <AIAccordion.Item value="priestley" title="Priestley's Insight (1775)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -498,21 +455,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </defs>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsCoulombOpen(!isCoulombOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Coulomb's Experiments (1785)</h3>
-            <span className="text-blue-600">{isCoulombOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isCoulombOpen && (
+            <AIAccordion.Item value="coulomb" title="Coulomb's Experiments (1785)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -540,105 +485,25 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                     measure the force of repulsion.
                   </p>
                   
-                  {/* Interactive Torsion Balance */}
+                  {/* Coulomb's Torsion Balance Video */}
                   <div className="bg-white p-6 rounded border border-gray-300 mb-6">
-                    <h5 className="text-center font-semibold text-gray-800 mb-4">Interactive Torsion Balance</h5>
-                    
-                    <div className="flex justify-center mb-4">
-                      <button
-                        onClick={() => setShowTorsionBalance(!showTorsionBalance)}
-                        className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-                      >
-                        {showTorsionBalance ? 'Reset Balance' : 'Apply Charges'}
-                      </button>
-                    </div>
+                    <h5 className="text-center font-semibold text-gray-800 mb-4">Coulomb's Torsion Balance</h5>
+                    <p className="text-center text-sm text-gray-600 mb-4">
+                      Watch how Coulomb measured electric forces using his torsion balance
+                    </p>
                     
                     <div className="flex justify-center">
-                      <svg width="400" height="350" viewBox="0 0 400 350" className="border border-gray-300 bg-gray-50 rounded">
-                        {/* Torsion wire */}
-                        <line x1="200" y1="50" x2="200" y2="150" stroke="#6b7280" strokeWidth="3" />
-                        <text x="210" y="100" className="text-xs fill-gray-600">Torsion Wire</text>
-                        
-                        {/* Support structure */}
-                        <rect x="180" y="40" width="40" height="20" fill="#8b7355" stroke="#7c3f00" strokeWidth="2" rx="3" />
-                        
-                        {/* Horizontal rod */}
-                        <g transform={showTorsionBalance ? "translate(200, 150) rotate(25)" : "translate(200, 150) rotate(0)"}>
-                          <line x1="-80" y1="0" x2="80" y2="0" stroke="#fbbf24" strokeWidth="4" />
-                          
-                          {/* Charge (a) - movable */}
-                          <circle cx="-70" cy="0" r="12" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2" />
-                          <text x="-70" y="5" textAnchor="middle" className="text-xs font-bold fill-white">a</text>
-                          <text x="-70" y="-20" textAnchor="middle" className="text-xs font-bold fill-red-600">+</text>
-                          
-                          {/* Counterweight */}
-                          <circle cx="70" cy="0" r="12" fill="#6b7280" stroke="#4b5563" strokeWidth="2" />
-                          
-                          {showTorsionBalance && (
-                            <animateTransform
-                              attributeName="transform"
-                              type="rotate"
-                              from="0 200 150"
-                              to="25 200 150"
-                              dur="2s"
-                              fill="freeze"
-                            />
-                          )}
-                        </g>
-                        
-                        {/* Fixed charge (b) */}
-                        <circle cx="120" cy="150" r="12" fill="#ff6b6b" stroke="#dc2626" strokeWidth="2" />
-                        <text x="120" y="155" textAnchor="middle" className="text-xs font-bold fill-white">b</text>
-                        <text x="120" y="135" textAnchor="middle" className="text-xs font-bold fill-red-600">+</text>
-                        <text x="120" y="180" textAnchor="middle" className="text-xs fill-gray-600">Fixed Position</text>
-                        
-                        {/* Repulsion force arrow */}
-                        {showTorsionBalance && (
-                          <path d="M 140 150 L 170 140" stroke="#dc2626" strokeWidth="3" markerEnd="url(#forceArrow)" opacity="0">
-                            <animate
-                              attributeName="opacity"
-                              from="0"
-                              to="1"
-                              dur="1s"
-                              begin="1s"
-                              fill="freeze"
-                            />
-                          </path>
-                        )}
-                        
-                        {/* Angle measurement */}
-                        {showTorsionBalance && (
-                          <g opacity="0">
-                            <path d="M 180 150 A 20 20 0 0 1 190 135" fill="none" stroke="#2563eb" strokeWidth="2" />
-                            <text x="205" y="140" className="text-xs fill-blue-600">θ = 25°</text>
-                            <animate
-                              attributeName="opacity"
-                              from="0"
-                              to="1"
-                              dur="1s"
-                              begin="2s"
-                              fill="freeze"
-                            />
-                          </g>
-                        )}
-                        
-                        {/* Labels */}
-                        <text x="200" y="320" textAnchor="middle" className="text-sm font-semibold fill-gray-800">
-                          Coulomb's Torsion Balance
-                        </text>
-                        
-                        {showTorsionBalance && (
-                          <text x="200" y="290" textAnchor="middle" className="text-xs fill-gray-600">
-                            Like charges repel → Rod twists → Measure angle → Calculate force
-                          </text>
-                        )}
-                        
-                        <defs>
-                          <marker id="forceArrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#dc2626" />
-                          </marker>
-                        </defs>
-                      </svg>
+                      <div className="relative w-full max-w-2xl" style={{paddingBottom: '56.25%', height: 0}}>
+                        <iframe 
+                          className="absolute top-0 left-0 w-full h-full rounded"
+                          src="https://www.youtube.com/embed/B5LVoU_a08c?si=IfhBzLiMr-Q_Yw4D" 
+                          title="YouTube video player" 
+                          frameBorder="0" 
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                          referrerPolicy="strict-origin-when-cross-origin" 
+                          allowFullScreen
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -771,21 +636,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsLawOpen(!isLawOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Coulomb's Law</h3>
-            <span className="text-blue-600">{isLawOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isLawOpen && (
+            <AIAccordion.Item value="law" title="Coulomb's Law" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -944,21 +797,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsUsingLawOpen(!isUsingLawOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Using Coulomb's Law</h3>
-            <span className="text-blue-600">{isUsingLawOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isUsingLawOpen && (
+            <AIAccordion.Item value="using-law" title="Using Coulomb's Law" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1308,21 +1149,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsNewtonThirdOpen(!isNewtonThirdOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Coulomb's Law and Newton's 3rd Law</h3>
-            <span className="text-blue-600">{isNewtonThirdOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isNewtonThirdOpen && (
+            <AIAccordion.Item value="newton-third" title="Coulomb's Law and Newton's 3rd Law" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1654,21 +1483,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Electrostatic Force Between Two Charges</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1 - Electrostatic Force Between Two Charges" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1738,21 +1555,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample2Open(!isExample2Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 2 - Electrostatic Force and Acceleration</h3>
-            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample2Open && (
+            <AIAccordion.Item value="example2" title="Example 2 - Electrostatic Force and Acceleration" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1836,21 +1641,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample3Open(!isExample3Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 3 - Finding Charge from Force and Distance</h3>
-            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample3Open && (
+            <AIAccordion.Item value="example3" title="Example 3 - Finding Charge from Force and Distance" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1936,21 +1729,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample4Open(!isExample4Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 4 - Force Changes with Distance and Charge</h3>
-            <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample4Open && (
+            <AIAccordion.Item value="example4" title="Example 4 - Force Changes with Distance and Charge" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -2049,21 +1830,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample5Open(!isExample5Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 5 - Equilibrium Position Between Two Charges</h3>
-            <span className="text-blue-600">{isExample5Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample5Open && (
+            <AIAccordion.Item value="example5" title="Example 5 - Equilibrium Position Between Two Charges" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -2265,21 +2034,9 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample6Open(!isExample6Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 6 - Net Electrostatic Force with Vector Components</h3>
-            <span className="text-blue-600">{isExample6Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample6Open && (
+            <AIAccordion.Item value="example6" title="Example 6 - Net Electrostatic Force with Vector Components" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -2595,8 +2352,82 @@ const CoulombsLaw = ({ course, courseId = 'default' }) => {
               </div>
             </div>
           )}
+            </AIAccordion.Item>
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div>
+          {/* Fallback content when AIAccordion is not available */}
+          <p className="text-gray-600 p-4 bg-gray-100 rounded">
+            This lesson contains interactive content that requires the AI-enhanced accordion feature.
+          </p>
+        </div>
+      )}
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="26-coulombs-law"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_basic_force',
+            title: 'Basic Force Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_force_scaling',
+            title: 'Force Scaling with Changes'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_unknown_charge',
+            title: 'Unknown Charge Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_spheres_contact',
+            title: 'Spheres in Contact'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_force_changes',
+            title: 'Force Changes Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_third_charge',
+            title: 'Third Charge Effects'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_larger_charge',
+            title: 'Larger Charge Comparisons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_triangle_forces',
+            title: 'Triangle Configuration Forces'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_vector_forces',
+            title: 'Vector Force Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_minimum_charge',
+            title: 'Minimum Charge Requirements'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_26_equilibrium_position',
+            title: 'Equilibrium Position Analysis'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

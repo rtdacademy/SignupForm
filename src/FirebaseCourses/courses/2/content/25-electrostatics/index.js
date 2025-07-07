@@ -1,19 +1,10 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const Electrostatics = ({ course, courseId = 'default' }) => {
-  const [isIntroOpen, setIsIntroOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isEarlyIdeasOpen, setIsEarlyIdeasOpen] = useState(false);
-  const [isModernTheoryOpen, setIsModernTheoryOpen] = useState(false);
-  const [isExample1Open, setIsExample1Open] = useState(false);
-  const [isElectroscopesOpen, setIsElectroscopesOpen] = useState(false);
-  const [isChargingByFrictionOpen, setIsChargingByFrictionOpen] = useState(false);
-  const [isInducedChargeOpen, setIsInducedChargeOpen] = useState(false);
-  const [isChargingByContactOpen, setIsChargingByContactOpen] = useState(false);
-  const [isChargingByInductionOpen, setIsChargingByInductionOpen] = useState(false);
+const Electrostatics = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   
   // Interactive states for historical timeline
   const [selectedHistoricalItem, setSelectedHistoricalItem] = useState(null);
@@ -74,57 +65,35 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
       title="Lesson 13 - Electrostatics"
       metadata={{ estimated_time: '45 minutes' }}
     >
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsIntroOpen(!isIntroOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Introduction to Electricity and Magnetism</h3>
-            <span className="text-blue-600">{isIntroOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isIntroOpen && (
-            <div className="mt-4">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-gray-700 mb-4">
-                  In lessons 1 to 4 we learned about momentum and the principle of conservation. Now 
-                  we turn our attention to electricity and magnetism. A carry-over idea which will be used 
-                  extensively, in fact throughout the course, is the idea of conservation. Conservation of 
-                  different quantities is one of the most important principles in science.
-                </p>
-                
-                <p className="text-gray-700 mb-4">
-                  In this lesson we shall discuss the properties of static (not moving) electric charges. In 
-                  future lessons we will learn about dynamic (moving) electric charges which is called 
-                  current electricity.
-                </p>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <h4 className="font-semibold text-blue-800 mb-2">Key Concepts Preview:</h4>
-                  <ul className="text-sm text-blue-900 space-y-1">
-                    <li>• <strong>Electrostatics:</strong> Study of stationary electric charges</li>
-                    <li>• <strong>Current Electricity:</strong> Study of moving electric charges (coming in future lessons)</li>
-                    <li>• <strong>Conservation Principles:</strong> Fundamental ideas that carry over from mechanics</li>
-                  </ul>
-                </div>
+      {/* AI-Enhanced Examples and Content Sections */}
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="intro" title="Introduction to Electricity and Magnetism" onAskAI={onAIAccordionContent}>
+              <p className="text-gray-700 mb-4">
+                In lessons 1 to 4 we learned about momentum and the principle of conservation. Now 
+                we turn our attention to electricity and magnetism. A carry-over idea which will be used 
+                extensively, in fact throughout the course, is the idea of conservation. Conservation of 
+                different quantities is one of the most important principles in science.
+              </p>
+              
+              <p className="text-gray-700 mb-4">
+                In this lesson we shall discuss the properties of static (not moving) electric charges. In 
+                future lessons we will learn about dynamic (moving) electric charges which is called 
+                current electricity.
+              </p>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                <h4 className="font-semibold text-blue-800 mb-2">Key Concepts Preview:</h4>
+                <ul className="text-sm text-blue-900 space-y-1">
+                  <li>• <strong>Electrostatics:</strong> Study of stationary electric charges</li>
+                  <li>• <strong>Current Electricity:</strong> Study of moving electric charges (coming in future lessons)</li>
+                  <li>• <strong>Conservation Principles:</strong> Fundamental ideas that carry over from mechanics</li>
+                </ul>
               </div>
-            </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Historical Background for Electricity and Magnetism</h3>
-            <span className="text-blue-600">{isHistoryOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isHistoryOpen && (
+            <AIAccordion.Item value="history" title="Historical Background for Electricity and Magnetism" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -485,21 +454,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsEarlyIdeasOpen(!isEarlyIdeasOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electrostatics – Early Ideas</h3>
-            <span className="text-blue-600">{isEarlyIdeasOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isEarlyIdeasOpen && (
+            <AIAccordion.Item value="early-ideas" title="Electrostatics – Early Ideas" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -811,21 +768,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
 
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsModernTheoryOpen(!isModernTheoryOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electrostatics – Modern Theory</h3>
-            <span className="text-blue-600">{isModernTheoryOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isModernTheoryOpen && (
+            <AIAccordion.Item value="modern-theory" title="Electrostatics – Modern Theory" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1294,21 +1239,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsExample1Open(!isExample1Open)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Example 1 - Finding Charge from Number of Electrons</h3>
-            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
-          </button>
-
-          {isExample1Open && (
+            <AIAccordion.Item value="example1" title="Example 1 - Finding Charge from Number of Electrons" theme="green" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
@@ -1371,21 +1304,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsElectroscopesOpen(!isElectroscopesOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Electroscopes</h3>
-            <span className="text-blue-600">{isElectroscopesOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isElectroscopesOpen && (
+            <AIAccordion.Item value="electroscopes" title="Electroscopes" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1648,21 +1569,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsChargingByFrictionOpen(!isChargingByFrictionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Charging Objects by Friction</h3>
-            <span className="text-blue-600">{isChargingByFrictionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isChargingByFrictionOpen && (
+            <AIAccordion.Item value="charging-friction" title="Charging Objects by Friction" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1853,21 +1762,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsInducedChargeOpen(!isInducedChargeOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Induced Charge Separation</h3>
-            <span className="text-blue-600">{isInducedChargeOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isInducedChargeOpen && (
+            <AIAccordion.Item value="induced-charge" title="Induced Charge Separation" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -1972,8 +1869,11 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                             
                             {/* Charge separation */}
                             {/* Positive charges in knob (attracted to rod) */}
-                            {Array.from({length: 5}, (_, i) => (
-                              <circle key={`knob-pos-${i}`} cx={185 + i * 6} cy={100} r="2" fill="#dc2626" />
+                            {Array.from({length: 3}, (_, i) => (
+                              <circle key={`knob-pos-${i}`} cx={185 + i * 10} cy={100} r="2" fill="#dc2626" />
+                            ))}
+                            {Array.from({length: 2}, (_, i) => (
+                              <circle key={`knob-pos-${i}`} cx={190 + i * 10} cy={170} r="2" fill="#dc2626" />
                             ))}
                             {/* Negative charges pushed to leaves */}
                             {Array.from({length: 5}, (_, i) => (
@@ -2034,7 +1934,7 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                       </li>
                       <li className="flex items-start">
                         <span className="text-yellow-700 font-bold mr-2">⇒</span>
-                        <span>Notice that in diagram 2 there are still positive charges in the leaves, but they are 
+                        <span>Notice that in step 2 there are still positive charges in the leaves, but they are 
                         overwhelmed by the negative charges which were repelled from the knob by the 
                         charged rod.</span>
                       </li>
@@ -2180,21 +2080,14 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                         ) : (
                           // Induced charge separation
                           <>
-                            {/* Negative charges attracted to left side */}
+                            {/* Positive charges remain in neutral positions */}
                             {Array.from({length: 5}, (_, i) => (
-                              <circle key={`neg-${i}`} cx={230 + (i % 2) * 8} cy={105 + Math.floor(i / 2) * 10} r="2" fill="#2563eb" />
+                              <circle key={`pos-${i}`} cx={235 + (i % 3) * 15} cy={105 + Math.floor(i / 3) * 15} r="2" fill="#dc2626" />
                             ))}
-                            {/* Positive charges on right side */}
+                            {/* Negative charges cluster on right side (near rod) */}
                             {Array.from({length: 5}, (_, i) => (
-                              <circle key={`pos-${i}`} cx={260 + (i % 2) * 8} cy={105 + Math.floor(i / 2) * 10} r="2" fill="#dc2626" />
+                              <circle key={`neg-${i}`} cx={265 + (i % 2) * 8} cy={105 + Math.floor(i / 2) * 10} r="2" fill="#2563eb" />
                             ))}
-                            
-                            {/* Force arrows */}
-                            <path d="M 290 115 L 270 115" stroke="#dc2626" strokeWidth="3" markerEnd="url(#arrowRed)" opacity="0.8" />
-                            <text x="280" y="105" className="text-xs fill-red-600">Repulsion</text>
-                            
-                            <path d="M 290 115 L 260 115" stroke="#2563eb" strokeWidth="4" markerEnd="url(#arrowBlue)" opacity="0.8" />
-                            <text x="275" y="130" className="text-xs fill-blue-600">Attraction</text>
                             
                             <text x="250" y="200" textAnchor="middle" className="text-sm fill-gray-600">
                               Net force toward rod
@@ -2226,21 +2119,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsChargingByContactOpen(!isChargingByContactOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Charging by Contact (Conduction)</h3>
-            <span className="text-blue-600">{isChargingByContactOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isChargingByContactOpen && (
+            <AIAccordion.Item value="charging-contact" title="Charging by Contact (Conduction)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -2593,21 +2474,9 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </TextSection>
+            </AIAccordion.Item>
 
-      <TextSection>
-        <div className="mb-6">
-          <button
-            onClick={() => setIsChargingByInductionOpen(!isChargingByInductionOpen)}
-            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-          >
-            <h3 className="text-xl font-semibold">Charging By Induction (Influence or Induce)</h3>
-            <span className="text-blue-600">{isChargingByInductionOpen ? '▼' : '▶'}</span>
-          </button>
-
-          {isChargingByInductionOpen && (
+            <AIAccordion.Item value="charging-induction" title="Charging By Induction (Influence or Induce)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 
@@ -2867,9 +2736,92 @@ const Electrostatics = ({ course, courseId = 'default' }) => {
                 </div>
               </div>
             </div>
-          )}
+            </AIAccordion.Item>
+          </AIAccordion>
         </div>
-      </TextSection>
+      ) : (
+        <div>
+          {/* Fallback content when AIAccordion is not available */}
+          <p className="text-gray-600 p-4 bg-gray-100 rounded">
+            This lesson contains interactive content that requires the AI-enhanced accordion feature.
+          </p>
+        </div>
+      )}
+
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200 mt-8">
+        <h2 className="text-2xl font-bold text-blue-900 mb-4">Practice Questions</h2>
+        <p className="text-blue-700 mb-6">Test your understanding of electrostatics concepts with these practice questions.</p>
+        
+        <SlideshowKnowledgeCheck
+          courseId={courseId}
+          lessonPath="25-electrostatics"
+          course={course}
+          onAIAccordionContent={onAIAccordionContent}
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_conservation_of_charge',
+              title: 'Conservation of Charge'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_charge_movement_in_solids',
+              title: 'Charge Movement in Solids'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_conductor_vs_insulator',
+              title: 'Conductor vs Insulator'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_electrostatic_series',
+              title: 'Electrostatic Series'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_electron_charge',
+              title: 'Adding/Removing Electrons'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_induced_charge',
+              title: 'Induced Charge vs Separation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_conduction_charging',
+              title: 'Conduction Charging Procedure'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_induction_charging',
+              title: 'Induction Charging Procedure'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_conduction_result',
+              title: 'Conduction Charging Result'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_induction_result',
+              title: 'Induction Charging Result'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_spheres_charge',
+              title: 'Identical Spheres Charge Distribution'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_25_different_spheres',
+              title: 'Different Size Spheres'
+            }
+          ]}
+          theme="indigo"
+        />
+      </div>
 
       <LessonSummary
         points={[

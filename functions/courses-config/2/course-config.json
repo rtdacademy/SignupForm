@@ -26,7 +26,7 @@
     "lessonOverrides": {
       "exam_section_1": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "exam_section_2": {
         "minimumPercentage": 0,
@@ -54,7 +54,7 @@
       },
       "assignment_l1_12": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "assignment_l13_14": {
         "minimumPercentage": 0,
@@ -110,15 +110,15 @@
       },
       "lab_momentum_conservation": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "lab_mirrors_lenses": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "lab_laser_wavelength": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
       "lab_electrostatic": {
         "minimumPercentage": 0,
@@ -148,6 +148,7 @@
         "minimumPercentage": 0,
         "requireAllQuestions": true
       },
+
       "09_introduction_to_light": {
         "minimumPercentage": 0,
         "requireAllQuestions": true
@@ -186,11 +187,15 @@
       },
       "19_diffraction_gratings": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
       },
-      "21_l1_12_cumulative_assignment": {
+      "22_unit_1_review": {
         "minimumPercentage": 0,
-        "requireAllQuestions": true
+        "requireAllQuestions": false
+      },
+      "23_unit_2_review": {
+        "minimumPercentage": 0,
+        "requireAllQuestions": false
       }
     }
   },
@@ -2560,6 +2565,264 @@
             "points": 1
           }
         ]
+      },
+      "25_electrostatics": {
+        "title": "Electrostatics",
+        "type": "lesson",
+        "contentPath": "25-electrostatics",
+        "questions": [
+          {
+            "questionId": "course2_25_conservation_of_charge",
+            "title": "Conservation of Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_charge_movement_in_solids",
+            "title": "Charge Movement in Solids",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conductor_vs_insulator",
+            "title": "Conductor vs Insulator",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_electrostatic_series",
+            "title": "Electrostatic Series",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_electron_charge",
+            "title": "Adding/Removing Electrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induced_charge",
+            "title": "Induced Charge vs Separation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conduction_charging",
+            "title": "Conduction Charging Procedure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induction_charging",
+            "title": "Induction Charging Procedure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conduction_result",
+            "title": "Conduction Charging Result",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induction_result",
+            "title": "Induction Charging Result",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_spheres_charge",
+            "title": "Identical Spheres Charge Distribution",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_different_spheres",
+            "title": "Different Size Spheres",
+            "points": 1
+          }
+        ]
+      },
+      "26_coulombs_law": {
+        "title": "Coulomb's Law",
+        "type": "lesson",
+        "contentPath": "26-coulombs-law",
+        "questions": [
+          {
+            "questionId": "course2_26_basic_force",
+            "title": "Basic Force Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_force_scaling",
+            "title": "Force Scaling with Changes",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_unknown_charge",
+            "title": "Unknown Charge Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_spheres_contact",
+            "title": "Spheres in Contact",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_force_changes",
+            "title": "Force Changes Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_third_charge",
+            "title": "Third Charge Effects",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_larger_charge",
+            "title": "Larger Charge Comparisons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_triangle_forces",
+            "title": "Triangle Configuration Forces",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_vector_forces",
+            "title": "Vector Force Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_minimum_charge",
+            "title": "Minimum Charge Requirements",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_equilibrium_position",
+            "title": "Equilibrium Position Analysis",
+            "points": 1
+          }
+        ]
+      },
+      "25_electrostatics": {
+        "title": "Electrostatics",
+        "type": "lesson",
+        "contentPath": "25-electrostatics",
+        "questions": [
+          {
+            "questionId": "course2_25_conservation_of_charge",
+            "title": "Conservation of Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_charge_movement_in_solids",
+            "title": "Charge Movement in Solids",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conductor_vs_insulator",
+            "title": "Conductor vs Insulator",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_electrostatic_series",
+            "title": "Electrostatic Series",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_electron_charge",
+            "title": "Adding/Removing Electrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induced_charge",
+            "title": "Induced Charge vs Separation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conduction_charging",
+            "title": "Conduction Charging Procedure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induction_charging",
+            "title": "Induction Charging Procedure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_conduction_result",
+            "title": "Conduction Charging Result",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_induction_result",
+            "title": "Induction Charging Result",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_spheres_charge",
+            "title": "Identical Spheres Charge Distribution",
+            "points": 1
+          },
+          {
+            "questionId": "course2_25_different_spheres",
+            "title": "Different Size Spheres",
+            "points": 1
+          }
+        ]
+      },
+      "26_coulombs_law": {
+        "title": "Coulomb's Law",
+        "type": "lesson",
+        "contentPath": "26-coulombs-law",
+        "questions": [
+          {
+            "questionId": "course2_26_basic_force",
+            "title": "Basic Force Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_force_scaling",
+            "title": "Force Scaling with Changes",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_unknown_charge",
+            "title": "Unknown Charge Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_spheres_contact",
+            "title": "Spheres in Contact",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_force_changes",
+            "title": "Force Changes Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_third_charge",
+            "title": "Third Charge Effects",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_larger_charge",
+            "title": "Larger Charge Comparisons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_triangle_forces",
+            "title": "Triangle Configuration Forces",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_vector_forces",
+            "title": "Vector Force Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_minimum_charge",
+            "title": "Minimum Charge Requirements",
+            "points": 1
+          },
+          {
+            "questionId": "course2_26_equilibrium_position",
+            "title": "Equilibrium Position Analysis",
+            "points": 1
+          }
+        ]
       }
     }
   },
@@ -2857,7 +3120,7 @@
             "estimatedTime": 120,
             "order": 1,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "26_coulombs_law",
@@ -2868,7 +3131,7 @@
             "estimatedTime": 120,
             "order": 2,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_electrostatic",

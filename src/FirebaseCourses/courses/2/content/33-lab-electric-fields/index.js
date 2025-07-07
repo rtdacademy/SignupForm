@@ -1,12 +1,1238 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getDatabase, ref, set, update, onValue, serverTimestamp } from 'firebase/database';
+import { useAuth } from '../../../../../context/AuthContext';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
-const LabElectricFields = () => {
+/**
+ * Lab 5 - Electric Fields and Charge-to-Mass Ratio for Physics 30
+ * Item ID: assignment_1747283296776_955
+ * Unit: Electrostatics & Electricity
+ */
+const LabElectricFields = ({ courseId = '2', course }) => {
+  const { currentUser } = useAuth();
+  const database = getDatabase();
+  
+  // Get questionId from course config
+  const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.['lab_electric_fields']?.questions?.[0]?.questionId || 'course2_lab_electric_fields';
+  console.log('📋 Lab questionId:', questionId);
+  
+  // Create database reference for this lab using questionId
+  const labDataRef = currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  
+  // Ref to track if component is mounted (for cleanup)
+  const isMountedRef = useRef(true);
+  
+  // Track completion status for each section (5 sections total)
+  const [sectionStatus, setSectionStatus] = useState({
+    hypothesis: 'not-started', // 'not-started', 'in-progress', 'completed'
+    observations: 'not-started',
+    analysis: 'not-started',
+    error: 'not-started'
+  });
+
+  // Track section content
+  const [sectionContent, setSectionContent] = useState({
+    hypothesis: '',
+    preLabAnswers: ['', '', ''] // 3 pre-lab questions
+  });
+
+  // Track current section for navigation
+  const [currentSection, setCurrentSection] = useState('hypothesis');
+  
+  // Track if lab has been started
+  const [labStarted, setLabStarted] = useState(false);
+  
+  // Track if student has saved progress
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  
+  // Track saving state
+  const [isSaving, setIsSaving] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+
+  // Notification state
+  const [notification, setNotification] = useState({
+    message: '',
+    type: 'success', // 'success', 'error', 'warning'
+    visible: false
+  });
+
+  // Data tables for observations
+  const [observationData, setObservationData] = useState({
+    selectedGroup: null, // No group selected initially
+    groupAlpha: {
+      qualitative: 'The initial setup worked just fine as shown in the diagram. Particles did reach the mass spectrometer at the velocities shown on the table.',
+      data: [
+        { trial: 1, V: 10, v: 2.9 },
+        { trial: 2, V: 15, v: 3.6 },
+        { trial: 3, V: 20, v: 4.4 },
+        { trial: 4, V: 25, v: 4.6 },
+        { trial: 5, V: 30, v: 5.2 },
+        { trial: 6, V: 35, v: 5.8 },
+        { trial: 7, V: 40, v: 6.3 },
+        { trial: 8, V: 45, v: 6.5 },
+        { trial: 9, V: 50, v: 7.0 },
+        { trial: 10, V: 55, v: 7.1 },
+        { trial: 11, V: 60, v: 7.5 },
+        { trial: 12, V: 65, v: 7.8 },
+        { trial: 13, V: 70, v: 8.4 },
+        { trial: 14, V: 75, v: 8.6 }
+      ]
+    },
+    groupBeta: {
+      qualitative: 'The initial setup did not work as shown in the diagram. Particles did not reach the mass spectrometer until you made changes.',
+      data: [
+        { trial: 1, V: 10, v: 4.5 },
+        { trial: 2, V: 15, v: 5.5 },
+        { trial: 3, V: 20, v: 6.3 },
+        { trial: 4, V: 25, v: 7.1 },
+        { trial: 5, V: 30, v: 7.7 },
+        { trial: 6, V: 35, v: 8.9 },
+        { trial: 7, V: 40, v: 9.0 },
+        { trial: 8, V: 45, v: 9.6 },
+        { trial: 9, V: 50, v: 9.7 },
+        { trial: 10, V: 55, v: 10.3 },
+        { trial: 11, V: 60, v: 10.7 },
+        { trial: 12, V: 65, v: 11.1 },
+        { trial: 13, V: 70, v: 11.6 },
+        { trial: 14, V: 75, v: 12.0 }
+      ]
+    }
+  });
+
+  // Analysis state
+  const [analysisData, setAnalysisData] = useState({
+    // Student input fields
+    calculatedVSquared: ['', '', '', '', '', '', '', '', '', '', '', '', '', ''], // 14 trials
+    xAxisVariable: '',
+    yAxisVariable: '',
+    lineStrateningExplanation: '',
+    slopeValue: '',
+    slopeCalculation: '',
+    chargeToMassRatio: '',
+    chargeToMassCalculation: '',
+    particleIdentification: '',
+    whyLineStrateningHelps: ''
+  });
+
+  // Error analysis state
+  const [errorData, setErrorData] = useState({
+    acceptedValue: '',
+    experimentalValue: '',
+    percentError: '',
+    percentErrorCalculation: '',
+    errorSources: ''
+  });
+
+  // Save specific data to Firebase
+  const saveToFirebase = useCallback(async (dataToUpdate) => {
+    if (!currentUser?.uid || !labDataRef) {
+      console.log('🚫 Save blocked: no user or ref');
+      return;
+    }
+    
+    try {
+      console.log('💾 Saving to Firebase:', dataToUpdate);
+      
+      // Create the complete data object to save
+      const dataToSave = {
+        ...dataToUpdate,
+        lastModified: serverTimestamp(),
+        courseId: courseId,
+        labId: '33-lab-electric-fields'
+      };
+      
+      // Use update instead of set to only update specific fields
+      await update(labDataRef, dataToSave);
+      console.log('✅ Save successful!');
+      
+      setHasSavedProgress(true);
+      
+    } catch (error) {
+      console.error('❌ Save failed:', error);
+      setNotification({
+        message: 'Failed to save data. Please try again.',
+        type: 'error',
+        visible: true
+      });
+    }
+  }, [currentUser?.uid, labDataRef, courseId]);
+
+  // Load saved data from Firebase
+  useEffect(() => {
+    if (!currentUser?.uid || !labDataRef) return;
+    
+    let hasLoaded = false;
+    
+    const unsubscribe = onValue(labDataRef, (snapshot) => {
+      if (hasLoaded) return; // Prevent multiple loads
+      hasLoaded = true;
+      
+      console.log('📡 Firebase data fetched:', snapshot.exists());
+      
+      const savedData = snapshot.val();
+      
+      if (savedData) {
+        console.log('✅ Lab data found:', Object.keys(savedData));
+        
+        // Restore saved state
+        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
+        if (savedData.sectionContent) setSectionContent(savedData.sectionContent);
+        if (savedData.observationData) {
+          // Merge saved data with default data to ensure all groups are available
+          setObservationData(prev => ({
+            ...prev,
+            ...savedData.observationData
+          }));
+        }
+        if (savedData.analysisData) {
+          // Merge saved data with default structure to ensure all fields exist
+          setAnalysisData(prev => ({
+            ...prev,
+            ...savedData.analysisData,
+            // Ensure calculatedVSquared is always an array
+            calculatedVSquared: savedData.analysisData.calculatedVSquared || prev.calculatedVSquared
+          }));
+        }
+        if (savedData.errorData) setErrorData(savedData.errorData);
+        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+      } else {
+        console.log('📝 No previous lab data found, starting fresh');
+      }
+      
+      // Unsubscribe after first load
+      unsubscribe();
+    }, (error) => {
+      if (hasLoaded) return;
+      hasLoaded = true;
+      
+      console.error('❌ Firebase load error:', error);
+      setNotification({ 
+        message: 'Failed to load lab data', 
+        type: 'error', 
+        visible: true 
+      });
+      unsubscribe();
+    });
+    
+    // Return cleanup function for useEffect
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser?.uid]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Auto-hide notifications
+  useEffect(() => {
+    if (notification.visible) {
+      const timer = setTimeout(() => {
+        setNotification(prev => ({ ...prev, visible: false }));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.visible]);
+
+  // Start lab function
+  const startLab = () => {
+    setLabStarted(true);
+    setCurrentSection('hypothesis');
+    
+    // Save lab start to Firebase
+    saveToFirebase({
+      labStarted: true,
+      currentSection: 'hypothesis'
+    });
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // End lab session
+  const endLabSession = () => {
+    setLabStarted(false);
+    setNotification({ 
+      message: 'Lab session ended. Your progress has been saved automatically.', 
+      type: 'success', 
+      visible: true 
+    });
+  };
+
+  // Submit lab for teacher review
+  const submitLab = async () => {
+    if (!currentUser?.uid) {
+      toast.error('You must be logged in to submit your lab.');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      const functions = getFunctions();
+      const submitLabFunction = httpsCallable(functions, 'course2_lab_submit');
+      
+      console.log('🚀 Submitting lab for review...');
+      
+      const result = await submitLabFunction({
+        courseId: courseId,
+        questionId: questionId,
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        isStaff: false
+      });
+      
+      console.log('✅ Lab submitted successfully:', result.data);
+      
+      toast.success('Lab submitted successfully! Your teacher can now review your work.');
+      
+    } catch (error) {
+      console.error('❌ Lab submission failed:', error);
+      toast.error(`Failed to submit lab: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Check if lab is ready for submission
+  const isReadyForSubmission = () => {
+    const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
+    return completedSections >= 3; // Require at least 3 of 4 sections completed
+  };
+
+  // Update section content
+  const updateSectionContent = (section, content, index = null) => {
+    // Update local state
+    let newSectionContent;
+    
+    if (index !== null) {
+      // Handle array fields like preLabAnswers
+      const currentArray = sectionContent[section] || ['', '', ''];
+      const newArray = [...currentArray];
+      newArray[index] = content;
+      newSectionContent = {
+        ...sectionContent,
+        [section]: newArray
+      };
+    } else {
+      // Handle regular fields
+      newSectionContent = {
+        ...sectionContent,
+        [section]: content
+      };
+    }
+    
+    setSectionContent(newSectionContent);
+    
+    // Determine completion status
+    let isCompleted = false;
+    let newStatus = 'not-started';
+    
+    if (section === 'hypothesis') {
+      if (content.trim().length > 0) {
+        // Check for required words: if, then, because
+        const lowerContent = content.toLowerCase();
+        const hasIf = lowerContent.includes('if');
+        const hasThen = lowerContent.includes('then');
+        const hasBecause = lowerContent.includes('because');
+        isCompleted = hasIf && hasThen && hasBecause && content.trim().length > 20;
+        newStatus = isCompleted ? 'completed' : 'in-progress';
+      }
+    } else if (section === 'preLabAnswers') {
+      // Check if at least 2 of 3 pre-lab questions are answered
+      const answeredCount = newSectionContent.preLabAnswers.filter(answer => answer.trim().length > 10).length;
+      isCompleted = answeredCount >= 2;
+      newStatus = isCompleted ? 'completed' : (answeredCount > 0 ? 'in-progress' : 'not-started');
+    }
+    
+    // Update local status state
+    const newSectionStatus = {
+      ...sectionStatus,
+      [section]: newStatus
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      sectionContent: newSectionContent,
+      sectionStatus: newSectionStatus
+    });
+  };
+
+  // Helper function to count sentences
+  const countSentences = (text) => {
+    if (!text || text.trim().length === 0) return 0;
+    
+    const normalizedText = text.trim().replace(/\s+/g, ' ');
+    const sentences = normalizedText.split(/[.!?]+/).filter(sentence => {
+      const trimmed = sentence.trim();
+      const wordCount = trimmed.split(/\s+/).filter(word => word.length > 0).length;
+      return trimmed.length > 0 && wordCount >= 3;
+    });
+    
+    return sentences.length;
+  };
+
+  // Get status icon
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <span className="text-green-500">✓</span>;
+      case 'in-progress':
+        return <span className="text-yellow-500">◐</span>;
+      default:
+        return <span className="text-gray-300">○</span>;
+    }
+  };
+
+  // Get status color for section
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'border-green-200 bg-green-50';
+      case 'in-progress':
+        return 'border-yellow-200 bg-yellow-50';
+      default:
+        return 'border-gray-200 bg-white';
+    }
+  };
+
+  // Scroll to section
+  const scrollToSection = (sectionId) => {
+    setCurrentSection(sectionId);
+    const element = document.getElementById(`section-${sectionId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // Save current section
+    saveToFirebase({ currentSection: sectionId });
+  };
+
+  // Count completed sections
+  const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
+
+  // Show notification function
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type, visible: true });
+  };
+
+  // Update selected group for observations
+  const updateSelectedGroup = (group) => {
+    const newObservationData = {
+      ...observationData,
+      selectedGroup: group
+    };
+    setObservationData(newObservationData);
+    
+    // Mark observations as completed
+    setSectionStatus(prev => ({
+      ...prev,
+      observations: 'completed'
+    }));
+    
+    // Save to Firebase
+    saveToFirebase({
+      observationData: newObservationData,
+      sectionStatus: {
+        ...sectionStatus,
+        observations: 'completed'
+      }
+    });
+  };
+
+  // Update analysis data and save to Firebase
+  const updateAnalysisData = (field, value, index = null) => {
+    let newAnalysisData;
+    
+    if (index !== null) {
+      // Handle array fields like calculatedVSquared
+      const currentArray = analysisData[field] || ['', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+      const newArray = [...currentArray];
+      newArray[index] = value;
+      newAnalysisData = {
+        ...analysisData,
+        [field]: newArray
+      };
+    } else {
+      // Handle regular fields
+      newAnalysisData = {
+        ...analysisData,
+        [field]: value
+      };
+    }
+    
+    setAnalysisData(newAnalysisData);
+    
+    // Check if analysis is completed (basic validation)
+    const isCompleted = checkAnalysisCompletion(newAnalysisData);
+    
+    // Update section status
+    setSectionStatus(prev => ({
+      ...prev,
+      analysis: isCompleted ? 'completed' : 'in-progress'
+    }));
+    
+    // Save to Firebase
+    saveToFirebase({
+      analysisData: newAnalysisData,
+      sectionStatus: {
+        ...sectionStatus,
+        analysis: isCompleted ? 'completed' : 'in-progress'
+      }
+    });
+  };
+
+  // Check if analysis section is completed
+  const checkAnalysisCompletion = (data) => {
+    // Check if at least 8 of 14 v² values are filled
+    const vSquaredArray = data.calculatedVSquared || [];
+    const vSquaredCount = vSquaredArray.filter(val => val && val.toString().trim().length > 0).length;
+    
+    // Check if key explanation fields are filled
+    const hasExplanations = (data.xAxisVariable || '').trim().length > 0 && 
+                           (data.yAxisVariable || '').trim().length > 0 &&
+                           (data.lineStrateningExplanation || '').trim().length > 10 &&
+                           (data.slopeValue || '').trim().length > 0 &&
+                           (data.chargeToMassRatio || '').trim().length > 0 &&
+                           (data.particleIdentification || '').trim().length > 0;
+    
+    return vSquaredCount >= 8 && hasExplanations;
+  };
+
+  // Update error data and save to Firebase
+  const updateErrorData = (field, value) => {
+    const newErrorData = {
+      ...errorData,
+      [field]: value
+    };
+    
+    setErrorData(newErrorData);
+    
+    // Check if error section is completed
+    const isCompleted = checkErrorCompletion(newErrorData);
+    
+    // Update section status
+    setSectionStatus(prev => ({
+      ...prev,
+      error: isCompleted ? 'completed' : 'in-progress'
+    }));
+    
+    // Save to Firebase
+    saveToFirebase({
+      errorData: newErrorData,
+      sectionStatus: {
+        ...sectionStatus,
+        error: isCompleted ? 'completed' : 'in-progress'
+      }
+    });
+  };
+
+  // Check if error section is completed
+  const checkErrorCompletion = (data) => {
+    return (data.acceptedValue || '').trim().length > 0 &&
+           (data.experimentalValue || '').trim().length > 0 &&
+           (data.percentError || '').trim().length > 0 &&
+           (data.percentErrorCalculation || '').trim().length > 10 &&
+           (data.errorSources || '').trim().length > 20;
+  };
+
+  // If lab hasn't been started, show welcome screen
+  if (!labStarted) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-4xl mx-auto px-4 space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Lab 5 - Electric Fields and Charge-to-Mass Ratio
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Use electric fields to determine the identity of an unknown charged particle
+            </p>
+          </div>
+          
+          {/* Lab Overview */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Lab Overview</h2>
+            <div className="space-y-4 text-gray-700">
+              <p>
+                In this lab, you will use an electric field to determine the identity of an unknown charged 
+                particle from a radioactive source. You'll identify the particle based on its charge-to-mass ratio.
+              </p>
+              <p>
+                Using parallel plates with variable DC voltage, you'll measure particle velocities and analyze 
+                the relationship between electric field strength and final particle velocity.
+              </p>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="font-medium text-blue-800">Objective:</p>
+                <p className="text-blue-700">Determine the charge-to-mass ratio to identify the unknown particle</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Start Lab Box */}
+          <div className="max-w-md mx-auto">
+            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-md text-center">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                {hasSavedProgress ? 'Welcome Back!' : 'Ready to Begin?'}
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {hasSavedProgress 
+                  ? 'Your progress has been saved. You can continue where you left off.'
+                  : 'This lab contains hypothesis, observations, analysis, and error analysis sections.'
+                }
+              </p>
+              
+              {/* Progress Summary for returning students */}
+              {hasSavedProgress && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Your Progress:</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {Object.entries(sectionStatus).map(([section, status]) => (
+                      <div key={section} className="flex items-center gap-1">
+                        <span className={`text-xs ${
+                          status === 'completed' ? 'text-green-600' : 
+                          status === 'in-progress' ? 'text-yellow-600' : 
+                          'text-gray-400'
+                        }`}>
+                          {status === 'completed' ? '✓' : 
+                           status === 'in-progress' ? '◐' : '○'}
+                        </span>
+                        <span className="text-xs text-gray-600 capitalize">
+                          {section}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {completedCount} of 4 sections completed
+                  </p>
+                </div>
+              )}
+              
+              <button
+                onClick={startLab}
+                className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200 text-lg"
+              >
+                {hasSavedProgress ? 'Continue Lab' : 'Start Lab'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Lab 5 - Electric Fields and Charge-to-Mass Ratio</h1>
-      <div className="prose max-w-none">
-        <p>This is the assignment content for Lab 5 - Electric Fields and Charge-to-Mass Ratio in Electrostatics & Electricity.</p>
-        <p>Content will be added here.</p>
+    <div id="lab-content" className="space-y-6">
+      <style dangerouslySetInnerHTML={{__html: `
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+      `}} />
+       
+      {/* Navigation Header */}
+      <div className="sticky top-14 z-10 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-md">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800">Lab Progress</h3>
+          
+          <div className="flex items-center gap-2">
+            {/* Navigation Buttons */}
+            <div className="flex gap-1 flex-wrap">
+              {[
+                { key: 'hypothesis', label: 'Hypothesis' },
+                { key: 'observations', label: 'Observations' },
+                { key: 'analysis', label: 'Analysis' },
+                { key: 'error', label: 'Error Analysis' }
+              ].map(section => {
+                const sectionStatusValue = sectionStatus[section.key];
+                
+                return (
+                  <button
+                    key={section.key}
+                    onClick={() => scrollToSection(section.key)}
+                    className={`px-3 py-1 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
+                      sectionStatusValue === 'completed'
+                        ? 'bg-green-100 border-green-300 text-green-700'
+                        : sectionStatusValue === 'in-progress'
+                        ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
+                        : currentSection === section.key 
+                        ? 'bg-blue-100 border-blue-300 text-blue-700' 
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>{section.label}</span>
+                    {sectionStatusValue === 'completed' && <span className="text-green-600">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 ml-4">
+              <button
+                onClick={endLabSession}
+                className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-all duration-200"
+              >
+                End Session
+              </button>
+              
+              {isReadyForSubmission() && (
+                <button
+                  onClick={submitLab}
+                  disabled={isSaving}
+                  className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-all duration-200"
+                >
+                  {isSaving ? 'Submitting...' : 'Submit Lab'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification */}
+      {notification.visible && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${
+          notification.type === 'error' ? 'bg-red-100 border border-red-300 text-red-700' :
+          notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-300 text-yellow-700' :
+          'bg-green-100 border border-green-300 text-green-700'
+        }`}>
+          {notification.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle size={20} />}
+          <span>{notification.message}</span>
+          <button 
+            onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
+            className="ml-2 text-gray-500 hover:text-gray-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Hypothesis Section */}
+      <div id="section-hypothesis" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.hypothesis)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Hypothesis & Pre-Lab Questions</span>
+          {getStatusIcon(sectionStatus.hypothesis)}
+        </h2>
+        <div className="space-y-6">
+          {/* Hypothesis */}
+          <div>
+            <h3 className="font-medium text-gray-800 mb-3">Hypothesis</h3>
+            <p className="text-gray-700 text-sm mb-4">
+              Write a hypothesis about identifying the unknown particle based on its charge-to-mass ratio. 
+              Use the format: "If... then... because..."
+            </p>
+            <textarea
+              value={sectionContent.hypothesis}
+              onChange={(e) => updateSectionContent('hypothesis', e.target.value)}
+              placeholder=""
+              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            />
+            <div className="flex justify-between items-center text-sm mt-2">
+              <span className="text-gray-500">
+                {sectionContent.hypothesis.length} characters
+              </span>
+              {(() => {
+                const content = sectionContent.hypothesis.toLowerCase();
+                const hasIf = content.includes('if');
+                const hasThen = content.includes('then');
+                const hasBecause = content.includes('because');
+                const hasLength = sectionContent.hypothesis.trim().length > 20;
+                
+                if (hasIf && hasThen && hasBecause && hasLength) {
+                  return <span className="text-xs text-green-600">Complete hypothesis format</span>;
+                } else if (sectionContent.hypothesis.trim().length > 0) {
+                  const missing = [];
+                  if (!hasIf) missing.push('if');
+                  if (!hasThen) missing.push('then');
+                  if (!hasBecause) missing.push('because');
+                  
+                  if (missing.length > 0) {
+                    return <span className="text-xs text-yellow-600">Need: {missing.join(', ')}</span>;
+                  } else if (!hasLength) {
+                    return <span className="text-xs text-yellow-600">Need more detail</span>;
+                  }
+                }
+                return null;
+              })()}
+            </div>
+          </div>
+
+          {/* Pre-Lab Questions */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-gray-800 mb-3">Pre-Lab Questions</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  1. Determine the theoretical values of the charge-to-mass ratio for electrons, protons, and alpha particles.
+                </label>
+                <textarea
+                  value={sectionContent.preLabAnswers[0] || ''}
+                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 0)}
+                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  placeholder=""
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  2. The plates are 1.5 cm apart. Calculate the electric field between the plates at 10 V, 15 V, and 20 V.
+                </label>
+                <textarea
+                  value={sectionContent.preLabAnswers[1] || ''}
+                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 1)}
+                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  placeholder=""
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  3. If the mass spectrometer shows "???" (no particles detected), what would you need to change and why?
+                </label>
+                <textarea
+                  value={sectionContent.preLabAnswers[2] || ''}
+                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 2)}
+                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  placeholder=""
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Observations Section */}
+      <div id="section-observations" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.observations)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Observations</span>
+          {getStatusIcon(sectionStatus.observations)}
+        </h2>
+        <div className="space-y-6">
+          {/* Group Selection */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Select Data Group</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Choose one group's data to use for your analysis:
+            </p>
+            
+            {/* Group Selection Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {[
+                { key: 'alpha', label: 'Group Alpha' },
+                { key: 'beta', label: 'Group Beta' }
+              ].map(group => (
+                <button
+                  key={group.key}
+                  onClick={() => updateSelectedGroup(group.key)}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg border transition-all duration-200 ${
+                    observationData.selectedGroup === group.key
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Selected Group Display */}
+            {observationData.selectedGroup && (
+              <div className="mt-6">
+                <div className="space-y-4">
+                  {/* Qualitative Observation */}
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Qualitative Observation</h4>
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="text-gray-700 text-sm">
+                        {observationData.selectedGroup === 'alpha' 
+                          ? observationData.groupAlpha.qualitative
+                          : observationData.groupBeta.qualitative
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quantitative Data */}
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-3">
+                      Quantitative Data: Group {observationData.selectedGroup.charAt(0).toUpperCase() + observationData.selectedGroup.slice(1)}
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border border-gray-200 rounded">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="p-3 border-b text-left">Trial</th>
+                            <th className="p-3 border-b text-left">V (V)</th>
+                            <th className="p-3 border-b text-left">v (×10⁴ m/s)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const selectedData = observationData.selectedGroup === 'alpha' 
+                              ? observationData.groupAlpha.data 
+                              : observationData.groupBeta.data;
+                            
+                            return selectedData?.map((row, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="p-3 border-b">{row.trial}</td>
+                                <td className="p-3 border-b">{row.V}</td>
+                                <td className="p-3 border-b">{row.v}</td>
+                              </tr>
+                            )) || [];
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Instruction when no group selected */}
+            {!observationData.selectedGroup && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">Select a group above to view the observations</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Analysis Section */}
+      <div id="section-analysis" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.analysis)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Analysis</span>
+          {getStatusIcon(sectionStatus.analysis)}
+        </h2>
+        <div className="space-y-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-700 mb-2">
+              <strong>Instructions:</strong> Use line straightening technique to determine the charge-to-mass ratio of the particle.
+            </p>
+            <p className="text-sm text-blue-700">
+              Key relationship: ½mv² = qV, so v² = (2q/m)V
+            </p>
+          </div>
+
+          {/* Data Table with Student Calculations */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Step 1: Calculate v² Values</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Fill in the v² column using your selected observation data (remember v is in ×10⁴ m/s):
+            </p>
+            
+            {observationData.selectedGroup ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-200 rounded">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-3 border-b text-left">Trial</th>
+                      <th className="p-3 border-b text-left">V (V)</th>
+                      <th className="p-3 border-b text-left">v (×10⁴ m/s)</th>
+                      <th className="p-3 border-b text-left">v² (×10⁸ m²/s²)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const selectedData = observationData.selectedGroup === 'alpha' 
+                        ? observationData.groupAlpha.data 
+                        : observationData.groupBeta.data;
+                      
+                      return selectedData?.map((row, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">{row.trial}</td>
+                          <td className="p-3 border-b">{row.V}</td>
+                          <td className="p-3 border-b">{row.v}</td>
+                          <td className="p-3 border-b">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={analysisData.calculatedVSquared?.[index] || ''}
+                              onChange={(e) => updateAnalysisData('calculatedVSquared', e.target.value, index)}
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="?"
+                            />
+                          </td>
+                        </tr>
+                      )) || [];
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p className="text-sm">Please select an observation group first</p>
+              </div>
+            )}
+          </div>
+
+          {/* Line Straightening Explanation */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Step 2: Line Straightening Technique</h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  What variable goes on the x-axis?
+                </label>
+                <input
+                  type="text"
+                  value={analysisData.xAxisVariable}
+                  onChange={(e) => updateAnalysisData('xAxisVariable', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  What variable goes on the y-axis?
+                </label>
+                <input
+                  type="text"
+                  value={analysisData.yAxisVariable}
+                  onChange={(e) => updateAnalysisData('yAxisVariable', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Explain why this line straightening technique helps determine the charge-to-mass ratio:
+              </label>
+              <textarea
+                value={analysisData.lineStrateningExplanation}
+                onChange={(e) => updateAnalysisData('lineStrateningExplanation', e.target.value)}
+                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How does this help determine the charge-to-mass ratio of the particle?
+              </label>
+              <textarea
+                value={analysisData.whyLineStrateningHelps}
+                onChange={(e) => updateAnalysisData('whyLineStrateningHelps', e.target.value)}
+                className="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+          </div>
+
+          {/* Slope Calculation */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Step 3: Determine the Slope</h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  What is the slope of your line?
+                </label>
+                <input
+                  type="text"
+                  value={analysisData.slopeValue}
+                  onChange={(e) => updateAnalysisData('slopeValue', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Units of slope:
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value="×10⁸ m²/(s²⋅V)"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Show your calculation or method for determining the slope:
+              </label>
+              <textarea
+                value={analysisData.slopeCalculation}
+                onChange={(e) => updateAnalysisData('slopeCalculation', e.target.value)}
+                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+          </div>
+
+          {/* Charge-to-Mass Ratio Calculation */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Step 4: Calculate Charge-to-Mass Ratio</h3>
+            
+            <div className="bg-gray-50 p-3 rounded mb-4">
+              <p className="text-sm text-gray-700">
+                <strong>Relationship:</strong> slope = 2q/m, so q/m = slope/2
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Charge-to-mass ratio (q/m):
+                </label>
+                <input
+                  type="text"
+                  value={analysisData.chargeToMassRatio}
+                  onChange={(e) => updateAnalysisData('chargeToMassRatio', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Units:
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value="×10⁸ C/kg"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Show your calculation for determining the charge-to-mass ratio:
+              </label>
+              <textarea
+                value={analysisData.chargeToMassCalculation}
+                onChange={(e) => updateAnalysisData('chargeToMassCalculation', e.target.value)}
+                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Based on your result, what particle do you think this is? (electron, proton, or alpha particle)
+              </label>
+              <input
+                type="text"
+                value={analysisData.particleIdentification}
+                onChange={(e) => updateAnalysisData('particleIdentification', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder=""
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Analysis Section */}
+      <div id="section-error" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.error)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Error Analysis</span>
+          {getStatusIcon(sectionStatus.error)}
+        </h2>
+        <div className="space-y-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-700">
+              Compare your experimental charge-to-mass ratio to the accepted theoretical value for your identified particle.
+            </p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Percent Error Calculation</h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Accepted value (q/m):
+                </label>
+                <input
+                  type="text"
+                  value={errorData.acceptedValue}
+                  onChange={(e) => updateErrorData('acceptedValue', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+                <p className="text-xs text-gray-500 mt-1">Include units (×10⁸ C/kg)</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Experimental value (q/m):
+                </label>
+                <input
+                  type="text"
+                  value={errorData.experimentalValue}
+                  onChange={(e) => updateErrorData('experimentalValue', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder=""
+                />
+                <p className="text-xs text-gray-500 mt-1">From your analysis above</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Percent error:
+              </label>
+              <input
+                type="text"
+                value={errorData.percentError}
+                onChange={(e) => updateErrorData('percentError', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder=""
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Show your percent error calculation:
+              </label>
+              <textarea
+                value={errorData.percentErrorCalculation}
+                onChange={(e) => updateErrorData('percentErrorCalculation', e.target.value)}
+                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Identify and explain possible sources of error in this experiment:
+              </label>
+              <textarea
+                value={errorData.errorSources}
+                onChange={(e) => updateErrorData('errorSources', e.target.value)}
+                className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                placeholder=""
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
