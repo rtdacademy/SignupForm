@@ -486,8 +486,8 @@ const AssessmentSession = ({
 
   // Calculate time remaining if time limit is set
   useEffect(() => {
-    // Get time limit from course config or fallback to assessmentConfig
-    const timeLimit = activityConfig.timeLimit || assessmentConfig?.timeLimit;
+    // Get time limit from assessmentConfig first, then fallback to activityConfig
+    const timeLimit = assessmentConfig?.timeLimit || activityConfig.timeLimit;
     if (assessmentSession && timeLimit && assessmentSession.startTime) {
       const updateTimeRemaining = () => {
         const now = Date.now();
@@ -1161,7 +1161,7 @@ const AssessmentSession = ({
               This {currentActivityType} contains {assessmentConfig?.questions?.length || 0} questions.
               {(activityConfig.timeLimit || assessmentConfig?.timeLimit) && (
                 <span className="block mt-2 text-gray-700 font-medium">
-                  Time Limit: {activityConfig.timeLimit || assessmentConfig.timeLimit} minutes
+                  Time Limit: {assessmentConfig?.timeLimit || activityConfig.timeLimit} minutes
                 </span>
               )}
             </p>

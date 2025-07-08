@@ -55,6 +55,13 @@ const { assessmentConfigs: section1ExamConfigs } = require('../2a2/24-section-1-
 
 const { assessmentConfigs: electrostaticsConfigs } = require('../2b/25-electrostatics/assessments');
 const { assessmentConfigs: coulombsLawConfigs } = require('../2b/26-coulombs-law/assessments');
+const { assessmentConfigs: l1314AssignmentConfigs } = require('../2b/28-l13-14-assignment/assessments');
+const { assessmentConfigs: electricFieldsConfigs } = require('../2b/29-electric-fields/assessments');
+const { assessmentConfigs: electricPotentialConfigs } = require('../2b/30-electric-potential/assessments');
+const { assessmentConfigs: parallelPlatesConfigs } = require('../2b/31-parallel-plates/assessments');
+const { assessmentConfigs: electricCurrentConfigs } = require('../2b/32-electric-current/assessments');
+const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
+const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
 
 /**
  * Assessment Configuration Mapping
@@ -88,7 +95,14 @@ const getAllAssessmentConfigs = () => {
     ...unit2ReviewConfigs,
     ...section1ExamConfigs,
     ...electrostaticsConfigs,
-    ...coulombsLawConfigs
+    ...coulombsLawConfigs,
+    ...l1314AssignmentConfigs,
+    ...electricFieldsConfigs,
+    ...electricPotentialConfigs,
+    ...parallelPlatesConfigs,
+    ...electricCurrentConfigs,
+    ...l1518AssignmentConfigs,
+    ...l118CumulativeConfigs
   };
 };
 

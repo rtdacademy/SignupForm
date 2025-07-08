@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricFields = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const ElectricFields = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const [testChargeDemo, setTestChargeDemo] = useState('positive'); // 'positive' or 'negative'
   const [fieldDiagramType, setFieldDiagramType] = useState('single-positive'); // 'single-positive', 'single-negative', 'dipole'
   const [conductorShape, setConductorShape] = useState('sphere'); // 'sphere', 'plate', 'irregular'
@@ -1830,6 +1831,71 @@ const ElectricFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
           </p>
         </div>
       )}
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="29-electric-fields"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question1',
+            title: 'Question 1: Test Charge Concepts'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question2',
+            title: 'Question 2: Metal Sphere Field'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question3',
+            title: 'Question 3: Field from Force'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question4',
+            title: 'Question 4: Force on Different Charge'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question5',
+            title: 'Question 5: Point Charge Field'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question6',
+            title: 'Question 6: Two Charges Superposition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question7',
+            title: 'Question 7: Electron Acceleration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question8',
+            title: 'Question 8: Square Configuration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question9',
+            title: 'Question 9: Hollow Conductor'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question10',
+            title: 'Question 10: Alpha Particle Equilibrium'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_29_question11',
+            title: 'Question 11: Earth\'s Electric Charge'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

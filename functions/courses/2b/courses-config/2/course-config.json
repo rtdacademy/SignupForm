@@ -1649,6 +1649,68 @@
           }
         ]
       },
+      "32_electric_current": {
+        "title": "Electric Current",
+        "type": "lesson",
+        "contentPath": "32-electric-current",
+        "questions": [
+          {
+            "questionId": "course2_32_question1",
+            "title": "Toaster Current Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question2",
+            "title": "Light Bulb Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question3",
+            "title": "Electroscope Discharge Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question4",
+            "title": "Motor Time Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question5",
+            "title": "Electrons per Second",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question6",
+            "title": "Radio Resistance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question7",
+            "title": "Clothes Dryer Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question8",
+            "title": "TV Tube Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question9",
+            "title": "Toaster Current from Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question10",
+            "title": "Load Voltage Requirement",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question11",
+            "title": "Conventional Current vs Electron Flow",
+            "points": 1
+          }
+        ]
+      },
       "23_unit_2_review": {
         "title": "Unit 2 Review",
         "type": "lesson",
