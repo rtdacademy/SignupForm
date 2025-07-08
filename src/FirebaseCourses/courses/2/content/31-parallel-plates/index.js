@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -1030,6 +1031,66 @@ const ParallelPlates = ({ course, courseId = 'default', AIAccordion, onAIAccordi
           </p>
         </div>
       )}
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="31-parallel-plates"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question1',
+            title: 'Question 1: Electric Field Intensity'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question2',
+            title: 'Question 2: Potential Difference Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question3',
+            title: 'Question 3: Plate Separation Distance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question4',
+            title: 'Question 4: Oil Drop Charge (Stationary)'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question5',
+            title: 'Question 5: Ping-Pong Ball Potential'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question6',
+            title: 'Question 6: Oil Drop Charge (Weight Given)'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question7',
+            title: 'Question 7: Oil Drop with Acceleration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question8',
+            title: 'Question 8: Single Electron Upward Acceleration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question9',
+            title: 'Question 9: Constant Velocity Charge'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_31_question10',
+            title: 'Question 10: Proton Kinematics'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

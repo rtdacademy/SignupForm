@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricPotential = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const ElectricPotential = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent
@@ -945,6 +946,46 @@ const ElectricPotential = ({ course, courseId = 'default', AIAccordion, onAIAcco
           </p>
         </div>
       )}
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="30-electric-potential"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question1',
+            title: 'Question 1: Spark Gap Potential'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question2',
+            title: 'Question 2: Alpha Particle Speed'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question3',
+            title: 'Question 3: Fluorine Nucleus Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question4',
+            title: 'Question 4: Alpha Particle Acceleration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question5',
+            title: 'Question 5: Proton Momentum'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_30_question6',
+            title: 'Question 6: Electron Collision Speed'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

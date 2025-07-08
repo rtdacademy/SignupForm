@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -640,6 +641,71 @@ const ElectricCurrent = ({ course, courseId = 'default', AIAccordion, onAIAccord
           </TextSection>
         </div>
       )}
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="32-electric-current"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question1',
+            title: 'Question 1: Toaster Current Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question2',
+            title: 'Question 2: Light Bulb Charge'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question3',
+            title: 'Question 3: Electroscope Discharge Current'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question4',
+            title: 'Question 4: Motor Time Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question5',
+            title: 'Question 5: Electrons per Second'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question6',
+            title: 'Question 6: Radio Resistance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question7',
+            title: 'Question 7: Clothes Dryer Current'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question8',
+            title: 'Question 8: TV Tube Voltage'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question9',
+            title: 'Question 9: Toaster Current from Voltage'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question10',
+            title: 'Question 10: Load Voltage Requirement'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_32_question11',
+            title: 'Question 11: Conventional Current vs Electron Flow'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[
