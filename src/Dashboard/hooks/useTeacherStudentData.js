@@ -139,11 +139,10 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
   const setupCourseListener = (courseId) => {
     const db = getDatabase();
     const courseRef = ref(db, `courses/${courseId}`);
-    const courseConfigRef = ref(db, `courses/${courseId}/course-config`);
     
     console.log(`🔥 Teacher view: Setting up real-time listener for course: ${courseId}`);
     
-    // Listen to both course data and course config changes
+    // Listen to course data changes
     const courseUnsubscribe = onValue(courseRef, async (snapshot) => {
       try {
         const courseData = snapshot.exists() ? snapshot.val() : null;
@@ -152,9 +151,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
           // Enhance with resolved staff members
           const teachers = await fetchStaffMembers(courseData.Teachers || []);
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
-          
-          // Fetch course configuration
-          const courseConfig = await fetchCourseConfig(courseId);
 
           console.log(`🔄 Teacher view: Course ${courseId} real-time update:`, {
             restrictCourseAccess: courseData.restrictCourseAccess,
@@ -164,14 +160,14 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             timestamp: new Date().toLocaleTimeString()
           });
 
-          // Update course details state with course config integrated
+          // Update course details state without course config (will be in Gradebook only)
           setCourseDetails(prev => ({
             ...prev,
             [courseId]: {
               ...courseData,  // Include all original course data
               teachers,       // Add resolved teacher objects
-              supportStaff,   // Add resolved support staff objects
-              courseConfig    // Add course configuration
+              supportStaff    // Add resolved support staff objects
+              // courseConfig removed - will be added directly to Gradebook structure
             }
           }));
         } else {
@@ -189,41 +185,11 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
       console.error(`Teacher view: Firebase listener error for course ${courseId}:`, error);
     });
     
-    // Listen specifically to course config changes
-    const configUnsubscribe = onValue(courseConfigRef, async (configSnapshot) => {
-      try {
-        const courseConfig = configSnapshot.exists() ? configSnapshot.val() : null;
-        
-        console.log(`🔄 Teacher view: Course config ${courseId} real-time update:`, {
-          hasConfig: !!courseConfig,
-          timestamp: new Date().toLocaleTimeString()
-        });
-        
-        // Update only the course config in course details
-        setCourseDetails(prev => {
-          const currentCourse = prev[courseId];
-          if (currentCourse) {
-            return {
-              ...prev,
-              [courseId]: {
-                ...currentCourse,
-                courseConfig
-              }
-            };
-          }
-          return prev;
-        });
-      } catch (error) {
-        console.error(`Teacher view: Error processing course config for ${courseId}:`, error);
-      }
-    }, (error) => {
-      console.error(`Teacher view: Firebase course config listener error for ${courseId}:`, error);
-    });
+    // Note: Course config listener removed - config will be added directly to Gradebook in processCourses
     
-    // Return a function that unsubscribes from both listeners
+    // Return a function that unsubscribes from the listener
     return () => {
       courseUnsubscribe();
-      configUnsubscribe();
     };
   };
   
@@ -373,9 +339,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
   };
 
   const processCourses = async (studentCourses) => {
-    // Set up course listeners for the current student courses
-    manageCourseListeners(studentCourses);
-    
     // Initialize an array to hold all courses (student-enrolled and required)
     let allCourses = [];
 
@@ -401,8 +364,11 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             });
           }
           
-          // Fetch payment info (teachers can see this for administrative purposes)
-          const paymentInfo = await fetchPaymentDetails(id);
+          // Fetch payment info and course config
+          const [paymentInfo, courseConfig] = await Promise.all([
+            fetchPaymentDetails(id),
+            fetchCourseConfig(id)
+          ]);
 
           // Generate studentKey reliably from the studentEmailKey parameter
           // This ensures studentKey is always consistent, even during real-time updates
@@ -422,17 +388,15 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             isTeacherView: true // Flag for teacher view
           };
           
-          // If we have course config from real-time details, integrate it into Gradebook structure
-          if (realtimeCourseDetails?.courseConfig) {
+          // Add course config directly to Gradebook structure (single source of truth)
+          if (courseConfig) {
             // Ensure Gradebook structure exists
             if (!enhancedCourse.Gradebook) {
               enhancedCourse.Gradebook = {};
             }
             
             // Add course config to Gradebook structure
-            enhancedCourse.Gradebook.courseConfig = realtimeCourseDetails.courseConfig;
-            
-            console.log(`✅ Teacher view: Integrated course config into Gradebook structure for course ${id}`);
+            enhancedCourse.Gradebook.courseConfig = courseConfig;
           }
           
           return enhancedCourse;
@@ -456,13 +420,42 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         const isDuplicate = allCourses.some(course => course.id === requiredCourse.id);
 
         if (!isDuplicate) {
-          allCourses.push(requiredCourse);
+          // Get real-time course details if available
+          const realtimeCourseDetails = courseDetails[requiredCourse.id] || requiredCourse.courseDetails;
+          
+          // Fetch course config for required course
+          const courseConfig = await fetchCourseConfig(requiredCourse.id);
+          
+          // Update required course with real-time details and proper Gradebook structure
+          const enhancedRequiredCourse = {
+            ...requiredCourse,
+            courseDetails: realtimeCourseDetails
+          };
+          
+          // Add course config to Gradebook structure
+          if (courseConfig) {
+            if (!enhancedRequiredCourse.Gradebook) {
+              enhancedRequiredCourse.Gradebook = {};
+            }
+            enhancedRequiredCourse.Gradebook.courseConfig = courseConfig;
+          }
+          
+          allCourses.push(enhancedRequiredCourse);
         }
       }
     }
 
     // Sort all courses by creation date
-    return allCourses.sort((a, b) => new Date(b.Created) - new Date(a.Created));
+    allCourses = allCourses.sort((a, b) => new Date(b.Created) - new Date(a.Created));
+    
+    // Set up course listeners for ALL courses (including required courses)
+    const allCourseIds = {};
+    allCourses.forEach(course => {
+      allCourseIds[course.id] = true;
+    });
+    manageCourseListeners(allCourseIds);
+    
+    return allCourses;
   };
 
   const fetchImportantDates = async () => {
@@ -506,33 +499,31 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         }).catch(() => resolve(null));
       });
       
-      if (coursesSnapshot) {
-        // Re-process courses with updated course details
-        const processedCourses = await processCourses(coursesSnapshot);
+      // Re-process courses with updated course details (including required courses)
+      const processedCourses = await processCourses(coursesSnapshot);
+      
+      console.log('✅ Teacher view: Courses re-processed with updated details', {
+        courseCount: processedCourses.length,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      
+      setStudentData(prev => {
+        // Re-process notifications if we have them
+        let updatedCourses = processedCourses;
         
-        console.log('✅ Teacher view: Courses re-processed with updated details', {
-          courseCount: processedCourses.length,
-          timestamp: new Date().toLocaleTimeString()
-        });
+        if (prev.profile && prev.allNotifications) {
+          updatedCourses = processNotificationsForCourses(
+            processedCourses,
+            prev.profile,
+            prev.allNotifications
+          );
+        }
         
-        setStudentData(prev => {
-          // Re-process notifications if we have them
-          let updatedCourses = processedCourses;
-          
-          if (prev.profile && prev.allNotifications) {
-            updatedCourses = processNotificationsForCourses(
-              processedCourses,
-              prev.profile,
-              prev.allNotifications
-            );
-          }
-          
-          return {
-            ...prev,
-            courses: updatedCourses
-          };
-        });
-      }
+        return {
+          ...prev,
+          courses: updatedCourses
+        };
+      });
     };
     
     updateCoursesWithNewDetails();

@@ -72,12 +72,11 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
 
   const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
   
-  // Convert lesson ID format: "01-physics-20-review" -> "01_physics_20_review"
-  const normalizedLessonId = lessonId.replace(/-/g, '_');
-  const lessonConfig = itemStructure[normalizedLessonId];
+  // Use lessonId directly (should already be in underscore format)
+  const lessonConfig = itemStructure[lessonId];
   
   if (!lessonConfig) {
-    //console.warn(`No lesson config found for: ${normalizedLessonId}`);
+    //console.warn(`No lesson config found for: ${lessonId}`);
     return {
       score: 0,
       total: 0,
@@ -90,10 +89,10 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   }
 
   // Check if this assessment should use session-based scoring
-  if (studentEmail && shouldUseSessionBasedScoring(normalizedLessonId, course)) {
+  if (studentEmail && shouldUseSessionBasedScoring(lessonId, course)) {
     // Check if sessions actually exist
-    if (hasSessionBasedScoring(normalizedLessonId, course, studentEmail)) {
-      return calculateSessionBasedScore(normalizedLessonId, course, studentEmail);
+    if (hasSessionBasedScoring(lessonId, course, studentEmail)) {
+      return calculateSessionBasedScore(lessonId, course, studentEmail);
     } else {
       // Should use sessions but none exist - return 0 score
       return {
@@ -104,7 +103,7 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
         totalQuestions: 0,
         valid: true,
         source: 'session',
-        strategy: getSessionScoringStrategy(normalizedLessonId, course),
+        strategy: getSessionScoringStrategy(lessonId, course),
         sessionsCount: 0
       };
     }
@@ -113,7 +112,7 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   // Fall back to individual question scoring for lessons
   
   if (!lessonConfig.questions) {
-    console.warn(`No questions found for lesson: ${normalizedLessonId}`);
+    console.warn(`No questions found for lesson: ${lessonId}`);
     return {
       score: 0,
       total: 0,
@@ -312,14 +311,16 @@ export const checkLessonCompletion = (lessonId, course, studentEmail = null) => 
     return false;
   }
   
-  // Get completion requirements for this lesson
-  const normalizedLessonId = lessonId.replace(/-/g, '_');
-  const requirements = progressionRequirements.lessonOverrides?.[normalizedLessonId] || 
-                      progressionRequirements.lessonOverrides?.[lessonId] ||
-                      progressionRequirements.defaultCriteria || {};
+  // Get completion requirements for this lesson using new structure
+  const itemStructure = course.Gradebook?.courseConfig?.gradebook?.itemStructure;
+  const itemConfig = itemStructure?.[lessonId];
+  const itemType = itemConfig?.type || 'lesson';
   
-  const minimumPercentage = requirements.minimumPercentage || 50;
-  const requireAllQuestions = requirements.requireAllQuestions !== false;
+  const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId];
+  const defaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
+  
+  const minimumPercentage = lessonOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50;
+  const requireAllQuestions = lessonOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? false;
   
   const completionRate = lessonScore.totalQuestions > 0 ? (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
   const averageScore = lessonScore.percentage;
@@ -392,14 +393,13 @@ export const findAssessmentSessions = (assessmentId, course, studentEmail) => {
  * @returns {string} - Scoring strategy: "takeHighest", "latest", or "average"
  */
 export const getSessionScoringStrategy = (assessmentId, course) => {
-  const normalizedAssessmentId = assessmentId.replace(/-/g, '_');
   const itemStructure = course.Gradebook?.courseConfig?.gradebook?.itemStructure;
   
-  if (!itemStructure || !itemStructure[normalizedAssessmentId]) {
+  if (!itemStructure || !itemStructure[assessmentId]) {
     return 'takeHighest'; // Default fallback
   }
   
-  return itemStructure[normalizedAssessmentId].assessmentSettings?.sessionScoring || 'takeHighest';
+  return itemStructure[assessmentId].assessmentSettings?.sessionScoring || 'takeHighest';
 };
 
 /**
@@ -462,14 +462,13 @@ export const aggregateSessionScores = (sessions, strategy) => {
  * @returns {boolean} - True if this assessment should use session-based scoring
  */
 export const shouldUseSessionBasedScoring = (assessmentId, course) => {
-  const normalizedAssessmentId = assessmentId.replace(/-/g, '_');
   const itemStructure = course.Gradebook?.courseConfig?.gradebook?.itemStructure;
   
-  if (!itemStructure || !itemStructure[normalizedAssessmentId]) {
+  if (!itemStructure || !itemStructure[assessmentId]) {
     return false;
   }
   
-  const itemConfig = itemStructure[normalizedAssessmentId];
+  const itemConfig = itemStructure[assessmentId];
   
   // Check if explicitly configured for session scoring
   if (itemConfig.assessmentSettings?.sessionScoring) {

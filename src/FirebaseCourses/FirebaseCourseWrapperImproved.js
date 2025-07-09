@@ -647,14 +647,17 @@ const FirebaseCourseWrapperContent = ({
       ...gradebook,
       grades: {
         assessments: course?.Grades?.assessments || {}
-      }
+      },
+      ExamSessions: course?.ExamSessions || {},
+      Assessments: course?.Assessments || {}
     };
     
     // Pass developer bypass information to handle inDevelopment restrictions
     const isDeveloperBypass = shouldBypass;
     
     return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebookWithGrades, {
-      isDeveloperBypass
+      isDeveloperBypass,
+      progressionRequirements: course.courseDetails?.progressionRequirements
     });
   }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive]);
   
@@ -1461,12 +1464,13 @@ const FirebaseCourseWrapperContent = ({
       {/* AI Chat Assistant - Draggable & Resizable Panel */}
       {(isChatOpen || chatAnimationState !== 'closed') && !isChatMinimized && (
         <div 
-          className={`fixed z-50 bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
+          className={`fixed bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
             isMobile 
               ? 'inset-0 rounded-none' // Full screen on mobile
               : 'rounded-2xl'
           } ${isDragging ? 'cursor-grabbing' : ''} ${isResizing ? 'select-none' : ''}`}
-          style={isMobile ? {} : {
+          style={isMobile ? { zIndex: 9999 } : {
+            zIndex: 9999,
             left: chatPosition.x,
             top: chatPosition.y,
             width: chatSize.width,

@@ -308,6 +308,7 @@ class StandardLongAnswerCore {
       status: 'active',
       maxAttempts: maxAttempts,
       activityType: activityType,
+      assessmentType: params.assessmentType || 'standard-long-answer',
       usedQuestionIds: usedQuestionIds,
       enableManualGrading: config.enableManualGrading !== false,
       settings: {

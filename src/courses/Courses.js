@@ -19,7 +19,7 @@ import {
   FaGraduationCap,
   FaPercentage
 } from 'react-icons/fa';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, RotateCcw } from 'lucide-react';
 import Modal from 'react-modal';
 // Keep react-select for multi-select fields.
 import ReactSelect from 'react-select';
@@ -32,6 +32,12 @@ import {
   SheetDescription,
   SheetTrigger
 } from '../components/ui/sheet';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../components/ui/accordion';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -345,7 +351,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
 }
 
 // Component for managing individual lesson progression overrides
-function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLessonIdChange, isEditing }) {
+function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLessonIdChange, isEditing, availableLessons = [], existingOverrides = {} }) {
   const handlePercentageChange = (e) => {
     const value = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
     onChange({
@@ -361,11 +367,29 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
     });
   };
 
-  const handleLessonIdChange = (e) => {
+  const handleSessionsRequiredChange = (e) => {
+    const value = Math.max(0, Math.min(5, parseInt(e.target.value) || 1));
+    onChange({
+      ...override,
+      sessionsRequired: value
+    });
+  };
+
+  const handleRequiresSubmissionChange = (checked) => {
+    onChange({
+      ...override,
+      requiresSubmission: checked
+    });
+  };
+
+  const handleLessonIdChange = (value) => {
     if (onLessonIdChange) {
-      onLessonIdChange(e.target.value);
+      onLessonIdChange(value);
     }
   };
+
+  // Find the selected lesson details using itemId
+  const selectedLesson = availableLessons.find(lesson => lesson.itemId === lessonId);
 
   return (
     <div className="rounded-lg border p-4 bg-white">
@@ -373,16 +397,89 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Lesson ID
+              Lesson
             </label>
-            <Input
-              type="text"
+            <Select
               value={lessonId}
-              onChange={handleLessonIdChange}
+              onValueChange={handleLessonIdChange}
               disabled={!isEditing}
-              className="text-sm font-mono"
-              placeholder="e.g., 09_introduction_to_light"
-            />
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a lesson">
+                  {selectedLesson ? (
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{selectedLesson.title}</span>
+                      <span className="text-xs text-gray-500">({selectedLesson.itemId})</span>
+                    </span>
+                  ) : (
+                    "Select a lesson"
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availableLessons.length === 0 ? (
+                  <div className="p-2 text-sm text-gray-500">No lessons available</div>
+                ) : (
+                  availableLessons.map(lesson => {
+                    const isAlreadySelected = Object.keys(existingOverrides || {}).includes(lesson.itemId);
+                    const isCurrentSelection = lesson.itemId === lessonId;
+                    const isDisabled = isAlreadySelected && !isCurrentSelection;
+                    
+                    return (
+                      <SelectItem 
+                        key={lesson.itemId} 
+                        value={lesson.itemId}
+                        disabled={isDisabled}
+                        className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                      >
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium ${isDisabled ? 'text-gray-400' : ''}`}>
+                              {lesson.title}
+                            </span>
+                            {lesson.type === 'assignment' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                Assignment
+                              </span>
+                            )}
+                            {lesson.type === 'exam' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-red-100 text-red-700'
+                              }`}>
+                                Exam
+                              </span>
+                            )}
+                            {lesson.type === 'lab' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                Lab
+                              </span>
+                            )}
+                            {isAlreadySelected && !isCurrentSelection && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                                Already Selected
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-xs ${isDisabled ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {lesson.unitName} • {lesson.itemId}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })
+                )}
+              </SelectContent>
+            </Select>
           </div>
           {isEditing && (
             <Button
@@ -397,36 +494,89 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
           )}
         </div>
 
-        <div className="flex space-x-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Percentage
-            </label>
-            <div className="flex items-center space-x-2">
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={override.minimumPercentage || 0}
-                onChange={handlePercentageChange}
-                disabled={!isEditing}
-                className="flex-1"
-              />
-              <FaPercentage className="text-gray-400" />
-            </div>
-          </div>
+        {/* Criteria based on item type */}
+        {(() => {
+          // Find the selected lesson to determine its type
+          const selectedLesson = availableLessons.find(lesson => lesson.itemId === lessonId);
+          const lessonType = selectedLesson?.type || 'lesson';
+          
+          if (lessonType === 'lesson') {
+            return (
+              <div className="flex space-x-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Minimum Percentage
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={override.minimumPercentage || 0}
+                      onChange={handlePercentageChange}
+                      disabled={!isEditing}
+                      className="flex-1"
+                    />
+                    <FaPercentage className="text-gray-400" />
+                  </div>
+                </div>
 
-          <div className="flex items-center space-x-2 mt-6">
-            <Switch
-              checked={override.requireAllQuestions || false}
-              onCheckedChange={handleRequireAllChange}
-              disabled={!isEditing}
-            />
-            <label className="text-sm font-medium text-gray-700">
-              Require All Questions
-            </label>
-          </div>
-        </div>
+                <div className="flex items-center space-x-2 mt-6">
+                  <Switch
+                    checked={override.requireAllQuestions || false}
+                    onCheckedChange={handleRequireAllChange}
+                    disabled={!isEditing}
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Require All Questions
+                  </label>
+                </div>
+              </div>
+            );
+          } else if (lessonType === 'assignment' || lessonType === 'exam' || lessonType === 'quiz') {
+            return (
+              <div className="flex space-x-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sessions Required
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={override.sessionsRequired || 1}
+                      onChange={handleSessionsRequiredChange}
+                      disabled={!isEditing}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500">sessions</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Number of completed sessions required (0-5)
+                  </p>
+                </div>
+              </div>
+            );
+          } else if (lessonType === 'lab') {
+            return (
+              <div className="flex space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={override.requiresSubmission || false}
+                    onCheckedChange={handleRequiresSubmissionChange}
+                    disabled={!isEditing}
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Requires Submission
+                  </label>
+                </div>
+              </div>
+            );
+          }
+          
+          return null;
+        })()}
       </div>
     </div>
   );
@@ -437,29 +587,107 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   const [requirements, setRequirements] = useState(progressionRequirements || {
     enabled: false,
     defaultCriteria: {
-      minimumPercentage: 50,
-      requireAllQuestions: true
+      lesson: {
+        minimumPercentage: 50,
+        requireAllQuestions: true
+      },
+      assignment: {
+        sessionsRequired: 1
+      },
+      exam: {
+        sessionsRequired: 1
+      },
+      quiz: {
+        sessionsRequired: 1
+      },
+      lab: {
+        requiresSubmission: true
+      }
     },
-    lessonOverrides: {}
+    lessonOverrides: {},
+    showAlways: {}
   });
+  const [availableLessons, setAvailableLessons] = useState([]);
+  const [loadingLessons, setLoadingLessons] = useState(false);
 
   useEffect(() => {
     setRequirements(progressionRequirements || {
       enabled: false,
       defaultCriteria: {
-        minimumPercentage: 50,
-        requireAllQuestions: true
+        lesson: {
+          minimumPercentage: 50,
+          requireAllQuestions: true
+        },
+        assignment: {
+          sessionsRequired: 1
+        },
+        exam: {
+          sessionsRequired: 1
+        },
+        quiz: {
+          sessionsRequired: 1
+        },
+        lab: {
+          requiresSubmission: true
+        }
       },
-      lessonOverrides: {}
+      lessonOverrides: {},
+      showAlways: {}
     });
   }, [progressionRequirements]);
+
+  // Fetch available lessons from course structure
+  useEffect(() => {
+    const fetchCourseStructure = async () => {
+      if (!courseId) return;
+      
+      setLoadingLessons(true);
+      try {
+        const db = getDatabase();
+        const structureRef = ref(db, `courses/${courseId}/course-config/courseStructure`);
+        const snapshot = await get(structureRef);
+        
+        if (snapshot.exists()) {
+          const courseStructure = snapshot.val();
+          const lessons = [];
+          
+          // Extract all lessons from all units
+          if (courseStructure.units) {
+            courseStructure.units.forEach(unit => {
+              if (unit.items) {
+                unit.items.forEach(item => {
+                  // Include lessons, assignments, exams, and labs that can have questions
+                  if (item.type === 'lesson' || item.type === 'assignment' || item.type === 'exam' || item.type === 'lab') {
+                    lessons.push({
+                      itemId: item.itemId,
+                      title: item.title,
+                      type: item.type,
+                      unitName: unit.name
+                    });
+                  }
+                });
+              }
+            });
+          }
+          
+          setAvailableLessons(lessons);
+        }
+      } catch (error) {
+        console.error('Error fetching course structure:', error);
+      } finally {
+        setLoadingLessons(false);
+      }
+    };
+
+    fetchCourseStructure();
+  }, [courseId]);
 
   const updateDatabase = async (updatedRequirements) => {
     try {
       const db = getDatabase();
       const courseRef = ref(db, `courses/${courseId}`);
       await update(courseRef, { 
-        progressionRequirements: updatedRequirements.enabled ? updatedRequirements : null 
+        progressionRequirements: updatedRequirements 
       });
       console.log('Successfully updated progression requirements:', updatedRequirements);
     } catch (error) {
@@ -477,14 +705,62 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
     updateDatabase(updatedRequirements);
   };
 
-  const handleDefaultCriteriaChange = (field, value) => {
+  const handleResetToDefaults = () => {
+    const defaultRequirements = {
+      enabled: requirements.enabled, // Keep the current enabled state
+      defaultCriteria: {
+        lesson: {
+          minimumPercentage: 50,
+          requireAllQuestions: true
+        },
+        assignment: {
+          sessionsRequired: 1
+        },
+        exam: {
+          sessionsRequired: 1
+        },
+        quiz: {
+          sessionsRequired: 1
+        },
+        lab: {
+          requiresSubmission: true
+        }
+      },
+      lessonOverrides: {}, // Clear all overrides
+      showAlways: {} // Clear all always visible settings
+    };
+    setRequirements(defaultRequirements);
+    updateDatabase(defaultRequirements);
+    toast.success('Progression requirements reset to defaults');
+  };
+
+  const handleDefaultCriteriaChange = (type, field, value) => {
     const updatedRequirements = {
       ...requirements,
       defaultCriteria: {
         ...requirements.defaultCriteria,
-        [field]: value
+        [type]: {
+          ...requirements.defaultCriteria[type],
+          [field]: value
+        }
       }
     };
+    setRequirements(updatedRequirements);
+    updateDatabase(updatedRequirements);
+  };
+
+  const handleShowAlwaysChange = (lessonId, checked) => {
+    const updatedRequirements = {
+      ...requirements,
+      showAlways: {
+        ...requirements.showAlways,
+        [lessonId]: checked
+      }
+    };
+    // Remove false values to keep the object clean
+    if (!checked) {
+      delete updatedRequirements.showAlways[lessonId];
+    }
     setRequirements(updatedRequirements);
     updateDatabase(updatedRequirements);
   };
@@ -492,15 +768,45 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   const handleAddOverride = () => {
     if (!isEditing) return;
 
-    const newLessonId = `lesson_${Date.now()}`;
+    // Find the first lesson that doesn't already have an override
+    const existingOverrideIds = Object.keys(requirements.lessonOverrides || {});
+    const availableLesson = availableLessons.find(lesson => 
+      !existingOverrideIds.includes(lesson.itemId)
+    );
+
+    if (!availableLesson) {
+      toast.warning('All lessons already have overrides configured');
+      return;
+    }
+
+    // Set default values based on item type
+    let defaultOverride;
+    if (availableLesson.type === 'lesson') {
+      defaultOverride = {
+        minimumPercentage: 0,
+        requireAllQuestions: false
+      };
+    } else if (availableLesson.type === 'assignment' || availableLesson.type === 'exam' || availableLesson.type === 'quiz') {
+      defaultOverride = {
+        sessionsRequired: 1
+      };
+    } else if (availableLesson.type === 'lab') {
+      defaultOverride = {
+        requiresSubmission: false
+      };
+    } else {
+      // Fallback for unknown types
+      defaultOverride = {
+        minimumPercentage: 0,
+        requireAllQuestions: false
+      };
+    }
+
     const updatedRequirements = {
       ...requirements,
       lessonOverrides: {
         ...requirements.lessonOverrides,
-        [newLessonId]: {
-          minimumPercentage: 0,
-          requireAllQuestions: false
-        }
+        [availableLesson.itemId]: defaultOverride
       }
     };
     setRequirements(updatedRequirements);
@@ -543,6 +849,8 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   };
 
   const overrideEntries = Object.entries(requirements.lessonOverrides || {});
+  const showAlwaysEntries = Object.entries(requirements.showAlways || {}).filter(([_, value]) => value === true);
+  const shouldOpenAccordion = showAlwaysEntries.length > 0;
 
   return (
     <div className="space-y-6">
@@ -551,15 +859,28 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
           <FaGraduationCap className="text-blue-500" />
           Course Progression Requirements
         </h3>
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={requirements.enabled || false}
-            onCheckedChange={handleEnabledChange}
-            disabled={!isEditing}
-          />
-          <label className="text-sm font-medium text-gray-700">
-            Enable Progression Requirements
-          </label>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={requirements.enabled || false}
+              onCheckedChange={handleEnabledChange}
+              disabled={!isEditing}
+            />
+            <label className="text-sm font-medium text-gray-700">
+              Enable Progression Requirements
+            </label>
+          </div>
+          {isEditing && requirements.enabled && (
+            <Button
+              onClick={handleResetToDefaults}
+              variant="outline"
+              size="sm"
+              className="text-gray-600 hover:text-gray-800"
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Reset to Defaults
+            </Button>
+          )}
         </div>
       </div>
 
@@ -568,51 +889,149 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
           {/* Default Criteria */}
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="text-md font-semibold text-blue-800 mb-3">Default Criteria</h4>
-            <div className="flex flex-wrap gap-6">
-              <div className="flex-1 min-w-48">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Minimum Percentage
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={requirements.defaultCriteria?.minimumPercentage || 50}
-                    onChange={(e) => handleDefaultCriteriaChange('minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                    disabled={!isEditing}
-                    className="flex-1"
-                  />
-                  <FaPercentage className="text-gray-400" />
+            <p className="text-xs text-gray-600 mb-4">
+              These criteria apply to all items of each type unless overridden below.
+            </p>
+            
+            <div className="space-y-6">
+              {/* Lesson Defaults */}
+              <div className="bg-white p-4 rounded-lg border border-blue-100">
+                <h5 className="text-sm font-semibold text-blue-700 mb-3">Lessons</h5>
+                <div className="flex flex-wrap gap-6">
+                  <div className="flex-1 min-w-48">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Minimum Percentage
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={requirements.defaultCriteria?.lesson?.minimumPercentage || 50}
+                        onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        disabled={!isEditing}
+                        className="flex-1"
+                      />
+                      <FaPercentage className="text-gray-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 mt-6">
+                    <Switch
+                      checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
+                      onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
+                      disabled={!isEditing}
+                    />
+                    <label className="text-sm font-medium text-gray-700">
+                      Require All Questions
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 mt-6">
-                <Switch
-                  checked={requirements.defaultCriteria?.requireAllQuestions || false}
-                  onCheckedChange={(checked) => handleDefaultCriteriaChange('requireAllQuestions', checked)}
-                  disabled={!isEditing}
-                />
-                <label className="text-sm font-medium text-gray-700">
-                  Require All Questions
-                </label>
+              {/* Assignment Defaults */}
+              <div className="bg-white p-4 rounded-lg border border-blue-100">
+                <h5 className="text-sm font-semibold text-blue-700 mb-3">Assignments</h5>
+                <div className="flex-1 min-w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sessions Required
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
+                      onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                      disabled={!isEditing}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500">sessions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Exam Defaults */}
+              <div className="bg-white p-4 rounded-lg border border-blue-100">
+                <h5 className="text-sm font-semibold text-blue-700 mb-3">Exams</h5>
+                <div className="flex-1 min-w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sessions Required
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
+                      onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                      disabled={!isEditing}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500">sessions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quiz Defaults */}
+              <div className="bg-white p-4 rounded-lg border border-blue-100">
+                <h5 className="text-sm font-semibold text-blue-700 mb-3">Quizzes</h5>
+                <div className="flex-1 min-w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sessions Required
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
+                      onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                      disabled={!isEditing}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500">sessions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lab Defaults */}
+              <div className="bg-white p-4 rounded-lg border border-blue-100">
+                <h5 className="text-sm font-semibold text-blue-700 mb-3">Labs</h5>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
+                    onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
+                    disabled={!isEditing}
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Requires Submission
+                  </label>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              These criteria apply to all lessons unless overridden below.
-            </p>
           </div>
 
           {/* Lesson Overrides */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h4 className="text-md font-semibold text-gray-800">Lesson Overrides</h4>
+              <div>
+                <h4 className="text-md font-semibold text-gray-800">Lesson Overrides</h4>
+                {availableLessons.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    {overrideEntries.length} of {availableLessons.length} lessons have custom criteria
+                  </p>
+                )}
+              </div>
               {isEditing && (
                 <Button 
                   onClick={handleAddOverride}
                   type="button"
                   className="flex items-center"
                   size="sm"
+                  disabled={loadingLessons || availableLessons.every(lesson => 
+                    Object.keys(requirements.lessonOverrides || {}).includes(lesson.itemId)
+                  )}
                 >
                   <FaPlus className="mr-2" /> Add Override
                 </Button>
@@ -620,7 +1039,11 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
             </div>
 
             <div className="space-y-3">
-              {overrideEntries.length === 0 ? (
+              {loadingLessons ? (
+                <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                  Loading available lessons...
+                </p>
+              ) : overrideEntries.length === 0 ? (
                 <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
                   No lesson overrides configured. All lessons will use the default criteria.
                 </p>
@@ -634,11 +1057,103 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                     onLessonIdChange={(newLessonId) => handleOverrideChange(lessonId, newLessonId, override)}
                     onDelete={() => handleDeleteOverride(lessonId)}
                     isEditing={isEditing}
+                    availableLessons={availableLessons}
+                    existingOverrides={requirements.lessonOverrides || {}}
                   />
                 ))
               )}
             </div>
           </div>
+
+          {/* Always Visible Lessons */}
+          <Accordion 
+            type="single" 
+            collapsible 
+            defaultValue={shouldOpenAccordion ? "always-visible" : undefined}
+            className="w-full"
+          >
+            <AccordionItem value="always-visible">
+              <AccordionTrigger className="text-md font-semibold text-gray-800">
+                Always Visible Lessons
+                {showAlwaysEntries.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    ({showAlwaysEntries.length} lesson{showAlwaysEntries.length !== 1 ? 's' : ''} always visible)
+                  </span>
+                )}
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-3 px-4 py-2">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Lessons marked as "Always Visible" will bypass progression requirements and always be accessible to students.
+                  </p>
+                  
+                  {loadingLessons ? (
+                    <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                      Loading available lessons...
+                    </p>
+                  ) : availableLessons.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                      No lessons available to configure.
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {availableLessons.map(lesson => (
+                        <div key={lesson.itemId} className="flex items-center space-x-3 py-2 px-3 hover:bg-gray-50 rounded">
+                          <input
+                            type="checkbox"
+                            id={`always-visible-${lesson.itemId}`}
+                            checked={requirements.showAlways?.[lesson.itemId] || false}
+                            onChange={(e) => handleShowAlwaysChange(lesson.itemId, e.target.checked)}
+                            disabled={!isEditing}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <label 
+                                htmlFor={`always-visible-${lesson.itemId}`}
+                                className="text-sm font-medium text-gray-900 cursor-pointer"
+                              >
+                                {lesson.title}
+                              </label>
+                              <span className="text-sm text-gray-600">•</span>
+                              <span className="text-sm text-gray-600">{lesson.unitName}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {lesson.type === 'lesson' && (
+                                <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                  Lesson
+                                </span>
+                              )}
+                              {lesson.type === 'assignment' && (
+                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                  Assignment
+                                </span>
+                              )}
+                              {lesson.type === 'exam' && (
+                                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
+                                  Exam
+                                </span>
+                              )}
+                              {lesson.type === 'lab' && (
+                                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                                  Lab
+                                </span>
+                              )}
+                              {lesson.type === 'quiz' && (
+                                <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                  Quiz
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       )}
 

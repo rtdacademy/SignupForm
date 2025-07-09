@@ -27,6 +27,28 @@ import {
   TabsTrigger
 } from "../components/ui/tabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "../components/ui/accordion";
+
+const RTDLogo = () => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 75 75" 
+    className="h-12 w-12"
+    role="img"
+    aria-label="RTD Academy Logo"
+  >
+    <g transform="translate(10, 25)">
+      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#008B8B"/>
+      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E0FFFF"/>
+      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#20B2AA"/>
+    </g>
+  </svg>
+);
 
 const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
   const navigate = useNavigate();
@@ -407,53 +429,52 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     );
   };
 
-  const renderAuthForm = () => {
-    if (isResetingPassword) {
-      return (
-        <div className="space-y-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Reset Your Password</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
-          </div>
-          
-          {renderAlerts()}
-
-          <form onSubmit={(e) => { e.preventDefault(); handlePasswordReset(); }} className="space-y-6">
-            <div>
-              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700">Email Address</label>
-              <input
-                id="reset-email"
-                type="email"
-                value={emailInput}
-                onChange={handleEmailChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="e.g., student@example.com"
-              />
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                type="button"
-                onClick={() => setIsResetingPassword(false)}
-                className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              >
-                Back to Sign In
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              >
-                Send Reset Link
-              </button>
-            </div>
-          </form>
+  // Render prominent Google/Microsoft login section
+  const renderSocialLogin = () => {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <p className="mt-2 text-sm text-gray-600">
+            Choose your preferred sign-in method below
+          </p>
+          <p className="mt-1 text-sm font-medium text-primary">
+            Recommended: Use your school or personal account
+          </p>
         </div>
-      );
-    }
+        
+        {renderAlerts()}
 
+        <div className="grid grid-cols-1 gap-4">
+          <button
+            onClick={() => handleProviderSignIn(googleProvider)}
+            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+          >
+            <img
+              className="h-6 w-6 mr-3"
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google logo"
+            />
+            <span>Continue with Google</span>
+          </button>
+
+          <button
+            onClick={() => handleProviderSignIn(microsoftProvider)}
+            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+          >
+            <img
+              className="h-6 w-6 mr-3"
+              src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+              alt="Microsoft logo"
+            />
+            <span>Continue with Microsoft</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Render email/password forms for accordion content
+  const renderEmailPasswordForms = () => {
     return (
       <Tabs defaultValue={activeTab} value={activeTab} onValueChange={switchTab} className="w-full">
         <TabsList className="grid grid-cols-2 mb-8">
@@ -464,14 +485,12 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
         <TabsContent value="signin">
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+              <h3 className="text-xl font-bold text-gray-900">Welcome Back</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Sign in to access your RTD Academy courses.
               </p>
             </div>
             
-            {renderAlerts()}
-
             <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
               <div>
                 <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700">Email Address</label>
@@ -517,55 +536,18 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
                 </button>
               </div>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleProviderSignIn(googleProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  alt="Google logo"
-                />
-                <span>Google</span>
-              </button>
-
-              <button
-                onClick={() => handleProviderSignIn(microsoftProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-                  alt="Microsoft logo"
-                />
-                <span>Microsoft</span>
-              </button>
-            </div>
           </div>
         </TabsContent>
         
         <TabsContent value="signup">
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">Create Your Account</h2>
+              <h3 className="text-xl font-bold text-gray-900">Create Your Account</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Join RTD Academy to start learning today.
               </p>
             </div>
             
-            {renderAlerts()}
-
             <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
               <div>
                 <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700">Email Address</label>
@@ -618,44 +600,86 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
                 </button>
               </div>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or sign up with</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleProviderSignIn(googleProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  alt="Google logo"
-                />
-                <span>Google</span>
-              </button>
-
-              <button
-                onClick={() => handleProviderSignIn(microsoftProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-                  alt="Microsoft logo"
-                />
-                <span>Microsoft</span>
-              </button>
-            </div>
           </div>
         </TabsContent>
       </Tabs>
+    );
+  };
+
+  const renderAuthForm = () => {
+    if (isResetingPassword) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Reset Your Password</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+          </div>
+          
+          {renderAlerts()}
+
+          <form onSubmit={(e) => { e.preventDefault(); handlePasswordReset(); }} className="space-y-6">
+            <div>
+              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700">Email Address</label>
+              <input
+                id="reset-email"
+                type="email"
+                value={emailInput}
+                onChange={handleEmailChange}
+                required
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="e.g., student@example.com"
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setIsResetingPassword(false)}
+                className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Back to Sign In
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Send Reset Link
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8">
+        {/* Primary Social Login Section */}
+        {renderSocialLogin()}
+        
+        {/* Secondary Email/Password Section in Accordion */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="email-login">
+            <AccordionTrigger className="text-left" showExpandText={true}>
+              <span className="text-sm text-gray-600">
+                Don't have Google or Microsoft? <span className="font-medium text-gray-900">Use email instead</span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              <div className="space-y-4">
+                <div className="text-center pb-2">
+                  <p className="text-sm text-gray-600">
+                    Sign in or create an account using your email address
+                  </p>
+                </div>
+                {renderAlerts()}
+                {renderEmailPasswordForms()}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
     );
   };
 
@@ -728,15 +752,14 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
         <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
           {!hideWelcome && (
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
-              <h1 className="text-3xl font-extrabold text-center text-primary">RTD Academy</h1>
+              <div className="flex items-end justify-center space-x-3 mb-4">
+                <RTDLogo />
+                <h1 className="text-3xl font-extrabold text-primary leading-none">RTD Academy</h1>
+              </div>
               <p className="mt-2 text-center text-sm text-gray-600">
                 Welcome to the Student Portal. Here you can register for new courses, manage your personal information, and access your enrolled courses.
               </p>
-              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-center text-sm text-purple-700">
-                  <strong>Parents/Guardians:</strong> Use the <Link to="/parent-login" className="text-purple-600 hover:text-purple-800 underline font-medium">Parent Portal</Link> to approve enrollments and manage your children's education.
-                </p>
-              </div>
+         
             </div>
           )}
 

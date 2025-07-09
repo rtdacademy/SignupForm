@@ -1059,50 +1059,109 @@ const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, a
       {isStaffView && questionResult && (
         <div className="mt-3 pt-3 border-t">
           <div className="space-y-2">
-            {/* Student's Selected Answer */}
-            <div>
-              <span className="text-sm font-medium text-gray-700">Student's Answer:</span>
-              <div className={`text-sm mt-1 p-2 rounded border ${
-                questionResult.isCorrect 
-                  ? 'bg-green-50 text-green-800 border-green-200' 
-                  : 'bg-red-50 text-red-800 border-red-200'
-              }`}>
-                <span className="font-medium">{questionResult.selectedOptionId?.toUpperCase() || 'N/A'}:</span>{' '}
-                {questionResult.selectedOptionText || 'No answer text available'}
-              </div>
-            </div>
-            
-            {/* Correct Answer - Only show if student was incorrect */}
-            {!questionResult.isCorrect && (
-              <div>
-                <span className="text-sm font-medium text-gray-700">Correct Answer:</span>
-                <div className="text-sm mt-1 p-2 rounded bg-green-50 text-green-800 border border-green-200">
-                  <span className="font-medium">{questionResult.correctOptionId?.toUpperCase() || 'N/A'}:</span>{' '}
-                  {questionResult.correctOptionText || 'No answer text available'}
+            {/* Check if this is a long answer question by checking if studentAnswer contains HTML */}
+            {questionResult.studentAnswer && questionResult.studentAnswer.includes('<') ? (
+              /* Long Answer Question Display */
+              <>
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Student's Answer:</span>
+                  <div className="mt-2 p-4 border rounded-lg bg-gray-50">
+                    <div 
+                      className="prose prose-sm max-w-none prose-gray"
+                      dangerouslySetInnerHTML={{ __html: questionResult.studentAnswer }}
+                    />
+                  </div>
                 </div>
-              </div>
+                
+                {/* Feedback section for long answer questions */}
+                {questionResult.feedback && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Instructor Feedback:</span>
+                    <div className="text-sm mt-1 p-2 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                      {questionResult.feedback}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Points Earned */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-700">Points Earned:</span>
+                  <span className={`font-medium px-2 py-1 rounded ${
+                    questionResult.points === questionResult.maxPoints 
+                      ? 'text-green-600 bg-green-100' 
+                      : questionResult.points > 0 
+                        ? 'text-yellow-600 bg-yellow-100'
+                        : 'text-red-600 bg-red-100'
+                  }`}>
+                    {questionResult.points || 0} / {questionResult.maxPoints || 1}
+                  </span>
+                </div>
+              </>
+            ) : (
+              /* Multiple Choice Question Display */
+              <>
+                {/* Student's Selected Answer */}
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Student's Answer:</span>
+                  {(() => {
+                    // Find the selected option text from assessmentData
+                    const selectedOption = assessmentData?.options?.find(opt => opt.id === questionResult.studentAnswer);
+                    const selectedText = selectedOption?.text || 'No answer selected';
+                    
+                    return (
+                      <div className={`text-sm mt-1 p-2 rounded border ${
+                        questionResult.isCorrect 
+                          ? 'bg-green-50 text-green-800 border-green-200' 
+                          : 'bg-red-50 text-red-800 border-red-200'
+                      }`}>
+                        <span className="font-medium">{questionResult.studentAnswer?.toUpperCase() || 'N/A'}:</span>{' '}
+                        {selectedText}
+                      </div>
+                    );
+                  })()}
+                </div>
+                
+                {/* Correct Answer - Only show if student was incorrect */}
+                {!questionResult.isCorrect && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Correct Answer:</span>
+                    {(() => {
+                      // Find the correct option text from assessmentData
+                      const correctOption = assessmentData?.options?.find(opt => opt.id === questionResult.correctAnswer);
+                      const correctText = correctOption?.text || 'Answer not available';
+                      
+                      return (
+                        <div className="text-sm mt-1 p-2 rounded bg-green-50 text-green-800 border border-green-200">
+                          <span className="font-medium">{questionResult.correctAnswer?.toUpperCase() || 'N/A'}:</span>{' '}
+                          {correctText}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                
+                {/* Points Earned */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-700">Points Earned:</span>
+                  <span className={`font-medium ${questionResult.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                    {questionResult.points || 0} / {questionResult.maxPoints || 1}
+                  </span>
+                </div>
+              </>
             )}
-            
-            {/* Points Earned */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-gray-700">Points Earned:</span>
-              <span className={`font-medium ${questionResult.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                {questionResult.points || 0} / {questionResult.maxPoints || 1}
-              </span>
-            </div>
           </div>
         </div>
       )}
 
-      {/* All Answer Options - Only for Staff */}
-      {isStaffView && assessmentData?.options && assessmentData.options.length > 0 && (
+      {/* All Answer Options - Only for Staff and Multiple Choice Questions */}
+      {isStaffView && assessmentData?.options && assessmentData.options.length > 0 && !(questionResult.studentAnswer && questionResult.studentAnswer.includes('<')) && (
         <div className="mt-3 pt-3 border-t">
           <div className="space-y-2">
             <span className="text-sm font-medium text-gray-700">All Answer Options:</span>
             <div className="space-y-1">
               {assessmentData.options.map((option) => {
-                const isCorrect = option.id === questionResult?.correctOptionId;
-                const isSelected = option.id === questionResult?.selectedOptionId;
+                const isCorrect = option.id === questionResult?.correctAnswer;
+                const isSelected = option.id === questionResult?.studentAnswer;
                 
                 return (
                   <div 
@@ -1120,6 +1179,7 @@ const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, a
                     <span className="font-medium">{option.id.toUpperCase()})</span> {renderEnhancedText(option.text)}
                     {isCorrect && <span className="ml-2 text-green-600 font-medium">✓ Correct</span>}
                     {isSelected && !isCorrect && <span className="ml-2 text-red-600 font-medium">✗ Selected</span>}
+                    {isSelected && isCorrect && <span className="ml-2 text-green-600 font-medium">✓ Selected & Correct</span>}
                   </div>
                 );
               })}

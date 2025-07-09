@@ -6,6 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 // Import QuillEditor directly
 import QuillEditor from '../../courses/CourseEditor/QuillEditor';
 
+// Import Accordion components
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../components/ui/accordion';
+
 /**
  * Post-Submission Overlay Component
  * 
@@ -56,7 +59,27 @@ const PostSubmissionOverlay = ({
   const [teacherComment, setTeacherComment] = useState('');
   const [originalComment, setOriginalComment] = useState('');
   const [isCommentSaving, setIsCommentSaving] = useState(false);
-  const [currentEditorContent, setCurrentEditorContent] = useState('');
+  
+  // State for teacher comment accordion
+  const [isAccordionOpen, setIsAccordionOpen] = useState(true);
+  
+  // Auto-open/close accordion based on scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      
+      if (scrollY <= 50 && !isAccordionOpen) {
+        // Open when at top of page
+        setIsAccordionOpen(true);
+      } else if (scrollY > 50 && isAccordionOpen) {
+        // Close when scrolled down
+        setIsAccordionOpen(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isAccordionOpen]);
   
   const database = getDatabase();
   const { user } = useAuth();
@@ -141,38 +164,33 @@ const PostSubmissionOverlay = ({
     } else if (!isStaffView && user?.email) {
       // Student viewing their own work - check Firebase database paths
       const emailKey = user.email.replace(/[.#$[\]]/g, '_');
-      commentPath = `courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
       
-      // Also check the student-specific path
+      // Based on your data structure, the correct path should be:
+      // students/{emailKey}/courses/{courseId}/TeacherComments/{questionId}/lab_review
       const studentCommentPath = `students/${emailKey}/courses/${course.CourseID}/TeacherComments/${questionId}/lab_review`;
       
-      // Try course-level first, then student-level
-      const commentRef = ref(database, commentPath);
+      console.log('📄 Student view - loading comment from Firebase path:', studentCommentPath);
+      
       const studentCommentRef = ref(database, studentCommentPath);
       
-      console.log('📄 Loading comment from Firebase paths:', { commentPath, studentCommentPath });
-      
-      const unsubscribe1 = onValue(commentRef, (snapshot) => {
+      const unsubscribe = onValue(studentCommentRef, (snapshot) => {
         const data = snapshot.val();
-        if (data?.content) {
-          console.log('📄 Found comment in course-level Firebase path:', data);
+        console.log('📄 Firebase snapshot data:', data);
+        if (data?.content && data.content.trim()) {
+          console.log('📄 Found comment in student Firebase path:', data);
           setTeacherComment(data.content);
           setOriginalComment(data.content);
+        } else {
+          console.log('📄 No comment content found or content is empty');
+          setTeacherComment('');
+          setOriginalComment('');
         }
-      });
-      
-      const unsubscribe2 = onValue(studentCommentRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data?.content) {
-          console.log('📄 Found comment in student-level Firebase path:', data);
-          setTeacherComment(data.content);
-          setOriginalComment(data.content);
-        }
+      }, (error) => {
+        console.error('📄 Error loading teacher comment:', error);
       });
 
       return () => {
-        off(commentRef, 'value', unsubscribe1);
-        off(studentCommentRef, 'value', unsubscribe2);
+        off(studentCommentRef, 'value', unsubscribe);
       };
     }
     
@@ -401,13 +419,12 @@ const PostSubmissionOverlay = ({
   const handleCommentChange = (content) => {
     console.log('Comment content changed:', content);
     setTeacherComment(content);
-    setCurrentEditorContent(content);
   };
 
   // Handle save and close from QuillEditor
   const handleCommentSaveAndClose = async (contentToSave = null) => {
-    // Use the passed content or fall back to current editor content or state
-    const content = contentToSave || currentEditorContent || teacherComment;
+    // Use the passed content or fall back to current state (now properly tracked via onContentChange)
+    const content = contentToSave || teacherComment;
     console.log('💾 Attempting to save and close with content:', content);
     
     // Update the state first
@@ -540,19 +557,6 @@ const PostSubmissionOverlay = ({
               )}
             </div>
 
-            {/* Teacher Comment Display for Students */}
-            {!isStaffView && teacherComment?.trim() && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-semibold text-blue-800">Teacher Feedback</span>
-                </div>
-                <div 
-                  className="prose prose-sm max-w-none text-gray-800 bg-white p-3 rounded border border-blue-100"
-                  dangerouslySetInnerHTML={{ __html: teacherComment }}
-                />
-              </div>
-            )}
 
             {/* Grading Interface */}
             {maxPoints > 0 && (
@@ -654,6 +658,35 @@ const PostSubmissionOverlay = ({
 
           </div>
         </div>
+        
+        {/* Teacher Comment Accordion - Below Badge */}
+        {!isStaffView && teacherComment?.trim() && (
+          <div className="mt-3">
+            <Accordion 
+              type="single" 
+              value={isAccordionOpen ? "comment" : ""} 
+              className="w-full"
+            >
+              <AccordionItem value="comment" className="border-0 bg-blue-50 rounded-lg">
+                <AccordionTrigger className="px-4 py-3 hover:bg-blue-100">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    <span className="font-semibold text-blue-800">Teacher Feedback</span>
+                    <span className="text-xs text-blue-600 ml-auto">(Auto-opens at top)</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="px-4 pb-4">
+                    <div 
+                      className="prose prose-sm max-w-none p-4 bg-white rounded-lg border border-blue-200 max-h-80 overflow-y-auto"
+                      dangerouslySetInnerHTML={{ __html: teacherComment }}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        )}
       </div>
 
 
@@ -698,6 +731,7 @@ const PostSubmissionOverlay = ({
                     itemId={`${questionId}_lab_review`}
                     initialContent={teacherComment}
                     onSave={handleCommentChange}
+                    onContentChange={handleCommentChange}
                     onError={(error) => console.error('Quill error:', error)}
                     fixedHeight="300px"
                     hideSaveButton={true}

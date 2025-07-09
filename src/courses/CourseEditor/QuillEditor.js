@@ -267,6 +267,7 @@ const QuillEditor = forwardRef(({
   onSave = () => {},
   onSaveAndClose = null,
   onError = () => {},
+  onContentChange = null, // NEW: Callback for real-time content changes
   fixedHeight = null,
   hideSaveButton = false,
 }, ref) => {
@@ -282,6 +283,15 @@ const QuillEditor = forwardRef(({
   useEffect(() => {
     setContent(initialContent || '');
   }, [initialContent]);
+
+  // Handle content changes with optional parent notification
+  const handleContentChange = (value) => {
+    setContent(value);
+    // Notify parent component if callback provided
+    if (onContentChange) {
+      onContentChange(value);
+    }
+  };
 
   useEffect(() => {
     if (!quillRef.current) return;
@@ -454,7 +464,7 @@ const QuillEditor = forwardRef(({
             ref={quillRef}
             theme="snow"
             value={content}
-            onChange={setContent}
+            onChange={handleContentChange}
             modules={modules}
             placeholder="Start creating your content..."
             className={getHeightClass()}
@@ -465,7 +475,7 @@ const QuillEditor = forwardRef(({
               ref={quillRef}
               theme="snow"
               value={content}
-              onChange={setContent}
+              onChange={handleContentChange}
               modules={modules}
               placeholder="Start creating your content..."
               className={getHeightClass()}
