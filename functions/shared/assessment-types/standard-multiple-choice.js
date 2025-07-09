@@ -350,6 +350,7 @@ class StandardMultipleChoiceCore {
       status: 'active',
       maxAttempts: maxAttempts,
       activityType: activityType,
+      assessmentType: params.assessmentType || 'multiple-choice',
       pointsValue: config.pointsValue || activityConfig.pointValue || 1,
       attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
       usedQuestionIds: newUsedQuestionIds,

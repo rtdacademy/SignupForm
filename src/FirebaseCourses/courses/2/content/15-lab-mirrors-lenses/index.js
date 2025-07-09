@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getDatabase, ref, set, update, onValue, serverTimestamp } from 'firebase/database';
 import { useAuth } from '../../../../../context/AuthContext';
-import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import PostSubmissionOverlay from '../../../../components/PostSubmissionOverlay';
 
 /**
  * Lab 2 - Mirrors and Lenses for Physics 30
+ * Item ID: assignment_1747283296777_955
  * Unit: Optics
  */
 
@@ -1078,14 +1082,46 @@ const OpticsSimulation = ({ onDataCollected }) => {
     </div>
   );
 };
-const LabMirrorsLenses = ({ courseId = '2' }) => {
+const LabMirrorsLenses = ({ 
+  courseId = '2', 
+  course,
+  isStaffView = false,
+  devMode = false
+}) => {
   const { currentUser } = useAuth();
+  const database = getDatabase();
+  
+  // Debug render
+  console.log('🔄 LabMirrorsLenses render');
+  
+  // Get questionId from course config
+  const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.['lab_mirrors_lenses']?.questions?.[0]?.questionId || 'course2_lab_mirrors_lenses';
+  console.log('📋 Lab questionId:', questionId);
+  
+  // Create database reference for this lab using questionId - memoized to prevent re-creation
+  const labDataRef = React.useMemo(() => {
+    return currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  }, [currentUser?.uid, database, courseId, questionId]);
+  
+  // Ref to track if component is mounted (for cleanup)
+  const isMountedRef = useRef(true);
   
   // Track lab started state
   const [labStarted, setLabStarted] = useState(false);
   
   // Track if student has saved progress
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  
+  // Track saving state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
+  // Check if lab has been submitted
+  const isSubmitted = course?.Assessments?.[questionId] !== undefined;
+  
+  // Overlay state
+  const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   
   // Track current section
   const [currentSection, setCurrentSection] = useState('introduction');
@@ -1159,17 +1195,40 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
     question4: ''
   });
   
-  // Track notifications
-  const [notification, setNotification] = useState({ message: '', type: '', visible: false });
-  
-  // Track saving/loading state
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   
   // Calculate completion counts
   const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
   const totalSections = Object.keys(sectionStatus).length;
+
+  // Save specific data to Firebase
+  const saveToFirebase = useCallback(async (dataToUpdate) => {
+    if (!currentUser?.uid || !labDataRef) {
+      console.log('🚫 Save blocked: no user or ref');
+      return;
+    }
+    
+    try {
+      console.log('💾 Saving to Firebase:', dataToUpdate);
+      
+      // Create the complete data object to save
+      const dataToSave = {
+        ...dataToUpdate,
+        lastModified: serverTimestamp(),
+        courseId: courseId,
+        labId: '15-lab-mirrors-lenses'
+      };
+      
+      // Use update instead of set to only update specific fields
+      await update(labDataRef, dataToSave);
+      console.log('✅ Save successful!');
+      
+      setHasSavedProgress(true);
+      
+    } catch (error) {
+      console.error('❌ Save failed:', error);
+      toast.error('Failed to save data. Please try again.');
+    }
+  }, [currentUser?.uid, labDataRef, courseId]);
   
   // Helper function to start the lab
   const startLab = () => {
@@ -1183,27 +1242,99 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
     }));
   };
   
-  // Save lab progress to cloud function
-  const saveLabProgress = async (isAutoSave = false) => {
+  // Load lab data from Firebase on component mount
+  useEffect(() => {
+    if (!currentUser?.uid || !labDataRef) return;
+    
+    setIsLoading(true);
+    
+    // Use a one-time listener that auto-unsubscribes
+    let hasLoaded = false;
+    const unsubscribe = onValue(labDataRef, (snapshot) => {
+      if (hasLoaded) return; // Prevent multiple loads
+      hasLoaded = true;
+      
+      console.log('📡 Firebase data fetched:', snapshot.exists());
+      
+      if (snapshot.exists()) {
+        const savedData = snapshot.val();
+        console.log('📖 Loading saved lab data:', savedData);
+        
+        // Restore saved state
+        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
+        if (savedData.equipmentMethod) setEquipmentMethod(savedData.equipmentMethod);
+        if (savedData.procedureUnderstood !== undefined) setProcedureUnderstood(savedData.procedureUnderstood);
+        if (savedData.observationData) {
+          console.log('📊 Loading observation data:', savedData.observationData);
+          setObservationData(savedData.observationData);
+        }
+        if (savedData.analysisData) setAnalysisData(savedData.analysisData);
+        if (savedData.postLabAnswers) setPostLabAnswers(savedData.postLabAnswers);
+        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+      } else {
+        console.log('📝 No previous lab data found, starting fresh');
+      }
+      
+      setIsLoading(false);
+      
+      // Unsubscribe after first load
+      unsubscribe();
+    }, (error) => {
+      if (hasLoaded) return;
+      hasLoaded = true;
+      
+      console.error('❌ Firebase load error:', error);
+      setIsLoading(false);
+      
+      // Unsubscribe on error
+      unsubscribe();
+    });
+    
+    return () => unsubscribe();
+  }, [currentUser?.uid, courseId, questionId]);
+
+  // Auto-start lab for staff view
+  useEffect(() => {
+    if (isStaffView && !labStarted) {
+      setLabStarted(true);
+      setCurrentSection('introduction');
+      setSectionStatus(prev => ({
+        ...prev,
+        introduction: 'completed'
+      }));
+    }
+  }, [isStaffView, labStarted]);
+
+  // Helper function to save and end
+  const saveAndEnd = async () => {
+    await saveToFirebase({
+      sectionStatus,
+      equipmentMethod,
+      procedureUnderstood,
+      observationData,
+      analysisData,
+      postLabAnswers,
+      currentSection,
+      labStarted: false
+    });
+    setLabStarted(false);
+  };
+  
+  // Submit lab for teacher review
+  const submitLab = async () => {
     if (!currentUser) {
-      setNotification({ 
-        message: 'Please log in to save your progress', 
-        type: 'error', 
-        visible: true 
-      });
-      return false;
+      toast.error('Please log in to submit your lab');
+      return;
     }
 
     try {
       setIsSaving(true);
       
-      const functions = getFunctions();
-      const saveFunction = httpsCallable(functions, 'course2_lab_mirrors_lenses');
-      
-      const studentKey = sanitizeEmail(currentUser.email);
-      
-      // Prepare lab data for saving
-      const labData = {
+      // First save current progress
+      await saveToFirebase({
         sectionStatus,
         equipmentMethod,
         procedureUnderstood,
@@ -1211,129 +1342,259 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
         analysisData,
         postLabAnswers,
         currentSection,
-        labStarted,
-        timestamp: new Date().toISOString()
-      };
-      
-      const result = await saveFunction({
-        operation: 'save',
-        studentKey: studentKey,
-        courseId: courseId,
-        assessmentId: 'lab_mirrors_lenses',
-        labData: labData,
-        saveType: isAutoSave ? 'auto' : 'manual',
-        studentEmail: currentUser.email,
-        userId: currentUser.uid
+        labStarted
       });
+
+      // Then submit using the universal lab submission function
+      const functions = getFunctions();
+      const submitFunction = httpsCallable(functions, 'course2_lab_submit');
       
+      const result = await submitFunction({
+        questionId: questionId,
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        courseId: courseId,
+        isStaff: isStaffView
+      });
+
       if (result.data.success) {
-        setHasSavedProgress(true);
-        if (!isAutoSave) {
-          setNotification({ 
-            message: `Lab progress saved successfully! (${result.data.completionPercentage}% complete)`, 
-            type: 'success', 
-            visible: true 
-          });
-        }
-        return true;
+        setShowSubmissionOverlay(true);
+        toast.success('Lab submitted successfully for teacher review!');
       } else {
-        throw new Error('Save operation failed');
+        throw new Error(result.data.message || 'Submission failed');
       }
     } catch (error) {
-      console.error('Error saving lab progress:', error);
-      setNotification({ 
-        message: `Failed to save progress: ${error.message}`, 
-        type: 'error', 
-        visible: true 
-      });
-      return false;
+      console.error('Lab submission error:', error);
+      toast.error(`Failed to submit lab: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
-  
-  // Load lab progress from cloud function
-  const loadLabProgress = async () => {
-    if (!currentUser) return;
 
+  // Print PDF function
+  const handlePrintPDF = async () => {
     try {
-      setIsLoading(true);
+      // Dynamically import jsPDF to avoid bundle size issues
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
       
-      const functions = getFunctions();
-      const loadFunction = httpsCallable(functions, 'course2_lab_mirrors_lenses');
+      const doc = new jsPDF();
+      let yPosition = 20;
       
-      const studentKey = sanitizeEmail(currentUser.email);
+      // Helper function to check if we need a new page
+      const checkNewPage = (additionalSpace = 20) => {
+        if (yPosition > 270 - additionalSpace) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      };
       
-      const result = await loadFunction({
-        operation: 'load',
-        studentKey: studentKey,
-        courseId: courseId,
-        assessmentId: 'lab_mirrors_lenses',
-        studentEmail: currentUser.email,
-        userId: currentUser.uid
-      });
+      // Helper function to add wrapped text
+      const addText = (text, fontSize = 12, fontStyle = 'normal', maxWidth = 170) => {
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', fontStyle);
+        const lines = doc.splitTextToSize(text, maxWidth);
+        checkNewPage(lines.length * 5);
+        doc.text(lines, 20, yPosition);
+        yPosition += lines.length * 5 + 5;
+      };
       
-      if (result.data.success && result.data.found) {
-        const savedData = result.data.labData;
+      // Add title
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Lab 2 - Mirrors and Lenses', 20, yPosition);
+      yPosition += 25;
+      
+      // Add student info
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Student: ${currentUser?.email || 'Unknown'}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
+      yPosition += 20;
+      
+      // Introduction Section
+      addText('Introduction', 16, 'bold');
+      addText('In this lab, you will investigate the properties of light as it interacts with different optical elements including water, mirrors, and lenses.');
+      addText('Lab Objectives:', 14, 'bold');
+      addText('• Measure the index of refraction of water');
+      addText('• Observe light displacement through a solid block');
+      addText('• Confirm the law of reflection for plane mirrors');
+      addText('• Determine focal lengths of curved mirrors');
+      addText('• Determine focal lengths of converging and diverging lenses');
+      yPosition += 10;
+      
+      // Equipment Section
+      checkNewPage(30);
+      addText('Equipment and Materials', 16, 'bold');
+      addText(`Method: ${equipmentMethod || 'Not specified'}`);
+      yPosition += 10;
+      
+      // Procedure Section
+      checkNewPage(30);
+      addText('Procedure', 16, 'bold');
+      addText('This lab consists of five parts, each investigating different optical phenomena:');
+      addText('Part A: Index of Refraction - Using Snell\'s law to determine the refractive index of water');
+      addText('Part B: Light Offset - Observing lateral displacement of light through a transparent block');
+      addText('Part C: Law of Reflection - Verifying that the angle of incidence equals the angle of reflection');
+      addText('Part D: Mirror Focal Length - Measuring focal lengths of converging and diverging mirrors');
+      addText('Part E: Lens Focal Length - Determining focal lengths of different types of lenses');
+      addText(`Procedure understood: ${procedureUnderstood ? 'Yes' : 'No'}`);
+      yPosition += 15;
+      
+      // Simulation Section
+      checkNewPage(40);
+      addText('Interactive Simulation', 16, 'bold');
+      addText('An interactive optics simulation was used to collect data for each part of the experiment.');
+      
+      // Add simulation placeholder
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, yPosition, 170, 60, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Interactive Optics Simulation', 105, yPosition + 20, { align: 'center' });
+      doc.text('(Simulation interface used to collect experimental data)', 105, yPosition + 35, { align: 'center' });
+      doc.text('Data collected for Parts A-E using virtual optical equipment', 105, yPosition + 50, { align: 'center' });
+      yPosition += 75;
+      
+      // Observations & Data Collection
+      checkNewPage(40);
+      addText('Observations & Data Collection', 16, 'bold');
+      
+      // Part A: Index of Refraction Data
+      if (observationData.indexRefraction) {
+        checkNewPage(80);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Part A: Index of Refraction of Water', 20, yPosition);
+        yPosition += 15;
         
-        // Restore saved state
-        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
-        if (savedData.equipmentMethod) setEquipmentMethod(savedData.equipmentMethod);
-        if (savedData.procedureUnderstood !== undefined) setProcedureUnderstood(savedData.procedureUnderstood);
-        if (savedData.observationData) setObservationData(savedData.observationData);
-        if (savedData.analysisData) setAnalysisData(savedData.analysisData);
-        if (savedData.postLabAnswers) setPostLabAnswers(savedData.postLabAnswers);
-        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
-        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        // Create table data for Part A
+        const tableData = [];
+        for (let i = 1; i <= 5; i++) {
+          const trial = observationData.indexRefraction[`trial${i}`];
+          tableData.push([
+            i.toString(),
+            trial?.incidentAngle || '',
+            trial?.refractedAngle || '',
+            trial?.calculatedIndex || ''
+          ]);
+        }
         
-        setHasSavedProgress(true);
-        console.log('Lab progress loaded successfully');
+        // Add table
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Incident Angle (°)', 'Refracted Angle (°)', 'Calculated Index']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 20, right: 20 },
+          styles: { fontSize: 10 }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 15;
       }
-    } catch (error) {
-      console.error('Error loading lab progress:', error);
-      setNotification({ 
-        message: 'Failed to load saved progress', 
-        type: 'error', 
-        visible: true 
+      
+      // Other Parts Data
+      const otherParts = [
+        { 
+          key: 'lightOffset', 
+          title: 'Part B: Light Offset',
+          description: 'Measuring lateral displacement of light through a transparent block'
+        },
+        { 
+          key: 'reflection', 
+          title: 'Part C: Law of Reflection',
+          description: 'Verifying the law of reflection using plane mirrors'
+        },
+        { 
+          key: 'mirrorFocalLength', 
+          title: 'Part D: Mirror Focal Length',
+          description: 'Determining focal lengths of curved mirrors'
+        },
+        { 
+          key: 'lensFocalLength', 
+          title: 'Part E: Lens Focal Length',
+          description: 'Measuring focal lengths of converging and diverging lenses'
+        }
+      ];
+      
+      otherParts.forEach(part => {
+        const data = observationData[part.key];
+        if (data && Object.values(data).some(val => val !== '')) {
+          checkNewPage(40);
+          addText(part.title, 14, 'bold');
+          addText(part.description, 10, 'normal');
+          
+          Object.entries(data).forEach(([key, value]) => {
+            if (value) {
+              const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+              addText(`${label}: ${value}`, 11, 'normal');
+            }
+          });
+          yPosition += 10;
+        }
       });
-    } finally {
-      setIsLoading(false);
+      
+      // Analysis Section
+      checkNewPage(40);
+      addText('Analysis', 16, 'bold');
+      
+      if (analysisData.averageRefractiveIndex || analysisData.percentErrorWater) {
+        addText('Part A Analysis:', 14, 'bold');
+        if (analysisData.averageRefractiveIndex) {
+          addText(`Average Refractive Index of Water: ${analysisData.averageRefractiveIndex}`);
+        }
+        if (analysisData.percentErrorWater) {
+          addText(`Percent Error (accepted value = 1.33): ${analysisData.percentErrorWater}%`);
+        }
+        yPosition += 10;
+      }
+      
+      // Post-lab Questions
+      if (Object.values(postLabAnswers).some(answer => answer.trim() !== '')) {
+        checkNewPage(40);
+        addText('Post-Lab Questions', 16, 'bold');
+        
+        const questions = [
+          'What factors could contribute to experimental error in measuring the refractive index?',
+          'How does the thickness of a transparent material affect light displacement?',
+          'Why is the law of reflection important in optical instrument design?',
+          'Compare the behavior of converging and diverging optical elements.'
+        ];
+        
+        Object.entries(postLabAnswers).forEach(([question, answer], index) => {
+          if (answer.trim()) {
+            checkNewPage(30);
+            addText(`Question ${index + 1}: ${questions[index] || 'Post-lab question'}`, 12, 'bold');
+            addText(`Answer: ${answer.trim()}`, 11, 'normal');
+            yPosition += 10;
+          }
+        });
+      }
+      
+      // Conclusion
+      checkNewPage(30);
+      addText('Lab Completion Summary', 16, 'bold');
+      const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
+      const totalSections = Object.keys(sectionStatus).length;
+      addText(`Sections Completed: ${completedSections}/${totalSections}`);
+      addText(`Lab Status: ${isSubmitted ? 'Submitted for Review' : 'In Progress'}`);
+      if (isSubmitted) {
+        addText(`Submission Date: ${new Date().toLocaleDateString()}`);
+      }
+      
+      // Save the PDF
+      doc.save('Lab_2_Mirrors_and_Lenses.pdf');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF. Please try again.');
     }
   };
-  
-  // Helper function to save and end
-  const saveAndEnd = async () => {
-    const saved = await saveLabProgress(false);
-    if (saved) {
-      setLabStarted(false);
-    }
-  };
-  
-  // Show notification function
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type, visible: true });
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, visible: false }));
-    }, 3000);
-  };
-  
-  // Load progress on component mount
-  useEffect(() => {
-    if (currentUser) {
-      loadLabProgress();
-    }
-  }, [currentUser]);
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (!autoSaveEnabled || !currentUser || !hasSavedProgress) return;
+  
 
-    const autoSaveInterval = setInterval(() => {
-      saveLabProgress(true); // Auto-save
-    }, 30000); // Auto-save every 30 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [autoSaveEnabled, currentUser, hasSavedProgress, sectionStatus, equipmentMethod, procedureUnderstood, observationData, analysisData, postLabAnswers]);
   
   // Scroll to section
   const scrollToSection = (sectionName) => {
@@ -1358,63 +1619,147 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
   
   // Update equipment method selection
   const updateEquipmentMethod = (method, checked) => {
-    setEquipmentMethod(prev => ({
-      ...prev,
+    const newEquipmentMethod = {
+      ...equipmentMethod,
       [method]: checked
-    }));
+    };
+    setEquipmentMethod(newEquipmentMethod);
     
     // Check if at least one method is selected
-    const newMethodState = { ...equipmentMethod, [method]: checked };
-    const anySelected = Object.values(newMethodState).some(val => val === true);
+    const anySelected = Object.values(newEquipmentMethod).some(val => val === true);
     
-    setSectionStatus(prev => ({
-      ...prev,
+    const newSectionStatus = {
+      ...sectionStatus,
       equipment: anySelected ? 'completed' : 'not-started'
-    }));
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      equipmentMethod: newEquipmentMethod,
+      sectionStatus: newSectionStatus
+    });
   };
   
   // Update procedure understanding
   const updateProcedureUnderstood = (checked) => {
     setProcedureUnderstood(checked);
-    setSectionStatus(prev => ({
-      ...prev,
+    
+    const newSectionStatus = {
+      ...sectionStatus,
       procedure: checked ? 'completed' : 'not-started'
-    }));
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      procedureUnderstood: checked,
+      sectionStatus: newSectionStatus
+    });
   };
   
+  // Update multiple observation data fields in a single call (to avoid race conditions)
+  const updateObservationDataBoth = (section, trial, fields) => {
+    console.log(`🔧 updateObservationDataBoth: section=${section}, trial=${trial}, fields=`, fields);
+    let newObservationData;
+    
+    if (section === 'indexRefraction') {
+      newObservationData = {
+        ...observationData,
+        indexRefraction: {
+          ...observationData.indexRefraction,
+          [trial]: {
+            ...observationData.indexRefraction[trial],
+            ...fields
+          }
+        }
+      };
+    } else {
+      newObservationData = {
+        ...observationData,
+        [section]: {
+          ...observationData[section],
+          ...fields
+        }
+      };
+    }
+    
+    setObservationData(newObservationData);
+    
+    // Check completion with new data
+    let totalFields = 0;
+    let filledFields = 0;
+    
+    if (section === 'indexRefraction') {
+      // Count all trial fields
+      Object.values(newObservationData.indexRefraction).forEach(trial => {
+        if (trial.incidentAngle !== undefined) totalFields++;
+        if (trial.refractedAngle !== undefined) totalFields++;
+        if (trial.calculatedIndex !== undefined) totalFields++;
+        
+        if (trial.incidentAngle !== '') filledFields++;
+        if (trial.refractedAngle !== '') filledFields++;
+        if (trial.calculatedIndex !== '') filledFields++;
+      });
+    } else {
+      // Count section fields
+      Object.values(newObservationData[section]).forEach(value => {
+        totalFields++;
+        if (value !== '') filledFields++;
+      });
+    }
+    
+    const completionRatio = totalFields > 0 ? filledFields / totalFields : 0;
+    
+    let newSectionStatus = {
+      ...sectionStatus,
+      observations: completionRatio >= 0.75 ? 'completed' : 
+                    completionRatio > 0 ? 'in-progress' : 'not-started'
+    };
+    
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      observationData: newObservationData,
+      sectionStatus: newSectionStatus
+    });
+  };
+
   // Update observation data
   const updateObservationData = (section, trial, field, value) => {
+    console.log(`🔧 updateObservationData: section=${section}, trial=${trial}, field=${field}, value=${value}`);
+    let newObservationData;
+    
     if (section === 'indexRefraction') {
-      setObservationData(prev => ({
-        ...prev,
+      newObservationData = {
+        ...observationData,
         indexRefraction: {
-          ...prev.indexRefraction,
+          ...observationData.indexRefraction,
           [trial]: {
-            ...prev.indexRefraction[trial],
+            ...observationData.indexRefraction[trial],
             [field]: value
           }
         }
-      }));
+      };
     } else {
-      setObservationData(prev => ({
-        ...prev,
+      newObservationData = {
+        ...observationData,
         [section]: {
-          ...prev[section],
+          ...observationData[section],
           [field]: value
         }
-      }));
+      };
     }
     
-    checkObservationCompletion();
-  };
-  
-  // Check observation completion
-  const checkObservationCompletion = () => {
+    setObservationData(newObservationData);
+    
+    // Check completion with new data
     let totalFields = 0;
     let filledFields = 0;
     
     // Count index refraction fields
-    Object.values(observationData.indexRefraction).forEach(trial => {
+    Object.values(newObservationData.indexRefraction).forEach(trial => {
       totalFields += 3;
       if (trial.incidentAngle) filledFields++;
       if (trial.refractedAngle) filledFields++;
@@ -1423,23 +1768,34 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
     
     // Count other observation fields
     totalFields += 6; // displacement, incident/reflected angles, 4 focal lengths
-    if (observationData.lightOffset.displacement) filledFields++;
-    if (observationData.reflection.incidentAngle) filledFields++;
-    if (observationData.reflection.reflectedAngle) filledFields++;
-    if (observationData.mirrorFocalLength.converging) filledFields++;
-    if (observationData.mirrorFocalLength.diverging) filledFields++;
-    if (observationData.lensFocalLength.converging) filledFields++;
-    if (observationData.lensFocalLength.diverging) filledFields++;
+    if (newObservationData.lightOffset.displacement) filledFields++;
+    if (newObservationData.reflection.incidentAngle) filledFields++;
+    if (newObservationData.reflection.reflectedAngle) filledFields++;
+    if (newObservationData.mirrorFocalLength.converging) filledFields++;
+    if (newObservationData.mirrorFocalLength.diverging) filledFields++;
+    if (newObservationData.lensFocalLength.converging) filledFields++;
+    if (newObservationData.lensFocalLength.diverging) filledFields++;
     
     const percentage = (filledFields / totalFields) * 100;
     
-    if (percentage === 0) {
-      setSectionStatus(prev => ({ ...prev, observations: 'not-started' }));
+    let newStatus = 'not-started';
+    if (percentage > 0 && percentage < 100) {
+      newStatus = 'in-progress';
     } else if (percentage === 100) {
-      setSectionStatus(prev => ({ ...prev, observations: 'completed' }));
-    } else {
-      setSectionStatus(prev => ({ ...prev, observations: 'in-progress' }));
+      newStatus = 'completed';
     }
+    
+    const newSectionStatus = {
+      ...sectionStatus,
+      observations: newStatus
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      observationData: newObservationData,
+      sectionStatus: newSectionStatus
+    });
   };
   
   // Calculate refractive index for a trial
@@ -1481,7 +1837,7 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
     if (!studentAnswer) return false;
     
     const trialData = observationData.indexRefraction[`trial${trial}`];
-    if (!trialData.incidentAngle || !trialData.refractedAngle) return false;
+    if (!trialData?.incidentAngle || !trialData?.refractedAngle) return false;
     
     const correctIndex = calculateRefractiveIndex(trialData.incidentAngle, trialData.refractedAngle);
     if (!correctIndex) return false;
@@ -1520,57 +1876,72 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
   
   // Update analysis data
   const updateAnalysisData = (field, value) => {
-    setAnalysisData(prev => ({
-      ...prev,
+    const newAnalysisData = {
+      ...analysisData,
       [field]: value
-    }));
+    };
+    setAnalysisData(newAnalysisData);
     
-    checkAnalysisCompletion();
-  };
-  
-  // Check analysis completion
-  const checkAnalysisCompletion = () => {
-    const fields = Object.values(analysisData);
-    const filledFields = fields.filter(field => {
-      if (typeof field === 'object') {
-        return Object.values(field).every(val => val !== '');
-      }
-      return field !== '';
-    }).length;
+    // Check completion with new data
+    const requiredFields = [
+      newAnalysisData.averageRefractiveIndex,
+      newAnalysisData.percentErrorWater
+    ];
     
-    if (filledFields === 0) {
-      setSectionStatus(prev => ({ ...prev, analysis: 'not-started' }));
-    } else if (filledFields === fields.length) {
-      setSectionStatus(prev => ({ ...prev, analysis: 'completed' }));
-    } else {
-      setSectionStatus(prev => ({ ...prev, analysis: 'in-progress' }));
+    const filledFields = requiredFields.filter(field => field !== '').length;
+    let newStatus = 'not-started';
+    if (filledFields > 0 && filledFields < requiredFields.length) {
+      newStatus = 'in-progress';
+    } else if (filledFields === requiredFields.length) {
+      newStatus = 'completed';
     }
+    
+    const newSectionStatus = {
+      ...sectionStatus,
+      analysis: newStatus
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      analysisData: newAnalysisData,
+      sectionStatus: newSectionStatus
+    });
   };
   
   
   // Update post-lab answers
   const updatePostLabAnswer = (question, value) => {
-    setPostLabAnswers(prev => ({
-      ...prev,
+    const newPostLabAnswers = {
+      ...postLabAnswers,
       [question]: value
-    }));
+    };
+    setPostLabAnswers(newPostLabAnswers);
     
     // Check completion based on all questions
-    const updatedAnswers = { ...postLabAnswers, [question]: value };
-    const answeredQuestions = Object.values(updatedAnswers).filter(answer => answer.trim().length > 20).length;
-    const totalQuestions = Object.keys(updatedAnswers).length;
+    const answeredQuestions = Object.values(newPostLabAnswers).filter(answer => answer.trim().length > 20).length;
+    const totalQuestions = Object.keys(newPostLabAnswers).length;
     
-    setSectionStatus(prev => ({
-      ...prev,
-      postlab: answeredQuestions === totalQuestions ? 'completed' : answeredQuestions > 0 ? 'in-progress' : 'not-started'
-    }));
+    const newStatus = answeredQuestions === totalQuestions ? 'completed' : answeredQuestions > 0 ? 'in-progress' : 'not-started';
+    
+    const newSectionStatus = {
+      ...sectionStatus,
+      postlab: newStatus
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase immediately
+    saveToFirebase({
+      postLabAnswers: newPostLabAnswers,
+      sectionStatus: newSectionStatus
+    });
   };
   
-  // Show start lab screen if lab hasn't started
-  if (!labStarted) {
+  // Show start lab screen if lab hasn't started (but not for staff view)
+  if (!labStarted && !isStaffView) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Lab 2 - Mirrors and Lenses</h1>
+      <div id="lab-content" className="space-y-6">
+        
         
         {/* Introduction Section */}
         <div className="max-w-4xl mx-auto">
@@ -1657,19 +2028,39 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
   }
   
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Lab 2 - Mirrors and Lenses</h1>
+    <div id="lab-content" className={`space-y-6 relative ${isSubmitted && !isStaffView ? 'lab-input-disabled' : ''}`}>
+      <style dangerouslySetInnerHTML={{__html: `
+        /* Disable inputs for submitted labs (student view only) */
+        .lab-input-disabled input,
+        .lab-input-disabled textarea,
+        .lab-input-disabled button:not(.staff-only):not(.print-button),
+        .lab-input-disabled select {
+          pointer-events: none !important;
+          opacity: 0.7 !important;
+          cursor: not-allowed !important;
+          background-color: #f9fafb !important;
+        }
+        
+        /* Keep certain elements interactive for staff and print button */
+        .lab-input-disabled .staff-only,
+        .lab-input-disabled .print-button {
+          pointer-events: auto !important;
+          opacity: 1 !important;
+          cursor: pointer !important;
+        }
+      `}} />
+      
       
       {/* Combined Navigation & Progress */}
-      <div className="sticky top-0 z-10 bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-md">
+      <div className="sticky top-14 z-10 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-md">
         <div className="flex items-center justify-between">
-          <h3 className="text-md font-semibold text-gray-800">Lab Progress</h3>
+          <h3 className="text-base font-semibold text-gray-800">Lab Progress</h3>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {/* Navigation Buttons */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
               {[
-                { key: 'introduction', label: 'Intro' },
+                { key: 'introduction', label: 'Introduction' },
                 { key: 'equipment', label: 'Equipment' },
                 { key: 'procedure', label: 'Procedure' },
                 { key: 'simulation', label: 'Simulation' },
@@ -1680,7 +2071,7 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
                 <button
                   key={section.key}
                   onClick={() => scrollToSection(section.key)}
-                  className={`px-3 py-2 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
+                  className={`px-3 py-1 text-xs font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
                     sectionStatus[section.key] === 'completed'
                       ? 'bg-green-100 border-green-300 text-green-700'
                       : sectionStatus[section.key] === 'in-progress'
@@ -1691,82 +2082,35 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
                   }`}
                 >
                   <span>{section.label}</span>
-                  {sectionStatus[section.key] === 'completed' && <span className="text-green-600">✓</span>}
+                  {sectionStatus[section.key] === 'completed' && <span className="text-green-600"></span>}
                 </button>
               ))}
             </div>
-            
-            {/* Save Progress Button */}
-            <button 
-              onClick={() => saveLabProgress(false)}
-              disabled={isSaving || !currentUser}
-              className={`px-3 py-2 text-sm font-medium rounded border transition-all duration-200 mr-2 ${
-                isSaving || !currentUser
-                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
-                  : 'bg-green-600 border-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              {isSaving ? 'Saving...' : 'Save Progress'}
-            </button>
-            
-            {/* Save and End Button */}
-            <button 
-              onClick={saveAndEnd}
-              disabled={isSaving || !currentUser}
-              className={`px-4 py-2 font-medium rounded border transition-all duration-200 ${
-                isSaving || !currentUser
-                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
-                  : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {isSaving ? 'Saving...' : 'Save and End'}
-            </button>
           </div>
         </div>
       </div>
       
-      {/* Status Indicators */}
-      {(isLoading || isSaving || autoSaveEnabled) && (
-        <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
-          {isLoading && (
-            <div className="flex items-center text-blue-600 mb-1">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-              Loading progress...
-            </div>
-          )}
-          {isSaving && (
-            <div className="flex items-center text-yellow-600 mb-1">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
-              Saving progress...
-            </div>
-          )}
-          {autoSaveEnabled && currentUser && hasSavedProgress && !isSaving && (
-            <div className="flex items-center text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Auto-save enabled
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Notification Component */}
-      {notification.visible && (
-        <div className={`fixed top-4 right-4 z-50 max-w-sm rounded-lg shadow-lg p-4 transition-all duration-300 ${
-          notification.type === 'success' 
-            ? 'bg-green-100 border border-green-400 text-green-800' 
-            : 'bg-red-100 border border-red-400 text-red-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{notification.message}</span>
-            <button 
-              onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
-              className="ml-2 text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+      {/* Status Indicators - Hide when submitted */}
+      {autoSaveEnabled && !isSubmitted && currentUser && labStarted && (
+        <div className="fixed top-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+          <div className="flex items-center text-green-600">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+            Auto-save enabled
           </div>
         </div>
       )}
+
+      {/* Print PDF Button */}
+      <div className="flex justify-end mb-6">
+        <button 
+          onClick={handlePrintPDF}
+          className="print-button px-4 py-2 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+        >
+          Print PDF
+        </button>
+      </div>
+      
+      {/* Notification Component */}
       
       {/* Introduction Section (Already shown, but kept for navigation) */}
       <div id="section-introduction" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.introduction)}`}>
@@ -1912,10 +2256,14 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
             // Handle data collection from simulation
             if (part === 'A') {
               // Index of refraction data - only populate angles, let students calculate index
+              console.log('🔬 Collecting Part A data:', data);
               Object.keys(data).forEach(trial => {
-                updateObservationData('indexRefraction', trial, 'incidentAngle', data[trial].incidentAngle);
-                updateObservationData('indexRefraction', trial, 'refractedAngle', data[trial].refractedAngle);
-                // Don't auto-populate calculatedIndex - student must calculate it
+                console.log(`📝 Updating ${trial}: incident=${data[trial].incidentAngle}, refracted=${data[trial].refractedAngle}`);
+                // Update both angles in a single call to avoid race conditions
+                updateObservationDataBoth('indexRefraction', trial, {
+                  incidentAngle: data[trial].incidentAngle,
+                  refractedAngle: data[trial].refractedAngle
+                });
               });
             } else if (part === 'B') {
               // Light offset data
@@ -1967,7 +2315,7 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
                     <td className="border border-gray-300 px-4 py-2">
                       <input
                         type="text"
-                        value={observationData.indexRefraction[`trial${trial}`].incidentAngle}
+                        value={observationData.indexRefraction[`trial${trial}`]?.incidentAngle || ''}
                         readOnly
                         className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-700"
                         placeholder=""
@@ -1976,7 +2324,7 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
                     <td className="border border-gray-300 px-4 py-2">
                       <input
                         type="text"
-                        value={observationData.indexRefraction[`trial${trial}`].refractedAngle}
+                        value={observationData.indexRefraction[`trial${trial}`]?.refractedAngle || ''}
                         readOnly
                         className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-700"
                         placeholder=""
@@ -1986,12 +2334,12 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
                       <input
                         type="number"
                         step="0.01"
-                        value={observationData.indexRefraction[`trial${trial}`].calculatedIndex}
+                        value={observationData.indexRefraction[`trial${trial}`]?.calculatedIndex || ''}
                         onChange={(e) => {
                           updateObservationData('indexRefraction', `trial${trial}`, 'calculatedIndex', e.target.value);
                         }}
                         className={`w-full px-2 py-1 border border-gray-300 rounded ${
-                          isCalculatedIndexCorrect(trial, observationData.indexRefraction[`trial${trial}`].calculatedIndex)
+                          isCalculatedIndexCorrect(trial, observationData.indexRefraction[`trial${trial}`]?.calculatedIndex)
                             ? 'bg-green-100 border-green-400'
                             : 'bg-white'
                         }`}
@@ -2235,6 +2583,115 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
           </div>
         </div>
       </div>
+
+      {/* Lab Submission Section */}
+      <div className="border rounded-lg shadow-sm p-6 scroll-mt-32 bg-blue-50 border-blue-200">
+        <h2 className="text-lg font-semibold mb-4 text-blue-700">Submit Lab for Review</h2>
+        
+        <div className="space-y-4">
+          {/* Progress Summary */}
+          <div className="bg-white border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Lab Progress Summary</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {Object.entries(sectionStatus).map(([section, status]) => (
+                <div key={section} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
+                  status === 'completed'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : status === 'in-progress'
+                    ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    : 'bg-gray-50 border-gray-200 text-gray-600'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${
+                    status === 'completed' ? 'bg-green-500' : status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
+                  }`}></div>
+                  <span className="capitalize font-medium">{section.replace(/([A-Z])/g, ' $1').trim()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Submission Instructions */}
+          <div className="bg-white border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Before Submitting:</h3>
+            <ul className="text-sm text-gray-600 space-y-1 list-disc ml-5">
+              <li>Complete all sections of your lab report</li>
+              <li>Review your observation data and calculations for accuracy</li>
+              <li>Ensure your analysis answers are complete and well-written</li>
+              <li>Check that you've answered all post-lab questions thoroughly</li>
+            </ul>
+            <p className="mt-2 text-sm text-blue-600 italic">
+              Once submitted, your teacher will be able to review and grade your work.
+            </p>
+          </div>
+
+          {/* Submit Button - Only show if not submitted */}
+          {!isSubmitted && (
+            <>
+              <div className="flex justify-center">
+                <button
+                  onClick={submitLab}
+                  disabled={isSaving || completedCount < totalSections}
+                  className={`px-8 py-3 rounded-lg font-medium text-white transition-all duration-200 ${
+                    isSaving
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : completedCount >= totalSections
+                      ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isSaving ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Submitting...
+                    </div>
+                  ) : (
+                    'Submit Lab for Review'
+                  )}
+                </button>
+              </div>
+              
+              {completedCount < totalSections && (
+                <p className="text-center text-sm text-gray-500">
+                  Complete all {totalSections} sections to enable submission
+                </p>
+              )}
+            </>
+          )}
+          
+          {/* Submitted status message */}
+          {isSubmitted && (
+            <div className="flex justify-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-md">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-green-800">Lab Successfully Submitted</h3>
+                    <p className="text-xs text-green-700">Your lab has been submitted and is being reviewed by your teacher.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Post-Submission Overlay */}
+      <PostSubmissionOverlay
+        isVisible={showSubmissionOverlay || isSubmitted}
+        isStaffView={isStaffView}
+        course={course}
+        questionId={questionId}
+        submissionData={{
+          labTitle: 'Mirrors and Lenses Lab',
+          completionPercentage: Object.values(sectionStatus).filter(status => status === 'completed').length * (100 / 7), // 7 sections total
+          status: isSubmitted ? 'completed' : 'in-progress',
+          timestamp: course?.Assessments?.[questionId]?.timestamp || new Date().toISOString()
+        }}
+        onContinue={() => {}} // You can add navigation logic here if needed
+        onViewGradebook={() => {}} // You can add gradebook logic here if needed
+        onClose={() => setShowSubmissionOverlay(false)}
+      />
+      
     </div>
   );
 };

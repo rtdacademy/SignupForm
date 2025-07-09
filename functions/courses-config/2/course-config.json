@@ -8,196 +8,10 @@
     "exam": 0.6
   },
   "globalSettings": {
-    "allowLateSubmissions": false,
-    "showProgressBar": true,
-    "showGrades": true,
     "enableAIQuestions": true,
     "enableTextToSpeech": true,
     "enableCollaboration": false,
     "requireSequentialProgress": true
-  },
-  "progressionRequirements": {
-    "enabled": true,
-    "defaultCriteria": {
-      "minimumPercentage": 50,
-      "questionCompletionPercentage": null,
-      "requireAllQuestions": true
-    },
-    "lessonOverrides": {
-      "exam_section_1": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "exam_section_2": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "exam_section_3": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_3": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_4": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l5_7": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "assignment_l8_9": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "assignment_l1_12": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "assignment_l13_14": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l15_18": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_18": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l19_21": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l22_24": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_24": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l25_27": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l28_30": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l31_33": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_34": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l35_36": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l37_38": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "assignment_l1_38": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_momentum_conservation": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "lab_mirrors_lenses": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "lab_laser_wavelength": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "lab_electrostatic": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_electric_fields": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_electromagnet": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_plancks_constant": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_millikans_oil_drop": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_marshmallow_speed_light": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-      "lab_half_life": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": true
-      },
-
-      "09_introduction_to_light": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "10_reflection_of_light": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "11_curved_mirrors": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "12_l5_7_assignment": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "13_refraction_of_light": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "14_optics_lenses": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "16_l8_9_assignment": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "17_dispersion_scattering": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "18_interference_of_light": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "19_diffraction_gratings": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "22_unit_1_review": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      },
-      "23_unit_2_review": {
-        "minimumPercentage": 0,
-        "requireAllQuestions": false
-      }
-    }
   },
   "activityTypes": {
     "lesson": {
@@ -306,44 +120,7 @@
       }
     }
   },
-  "themes": {
-    "lesson": {
-      "primaryColor": "purple",
-      "secondaryColor": "indigo",
-      "accent": "#8b5cf6",
-      "background": "#f5f3ff",
-      "border": "#ddd6fe"
-    },
-    "assignment": {
-      "primaryColor": "blue",
-      "secondaryColor": "sky",
-      "accent": "#3b82f6",
-      "background": "#f0f9ff",
-      "border": "#bfdbfe"
-    },
-    "lab": {
-      "primaryColor": "green",
-      "secondaryColor": "emerald",
-      "accent": "#10b981",
-      "background": "#ecfdf5",
-      "border": "#a7f3d0"
-    },
-    "exam": {
-      "primaryColor": "red",
-      "secondaryColor": "rose",
-      "accent": "#ef4444",
-      "background": "#fef2f2",
-      "border": "#fecaca"
-    },
-    "default": {
-      "primaryColor": "purple",
-      "secondaryColor": "blue",
-      "accent": "#8b5cf6",
-      "background": "#f5f3ff",
-      "border": "#ddd6fe"
-    },
-    "customCSS": ""
-  },
+ 
   "notifications": {
     "enableEmailNotifications": true,
     "enableInAppNotifications": true,
@@ -360,7 +137,7 @@
         "assessmentSettings": {
           "activityType": "exam",
           "timeLimit": 180,
-          "maxAttempts": 10,
+          "maxAttempts": 2,
           "allowEasyExit": false,
           "showExitButton": false,
           "useSession": true,
@@ -502,7 +279,7 @@
         "assessmentSettings": {
           "activityType": "exam",
           "timeLimit": 180,
-          "maxAttempts": 1,
+          "maxAttempts": 2,
           "allowEasyExit": false,
           "showExitButton": false,
           "useSession": true,
@@ -528,7 +305,7 @@
         "assessmentSettings": {
           "activityType": "exam",
           "timeLimit": 180,
-          "maxAttempts": 1,
+          "maxAttempts": 2,
           "allowEasyExit": false,
           "showExitButton": false,
           "useSession": true,

@@ -95,70 +95,503 @@ const LabMomentumConservation = ({
   }, [currentUser?.uid, labDataRef, courseId]);
 
 
-  // Print PDF function
-  const handlePrintPDF = () => {
-    const printWindow = window.open('', '_blank');
-    
-    // Get the lab content
-    const labContent = document.getElementById('lab-content');
-    if (!labContent) {
-      alert('Lab content not found. Please try again.');
-      return;
-    }
-
-    // Create a clean copy of the content for printing
-    const printContent = labContent.cloneNode(true);
-    
-    // Remove interactive elements that shouldn't be printed
-    printContent.querySelectorAll('button, .sticky, .bg-gray-50').forEach(el => {
-      if (el.classList.contains('sticky') || el.classList.contains('bg-gray-50')) {
-        el.remove();
-      } else if (el.tagName === 'BUTTON') {
-        el.style.display = 'none';
+  // Print PDF function using jsPDF
+  const handlePrintPDF = async () => {
+    try {
+      // Dynamically import jsPDF to avoid bundle size issues
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      let yPosition = 20;
+      
+      // Helper function to check if we need a new page
+      const checkNewPage = (additionalSpace = 20) => {
+        if (yPosition > 270 - additionalSpace) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      };
+      
+      // Helper function to add wrapped text
+      const addText = (text, fontSize = 12, fontStyle = 'normal', maxWidth = 170) => {
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', fontStyle);
+        const lines = doc.splitTextToSize(text, maxWidth);
+        checkNewPage(lines.length * 5);
+        doc.text(lines, 20, yPosition);
+        yPosition += lines.length * 5 + 5;
+      };
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Lab 1 - Conservation of Momentum', 20, yPosition);
+      yPosition += 25;
+      
+      // Add student info
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Student: ${currentUser?.email || 'Unknown'}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
+      yPosition += 20;
+      
+      // Introduction Section
+      addText('Introduction', 16, 'bold');
+      addText('In this lab, you will investigate the principle of conservation of momentum in both one-dimensional and two-dimensional collisions using an interactive simulation.');
+      addText('Lab Objectives:', 14, 'bold');
+      addText('• Verify the conservation of momentum in elastic and inelastic collisions');
+      addText('• Analyze momentum transfer in one-dimensional collisions');
+      addText('• Investigate momentum conservation in two-dimensional collisions');
+      addText('• Calculate and analyze percentage differences between theoretical and experimental results');
+      yPosition += 10;
+      
+      // Hypothesis Section
+      if (sectionContent.hypothesis) {
+        checkNewPage(30);
+        addText('Hypothesis', 16, 'bold');
+        addText(sectionContent.hypothesis);
+        yPosition += 10;
       }
-    });
-
-    // Create print document
-    const printDoc = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Lab 1 - Conservation of Momentum</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 20px;
-            line-height: 1.6;
-            color: #333;
+      
+      // Procedure Section
+      checkNewPage(30);
+      addText('Procedure', 16, 'bold');
+      addText('This lab uses an interactive simulation to model momentum conservation in different collision scenarios:');
+      addText('1. One-Dimensional Collisions: Study head-on collisions between objects of different masses');
+      addText('2. Two-Dimensional Collisions: Analyze collisions at various angles');
+      addText('3. Data Collection: Record masses, velocities, and calculate momentum before and after collisions');
+      addText('4. Analysis: Calculate percentage differences and verify conservation laws');
+      addText(`Procedure understood: ${procedureRead ? 'Yes' : 'No'}`);
+      yPosition += 15;
+      
+      // Simulation Section
+      checkNewPage(40);
+      addText('Interactive Simulation', 16, 'bold');
+      addText('A physics simulation was used to model collisions and collect experimental data.');
+      
+      // Add simulation placeholder
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, yPosition, 170, 60, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Interactive Momentum Conservation Simulation', 105, yPosition + 20, { align: 'center' });
+      doc.text('(Simulation interface used to model collisions)', 105, yPosition + 35, { align: 'center' });
+      doc.text('Data collected for 1D and 2D collision scenarios', 105, yPosition + 50, { align: 'center' });
+      yPosition += 75;
+      
+      // Observations & Data Collection
+      checkNewPage(40);
+      addText('Observations & Data Collection', 16, 'bold');
+      
+      // 1D Collision Data
+      if (trialData['1D']) {
+        checkNewPage(80);
+        addText('One-Dimensional Collisions', 14, 'bold');
+        
+        // Create simplified tables for 1D collisions
+        const hasData1D = Object.values(trialData['1D']).some(trial => 
+          trial?.beforeCollision?.puck1?.spacing || trial?.userMomentum?.beforeCollision?.puck1
+        );
+        
+        if (hasData1D) {
+          // Split into multiple simpler tables
+          
+          // Table 1: Before Collision Data
+          const beforeData1D = [];
+          [1, 2, 3].forEach(trialNum => {
+            const trial = trialData['1D'][`trial${trialNum}`];
+            if (trial) {
+              beforeData1D.push([
+                `Trial ${trialNum}`,
+                trial.beforeCollision?.puck1?.spacing || '',
+                trial.beforeCollision?.puck1?.time || '',
+                trial.userMomentum?.beforeCollision?.puck1 || '',
+                trial.beforeCollision?.puck2?.spacing || '',
+                trial.beforeCollision?.puck2?.time || '',
+                trial.userMomentum?.beforeCollision?.puck2 || ''
+              ]);
+            }
+          });
+          
+          addText('Before Collision Data', 12, 'bold');
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Trial', 'Puck1 Spacing (cm)', 'Puck1 Time (s)', 'Puck1 Momentum (kg⋅cm/s)', 'Puck2 Spacing (cm)', 'Puck2 Time (s)', 'Puck2 Momentum (kg⋅cm/s)']],
+            body: beforeData1D,
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+            margin: { left: 10, right: 10 },
+            styles: { fontSize: 9, cellPadding: 3 }
+          });
+          yPosition = doc.lastAutoTable.finalY + 10;
+          
+          // Table 2: After Collision Data
+          const afterData1D = [];
+          [1, 2, 3].forEach(trialNum => {
+            const trial = trialData['1D'][`trial${trialNum}`];
+            if (trial) {
+              afterData1D.push([
+                `Trial ${trialNum}`,
+                trial.afterCollision?.puck1?.spacing || '',
+                trial.afterCollision?.puck1?.time || '',
+                trial.userMomentum?.afterCollision?.puck1 || '',
+                trial.afterCollision?.puck2?.spacing || '',
+                trial.afterCollision?.puck2?.time || '',
+                trial.userMomentum?.afterCollision?.puck2 || ''
+              ]);
+            }
+          });
+          
+          addText('After Collision Data', 12, 'bold');
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Trial', 'Puck1 Spacing (cm)', 'Puck1 Time (s)', 'Puck1 Momentum (kg⋅cm/s)', 'Puck2 Spacing (cm)', 'Puck2 Time (s)', 'Puck2 Momentum (kg⋅cm/s)']],
+            body: afterData1D,
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+            margin: { left: 10, right: 10 },
+            styles: { fontSize: 9, cellPadding: 3 }
+          });
+          yPosition = doc.lastAutoTable.finalY + 15;
+        }
+      }
+      
+      // 2D Collision Data
+      if (trialData['2D']) {
+        checkNewPage(80);
+        addText('Two-Dimensional Collisions', 14, 'bold');
+        
+        // Create simplified tables for 2D collisions
+        const hasData2D = Object.values(trialData['2D']).some(trial => 
+          trial?.userMomentum2D?.beforeCollision?.puck1?.x || trial?.userMomentum2D?.beforeCollision?.puck1?.y
+        );
+        
+        if (hasData2D) {
+          addText('Before Collision - 2D Momentum Components', 12, 'bold');
+          
+          // Before collision data
+          const beforeData2D = [];
+          [1, 2, 3].forEach(trialNum => {
+            const trial = trialData['2D'][`trial${trialNum}`];
+            if (trial) {
+              beforeData2D.push([
+                `Trial ${trialNum}`,
+                trial.userMomentum2D?.beforeCollision?.puck1?.x || '',
+                trial.userMomentum2D?.beforeCollision?.puck1?.y || '',
+                trial.userMomentum2D?.beforeCollision?.puck2?.x || '',
+                trial.userMomentum2D?.beforeCollision?.puck2?.y || ''
+              ]);
+            }
+          });
+          
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Trial', 'Puck1 X-Momentum (kg⋅cm/s)', 'Puck1 Y-Momentum (kg⋅cm/s)', 'Puck2 X-Momentum (kg⋅cm/s)', 'Puck2 Y-Momentum (kg⋅cm/s)']],
+            body: beforeData2D,
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+            margin: { left: 10, right: 10 },
+            styles: { fontSize: 9, cellPadding: 3 }
+          });
+          yPosition = doc.lastAutoTable.finalY + 10;
+          
+          addText('After Collision - 2D Momentum Components', 12, 'bold');
+          
+          // After collision data
+          const afterData2D = [];
+          [1, 2, 3].forEach(trialNum => {
+            const trial = trialData['2D'][`trial${trialNum}`];
+            if (trial) {
+              afterData2D.push([
+                `Trial ${trialNum}`,
+                trial.userMomentum2D?.afterCollision?.puck1?.x || '',
+                trial.userMomentum2D?.afterCollision?.puck1?.y || '',
+                trial.userMomentum2D?.afterCollision?.puck2?.x || '',
+                trial.userMomentum2D?.afterCollision?.puck2?.y || ''
+              ]);
+            }
+          });
+          
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Trial', 'Puck1 X-Momentum (kg⋅cm/s)', 'Puck1 Y-Momentum (kg⋅cm/s)', 'Puck2 X-Momentum (kg⋅cm/s)', 'Puck2 Y-Momentum (kg⋅cm/s)']],
+            body: afterData2D,
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+            margin: { left: 10, right: 10 },
+            styles: { fontSize: 9, cellPadding: 3 }
+          });
+          yPosition = doc.lastAutoTable.finalY + 15;
+        }
+      }
+      
+      // Analysis Section
+      checkNewPage(40);
+      addText('Analysis', 16, 'bold');
+      addText('Calculate the total momentum before and after collision for each trial. Add the individual momentum values from observations to find the total system momentum.');
+      
+      // 1D Analysis - Total Momentum Calculation
+      const hasAnalysis1D = Object.values(trialData['1D']).some(trial => 
+        trial?.totalMomentum?.before || trial?.totalMomentum?.after
+      );
+      
+      if (hasAnalysis1D) {
+        addText('1-D Analysis: Total Momentum Calculation', 14, 'bold');
+        
+        const analysis1DData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['1D'][`trial${trialNum}`];
+          if (trial) {
+            analysis1DData.push([
+              `Trial ${trialNum}`,
+              trial.userMomentum?.beforeCollision?.puck1 || '',
+              trial.userMomentum?.beforeCollision?.puck2 || '',
+              trial.totalMomentum?.before || '',
+              trial.userMomentum?.afterCollision?.puck1 || '',
+              trial.userMomentum?.afterCollision?.puck2 || '',
+              trial.totalMomentum?.after || ''
+            ]);
           }
-          h1, h2, h3 { color: #2563eb; }
-          .section { margin-bottom: 30px; page-break-inside: avoid; }
-          .formula { background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; }
-          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          .no-print { display: none !important; }
-          canvas { border: 1px solid #ccc; }
-          @media print {
-            body { margin: 0; }
-            .section { page-break-inside: avoid; }
-            canvas { break-inside: avoid; }
+        });
+        
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Puck 1 Before (kg⋅cm/s)', 'Puck 2 Before (kg⋅cm/s)', 'Total Before (kg⋅cm/s)', 'Puck 1 After (kg⋅cm/s)', 'Puck 2 After (kg⋅cm/s)', 'Total After (kg⋅cm/s)']],
+          body: analysis1DData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 15;
+      }
+      
+      // 2D Analysis - Total Momentum Components Calculation
+      const hasAnalysis2D = Object.values(trialData['2D']).some(trial => 
+        trial?.totalMomentum2D?.beforeX || trial?.totalMomentum2D?.beforeY || 
+        trial?.totalMomentum2D?.afterX || trial?.totalMomentum2D?.afterY
+      );
+      
+      if (hasAnalysis2D) {
+        addText('2-D Analysis: Total Momentum Components Calculation', 14, 'bold');
+        
+        // Before collision analysis
+        const analysis2DBeforeData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['2D'][`trial${trialNum}`];
+          if (trial) {
+            analysis2DBeforeData.push([
+              `Trial ${trialNum}`,
+              trial.userMomentum2D?.beforeCollision?.puck1?.x || '',
+              trial.userMomentum2D?.beforeCollision?.puck2?.x || '',
+              trial.totalMomentum2D?.beforeX || '',
+              trial.userMomentum2D?.beforeCollision?.puck1?.y || '',
+              trial.userMomentum2D?.beforeCollision?.puck2?.y || '',
+              trial.totalMomentum2D?.beforeY || ''
+            ]);
           }
-        </style>
-      </head>
-      <body>
-        ${printContent.innerHTML}
-      </body>
-      </html>
-    `;
-
-    printWindow.document.write(printDoc);
-    printWindow.document.close();
-    
-    // Wait for content to load then print
-    printWindow.onload = () => {
-      printWindow.print();
-    };
+        });
+        
+        addText('Before Collision - 2D Components', 12, 'bold');
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Puck 1 X', 'Puck 2 X', 'Total X', 'Puck 1 Y', 'Puck 2 Y', 'Total Y']],
+          body: analysis2DBeforeData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        // After collision analysis
+        const analysis2DAfterData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['2D'][`trial${trialNum}`];
+          if (trial) {
+            analysis2DAfterData.push([
+              `Trial ${trialNum}`,
+              trial.userMomentum2D?.afterCollision?.puck1?.x || '',
+              trial.userMomentum2D?.afterCollision?.puck2?.x || '',
+              trial.totalMomentum2D?.afterX || '',
+              trial.userMomentum2D?.afterCollision?.puck1?.y || '',
+              trial.userMomentum2D?.afterCollision?.puck2?.y || '',
+              trial.totalMomentum2D?.afterY || ''
+            ]);
+          }
+        });
+        
+        addText('After Collision - 2D Components', 12, 'bold');
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Puck 1 X', 'Puck 2 X', 'Total X', 'Puck 1 Y', 'Puck 2 Y', 'Total Y']],
+          body: analysis2DAfterData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 15;
+      }
+      
+      // Error Analysis Section  
+      addText('Error Analysis', 16, 'bold');
+      addText('Percent difference between momentum before and after collision for each trial using: |before - after| / ((before + after)/2) × 100%');
+      
+      // 1D Percent Difference
+      const hasError1D = Object.values(trialData['1D']).some(trial => 
+        trial?.percentDifference?.difference || trial?.percentDifference?.average || trial?.percentDifference?.percentage
+      );
+      
+      if (hasError1D) {
+        addText('1-D Collision Percent Difference', 14, 'bold');
+        
+        const error1DData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['1D'][`trial${trialNum}`];
+          if (trial) {
+            error1DData.push([
+              `Trial ${trialNum}`,
+              trial.totalMomentum?.before || '',
+              trial.totalMomentum?.after || '',
+              trial.percentDifference?.difference || '',
+              trial.percentDifference?.average || '',
+              trial.percentDifference?.percentage || ''
+            ]);
+          }
+        });
+        
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Momentum Before (kg⋅cm/s)', 'Momentum After (kg⋅cm/s)', 'Difference', 'Average', 'Percent Difference (%)']],
+          body: error1DData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        // Add average if available
+        if (averagePercentDifference?.oneDimensional) {
+          addText(`1D Average Percent Difference: ${averagePercentDifference.oneDimensional}%`, 12, 'bold');
+        }
+      }
+      
+      // 2D Percent Difference  
+      const hasError2D = Object.values(trialData['2D']).some(trial => 
+        trial?.percentDifference2D?.xDifference || trial?.percentDifference2D?.yDifference
+      );
+      
+      if (hasError2D) {
+        addText('2-D Collision Percent Difference', 14, 'bold');
+        
+        const error2DData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['2D'][`trial${trialNum}`];
+          if (trial) {
+            error2DData.push([
+              `Trial ${trialNum}`,
+              trial.totalMomentum2D?.beforeX || '',
+              trial.totalMomentum2D?.afterX || '',
+              trial.percentDifference2D?.xDifference || '',
+              trial.percentDifference2D?.xPercentage || '',
+              trial.totalMomentum2D?.beforeY || '',
+              trial.totalMomentum2D?.afterY || '',
+              trial.percentDifference2D?.yDifference || '',
+              trial.percentDifference2D?.yPercentage || ''
+            ]);
+          }
+        });
+        
+        // Split into X and Y tables due to width
+        const error2DXData = [];
+        const error2DYData = [];
+        [1, 2, 3].forEach(trialNum => {
+          const trial = trialData['2D'][`trial${trialNum}`];
+          if (trial) {
+            error2DXData.push([
+              `Trial ${trialNum}`,
+              trial.totalMomentum2D?.beforeX || '',
+              trial.totalMomentum2D?.afterX || '',
+              trial.percentDifference2D?.xDifference || '',
+              trial.percentDifference2D?.xPercentage || ''
+            ]);
+            error2DYData.push([
+              `Trial ${trialNum}`,
+              trial.totalMomentum2D?.beforeY || '',
+              trial.totalMomentum2D?.afterY || '',
+              trial.percentDifference2D?.yDifference || '',
+              trial.percentDifference2D?.yPercentage || ''
+            ]);
+          }
+        });
+        
+        addText('X-Component Percent Difference', 12, 'bold');
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Before X', 'After X', 'Difference', 'Percent (%)']],
+          body: error2DXData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 9, cellPadding: 3 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        addText('Y-Component Percent Difference', 12, 'bold');
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Trial', 'Before Y', 'After Y', 'Difference', 'Percent (%)']],
+          body: error2DYData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 9, cellPadding: 3 }
+        });
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        // Add average if available
+        if (averagePercentDifference?.twoDimensional) {
+          addText(`2D Average Percent Difference: ${averagePercentDifference.twoDimensional}%`, 12, 'bold');
+        }
+      }
+      
+      // Conclusion
+      if (sectionContent.conclusion) {
+        checkNewPage(30);
+        addText('Conclusion', 16, 'bold');
+        addText(sectionContent.conclusion);
+        yPosition += 10;
+      }
+      
+      // Lab Completion Summary
+      checkNewPage(30);
+      addText('Lab Completion Summary', 16, 'bold');
+      
+      // Calculate completed sections using the same logic as the UI
+      const completedSections = Object.entries(sectionStatus).filter(([section, status]) => {
+        // Use getSimulationStatus() for simulation section, regular status for others
+        const currentStatus = section === 'simulation' ? getSimulationStatus() : status;
+        return currentStatus === 'completed';
+      }).length;
+      const totalSections = Object.keys(sectionStatus).length;
+      
+      addText(`Sections Completed: ${completedSections}/${totalSections}`);
+      addText(`Lab Status: ${isSubmitted ? 'Submitted for Review' : 'In Progress'}`);
+      if (isSubmitted) {
+        addText(`Submission Date: ${new Date().toLocaleDateString()}`);
+      }
+      
+      // Save the PDF
+      doc.save('Lab_1_Conservation_of_Momentum.pdf');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    }
   };  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
   // Clean separation: Each collision type only stores data relevant to that type
   const [trialData, setTrialData] = useState({
@@ -1968,7 +2401,7 @@ const LabMomentumConservation = ({
         /* Disable inputs for submitted labs (student view only) */
         .lab-input-disabled input,
         .lab-input-disabled textarea,
-        .lab-input-disabled button:not(.staff-only),
+        .lab-input-disabled button:not(.staff-only):not(.print-button),
         .lab-input-disabled select {
           pointer-events: none !important;
           opacity: 0.7 !important;
@@ -1976,8 +2409,9 @@ const LabMomentumConservation = ({
           background-color: #f9fafb !important;
         }
         
-        /* Keep certain elements interactive for staff */
-        .lab-input-disabled .staff-only {
+        /* Keep certain elements interactive for staff and print button */
+        .lab-input-disabled .staff-only,
+        .lab-input-disabled .print-button {
           pointer-events: auto !important;
           opacity: 1 !important;
           cursor: pointer !important;
@@ -2042,7 +2476,7 @@ const LabMomentumConservation = ({
       <div className="flex justify-end mb-6">
         <button 
           onClick={handlePrintPDF}
-          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+          className="print-button px-4 py-2 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200"
         >
           Print PDF
         </button>

@@ -175,7 +175,8 @@ exports.course2_assessments = onCall({
       topic: data.topic || 'general',
       difficulty: data.difficulty || 'intermediate',
       answer: data.answer, // For evaluation operations
-      examMode: data.examMode || false // Pass through exam mode parameter
+      examMode: data.examMode || false, // Pass through exam mode parameter
+      assessmentType: assessmentType // Add assessment type for proper question type tracking
     };
     
     // Handle the request directly using the core logic

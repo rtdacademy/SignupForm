@@ -36,7 +36,7 @@ export const isSequentialAccessEnabled = (courseStructure, courseGradebook = nul
  */
 export const getLessonAccessibility = (courseStructure, assessmentData = {}, courseGradebook = null, options = {}) => {
   const accessibility = {};
-  const { isDeveloperBypass = false, staffOverrides = {} } = options;
+  const { isDeveloperBypass = false, staffOverrides = {}, progressionRequirements = null } = options;
   
   // If sequential access is not enabled, check for development status and staff overrides
   if (!isSequentialAccessEnabled(courseStructure, courseGradebook)) {
@@ -96,6 +96,12 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
         reason: getOverrideReason(override),
         isStaffOverride: true
       };
+    } else if (progressionRequirements?.showAlways?.[firstItem.itemId] === true) {
+      accessibility[firstItem.itemId] = {
+        accessible: true,
+        reason: 'Always visible',
+        isShowAlways: true
+      };
     } else {
       accessibility[firstItem.itemId] = {
         accessible: true,
@@ -120,6 +126,16 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       continue;
     }
     
+    // Check showAlways bypass - second highest priority after staff overrides
+    if (progressionRequirements?.showAlways?.[currentItem.itemId] === true) {
+      accessibility[currentItem.itemId] = {
+        accessible: true,
+        reason: 'Always visible',
+        isShowAlways: true
+      };
+      continue;
+    }
+    
     // Check if current lesson is in development and user is not a developer
     if (currentItem.inDevelopment === true && !isDeveloperBypass) {
       accessibility[currentItem.itemId] = {
@@ -130,12 +146,12 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     }
     
     // Check if previous lesson has assessment attempts/completion
-    // Pass actual grades for more accurate checking
+    // Pass actual grades for more accurate checking and new progression requirements
     const actualGrades = courseGradebook?.grades?.assessments || {};
     const isPreviousCompleted = hasCompletedAssessments(previousItem.itemId, assessmentData, {
       ...courseGradebook,
       grades: { assessments: actualGrades }
-    });
+    }, progressionRequirements);
     
     
     // Get required criteria info for better error messages
@@ -144,81 +160,79 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       ? 'Previous lesson assessments completed'
       : `Complete assessments in "${previousItem.title}" to unlock`;
     
-    if (!isPreviousCompleted && courseGradebook?.courseConfig?.progressionRequirements?.enabled) {
-      const progressionRequirements = courseGradebook.courseConfig.progressionRequirements;
-      const lessonOverride = progressionRequirements.lessonOverrides?.[previousItem.itemId];
-      const defaultCriteria = progressionRequirements.defaultCriteria || {};
-      
-      // Get criteria for previous lesson
-      const criteria = {
-        minimumPercentage: lessonOverride?.minimumPercentage ?? 
-                          defaultCriteria.minimumPercentage ?? 
-                          progressionRequirements.defaultMinimumPercentage ?? 
-                          80,
-        requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
-                            defaultCriteria.requireAllQuestions ?? 
-                            false,
-        questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
-                                     defaultCriteria.questionCompletionPercentage ?? 
-                                     null
-      };
-      
-      requiredPercentage = criteria.minimumPercentage;
-      
-      // Calculate current percentage using new data structure
+    if (!isPreviousCompleted && progressionRequirements?.enabled) {
+      // Get item structure to determine type of previous item
       const itemStructure = courseGradebook?.courseConfig?.gradebook?.itemStructure;
-      const normalizedPreviousId = previousItem.itemId.replace(/-/g, '_');
-      const previousLessonConfig = itemStructure?.[normalizedPreviousId];
+      const previousItemConfig = itemStructure?.[previousItem.itemId];
+      const previousItemType = previousItemConfig?.type || 'lesson';
       
-      let currentPercentage = 0;
-      if (previousLessonConfig && actualGrades) {
-        let totalScore = 0;
-        let totalPossible = 0;
+      // Get criteria for previous lesson based on type and overrides
+      const lessonOverride = progressionRequirements.lessonOverrides?.[previousItem.itemId];
+      const defaultCriteria = progressionRequirements.defaultCriteria?.[previousItemType] || {};
+      
+      let criteria = {};
+      
+      if (previousItemType === 'lesson') {
+        criteria = {
+          minimumPercentage: lessonOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50,
+          requireAllQuestions: lessonOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? false
+        };
+      } else if (['assignment', 'exam', 'quiz'].includes(previousItemType)) {
+        criteria = {
+          sessionsRequired: lessonOverride?.sessionsRequired ?? defaultCriteria.sessionsRequired ?? 1
+        };
+      } else if (previousItemType === 'lab') {
+        criteria = {
+          requiresSubmission: lessonOverride?.requiresSubmission ?? defaultCriteria.requiresSubmission ?? true
+        };
+      }
+      
+      // Generate detailed reason based on item type and criteria
+      if (previousItemType === 'lesson') {
+        requiredPercentage = criteria.minimumPercentage;
         
-        previousLessonConfig.questions?.forEach(question => {
-          const questionId = question.questionId;
-          const maxPoints = question.points || 1;
-          const actualGrade = actualGrades[questionId] || 0;
+        // Calculate current percentage using new data structure
+        let currentPercentage = 0;
+        if (previousItemConfig && actualGrades) {
+          let totalScore = 0;
+          let totalPossible = 0;
           
-          totalPossible += maxPoints;
-          if (actualGrades.hasOwnProperty(questionId)) {
-            totalScore += actualGrade;
-          }
-        });
+          previousItemConfig.questions?.forEach(question => {
+            const questionId = question.questionId;
+            const maxPoints = question.points || 1;
+            const actualGrade = actualGrades[questionId] || 0;
+            
+            totalPossible += maxPoints;
+            if (actualGrades.hasOwnProperty(questionId)) {
+              totalScore += actualGrade;
+            }
+          });
+          
+          currentPercentage = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
+        }
         
-        currentPercentage = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
-      }
-      
-      // Fallback to legacy courseStructureItems if available
-      if (currentPercentage === 0) {
-        const courseStructureItems = courseGradebook.courseStructureItems || {};
-        const previousLessonData = courseStructureItems[previousItem.itemId];
-        currentPercentage = previousLessonData?.percentage || 0;
-      }
-      
-      // Generate detailed reason based on criteria
-      let requirementParts = [];
-      
-      // Only include score requirement if minimumPercentage > 0
-      if (criteria.minimumPercentage > 0) {
-        requirementParts.push(`${criteria.minimumPercentage}% score`);
-      }
-      
-      if (criteria.requireAllQuestions) {
-        requirementParts.push('all questions');
-      } else if (criteria.questionCompletionPercentage && criteria.questionCompletionPercentage > 0) {
-        requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
-      }
-      
-      const requirementText = requirementParts.length > 0 
-        ? requirementParts.join(' + ')
-        : 'completion';
-      
-      // Adjust the message based on whether we have score requirements
-      if (criteria.minimumPercentage > 0) {
-        detailedReason = `Need ${requirementText} in "${previousItem.title}" (currently ${currentPercentage}%)`;
-      } else {
-        detailedReason = `Answer ${requirementText} in "${previousItem.title}" to unlock`;
+        // Generate lesson-specific reason
+        let requirementParts = [];
+        if (criteria.minimumPercentage > 0) {
+          requirementParts.push(`${criteria.minimumPercentage}% score`);
+        }
+        if (criteria.requireAllQuestions) {
+          requirementParts.push('all questions');
+        }
+        
+        const requirementText = requirementParts.length > 0 
+          ? requirementParts.join(' + ')
+          : 'completion';
+        
+        if (criteria.minimumPercentage > 0) {
+          detailedReason = `Need ${requirementText} in "${previousItem.title}" (currently ${currentPercentage}%)`;
+        } else {
+          detailedReason = `Answer ${requirementText} in "${previousItem.title}" to unlock`;
+        }
+      } else if (['assignment', 'exam', 'quiz'].includes(previousItemType)) {
+        detailedReason = `Complete ${criteria.sessionsRequired} session${criteria.sessionsRequired > 1 ? 's' : ''} of "${previousItem.title}" to unlock`;
+      } else if (previousItemType === 'lab') {
+        detailedReason = `Submit all required work for "${previousItem.title}" to unlock`;
       }
     }
     
@@ -245,7 +259,7 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
  * @param {Object} courseGradebook - Full course gradebook object with config and courseStructureItems
  * @returns {boolean} - Whether the lesson meets completion requirements
  */
-export const hasCompletedAssessments = (lessonId, assessmentData, courseGradebook = null) => {
+export const hasCompletedAssessments = (lessonId, assessmentData, courseGradebook = null, progressionRequirements = null) => {
   // If no course gradebook provided, fall back to legacy completion checking
   if (!courseGradebook) {
     return hasBasicCompletionCheck(lessonId, assessmentData);
@@ -263,7 +277,6 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   }
   
   const courseConfig = courseGradebook.courseConfig;
-  const progressionRequirements = courseConfig?.progressionRequirements;
   
   // If progression requirements are not enabled, use basic completion check
   if (!progressionRequirements?.enabled) {
@@ -292,30 +305,51 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
-  // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
-  const normalizedLessonId = lessonId.replace(/-/g, '_');
-  const lessonConfig = itemStructure[normalizedLessonId];
+  // Use itemId directly (should already be in underscore format)
+  const lessonConfig = itemStructure[lessonId];
   
-  if (!lessonConfig || !lessonConfig.questions) {
+  if (!lessonConfig) {
     return hasBasicCompletionCheck(lessonId, assessmentData);
   }
   
-  // Get progression criteria for this lesson (with fallback to defaults)
-  const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId] || progressionRequirements.lessonOverrides?.[normalizedLessonId];
-  const defaultCriteria = progressionRequirements.defaultCriteria || {};
+  // Get item type to determine completion logic
+  const itemType = lessonConfig.type || 'lesson';
   
-  // Determine criteria to use (lesson override takes precedence, then defaults, then legacy fallback)
+  // Get progression criteria for this item (with fallback to defaults)
+  const lessonOverride = progressionRequirements.lessonOverrides?.[lessonId];
+  const defaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
+  
+  // Handle different item types
+  if (itemType === 'lesson') {
+    return checkLessonCompletion(lessonId, lessonConfig, actualGrades, lessonOverride, defaultCriteria);
+  } else if (['assignment', 'exam', 'quiz'].includes(itemType)) {
+    return checkSessionCompletion(lessonId, courseGradebook, lessonOverride, defaultCriteria);
+  } else if (itemType === 'lab') {
+    return checkLabCompletion(lessonId, lessonConfig, courseGradebook, lessonOverride, defaultCriteria);
+  }
+  
+  // Fallback for unknown types
+  return hasBasicCompletionCheck(lessonId, assessmentData);
+};
+
+/**
+ * Check lesson completion for type: 'lesson'
+ * @param {string} lessonId - The lesson item ID
+ * @param {Object} lessonConfig - The lesson configuration from itemStructure
+ * @param {Object} actualGrades - course.Grades.assessments
+ * @param {Object} lessonOverride - Override criteria for this lesson
+ * @param {Object} defaultCriteria - Default criteria for lessons
+ * @returns {boolean} - Whether the lesson meets completion requirements
+ */
+const checkLessonCompletion = (lessonId, lessonConfig, actualGrades, lessonOverride, defaultCriteria) => {
+  if (!lessonConfig.questions) {
+    return false;
+  }
+  
+  // Get criteria for this lesson
   const criteria = {
-    minimumPercentage: lessonOverride?.minimumPercentage ?? 
-                      defaultCriteria.minimumPercentage ?? 
-                      progressionRequirements.defaultMinimumPercentage ?? 
-                      50,
-    requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
-                        defaultCriteria.requireAllQuestions ?? 
-                        false,
-    questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
-                                 defaultCriteria.questionCompletionPercentage ?? 
-                                 null
+    minimumPercentage: lessonOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50,
+    requireAllQuestions: lessonOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? false
   };
   
   // Calculate lesson score using actual grades
@@ -347,19 +381,68 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   if (criteria.requireAllQuestions) {
     // Must answer ALL questions
     meetsQuestionRequirement = attemptedQuestions >= totalQuestions;
-    
-  } else if (criteria.questionCompletionPercentage !== null && criteria.questionCompletionPercentage > 0) {
-    // Must answer specified percentage of questions
-    const questionCompletionPercentage = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
-    meetsQuestionRequirement = questionCompletionPercentage >= criteria.questionCompletionPercentage;
-    
   }
   
   // Must meet ALL criteria (AND logic)
-  const meetsAllRequirements = meetsPercentageRequirement && meetsQuestionRequirement;
+  return meetsPercentageRequirement && meetsQuestionRequirement;
+};
+
+/**
+ * Check session completion for type: 'assignment', 'exam', 'quiz'
+ * @param {string} itemId - The assessment item ID
+ * @param {Object} courseGradebook - Course gradebook with ExamSessions
+ * @param {Object} lessonOverride - Override criteria for this item
+ * @param {Object} defaultCriteria - Default criteria for this item type
+ * @returns {boolean} - Whether the required number of sessions are completed
+ */
+const checkSessionCompletion = (itemId, courseGradebook, lessonOverride, defaultCriteria) => {
+  const criteria = {
+    sessionsRequired: lessonOverride?.sessionsRequired ?? defaultCriteria.sessionsRequired ?? 1
+  };
   
+  // Get ExamSessions from course data (located at root level)
+  const examSessions = courseGradebook?.ExamSessions || {};
   
-  return meetsAllRequirements;
+  // Find sessions for this assessment (itemId should already be in correct format)
+  const completedSessions = Object.values(examSessions).filter(session => {
+    return session?.examItemId === itemId && session?.status === 'completed';
+  });
+  
+  return completedSessions.length >= criteria.sessionsRequired;
+};
+
+/**
+ * Check lab completion for type: 'lab'
+ * @param {string} itemId - The lab item ID
+ * @param {Object} lessonConfig - The lab configuration from itemStructure
+ * @param {Object} courseGradebook - Course gradebook with assessments
+ * @param {Object} lessonOverride - Override criteria for this lab
+ * @param {Object} defaultCriteria - Default criteria for labs
+ * @returns {boolean} - Whether the lab submission requirements are met
+ */
+const checkLabCompletion = (itemId, lessonConfig, courseGradebook, lessonOverride, defaultCriteria) => {
+  const criteria = {
+    requiresSubmission: lessonOverride?.requiresSubmission ?? defaultCriteria.requiresSubmission ?? true
+  };
+  
+  if (!criteria.requiresSubmission) {
+    return true; // If no submission required, consider it complete
+  }
+  
+  if (!lessonConfig.questions) {
+    return false;
+  }
+  
+  // Get assessments from course data (located at root level)
+  const assessments = courseGradebook?.Assessments || {};
+  
+  // Check if all lab questions have submissions
+  const allQuestionsSubmitted = lessonConfig.questions.every(question => {
+    const questionId = question.questionId;
+    return assessments.hasOwnProperty(questionId);
+  });
+  
+  return allQuestionsSubmitted;
 };
 
 /**
@@ -527,9 +610,8 @@ const getTotalQuestionsForLesson = (lessonId, courseConfig) => {
     return 0;
   }
   
-  // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
-  const normalizedLessonId = lessonId.replace(/-/g, '_');
-  const lessonStructure = gradebookStructure[normalizedLessonId];
+  // Use lessonId directly (should already be in correct format)
+  const lessonStructure = gradebookStructure[lessonId];
   
   if (!lessonStructure || !lessonStructure.questions) {
     return 0;
@@ -555,9 +637,8 @@ const getAttemptedQuestionsForLesson = (lessonId, assessmentData, courseConfig =
       return 0;
     }
     
-    // Normalize lesson ID: "01-physics-20-review" -> "01_physics_20_review"
-    const normalizedLessonId = lessonId.replace(/-/g, '_');
-    const lessonStructure = gradebookStructure[normalizedLessonId];
+    // Use lessonId directly (should already be in correct format)
+    const lessonStructure = gradebookStructure[lessonId];
     
     if (!lessonStructure || !lessonStructure.questions) {
       return 0;
