@@ -53,6 +53,17 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
         return;
       }
 
+      // Check visibility overrides - highest priority restriction
+      const visibility = progressionRequirements?.visibility?.[item.itemId];
+      if (visibility === 'never') {
+        accessibility[item.itemId] = {
+          accessible: false,
+          reason: 'Never visible',
+          isNeverVisible: true
+        };
+        return;
+      }
+
       // Check if lesson is in development and user is not a developer
       if (item.inDevelopment === true && !isDeveloperBypass) {
         accessibility[item.itemId] = {
@@ -96,17 +107,26 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
         reason: getOverrideReason(override),
         isStaffOverride: true
       };
-    } else if (progressionRequirements?.showAlways?.[firstItem.itemId] === true) {
-      accessibility[firstItem.itemId] = {
-        accessible: true,
-        reason: 'Always visible',
-        isShowAlways: true
-      };
     } else {
-      accessibility[firstItem.itemId] = {
-        accessible: true,
-        reason: 'First lesson'
-      };
+      const visibility = progressionRequirements?.visibility?.[firstItem.itemId];
+      if (visibility === 'never') {
+        accessibility[firstItem.itemId] = {
+          accessible: false,
+          reason: 'Never visible',
+          isNeverVisible: true
+        };
+      } else if (visibility === 'always') {
+        accessibility[firstItem.itemId] = {
+          accessible: true,
+          reason: 'Always visible',
+          isShowAlways: true
+        };
+      } else {
+        accessibility[firstItem.itemId] = {
+          accessible: true,
+          reason: 'First lesson'
+        };
+      }
     }
   }
   
@@ -126,8 +146,19 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       continue;
     }
     
-    // Check showAlways bypass - second highest priority after staff overrides
-    if (progressionRequirements?.showAlways?.[currentItem.itemId] === true) {
+    // Check visibility overrides - highest priority restriction (even above staff overrides)
+    const visibility = progressionRequirements?.visibility?.[currentItem.itemId];
+    if (visibility === 'never') {
+      accessibility[currentItem.itemId] = {
+        accessible: false,
+        reason: 'Never visible',
+        isNeverVisible: true
+      };
+      continue;
+    }
+
+    // Check always visible bypass - second highest priority after staff overrides
+    if (visibility === 'always') {
       accessibility[currentItem.itemId] = {
         accessible: true,
         reason: 'Always visible',
@@ -439,9 +470,17 @@ const checkLabCompletion = (itemId, lessonConfig, courseGradebook, lessonOverrid
   // Check if all lab questions have submissions
   const allQuestionsSubmitted = lessonConfig.questions.every(question => {
     const questionId = question.questionId;
-    return assessments.hasOwnProperty(questionId);
+    const hasSubmission = assessments.hasOwnProperty(questionId);
+    
+    if (!hasSubmission) {
+      console.log(`Lab completion check: ${itemId} - Question ${questionId} not found in assessments`);
+      console.log('Available assessments:', Object.keys(assessments));
+    }
+    
+    return hasSubmission;
   });
   
+  console.log(`Lab completion result for ${itemId}: ${allQuestionsSubmitted}`);
   return allQuestionsSubmitted;
 };
 

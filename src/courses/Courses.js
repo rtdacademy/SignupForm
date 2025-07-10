@@ -605,35 +605,67 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
       }
     },
     lessonOverrides: {},
-    showAlways: {}
+    visibility: {}
   });
   const [availableLessons, setAvailableLessons] = useState([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
 
   useEffect(() => {
-    setRequirements(progressionRequirements || {
-      enabled: false,
-      defaultCriteria: {
-        lesson: {
-          minimumPercentage: 50,
-          requireAllQuestions: true
-        },
-        assignment: {
-          sessionsRequired: 1
-        },
-        exam: {
-          sessionsRequired: 1
-        },
-        quiz: {
-          sessionsRequired: 1
-        },
-        lab: {
-          requiresSubmission: true
+    // Handle migration from old structure to new
+    if (progressionRequirements) {
+      const migrated = { ...progressionRequirements };
+      
+      // Migrate from showAlways/neverVisible to visibility
+      if (!migrated.visibility && (migrated.showAlways || migrated.neverVisible)) {
+        migrated.visibility = {};
+        
+        // Migrate showAlways entries
+        if (migrated.showAlways) {
+          Object.entries(migrated.showAlways).forEach(([lessonId, value]) => {
+            if (value === true) {
+              migrated.visibility[lessonId] = 'always';
+            }
+          });
+          delete migrated.showAlways;
         }
-      },
-      lessonOverrides: {},
-      showAlways: {}
-    });
+        
+        // Migrate neverVisible entries
+        if (migrated.neverVisible) {
+          Object.entries(migrated.neverVisible).forEach(([lessonId, value]) => {
+            if (value === true) {
+              migrated.visibility[lessonId] = 'never';
+            }
+          });
+          delete migrated.neverVisible;
+        }
+      }
+      
+      setRequirements(migrated);
+    } else {
+      setRequirements({
+        enabled: false,
+        defaultCriteria: {
+          lesson: {
+            minimumPercentage: 50,
+            requireAllQuestions: true
+          },
+          assignment: {
+            sessionsRequired: 1
+          },
+          exam: {
+            sessionsRequired: 1
+          },
+          quiz: {
+            sessionsRequired: 1
+          },
+          lab: {
+            requiresSubmission: true
+          }
+        },
+        lessonOverrides: {},
+        visibility: {}
+      });
+    }
   }, [progressionRequirements]);
 
   // Fetch available lessons from course structure
@@ -727,7 +759,8 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
         }
       },
       lessonOverrides: {}, // Clear all overrides
-      showAlways: {} // Clear all always visible settings
+      showAlways: {}, // Clear all always visible settings
+      neverVisible: {} // Clear all never visible settings
     };
     setRequirements(defaultRequirements);
     updateDatabase(defaultRequirements);
@@ -749,18 +782,22 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
     updateDatabase(updatedRequirements);
   };
 
-  const handleShowAlwaysChange = (lessonId, checked) => {
+  const handleVisibilityChange = (lessonId, visibilityType) => {
     const updatedRequirements = {
       ...requirements,
-      showAlways: {
-        ...requirements.showAlways,
-        [lessonId]: checked
+      visibility: {
+        ...requirements.visibility
       }
     };
-    // Remove false values to keep the object clean
-    if (!checked) {
-      delete updatedRequirements.showAlways[lessonId];
+    
+    if (visibilityType === 'default') {
+      // Remove the visibility override entirely
+      delete updatedRequirements.visibility[lessonId];
+    } else {
+      // Set to 'always' or 'never'
+      updatedRequirements.visibility[lessonId] = visibilityType;
     }
+    
     setRequirements(updatedRequirements);
     updateDatabase(updatedRequirements);
   };
@@ -849,8 +886,10 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   };
 
   const overrideEntries = Object.entries(requirements.lessonOverrides || {});
-  const showAlwaysEntries = Object.entries(requirements.showAlways || {}).filter(([_, value]) => value === true);
-  const shouldOpenAccordion = showAlwaysEntries.length > 0;
+  const visibilityEntries = Object.entries(requirements.visibility || {});
+  const alwaysVisibleCount = visibilityEntries.filter(([_, value]) => value === 'always').length;
+  const neverVisibleCount = visibilityEntries.filter(([_, value]) => value === 'never').length;
+  const shouldOpenAccordion = visibilityEntries.length > 0;
 
   return (
     <div className="space-y-6">
@@ -1065,26 +1104,26 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
             </div>
           </div>
 
-          {/* Always Visible Lessons */}
+          {/* Lesson Visibility Overrides */}
           <Accordion 
             type="single" 
             collapsible 
-            defaultValue={shouldOpenAccordion ? "always-visible" : undefined}
+            defaultValue={shouldOpenAccordion ? "visibility-overrides" : undefined}
             className="w-full"
           >
-            <AccordionItem value="always-visible">
+            <AccordionItem value="visibility-overrides">
               <AccordionTrigger className="text-md font-semibold text-gray-800">
-                Always Visible Lessons
-                {showAlwaysEntries.length > 0 && (
+                Lesson Visibility Overrides
+                {visibilityEntries.length > 0 && (
                   <span className="ml-2 text-sm font-normal text-gray-600">
-                    ({showAlwaysEntries.length} lesson{showAlwaysEntries.length !== 1 ? 's' : ''} always visible)
+                    ({alwaysVisibleCount} always visible, {neverVisibleCount} hidden)
                   </span>
                 )}
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-3 px-4 py-2">
                   <p className="text-sm text-gray-600 mb-4">
-                    Lessons marked as "Always Visible" will bypass progression requirements and always be accessible to students.
+                    Override the default visibility behavior for specific lessons. "Always Visible" bypasses progression requirements, "Never Visible" hides the lesson completely.
                   </p>
                   
                   {loadingLessons ? (
@@ -1096,58 +1135,81 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                       No lessons available to configure.
                     </p>
                   ) : (
-                    <div className="space-y-1">
-                      {availableLessons.map(lesson => (
-                        <div key={lesson.itemId} className="flex items-center space-x-3 py-2 px-3 hover:bg-gray-50 rounded">
-                          <input
-                            type="checkbox"
-                            id={`always-visible-${lesson.itemId}`}
-                            checked={requirements.showAlways?.[lesson.itemId] || false}
-                            onChange={(e) => handleShowAlwaysChange(lesson.itemId, e.target.checked)}
-                            disabled={!isEditing}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <div className="flex-1 flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <label 
-                                htmlFor={`always-visible-${lesson.itemId}`}
-                                className="text-sm font-medium text-gray-900 cursor-pointer"
-                              >
-                                {lesson.title}
-                              </label>
-                              <span className="text-sm text-gray-600">•</span>
-                              <span className="text-sm text-gray-600">{lesson.unitName}</span>
+                    <div className="space-y-2">
+                      {availableLessons.map(lesson => {
+                        const currentVisibility = requirements.visibility?.[lesson.itemId] || 'default';
+                        return (
+                          <div key={lesson.itemId} className="flex items-center space-x-3 py-3 px-3 hover:bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {lesson.title}
+                                </span>
+                                <span className="text-sm text-gray-600">•</span>
+                                <span className="text-sm text-gray-600">{lesson.unitName}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {lesson.type === 'lesson' && (
+                                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                    Lesson
+                                  </span>
+                                )}
+                                {lesson.type === 'assignment' && (
+                                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                    Assignment
+                                  </span>
+                                )}
+                                {lesson.type === 'exam' && (
+                                  <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
+                                    Exam
+                                  </span>
+                                )}
+                                {lesson.type === 'lab' && (
+                                  <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                                    Lab
+                                  </span>
+                                )}
+                                {lesson.type === 'quiz' && (
+                                  <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                    Quiz
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              {lesson.type === 'lesson' && (
-                                <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                                  Lesson
-                                </span>
-                              )}
-                              {lesson.type === 'assignment' && (
-                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                                  Assignment
-                                </span>
-                              )}
-                              {lesson.type === 'exam' && (
-                                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
-                                  Exam
-                                </span>
-                              )}
-                              {lesson.type === 'lab' && (
-                                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
-                                  Lab
-                                </span>
-                              )}
-                              {lesson.type === 'quiz' && (
-                                <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                                  Quiz
-                                </span>
-                              )}
+                              <Select
+                                value={currentVisibility}
+                                onValueChange={(value) => handleVisibilityChange(lesson.itemId, value)}
+                                disabled={!isEditing}
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="default">
+                                    <span className="flex items-center">
+                                      <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                      Default
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="always">
+                                    <span className="flex items-center">
+                                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                      Always Visible
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="never">
+                                    <span className="flex items-center">
+                                      <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                                      Never Visible
+                                    </span>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

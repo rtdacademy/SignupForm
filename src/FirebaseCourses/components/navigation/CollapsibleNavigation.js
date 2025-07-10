@@ -18,7 +18,9 @@ import {
   Lock,
   RefreshCw,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
@@ -393,6 +395,9 @@ const CollapsibleNavigation = ({
     // SEQUENTIAL_ACCESS_UPDATE: Updated styling and click handler for lesson access control
     // Original styling (before sequential access): Only had isActive, isNextItem, isCompleted states
     const getItemStyling = () => {
+      if (accessInfo.isNeverVisible) {
+        return 'bg-gray-50 text-gray-400 cursor-not-allowed opacity-60 border border-gray-200';
+      }
       if (isInDevelopment && !isAccessible) {
         return 'bg-yellow-100 text-yellow-600 cursor-not-allowed opacity-70 border border-yellow-200';
       }
@@ -401,6 +406,9 @@ const CollapsibleNavigation = ({
       }
       if (isActive) {
         return 'bg-blue-50 border border-blue-200 shadow-sm ring-2 ring-blue-300/50 rounded-md';
+      }
+      if (accessInfo.isShowAlways) {
+        return 'bg-blue-50 border-l-2 border-blue-400 pl-1.5';
       }
       if (isNextItem) {
         return 'bg-purple-50 border-l-2 border-purple-400 pl-1.5';
@@ -419,6 +427,10 @@ const CollapsibleNavigation = ({
             onClick={() => {
               // SEQUENTIAL_ACCESS_UPDATE: Added access control to click handler
               // Original click handler (before sequential access): onClick={() => onItemSelect(item.itemId)}
+              if (accessInfo.isNeverVisible) {
+                toast.info('This lesson is currently hidden from students');
+                return;
+              }
               if (isInDevelopment && !isAccessible) {
                 toast.info('This lesson is currently being developed. Check back soon!');
                 return;
@@ -439,6 +451,8 @@ const CollapsibleNavigation = ({
                   {/* Original icon logic (before sequential access): Only had isCompleted, isNextItem, and default type icons */}
                   {hasCalculationError ? (
                     <AlertCircle className="text-red-500 h-4 w-4" />
+                  ) : accessInfo.isNeverVisible ? (
+                    <X className="text-red-500 h-4 w-4" />
                   ) : isInDevelopment && !isAccessible ? (
                     <AlertCircle className="text-yellow-500 h-4 w-4" />
                   ) : !isAccessible ? (
@@ -458,6 +472,13 @@ const CollapsibleNavigation = ({
                 </span>
               </div>
               <div className="flex items-center gap-2 ml-2">
+                {/* Visibility override indicators */}
+                {accessInfo.isShowAlways && (
+                  <Eye className="w-3 h-3 text-blue-500 opacity-60" />
+                )}
+                {accessInfo.isNeverVisible && (
+                  <EyeOff className="w-3 h-3 text-gray-500 opacity-60" />
+                )}
                 {hasCalculationError ? (
                   <span className="text-xs font-semibold text-red-600">
                     ERROR
@@ -516,7 +537,16 @@ const CollapsibleNavigation = ({
             {!hasCalculationError && isInDevelopment && !isAccessible && (
               <p className="text-sm text-yellow-600 font-medium">🚧 {accessInfo.reason}</p>
             )}
-            {!isAccessible && !isInDevelopment && (
+            {accessInfo.isNeverVisible && (
+              <div className="flex items-center gap-2">
+                <EyeOff className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Never Visible</p>
+                  <p className="text-xs text-gray-500">This lesson is hidden from students but visible to instructors</p>
+                </div>
+              </div>
+            )}
+            {!isAccessible && !isInDevelopment && !accessInfo.isNeverVisible && (
               <>
                 <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
                 {accessInfo.requiredPercentage && accessInfo.requiredPercentage > 0 && (
@@ -528,6 +558,15 @@ const CollapsibleNavigation = ({
             )}
             {isInDevelopment && isAccessible && (
               <p className="text-sm text-orange-600 font-medium">🔧 Developer Access - In Development</p>
+            )}
+            {isAccessible && accessInfo.isShowAlways && (
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="text-sm text-blue-600 font-medium">Always Visible</p>
+                  <p className="text-xs text-blue-500">Bypasses all progression requirements</p>
+                </div>
+              </div>
             )}
             {!hasCalculationError && (
               <>
@@ -871,6 +910,7 @@ const CollapsibleNavigation = ({
                         <AccordionContent className="px-2 pb-2 pt-1">
                           {unit.items?.map((item, itemIdx) => {
                             if (!item) return null;
+                            // Show all lessons including never visible ones (they'll be greyed out)
                             return renderItem(item, unit.index, itemIdx);
                           })}
                         </AccordionContent>
@@ -900,7 +940,7 @@ const CollapsibleNavigation = ({
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[85vw] sm:w-[350px] p-0">
+          <SheetContent side="left" className="w-full sm:w-[400px] p-0">
             <SheetHeader className="sr-only">
               <SheetTitle>{courseTitle} Navigation</SheetTitle>
             </SheetHeader>

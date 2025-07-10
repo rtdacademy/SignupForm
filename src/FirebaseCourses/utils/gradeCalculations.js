@@ -58,7 +58,7 @@ export const getQuestionGrade = (questionId, course) => {
 export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   const validation = validateGradeDataStructures(course);
   if (!validation.valid) {
-    console.warn('Cannot calculate lesson score - missing data:', validation.missing);
+    console.warn(`Cannot calculate lesson score for ${lessonId} - missing data:`, validation.missing);
     return {
       score: 0,
       total: 0,
@@ -73,10 +73,26 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
   
   // Use lessonId directly (should already be in underscore format)
-  const lessonConfig = itemStructure[lessonId];
+  let lessonConfig = itemStructure[lessonId];
+  
+  // Handle ID mapping issues - try to find the correct itemStructure key
+  if (!lessonConfig) {
+    // Try common transformations for assignment IDs
+    if (lessonId.match(/^\d+l\d+_\d+$/)) {
+      // Convert "12l5_7" -> "assignment_l5_7"
+      const match = lessonId.match(/^\d+l(\d+)_(\d+)$/);
+      if (match) {
+        const possibleKey = `assignment_l${match[1]}_${match[2]}`;
+        if (itemStructure[possibleKey]) {
+          console.warn(`ID mismatch: mapping ${lessonId} -> ${possibleKey}`);
+          lessonConfig = itemStructure[possibleKey];
+        }
+      }
+    }
+  }
   
   if (!lessonConfig) {
-    //console.warn(`No lesson config found for: ${lessonId}`);
+    console.warn(`No lesson config found for: ${lessonId}. Available items:`, Object.keys(itemStructure || {}));
     return {
       score: 0,
       total: 0,
