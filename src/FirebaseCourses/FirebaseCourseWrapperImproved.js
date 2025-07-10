@@ -1084,7 +1084,7 @@ const FirebaseCourseWrapperContent = ({
           <div 
             ref={navigationRef}
             className={`
-              ${navExpanded ? 'w-80' : 'w-12'} 
+              ${navExpanded ? 'w-96' : 'w-12'} 
               flex-shrink-0 transition-all duration-300
             `}
           >
