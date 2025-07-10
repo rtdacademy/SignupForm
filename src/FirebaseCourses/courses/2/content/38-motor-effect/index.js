@@ -1,7 +1,29 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+
+// Image path constants for motor effect lesson
+const ASSET_PATH = '/courses/2/content/38-motor-effect/assets/';
+const images = {
+  // Current carrying wire conceptual diagrams
+  currentWireField: `${ASSET_PATH}current carrying wires in external magnitic forces - first diagram.png`,
+  handRuleDiagram: `${ASSET_PATH}current carrying wires in external magnitic forces - hand rule.png`,
+  
+  // Example problem diagrams
+  example1Diagram: `${ASSET_PATH}example 1 - diagram.png`,
+  example2Diagram: `${ASSET_PATH}example 2 - diagram.png`,
+  example3Diagram: `${ASSET_PATH}example 3 - diagram.png`,
+  example4Diagram: `${ASSET_PATH}example 4 - diagram.png`,
+  
+  // Force magnitude diagram
+  forceMagnitudeDiagram: `${ASSET_PATH}magnitude of the deflection force on conductor - diagram before formula.png`,
+  
+  // Current balance diagrams
+  currentBalanceMain: `${ASSET_PATH}the current balance - diagram.png`,
+  currentBalanceSideView: `${ASSET_PATH}the current balance - side view with forces.png`
+};
 
 const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
 
@@ -37,15 +59,26 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3">Key Relationship</h4>
+                    <h4 className="font-semibold text-blue-800 mb-3">Current-Carrying Wire in Magnetic Field</h4>
+                    
                     <div className="text-center mb-4">
-                      <div className="bg-white p-4 rounded border border-blue-300 inline-block">
+                      <img 
+                        src={images.currentWireField} 
+                        alt="Current-carrying wire experiencing force in external magnetic field" 
+                        className="w-full max-w-md mx-auto rounded border border-blue-300 mb-2"
+                      />
+                      <p className="text-xs text-blue-800 font-medium">Current-carrying conductor in external magnetic field</p>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded border border-blue-300 mb-3">
+                      <div className="text-center">
                         <div className="text-sm mb-2">Individual charged particles</div>
                         <div className="text-2xl mb-2">⬇</div>
                         <div className="text-sm">Current carrying conductor</div>
                         <div className="text-xs text-gray-600 mt-2">Both experience force in magnetic field</div>
                       </div>
                     </div>
+                    
                     <p className="text-blue-900">
                       Since current is the collective motion of many charged particles, a current-carrying 
                       wire will experience the same deflecting force as individual particles.
@@ -58,6 +91,25 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                       When a current-carrying conductor is placed in a magnetic field, the conductor 
                       experiences a force that causes it to move. This is the fundamental principle 
                       behind electric motors.
+                    </p>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-yellow-800 mb-3">Right-Hand Rule for Current-Carrying Conductors</h4>
+                    
+                    <div className="text-center mb-4">
+                      <img 
+                        src={images.handRuleDiagram} 
+                        alt="Right-hand rule for determining force direction on current-carrying wire" 
+                        className="w-full max-w-sm mx-auto rounded border border-yellow-300 mb-2"
+                      />
+                      <p className="text-xs text-yellow-800 font-medium">Right-hand rule technique for motor effect</p>
+                    </div>
+                    
+                    <p className="text-yellow-900">
+                      The direction of force on a current-carrying conductor can be determined using the 
+                      right-hand rule: fingers point in current direction, curl toward magnetic field, 
+                      thumb shows force direction.
                     </p>
                   </div>
 
@@ -83,6 +135,17 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   to right, and the magnetic field points into the page. Using the right-hand rule, 
                   determine the direction of the deflecting force on the conductor.
                 </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100 mb-4">
+                  <div className="text-center mb-4">
+                    <img 
+                      src={images.example1Diagram} 
+                      alt="Example 1: Current-carrying conductor in magnetic field setup" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Example 1 setup - current left to right, field into page</p>
+                  </div>
+                </div>
                 
                 <div className="bg-white p-4 rounded border border-gray-100">
                   <p className="font-medium text-gray-700 mb-4">Solution:</p>
@@ -128,6 +191,17 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   A vertical conductor carries current downward and is placed in a horizontal magnetic 
                   field pointing from north to south. Determine the direction of the force on the conductor.
                 </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100 mb-4">
+                  <div className="text-center mb-4">
+                    <img 
+                      src={images.example2Diagram} 
+                      alt="Example 2: Vertical conductor with downward current in horizontal magnetic field" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Example 2 setup - vertical current downward, horizontal field N to S</p>
+                  </div>
+                </div>
                 
                 <div className="bg-white p-4 rounded border border-gray-100">
                   <p className="font-medium text-gray-700 mb-4">Solution:</p>
@@ -175,6 +249,17 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   on the wire?
                 </p>
                 
+                <div className="bg-white p-4 rounded border border-gray-100 mb-4">
+                  <div className="text-center mb-4">
+                    <img 
+                      src={images.example3Diagram} 
+                      alt="Example 3: Horizontal wire with east-west current in vertical magnetic field" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Example 3 setup - horizontal current E to W, vertical field upward</p>
+                  </div>
+                </div>
+                
                 <div className="bg-white p-4 rounded border border-gray-100">
                   <p className="font-medium text-gray-700 mb-4">Solution:</p>
                   
@@ -221,6 +306,15 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                       field can be calculated using a formula derived from the fundamental principles of 
                       electromagnetic interactions.
                     </p>
+                  </div>
+
+                  <div className="text-center mb-4">
+                    <img 
+                      src={images.forceMagnitudeDiagram} 
+                      alt="Diagram showing force magnitude relationship for current-carrying conductor" 
+                      className="w-full max-w-lg mx-auto rounded border border-gray-300 mb-2"
+                    />
+                    <p className="text-xs text-gray-600 font-medium">Force magnitude factors: current, field strength, length, and angle</p>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -310,6 +404,17 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   perpendicular to a uniform magnetic field of strength 0.40 T. Calculate the force 
                   acting on the conductor.
                 </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100 mb-4">
+                  <div className="text-center mb-4">
+                    <img 
+                      src={images.example4Diagram} 
+                      alt="Example 4: Force calculation setup for perpendicular conductor" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Example 4 setup - 25 cm conductor, 8.0 A current, 0.40 T field</p>
+                  </div>
+                </div>
                 
                 <div className="bg-white p-4 rounded border border-gray-100">
                   <p className="font-medium text-gray-700 mb-4">Solution:</p>
@@ -429,7 +534,28 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3">How the Current Balance Works</h4>
+                    <h4 className="font-semibold text-blue-800 mb-3">Current Balance Instrument</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="text-center">
+                        <img 
+                          src={images.currentBalanceMain} 
+                          alt="Current balance main diagram showing complete instrument setup" 
+                          className="w-full rounded border border-blue-300 mb-2"
+                        />
+                        <p className="text-xs text-blue-800 font-medium">Current balance main setup</p>
+                      </div>
+                      <div className="text-center">
+                        <img 
+                          src={images.currentBalanceSideView} 
+                          alt="Current balance side view showing forces acting on conductor" 
+                          className="w-full rounded border border-blue-300 mb-2"
+                        />
+                        <p className="text-xs text-blue-800 font-medium">Side view with force analysis</p>
+                      </div>
+                    </div>
+                    
+                    <h5 className="font-semibold text-blue-800 mb-3">How the Current Balance Works:</h5>
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
                         <span className="text-blue-600 font-bold mt-1">1.</span>
@@ -735,6 +861,70 @@ const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
           </TextSection>
         </div>
       )}
+
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="38-motor-effect"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question1',
+            title: 'Question 1: Alpha Particle Force Direction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question2',
+            title: 'Question 2: Magnetic Flux Density Units'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question3',
+            title: 'Question 3: Transmission Line Force'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question4',
+            title: 'Question 4: Gravitational Force Balance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question5',
+            title: 'Question 5: Upward Acceleration Current'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question6',
+            title: 'Question 6: Current Direction Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question7',
+            title: 'Question 7: Solenoid Current Balance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question8',
+            title: 'Question 8: Coil Current Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question9',
+            title: 'Question 9: Force Ratio Comparison'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question10',
+            title: 'Question 10: Motor Effect Current'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_38_question11',
+            title: 'Question 11: Alpha Particle Data Analysis'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

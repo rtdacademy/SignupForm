@@ -1,4 +1,21 @@
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
+const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+const ACTIVITY_TYPE = 'lesson';
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+
+// ========================================
+// HELPER FUNCTIONS FOR RANDOMIZATION
+// ========================================
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randFloat = (min, max, decimals = 1) => parseFloat((Math.random() * (max - min) + min).toFixed(decimals));
+const randChoice = (array) => array[Math.floor(Math.random() * array.length)];
 
 // Question pool with complete configuration
 const questionPool = [
@@ -158,6 +175,7 @@ exports.course2_30_question6 = createStandardMultipleChoice({
 // Assessment configurations for master function 
 const assessmentConfigs = {
   'course2_30_question1': {
+    type: 'multiple-choice',
     questions: [questionPool[0]],
     randomizeQuestions: false,
     randomizeOptions: true,
@@ -169,6 +187,7 @@ const assessmentConfigs = {
     theme: 'indigo'
   },
   'course2_30_question2': {
+    type: 'multiple-choice',
     questions: [questionPool[1]],
     randomizeQuestions: false,
     randomizeOptions: true,
@@ -180,6 +199,7 @@ const assessmentConfigs = {
     theme: 'indigo'
   },
   'course2_30_question3': {
+    type: 'multiple-choice',
     questions: [questionPool[2]],
     randomizeQuestions: false,
     randomizeOptions: true,
@@ -191,6 +211,7 @@ const assessmentConfigs = {
     theme: 'indigo'
   },
   'course2_30_question4': {
+    type: 'multiple-choice',
     questions: [questionPool[3]],
     randomizeQuestions: false,
     randomizeOptions: true,
@@ -202,6 +223,7 @@ const assessmentConfigs = {
     theme: 'indigo'
   },
   'course2_30_question5': {
+    type: 'multiple-choice',
     questions: [questionPool[4]],
     randomizeQuestions: false,
     randomizeOptions: true,
@@ -213,6 +235,7 @@ const assessmentConfigs = {
     theme: 'indigo'
   },
   'course2_30_question6': {
+    type: 'multiple-choice',
     questions: [questionPool[5]],
     randomizeQuestions: false,
     randomizeOptions: true,
