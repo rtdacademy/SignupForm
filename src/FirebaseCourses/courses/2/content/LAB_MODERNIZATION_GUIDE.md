@@ -15,12 +15,13 @@ Based on the modernization of Lab 2 - Mirrors and Lenses, this guide outlines th
   - Implement memoized database references to prevent re-creation
 
 ### 2. **State Management Modernization**
-- **Current Legacy**: Multiple separate useState hooks for different data types
-- **New Standard**: Consolidated state with structured data objects
+- **Current Legacy**: Multiple separate useState hooks for different data types with complex auto-save mechanisms
+- **New Standard**: Consolidated state with direct Firebase Realtime Database integration
 - **Key Changes Needed**:
   - Combine related state into logical groupings (sectionStatus, sectionContent, observationData, etc.)
   - Use callback-based state updates for complex operations
-  - Implement immediate Firebase saving on state changes
+  - Implement immediate Firebase saving on state changes using direct database connections
+  - **IMPORTANT**: Simplify auto-saving by directly updating Firebase on state changes, avoiding complex intermediate save mechanisms
 
 ### 3. **Lab Structure Standardization**
 - **Current Legacy**: Variable section names and organization
@@ -90,9 +91,14 @@ export const aiPrompt = {
 };
 ```
 
+**IMPORTANT**: After completing all lab modernization steps, ensure you add the AI prompt for the lesson by:
+1. Creating the `ai-prompt.js` file in the lesson's directory
+2. Importing it in the main `index.js` file: `import { aiPrompt } from './ai-prompt';`
+3. Adding it to the exported lesson object at the end of `index.js`
+
 ### Step 2: Update Database Integration
 ```javascript
-// Replace cloud function patterns with:
+// Replace cloud function patterns with DIRECT Firebase Realtime Database connections:
 import { getDatabase, ref, update, onValue, serverTimestamp } from 'firebase/database';
 
 const database = getDatabase();
@@ -100,6 +106,7 @@ const labDataRef = React.useMemo(() => {
   return currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
 }, [currentUser?.uid, database, courseId, questionId]);
 
+// SIMPLIFIED AUTO-SAVE: Direct database updates on state changes
 const saveToFirebase = useCallback(async (dataToUpdate) => {
   if (!currentUser?.uid || !labDataRef) return;
   
@@ -110,8 +117,16 @@ const saveToFirebase = useCallback(async (dataToUpdate) => {
     labId: 'lab-name-here'
   };
   
+  // Direct update to Firebase - no intermediate mechanisms
   await update(labDataRef, dataToSave);
 }, [currentUser?.uid, labDataRef, courseId]);
+
+// Example: Save immediately when data changes
+const updateObservationData = (field, value) => {
+  const newData = { ...observationData, [field]: value };
+  setObservationData(newData);
+  saveToFirebase({ observationData: newData }); // Direct save
+};
 ```
 
 ### Step 3: Standardize Lab Sections
@@ -503,7 +518,7 @@ const saveToFirebase = useCallback(async (dataToUpdate) => {
 
 For each lab conversion, expect to modify:
 1. **`index.js`** - Main lab component (major refactoring)
-2. **`ai-prompt.js`** - Create new AI assistant integration
+2. **`ai-prompt.js`** - Create new AI assistant integration (MUST be added at the end)
 3. **`package.json`** - Ensure required dependencies are available
 4. **Backend functions** - Update or create lab submission handlers
 

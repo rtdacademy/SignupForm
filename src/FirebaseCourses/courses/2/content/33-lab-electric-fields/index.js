@@ -1,16 +1,71 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getDatabase, ref, set, update, onValue, serverTimestamp } from 'firebase/database';
-import { useAuth } from '../../../../../context/AuthContext';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import 'katex/dist/katex.min.css';
+import { InlineMath, BlockMath } from 'react-katex';
+import { getDatabase, ref, update, onValue, serverTimestamp } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../../../../../context/AuthContext';
+import SimpleQuillEditor from '../../../../../components/SimpleQuillEditor';
 import { toast } from 'sonner';
+import { Info, FileText } from 'lucide-react';
+import PostSubmissionOverlay from '../../../../components/PostSubmissionOverlay';
+import { aiPrompt } from './ai-prompt';
+import ParticleAccelerationSimulationV2 from './ParticleAccelerationSimulationV2';
+
+// Add CSS styles for disabled lab inputs
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    /* Disable inputs for submitted labs (student view only) */
+    .lab-input-disabled input,
+    .lab-input-disabled textarea,
+    .lab-input-disabled button:not(.staff-only):not(.print-button):not(.pdf-button):not(.simulation-control),
+    .lab-input-disabled select {
+      pointer-events: none !important;
+      opacity: 0.7 !important;
+      cursor: not-allowed !important;
+      background-color: #f9fafb !important;
+    }
+
+    /* Keep certain elements interactive for staff, print button, pdf button, and simulation controls */
+    .lab-input-disabled .staff-only,
+    .lab-input-disabled .print-button,
+    .lab-input-disabled .pdf-button,
+    .lab-input-disabled .simulation-control {
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+    }
+
+    /* Disable canvas interactions in simulation */
+    .lab-input-disabled canvas {
+      pointer-events: none !important;
+      opacity: 0.8 !important;
+    }
+
+    /* Style for the read-only indicator */
+    .lab-input-disabled::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(249, 250, 251, 0.1);
+      pointer-events: none;
+      z-index: 1;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
 
 /**
  * Lab 5 - Electric Fields and Charge-to-Mass Ratio for Physics 30
  * Item ID: assignment_1747283296776_955
  * Unit: Electrostatics & Electricity
  */
-const LabElectricFields = ({ courseId = '2', course }) => {
+
+
+const LabElectricFields = ({ courseId = '2', course, isStaffView = false }) => {
   const { currentUser } = useAuth();
   const database = getDatabase();
   
@@ -18,49 +73,32 @@ const LabElectricFields = ({ courseId = '2', course }) => {
   const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.['lab_electric_fields']?.questions?.[0]?.questionId || 'course2_lab_electric_fields';
   console.log('📋 Lab questionId:', questionId);
   
-  // Create database reference for this lab using questionId
-  const labDataRef = currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  // Create memoized database reference
+  const labDataRef = React.useMemo(() => {
+    return currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  }, [currentUser?.uid, database, courseId, questionId]);
   
-  // Ref to track if component is mounted (for cleanup)
-  const isMountedRef = useRef(true);
-  
-  // Track completion status for each section (5 sections total)
+  // Standard 6-section lab structure (no equipment section - simulation only)
   const [sectionStatus, setSectionStatus] = useState({
-    hypothesis: 'not-started', // 'not-started', 'in-progress', 'completed'
+    introduction: 'not-started',
+    procedure: 'not-started',
+    simulation: 'not-started',
     observations: 'not-started',
     analysis: 'not-started',
-    error: 'not-started'
+    postlab: 'not-started'
   });
 
-  // Track section content
+  // Section content for text-based sections
   const [sectionContent, setSectionContent] = useState({
-    hypothesis: '',
-    preLabAnswers: ['', '', ''] // 3 pre-lab questions
+    introductionConfirmed: false,
+    procedureConfirmed: false,
+    postLabAnswers: ['', '', ''] // Post-lab questions
   });
 
-  // Track current section for navigation
-  const [currentSection, setCurrentSection] = useState('hypothesis');
   
-  // Track if lab has been started
-  const [labStarted, setLabStarted] = useState(false);
-  
-  // Track if student has saved progress
-  const [hasSavedProgress, setHasSavedProgress] = useState(false);
-  
-  // Track saving state
-  const [isSaving, setIsSaving] = useState(false);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
-
-  // Notification state
-  const [notification, setNotification] = useState({
-    message: '',
-    type: 'success', // 'success', 'error', 'warning'
-    visible: false
-  });
-
-  // Data tables for observations
+  // Observation data - keeping existing Group Alpha/Beta structure
   const [observationData, setObservationData] = useState({
-    selectedGroup: null, // No group selected initially
+    selectedGroup: null,
     groupAlpha: {
       qualitative: 'The initial setup worked just fine as shown in the diagram. Particles did reach the mass spectrometer at the velocities shown on the table.',
       data: [
@@ -101,10 +139,9 @@ const LabElectricFields = ({ courseId = '2', course }) => {
     }
   });
 
-  // Analysis state
+  // Analysis data - enhanced from original
   const [analysisData, setAnalysisData] = useState({
-    // Student input fields
-    calculatedVSquared: ['', '', '', '', '', '', '', '', '', '', '', '', '', ''], // 14 trials
+    calculatedVSquared: ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
     xAxisVariable: '',
     yAxisVariable: '',
     lineStrateningExplanation: '',
@@ -116,8 +153,8 @@ const LabElectricFields = ({ courseId = '2', course }) => {
     whyLineStrateningHelps: ''
   });
 
-  // Error analysis state
-  const [errorData, setErrorData] = useState({
+  // Post-lab data - includes error analysis
+  const [postLabData, setPostLabData] = useState({
     acceptedValue: '',
     experimentalValue: '',
     percentError: '',
@@ -125,17 +162,26 @@ const LabElectricFields = ({ courseId = '2', course }) => {
     errorSources: ''
   });
 
-  // Save specific data to Firebase
+  // UI state
+  const [currentSection, setCurrentSection] = useState('introduction');
+  const [labStarted, setLabStarted] = useState(false);
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
+  
+  // Check if lab is submitted
+  const isSubmitted = course?.Assessments?.[questionId] !== undefined;
+
+  // Save to Firebase with direct database integration
   const saveToFirebase = useCallback(async (dataToUpdate) => {
-    if (!currentUser?.uid || !labDataRef) {
-      console.log('🚫 Save blocked: no user or ref');
+    if (!currentUser?.uid || !labDataRef || isSubmitted) {
+      console.log('🚫 Save blocked: no user, no ref, or already submitted');
       return;
     }
     
     try {
       console.log('💾 Saving to Firebase:', dataToUpdate);
       
-      // Create the complete data object to save
       const dataToSave = {
         ...dataToUpdate,
         lastModified: serverTimestamp(),
@@ -143,30 +189,55 @@ const LabElectricFields = ({ courseId = '2', course }) => {
         labId: '33-lab-electric-fields'
       };
       
-      // Use update instead of set to only update specific fields
       await update(labDataRef, dataToSave);
       console.log('✅ Save successful!');
-      
       setHasSavedProgress(true);
       
     } catch (error) {
       console.error('❌ Save failed:', error);
-      setNotification({
-        message: 'Failed to save data. Please try again.',
-        type: 'error',
-        visible: true
-      });
+      toast.error('Failed to save data. Please try again.');
     }
-  }, [currentUser?.uid, labDataRef, courseId]);
+  }, [currentUser?.uid, labDataRef, courseId, isSubmitted]);
 
   // Load saved data from Firebase
   useEffect(() => {
+    // If lab is submitted, use data from course.Assessments
+    if (isSubmitted && course?.Assessments?.[questionId]) {
+      console.log('📋 Lab is submitted, loading from course.Assessments');
+      const submittedData = course.Assessments[questionId];
+      
+      // Restore saved state
+      if (submittedData.sectionStatus) setSectionStatus(submittedData.sectionStatus);
+      if (submittedData.sectionContent) setSectionContent(submittedData.sectionContent);
+      if (submittedData.observationData) {
+        setObservationData(prev => ({
+          ...prev,
+          ...submittedData.observationData
+        }));
+      }
+      if (submittedData.analysisData) {
+        setAnalysisData(prev => ({
+          ...prev,
+          ...submittedData.analysisData,
+          calculatedVSquared: submittedData.analysisData.calculatedVSquared || prev.calculatedVSquared
+        }));
+      }
+      if (submittedData.postLabData) setPostLabData(submittedData.postLabData);
+      if (submittedData.currentSection) setCurrentSection(submittedData.currentSection);
+      if (submittedData.labStarted !== undefined) setLabStarted(submittedData.labStarted);
+      
+      setLabStarted(true);
+      setHasSavedProgress(true);
+      return;
+    }
+
+    // For non-submitted labs, set up real-time listener
     if (!currentUser?.uid || !labDataRef) return;
     
     let hasLoaded = false;
     
     const unsubscribe = onValue(labDataRef, (snapshot) => {
-      if (hasLoaded) return; // Prevent multiple loads
+      if (hasLoaded) return;
       hasLoaded = true;
       
       console.log('📡 Firebase data fetched:', snapshot.exists());
@@ -180,22 +251,19 @@ const LabElectricFields = ({ courseId = '2', course }) => {
         if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
         if (savedData.sectionContent) setSectionContent(savedData.sectionContent);
         if (savedData.observationData) {
-          // Merge saved data with default data to ensure all groups are available
           setObservationData(prev => ({
             ...prev,
             ...savedData.observationData
           }));
         }
         if (savedData.analysisData) {
-          // Merge saved data with default structure to ensure all fields exist
           setAnalysisData(prev => ({
             ...prev,
             ...savedData.analysisData,
-            // Ensure calculatedVSquared is always an array
             calculatedVSquared: savedData.analysisData.calculatedVSquared || prev.calculatedVSquared
           }));
         }
-        if (savedData.errorData) setErrorData(savedData.errorData);
+        if (savedData.postLabData) setPostLabData(savedData.postLabData);
         if (savedData.currentSection) setCurrentSection(savedData.currentSection);
         if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
         
@@ -204,184 +272,267 @@ const LabElectricFields = ({ courseId = '2', course }) => {
         console.log('📝 No previous lab data found, starting fresh');
       }
       
-      // Unsubscribe after first load
       unsubscribe();
     }, (error) => {
       if (hasLoaded) return;
       hasLoaded = true;
       
       console.error('❌ Firebase load error:', error);
-      setNotification({ 
-        message: 'Failed to load lab data', 
-        type: 'error', 
-        visible: true 
-      });
+      toast.error('Failed to load lab data');
       unsubscribe();
     });
     
-    // Return cleanup function for useEffect
-    return () => {
-      unsubscribe();
-    };
-  }, [currentUser?.uid]);
+    return () => unsubscribe();
+  }, [currentUser?.uid, labDataRef, isSubmitted, course?.Assessments, questionId]);
 
-  // Cleanup on component unmount
+  // Auto-start lab for staff view
   useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Auto-hide notifications
-  useEffect(() => {
-    if (notification.visible) {
-      const timer = setTimeout(() => {
-        setNotification(prev => ({ ...prev, visible: false }));
-      }, 5000);
-      return () => clearTimeout(timer);
+    if (isStaffView && !labStarted) {
+      setLabStarted(true);
+      setCurrentSection('introduction');
+      setSectionStatus(prev => ({
+        ...prev,
+        introduction: 'not-started' // Staff also needs to acknowledge
+      }));
     }
-  }, [notification.visible]);
+  }, [isStaffView, labStarted]);
 
   // Start lab function
   const startLab = () => {
     setLabStarted(true);
-    setCurrentSection('hypothesis');
+    setCurrentSection('introduction');
+    
+    // Introduction starts as not-started (requires acknowledgment)
+    const newSectionStatus = {
+      ...sectionStatus,
+      introduction: 'not-started'
+    };
+    setSectionStatus(newSectionStatus);
     
     // Save lab start to Firebase
     saveToFirebase({
       labStarted: true,
-      currentSection: 'hypothesis'
+      currentSection: 'introduction',
+      sectionStatus: newSectionStatus
     });
     
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // End lab session
-  const endLabSession = () => {
-    setLabStarted(false);
-    setNotification({ 
-      message: 'Lab session ended. Your progress has been saved automatically.', 
-      type: 'success', 
-      visible: true 
-    });
-  };
-
-  // Submit lab for teacher review
+  // Submit lab function
   const submitLab = async () => {
-    if (!currentUser?.uid) {
-      toast.error('You must be logged in to submit your lab.');
-      return;
-    }
-
-    setIsSaving(true);
-    
     try {
+      setIsSaving(true);
+      await saveToFirebase({
+        sectionStatus,
+        sectionContent,
+        observationData,
+        analysisData,
+        postLabData
+      });
+      
       const functions = getFunctions();
-      const submitLabFunction = httpsCallable(functions, 'course2_lab_submit');
+      const submitFunction = httpsCallable(functions, 'course2_lab_submit');
       
-      console.log('🚀 Submitting lab for review...');
-      
-      const result = await submitLabFunction({
-        courseId: courseId,
+      const result = await submitFunction({
         questionId: questionId,
         studentEmail: currentUser.email,
         userId: currentUser.uid,
-        isStaff: false
+        courseId: courseId,
+        isStaff: isStaffView
       });
       
-      console.log('✅ Lab submitted successfully:', result.data);
-      
-      toast.success('Lab submitted successfully! Your teacher can now review your work.');
-      
+      if (result.data.success) {
+        setShowSubmissionOverlay(true);
+        toast.success('Lab submitted successfully!');
+      }
     } catch (error) {
-      console.error('❌ Lab submission failed:', error);
       toast.error(`Failed to submit lab: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Check if lab is ready for submission
-  const isReadyForSubmission = () => {
-    const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
-    return completedSections >= 3; // Require at least 3 of 4 sections completed
+  // Section completion checking functions
+  const checkSectionCompletion = (fieldGroups, currentData) => {
+    const allGroups = Object.entries(fieldGroups).map(([groupName, fields]) => {
+      const groupComplete = fields.every(field => {
+        const value = currentData[field];
+        return value && value.trim() !== '';
+      });
+      return { groupName, complete: groupComplete };
+    });
+    
+    return allGroups.every(group => group.complete);
   };
 
-  // Update section content
-  const updateSectionContent = (section, content, index = null) => {
-    // Update local state
+  // Update section content with completion tracking
+  const updateSectionContent = (section, field, value, index = null) => {
     let newSectionContent;
     
     if (index !== null) {
-      // Handle array fields like preLabAnswers
-      const currentArray = sectionContent[section] || ['', '', ''];
+      const currentArray = sectionContent[field] || ['', '', ''];
       const newArray = [...currentArray];
-      newArray[index] = content;
+      newArray[index] = value;
       newSectionContent = {
         ...sectionContent,
-        [section]: newArray
+        [field]: newArray
       };
     } else {
-      // Handle regular fields
       newSectionContent = {
         ...sectionContent,
-        [section]: content
+        [field]: value
       };
     }
     
     setSectionContent(newSectionContent);
     
-    // Determine completion status
-    let isCompleted = false;
+    // Update section status based on completion
     let newStatus = 'not-started';
     
-    if (section === 'hypothesis') {
-      if (content.trim().length > 0) {
-        // Check for required words: if, then, because
-        const lowerContent = content.toLowerCase();
-        const hasIf = lowerContent.includes('if');
-        const hasThen = lowerContent.includes('then');
-        const hasBecause = lowerContent.includes('because');
-        isCompleted = hasIf && hasThen && hasBecause && content.trim().length > 20;
-        newStatus = isCompleted ? 'completed' : 'in-progress';
-      }
-    } else if (section === 'preLabAnswers') {
-      // Check if at least 2 of 3 pre-lab questions are answered
-      const answeredCount = newSectionContent.preLabAnswers.filter(answer => answer.trim().length > 10).length;
-      isCompleted = answeredCount >= 2;
-      newStatus = isCompleted ? 'completed' : (answeredCount > 0 ? 'in-progress' : 'not-started');
+    if (section === 'introduction') {
+      newStatus = newSectionContent.introductionConfirmed ? 'completed' : 'not-started';
+    } else if (section === 'procedure') {
+      newStatus = newSectionContent.procedureConfirmed ? 'completed' : 'not-started';
+    } else if (section === 'postlab') {
+      const answeredCount = newSectionContent.postLabAnswers.filter(answer => answer.trim().length > 20).length;
+      newStatus = answeredCount >= 2 ? 'completed' : (answeredCount > 0 ? 'in-progress' : 'not-started');
     }
     
-    // Update local status state
     const newSectionStatus = {
       ...sectionStatus,
       [section]: newStatus
     };
     setSectionStatus(newSectionStatus);
     
-    // Save to Firebase immediately
+    // Save to Firebase
     saveToFirebase({
       sectionContent: newSectionContent,
       sectionStatus: newSectionStatus
     });
   };
 
-  // Helper function to count sentences
-  const countSentences = (text) => {
-    if (!text || text.trim().length === 0) return 0;
+
+  // Update observation data selection
+  const updateSelectedGroup = (group) => {
+    const newObservationData = {
+      ...observationData,
+      selectedGroup: group
+    };
+    setObservationData(newObservationData);
     
-    const normalizedText = text.trim().replace(/\s+/g, ' ');
-    const sentences = normalizedText.split(/[.!?]+/).filter(sentence => {
-      const trimmed = sentence.trim();
-      const wordCount = trimmed.split(/\s+/).filter(word => word.length > 0).length;
-      return trimmed.length > 0 && wordCount >= 3;
+    // Mark observations as completed
+    const newSectionStatus = {
+      ...sectionStatus,
+      observations: 'completed'
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase
+    saveToFirebase({
+      observationData: newObservationData,
+      sectionStatus: newSectionStatus
     });
-    
-    return sentences.length;
   };
 
-  // Get status icon
+  // Update analysis data with completion checking
+  const updateAnalysisData = (field, value, index = null) => {
+    let newAnalysisData;
+    
+    if (index !== null) {
+      const currentArray = analysisData[field] || ['', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+      const newArray = [...currentArray];
+      newArray[index] = value;
+      newAnalysisData = {
+        ...analysisData,
+        [field]: newArray
+      };
+    } else {
+      newAnalysisData = {
+        ...analysisData,
+        [field]: value
+      };
+    }
+    
+    setAnalysisData(newAnalysisData);
+    
+    // Check completion
+    const analysisFields = ['xAxisVariable', 'yAxisVariable', 'lineStrateningExplanation', 'slopeValue', 'chargeToMassRatio', 'particleIdentification'];
+    const vSquaredCount = newAnalysisData.calculatedVSquared.filter(val => val && val.toString().trim().length > 0).length;
+    const fieldsComplete = analysisFields.every(fieldName => {
+      const fieldValue = newAnalysisData[fieldName];
+      return fieldValue && fieldValue.trim() !== '';
+    });
+    
+    const isCompleted = vSquaredCount >= 8 && fieldsComplete;
+    
+    const newSectionStatus = {
+      ...sectionStatus,
+      analysis: isCompleted ? 'completed' : (vSquaredCount > 0 || fieldsComplete ? 'in-progress' : 'not-started')
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase
+    saveToFirebase({
+      analysisData: newAnalysisData,
+      sectionStatus: newSectionStatus
+    });
+  };
+
+  // Update post-lab data with completion checking
+  const updatePostLabData = (field, value) => {
+    const newPostLabData = {
+      ...postLabData,
+      [field]: value
+    };
+    
+    setPostLabData(newPostLabData);
+    
+    // Check completion (needs most fields filled)
+    const requiredFields = ['acceptedValue', 'experimentalValue', 'percentError', 'percentErrorCalculation', 'errorSources'];
+    const isCompleted = requiredFields.every(fieldName => {
+      const fieldValue = newPostLabData[fieldName];
+      return fieldValue && fieldValue.trim() !== '';
+    });
+    
+    const newSectionStatus = {
+      ...sectionStatus,
+      postlab: isCompleted ? 'completed' : 'in-progress'
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save to Firebase
+    saveToFirebase({
+      postLabData: newPostLabData,
+      sectionStatus: newSectionStatus
+    });
+  };
+
+  // Navigation functions
+  const scrollToSection = (sectionId) => {
+    setCurrentSection(sectionId);
+    const element = document.getElementById(`section-${sectionId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // Auto-complete simulation section when user navigates to it (visual demonstration only)
+    let newSectionStatus = sectionStatus;
+    if (sectionId === 'simulation' && sectionStatus.simulation === 'not-started') {
+      newSectionStatus = {
+        ...sectionStatus,
+        simulation: 'completed'
+      };
+      setSectionStatus(newSectionStatus);
+    }
+    
+    saveToFirebase({ 
+      currentSection: sectionId,
+      ...(newSectionStatus !== sectionStatus && { sectionStatus: newSectionStatus })
+    });
+  };
+
+  // Helper functions
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
@@ -393,7 +544,6 @@ const LabElectricFields = ({ courseId = '2', course }) => {
     }
   };
 
-  // Get status color for section
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
@@ -405,144 +555,289 @@ const LabElectricFields = ({ courseId = '2', course }) => {
     }
   };
 
-  // Scroll to section
-  const scrollToSection = (sectionId) => {
-    setCurrentSection(sectionId);
-    const element = document.getElementById(`section-${sectionId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    // Save current section
-    saveToFirebase({ currentSection: sectionId });
-  };
-
   // Count completed sections
+  const sections = [
+    { key: 'introduction', label: 'Introduction' },
+    { key: 'procedure', label: 'Procedure' },
+    { key: 'simulation', label: 'Simulation' },
+    { key: 'observations', label: 'Observations' },
+    { key: 'analysis', label: 'Analysis' },
+    { key: 'postlab', label: 'Post-Lab' }
+  ];
+  
   const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
+  const totalSections = sections.length;
 
-  // Show notification function
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type, visible: true });
-  };
-
-  // Update selected group for observations
-  const updateSelectedGroup = (group) => {
-    const newObservationData = {
-      ...observationData,
-      selectedGroup: group
-    };
-    setObservationData(newObservationData);
-    
-    // Mark observations as completed
-    setSectionStatus(prev => ({
-      ...prev,
-      observations: 'completed'
-    }));
-    
-    // Save to Firebase
-    saveToFirebase({
-      observationData: newObservationData,
-      sectionStatus: {
-        ...sectionStatus,
-        observations: 'completed'
+  // PDF generation function
+  const generatePDF = async () => {
+    try {
+      // Dynamically import jsPDF to avoid bundle size issues
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      let yPosition = 20;
+      
+      // Helper function to check if we need a new page
+      const checkNewPage = (additionalSpace = 20) => {
+        if (yPosition > 270 - additionalSpace) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      };
+      
+      // Helper function to add text with word wrapping
+      const addText = (text, fontSize = 12, fontWeight = 'normal', maxWidth = 170) => {
+        checkNewPage();
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', fontWeight);
+        
+        const lines = doc.splitTextToSize(text, maxWidth);
+        lines.forEach(line => {
+          checkNewPage();
+          doc.text(line, 20, yPosition);
+          yPosition += fontSize * 0.4;
+        });
+        yPosition += 5;
+      };
+      
+      // Helper function to clean HTML content
+      const cleanHtmlContent = (htmlContent) => {
+        if (!htmlContent) return '[No content provided]';
+        return htmlContent.replace(/<[^>]*>/g, '').trim() || '[No content provided]';
+      };
+      
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Lab 5 - Electric Fields and Charge-to-Mass Ratio', 105, yPosition, { align: 'center' });
+      yPosition += 15;
+      
+      // Student info
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Student: ${currentUser?.email || 'Unknown'}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Lab Status: ${isSubmitted ? 'Submitted' : 'In Progress'}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Completion: ${completedCount}/${totalSections} sections`, 20, yPosition);
+      yPosition += 15;
+      
+      // Lab Overview
+      addText('Lab Overview', 16, 'bold');
+      addText('In this lab, you will use an electric field to determine the identity of an unknown charged particle from a radioactive source. You\'ll identify the particle based on its charge-to-mass ratio.');
+      addText('Using parallel plates with variable DC voltage, you\'ll measure particle velocities and analyze the relationship between electric field strength and final particle velocity.');
+      yPosition += 10;
+      
+      // Objectives
+      addText('Lab Objectives:', 14, 'bold');
+      addText('• Use an electric field apparatus to accelerate charged particles');
+      addText('• Measure particle velocities at different voltages');
+      addText('• Calculate charge-to-mass ratios using energy conservation');
+      addText('• Identify the unknown particle by comparing to theoretical values');
+      yPosition += 10;
+      
+      // Theoretical Background
+      addText('Theoretical Background', 14, 'bold');
+      addText('When a charged particle is accelerated through an electric potential difference V, the electric potential energy is converted to kinetic energy: qV = ½mv²');
+      addText('Rearranging for v²: v² = (2q/m)V');
+      addText('This linear relationship allows us to determine the charge-to-mass ratio from the slope of a v² vs. V graph.');
+      yPosition += 15;
+      
+      // Section 1: Introduction
+      checkNewPage(30);
+      addText('1. Introduction', 16, 'bold');
+      addText(`Introduction Status: ${sectionStatus.introduction === 'completed' ? 'Completed' : 'Not Completed'}`);
+      if (sectionContent.introductionConfirmed) {
+        addText('✓ Student confirmed understanding of lab introduction, objectives, and theoretical background');
+      } else {
+        addText('○ Student has not yet confirmed understanding of introduction');
       }
-    });
-  };
-
-  // Update analysis data and save to Firebase
-  const updateAnalysisData = (field, value, index = null) => {
-    let newAnalysisData;
-    
-    if (index !== null) {
-      // Handle array fields like calculatedVSquared
-      const currentArray = analysisData[field] || ['', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-      const newArray = [...currentArray];
-      newArray[index] = value;
-      newAnalysisData = {
-        ...analysisData,
-        [field]: newArray
-      };
-    } else {
-      // Handle regular fields
-      newAnalysisData = {
-        ...analysisData,
-        [field]: value
-      };
+      yPosition += 10;
+      
+      // Section 2: Procedure
+      checkNewPage(50);
+      addText('2. Procedure', 16, 'bold');
+      addText('Experimental Steps:', 14, 'bold');
+      addText('1. Set up the electric field apparatus with parallel plates separated by 1.5 cm');
+      addText('2. Connect the variable voltage supply (range: 10V to 75V)');
+      addText('3. Position the radioactive particle source at the entrance');
+      addText('4. Calibrate the mass spectrometer detector');
+      addText('5. For each voltage setting, apply voltage and record final particle velocity');
+      addText('6. Record all measurements in the data table');
+      addText('7. Note any adjustments needed for particle detection');
+      yPosition += 10;
+      addText(`Procedure Status: ${sectionStatus.procedure === 'completed' ? 'Completed' : 'Not Completed'}`);
+      if (sectionContent.procedureConfirmed) {
+        addText('✓ Student confirmed understanding of experimental procedure');
+      } else {
+        addText('○ Student has not yet confirmed understanding of procedure');
+      }
+      yPosition += 15;
+      
+      // Section 3: Simulation
+      checkNewPage(40);
+      addText('3. Simulation & Data Collection', 16, 'bold');
+      addText('An interactive simulation was used to demonstrate the particle acceleration process.');
+      
+      // Add simulation placeholder
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, yPosition, 170, 40, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Interactive Particle Acceleration Simulation', 105, yPosition + 15, { align: 'center' });
+      doc.text('(Animation shows how voltage affects particle acceleration)', 105, yPosition + 25, { align: 'center' });
+      yPosition += 50;
+      addText(`Simulation Status: ${sectionStatus.simulation === 'completed' ? 'Completed' : 'Not Completed'}`);
+      yPosition += 15;
+      
+      // Section 4: Observations
+      checkNewPage(80);
+      addText('4. Observations', 16, 'bold');
+      addText('Data Group Selection:', 14, 'bold');
+      addText('Students were provided with two different data groups (Alpha and Beta) representing different experimental conditions.');
+      
+      if (observationData.selectedGroup) {
+        addText(`Selected Data Group: ${observationData.selectedGroup.charAt(0).toUpperCase() + observationData.selectedGroup.slice(1)}`, 14, 'bold');
+        
+        // Add qualitative observation
+        const qualitativeText = observationData.selectedGroup === 'alpha' 
+          ? observationData.groupAlpha.qualitative 
+          : observationData.groupBeta.qualitative;
+        addText('Qualitative Observation:', 12, 'bold');
+        addText(qualitativeText);
+        yPosition += 10;
+        
+        // Create data table
+        const selectedData = observationData.selectedGroup === 'alpha' 
+          ? observationData.groupAlpha.data 
+          : observationData.groupBeta.data;
+        
+        const tableData = selectedData?.map(row => [
+          row.trial.toString(),
+          row.V.toString(),
+          row.v.toString()
+        ]) || [];
+        
+        checkNewPage(60);
+        addText('Quantitative Data:', 12, 'bold');
+        autoTable(doc, {
+          head: [['Trial', 'V (V)', 'v (×10⁴ m/s)']],
+          body: tableData,
+          startY: yPosition,
+          theme: 'grid',
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [200, 200, 200] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 15;
+      } else {
+        addText('[No data group selected]');
+      }
+      
+      // Section 5: Analysis
+      checkNewPage(80);
+      addText('5. Analysis', 16, 'bold');
+      addText('Instructions: Use line straightening technique to determine the charge-to-mass ratio of the particle.');
+      addText('Key relationship: ½mv² = qV, so v² = (2q/m)V');
+      yPosition += 10;
+      
+      // v² calculations
+      if (observationData.selectedGroup && analysisData.calculatedVSquared) {
+        addText('Step 1: Calculate v² Values', 14, 'bold');
+        const selectedData = observationData.selectedGroup === 'alpha' 
+          ? observationData.groupAlpha.data 
+          : observationData.groupBeta.data;
+        
+        const analysisTableData = selectedData?.map((row, index) => [
+          row.trial.toString(),
+          row.V.toString(),
+          row.v.toString(),
+          analysisData.calculatedVSquared[index] || '[Not calculated]'
+        ]) || [];
+        
+        checkNewPage(60);
+        autoTable(doc, {
+          head: [['Trial', 'V (V)', 'v (×10⁴ m/s)', 'v² (×10⁸ m²/s²)']],
+          body: analysisTableData,
+          startY: yPosition,
+          theme: 'grid',
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [200, 200, 200] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 15;
+      }
+      
+      // Line straightening analysis
+      addText('Step 2: Line Straightening Technique', 14, 'bold');
+      addText(`X-axis variable: ${cleanHtmlContent(analysisData.xAxisVariable)}`);
+      addText(`Y-axis variable: ${cleanHtmlContent(analysisData.yAxisVariable)}`);
+      addText(`Explanation: ${cleanHtmlContent(analysisData.lineStrateningExplanation)}`);
+      addText(`Why this helps: ${cleanHtmlContent(analysisData.whyLineStrateningHelps)}`);
+      yPosition += 10;
+      
+      // Slope calculation
+      addText('Step 3: Determine the Slope', 14, 'bold');
+      addText(`Slope value: ${cleanHtmlContent(analysisData.slopeValue)} ×10⁸ m²/(s²⋅V)`);
+      addText(`Slope calculation: ${cleanHtmlContent(analysisData.slopeCalculation)}`);
+      yPosition += 10;
+      
+      // Charge-to-mass ratio
+      addText('Step 4: Calculate Charge-to-Mass Ratio', 14, 'bold');
+      addText('Relationship: slope = 2q/m, so q/m = slope/2');
+      addText(`Charge-to-mass ratio: ${cleanHtmlContent(analysisData.chargeToMassRatio)} ×10⁸ C/kg`);
+      addText(`Calculation: ${cleanHtmlContent(analysisData.chargeToMassCalculation)}`);
+      addText(`Particle identification: ${cleanHtmlContent(analysisData.particleIdentification)}`);
+      yPosition += 15;
+      
+      // Section 6: Post-Lab
+      checkNewPage(80);
+      addText('6. Post-Lab Questions & Error Analysis', 16, 'bold');
+      
+      // Error Analysis
+      addText('Error Analysis:', 14, 'bold');
+      addText(`Accepted value (q/m): ${cleanHtmlContent(postLabData.acceptedValue)}`);
+      addText(`Experimental value (q/m): ${cleanHtmlContent(postLabData.experimentalValue)}`);
+      addText(`Percent error: ${cleanHtmlContent(postLabData.percentError)}`);
+      addText(`Percent error calculation: ${cleanHtmlContent(postLabData.percentErrorCalculation)}`);
+      addText(`Error sources: ${cleanHtmlContent(postLabData.errorSources)}`);
+      yPosition += 10;
+      
+      // Reflection Questions
+      addText('Reflection Questions:', 14, 'bold');
+      addText('1. Energy conservation principle:');
+      addText(cleanHtmlContent(sectionContent.postLabAnswers[0]));
+      yPosition += 5;
+      addText('2. Line straightening technique importance:');
+      addText(cleanHtmlContent(sectionContent.postLabAnswers[1]));
+      yPosition += 5;
+      addText('3. Factors affecting accuracy:');
+      addText(cleanHtmlContent(sectionContent.postLabAnswers[2]));
+      yPosition += 15;
+      
+      // Lab Status Summary
+      checkNewPage(30);
+      addText('Lab Status Summary', 16, 'bold');
+      addText(`Sections completed: ${completedCount}/${totalSections}`);
+      addText(`Completion percentage: ${Math.round((completedCount / totalSections) * 100)}%`);
+      if (isSubmitted) {
+        addText('Lab Status: Submitted for grading');
+        addText(`Submission Date: ${course?.Assessments?.[questionId]?.timestamp ? new Date(course.Assessments[questionId].timestamp).toLocaleString() : 'Unknown'}`);
+      } else {
+        addText('Lab Status: In progress');
+      }
+      
+      // Save the PDF
+      doc.save(`Lab_5_Electric_Fields_${currentUser?.email || 'student'}_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF generated successfully!');
+      
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF. Please try again.');
     }
-    
-    setAnalysisData(newAnalysisData);
-    
-    // Check if analysis is completed (basic validation)
-    const isCompleted = checkAnalysisCompletion(newAnalysisData);
-    
-    // Update section status
-    setSectionStatus(prev => ({
-      ...prev,
-      analysis: isCompleted ? 'completed' : 'in-progress'
-    }));
-    
-    // Save to Firebase
-    saveToFirebase({
-      analysisData: newAnalysisData,
-      sectionStatus: {
-        ...sectionStatus,
-        analysis: isCompleted ? 'completed' : 'in-progress'
-      }
-    });
-  };
-
-  // Check if analysis section is completed
-  const checkAnalysisCompletion = (data) => {
-    // Check if at least 8 of 14 v² values are filled
-    const vSquaredArray = data.calculatedVSquared || [];
-    const vSquaredCount = vSquaredArray.filter(val => val && val.toString().trim().length > 0).length;
-    
-    // Check if key explanation fields are filled
-    const hasExplanations = (data.xAxisVariable || '').trim().length > 0 && 
-                           (data.yAxisVariable || '').trim().length > 0 &&
-                           (data.lineStrateningExplanation || '').trim().length > 10 &&
-                           (data.slopeValue || '').trim().length > 0 &&
-                           (data.chargeToMassRatio || '').trim().length > 0 &&
-                           (data.particleIdentification || '').trim().length > 0;
-    
-    return vSquaredCount >= 8 && hasExplanations;
-  };
-
-  // Update error data and save to Firebase
-  const updateErrorData = (field, value) => {
-    const newErrorData = {
-      ...errorData,
-      [field]: value
-    };
-    
-    setErrorData(newErrorData);
-    
-    // Check if error section is completed
-    const isCompleted = checkErrorCompletion(newErrorData);
-    
-    // Update section status
-    setSectionStatus(prev => ({
-      ...prev,
-      error: isCompleted ? 'completed' : 'in-progress'
-    }));
-    
-    // Save to Firebase
-    saveToFirebase({
-      errorData: newErrorData,
-      sectionStatus: {
-        ...sectionStatus,
-        error: isCompleted ? 'completed' : 'in-progress'
-      }
-    });
-  };
-
-  // Check if error section is completed
-  const checkErrorCompletion = (data) => {
-    return (data.acceptedValue || '').trim().length > 0 &&
-           (data.experimentalValue || '').trim().length > 0 &&
-           (data.percentError || '').trim().length > 0 &&
-           (data.percentErrorCalculation || '').trim().length > 10 &&
-           (data.errorSources || '').trim().length > 20;
   };
 
   // If lab hasn't been started, show welcome screen
@@ -551,9 +846,7 @@ const LabElectricFields = ({ courseId = '2', course }) => {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-4xl mx-auto px-4 space-y-8">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Lab 5 - Electric Fields and Charge-to-Mass Ratio
-            </h1>
+        
             <p className="text-lg text-gray-600 mb-8">
               Use electric fields to determine the identity of an unknown charged particle
             </p>
@@ -587,7 +880,7 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <p className="text-gray-600 mb-4">
                 {hasSavedProgress 
                   ? 'Your progress has been saved. You can continue where you left off.'
-                  : 'This lab contains hypothesis, observations, analysis, and error analysis sections.'
+                  : 'This lab contains 6 sections using the interactive simulation.'
                 }
               </p>
               
@@ -613,7 +906,7 @@ const LabElectricFields = ({ courseId = '2', course }) => {
                     ))}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    {completedCount} of 4 sections completed
+                    {completedCount} of {totalSections} sections completed
                   </p>
                 </div>
               )}
@@ -632,7 +925,7 @@ const LabElectricFields = ({ courseId = '2', course }) => {
   }
 
   return (
-    <div id="lab-content" className="space-y-6">
+    <div className="space-y-6">
       <style dangerouslySetInnerHTML={{__html: `
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
@@ -644,6 +937,30 @@ const LabElectricFields = ({ courseId = '2', course }) => {
           -moz-appearance: textfield;
         }
       `}} />
+
+      {/* Lab Title and PDF Button - Outside lab-input-disabled */}
+      <div className="text-center">
+     
+        {isSubmitted && !isStaffView && (
+          <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+            ✓ Lab Submitted - Read Only
+          </div>
+        )}
+        
+        {/* PDF Generation Button */}
+        <div className="mt-4">
+          <button
+            onClick={generatePDF}
+            className="pdf-button px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 mx-auto shadow-md"
+          >
+            <FileText size={16} />
+            Generate Lab PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Lab Content with potential input disabling */}
+      <div id="lab-content" className={`space-y-6 ${isSubmitted && !isStaffView ? 'lab-input-disabled' : ''}`}>
        
       {/* Navigation Header */}
       <div className="sticky top-14 z-10 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-md">
@@ -653,19 +970,14 @@ const LabElectricFields = ({ courseId = '2', course }) => {
           <div className="flex items-center gap-2">
             {/* Navigation Buttons */}
             <div className="flex gap-1 flex-wrap">
-              {[
-                { key: 'hypothesis', label: 'Hypothesis' },
-                { key: 'observations', label: 'Observations' },
-                { key: 'analysis', label: 'Analysis' },
-                { key: 'error', label: 'Error Analysis' }
-              ].map(section => {
+              {sections.map(section => {
                 const sectionStatusValue = sectionStatus[section.key];
                 
                 return (
                   <button
                     key={section.key}
                     onClick={() => scrollToSection(section.key)}
-                    className={`px-3 py-1 text-sm font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
+                    className={`px-3 py-1 text-xs font-medium rounded border transition-all duration-200 flex items-center justify-center space-x-1 ${
                       sectionStatusValue === 'completed'
                         ? 'bg-green-100 border-green-300 text-green-700'
                         : sectionStatusValue === 'in-progress'
@@ -684,18 +996,11 @@ const LabElectricFields = ({ courseId = '2', course }) => {
 
             {/* Action Buttons */}
             <div className="flex gap-2 ml-4">
-              <button
-                onClick={endLabSession}
-                className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-all duration-200"
-              >
-                End Session
-              </button>
-              
-              {isReadyForSubmission() && (
+              {completedCount >= 4 && !isSubmitted && (
                 <button
                   onClick={submitLab}
                   disabled={isSaving}
-                  className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-all duration-200"
+                  className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-all duration-200"
                 >
                   {isSaving ? 'Submitting...' : 'Submit Lab'}
                 </button>
@@ -703,117 +1008,126 @@ const LabElectricFields = ({ courseId = '2', course }) => {
             </div>
           </div>
         </div>
+        
+        {/* Auto-save indicator */}
+        <div className="text-xs text-gray-500 mt-1 text-right">
+          {hasSavedProgress && (
+            <span className="flex items-center justify-end gap-1">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Auto-saved
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Notification */}
-      {notification.visible && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${
-          notification.type === 'error' ? 'bg-red-100 border border-red-300 text-red-700' :
-          notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-300 text-yellow-700' :
-          'bg-green-100 border border-green-300 text-green-700'
-        }`}>
-          {notification.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle size={20} />}
-          <span>{notification.message}</span>
-          <button 
-            onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
-            className="ml-2 text-gray-500 hover:text-gray-700"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Hypothesis Section */}
-      <div id="section-hypothesis" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.hypothesis)}`}>
+      {/* Introduction Section */}
+      <div id="section-introduction" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.introduction)}`}>
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
-          <span>Hypothesis & Pre-Lab Questions</span>
-          {getStatusIcon(sectionStatus.hypothesis)}
+          <span>Introduction</span>
+          {getStatusIcon(sectionStatus.introduction)}
         </h2>
-        <div className="space-y-6">
-          {/* Hypothesis */}
-          <div>
-            <h3 className="font-medium text-gray-800 mb-3">Hypothesis</h3>
-            <p className="text-gray-700 text-sm mb-4">
-              Write a hypothesis about identifying the unknown particle based on its charge-to-mass ratio. 
-              Use the format: "If... then... because..."
-            </p>
-            <textarea
-              value={sectionContent.hypothesis}
-              onChange={(e) => updateSectionContent('hypothesis', e.target.value)}
-              placeholder=""
-              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-            />
-            <div className="flex justify-between items-center text-sm mt-2">
-              <span className="text-gray-500">
-                {sectionContent.hypothesis.length} characters
-              </span>
-              {(() => {
-                const content = sectionContent.hypothesis.toLowerCase();
-                const hasIf = content.includes('if');
-                const hasThen = content.includes('then');
-                const hasBecause = content.includes('because');
-                const hasLength = sectionContent.hypothesis.trim().length > 20;
-                
-                if (hasIf && hasThen && hasBecause && hasLength) {
-                  return <span className="text-xs text-green-600">Complete hypothesis format</span>;
-                } else if (sectionContent.hypothesis.trim().length > 0) {
-                  const missing = [];
-                  if (!hasIf) missing.push('if');
-                  if (!hasThen) missing.push('then');
-                  if (!hasBecause) missing.push('because');
-                  
-                  if (missing.length > 0) {
-                    return <span className="text-xs text-yellow-600">Need: {missing.join(', ')}</span>;
-                  } else if (!hasLength) {
-                    return <span className="text-xs text-yellow-600">Need more detail</span>;
-                  }
-                }
-                return null;
-              })()}
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="font-medium text-blue-800 mb-2">Lab Objectives</h3>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Use an electric field apparatus to accelerate charged particles</li>
+              <li>• Measure particle velocities at different voltages</li>
+              <li>• Calculate charge-to-mass ratios using energy conservation</li>
+              <li>• Identify the unknown particle by comparing to theoretical values</li>
+            </ul>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-800 mb-2">Theoretical Background</h3>
+            <div className="text-sm text-gray-700 space-y-2">
+              <p>
+                When a charged particle is accelerated through an electric potential difference V, 
+                the electric potential energy is converted to kinetic energy:
+              </p>
+              <div className="bg-white p-3 rounded border">
+                <BlockMath math="qV = \frac{1}{2}mv^2" />
+              </div>
+              <p>
+                Rearranging for v²: <InlineMath math="v^2 = \frac{2q}{m}V" />
+              </p>
+              <p>
+                This linear relationship allows us to determine the charge-to-mass ratio from the slope of a v² vs. V graph.
+              </p>
             </div>
           </div>
+          
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="introductionConfirmed"
+              checked={sectionContent.introductionConfirmed}
+              onChange={(e) => updateSectionContent('introduction', 'introductionConfirmed', e.target.checked)}
+              className="mt-1"
+            />
+            <label htmlFor="introductionConfirmed" className="text-sm text-gray-700">
+              I have read and understood the lab introduction, objectives, and theoretical background. I am ready to begin the experiment.
+            </label>
+          </div>
+        </div>
+      </div>
 
-          {/* Pre-Lab Questions */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-800 mb-3">Pre-Lab Questions</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  1. Determine the theoretical values of the charge-to-mass ratio for electrons, protons, and alpha particles.
-                </label>
-                <textarea
-                  value={sectionContent.preLabAnswers[0] || ''}
-                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 0)}
-                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder=""
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  2. The plates are 1.5 cm apart. Calculate the electric field between the plates at 10 V, 15 V, and 20 V.
-                </label>
-                <textarea
-                  value={sectionContent.preLabAnswers[1] || ''}
-                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 1)}
-                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder=""
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  3. If the mass spectrometer shows "???" (no particles detected), what would you need to change and why?
-                </label>
-                <textarea
-                  value={sectionContent.preLabAnswers[2] || ''}
-                  onChange={(e) => updateSectionContent('preLabAnswers', e.target.value, 2)}
-                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder=""
-                />
-              </div>
-            </div>
+
+      {/* Procedure Section */}
+      <div id="section-procedure" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.procedure)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Procedure</span>
+          {getStatusIcon(sectionStatus.procedure)}
+        </h2>
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-medium text-gray-800 mb-3">Experimental Steps</h3>
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Set up the electric field apparatus with parallel plates separated by 1.5 cm</li>
+              <li>Connect the variable voltage supply (range: 10V to 75V)</li>
+              <li>Position the radioactive particle source at the entrance</li>
+              <li>Calibrate the mass spectrometer detector</li>
+              <li>For each voltage setting (10V, 15V, 20V, ..., 75V):
+                <ul className="ml-6 mt-1 list-disc list-inside">
+                  <li>Apply the voltage to the parallel plates</li>
+                  <li>Record the final particle velocity from the mass spectrometer</li>
+                  <li>Ensure particles reach the detector</li>
+                </ul>
+              </li>
+              <li>Record all measurements in the data table</li>
+              <li>Note any adjustments needed for particle detection</li>
+            </ol>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="procedureConfirmed"
+              checked={sectionContent.procedureConfirmed}
+              onChange={(e) => updateSectionContent('procedure', 'procedureConfirmed', e.target.checked)}
+              className="mt-1"
+            />
+            <label htmlFor="procedureConfirmed" className="text-sm text-gray-700">
+              I have read and understand the experimental procedure. I am ready to begin data collection.
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Simulation Section */}
+      <div id="section-simulation" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.simulation)}`}>
+        <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
+          <span>Simulation</span>
+          {getStatusIcon(sectionStatus.simulation)}
+        </h2>
+        <div className="space-y-4">
+    
+          
+          <ParticleAccelerationSimulationV2 />
+          
+          <div className="bg-green-50 p-4 rounded-lg">
+            <p className="text-sm text-green-700">
+              ✓ Simulation demonstration completed. The animation above shows how voltage affects particle acceleration.
+              Proceed to the observations section to work with actual experimental data.
+            </p>
           </div>
         </div>
       </div>
@@ -829,20 +1143,20 @@ const LabElectricFields = ({ courseId = '2', course }) => {
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h3 className="font-medium text-gray-800 mb-3">Select Data Group</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Choose one group's data to use for your analysis:
+              Choose one group's experimental data to use for your analysis:
             </p>
             
             {/* Group Selection Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {[
-                { key: 'alpha', label: 'Group Alpha' },
-                { key: 'beta', label: 'Group Beta' }
+                { key: 'groupAlpha', label: 'Group Alpha', displayKey: 'alpha' },
+                { key: 'groupBeta', label: 'Group Beta', displayKey: 'beta' }
               ].map(group => (
                 <button
                   key={group.key}
-                  onClick={() => updateSelectedGroup(group.key)}
+                  onClick={() => updateSelectedGroup(group.displayKey)}
                   className={`px-4 py-3 text-sm font-medium rounded-lg border transition-all duration-200 ${
-                    observationData.selectedGroup === group.key
+                    observationData.selectedGroup === group.displayKey
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
@@ -987,17 +1301,20 @@ const LabElectricFields = ({ courseId = '2', course }) => {
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h3 className="font-medium text-gray-800 mb-3">Step 2: Line Straightening Technique</h3>
             
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="grid md:grid-cols-2 gap-4 mb-4 min-h-[150px]">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   What variable goes on the x-axis?
                 </label>
-                <input
-                  type="text"
-                  value={analysisData.xAxisVariable}
-                  onChange={(e) => updateAnalysisData('xAxisVariable', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder=""
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="x-axis-variable"
+                  initialContent={analysisData.xAxisVariable || ''}
+                  onSave={(content) => updateAnalysisData('xAxisVariable', content)}
+                  onContentChange={(content) => updateAnalysisData('xAxisVariable', content)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
                 />
               </div>
               
@@ -1005,12 +1322,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   What variable goes on the y-axis?
                 </label>
-                <input
-                  type="text"
-                  value={analysisData.yAxisVariable}
-                  onChange={(e) => updateAnalysisData('yAxisVariable', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder=""
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="y-axis-variable"
+                  initialContent={analysisData.yAxisVariable || ''}
+                  onSave={(content) => updateAnalysisData('yAxisVariable', content)}
+                  onContentChange={(content) => updateAnalysisData('yAxisVariable', content)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
                 />
               </div>
             </div>
@@ -1019,11 +1339,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Explain why this line straightening technique helps determine the charge-to-mass ratio:
               </label>
-              <textarea
-                value={analysisData.lineStrateningExplanation}
-                onChange={(e) => updateAnalysisData('lineStrateningExplanation', e.target.value)}
-                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="line-straightening-explanation"
+                initialContent={analysisData.lineStrateningExplanation || ''}
+                onSave={(content) => updateAnalysisData('lineStrateningExplanation', content)}
+                onContentChange={(content) => updateAnalysisData('lineStrateningExplanation', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
 
@@ -1031,11 +1355,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 How does this help determine the charge-to-mass ratio of the particle?
               </label>
-              <textarea
-                value={analysisData.whyLineStrateningHelps}
-                onChange={(e) => updateAnalysisData('whyLineStrateningHelps', e.target.value)}
-                className="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="why-line-straightening-helps"
+                initialContent={analysisData.whyLineStrateningHelps || ''}
+                onSave={(content) => updateAnalysisData('whyLineStrateningHelps', content)}
+                onContentChange={(content) => updateAnalysisData('whyLineStrateningHelps', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
           </div>
@@ -1075,11 +1403,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Show your calculation or method for determining the slope:
               </label>
-              <textarea
-                value={analysisData.slopeCalculation}
-                onChange={(e) => updateAnalysisData('slopeCalculation', e.target.value)}
-                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="slope-calculation"
+                initialContent={analysisData.slopeCalculation || ''}
+                onSave={(content) => updateAnalysisData('slopeCalculation', content)}
+                onContentChange={(content) => updateAnalysisData('slopeCalculation', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
           </div>
@@ -1125,11 +1457,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Show your calculation for determining the charge-to-mass ratio:
               </label>
-              <textarea
-                value={analysisData.chargeToMassCalculation}
-                onChange={(e) => updateAnalysisData('chargeToMassCalculation', e.target.value)}
-                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="charge-mass-calculation"
+                initialContent={analysisData.chargeToMassCalculation || ''}
+                onSave={(content) => updateAnalysisData('chargeToMassCalculation', content)}
+                onContentChange={(content) => updateAnalysisData('chargeToMassCalculation', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
 
@@ -1149,49 +1485,57 @@ const LabElectricFields = ({ courseId = '2', course }) => {
         </div>
       </div>
 
-      {/* Error Analysis Section */}
-      <div id="section-error" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.error)}`}>
+      {/* Post-Lab Section */}
+      <div id="section-postlab" className={`border rounded-lg shadow-sm p-6 scroll-mt-32 ${getStatusColor(sectionStatus.postlab)}`}>
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
-          <span>Error Analysis</span>
-          {getStatusIcon(sectionStatus.error)}
+          <span>Post-Lab Questions & Error Analysis</span>
+          {getStatusIcon(sectionStatus.postlab)}
         </h2>
         <div className="space-y-6">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-700">
-              Compare your experimental charge-to-mass ratio to the accepted theoretical value for your identified particle.
-            </p>
-          </div>
-
+          {/* Error Analysis */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-800 mb-3">Percent Error Calculation</h3>
+            <h3 className="font-medium text-gray-800 mb-3">Error Analysis</h3>
+            <div className="bg-blue-50 p-3 rounded mb-4">
+              <p className="text-sm text-blue-700">
+                Compare your experimental charge-to-mass ratio to the accepted theoretical value for your identified particle.
+              </p>
+            </div>
             
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="grid md:grid-cols-2 gap-4 mb-4 min-h-[150px]">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Accepted value (q/m):
                 </label>
-                <input
-                  type="text"
-                  value={errorData.acceptedValue}
-                  onChange={(e) => updateErrorData('acceptedValue', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder=""
-                />
                 <p className="text-xs text-gray-500 mt-1">Include units (×10⁸ C/kg)</p>
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="accepted-value"
+                  initialContent={postLabData.acceptedValue || ''}
+                  onSave={(content) => updatePostLabData('acceptedValue', content)}
+                  onContentChange={(content) => updatePostLabData('acceptedValue', content)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
+                />
+                
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Experimental value (q/m):
                 </label>
-                <input
-                  type="text"
-                  value={errorData.experimentalValue}
-                  onChange={(e) => updateErrorData('experimentalValue', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder=""
-                />
                 <p className="text-xs text-gray-500 mt-1">From your analysis above</p>
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="experimental-value"
+                  initialContent={postLabData.experimentalValue || ''}
+                  onSave={(content) => updatePostLabData('experimentalValue', content)}
+                  onContentChange={(content) => updatePostLabData('experimentalValue', content)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
+                />
+                
               </div>
             </div>
             
@@ -1199,12 +1543,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Percent error:
               </label>
-              <input
-                type="text"
-                value={errorData.percentError}
-                onChange={(e) => updateErrorData('percentError', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="percent-error"
+                initialContent={postLabData.percentError || ''}
+                onSave={(content) => updatePostLabData('percentError', content)}
+                onContentChange={(content) => updatePostLabData('percentError', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
             
@@ -1212,11 +1559,15 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Show your percent error calculation:
               </label>
-              <textarea
-                value={errorData.percentErrorCalculation}
-                onChange={(e) => updateErrorData('percentErrorCalculation', e.target.value)}
-                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="percent-error-calculation"
+                initialContent={postLabData.percentErrorCalculation || ''}
+                onSave={(content) => updatePostLabData('percentErrorCalculation', content)}
+                onContentChange={(content) => updatePostLabData('percentErrorCalculation', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
 
@@ -1224,18 +1575,121 @@ const LabElectricFields = ({ courseId = '2', course }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Identify and explain possible sources of error in this experiment:
               </label>
-              <textarea
-                value={errorData.errorSources}
-                onChange={(e) => updateErrorData('errorSources', e.target.value)}
-                className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder=""
+              <SimpleQuillEditor
+                courseId="2"
+                unitId="lab-electric-fields"
+                itemId="error-sources"
+                initialContent={postLabData.errorSources || ''}
+                onSave={(content) => updatePostLabData('errorSources', content)}
+                onContentChange={(content) => updatePostLabData('errorSources', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
+            </div>
+          </div>
+
+          {/* Post-Lab Questions */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">Reflection Questions</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  1. Explain how the energy conservation principle ½mv² = qV allows us to determine particle identity.
+                </label>
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="postlab-question-1"
+                  initialContent={sectionContent.postLabAnswers[0] || ''}
+                  onSave={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 0)}
+                  onContentChange={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 0)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  2. Why was it important to use the line straightening technique (plotting v² vs. V) rather than v vs. V?
+                </label>
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="postlab-question-2"
+                  initialContent={sectionContent.postLabAnswers[1] || ''}
+                  onSave={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 1)}
+                  onContentChange={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 1)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  3. What factors might affect the accuracy of charge-to-mass ratio measurements in this type of experiment?
+                </label>
+                <SimpleQuillEditor
+                  courseId="2"
+                  unitId="lab-electric-fields"
+                  itemId="postlab-question-3"
+                  initialContent={sectionContent.postLabAnswers[2] || ''}
+                  onSave={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 2)}
+                  onContentChange={(content) => updateSectionContent('postlab', 'postLabAnswers', content, 2)}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                  disabled={isSubmitted && !isStaffView}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Submit Lab Section */}
+      {!isSubmitted && completedCount >= 4 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Ready to Submit?</h3>
+            <p className="text-gray-600 mb-6">
+              Review your work above, then submit your lab for grading. You can make changes until you submit.
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={submitLab}
+                disabled={isSaving || !currentUser}
+                className={`px-6 py-3 font-medium rounded-lg transition-all duration-200 ${
+                  isSaving || !currentUser
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {isSaving ? 'Submitting...' : 'Submit Lab for Grading'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div> {/* End lab-content div */}
+      
+      {/* PostSubmissionOverlay */}
+      <PostSubmissionOverlay
+        isVisible={showSubmissionOverlay || isSubmitted}
+        isStaffView={isStaffView}
+        course={course}
+        questionId={questionId}
+        submissionData={{
+          labTitle: 'Lab 5 - Electric Fields and Charge-to-Mass Ratio',
+          completionPercentage: completedCount * (100 / totalSections),
+          status: isSubmitted ? 'completed' : 'in-progress',
+          timestamp: course?.Assessments?.[questionId]?.timestamp || new Date().toISOString()
+        }}
+        onContinue={() => {}}
+        onViewGradebook={() => {}}
+        onClose={() => setShowSubmissionOverlay(false)}
+      />
     </div>
   );
 };
 
 export default LabElectricFields;
+export { aiPrompt };

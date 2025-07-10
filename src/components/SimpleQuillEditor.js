@@ -268,6 +268,7 @@ const SimpleQuillEditor = forwardRef(({
   onError = () => {},
   onWordCountChange = () => {}, // NEW: Callback for word count updates
   onContentChange = () => {}, // NEW: Callback for real-time content changes
+  disabled = false, // NEW: Prop to disable the editor
 }, ref) => {
   const [content, setContent] = useState(initialContent);
   const [saving, setSaving] = useState(false);
@@ -278,12 +279,34 @@ const SimpleQuillEditor = forwardRef(({
   const [currentQuill, setCurrentQuill] = useState(null);
   const [savedSelection, setSavedSelection] = useState(null);
 
+  // Track if user is actively editing to prevent overwriting their changes
+  const isUserEditingRef = useRef(false);
+  const lastInitialContentRef = useRef(initialContent);
+
   useEffect(() => {
-    setContent(initialContent || '');
+    const newContent = initialContent || '';
+    
+    // Only update if initialContent actually changed and user isn't actively editing
+    if (newContent !== lastInitialContentRef.current && !isUserEditingRef.current) {
+      console.log('📝 SimpleQuillEditor: Updating content from initialContent change', {
+        newContent: newContent.substring(0, 50) + '...',
+        wasEditing: isUserEditingRef.current
+      });
+      setContent(newContent);
+      lastInitialContentRef.current = newContent;
+    }
   }, [initialContent]);
 
   // Handle content changes with word count tracking
   const handleContentChange = (value, delta, source, editor) => {
+    if (disabled) {
+      console.log('🚫 Content change blocked: editor is disabled');
+      return;
+    }
+    
+    // Track that user is actively editing
+    isUserEditingRef.current = true;
+    
     setContent(value);
     
     // Calculate word count from plain text (strips HTML)
@@ -293,6 +316,11 @@ const SimpleQuillEditor = forwardRef(({
     // Call the callbacks
     onWordCountChange(wordCount);
     onContentChange(value); // Notify parent of content changes in real-time
+    
+    // Reset editing flag after a short delay
+    setTimeout(() => {
+      isUserEditingRef.current = false;
+    }, 1000);
   };
 
   useEffect(() => {
@@ -327,6 +355,11 @@ const SimpleQuillEditor = forwardRef(({
   }, [quillRef]);
 
   const handleSave = async () => {
+    if (disabled) {
+      console.log('🚫 Save blocked: editor is disabled');
+      return;
+    }
+    
     try {
       setSaving(true);
       setError(null);
@@ -419,9 +452,12 @@ const SimpleQuillEditor = forwardRef(({
             theme="snow"
             value={content}
             onChange={handleContentChange}
-            modules={modules}
-            placeholder="Start creating your content..."
-            className="h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto"
+            modules={disabled ? {} : modules} // Disable modules when disabled
+            readOnly={disabled} // Make read-only when disabled
+            placeholder={disabled ? "" : "Start creating your content..."}
+            className={`h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto ${
+              disabled ? 'opacity-70 pointer-events-none' : ''
+            }`}
           />
         </ScrollArea>
       </div>
