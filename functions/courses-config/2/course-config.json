@@ -2471,6 +2471,445 @@
             "points": 1
           }
         ]     
+      },
+      "29_electric_fields": {
+        "title": "Electric Fields",
+        "type": "lesson",
+        "contentPath": "29-electric-fields",
+        "questions": [
+          {
+            "questionId": "course2_29_question1",
+            "title": "Test Charge Electric Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question2",
+            "title": "Metal Sphere Electric Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question3",
+            "title": "Test Charge Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question4",
+            "title": "Force on Different Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question5",
+            "title": "Point Charge Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question6",
+            "title": "Two Charges Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question7",
+            "title": "Electron Acceleration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question8",
+            "title": "Square Configuration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question9",
+            "title": "Hollow Sphere",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question10",
+            "title": "Alpha Particle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_29_question11",
+            "title": "Earth's Charge",
+            "points": 1
+          }
+        ]
+      },
+      "30_electric_potential": {
+        "title": "Electric Potential",
+        "type": "lesson",
+        "contentPath": "30-electric-potential",
+        "questions": [
+          {
+            "questionId": "course2_30_question1",
+            "title": "Spark Gap Potential",
+            "points": 1
+          },
+          {
+            "questionId": "course2_30_question2",
+            "title": "Alpha Particle Speed",
+            "points": 1
+          },
+          {
+            "questionId": "course2_30_question3",
+            "title": "Fluorine Nucleus Kinetic Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_30_question4",
+            "title": "Alpha Particle to 1/10 Speed of Light",
+            "points": 1
+          },
+          {
+            "questionId": "course2_30_question5",
+            "title": "Proton Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_30_question6",
+            "title": "Electron Collision Speed",
+            "points": 1
+          }
+        ]
+      },
+      "31_parallel_plates": {
+        "title": "Parallel Plates",
+        "type": "lesson",
+        "contentPath": "31-parallel-plates",
+        "questions": [
+          {
+            "questionId": "course2_31_question1",
+            "title": "Electric Field Intensity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question2",
+            "title": "Electron Motion Between Plates",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question3",
+            "title": "Proton Acceleration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question4",
+            "title": "Electric Field from Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question5",
+            "title": "Charge Acceleration Time",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question6",
+            "title": "Plate Separation and Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question7",
+            "title": "Ion Velocity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question8",
+            "title": "Capacitor Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question9",
+            "title": "Field Strength Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_31_question10",
+            "title": "Parallel Plate Applications",
+            "points": 1
+          }
+        ]
+      },
+      "32_electric_current": {
+        "title": "Electric Current",
+        "type": "lesson",
+        "contentPath": "32-electric-current",
+        "questions": [
+          {
+            "questionId": "course2_32_question1",
+            "title": "Toaster Current Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question2",
+            "title": "Lightning Bolt Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question3",
+            "title": "Battery Charge Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question4",
+            "title": "Resistance and Ohm's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question5",
+            "title": "Current Density",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question6",
+            "title": "Power Consumption",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question7",
+            "title": "Wire Resistance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question8",
+            "title": "Voltage Drop",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question9",
+            "title": "Current Through Circuit",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question10",
+            "title": "Electrical Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_32_question11",
+            "title": "Circuit Analysis",
+            "points": 1
+          }
+        ]
+      },
+      "36_magnetic_fields": {
+        "title": "Magnetic Fields",
+        "type": "lesson",
+        "contentPath": "36-magnetic-fields",
+        "questions": [
+          {
+            "questionId": "course2_36_question1",
+            "title": "Right Hand Rule - Compass Under Wire",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question2",
+            "title": "Left Hand Rule - Electron Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question3",
+            "title": "Current Direction from Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question4",
+            "title": "Cross-Section Current Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question5",
+            "title": "Solenoid North Pole - Electrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question6",
+            "title": "Solenoid South Pole - Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question7",
+            "title": "Current Direction from Poles",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question8",
+            "title": "Compass Deflection - Electron N-S",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question9",
+            "title": "Wire Over Compass - Electrons N-S",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question10",
+            "title": "Compass Deflection - Electron S-N",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question11",
+            "title": "Wire Over Compass - Electrons S-N",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question12",
+            "title": "Negative Charge Field Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question13",
+            "title": "Positive Charge Field Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question14",
+            "title": "Coil Magnetic Pole Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_36_question15",
+            "title": "Spinning Disk Magnetic Field",
+            "points": 1
+          }
+        ]
+      },
+      "37_magnetic_forces_particles": {
+        "title": "Magnetic Forces on Particles",
+        "type": "lesson",
+        "contentPath": "37-magnetic-forces-particles",
+        "questions": [
+          {
+            "questionId": "course2_37_question1",
+            "title": "Permanent vs Electromagnets",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question2",
+            "title": "Horseshoe Magnet Force Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question3",
+            "title": "Particle Charge Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question4",
+            "title": "Radius-Velocity Relationship",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question5",
+            "title": "Force Calculation at Angle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question6",
+            "title": "Parallel Motion in Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question7",
+            "title": "Alpha Particle Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question8",
+            "title": "Magnesium Ion Radius",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question9",
+            "title": "Alpha Force Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question10",
+            "title": "Solar Wind Electron",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question11",
+            "title": "Solar Wind Proton",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question12",
+            "title": "Alpha Charge Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question13",
+            "title": "Deuteron Acceleration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_37_question14",
+            "title": "Helical Motion Pitch",
+            "points": 1
+          }
+        ]
+      },
+      "38_motor_effect": {
+        "title": "Motor Effect",
+        "type": "lesson",
+        "contentPath": "38-motor-effect",
+        "questions": [
+          {
+            "questionId": "course2_38_question1",
+            "title": "Alpha Particle Force Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question2",
+            "title": "Magnetic Flux Density Units",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question3",
+            "title": "Transmission Line Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question4",
+            "title": "Conductor Gravity Balance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question5",
+            "title": "Conductor Upward Acceleration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question6",
+            "title": "Current Direction from Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question7",
+            "title": "Solenoid Field Strength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question8",
+            "title": "Coil Current Balance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question9",
+            "title": "Force Ratio Comparison",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question10",
+            "title": "Current for Motor Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_38_question11",
+            "title": "Alpha Particle Graph Analysis",
+            "points": 1
+          }
+        ]
       }
     }
   },
@@ -2812,7 +3251,7 @@
             "estimatedTime": 120,
             "order": 5,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "30_electric_potential",
@@ -2823,7 +3262,7 @@
             "estimatedTime": 120,
             "order": 6,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "31_parallel_plates",
@@ -2834,7 +3273,7 @@
             "estimatedTime": 120,
             "order": 7,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "32_electric_current",
@@ -2845,7 +3284,7 @@
             "estimatedTime": 120,
             "order": 8,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_electric_fields",
@@ -2889,7 +3328,7 @@
             "estimatedTime": 120,
             "order": 12,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "37_magnetic_forces_particles",
@@ -2900,7 +3339,7 @@
             "estimatedTime": 120,
             "order": 13,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "38_motor_effect",
@@ -2911,7 +3350,7 @@
             "estimatedTime": 120,
             "order": 14,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l19_21",

@@ -1,7 +1,36 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+
+// Image path constants for magnetic forces on particles lesson
+const ASSET_PATH = '/courses/2/content/37-magnetic-forces-particles/assests/';
+const images = {
+  // Charged particle diagrams
+  chargedParticleField: `${ASSET_PATH}Charged particle in magnetic field - charged particle in magnetic field.png`,
+  inducedMagneticForce: `${ASSET_PATH}Charged particle in magnetic field - induced magnetic force.png`,
+  
+  // Example problem diagrams
+  example1Diagram: `${ASSET_PATH}Example 1 - diagram.png`,
+  example2Diagram: `${ASSET_PATH}Example 2 - diagram.png`,
+  
+  // Third hand rule diagram
+  thirdHandRule: `${ASSET_PATH}Third hand rule - hand diagram.png`,
+  
+  // Particle motion diagram
+  particleCurves: `${ASSET_PATH}Particles in magnetic fields - particle curves when entering a magnetic field.png`,
+  
+  // Mass spectrometer diagram
+  massSpectrometer: `${ASSET_PATH}Mass spectrometer - main parts diagram.png`,
+  
+  // Television application diagram
+  televisionDiagram: `${ASSET_PATH}Black and white television - electron gun and magnetic coils diagram.png`,
+  
+  // Practice problem diagrams
+  practice3: `${ASSET_PATH}37-practice3diagram.png`,
+  practice4: `${ASSET_PATH}37-practice4diagram.png`
+};
 
 const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
 
@@ -29,14 +58,12 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-800 mb-3">Moving Charged Particle</h4>
                     <div className="text-center mb-4">
-                      <div className="bg-white p-4 rounded border border-blue-300 inline-block">
-                        <div className="text-sm mb-2">Positive particle moving into page</div>
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="text-2xl">⊗</div>
-                          <span className="text-sm">→ induced magnetic field around particle</span>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-2">⊗ = direction into page</div>
-                      </div>
+                      <img 
+                        src={images.chargedParticleField} 
+                        alt="Charged particle in magnetic field showing field interactions" 
+                        className="w-full max-w-md mx-auto rounded border border-blue-300 mb-2"
+                      />
+                      <p className="text-xs text-blue-800 font-medium">Charged particle creating magnetic field</p>
                     </div>
                     <p className="text-blue-900 text-center">
                       What would happen if this particle was projected through an existing magnetic field, 
@@ -47,15 +74,12 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-semibold text-yellow-800 mb-3">Particle in External Magnetic Field</h4>
                     <div className="text-center mb-4">
-                      <div className="bg-white p-4 rounded border border-yellow-300 inline-block">
-                        <div className="text-sm mb-2">External magnetic field setup</div>
-                        <div className="flex items-center justify-center gap-4">
-                          <span className="font-bold text-red-600">N</span>
-                          <div className="text-2xl">⊗</div>
-                          <span className="font-bold text-blue-600">S</span>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-2">bar magnet ← particle → bar magnet</div>
-                      </div>
+                      <img 
+                        src={images.inducedMagneticForce} 
+                        alt="Induced magnetic force on charged particle in external field" 
+                        className="w-full max-w-md mx-auto rounded border border-yellow-300 mb-2"
+                      />
+                      <p className="text-xs text-yellow-800 font-medium">Magnetic force interaction between particle and external field</p>
                     </div>
                     <p className="text-yellow-900">
                       The induced magnetic field around the moving particle will interact with the external 
@@ -145,6 +169,16 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="font-semibold text-green-800 mb-3">The Third Hand Rule</h4>
+                    
+                    <div className="text-center mb-4">
+                      <img 
+                        src={images.thirdHandRule} 
+                        alt="Third hand rule technique for determining magnetic force direction" 
+                        className="w-full max-w-sm mx-auto rounded border border-green-300 mb-2"
+                      />
+                      <p className="text-xs text-green-800 font-medium">Third hand rule visualization</p>
+                    </div>
+                    
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
                         <span className="text-green-600 font-bold mt-1">👉</span>
@@ -206,16 +240,12 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-blue-100 p-4 rounded border border-blue-300 inline-block">
-                      <div className="text-sm mb-2">Magnetic Field Setup</div>
-                      <div className="flex items-center justify-center gap-4">
-                        <span className="font-bold text-red-600">N</span>
-                        <div className="text-2xl">⊗</div>
-                        <span className="font-bold text-blue-600">S</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-2">⊗ = particle moving into page</div>
-                      <div className="text-xs text-gray-600">Magnetic field: N → S (left to right)</div>
-                    </div>
+                    <img 
+                      src={images.example1Diagram} 
+                      alt="Example 1: Particle in magnetic field setup for force direction analysis" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Magnetic field setup - particle moving into page between N and S poles</p>
                   </div>
                 </div>
                 
@@ -364,14 +394,12 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-blue-100 p-4 rounded border border-blue-300 inline-block">
-                      <div className="text-sm mb-2">Setup Information</div>
-                      <div className="space-y-1 text-sm">
-                        <div>Particle: +2.0 μC, 20 mg, 40 m/s</div>
-                        <div>Magnetic field: 0.020 T, perpendicular to motion</div>
-                        <div>The right hand rule tells us that the particle will be deflected upward out of the page</div>
-                      </div>
-                    </div>
+                    <img 
+                      src={images.example2Diagram} 
+                      alt="Example 2: Charged particle acceleration calculation setup" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Example 2 setup: +2.0 μC particle, 20 mg, 40 m/s in 0.020 T field</p>
                   </div>
                 </div>
                 
@@ -541,17 +569,12 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-800 mb-3">Particle Path Visualization</h4>
                     <div className="text-center mb-4">
-                      <div className="bg-white p-4 rounded border border-blue-300 inline-block">
-                        <div className="text-sm mb-2">Negative Particle in Magnetic Field</div>
-                        <div className="grid grid-cols-5 gap-1 text-center">
-                          <div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div>
-                          <div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div>
-                          <div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div>
-                          <div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div><div>⊗</div>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-2">⊗ represents magnetic field (B) acting into the page</div>
-                        <div className="text-xs text-gray-600">F<sub>m</sub> acts perpendicular to velocity</div>
-                      </div>
+                      <img 
+                        src={images.particleCurves} 
+                        alt="Charged particle following curved path when entering magnetic field" 
+                        className="w-full max-w-lg mx-auto rounded border border-blue-300 mb-2"
+                      />
+                      <p className="text-xs text-blue-800 font-medium">Particle curves when entering magnetic field at 90°</p>
                     </div>
                   </div>
 
@@ -852,7 +875,18 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
                   </div>
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-green-800 mb-3">Three Basic Parts of Mass Spectrometer</h4>
+                    <h4 className="font-semibold text-green-800 mb-3">Mass Spectrometer Components</h4>
+                    
+                    <div className="text-center mb-4">
+                      <img 
+                        src={images.massSpectrometer} 
+                        alt="Mass spectrometer main parts diagram showing ion source, velocity selector, and ion separator" 
+                        className="w-full max-w-lg mx-auto rounded border border-green-300 mb-2"
+                      />
+                      <p className="text-xs text-green-800 font-medium">Complete mass spectrometer setup</p>
+                    </div>
+                    
+                    <h5 className="font-semibold text-green-800 mb-3">Three Basic Parts:</h5>
                     <div className="space-y-2">
                       <div className="flex items-start gap-3">
                         <span className="text-green-600 font-bold mt-1">1.</span>
@@ -1107,28 +1141,34 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-800 mb-3">TV Picture Tube Components</h4>
+                    
                     <div className="text-center mb-4">
-                      <div className="bg-white p-4 rounded border border-blue-300 inline-block">
-                        <div className="text-sm mb-2">Television Picture Tube</div>
-                        <div className="grid grid-cols-3 gap-4 text-center text-xs">
-                          <div>
-                            <div className="font-bold">Electron Gun</div>
-                            <div>Fires electrons</div>
-                            <div>~50,000 V</div>
-                          </div>
-                          <div>
-                            <div className="font-bold">Magnetic Coils</div>
-                            <div>Horizontal & Vertical</div>
-                            <div>Deflection control</div>
-                          </div>
-                          <div>
-                            <div className="font-bold">Phosphorous Screen</div>
-                            <div>Glows when hit</div>
-                            <div>Creates image</div>
-                          </div>
-                        </div>
+                      <img 
+                        src={images.televisionDiagram} 
+                        alt="Black and white television electron gun and magnetic coils diagram" 
+                        className="w-full max-w-lg mx-auto rounded border border-blue-300 mb-2"
+                      />
+                      <p className="text-xs text-blue-800 font-medium">TV picture tube with electron gun and magnetic deflection coils</p>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-3 gap-4 mb-4">
+                      <div className="bg-white p-3 rounded border border-blue-300 text-center">
+                        <div className="font-bold text-blue-800">Electron Gun</div>
+                        <div className="text-xs text-blue-700 mt-1">Fires electrons</div>
+                        <div className="text-xs text-blue-700">~50,000 V</div>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-blue-300 text-center">
+                        <div className="font-bold text-blue-800">Magnetic Coils</div>
+                        <div className="text-xs text-blue-700 mt-1">Horizontal & Vertical</div>
+                        <div className="text-xs text-blue-700">Deflection control</div>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-blue-300 text-center">
+                        <div className="font-bold text-blue-800">Phosphorous Screen</div>
+                        <div className="text-xs text-blue-700 mt-1">Glows when hit</div>
+                        <div className="text-xs text-blue-700">Creates image</div>
                       </div>
                     </div>
+                    
                     <p className="text-blue-900">
                       The screen is coated with a thin film of phosphorus material. When an electron hits the 
                       coating, the coating glows for a brief instant. Thus, if the electrons are properly 
@@ -1247,6 +1287,86 @@ const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, on
           </TextSection>
         </div>
       )}
+
+      {/* Knowledge Check Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="37-magnetic-forces-particles"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question1',
+            title: 'Question 1: Permanent vs Electromagnets'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question2',
+            title: 'Question 2: Horseshoe Magnet Force Direction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question3',
+            title: 'Question 3: Particle Charge Identification'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question4',
+            title: 'Question 4: Radius-Velocity Relationship'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question5',
+            title: 'Question 5: Force Calculation at Angle'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question6',
+            title: 'Question 6: Parallel Motion in Field'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question7',
+            title: 'Question 7: Alpha Particle Force'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question8',
+            title: 'Question 8: Magnesium Ion Radius'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question9',
+            title: 'Question 9: Alpha Force Direction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question10',
+            title: 'Question 10: Solar Wind Electron'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question11',
+            title: 'Question 11: Solar Wind Proton'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question12',
+            title: 'Question 12: Alpha Charge Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question13',
+            title: 'Question 13: Deuteron Acceleration'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_37_question14',
+            title: 'Question 14: Helical Motion Pitch'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

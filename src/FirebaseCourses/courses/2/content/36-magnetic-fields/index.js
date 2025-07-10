@@ -1,7 +1,51 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+
+// Image path constants for magnetic fields lesson
+const ASSET_PATH = '/courses/2/content/36-magnetic-fields/assests/';
+const images = {
+  // Magnetic domain images
+  magneticDomains: `${ASSET_PATH}Permanent magnets - magnetic domains.png`,
+  alignedDomains: `${ASSET_PATH}Permanent magnets - aligned domains.png`,
+  
+  // Magnetic field visualization images
+  barMagnetFilings: `${ASSET_PATH}Magnetic field - bar magnet with iron filings.png`,
+  fluxLines: `${ASSET_PATH}Magnetic field - flux lines.png`,
+  earthField: `${ASSET_PATH}Magnetic field - earth.png`,
+  
+  // Oersted demonstration images
+  oerstedNoCurrent: `${ASSET_PATH}Oersted's Demonstration - no current.png`,
+  oerstedWireCompass: `${ASSET_PATH}Oersted's Demonstration - wire above and below compass.png`,
+  
+  // Hand rule images
+  handRuleDiagram: `${ASSET_PATH}First Hand Rule - hand diagram.png`,
+  handRuleCrossSection: `${ASSET_PATH}First Hand Rule - cross section.png`,
+  
+  // Example problem images
+  example1Diagram: `${ASSET_PATH}Example 1 - diagram.png`,
+  example1Answer: `${ASSET_PATH}Example 1 - answer.png`,
+  example2Diagram: `${ASSET_PATH}Example 2 - diagram.png`,
+  example2Answer: `${ASSET_PATH}Example 2 - answer.png`,
+  example3Diagram: `${ASSET_PATH}Example 3 - diagram.png`,
+  example4Diagram: `${ASSET_PATH}Example 4 - diagram.png`,
+  
+  // Solenoid and second hand rule images
+  secondHandCoilLines: `${ASSET_PATH}Second Hand rule - coil lines.png`,
+  secondHandCompare: `${ASSET_PATH}Second Hand rule - compare bar and coil.png`,
+  secondHandSolenoid: `${ASSET_PATH}Second Hand rule - solenoid flux lines.png`,
+  
+  // Practice problem diagrams
+  practice1: `${ASSET_PATH}36-practice1diagram.png`,
+  practice2: `${ASSET_PATH}36-practice2diagram.png`,
+  practice3: `${ASSET_PATH}36-practice3diagram.png`,
+  practice4: `${ASSET_PATH}36-practice4diagram.png`,
+  practice5: `${ASSET_PATH}36-practice5diagram.png`,
+  practice6: `${ASSET_PATH}36-practice6diagram.png`,
+  practice7: `${ASSET_PATH}36-practice7diagram.png`
+};
 
 const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
 
@@ -73,6 +117,13 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <h5 className="font-semibold text-red-800 mb-2">Unmagnetized State</h5>
+                      <div className="mb-3">
+                        <img 
+                          src={images.magneticDomains} 
+                          alt="Random magnetic domains in unmagnetized material" 
+                          className="w-full max-w-xs mx-auto rounded border border-red-300"
+                        />
+                      </div>
                       <p className="text-sm text-red-900">
                         The millions of domains are oriented at random so that their combined magnetic 
                         effects cancel each other out.
@@ -81,6 +132,13 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                     
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <h5 className="font-semibold text-green-800 mb-2">Magnetized State</h5>
+                      <div className="mb-3">
+                        <img 
+                          src={images.alignedDomains} 
+                          alt="Aligned magnetic domains in magnetized material" 
+                          className="w-full max-w-xs mx-auto rounded border border-green-300"
+                        />
+                      </div>
                       <p className="text-sm text-green-900">
                         In a magnetic field, domains rotate to align with the external field. The stronger 
                         the field, the more domains align, creating a net magnetic effect.
@@ -196,6 +254,26 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
 
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-semibold text-yellow-800 mb-3">Visualizing Magnetic Fields</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="text-center">
+                        <img 
+                          src={images.barMagnetFilings} 
+                          alt="Bar magnet with iron filings showing magnetic field pattern" 
+                          className="w-full rounded border border-yellow-300 mb-2"
+                        />
+                        <p className="text-xs text-yellow-800 font-medium">Iron filings reveal magnetic field pattern</p>
+                      </div>
+                      <div className="text-center">
+                        <img 
+                          src={images.fluxLines} 
+                          alt="Magnetic flux lines diagram around a bar magnet" 
+                          className="w-full rounded border border-yellow-300 mb-2"
+                        />
+                        <p className="text-xs text-yellow-800 font-medium">Magnetic flux lines representation</p>
+                      </div>
+                    </div>
+                    
                     <p className="text-yellow-900 mb-3">
                       The magnetic field around a magnet can be easily observed by sprinkling iron filings 
                       on a horizontal surface in the field. The domains in the little iron filings are aligned 
@@ -237,6 +315,16 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
 
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <h4 className="font-semibold text-purple-800 mb-3">Earth's Magnetic Field</h4>
+                    
+                    <div className="text-center mb-4">
+                      <img 
+                        src={images.earthField} 
+                        alt="Earth's magnetic field diagram showing field lines and magnetic poles" 
+                        className="w-full max-w-md mx-auto rounded border border-purple-300"
+                      />
+                      <p className="text-xs text-purple-800 font-medium mt-2">Earth's magnetic field with north and south magnetic poles</p>
+                    </div>
+                    
                     <p className="text-purple-900 mb-3">
                       The Earth has a magnetic field that acts as if it had a giant magnet inside it. Note that 
                       the north end of a compass points toward the geographic north pole.
@@ -298,31 +386,23 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                         <h5 className="font-medium text-yellow-800">Oersted's Setup</h5>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="bg-gray-100 p-3 rounded">
-                          <p className="text-xs font-medium mb-2">No Current</p>
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-sm">N ← S</div>
-                            <div className="text-xs text-gray-600 mt-1">compass</div>
-                          </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="text-center">
+                          <img 
+                            src={images.oerstedNoCurrent} 
+                            alt="Compass needle with no current flowing through wire" 
+                            className="w-full rounded border border-yellow-300 mb-2"
+                          />
+                          <p className="text-xs text-yellow-800 font-medium">No current - compass points north</p>
                         </div>
                         
-                        <div className="bg-gray-100 p-3 rounded">
-                          <p className="text-xs font-medium mb-2">Compass Below Wire</p>
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-xs text-gray-600 mb-1">current flow →</div>
-                            <div className="text-sm">N ↑ S</div>
-                            <div className="text-xs text-gray-600 mt-1">compass below wire</div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-gray-100 p-3 rounded">
-                          <p className="text-xs font-medium mb-2">Compass Above Wire</p>
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-xs text-gray-600 mb-1">current flow →</div>
-                            <div className="text-sm">S ↑ N</div>
-                            <div className="text-xs text-gray-600 mt-1">compass above wire</div>
-                          </div>
+                        <div className="text-center">
+                          <img 
+                            src={images.oerstedWireCompass} 
+                            alt="Compass needle deflection with current flowing through wire above and below" 
+                            className="w-full rounded border border-yellow-300 mb-2"
+                          />
+                          <p className="text-xs text-yellow-800 font-medium">Current flowing - compass deflects perpendicular to wire</p>
                         </div>
                       </div>
                     </div>
@@ -433,6 +513,26 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
 
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <h4 className="font-semibold text-purple-800 mb-3">First Hand Rule Technique</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="text-center">
+                        <img 
+                          src={images.handRuleDiagram} 
+                          alt="Hand diagram showing first hand rule technique for magnetic field direction" 
+                          className="w-full max-w-sm mx-auto rounded border border-purple-300 mb-2"
+                        />
+                        <p className="text-xs text-purple-800 font-medium">Hand rule technique</p>
+                      </div>
+                      <div className="text-center">
+                        <img 
+                          src={images.handRuleCrossSection} 
+                          alt="Cross-section view of magnetic field around current-carrying wire" 
+                          className="w-full max-w-sm mx-auto rounded border border-purple-300 mb-2"
+                        />
+                        <p className="text-xs text-purple-800 font-medium">3D magnetic field view</p>
+                      </div>
+                    </div>
+                    
                     <p className="text-purple-900 mb-3">
                       For a current carrying wire the <strong>thumb points in the direction of the current</strong> and the 
                       <strong>fingers curl around the wire</strong> indicating the direction of the magnetic field. Note that 
@@ -483,18 +583,12 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-blue-100 p-4 rounded border border-blue-300 inline-block">
-                      <div className="text-sm mb-2">Wire Setup</div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold">A</span>
-                        <div className="flex items-center">
-                          <span className="text-sm">electrons →</span>
-                          <div className="w-16 h-1 bg-gray-600 mx-2"></div>
-                        </div>
-                        <span className="font-bold">B</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-2">Wire under compass needle</div>
-                    </div>
+                    <img 
+                      src={images.example1Diagram} 
+                      alt="Example 1: Wire under compass with electron flow from A to B" 
+                      className="w-full max-w-md mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Wire under compass needle - electrons flow A to B</p>
                   </div>
                 </div>
                 
@@ -535,7 +629,14 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                     
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <span className="font-medium text-green-800">Answer:</span>
-                      <p className="text-green-900 mt-1">
+                      <div className="mt-3 text-center">
+                        <img 
+                          src={images.example1Answer} 
+                          alt="Example 1 answer showing compass needle pointing to the right" 
+                          className="w-full max-w-sm mx-auto rounded border border-green-300 mb-2"
+                        />
+                      </div>
+                      <p className="text-green-900 mt-1 text-center">
                         The north end of the compass needle will point <strong>to the right</strong>.
                       </p>
                     </div>
@@ -556,18 +657,12 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-red-100 p-4 rounded border border-red-300 inline-block">
-                      <div className="text-sm mb-2">Wire Setup</div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold">A</span>
-                        <div className="flex items-center">
-                          <span className="text-sm">current →</span>
-                          <div className="w-16 h-1 bg-gray-600 mx-2"></div>
-                        </div>
-                        <span className="font-bold">B</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-2">Wire over compass needle</div>
-                    </div>
+                    <img 
+                      src={images.example2Diagram} 
+                      alt="Example 2: Wire over compass with conventional current from A to B" 
+                      className="w-full max-w-md mx-auto rounded border border-red-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Wire over compass needle - conventional current flows A to B</p>
                   </div>
                 </div>
                 
@@ -608,7 +703,14 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                     
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <span className="font-medium text-green-800">Answer:</span>
-                      <p className="text-green-900 mt-1">
+                      <div className="mt-3 text-center">
+                        <img 
+                          src={images.example2Answer} 
+                          alt="Example 2 answer showing compass needle pointing to the right" 
+                          className="w-full max-w-sm mx-auto rounded border border-green-300 mb-2"
+                        />
+                      </div>
+                      <p className="text-green-900 mt-1 text-center">
                         The north end of the compass needle will point <strong>to the right</strong>.
                       </p>
                     </div>
@@ -657,7 +759,35 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                   </div>
 
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-yellow-800 mb-2">Important Note</h4>
+                    <h4 className="font-semibold text-yellow-800 mb-3">Electromagnet Field Visualization</h4>
+                    
+                    <div className="grid md:grid-cols-3 gap-4 mb-4">
+                      <div className="text-center">
+                        <img 
+                          src={images.secondHandCoilLines} 
+                          alt="Magnetic field lines around a current-carrying coil" 
+                          className="w-full rounded border border-yellow-300 mb-2"
+                        />
+                        <p className="text-xs text-yellow-800 font-medium">Coil magnetic field lines</p>
+                      </div>
+                      <div className="text-center">
+                        <img 
+                          src={images.secondHandCompare} 
+                          alt="Comparison between bar magnet and electromagnet magnetic fields" 
+                          className="w-full rounded border border-yellow-300 mb-2"
+                        />
+                        <p className="text-xs text-yellow-800 font-medium">Bar magnet vs electromagnet</p>
+                      </div>
+                      <div className="text-center">
+                        <img 
+                          src={images.secondHandSolenoid} 
+                          alt="Solenoid magnetic flux lines showing uniform field inside" 
+                          className="w-full rounded border border-yellow-300 mb-2"
+                        />
+                        <p className="text-xs text-yellow-800 font-medium">Solenoid flux lines</p>
+                      </div>
+                    </div>
+                    
                     <p className="text-yellow-900">
                       The magnetic field of an electromagnet is similar to the field of a bar magnet.
                     </p>
@@ -677,17 +807,12 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-blue-100 p-4 rounded border border-blue-300 inline-block">
-                      <div className="text-sm mb-2">Solenoid Configuration 1</div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold">A</span>
-                        <div className="text-2xl">🌀</div>
-                        <span className="text-sm">coil winds clockwise from A to B</span>
-                        <div className="text-2xl">🌀</div>
-                        <span className="font-bold">B</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-2">Current flows A → B</div>
-                    </div>
+                    <img 
+                      src={images.example3Diagram} 
+                      alt="Example 3: Solenoid configuration 1 with current flowing from A to B" 
+                      className="w-full max-w-lg mx-auto rounded border border-blue-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Solenoid Configuration 1 - Current flows A to B</p>
                   </div>
                 </div>
                 
@@ -755,17 +880,12 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
                 
                 <div className="bg-white p-4 rounded border border-gray-100 mb-4">
                   <div className="text-center mb-4">
-                    <div className="bg-red-100 p-4 rounded border border-red-300 inline-block">
-                      <div className="text-sm mb-2">Solenoid Configuration 2</div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold">A</span>
-                        <div className="text-2xl">🌀</div>
-                        <span className="text-sm">coil winds counterclockwise from A to B</span>
-                        <div className="text-2xl">🌀</div>
-                        <span className="font-bold">B</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-2">Current flows A → B</div>
-                    </div>
+                    <img 
+                      src={images.example4Diagram} 
+                      alt="Example 4: Solenoid configuration 2 with current flowing from A to B" 
+                      className="w-full max-w-lg mx-auto rounded border border-red-300"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">Solenoid Configuration 2 - Current flows A to B</p>
                   </div>
                 </div>
                 
@@ -1064,6 +1184,91 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
           </TextSection>
         </div>
       )}
+
+      {/* Knowledge Check Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="36-magnetic-fields"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question1',
+            title: 'Question 1: Right Hand Rule - Compass Under Wire'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question2',
+            title: 'Question 2: Right Hand Rule - Compass Above Wire'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question3',
+            title: 'Question 3: Left Hand Rule - Electron Flow'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question4',
+            title: 'Question 4: Parallel Wires - Same Direction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question5',
+            title: 'Question 5: Parallel Wires - Opposite Direction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question6',
+            title: 'Question 6: Circular Conductor Loop'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question7',
+            title: 'Question 7: Solenoid Cross-Section'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question8',
+            title: 'Question 8: Solenoid North Pole - Configuration 1'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question9',
+            title: 'Question 9: Solenoid North Pole - Configuration 2'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question10',
+            title: 'Question 10: Domain Theory'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question11',
+            title: 'Question 11: Ferromagnetic Materials'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question12',
+            title: 'Question 12: Magnetic Poles'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question13',
+            title: 'Question 13: Field Line Properties'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question14',
+            title: 'Question 14: Electromagnet Strength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_36_question15',
+            title: 'Question 15: Oersted Discovery'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

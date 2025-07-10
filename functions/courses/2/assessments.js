@@ -61,6 +61,9 @@ const { assessmentConfigs: electricFieldsConfigs } = require('../2b/29-electric-
 const { assessmentConfigs: electricPotentialConfigs } = require('../2b/30-electric-potential/assessments');
 const { assessmentConfigs: parallelPlatesConfigs } = require('../2b/31-parallel-plates/assessments');
 const { assessmentConfigs: electricCurrentConfigs } = require('../2b/32-electric-current/assessments');
+const { assessmentConfigs: magneticFieldsConfigs } = require('../2b/36-magnetic-fields/assessments');
+const { assessmentConfigs: magneticForcesParticlesConfigs } = require('../2b/37-magnetic-forces-particles/assessments');
+const { assessmentConfigs: motorEffectConfigs } = require('../2b/38-motor-effect/assessments');
 const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
 const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
 
@@ -102,6 +105,9 @@ const getAllAssessmentConfigs = () => {
     ...electricPotentialConfigs,
     ...parallelPlatesConfigs,
     ...electricCurrentConfigs,
+    ...magneticFieldsConfigs,
+    ...magneticForcesParticlesConfigs,
+    ...motorEffectConfigs,
     ...l1518AssignmentConfigs,
     ...l118CumulativeConfigs
   };
