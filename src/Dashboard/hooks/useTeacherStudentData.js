@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
 import { 
   processNotificationsForCourses as processNotificationsUtil,
@@ -104,7 +103,7 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     }
   };
 
-  // Fetch course configuration from database with file fallback
+  // Fetch course configuration from database only
   const fetchCourseConfig = async (courseId) => {
     try {
       const db = getDatabase();
@@ -116,18 +115,7 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         return configSnapshot.val();
       }
       
-      // Fallback: try to get from Firebase Function that reads local files
-      console.log(`⚠️ Teacher view: Course config not found in database for ${courseId}, trying Firebase Function fallback...`);
-      const functions = getFunctions();
-      const getCourseConfigV2 = httpsCallable(functions, 'getCourseConfigV2');
-      const result = await getCourseConfigV2({ courseId });
-      
-      if (result.data.success) {
-        console.log(`✅ Teacher view: Using course config from file via Firebase Function for course ${courseId}`);
-        return result.data.config;
-      }
-      
-      console.warn(`Teacher view: Course config not found in database or file for ${courseId}`);
+      console.warn(`Teacher view: Course config not found in database for ${courseId}`);
       return null;
     } catch (error) {
       console.error(`Teacher view: Error fetching course config for ${courseId}:`, error);

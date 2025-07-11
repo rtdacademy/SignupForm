@@ -90,7 +90,7 @@ export const useStudentData = (userEmailKey) => {
     }
   };
 
-  // Fetch course configuration from database with file fallback
+  // Fetch course configuration from database only
   const fetchCourseConfig = async (courseId) => {
     try {
       const db = getDatabase();
@@ -101,16 +101,7 @@ export const useStudentData = (userEmailKey) => {
         return configSnapshot.val();
       }
       
-      // Fallback: try to get from Firebase Function that reads local files
-      const functions = getFunctions();
-      const getCourseConfigV2 = httpsCallable(functions, 'getCourseConfigV2');
-      const result = await getCourseConfigV2({ courseId });
-      
-      if (result.data.success) {
-        return result.data.config;
-      }
-      
-      console.warn(`Course config not found in database or file for ${courseId}`);
+      console.warn(`Course config not found in database for ${courseId}`);
       return null;
     } catch (error) {
       console.error(`Error fetching course config for ${courseId}:`, error);

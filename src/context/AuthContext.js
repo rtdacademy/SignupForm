@@ -59,6 +59,7 @@ export function AuthProvider({ children }) {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
   const [isParentUser, setIsParentUser] = useState(false);
+  const [isHomeEducationParent, setIsHomeEducationParent] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState({});
   const [staffMembers, setStaffMembers] = useState({});
   const [adminEmails, setAdminEmails] = useState([]);
@@ -66,6 +67,13 @@ export function AuthProvider({ children }) {
 
   // Parent login progress tracking
   const [parentLoginProgress, setParentLoginProgress] = useState({
+    isLoading: false,
+    step: '',
+    message: ''
+  });
+
+  // Home education login progress tracking
+  const [homeEducationLoginProgress, setHomeEducationLoginProgress] = useState({
     isLoading: false,
     step: '',
     message: ''
@@ -124,7 +132,8 @@ export function AuthProvider({ children }) {
     '/prerequisite-flowchart',
     '/parent-verify-email',
     '/rtd-learning-login',
-    '/rtd-learning-admin-login'
+    '/rtd-learning-admin-login',
+    '/rtd-connect-login'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -171,6 +180,8 @@ export function AuthProvider({ children }) {
       return false;
     }
   };
+
+  // checkIsHomeEducation function removed - home education status now determined by custom claims
 
   // Ensure parent node exists in database
   const ensureParentNode = async (user, emailKey) => {
@@ -235,6 +246,9 @@ export function AuthProvider({ children }) {
       return false;
     }
   };
+
+  // ensureHomeEducationNode function removed - home education families now use custom claims
+  // Family registration will be handled by separate registration process
 
   const checkIsAdmin = (user, adminEmailsList) => {
     return user && adminEmailsList.includes(user.email.toLowerCase());
@@ -842,6 +856,9 @@ export function AuthProvider({ children }) {
       permissions.canAccessParentPortal = true;
     }
     
+    // Home education status will be determined by custom claims during family registration
+    // No longer checking database nodes during login
+    
     // Default to student if no other roles
     if (roles.length === 0) {
       roles.push('student');
@@ -939,7 +956,48 @@ export function AuthProvider({ children }) {
                                         location.pathname === '/parent-dashboard' ||
                                         localStorage.getItem('parentPortalSignup') === 'true';
             
-            if (isParentPortalAccess) {
+            const isHomeEducationPortalAccess = location.pathname === '/rtd-connect-login' || 
+                                              location.pathname === '/rtd-connect-dashboard' ||
+                                              localStorage.getItem('rtdConnectPortalLogin') === 'true' ||
+                                              localStorage.getItem('rtdConnectPortalSignup') === 'true';
+            
+            if (isHomeEducationPortalAccess) {
+              // RTD Connect user - simplified login without home education node creation
+              dataCreated = await ensureUserNode(currentUser, emailKey);
+              if (dataCreated && isMounted) {
+                try {
+                  // Initialize basic user session
+                  await Promise.all([
+                    checkTokenExpiration(),
+                    archivePreviousSession(currentUser).then(() => initializeUserSession(currentUser))
+                  ]);
+                } catch (error) {
+                  console.error('Error initializing RTD Connect user session:', error);
+                }
+                
+                setUser(currentUser);
+                setUserEmailKey(emailKey);
+                setIsStaffUser(false);
+                setIsAdminUser(false);
+                setIsSuperAdminUser(false);
+                setIsParentUser(false);
+                
+                // For RTD Connect portal access, set isHomeEducationParent to true
+                // Custom claims will be set later during family registration
+                setIsHomeEducationParent(true);
+                
+                // Clear RTD Connect signup/login flags if they exist
+                localStorage.removeItem('rtdConnectPortalSignup');
+                localStorage.removeItem('rtdConnectPortalLogin');
+                
+                // Navigate to RTD Connect dashboard
+                if (location.pathname.toLowerCase() === '/rtd-connect-login') {
+                  authTimeout = setTimeout(() => {
+                    if (isMounted) navigate('/rtd-connect-dashboard');
+                  }, 500);
+                }
+              }
+            } else if (isParentPortalAccess) {
               // Parent user - create/update parent node
               setParentLoginProgress({
                 isLoading: true,
@@ -1021,6 +1079,7 @@ export function AuthProvider({ children }) {
                 setIsAdminUser(false);
                 setIsSuperAdminUser(false);
                 setIsParentUser(false);
+                setIsHomeEducationParent(false);
                 
                 // Add a small delay before navigation to ensure state is updated
                 if (location.pathname.toLowerCase() === '/login') {
@@ -1039,6 +1098,7 @@ export function AuthProvider({ children }) {
             setIsAdminUser(false);
             setIsSuperAdminUser(false);
             setIsParentUser(false);
+            setIsHomeEducationParent(false);
             setCourseTeachers({});
             setStaffMembers({});
             setEmulatedUser(null);
@@ -1056,6 +1116,8 @@ export function AuthProvider({ children }) {
                     navigate('/staff-login');
                   } else if (currentPath.toLowerCase() === '/parent-dashboard') {
                     navigate('/parent-login');
+                  } else if (currentPath.toLowerCase() === '/rtd-connect-dashboard') {
+                    navigate('/rtd-connect-login');
                   } else if (currentPath.toLowerCase() === '/rtd-learning-dashboard') {
                     navigate('/rtd-learning-login');
                   } else if (currentPath.toLowerCase() === '/rtd-learning-admin-dashboard') {
@@ -1076,6 +1138,8 @@ export function AuthProvider({ children }) {
           setIsStaffUser(false);
           setIsAdminUser(false);
           setIsSuperAdminUser(false);
+          setIsParentUser(false);
+          setIsHomeEducationParent(false);
           setCourseTeachers({});
           setStaffMembers({});
           setEmulatedUser(null);
@@ -1101,6 +1165,8 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     try {
       const wasStaff = isStaffUser;
+      const wasParent = isParentUser;
+      const wasHomeEducation = isHomeEducationParent;
       
       // Archive current session before signing out
       if (user) {
@@ -1124,6 +1190,8 @@ export function AuthProvider({ children }) {
       setIsStaffUser(false);
       setIsAdminUser(false);
       setIsSuperAdminUser(false);
+      setIsParentUser(false);
+      setIsHomeEducationParent(false);
       setCourseTeachers({});
       setStaffMembers({});
       setEmulatedUser(null);
@@ -1141,20 +1209,39 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('rtd_last_activity_timestamp');
       localStorage.removeItem('rtd_scheduled_logout_time');
       
+      // Clear portal-specific flags
+      localStorage.removeItem('rtdConnectPortalLogin');
+      localStorage.removeItem('rtdConnectPortalSignup');
+      localStorage.removeItem('parentPortalSignup');
+      
       // Then sign out of Firebase
       await firebaseSignOut(auth);
       
       // Wait a moment to ensure everything is cleaned up
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Navigate after cleanup is complete
-      navigate(wasStaff ? '/staff-login' : '/login');
+      // Navigate after cleanup is complete - check current path to determine where to redirect
+      const currentPath = location.pathname.toLowerCase();
+      if (wasStaff) {
+        navigate('/staff-login');
+      } else if (wasHomeEducation || currentPath.includes('rtd-connect')) {
+        navigate('/rtd-connect-login');
+      } else if (wasParent || currentPath.includes('parent')) {
+        navigate('/parent-login');
+      } else {
+        navigate('/login');
+      }
     } catch (error) {
       console.error("Error signing out:", error);
       
       // Force a clean state even if there's an error
       setUser(null);
       setUserEmailKey(null);
+      setIsStaffUser(false);
+      setIsAdminUser(false);
+      setIsSuperAdminUser(false);
+      setIsParentUser(false);
+      setIsHomeEducationParent(false);
       navigate('/login');
       
       throw error;
@@ -1252,6 +1339,7 @@ export function AuthProvider({ children }) {
     isAdminUser,
     isSuperAdminUser,
     isParentUser,
+    isHomeEducationParent,
     ensureStaffNode,
     ensureUserNode,
     signOut,
@@ -1304,6 +1392,10 @@ export function AuthProvider({ children }) {
     // Parent login progress
     parentLoginProgress,
     setParentLoginProgress,
+
+    // Home education login progress
+    homeEducationLoginProgress,
+    setHomeEducationLoginProgress,
 
     // Custom Claims functions
     checkAndSetCustomClaims,

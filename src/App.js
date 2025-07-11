@@ -42,6 +42,8 @@ import RTDLearningLogin from './rtdLearning/Login';
 import RTDLearningDashboard from './rtdLearning/Dashboard';
 import RTDLearningAdminLogin from './rtdLearning/AdminLogin';
 import RTDLearningAdminDashboard from './rtdLearning/AdminDashboard';
+import RTDConnectLogin from './RTDConnect/Login';
+import RTDConnectDashboard from './RTDConnect/Dashboard';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -74,7 +76,7 @@ const EdBotzProtectedRoute = ({ children }) => {
 };
 
 function MainApp() {
-  const { user, loading, isStaff } = useAuth();
+  const { user, loading, isStaff, isHomeEducationParent } = useAuth();
 
     // Enable debug info in development mode or with a query parameter
     const isDebugMode = process.env.NODE_ENV === 'development' || 
@@ -165,6 +167,14 @@ function MainApp() {
 <Route path="/parent-login" element={<ParentLogin />} />
 <Route path="/parent-verify-email" element={<ParentEmailVerification />} />
 <Route path="/parent-dashboard" element={user ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
+
+{/* RTD Connect Routes */}
+<Route path="/rtd-connect-login" element={
+  user && isHomeEducationParent ? <Navigate to="/rtd-connect-dashboard" /> : <RTDConnectLogin />
+} />
+<Route path="/rtd-connect-dashboard" element={
+  user && isHomeEducationParent ? <RTDConnectDashboard /> : <Navigate to="/rtd-connect-login" />
+} />
 
 {/* RTD Learning Routes */}
 <Route path="/rtd-learning-login" element={

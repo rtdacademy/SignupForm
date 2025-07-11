@@ -223,6 +223,10 @@ exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocumen
 // User roles and custom claims functions
 exports.setUserRoles = userRolesFunctions.setUserRoles;
 
+// Family custom claims functions
+const familyCustomClaimsFunctions = require('./setFamilyCustomClaims');
+exports.setFamilyCustomClaims = familyCustomClaimsFunctions.setFamilyCustomClaims;
+
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;
 
