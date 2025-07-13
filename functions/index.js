@@ -273,3 +273,27 @@ exports.course2_assessments = course2AssessmentFunctions.course2_assessments;
 
 // Course 2 Lab Submission Function (consolidated with assessments)
 exports.course2_lab_submit = course2AssessmentFunctions.course2_lab_submit;
+
+// Course 2 Lesson 41: Activities Assessment Functions
+const course2_41_activities = require('./courses/2/41-activities/assessments');
+exports.course2_41_station1_q1 = course2_41_activities.course2_41_station1_q1;
+exports.course2_41_station1_q2 = course2_41_activities.course2_41_station1_q2;
+exports.course2_41_station1_q3 = course2_41_activities.course2_41_station1_q3;
+exports.course2_41_station1_q4 = course2_41_activities.course2_41_station1_q4;
+exports.course2_41_station1_q5 = course2_41_activities.course2_41_station1_q5;
+exports.course2_41_station2_q1 = course2_41_activities.course2_41_station2_q1;
+exports.course2_41_station2_q2 = course2_41_activities.course2_41_station2_q2;
+exports.course2_41_station2_q3 = course2_41_activities.course2_41_station2_q3;
+exports.course2_41_station2_q4 = course2_41_activities.course2_41_station2_q4;
+exports.course2_41_station2_q5 = course2_41_activities.course2_41_station2_q5;
+exports.course2_41_station3_q1 = course2_41_activities.course2_41_station3_q1;
+exports.course2_41_station3_q2 = course2_41_activities.course2_41_station3_q2;
+exports.course2_41_station3_q3 = course2_41_activities.course2_41_station3_q3;
+exports.course2_41_station3_q4 = course2_41_activities.course2_41_station3_q4;
+exports.course2_41_station3_q5 = course2_41_activities.course2_41_station3_q5;
+exports.course2_41_station4_q1 = course2_41_activities.course2_41_station4_q1;
+exports.course2_41_station4_q2 = course2_41_activities.course2_41_station4_q2;
+exports.course2_41_station4_q3 = course2_41_activities.course2_41_station4_q3;
+exports.course2_41_station4_q4 = course2_41_activities.course2_41_station4_q4;
+exports.course2_41_station4_q5 = course2_41_activities.course2_41_station4_q5;
+

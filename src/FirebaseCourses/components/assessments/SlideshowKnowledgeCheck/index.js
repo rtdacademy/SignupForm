@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Expand, R
 import { useAuth } from '../../../../context/AuthContext';
 import StandardMultipleChoiceQuestion from '../StandardMultipleChoiceQuestion';
 import AIShortAnswerQuestion from '../AIShortAnswerQuestion';
+import AILongAnswerQuestion from '../AILongAnswerQuestion';
 import { Sheet, SheetContent, SheetTrigger } from '../../../../components/ui/sheet';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -355,7 +356,7 @@ const SlideshowKnowledgeCheck = ({
     };
 
     loadProgressFromCourse();
-  }, [course?.Assessments, course?.Gradebook, course?.Grades, questions.length, lessonPath]);
+  }, [course?.Assessments, course?.Gradebook, course?.Grades, questions?.length, lessonPath]);
 
   // DISABLED: Pre-loading removed to prevent infinite loops and loading issues
   // Questions will now load on-demand when navigated to
@@ -384,9 +385,9 @@ const SlideshowKnowledgeCheck = ({
     }
   };
 
-  const allQuestionsCompleted = questions.every((_, index) => 
+  const allQuestionsCompleted = questions?.every((_, index) => 
     questionsCompleted[`question${index + 1}`]
-  );
+  ) || false;
 
   useEffect(() => {
     if (allQuestionsCompleted && onComplete) {
@@ -394,7 +395,7 @@ const SlideshowKnowledgeCheck = ({
       const totalScore = (correctCount / questions.length) * 100;
       onComplete(totalScore, questionResults);
     }
-  }, [allQuestionsCompleted, questionResults, questions.length, onComplete]);
+  }, [allQuestionsCompleted, questionResults, questions?.length, onComplete]);
 
   const renderQuestion = (question, index) => {
     const questionId = generateQuestionId(index);
@@ -460,6 +461,28 @@ const SlideshowKnowledgeCheck = ({
             onComplete={(result) => {
               handleQuestionComplete(questionNumber);
               // For AI questions, we'll consider them correct if they receive feedback
+              handleQuestionResult(questionNumber, result.score > 0);
+            }}
+          />
+        );
+      
+      case 'ai-long-answer':
+        const originalAILongQuestionId = question.questionId || questionId;
+        // AI Long Answer questions use their direct function name (not the master function)
+        const aiLongCloudFunctionName = originalAILongQuestionId;
+        
+        return (
+          <AILongAnswerQuestion
+            key={questionId}
+            courseId={courseId}
+            cloudFunctionName={aiLongCloudFunctionName}
+            assessmentId={originalAILongQuestionId}
+            title={question.title || `Question ${questionNumber}`}
+            theme={theme}
+            maxAttempts={3}
+            onComplete={(result) => {
+              handleQuestionComplete(questionNumber);
+              // For AI Long Answer questions, consider them correct if they receive any score
               handleQuestionResult(questionNumber, result.score > 0);
             }}
           />
