@@ -1,94 +1,131 @@
-// functions/setFamilyCustomClaims.js
+
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+
 const admin = require('firebase-admin');
-const { v4: uuidv4 } = require('uuid');
+const { sanitizeEmail } = require('./utils');
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+
 /**
- * Cloud Function: setFamilyCustomClaims
- * 
- * Sets custom claims for a primary guardian when they register their family.
- * Creates a unique family ID and assigns appropriate permissions.
+ * HTTPS Function: applyPendingPermissions
+ * Allows users to apply their own pending permissions
  */
-const setFamilyCustomClaims = onCall({
-  concurrency: 50,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
-}, async (data) => {
-  // Verify that the user is authenticated
-  if (!data.auth) {
-    console.log('Unauthenticated user attempted to set family custom claims');
-    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+const applyPendingPermissions = onCall({
+  region: 'us-central1',
+  memory: '256MiB'
+}, async (request) => {
+  const { auth } = request;
+  
+  // Must be authenticated
+  if (!auth) {
+    throw new HttpsError('unauthenticated', 'Must be authenticated');
   }
-
-  const uid = data.auth.uid;
-  console.log(`Setting family custom claims for user: ${uid}`);
-
+  
+  const userEmail = auth.token.email;
+  const emailKey = sanitizeEmail(userEmail);
+  
+  const db = admin.database();
+  const pendingRef = db.ref(`pendingPermissions/${emailKey}`);
+  
   try {
-    // Check if user already has family custom claims
-    const userRecord = await admin.auth().getUser(uid);
-    const existingClaims = userRecord.customClaims || {};
-
-    // If user already has family claims, return the existing family ID
-    if (existingClaims.familyId && existingClaims.familyRole === 'primary_guardian') {
-      console.log(`User ${uid} already has family claims with familyId: ${existingClaims.familyId}`);
-      return {
-        success: true,
-        familyId: existingClaims.familyId,
-        message: 'User already has family registration claims',
-        isExisting: true
+    const snapshot = await pendingRef.once('value');
+    
+    if (!snapshot.exists()) {
+      return { 
+        success: false, 
+        message: 'No pending permissions found for your email' 
       };
     }
-
-    // Generate a new unique family ID
-    const familyId = uuidv4();
     
-    // Define custom claims for primary guardian
+    const pendingData = snapshot.val();
+    
+    // Double-check email match (extra security)
+    if (pendingData.email !== userEmail) {
+      throw new HttpsError(
+        'permission-denied', 
+        'Email mismatch in pending permissions'
+      );
+    }
+    
+    if (pendingData.applied) {
+      return { 
+        success: false, 
+        message: 'Permissions already applied' 
+      };
+    }
+    
+    // Prepare custom claims
     const customClaims = {
-      ...existingClaims, // Preserve any existing claims
-      familyId: familyId,
-      familyRole: 'primary_guardian',
-      permissions: {
-        canManageFamily: true,
-        canAddRemoveMembers: true,
-        canEditAllProfiles: true,
-        canDeleteFamily: true,
-        canManageBilling: true,
-        canViewAllRecords: true,
-        canSubmitReceipts: true // Allow primary to submit receipts too
-      }
+      familyId: pendingData.familyId,
+      familyRole: pendingData.familyRole || pendingData.role // Support both old and new field names
     };
 
-    // Set the custom claims
-    await admin.auth().setCustomUserClaims(uid, customClaims);
-
-    // Update real-time database to notify client to force refresh token
-    const db = admin.database();
-    const metadataRef = db.ref(`metadata/${uid}`);
-    await metadataRef.set({
-      refreshTime: new Date().getTime(),
-      familyRegistrationTime: new Date().getTime()
+    // Add student info if it's a student
+    const userRole = pendingData.familyRole || pendingData.role;
+    if (userRole === 'student' && pendingData.studentInfo) {
+      customClaims.studentInfo = pendingData.studentInfo;
+    }
+    
+    // Get user's existing custom claims first to preserve them
+    const userRecord = await admin.auth().getUser(auth.uid);
+    const existingClaims = userRecord.customClaims || {};
+    
+    // Merge with existing claims (preserving any existing roles/permissions)
+    const finalClaims = {
+      ...existingClaims,
+      ...customClaims
+    };
+    
+    // Apply the custom claims
+    await admin.auth().setCustomUserClaims(auth.uid, finalClaims);
+    console.log(`✓ Successfully set custom claims for user ${auth.uid} with familyId: ${pendingData.familyId}`);
+    
+    // Verify the claims were set by reading them back
+    const updatedUserRecord = await admin.auth().getUser(auth.uid);
+    const verifyCustomClaims = updatedUserRecord.customClaims || {};
+    console.log(`✓ Verified custom claims - familyId: ${verifyCustomClaims.familyId}, familyRole: ${verifyCustomClaims.familyRole}`);
+    
+    // Small delay to ensure claims are propagated
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Mark as applied
+    await pendingRef.update({
+      applied: true,
+      appliedAt: Date.now(),
+      appliedToUid: auth.uid
     });
-
-    console.log(`Successfully set family custom claims for user ${uid} with familyId: ${familyId}`);
-
-    return {
-      success: true,
-      familyId: familyId,
-      message: 'Family custom claims set successfully',
-      isExisting: false
+    
+    console.log(`Applied pending permissions for ${userEmail}`);
+    
+    // Update metadata to trigger token refresh - AFTER everything is complete
+    try {
+      await db.ref(`metadata/${auth.uid}`).set({
+        refreshTime: Date.now(),
+        pendingPermissionsApplied: Date.now()
+      });
+      console.log(`✓ Updated metadata to trigger token refresh for user ${auth.uid}`);
+    } catch (error) {
+      console.error(`✗ Failed to update metadata for user ${auth.uid}:`, error);
+    }
+    
+    return { 
+      success: true, 
+      familyId: pendingData.familyId,
+      familyRole: userRole,
+      message: 'Permissions applied successfully'
     };
-
+    
   } catch (error) {
-    console.error('Error setting family custom claims:', error);
-    throw new HttpsError('internal', 'An error occurred while setting family custom claims.');
+    console.error('Error applying pending permissions:', error);
+    throw new HttpsError('internal', 'Failed to apply permissions');
   }
 });
 
 module.exports = {
-  setFamilyCustomClaims,
+  applyPendingPermissions
 };

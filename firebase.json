@@ -24,7 +24,8 @@
         "**/node_modules/**",
         "*.html.bak",
         "index.main.html",
-        "index.second.html"
+        "index.second.html",
+        "index.rtdconnect.html"
       ],
       "rewrites": [
         {
@@ -52,7 +53,37 @@
         "**/node_modules/**",
         "*.html.bak",
         "index.main.html",
-        "index.second.html"
+        "index.second.html",
+        "index.rtdconnect.html"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/tts-v2",
+          "function": "streamTTSv2"
+        },
+        {
+          "source": "/api/tts",
+          "function": "streamTTS"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false
+    },
+    {
+      "target": "rtd-connect",
+      "public": "public-rtdconnect",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**",
+        "*.html.bak",
+        "index.main.html",
+        "index.second.html",
+        "index.rtdconnect.html"
       ],
       "rewrites": [
         {

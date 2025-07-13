@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { auth, googleProvider, microsoftProvider } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import {
@@ -290,7 +291,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         handleStaffAttempt();
       } else {
         await ensureUserData(user);
-        navigate("/rtd-connect-dashboard");
+        navigate("/dashboard");
       }
     } catch (error) {
       console.error("Sign-in error:", error);
@@ -347,7 +348,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       if (user.emailVerified) {
         localStorage.setItem('rtdConnectPortalLogin', 'true');
         await ensureUserData(user);
-        navigate("/rtd-connect-dashboard");
+        navigate("/dashboard");
       } else {
         await sendEmailVerification(user);
         await auth.signOut();
@@ -714,41 +715,23 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         // Compact view 
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {renderAuthForm()}
-          
-          <div className="mt-6 space-y-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Other login options</span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Link 
-                to="/login" 
-                className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-gray-600 hover:text-gray-700">Student Portal</span>
-                <span className="text-xs text-gray-500 mt-1">For students</span>
-              </Link>
-              
-              <Link 
-                to="/staff-login" 
-                className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-gray-600 hover:text-gray-700">Staff Login</span>
-                <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
-              </Link>
-            </div>
-          </div>
         </div>
       ) : (
         // Full view with all wrappers
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
           {!hideWelcome && (
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
+              {/* Back to Home Button */}
+              <div className="mb-6">
+                <button
+                  onClick={() => navigate('/')}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors duration-200 shadow-sm"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Home
+                </button>
+              </div>
+              
               <RTDConnectLogo />
               <p className="mt-4 text-center text-sm text-gray-600 leading-relaxed">
                 Welcome to RTD Connect, your home education portal. Here you can register your family, 
@@ -760,35 +743,6 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
           <div className={`${!hideWelcome ? 'mt-8' : ''} sm:mx-auto sm:w-full sm:max-w-md`}>
             <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 border border-purple-100">
               {renderAuthForm()}
-              
-              <div className="mt-6 space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Other portals</span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Link 
-                    to="/login" 
-                    className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="font-medium text-gray-600 hover:text-gray-700">Student Portal</span>
-                    <span className="text-xs text-gray-500 mt-1">For students</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/staff-login" 
-                    className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="font-medium text-gray-600 hover:text-gray-700">Staff Login</span>
-                    <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
-                  </Link>
-                </div>
-              </div>
             </div>
           </div>
 

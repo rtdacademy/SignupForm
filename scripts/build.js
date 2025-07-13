@@ -5,6 +5,7 @@ async function main() {
   const options = {
     isSandbox: args.includes('--sandbox'),
     isSecondSite: args.includes('--second-site'),
+    isRTDConnect: args.includes('--rtd-connect'),
     memorySize: 3072, // Reduced to 3GB to fit within system limits
     maxRetries: 3,
     cleanOnly: args.includes('--clean-only'),
