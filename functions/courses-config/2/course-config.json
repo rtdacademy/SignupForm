@@ -870,7 +870,7 @@
         "contentPath": "44-l22-24-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 75,
+          "timeLimit": 70,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
@@ -888,7 +888,48 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_44_l2224_question1",
+            "title": "Induced Current Direction - Coil",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question2",
+            "title": "Conductor Polarity - Current Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question3",
+            "title": "Conductor End Polarity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question4",
+            "title": "Motional EMF and Current Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question5",
+            "title": "AC Generator Power Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question6",
+            "title": "Electromagnetic Radiation Nature",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question7",
+            "title": "Wavelength in Different Media",
+            "points": 1
+          },
+          {
+            "questionId": "course2_44_l2224_question8",
+            "title": "Microwave Interference Pattern",
+            "points": 1
+          }
+        ]
       },
       "assignment_l1_24": {
         "title": "Assignment L1-24 - Unit 3-4 Cumulative",
@@ -896,7 +937,7 @@
         "contentPath": "45-l1-24-cumulative-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 95,
+          "timeLimit": 90,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
@@ -914,7 +955,83 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_45_l124_question1",
+            "title": "Car Collision Force Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question2",
+            "title": "Ball Wall Collision Impulse",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question3",
+            "title": "Inelastic Collision Velocity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question4",
+            "title": "Critical Angle and Refractive Index",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question5",
+            "title": "Light Through Prism",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question6",
+            "title": "Lens Focal Length and Type",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question7",
+            "title": "Diffraction Grating Lines per Meter",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question8",
+            "title": "Alpha Particle Acceleration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question9",
+            "title": "Electric Field Distance Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question10",
+            "title": "Alpha Particle Potential Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question11",
+            "title": "Millikan Oil Drop Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question12",
+            "title": "Proton Magnetic Field Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question13",
+            "title": "Conductor Magnetic Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question14",
+            "title": "Mass Spectrometer Ion Mass",
+            "points": 1
+          },
+          {
+            "questionId": "course2_45_l124_question15",
+            "title": "Carbon-14 Path Radius",
+            "points": 1
+          }
+        ]
       },
       "assignment_l25_27": {
         "title": "Assignment L25-27 - Early Atomic Models",
@@ -2385,6 +2502,170 @@
           {
             "questionId": "course2_23_unit2_q18",
             "title": "Unit2 Q18",
+            "points": 1
+          }
+        ]
+      },
+      "46_unit_3_review": {
+        "title": "Unit 3 Review",
+        "type": "lesson",
+        "contentPath": "46-unit-3-review",
+        "questions": [
+          {
+            "questionId": "course2_46_unit3_q1",
+            "title": "Charging Methods",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q2",
+            "title": "Glass Rod and Silk",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q3",
+            "title": "Coulomb's Law Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q4",
+            "title": "Inverse Square Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q5",
+            "title": "Electric Field Strength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q6",
+            "title": "Electric Field Lines",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q7",
+            "title": "Electric Potential Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q8",
+            "title": "Work and Potential Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q9",
+            "title": "Parallel Plate Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q10",
+            "title": "Capacitor Charge Storage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q11",
+            "title": "Electric Current Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q12",
+            "title": "Ohm's Law Application",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q13",
+            "title": "Scalar vs Vector Quantities",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q14",
+            "title": "Electron Motion in Electric Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_46_unit3_q15",
+            "title": "Capacitance and Plate Separation",
+            "points": 1
+          }
+        ]
+      },
+      "47_unit_4_review": {
+        "title": "Unit 4 Review",
+        "type": "lesson",
+        "contentPath": "47-unit-4-review",
+        "questions": [
+          {
+            "questionId": "course2_47_unit4_q1",
+            "title": "Magnetic Field Properties",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q2",
+            "title": "Right-Hand Rules",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q3",
+            "title": "Force on Moving Charge",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q4",
+            "title": "Circular Motion in Magnetic Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q5",
+            "title": "Force on Current-Carrying Wire",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q6",
+            "title": "Motor Principle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q7",
+            "title": "Faraday's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q8",
+            "title": "Lenz's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q9",
+            "title": "Motional EMF",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q10",
+            "title": "Transformers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q11",
+            "title": "EM Wave Properties",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q12",
+            "title": "EM Spectrum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q13",
+            "title": "Wave-Particle Duality",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q14",
+            "title": "Practical Applications",
+            "points": 1
+          },
+          {
+            "questionId": "course2_47_unit4_q15",
+            "title": "Conceptual Integration",
             "points": 1
           }
         ]
