@@ -1530,17 +1530,17 @@ const GeneratorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccord
           "Generator effect converts mechanical energy to electrical energy (opposite of motor effect)",
           "Lenz's Law: Induced current creates magnetic field that opposes the original change",
           "Hand rules can predict induced current direction in moving conductors",
-          "EMF in moving conductor: V = BvLsinθ, where v is conductor velocity",
+          <>EMF in moving conductor: <InlineMath math="V = BvL\sin\theta" />, where v is conductor velocity</>,
           "Electric generators are motors operating in reverse - same components, opposite energy conversion",
           "AC current oscillates sinusoidally; average voltage and current are zero but power is positive",
-          "Effective (RMS) values: I_eff = 0.707 I_max, V_eff = 0.707 V_max",
+          <>Effective (RMS) values: <InlineMath math="I_{eff} = 0.707 I_{max}" />, <InlineMath math="V_{eff} = 0.707 V_{max}" /></>,
           "Standard household voltage: 120 V effective (170 V peak) at 60 Hz in North America",
           "Transformers use electromagnetic induction to change AC voltage levels",
-          "Transformer relationships: N_p/N_s = V_p/V_s = I_s/I_p (assuming 100% efficiency)",
-          "Step-up transformers increase voltage (N_s > N_p); step-down transformers decrease voltage (N_s < N_p)",
+          <>Transformer relationships: <InlineMath math="\frac{N_p}{N_s} = \frac{V_p}{V_s} = \frac{I_s}{I_p}" /> (assuming 100% efficiency)</>,
+          <>Step-up transformers increase voltage (<InlineMath math="N_s > N_p" />); step-down transformers decrease voltage (<InlineMath math="N_s < N_p" />)</>,
           "AC won the 'War of Currents' because transformers enable efficient long-distance power transmission",
           "Power transmission: generate at moderate voltage → step up for transmission → step down for consumers",
-          "AC transmission minimizes losses (P = I²R) by using high voltage and low current over long distances"
+          <>AC transmission minimizes losses (<InlineMath math="P = I^2R" />) by using high voltage and low current over long distances</>
         ]}
       />
     </LessonContent>
