@@ -69,6 +69,10 @@ const { assessmentConfigs: electromagneticRadiationConfigs } = require('../2b/42
 const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
 const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
 const { assessmentConfigs: l1921AssignmentConfigs } = require('../2b/39-l19-21-assignment/assessments');
+const { assessmentConfigs: l2224AssignmentConfigs } = require('../2b/44-l22-24-assignment/assessments');
+const { assessmentConfigs: l124CumulativeConfigs } = require('../2b/45-l1-24-cumulative-assignment/assessments');
+const { assessmentConfigs: unit3ReviewConfigs } = require('../2b/46-unit-3-review/assessments');
+const { assessmentConfigs: unit4ReviewConfigs } = require('../2b/47-unit-4-review/assessments');
 const { assessmentConfigs: activitiesConfigs } = require('../2/41-activities/assessments');
 
 /**
@@ -118,7 +122,11 @@ const getAllAssessmentConfigs = () => {
     ...activitiesConfigs,
     ...l1518AssignmentConfigs,
     ...l118CumulativeConfigs,
-    ...l1921AssignmentConfigs
+    ...l1921AssignmentConfigs,
+    ...l2224AssignmentConfigs,
+    ...l124CumulativeConfigs,
+    ...unit3ReviewConfigs,
+    ...unit4ReviewConfigs
   };
 };
 

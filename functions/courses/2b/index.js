@@ -136,5 +136,78 @@ exports.course2_39_l1921_question7 = require('./39-l19-21-assignment/assessments
 exports.course2_39_l1921_question8 = require('./39-l19-21-assignment/assessments').course2_39_l1921_question8;
 exports.course2_39_l1921_question9 = require('./39-l19-21-assignment/assessments').course2_39_l1921_question9;
 
+// Lesson 40: Generator Effect
+exports.course2_40_generator_principle = require('./40-generator-effect/assessments').course2_40_generator_principle;
+exports.course2_40_emf_generation = require('./40-generator-effect/assessments').course2_40_emf_generation;
+exports.course2_40_lenz_law = require('./40-generator-effect/assessments').course2_40_lenz_law;
+exports.course2_40_faraday_law = require('./40-generator-effect/assessments').course2_40_faraday_law;
+
+// Lesson 42: Electromagnetic Radiation
+exports.course2_42_em_spectrum = require('./42-electromagnetic-radiation/assessments').course2_42_em_spectrum;
+exports.course2_42_wave_properties = require('./42-electromagnetic-radiation/assessments').course2_42_wave_properties;
+exports.course2_42_energy_frequency = require('./42-electromagnetic-radiation/assessments').course2_42_energy_frequency;
+exports.course2_42_wave_speed = require('./42-electromagnetic-radiation/assessments').course2_42_wave_speed;
+
 // Lab 43: Electromagnet Lab
 exports.course2_lab_electromagnet = require('./43-lab-electromagnet/assessments').course2_lab_electromagnet;
+
+// Assignment 44: L22-24 Assignment - Electromagnetic Induction
+exports.course2_44_l2224_question1 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question1;
+exports.course2_44_l2224_question2 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question2;
+exports.course2_44_l2224_question3 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question3;
+exports.course2_44_l2224_question4 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question4;
+exports.course2_44_l2224_question5 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question5;
+exports.course2_44_l2224_question6 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question6;
+exports.course2_44_l2224_question7 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question7;
+exports.course2_44_l2224_question8 = require('./44-l22-24-assignment/assessments').course2_44_l2224_question8;
+
+// Assignment 45: L1-24 Cumulative Assignment - Units 3-4 Review
+exports.course2_45_l124_question1 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question1;
+exports.course2_45_l124_question2 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question2;
+exports.course2_45_l124_question3 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question3;
+exports.course2_45_l124_question4 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question4;
+exports.course2_45_l124_question5 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question5;
+exports.course2_45_l124_question6 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question6;
+exports.course2_45_l124_question7 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question7;
+exports.course2_45_l124_question8 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question8;
+exports.course2_45_l124_question9 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question9;
+exports.course2_45_l124_question10 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question10;
+exports.course2_45_l124_question11 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question11;
+exports.course2_45_l124_question12 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question12;
+exports.course2_45_l124_question13 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question13;
+exports.course2_45_l124_question14 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question14;
+exports.course2_45_l124_question15 = require('./45-l1-24-cumulative-assignment/assessments').course2_45_l124_question15;
+
+// Unit 3 Review: Electricity and Electric Fields
+exports.course2_46_unit3_q1 = require('./46-unit-3-review/assessments').course2_46_unit3_q1;
+exports.course2_46_unit3_q2 = require('./46-unit-3-review/assessments').course2_46_unit3_q2;
+exports.course2_46_unit3_q3 = require('./46-unit-3-review/assessments').course2_46_unit3_q3;
+exports.course2_46_unit3_q4 = require('./46-unit-3-review/assessments').course2_46_unit3_q4;
+exports.course2_46_unit3_q5 = require('./46-unit-3-review/assessments').course2_46_unit3_q5;
+exports.course2_46_unit3_q6 = require('./46-unit-3-review/assessments').course2_46_unit3_q6;
+exports.course2_46_unit3_q7 = require('./46-unit-3-review/assessments').course2_46_unit3_q7;
+exports.course2_46_unit3_q8 = require('./46-unit-3-review/assessments').course2_46_unit3_q8;
+exports.course2_46_unit3_q9 = require('./46-unit-3-review/assessments').course2_46_unit3_q9;
+exports.course2_46_unit3_q10 = require('./46-unit-3-review/assessments').course2_46_unit3_q10;
+exports.course2_46_unit3_q11 = require('./46-unit-3-review/assessments').course2_46_unit3_q11;
+exports.course2_46_unit3_q12 = require('./46-unit-3-review/assessments').course2_46_unit3_q12;
+exports.course2_46_unit3_q13 = require('./46-unit-3-review/assessments').course2_46_unit3_q13;
+exports.course2_46_unit3_q14 = require('./46-unit-3-review/assessments').course2_46_unit3_q14;
+exports.course2_46_unit3_q15 = require('./46-unit-3-review/assessments').course2_46_unit3_q15;
+
+// Unit 4 Review: Magnetism and Electromagnetic Phenomena
+exports.course2_47_unit4_q1 = require('./47-unit-4-review/assessments').course2_47_unit4_q1;
+exports.course2_47_unit4_q2 = require('./47-unit-4-review/assessments').course2_47_unit4_q2;
+exports.course2_47_unit4_q3 = require('./47-unit-4-review/assessments').course2_47_unit4_q3;
+exports.course2_47_unit4_q4 = require('./47-unit-4-review/assessments').course2_47_unit4_q4;
+exports.course2_47_unit4_q5 = require('./47-unit-4-review/assessments').course2_47_unit4_q5;
+exports.course2_47_unit4_q6 = require('./47-unit-4-review/assessments').course2_47_unit4_q6;
+exports.course2_47_unit4_q7 = require('./47-unit-4-review/assessments').course2_47_unit4_q7;
+exports.course2_47_unit4_q8 = require('./47-unit-4-review/assessments').course2_47_unit4_q8;
+exports.course2_47_unit4_q9 = require('./47-unit-4-review/assessments').course2_47_unit4_q9;
+exports.course2_47_unit4_q10 = require('./47-unit-4-review/assessments').course2_47_unit4_q10;
+exports.course2_47_unit4_q11 = require('./47-unit-4-review/assessments').course2_47_unit4_q11;
+exports.course2_47_unit4_q12 = require('./47-unit-4-review/assessments').course2_47_unit4_q12;
+exports.course2_47_unit4_q13 = require('./47-unit-4-review/assessments').course2_47_unit4_q13;
+exports.course2_47_unit4_q14 = require('./47-unit-4-review/assessments').course2_47_unit4_q14;
+exports.course2_47_unit4_q15 = require('./47-unit-4-review/assessments').course2_47_unit4_q15;
