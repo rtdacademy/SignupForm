@@ -31,7 +31,7 @@ const RTDConnectLogo = () => (
       className="h-12 w-auto"
     />
     <div>
-      <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
+      <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent">
         RTD Connect
       </h1>
       <p className="text-sm text-gray-600">Home Education Portal</p>
@@ -50,7 +50,7 @@ const UserTypeBadge = ({ customClaims }) => {
       return {
         label: 'Primary Guardian',
         icon: Crown,
-        bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500',
+        bgColor: 'bg-gradient-to-r from-purple-500 to-blue-500',
         textColor: 'text-white',
         description: 'Family Administrator'
       };
@@ -170,7 +170,7 @@ const ProfileDropdown = ({ userProfile, onEditProfile, onSignOut }) => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-3 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
           {initials}
         </div>
         <div className="hidden sm:block text-left">
@@ -192,7 +192,7 @@ const ProfileDropdown = ({ userProfile, onEditProfile, onSignOut }) => {
           <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
                   {initials}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -886,13 +886,13 @@ const RTDConnectDashboard = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to RTD Connect</h1>
           <p className="text-gray-600 mb-6">Please sign in to access your home education portal.</p>
           <button
             onClick={() => navigate('/')}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600"
           >
             Go to Sign In
           </button>
@@ -903,7 +903,7 @@ const RTDConnectDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading your dashboard...</p>
@@ -915,7 +915,7 @@ const RTDConnectDashboard = () => {
   // Show profile completion first if incomplete
   if (!hasCompleteProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-purple-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -937,7 +937,7 @@ const RTDConnectDashboard = () => {
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to RTD Connect!</h1>
@@ -948,7 +948,7 @@ const RTDConnectDashboard = () => {
 
             <button
               onClick={() => setShowProfileForm(true)}
-              className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+              className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
             >
               <User className="w-5 h-5" />
               <span className="text-lg font-medium">Complete Your Profile</span>
@@ -964,13 +964,13 @@ const RTDConnectDashboard = () => {
                 icon={GraduationCap}
                 title="Student Management"
                 description="Register and manage your home education students"
-                gradient="from-purple-500 to-pink-500"
+                gradient="from-purple-500 to-cyan-500"
               />
               <FeatureCard 
                 icon={FileText}
                 title="Annual Registration"
                 description="Complete yearly registration requirements online"
-                gradient="from-pink-500 to-red-500"
+                gradient="from-blue-500 to-cyan-500"
               />
               <FeatureCard 
                 icon={DollarSign}
@@ -1052,7 +1052,7 @@ const RTDConnectDashboard = () => {
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
                     isSubmittingProfile 
                       ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
                 >
                   {isSubmittingProfile ? (
@@ -1078,7 +1078,7 @@ const RTDConnectDashboard = () => {
   // If profile is complete but no family registration, show family setup
   if (!hasRegisteredFamily && !customClaims?.familyId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-purple-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1100,7 +1100,7 @@ const RTDConnectDashboard = () => {
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Family Profile</h1>
@@ -1115,7 +1115,7 @@ const RTDConnectDashboard = () => {
               className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg font-medium transition-colors ${
                 isSettingUpFamily
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
+                  : 'bg-gradient-to-r from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
               }`}
             >
               {isSettingUpFamily ? (
@@ -1141,13 +1141,13 @@ const RTDConnectDashboard = () => {
                 icon={Calendar}
                 title="Course Scheduling"
                 description="Plan and track your students' course schedules"
-                gradient="from-purple-500 to-pink-500"
+                gradient="from-purple-500 to-cyan-500"
               />
               <FeatureCard 
                 icon={FileText}
                 title="Report Generation"
                 description="Generate progress reports and transcripts"
-                gradient="from-pink-500 to-red-500"
+                gradient="from-blue-500 to-cyan-500"
               />
               <FeatureCard 
                 icon={Shield}
@@ -1229,7 +1229,7 @@ const RTDConnectDashboard = () => {
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
                     isSubmittingProfile 
                       ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
                 >
                   {isSubmittingProfile ? (
@@ -1265,7 +1265,7 @@ const RTDConnectDashboard = () => {
 
   // If family is registered, show the full dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1323,7 +1323,7 @@ const RTDConnectDashboard = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handleStartRegistration}
-                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors whitespace-nowrap"
+                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 transition-colors whitespace-nowrap"
                   >
                     <Edit3 className="w-5 h-5" />
                     <span>Update Family Information</span>
@@ -1355,7 +1355,7 @@ const RTDConnectDashboard = () => {
                   <span><strong>{familyData.students?.length || 0}</strong> Students</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-pink-500" />
+                  <Users className="w-4 h-4 text-blue-500" />
                   <span><strong>{familyData.guardians?.length || 0}</strong> Guardians</span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -1689,7 +1689,7 @@ const RTDConnectDashboard = () => {
                 className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
                   isSubmittingProfile 
                     ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                    : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                 } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
               >
                 {isSubmittingProfile ? (
