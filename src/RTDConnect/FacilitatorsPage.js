@@ -14,7 +14,63 @@ import {
 } from 'lucide-react';
 
 // Import configuration
-import { getAllFacilitators, CONTACT_INFO } from '../config/HomeEducation';
+import { CONTACT_INFO } from '../config/HomeEducation';
+
+// Hardcoded facilitator data
+const facilitators = [
+  {
+    id: 'sarah-johnson',
+    name: 'Sarah Johnson',
+    title: 'Senior Home Education Facilitator',
+    experience: '12+ years experience',
+    description: 'Specializes in elementary and middle school curriculum planning, learning differences support, and helping families navigate SOLO compliance with confidence.',
+    image: '/connectImages/FakeFacil2.png',
+    specializations: [
+      'Elementary & Middle School Expert',
+      'Learning Differences Support', 
+      'SOLO Compliance & Assessment'
+    ],
+    stats: [
+      { icon: 'Star', value: '12+', label: 'Years Experience' },
+      { icon: 'Users', value: '150+', label: 'Families Supported' },
+      { icon: 'Clock', value: '24hr', label: 'Response Time' }
+    ],
+    contact: {
+      email: 'sarah.johnson@rtdacademy.com',
+      phone: '(403) 555-0124'
+    },
+    gradients: {
+      card: 'from-purple-500 to-blue-500',
+      border: 'border-purple-100'
+    }
+  },
+  {
+    id: 'michael-chen',
+    name: 'Michael Chen',
+    title: 'High School & Transition Specialist',
+    experience: '8+ years experience',
+    description: 'Dedicated to helping teens succeed in high school home education, diploma exam preparation, and planning for post-secondary education and career success.',
+    image: '/connectImages/FakeFacil1.png',
+    specializations: [
+      'High School Course Planning',
+      'Diploma Exam Preparation',
+      'University Admission Guidance'
+    ],
+    stats: [
+      { icon: 'Star', value: '8+', label: 'Years Experience' },
+      { icon: 'Users', value: '85+', label: 'Students Graduated' },
+      { icon: 'Clock', value: 'Same Day', label: 'Response Time' }
+    ],
+    contact: {
+      email: 'michael.chen@rtdacademy.com',
+      phone: '(403) 555-0125'
+    },
+    gradients: {
+      card: 'from-blue-500 to-cyan-500',
+      border: 'border-blue-100'
+    }
+  }
+];
 
 // RTD Connect Logo with gradient colors
 const RTDConnectLogo = () => (
@@ -43,8 +99,6 @@ const FacilitatorsPage = () => {
   const handleGetStarted = () => {
     navigate('/login');
   };
-
-  const facilitators = getAllFacilitators();
 
   const handleContactEmail = (email) => {
     window.location.href = `mailto:${email}`;
