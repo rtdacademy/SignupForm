@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -127,16 +128,13 @@ const GeneratorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccord
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-800 mb-3">1. Moving Wire Through Horseshoe Magnet</h4>
-                    <div className="text-center mb-3">
-                      <div className="bg-white p-3 rounded border border-blue-300 inline-block">
-                        <div className="text-sm mb-2">Horseshoe Magnet Setup</div>
-                        <div className="flex items-center justify-center gap-3">
-                          <span className="font-bold text-red-600">N</span>
-                          <div className="text-2xl">|</div>
-                          <span className="font-bold text-blue-600">S</span>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-1">Wire moves through magnetic field</div>
-                      </div>
+                    <div className="text-center mb-4">
+                      <img 
+                        src="/courses/2/content/39-generator-effect/assets/Faradays_law_electromagnetic_induction_1.png" 
+                        alt="Faraday's first experimental setup showing wire moving through horseshoe magnet" 
+                        className="w-full max-w-md mx-auto rounded border border-blue-300 mb-2"
+                      />
+                      <p className="text-xs text-blue-800 font-medium">Faraday's first experimental situation: Moving wire through magnetic field</p>
                     </div>
                     <ul className="text-blue-900 text-sm space-y-1 ml-4">
                       <li>• Electron flow occurred only when the conductor was moving</li>
@@ -767,6 +765,117 @@ const GeneratorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccord
             </div>
             </AIAccordion.Item>
 
+            <SlideshowKnowledgeCheck 
+              course={course}
+              courseId={courseId || '2'}
+              lessonPath="40-generator-effect"
+              title="Generator Effect Knowledge Check"
+              description="Test your understanding of generator principles and electromagnetic induction concepts."
+              theme="indigo"
+              questions={[
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question1',
+                  title: 'Question 1: N-S Poles Left to Right'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question2',
+                  title: 'Question 2: S-N Poles Left to Right'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question3',
+                  title: 'Question 3: S-N Poles Right to Left'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question4',
+                  title: 'Question 4: N-S Poles Right to Left'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question5',
+                  title: 'Question 5: Terminal A-B Electron Flow'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question6',
+                  title: 'Question 6: Parallel Motion No Current'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question7',
+                  title: 'Question 7: Hand Rules'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question8',
+                  title: 'Question 8: Coil Turns EMF Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question9',
+                  title: 'Question 9: EMF Frequency Relationship'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question10',
+                  title: 'Question 10: Wire Length EMF Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question11',
+                  title: 'Question 11: Velocity EMF Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question12',
+                  title: 'Question 12: Magnetic Field EMF Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question13',
+                  title: 'Question 13: Angle EMF Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question14',
+                  title: 'Question 14: Transformer Voltage Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question15',
+                  title: 'Question 15: Transformer Current Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question16',
+                  title: 'Question 16: Transformer Turns Calculation'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question17',
+                  title: 'Question 17: AC Effective Values'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question18',
+                  title: 'Question 18: Power Transmission Concepts'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question19',
+                  title: 'Question 19: Generator vs Motor Comparison'
+                },
+                {
+                  type: 'multiple-choice',
+                  questionId: 'course2_40_question20',
+                  title: 'Question 20: Lenz Law Applications'
+                }
+              ]}
+            />
+
             <AIAccordion.Item value="alternating-current" title="Alternating Current (AC)" onAskAI={onAIAccordionContent}>
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
@@ -1330,6 +1439,88 @@ const GeneratorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccord
           </TextSection>
         </div>
       )}
+
+      {/* AC Circuit Calculations Knowledge Check */}
+      <SlideshowKnowledgeCheck 
+        course={course}
+        courseId={courseId || '2'}
+        lessonPath="40-generator-effect"
+        title="AC Circuit Calculations Knowledge Check"
+        description="Practice AC circuit analysis including RMS values, power calculations, and current-voltage relationships."
+        theme="purple"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question21',
+            title: 'Question 21: Peak Current in AC Circuit'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question22',
+            title: 'Question 22: RMS and Peak Current Values'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question23',
+            title: 'Question 23: Light Bulb Resistance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question24',
+            title: 'Question 24: Peak Voltage Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question25',
+            title: 'Question 25: Maximum Instantaneous Power'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question26',
+            title: 'Question 26: Heater Coil Power Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question27',
+            title: 'Question 27: Current Reversals per Day'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question28',
+            title: 'Question 28: RMS Current Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question29',
+            title: 'Question 29: CD Player Charger Voltage'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question30',
+            title: 'Question 30: Insect Zapper Turns Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question31',
+            title: 'Question 31: Doorbell Transformer Type'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question32',
+            title: 'Question 32: Electric Train Current'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question33',
+            title: 'Question 33: Transformer Power Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_40_question34',
+            title: 'Question 34: Air Filter Power Consumption'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[

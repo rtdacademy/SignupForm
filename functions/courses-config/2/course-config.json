@@ -2910,6 +2910,397 @@
             "points": 1
           }
         ]
+      },
+      "40_generator_effect": {
+        "title": "Generator Effect",
+        "type": "lesson",
+        "contentPath": "40-generator-effect",
+        "questions": [
+          {
+            "questionId": "course2_40_question1",
+            "title": "N-S Poles Left to Right",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question2",
+            "title": "S-N Poles Left to Right",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question3",
+            "title": "S-N Poles Right to Left",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question4",
+            "title": "N-S Poles Right to Left",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question5",
+            "title": "Terminal A-B Electron Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question6",
+            "title": "Parallel Motion No Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question7",
+            "title": "Hand Rules",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question8",
+            "title": "Coil Turns EMF Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question9",
+            "title": "Magnet Speed EMF Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question10",
+            "title": "Multiple Magnets EMF",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question11",
+            "title": "Generator Energy Conversion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question12",
+            "title": "Charged Sphere Experiment",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question13",
+            "title": "Magnet Pole Determination",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question14",
+            "title": "Airplane EMF Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question15",
+            "title": "Conductor Angle Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question16",
+            "title": "45 Degree EMF Ratio",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question17",
+            "title": "Rod Current Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question18",
+            "title": "Magnetic Field from Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question19",
+            "title": "Constant Speed Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question20",
+            "title": "Rectangular Loop Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question21",
+            "title": "Peak Current in AC Circuit",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question22",
+            "title": "RMS and Peak Current Values",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question23",
+            "title": "Light Bulb Resistance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question24",
+            "title": "Peak Voltage Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question25",
+            "title": "Maximum Instantaneous Power",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question26",
+            "title": "Heater Coil Power Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question27",
+            "title": "Current Reversals per Day",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question28",
+            "title": "RMS Current Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question29",
+            "title": "CD Player Charger Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question30",
+            "title": "Insect Zapper Turns Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question31",
+            "title": "Doorbell Transformer Type",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question32",
+            "title": "Electric Train Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question33",
+            "title": "Transformer Power Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_40_question34",
+            "title": "Air Filter Power Consumption",
+            "points": 1
+          }
+        ]
+      },
+      "42_electromagnetic_radiation": {
+        "title": "Electromagnetic Radiation",
+        "type": "lesson",
+        "contentPath": "42-electromagnetic-radiation",
+        "questions": [
+          {
+            "questionId": "course2_42_question1",
+            "title": "Fundamental Origin of EMR",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question2",
+            "title": "Harmonic Oscillation Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question3",
+            "title": "Speed of EMR in Vacuum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question4",
+            "title": "Definition of Electromagnetic Radiation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question5",
+            "title": "Inner Electron Transitions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question6",
+            "title": "Frequency vs Wavelength Relationship",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question7",
+            "title": "Penetration Through Human Body",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question8",
+            "title": "How Microwaves Cook Food",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question9",
+            "title": "Night Vision Cameras",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question10",
+            "title": "Honey Bee Vision",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question11",
+            "title": "Microwave Frequency Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question12",
+            "title": "Radar Wavelength Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question13",
+            "title": "Power Line Frequency Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question14",
+            "title": "Red Light Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question15",
+            "title": "Satellite vs Direct Transmission Delay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question16",
+            "title": "Wavelength from Period",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question17",
+            "title": "UV Light in Glass",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question18",
+            "title": "Period in Lucite",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question19",
+            "title": "Double-slit Microwave Experiment",
+            "points": 1
+          },
+          {
+            "questionId": "course2_42_question20",
+            "title": "Hydrogen Space Emissions",
+            "points": 1
+          }
+        ]
+      },
+      "41_activities": {
+        "title": "Activities",
+        "type": "lesson",
+        "contentPath": "41-activities",
+        "questions": [
+          {
+            "questionId": "course2_41_station1_q1",
+            "title": "Station 1 Q1: Motor Effect Observation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station1_q2",
+            "title": "Station 1 Q2: Fleming's Left-Hand Rule",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station1_q3",
+            "title": "Station 1 Q3: Current Direction Reversal",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station1_q4",
+            "title": "Station 1 Q4: Magnetic Field Strength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station1_q5",
+            "title": "Station 1 Q5: Motor Effect Applications",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station2_q1",
+            "title": "Station 2 Q1: Galvanometer Function",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station2_q2",
+            "title": "Station 2 Q2: Magnet Insertion Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station2_q3",
+            "title": "Station 2 Q3: Magnet Removal Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station2_q4",
+            "title": "Station 2 Q4: Faraday's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station2_q5",
+            "title": "Station 2 Q5: Stationary Magnet",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station3_q1",
+            "title": "Station 3 Q1: Aluminum Magnetic Properties",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station3_q2",
+            "title": "Station 3 Q2: Solid Paddle Behavior",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station3_q3",
+            "title": "Station 3 Q3: Faraday's and Lenz's Laws",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station3_q4",
+            "title": "Station 3 Q4: Comb Paddle Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station3_q5",
+            "title": "Station 3 Q5: Non-conductive Material",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station4_q1",
+            "title": "Station 4 Q1: Magnet Descent Observation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station4_q2",
+            "title": "Station 4 Q2: Law of Electromagnetic Induction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station4_q3",
+            "title": "Station 4 Q3: Lenz's Law Application",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station4_q4",
+            "title": "Station 4 Q4: Non-magnetic Object Comparison",
+            "points": 1
+          },
+          {
+            "questionId": "course2_41_station4_q5",
+            "title": "Station 4 Q5: Real-world Applications",
+            "points": 1
+          }
+        ]
       }
     }
   },
@@ -2957,7 +3348,7 @@
             "estimatedTime": 120,
             "order": 3,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "04_impulse_momentum_change",
@@ -2968,7 +3359,7 @@
             "estimatedTime": 120,
             "order": 4,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l1_3",
@@ -2990,7 +3381,7 @@
             "estimatedTime": 120,
             "order": 6,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_momentum_conservation",
@@ -3023,7 +3414,7 @@
             "estimatedTime": 120,
             "order": 9,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "10_reflection_of_light",
@@ -3034,7 +3425,7 @@
             "estimatedTime": 120,
             "order": 10,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "11_curved_mirrors",
@@ -3045,7 +3436,7 @@
             "estimatedTime": 120,
             "order": 11,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l5_7",
@@ -3067,7 +3458,7 @@
             "estimatedTime": 120,
             "order": 13,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "14_optics_lenses",
@@ -3078,7 +3469,7 @@
             "estimatedTime": 120,
             "order": 14,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_mirrors_lenses",
@@ -3111,7 +3502,7 @@
             "estimatedTime": 120,
             "order": 17,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "18_interference_of_light",
@@ -3122,7 +3513,7 @@
             "estimatedTime": 120,
             "order": 18,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "19_diffraction_gratings",
@@ -3133,7 +3524,7 @@
             "estimatedTime": 120,
             "order": 19,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_laser_wavelength",
@@ -3166,7 +3557,7 @@
             "estimatedTime": 120,
             "order": 22,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "23_unit_2_review",
@@ -3177,7 +3568,7 @@
             "estimatedTime": 120,
             "order": 23,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "exam_section_1",
@@ -3372,7 +3763,7 @@
             "estimatedTime": 120,
             "order": 16,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "41_activities",
@@ -3383,7 +3774,109 @@
             "estimatedTime": 120,
             "order": 17,
             "required": false,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_41_station1_q1",
+                "title": "Station 1 Q1: Motor Effect Observation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station1_q2",
+                "title": "Station 1 Q2: Fleming's Left-Hand Rule",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station1_q3",
+                "title": "Station 1 Q3: Current Direction Reversal",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station1_q4",
+                "title": "Station 1 Q4: Magnetic Field Strength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station1_q5",
+                "title": "Station 1 Q5: Motor Effect Applications",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station2_q1",
+                "title": "Station 2 Q1: Galvanometer Function",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station2_q2",
+                "title": "Station 2 Q2: Magnet Insertion Effect",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station2_q3",
+                "title": "Station 2 Q3: Magnet Removal Effect",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station2_q4",
+                "title": "Station 2 Q4: Faraday's Law",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station2_q5",
+                "title": "Station 2 Q5: Stationary Magnet",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station3_q1",
+                "title": "Station 3 Q1: Aluminum Magnetic Properties",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station3_q2",
+                "title": "Station 3 Q2: Solid Paddle Behavior",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station3_q3",
+                "title": "Station 3 Q3: Faraday's and Lenz's Laws",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station3_q4",
+                "title": "Station 3 Q4: Comb Paddle Effect",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station3_q5",
+                "title": "Station 3 Q5: Non-conductive Material",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station4_q1",
+                "title": "Station 4 Q1: Magnet Descent Observation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station4_q2",
+                "title": "Station 4 Q2: Law of Electromagnetic Induction",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station4_q3",
+                "title": "Station 4 Q3: Lenz's Law Application",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station4_q4",
+                "title": "Station 4 Q4: Non-magnetic Object Comparison",
+                "points": 1
+              },
+              {
+                "questionId": "course2_41_station4_q5",
+                "title": "Station 4 Q5: Real-world Applications",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "42_electromagnetic_radiation",
@@ -3394,7 +3887,7 @@
             "estimatedTime": 120,
             "order": 18,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_electromagnet",
@@ -3438,7 +3931,7 @@
             "estimatedTime": 120,
             "order": 22,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "47_unit_4_review",
@@ -3449,7 +3942,7 @@
             "estimatedTime": 120,
             "order": 23,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "exam_section_2",
@@ -3479,7 +3972,7 @@
             "estimatedTime": 120,
             "order": 1,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "50_cathode_rays",
@@ -3490,7 +3983,7 @@
             "estimatedTime": 120,
             "order": 2,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "51_rutherford_atom",
@@ -3501,7 +3994,7 @@
             "estimatedTime": 120,
             "order": 3,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l25_27",
@@ -3523,7 +4016,7 @@
             "estimatedTime": 120,
             "order": 5,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_plancks_constant",
@@ -3545,7 +4038,7 @@
             "estimatedTime": 120,
             "order": 7,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_millikans_oil_drop",
@@ -3567,7 +4060,7 @@
             "estimatedTime": 120,
             "order": 9,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_marshmallow_speed_light",
@@ -3600,7 +4093,7 @@
             "estimatedTime": 120,
             "order": 12,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "61_compton_effect",
@@ -3611,7 +4104,7 @@
             "estimatedTime": 120,
             "order": 13,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "62_wave_particle_nature",
@@ -3622,7 +4115,7 @@
             "estimatedTime": 120,
             "order": 14,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l31_33",
@@ -3644,7 +4137,7 @@
             "estimatedTime": 120,
             "order": 16,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l1_34",
@@ -3666,7 +4159,7 @@
             "estimatedTime": 120,
             "order": 18,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "67_radioactivity",
@@ -3677,7 +4170,7 @@
             "estimatedTime": 120,
             "order": 19,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "lab_half_life",
@@ -3710,7 +4203,7 @@
             "estimatedTime": 120,
             "order": 22,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "71_quarks",
@@ -3721,7 +4214,7 @@
             "estimatedTime": 120,
             "order": 23,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "assignment_l37_38",
@@ -3754,7 +4247,7 @@
             "estimatedTime": 120,
             "order": 26,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "75_unit_6_review",
@@ -3765,7 +4258,7 @@
             "estimatedTime": 120,
             "order": 27,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "exam_section_3",
@@ -3787,7 +4280,7 @@
             "estimatedTime": 600,
             "order": 29,
             "required": true,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           },
           {
             "itemId": "78_diploma_exam",
@@ -3798,7 +4291,7 @@
             "estimatedTime": 180,
             "order": 30,
             "required": false,
-            "hasCloudFunctions": false
+            "hasCloudFunctions": true
           }
         ]
       }

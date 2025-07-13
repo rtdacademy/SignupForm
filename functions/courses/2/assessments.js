@@ -64,8 +64,11 @@ const { assessmentConfigs: electricCurrentConfigs } = require('../2b/32-electric
 const { assessmentConfigs: magneticFieldsConfigs } = require('../2b/36-magnetic-fields/assessments');
 const { assessmentConfigs: magneticForcesParticlesConfigs } = require('../2b/37-magnetic-forces-particles/assessments');
 const { assessmentConfigs: motorEffectConfigs } = require('../2b/38-motor-effect/assessments');
+const { assessmentConfigs: generatorEffectConfigs } = require('../2b/40-generator-effect/assessments');
+const { assessmentConfigs: electromagneticRadiationConfigs } = require('../2b/42-electromagnetic-radiation/assessments');
 const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
 const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
+const { assessmentConfigs: activitiesConfigs } = require('../2/41-activities/assessments');
 
 /**
  * Assessment Configuration Mapping
@@ -74,6 +77,7 @@ const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cum
  */
 const getAllAssessmentConfigs = () => {
   return {
+    // Standard Assessment Configurations
     ...physicsReviewConfigs,
     ...momentum1DConfigs,
     ...momentum2DConfigs,
@@ -108,6 +112,9 @@ const getAllAssessmentConfigs = () => {
     ...magneticFieldsConfigs,
     ...magneticForcesParticlesConfigs,
     ...motorEffectConfigs,
+    ...generatorEffectConfigs,
+    ...electromagneticRadiationConfigs,
+    ...activitiesConfigs,
     ...l1518AssignmentConfigs,
     ...l118CumulativeConfigs
   };

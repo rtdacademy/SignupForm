@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -892,6 +893,117 @@ const ElectromagneticRadiation = ({ course, courseId = 'default', AIAccordion, o
           </TextSection>
         </div>
       )}
+
+      <SlideshowKnowledgeCheck 
+        course={course}
+        courseId={courseId || '2'}
+        lessonPath="42-electromagnetic-radiation"
+        title="Electromagnetic Radiation Knowledge Check"
+        description="Test your understanding of electromagnetic radiation theory and calculations."
+        theme="indigo"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question1',
+            title: 'Question 1: Fundamental Origin of EMR'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question2',
+            title: 'Question 2: Harmonic Oscillation Frequency'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question3',
+            title: 'Question 3: Speed of EMR in Vacuum'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question4',
+            title: 'Question 4: Definition of Electromagnetic Radiation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question5',
+            title: 'Question 5: Inner Electron Transitions'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question6',
+            title: 'Question 6: Frequency vs Wavelength Relationship'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question7',
+            title: 'Question 7: Penetration Through Human Body'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question8',
+            title: 'Question 8: How Microwaves Cook Food'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question9',
+            title: 'Question 9: Night Vision Cameras'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question10',
+            title: 'Question 10: Honey Bee Vision'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question11',
+            title: 'Question 11: Microwave Frequency Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question12',
+            title: 'Question 12: Radar Wavelength Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question13',
+            title: 'Question 13: Power Line Frequency Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question14',
+            title: 'Question 14: Red Light Frequency'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question15',
+            title: 'Question 15: Satellite vs Direct Transmission Delay'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question16',
+            title: 'Question 16: Wavelength from Period'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question17',
+            title: 'Question 17: UV Light in Glass'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question18',
+            title: 'Question 18: Period in Lucite'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question19',
+            title: 'Question 19: Double-slit Microwave Experiment'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_42_question20',
+            title: 'Question 20: Hydrogen Space Emissions'
+          }
+        ]}
+      />
 
       <LessonSummary
         points={[
