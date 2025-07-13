@@ -3,32 +3,36 @@
 /**
  * Important dates configuration for school operations
  * Each school year runs from September to August
+ * All dates are interpreted in Alberta timezone (Mountain Time)
  */
 
+import { toEdmontonDate } from '../utils/timeZoneUtils';
+
 // Important dates by school year
+// Use YYYY-MM-DD format - dates will be correctly interpreted as Alberta timezone
 const IMPORTANT_DATES = {
   '24/25': {
-    registrationOpen: new Date('2024-01-01'),
-    septemberCount: new Date('2024-09-29'),
+    registrationOpen: toEdmontonDate('2024-01-01'),
+    septemberCount: toEdmontonDate('2024-09-29'),
     // Add more dates as needed:
-    // registrationClose: new Date('2024-10-15'),
-    // semesterOneEnd: new Date('2025-01-31'),
-    // semesterTwoStart: new Date('2025-02-01'),
-    // schoolYearEnd: new Date('2025-06-30'),
+    // registrationClose: toEdmontonDate('2024-10-15'),
+    // semesterOneEnd: toEdmontonDate('2025-01-31'),
+    // semesterTwoStart: toEdmontonDate('2025-02-01'),
+    // schoolYearEnd: toEdmontonDate('2025-06-30'),
   },
   '25/26': {
-    registrationOpen: new Date('2025-01-01'),
-    septemberCount: new Date('2025-09-29'),
+    registrationOpen: toEdmontonDate('2025-01-01'),
+    septemberCount: toEdmontonDate('2025-09-29'),
     // Future dates can be added here
   },
   '26/27': {
-    registrationOpen: new Date('2026-01-01'),
-    septemberCount: new Date('2026-09-29'),
+    registrationOpen: toEdmontonDate('2026-01-01'),
+    septemberCount: toEdmontonDate('2026-09-29'),
     // Future dates can be added here
   },
   '27/28': {
-    registrationOpen: new Date('2027-01-01'),
-    septemberCount: new Date('2027-09-29'),
+    registrationOpen: toEdmontonDate('2027-01-01'),
+    septemberCount: toEdmontonDate('2027-09-29'),
     // Future dates can be added here
   }
 };
