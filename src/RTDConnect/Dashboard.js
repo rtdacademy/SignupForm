@@ -5,9 +5,22 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
-import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2 } from 'lucide-react';
+import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
+import FamilyCreationSheet from './FamilyCreationSheet';
+import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
+import { 
+  getCurrentSchoolYear, 
+  getActiveSeptemberCount, 
+  formatImportantDate, 
+  hasSeptemberCountPassed,
+  getAllSeptemberCountDates,
+  isRegistrationOpen,
+  getOpenRegistrationSchoolYear,
+  getAllOpenRegistrationSchoolYears,
+  getRegistrationOpenDateForYear
+} from '../config/importantDates';
 
 // RTD Connect Logo with gradient colors
 const RTDConnectLogo = () => (
@@ -26,6 +39,66 @@ const RTDConnectLogo = () => (
   </div>
 );
 
+// User Type Badge Component
+const UserTypeBadge = ({ customClaims }) => {
+  if (!customClaims) return null;
+
+  const getUserTypeInfo = () => {
+    const familyRole = customClaims.familyRole;
+    
+    if (familyRole === 'primary_guardian') {
+      return {
+        label: 'Primary Guardian',
+        icon: Crown,
+        bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500',
+        textColor: 'text-white',
+        description: 'Family Administrator'
+      };
+    } else if (familyRole === 'guardian') {
+      return {
+        label: 'Guardian',
+        icon: Shield,
+        bgColor: 'bg-gradient-to-r from-blue-500 to-cyan-500',
+        textColor: 'text-white',
+        description: 'Family Member'
+      };
+    } else if (familyRole === 'student') {
+      return {
+        label: 'Student',
+        icon: GraduationCap,
+        bgColor: 'bg-gradient-to-r from-green-500 to-emerald-500',
+        textColor: 'text-white',
+        description: 'Student Account'
+      };
+    } else {
+      return {
+        label: 'User',
+        icon: UserCheck,
+        bgColor: 'bg-gradient-to-r from-gray-400 to-gray-500',
+        textColor: 'text-white',
+        description: 'Standard User'
+      };
+    }
+  };
+
+  const userType = getUserTypeInfo();
+  const Icon = userType.icon;
+
+  return (
+    <div className={`${userType.bgColor} px-3 py-2 rounded-lg flex items-center space-x-2 shadow-sm`}>
+      <Icon className={`w-4 h-4 ${userType.textColor}`} />
+      <div className="flex flex-col">
+        <span className={`text-sm font-medium ${userType.textColor}`}>
+          {userType.label}
+        </span>
+        <span className={`text-xs ${userType.textColor} opacity-90`}>
+          {userType.description}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const FeatureCard = ({ icon: Icon, title, description, gradient = "from-gray-400 to-gray-500" }) => (
   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
     <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${gradient} flex items-center justify-center mb-4`}>
@@ -35,6 +108,50 @@ const FeatureCard = ({ icon: Icon, title, description, gradient = "from-gray-400
     <p className="text-gray-600 text-sm">{description}</p>
   </div>
 );
+
+// Registration Status Card Component
+const RegistrationStatusCard = ({ registrationStatus, onActionClick }) => {
+  const StatusIcon = registrationStatus.icon || FileText;
+  
+  return (
+    <div className={`rounded-lg p-4 border ${registrationStatus.bgColor} border-gray-200`}>
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3">
+          <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm`}>
+            <StatusIcon className={`w-5 h-5 ${registrationStatus.color}`} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900 mb-1">
+              School Year Registration
+            </h3>
+            <p className={`text-sm ${registrationStatus.color} font-medium mb-2`}>
+              {registrationStatus.message}
+            </p>
+            {registrationStatus.deadline && (
+              <p className="text-xs text-gray-600">
+                Deadline: {formatImportantDate(registrationStatus.deadline)}
+              </p>
+            )}
+          </div>
+        </div>
+        {registrationStatus.actionNeeded && (
+          <button
+            onClick={onActionClick}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              registrationStatus.status === 'urgent' || registrationStatus.status === 'overdue'
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-purple-600 text-white hover:bg-purple-700'
+            }`}
+          >
+            {registrationStatus.status === 'partial' ? 'Complete Registration' : 
+             registrationStatus.status === 'available' ? 'Start Registration' :
+             'Register Now'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ProfileDropdown = ({ userProfile, onEditProfile, onSignOut }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -161,124 +278,8 @@ const FormField = ({ label, icon: Icon, error, children, required = false }) => 
   </div>
 );
 
-// ASN formatting utility
-const formatASN = (value) => {
-  // Remove all non-digits
-  const digits = value.replace(/\D/g, '');
-  
-  // Format as 1234-5678-9
-  if (digits.length <= 4) {
-    return digits;
-  } else if (digits.length <= 8) {
-    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-  } else {
-    return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 9)}`;
-  }
-};
-
-// Validate ASN format
-const validateASN = (asn) => {
-  const cleanASN = asn.replace(/\D/g, '');
-  return cleanASN.length === 9;
-};
-
-// Student card component
-const StudentCard = ({ student, index, onEdit, onRemove }) => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <div className="flex justify-between items-start">
-      <div className="flex-1">
-        <h4 className="font-medium text-gray-900">
-          {student.preferredName || `${student.firstName} ${student.lastName}`}
-        </h4>
-        <div className="mt-2 space-y-1 text-sm text-gray-600">
-          <p>Legal Name: {student.firstName} {student.lastName}</p>
-          <p>ASN: {student.asn}</p>
-          <p>Birthday: {new Date(student.birthday).toLocaleDateString()}</p>
-        </div>
-      </div>
-      <div className="flex space-x-2">
-        <button
-          onClick={() => onEdit(index)}
-          className="text-purple-600 hover:text-purple-700"
-        >
-          <Edit3 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onRemove(index)}
-          className="text-red-600 hover:text-red-700"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-// Parent/Guardian card component
-const GuardianCard = ({ guardian, index, isPrimary, onEdit, onRemove }) => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <div className="flex justify-between items-start">
-      <div className="flex-1">
-        <div className="flex items-center space-x-2">
-          <h4 className="font-medium text-gray-900">
-            {guardian.firstName} {guardian.lastName}
-          </h4>
-          {isPrimary && (
-            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-              Primary
-            </span>
-          )}
-        </div>
-        <div className="mt-2 space-y-1 text-sm text-gray-600">
-          <p>{guardian.email}</p>
-          <p>{guardian.phone}</p>
-          {guardian.address && (
-            <p>{guardian.address.city}, {guardian.address.province}</p>
-          )}
-        </div>
-        <div className="mt-2">
-          <p className="text-xs text-gray-500">Permissions:</p>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {guardian.permissions.canEditFamily && (
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                Edit Family
-              </span>
-            )}
-            {guardian.permissions.canViewReports && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                View Reports
-              </span>
-            )}
-            {guardian.permissions.canSubmitReimbursements && (
-              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                Submit Reimbursements
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      {!isPrimary && (
-        <div className="flex space-x-2">
-          <button
-            onClick={() => onEdit(index)}
-            className="text-purple-600 hover:text-purple-700"
-          >
-            <Edit3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onRemove(index)}
-            className="text-red-600 hover:text-red-700"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
 const RTDConnectDashboard = () => {
-  const { user, user_email_key, signOut, isHomeEducationParent } = useAuth();
+  const { user, user_email_key, signOut, isHomeEducationParent, checkAndApplyPendingPermissions: applyPendingFromAuth } = useAuth();
   const navigate = useNavigate();
   const [familyProfile, setFamilyProfile] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -299,42 +300,49 @@ const RTDConnectDashboard = () => {
 
   // Family creation state
   const [showFamilyCreation, setShowFamilyCreation] = useState(false);
-  const [activeTab, setActiveTab] = useState('students');
   const [familyKey, setFamilyKey] = useState(null);
+  const [customClaims, setCustomClaims] = useState(null);
   const [familyData, setFamilyData] = useState({
     familyName: '',
     students: [],
     guardians: []
   });
+
+  // Home Education Notification Form state
+  const [showNotificationForm, setShowNotificationForm] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentFormStatuses, setStudentFormStatuses] = useState({});
   
-  // Student form state
-  const [studentFormData, setStudentFormData] = useState({
-    asn: '',
-    firstName: '',
-    lastName: '',
-    preferredName: '',
-    birthday: '',
-    email: '' // Optional student email
-  });
-  const [studentFormErrors, setStudentFormErrors] = useState({});
-  const [editingStudentIndex, setEditingStudentIndex] = useState(null);
-  
-  // Guardian form state
-  const [guardianFormData, setGuardianFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: null,
-    relationToStudents: 'Guardian', // Default value
-    permissions: {
-      canEditFamily: true,
-      canViewReports: true,
-      canSubmitReimbursements: true
-    }
-  });
-  const [guardianFormErrors, setGuardianFormErrors] = useState({});
-  const [editingGuardianIndex, setEditingGuardianIndex] = useState(null);
+  // School year tracking state
+  const [currentSchoolYear, setCurrentSchoolYear] = useState('');
+  const [activeSchoolYear, setActiveSchoolYear] = useState('');
+  const [schoolYearStatus, setSchoolYearStatus] = useState({});
+  const [nextSeptemberCount, setNextSeptemberCount] = useState(null);
+
+  // Initialize school year tracking
+  useEffect(() => {
+    const currentYear = getCurrentSchoolYear();
+    const activeSeptember = getActiveSeptemberCount();
+    
+    // Check for open registration school years
+    const openRegistrationYears = getAllOpenRegistrationSchoolYears();
+    const primaryOpenYear = getOpenRegistrationSchoolYear();
+    
+    // Prioritize the open registration year, otherwise use the active September count year
+    const targetSchoolYear = primaryOpenYear || activeSeptember?.schoolYear || currentYear;
+    
+    setCurrentSchoolYear(currentYear);
+    setActiveSchoolYear(targetSchoolYear);
+    setNextSeptemberCount(activeSeptember);
+    
+    console.log('School year tracking initialized:', {
+      currentSchoolYear: currentYear,
+      activeSchoolYear: targetSchoolYear,
+      openRegistrationYears,
+      primaryOpenYear,
+      nextSeptemberCount: activeSeptember
+    });
+  }, []);
 
   // Debug effect to log user auth object and custom claims
   useEffect(() => {
@@ -343,6 +351,7 @@ const RTDConnectDashboard = () => {
         try {
           const currentUser = getAuth().currentUser;
           const idTokenResult = await currentUser.getIdTokenResult();
+          setCustomClaims(idTokenResult.claims);
           
           console.log('currentUser:', currentUser);
           console.log('idTokenResult:', idTokenResult);
@@ -355,6 +364,42 @@ const RTDConnectDashboard = () => {
     logUserAuthInfo();
   }, [user]);
 
+  // Listen for token refresh events to update custom claims
+  useEffect(() => {
+    const handleTokenRefresh = async () => {
+      if (user) {
+        try {
+          console.log('Token refresh event detected, re-reading custom claims...');
+          const currentUser = getAuth().currentUser;
+          
+          // Force token refresh to ensure we get the latest claims
+          await currentUser.getIdToken(true);
+          const idTokenResult = await currentUser.getIdTokenResult();
+          
+          console.log('Previous custom claims:', customClaims);
+          console.log('New custom claims:', idTokenResult.claims);
+          
+          // Check if familyId was added
+          if (!customClaims?.familyId && idTokenResult.claims.familyId) {
+            console.log('🎉 familyId added to claims!', idTokenResult.claims.familyId);
+          }
+          
+          setCustomClaims(idTokenResult.claims);
+          console.log('Custom claims updated after token refresh:', idTokenResult.claims);
+        } catch (error) {
+          console.error('Error re-reading custom claims after token refresh:', error);
+        }
+      }
+    };
+
+    // Listen for the custom token refresh event
+    window.addEventListener('tokenRefreshed', handleTokenRefresh);
+
+    return () => {
+      window.removeEventListener('tokenRefreshed', handleTokenRefresh);
+    };
+  }, [user, customClaims]);
+
   useEffect(() => {
     if (!user || !user_email_key) {
       setLoading(false);
@@ -363,7 +408,6 @@ const RTDConnectDashboard = () => {
 
     const db = getDatabase();
     const userRef = ref(db, `users/${user.uid}`);
-    const familyRef = ref(db, `homeEducationFamilies/${user_email_key}/profile`);
 
     // Set up realtime listener for user profile
     const unsubscribeUser = onValue(userRef, (snapshot) => {
@@ -404,46 +448,158 @@ const RTDConnectDashboard = () => {
       setLoading(false);
     });
 
+    // Cleanup listeners
+    return () => {
+      off(userRef, 'value', unsubscribeUser);
+    };
+  }, [user, user_email_key]);
+
+  // Effect to load student form statuses by school year
+  useEffect(() => {
+    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+      return;
+    }
+
+    const loadStudentFormStatuses = async () => {
+      const db = getDatabase();
+      const statuses = {};
+      const schoolYearStatuses = {};
+      
+      // Get all available school years to check
+      const allSchoolYears = getAllSeptemberCountDates();
+      
+      for (const student of familyData.students) {
+        statuses[student.id] = {};
+        
+        // Check each school year for this student
+        for (const {schoolYear} of allSchoolYears) {
+          try {
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/NOTIFICATION_FORMS/${schoolYear}/${student.id}`);
+            const snapshot = await get(formRef);
+            
+            if (snapshot.exists()) {
+              statuses[student.id][schoolYear] = 'completed';
+            } else {
+              statuses[student.id][schoolYear] = 'pending';
+            }
+          } catch (error) {
+            console.error(`Error loading form status for student ${student.id}, school year ${schoolYear}:`, error);
+            statuses[student.id][schoolYear] = 'pending';
+          }
+        }
+        
+        // Set current year status for backward compatibility
+        statuses[student.id].current = statuses[student.id][activeSchoolYear] || 'pending';
+      }
+      
+      // Calculate overall school year status for the family
+      for (const {schoolYear} of allSchoolYears) {
+        const allStudentsCompleted = familyData.students.every(student => 
+          statuses[student.id][schoolYear] === 'completed'
+        );
+        const anyStudentCompleted = familyData.students.some(student => 
+          statuses[student.id][schoolYear] === 'completed'
+        );
+        
+        if (allStudentsCompleted && familyData.students.length > 0) {
+          schoolYearStatuses[schoolYear] = 'completed';
+        } else if (anyStudentCompleted) {
+          schoolYearStatuses[schoolYear] = 'partial';
+        } else {
+          schoolYearStatuses[schoolYear] = 'pending';
+        }
+      }
+      
+      setStudentFormStatuses(statuses);
+      setSchoolYearStatus(schoolYearStatuses);
+      
+      console.log('Student form statuses loaded:', statuses);
+      console.log('School year statuses:', schoolYearStatuses);
+    };
+
+    loadStudentFormStatuses();
+  }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
+
+  // Separate effect for family data based on custom claims
+  useEffect(() => {
+    console.log('Family data effect triggered. customClaims:', customClaims);
+    
+    if (!customClaims?.familyId) {
+      console.log('No familyId in customClaims, setting hasRegisteredFamily to false');
+      setHasRegisteredFamily(false);
+      setFamilyProfile(null);
+      return;
+    }
+
+    console.log('Found familyId in customClaims:', customClaims.familyId);
+
+    const db = getDatabase();
+    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+
     // Set up realtime listener for family registration
     const unsubscribeFamily = onValue(familyRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setFamilyProfile(data);
+        
+        // Convert the family data structure to match what FamilyCreationSheet expects
+        const convertedFamilyData = {
+          familyName: data.familyName || '',
+          students: data.students ? Object.values(data.students).map(student => ({
+            ...student,
+            grade: student.grade || '', // Add default grade if missing
+            birthday: student.birthday || '', // Ensure birthday field exists
+            preferredName: student.preferredName || '', // Ensure preferredName exists
+            email: student.email || '', // Ensure email exists
+            gender: student.gender || '' // Ensure gender field exists
+          })) : [],
+          guardians: data.guardians ? Object.values(data.guardians).map(guardian => ({
+            ...guardian,
+            permissions: guardian.permissions || {
+              canEditFamily: true,
+              canViewReports: true,
+              canSubmitReimbursements: true
+            }
+          })) : []
+        };
+        
+        console.log('Loaded family data:', data);
+        console.log('Converted family data:', convertedFamilyData);
+        console.log('Setting hasRegisteredFamily to TRUE');
+        
+        console.log('Converted family data:', convertedFamilyData);
+        console.log('Students in converted data:', convertedFamilyData.students);
+        setFamilyData(convertedFamilyData);
+        setFamilyKey(customClaims.familyId);
         setHasRegisteredFamily(true);
       } else {
         setFamilyProfile(null);
         setHasRegisteredFamily(false);
       }
     }, (error) => {
-      // Silently handle permission errors - user likely hasn't registered family yet
-      console.log('Family data not accessible - user needs to register');
+      console.log('Family data not accessible:', error);
       setHasRegisteredFamily(false);
     });
 
-    // Cleanup listeners
+    // Cleanup listener
     return () => {
-      off(userRef, 'value', unsubscribeUser);
       off(familyRef, 'value', unsubscribeFamily);
     };
-  }, [user, user_email_key]);
+  }, [customClaims?.familyId]);
+
+  // Check for pending permissions when user logs in
+  useEffect(() => {
+    if (user && !loading && hasCompleteProfile) {
+      checkAndApplyPendingPermissions();
+    }
+  }, [user, loading, hasCompleteProfile]);
 
   const handleSignOut = async () => {
     try {
       await signOut();
+      navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-    }
-  };
-
-  // Phone number formatting
-  const formatPhoneNumber = (value) => {
-    const phoneNumber = value.replace(/[^\d]/g, '');
-    if (phoneNumber.length <= 3) {
-      return phoneNumber;
-    } else if (phoneNumber.length <= 6) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-    } else {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
     }
   };
 
@@ -451,81 +607,86 @@ const RTDConnectDashboard = () => {
     setProfileData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (profileErrors[field]) {
-      setProfileErrors(prev => ({ ...prev, [field]: null }));
+      setProfileErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
   const handlePhoneChange = (e) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    handleProfileInputChange('phone', formatted);
+    const value = e.target.value;
+    const phoneRegex = /^[\d\s\-\(\)]*$/;
+    
+    if (phoneRegex.test(value)) {
+      const formatted = formatPhoneNumber(value);
+      handleProfileInputChange('phone', formatted);
+    }
+  };
+
+  const formatPhoneNumber = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
   const handleAddressSelect = (address) => {
     setProfileData(prev => ({ ...prev, address }));
     if (profileErrors.address) {
-      setProfileErrors(prev => ({ ...prev, address: null }));
+      setProfileErrors(prev => ({ ...prev, address: '' }));
     }
   };
 
   const validateProfile = () => {
-    const newErrors = {};
-
+    const errors = {};
+    
     if (!profileData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+      errors.firstName = 'First name is required';
     }
-
+    
     if (!profileData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
+      errors.lastName = 'Last name is required';
     }
-
+    
     if (!profileData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      errors.phone = 'Phone number is required';
     } else {
       const phoneDigits = profileData.phone.replace(/\D/g, '');
       if (phoneDigits.length !== 10) {
-        newErrors.phone = 'Please enter a valid 10-digit phone number';
+        errors.phone = 'Please enter a valid 10-digit phone number';
       }
     }
-
+    
     if (!profileData.address) {
-      newErrors.address = 'Address is required';
+      errors.address = 'Address is required';
     }
-
-    setProfileErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    
+    return errors;
   };
 
   const handleSaveProfile = async () => {
-    if (!validateProfile()) {
+    const errors = validateProfile();
+    
+    if (Object.keys(errors).length > 0) {
+      setProfileErrors(errors);
       return;
     }
 
     setIsSubmittingProfile(true);
-    
+    setProfileErrors({});
+
     try {
       const db = getDatabase();
       const userRef = ref(db, `users/${user.uid}`);
       
-      // Get existing user data and merge with profile data
-      const userSnapshot = await get(userRef);
-      const existingData = userSnapshot.exists() ? userSnapshot.val() : {};
-      
-      const updatedUserData = {
-        ...existingData,
-        firstName: profileData.firstName.trim(),
-        lastName: profileData.lastName.trim(),
-        phone: profileData.phone.trim(),
-        address: profileData.address,
-        profileCompletedAt: Date.now(),
-        lastUpdated: Date.now()
-      };
-      
-      await set(userRef, updatedUserData);
-      
-      setUserProfile(updatedUserData);
-      setHasCompleteProfile(true);
+      await set(userRef, {
+        ...profileData,
+        email: user.email,
+        lastUpdated: new Date().toISOString()
+      });
+
       setShowProfileForm(false);
-      
+      console.log('Profile saved successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
       setProfileErrors({ submit: 'Failed to save profile. Please try again.' });
@@ -535,455 +696,224 @@ const RTDConnectDashboard = () => {
   };
 
   const handleStartRegistration = async () => {
-    if (!hasCompleteProfile) {
-      setShowProfileForm(true);
+    // Only allow primary guardians to edit family data
+    if (customClaims?.familyRole !== 'primary_guardian') {
+      console.log('Access denied: Only primary guardians can edit family data');
       return;
     }
-
-    setIsSettingUpFamily(true);
-
-    try {
-      // Check if user already has custom claims
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-      
-      if (!currentUser) {
-        console.error('No authenticated user found');
-        setIsSettingUpFamily(false);
-        return;
-      }
-
-      // Get current ID token to check for existing custom claims
-      const idTokenResult = await currentUser.getIdTokenResult();
-      const customClaims = idTokenResult.claims;
-
-      let familyId = null;
-
-      // Check if user already has family custom claims
-      if (customClaims.familyId && customClaims.familyRole === 'primary_guardian') {
-        console.log('User already has family custom claims');
-        familyId = customClaims.familyId;
-      } else {
-        // Call cloud function to set custom claims
-        console.log('Setting family custom claims...');
-        const functions = getFunctions();
-        const setFamilyCustomClaims = httpsCallable(functions, 'setFamilyCustomClaims');
-        
-        const result = await setFamilyCustomClaims();
-        
-        if (result.data.success) {
-          familyId = result.data.familyId;
-          console.log('Custom claims set successfully, familyId:', familyId);
-          
-          // Force refresh the ID token to get the latest custom claims
-          await currentUser.getIdToken(true);
-        } else {
-          console.error('Failed to set custom claims');
-          alert('Failed to initialize family registration. Please try again.');
-          setIsSettingUpFamily(false);
-          return;
-        }
-      }
-
-      // Create family key from primary user email
-      const primaryEmailKey = sanitizeEmail(user.email);
-      setFamilyKey(familyId); // Use the actual familyId from custom claims
-      
-      // Open family creation sheet
+    
+    // If user already has a family, just open the sheet for updates
+    if (hasRegisteredFamily && familyKey) {
       setShowFamilyCreation(true);
-      // Initialize with primary guardian data from user profile
-      setFamilyData({
-        familyName: '',
-        students: [],
-        guardians: [{
-          firstName: userProfile.firstName,
-          lastName: userProfile.lastName,
-          email: user.email,
-          emailKey: primaryEmailKey,
-          phone: userProfile.phone,
-          address: userProfile.address,
-          fullAddress: userProfile.address?.fullAddress || '',
-          guardianType: 'primary_guardian',
-          relationToStudents: 'Guardian', // Default, user can change
-          permissions: {
-            canEditFamily: true,
-            canViewReports: true,
-            canSubmitReimbursements: true
-          },
-          isPrimary: true
-        }]
-      });
-
-    } catch (error) {
-      console.error('Error starting family registration:', error);
-      alert('Error starting family registration. Please try again.');
-    } finally {
-      setIsSettingUpFamily(false);
+      return;
     }
+    
+    // For new families, just open the creation sheet
+    // The saveFamilyData function will handle creating the family and setting claims
+    setShowFamilyCreation(true);
   };
 
-  // Student management functions
-  const handleStudentFormChange = (field, value) => {
-    if (field === 'asn') {
-      value = formatASN(value);
-    }
-    setStudentFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (studentFormErrors[field]) {
-      setStudentFormErrors(prev => ({ ...prev, [field]: null }));
-    }
+  const handleFamilyDataChange = (newFamilyData) => {
+    setFamilyData(newFamilyData);
   };
 
-  const validateStudentForm = () => {
-    const errors = {};
-    
-    if (!studentFormData.asn.trim()) {
-      errors.asn = 'ASN is required';
-    } else if (!validateASN(studentFormData.asn)) {
-      errors.asn = 'Please enter a valid 9-digit ASN';
-    }
-    
-    if (!studentFormData.firstName.trim()) {
-      errors.firstName = 'First name is required';
-    }
-    
-    if (!studentFormData.lastName.trim()) {
-      errors.lastName = 'Last name is required';
-    }
-    
-    if (!studentFormData.birthday) {
-      errors.birthday = 'Birthday is required';
-    }
-    
-    setStudentFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Save family metadata and primary guardian to root level
-  const saveFamilyMetadata = async (db) => {
-    const primaryGuardian = familyData.guardians[0]; // Primary guardian is always first
-    
-    const familyMetadata = {
-      familyId: familyKey,
-      familyName: familyData.familyName,
-      familyCreatedAt: Date.now(),
-      lastUpdated: Date.now(),
-      primaryGuardianEmail: primaryGuardian.email,
-      primaryGuardianPhone: primaryGuardian.phone,
-      primaryGuardianFirstName: primaryGuardian.firstName,
-      primaryGuardianLastName: primaryGuardian.lastName,
-      primaryGuardianFullAddress: primaryGuardian.fullAddress || '',
-      primaryGuardianAddress: primaryGuardian.address || {},
-      city: primaryGuardian.address?.city || '',
-      province: primaryGuardian.address?.province || '',
-      postalCodePrefix: (primaryGuardian.address?.postalCode || '').substring(0, 3)
-    };
-
-    // Save family metadata to root level
-    const metadataRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}`);
-    await set(metadataRef, familyMetadata);
-
-    // Save primary guardian to guardians collection
-    const primaryGuardianRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}/guardians/${primaryGuardian.emailKey}`);
-    await set(primaryGuardianRef, {
-      ...primaryGuardian,
-      familyId: familyKey,
-      addedAt: Date.now()
-    });
-  };
-
-  const handleAddStudent = async () => {
-    if (!validateStudentForm()) return;
-    
-    try {
-      const db = getDatabase();
-      const asnWithDashes = studentFormData.asn; // Keep dashes for storage
-      
-      const newStudent = {
-        ...studentFormData,
-        asn: asnWithDashes, // Store with dashes
-        id: Date.now().toString(),
-        familyId: familyKey,
-        addedAt: Date.now()
-      };
-
-      // Add emailKey if email is provided
-      if (studentFormData.email && studentFormData.email.trim()) {
-        newStudent.emailKey = sanitizeEmail(studentFormData.email);
+  // Manual method to refresh custom claims
+  const refreshCustomClaims = async () => {
+    if (user) {
+      try {
+        console.log('Manually refreshing custom claims...');
+        const currentUser = getAuth().currentUser;
+        await currentUser.getIdToken(true);
+        const idTokenResult = await currentUser.getIdTokenResult();
+        setCustomClaims(idTokenResult.claims);
+        console.log('Manual custom claims refresh completed:', idTokenResult.claims);
+        return idTokenResult.claims;
+      } catch (error) {
+        console.error('Error manually refreshing custom claims:', error);
+        return null;
       }
-      
-      // Save to Firebase at homeEducationFamilies/familyInformation/{familyId}/students/{asnWithDashes}
-      const studentRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}/students/${asnWithDashes}`);
-      await set(studentRef, newStudent);
-
-      // If this is the first student, also save family metadata and primary guardian
-      if (familyData.students.length === 0) {
-        await saveFamilyMetadata(db);
-      }
-      
-      if (editingStudentIndex !== null) {
-        // Update existing student in local state
-        const updatedStudents = [...familyData.students];
-        updatedStudents[editingStudentIndex] = newStudent;
-        setFamilyData(prev => ({ ...prev, students: updatedStudents }));
-        setEditingStudentIndex(null);
-      } else {
-        // Add new student to local state
-        setFamilyData(prev => ({
-          ...prev,
-          students: [...prev.students, newStudent]
-        }));
-      }
-      
-      // Reset form
-      setStudentFormData({
-        asn: '',
-        firstName: '',
-        lastName: '',
-        preferredName: '',
-        birthday: '',
-        email: ''
-      });
-      
-    } catch (error) {
-      console.error('Error saving student:', error);
-      alert('Failed to save student information. Please try again.');
     }
+    return null;
   };
 
-  const handleEditStudent = (index) => {
-    const student = familyData.students[index];
-    setStudentFormData(student);
-    setEditingStudentIndex(index);
-  };
-
-  const handleRemoveStudent = async (index) => {
-    try {
-      const student = familyData.students[index];
-      const db = getDatabase();
-      const asnWithDashes = student.asn; // ASN should already be stored with dashes
-      
-      // Remove from Firebase
-      const studentRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}/students/${asnWithDashes}`);
-      await set(studentRef, null);
-      
-      // Remove from local state
-      const updatedStudents = familyData.students.filter((_, i) => i !== index);
-      setFamilyData(prev => ({ ...prev, students: updatedStudents }));
-      
-    } catch (error) {
-      console.error('Error removing student:', error);
-      alert('Failed to remove student. Please try again.');
-    }
-  };
-
-  // Guardian management functions
-  const handleGuardianFormChange = (field, value) => {
-    if (field.startsWith('permissions.')) {
-      const permissionKey = field.split('.')[1];
-      setGuardianFormData(prev => ({
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [permissionKey]: value
-        }
-      }));
+  const handleFamilyComplete = async (result, updatedClaims) => {
+    console.log('Family registration completed successfully', result);
+    
+    // If we have updated claims from the form, use them immediately
+    if (updatedClaims) {
+      console.log('Using claims from family creation:', updatedClaims);
+      setCustomClaims(updatedClaims);
     } else {
-      setGuardianFormData(prev => ({ ...prev, [field]: value }));
-    }
-    
-    // Clear error when user starts typing
-    if (guardianFormErrors[field]) {
-      setGuardianFormErrors(prev => ({ ...prev, [field]: null }));
+      // Otherwise, manually refresh claims
+      console.log('No claims provided, manually refreshing...');
+      await refreshCustomClaims();
     }
   };
 
-  const validateGuardianForm = () => {
-    const errors = {};
-    
-    if (!guardianFormData.firstName.trim()) {
-      errors.firstName = 'First name is required';
-    }
-    
-    if (!guardianFormData.lastName.trim()) {
-      errors.lastName = 'Last name is required';
-    }
-    
-    if (!guardianFormData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianFormData.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-    
-    if (!guardianFormData.phone.trim()) {
-      errors.phone = 'Phone number is required';
-    }
-    
-    if (!guardianFormData.address) {
-      errors.address = 'Address is required';
-    }
-    
-    setGuardianFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleAddGuardian = async () => {
-    if (!validateGuardianForm()) return;
-    
-    try {
-      const db = getDatabase();
-      const guardianEmailKey = sanitizeEmail(guardianFormData.email);
-      
-      const newGuardian = {
-        ...guardianFormData,
-        emailKey: guardianEmailKey,
-        id: Date.now().toString(),
-        guardianType: 'guardian', // Secondary guardians are type 'guardian'
-        fullAddress: guardianFormData.address?.fullAddress || '',
-        familyId: familyKey,
-        addedAt: Date.now()
+  // Get registration status for the current/active school year
+  const getRegistrationStatus = () => {
+    if (!activeSchoolYear || !nextSeptemberCount) {
+      return {
+        status: 'unknown',
+        message: 'Loading registration status...',
+        actionNeeded: false,
+        schoolYear: '',
+        deadline: null
       };
+    }
+
+    const currentStatus = schoolYearStatus[activeSchoolYear] || 'pending';
+    const hasPassedSeptemberCount = hasSeptemberCountPassed(activeSchoolYear);
+    const registrationIsOpen = isRegistrationOpen(activeSchoolYear);
+    const registrationOpenDate = getRegistrationOpenDateForYear(activeSchoolYear);
+    const isCurrentYear = activeSchoolYear === currentSchoolYear;
+    
+    if (currentStatus === 'completed') {
+      return {
+        status: 'completed',
+        message: `✅ Registered for ${activeSchoolYear} school year`,
+        actionNeeded: false,
+        schoolYear: activeSchoolYear,
+        deadline: null,
+        icon: CheckCircle2,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50'
+      };
+    }
+    
+    if (currentStatus === 'partial') {
+      return {
+        status: 'partial',
+        message: `⚠️ Partial registration for ${activeSchoolYear} - some students still need forms`,
+        actionNeeded: true,
+        schoolYear: activeSchoolYear,
+        deadline: nextSeptemberCount.date,
+        icon: AlertTriangle,
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50'
+      };
+    }
+    
+    // Check if registration is not yet open
+    if (!registrationIsOpen && registrationOpenDate) {
+      const daysUntilOpen = Math.ceil((registrationOpenDate - new Date()) / (1000 * 60 * 60 * 24));
+      return {
+        status: 'not_open',
+        message: `📅 ${activeSchoolYear} registration opens on ${formatImportantDate(registrationOpenDate)}`,
+        actionNeeded: false,
+        schoolYear: activeSchoolYear,
+        deadline: registrationOpenDate,
+        icon: Info,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50'
+      };
+    }
+    
+    // Registration is open - pending status
+    if (registrationIsOpen && !hasPassedSeptemberCount) {
+      const daysUntilDeadline = Math.ceil((nextSeptemberCount.date - new Date()) / (1000 * 60 * 60 * 24));
       
-      // Save to Firebase at homeEducationFamilies/familyInformation/{familyId}/guardians/{emailKey}
-      const guardianRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}/guardians/${guardianEmailKey}`);
-      await set(guardianRef, newGuardian);
-      
-      if (editingGuardianIndex !== null) {
-        // Update existing guardian in local state
-        const updatedGuardians = [...familyData.guardians];
-        updatedGuardians[editingGuardianIndex] = { ...newGuardian, isPrimary: updatedGuardians[editingGuardianIndex].isPrimary };
-        setFamilyData(prev => ({ ...prev, guardians: updatedGuardians }));
-        setEditingGuardianIndex(null);
+      if (daysUntilDeadline > 30) {
+        return {
+          status: 'available',
+          message: `📝 ${activeSchoolYear} registration is now open`,
+          actionNeeded: true,
+          schoolYear: activeSchoolYear,
+          deadline: nextSeptemberCount.date,
+          icon: FileText,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-50'
+        };
+      } else if (daysUntilDeadline > 0) {
+        return {
+          status: 'urgent',
+          message: `⏰ ${activeSchoolYear} registration due in ${daysUntilDeadline} days`,
+          actionNeeded: true,
+          schoolYear: activeSchoolYear,
+          deadline: nextSeptemberCount.date,
+          icon: Clock,
+          color: 'text-red-600',
+          bgColor: 'bg-red-50'
+        };
       } else {
-        // Add new guardian to local state
-        setFamilyData(prev => ({
-          ...prev,
-          guardians: [...prev.guardians, newGuardian]
-        }));
+        return {
+          status: 'overdue',
+          message: `🚨 ${activeSchoolYear} registration is overdue`,
+          actionNeeded: true,
+          schoolYear: activeSchoolYear,
+          deadline: nextSeptemberCount.date,
+          icon: AlertTriangle,
+          color: 'text-red-600',
+          bgColor: 'bg-red-50'
+        };
       }
-      
-      // Reset form
-      setGuardianFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address: null,
-        relationToStudents: 'Guardian',
-        permissions: {
-          canEditFamily: true,
-          canViewReports: true,
-          canSubmitReimbursements: true
-        }
-      });
-      
-    } catch (error) {
-      console.error('Error saving guardian:', error);
-      alert('Failed to save guardian information. Please try again.');
     }
+    
+    return {
+      status: 'required',
+      message: `📝 Complete ${activeSchoolYear} registration`,
+      actionNeeded: true,
+      schoolYear: activeSchoolYear,
+      deadline: nextSeptemberCount.date,
+      icon: FileText,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    };
   };
 
-  const handleEditGuardian = (index) => {
-    const guardian = familyData.guardians[index];
-    setGuardianFormData(guardian);
-    setEditingGuardianIndex(index);
-  };
-
-  const handleRemoveGuardian = async (index) => {
-    // Don't allow removing primary guardian
-    if (familyData.guardians[index].guardianType === 'primary_guardian') return;
+  // Check and apply pending permissions (manual trigger)
+  const checkAndApplyPendingPermissions = async () => {
+    if (!user?.email) return;
     
     try {
-      const guardian = familyData.guardians[index];
-      const db = getDatabase();
+      console.log('Manually checking for pending permissions...');
       
-      // Remove from Firebase
-      const guardianRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}/guardians/${guardian.emailKey}`);
-      await set(guardianRef, null);
+      // Use the auth context function which has better token refresh logic
+      const result = await applyPendingFromAuth();
       
-      // Remove from local state
-      const updatedGuardians = familyData.guardians.filter((_, i) => i !== index);
-      setFamilyData(prev => ({ ...prev, guardians: updatedGuardians }));
-      
+      if (result) {
+        console.log('✅ Manually applied pending permissions:', result);
+        // The auth context function handles token refresh automatically
+        // Just refresh custom claims in this component
+        await refreshCustomClaims();
+      } else {
+        console.log('No pending permissions found or already applied');
+      }
     } catch (error) {
-      console.error('Error removing guardian:', error);
-      alert('Failed to remove guardian. Please try again.');
+      console.error('Error manually applying pending permissions:', error);
     }
   };
 
-  const handleCompleteRegistration = async () => {
-    if (familyData.students.length === 0) {
-      alert('Please add at least one student to your family.');
-      return;
-    }
-    
-    if (!familyData.familyName.trim()) {
-      alert('Please enter a family name.');
-      return;
-    }
-    
-    try {
-      const db = getDatabase();
-      
-      // Update family metadata with family name and completion time
-      const familyMetadata = {
-        familyId: familyKey,
-        familyName: familyData.familyName,
-        familyCreatedAt: Date.now(),
-        lastUpdated: Date.now(),
-        familyCreationCompleted: true,
-        familyCreationCompletedAt: Date.now()
-      };
-
-      // Update the family metadata
-      const metadataRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}`);
-      await set(metadataRef, familyMetadata);
-      
-      // Mark family creation as complete
-      setHasRegisteredFamily(true);
-      setShowFamilyCreation(false);
-      
-    } catch (error) {
-      console.error('Error completing registration:', error);
-      alert('Failed to complete registration. Please try again.');
-    }
-  };
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to RTD Connect</h1>
+          <p className="text-gray-600 mb-6">Please sign in to access your home education portal.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            Go to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-center">Loading your dashboard...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  if (!isHomeEducationParent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-gray-600 mb-6">
-              You don't have permission to access the RTD Connect dashboard.
-            </p>
-            <button
-              onClick={() => navigate('/rtd-connect-login')}
-              className="w-full py-2 px-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-md hover:from-pink-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              Go to Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show welcome screen for users who haven't completed profile or registered family yet
-  if (!hasCompleteProfile || !hasRegisteredFamily) {
+  // Show profile completion first if incomplete
+  if (!hasCompleteProfile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
         {/* Header */}
@@ -992,164 +922,67 @@ const RTDConnectDashboard = () => {
             <div className="flex justify-between items-center py-4">
               <RTDConnectLogo />
               
-              <div className="flex items-center space-x-3">
-                <ProfileDropdown 
-                  userProfile={{ ...userProfile, email: user?.email }}
-                  onEditProfile={() => setShowProfileForm(true)}
-                  onSignOut={handleSignOut}
-                />
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </button>
-              </div>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
             </div>
           </div>
         </header>
 
         {/* Main Content */}
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Welcome Hero Section */}
-          <div className="text-center mb-12">
-            <div className="mb-6">
-              <Home className="w-16 h-16 mx-auto text-purple-500 mb-4" />
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Welcome to RTD Connect
-              </h1>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Your gateway to home education support with RTD Academy. Get started by registering your family 
-                to access our home education programs and reimbursement services.
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to RTD Connect!</h1>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Let's start by completing your profile. This information helps us personalize your experience and ensure proper communication.
               </p>
             </div>
-            
-            {/* Primary CTA */}
-            <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border border-purple-100">
-              {!hasCompleteProfile ? (
-                <>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Complete Your Profile</h2>
-                  <p className="text-gray-600 mb-6">
-                    Let's start by getting your basic information. This will help us personalize your RTD Connect experience.
-                  </p>
-                  <button
-                    onClick={handleStartRegistration}
-                    className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 text-white text-lg font-semibold rounded-lg hover:from-pink-600 hover:via-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all transform hover:scale-105"
-                  >
-                    Complete Profile
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to Create Your Family Profile?</h2>
-                  <p className="text-gray-600 mb-6">
-                    Great! Your profile is complete. Now let's create your family profile with RTD Academy. This information will stay with your family year after year.
-                  </p>
-                  <button
-                    onClick={handleStartRegistration}
-                    disabled={isSettingUpFamily}
-                    className={`inline-flex items-center px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 text-white text-lg font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all ${
-                      isSettingUpFamily 
-                        ? 'opacity-75 cursor-not-allowed' 
-                        : 'hover:from-pink-600 hover:via-purple-600 hover:to-cyan-600 transform hover:scale-105'
-                    }`}
-                  >
-                    {isSettingUpFamily ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Setting up family creation...
-                      </>
-                    ) : (
-                      <>
-                        Create Your Family
-                        <ArrowRight className="ml-2 w-5 h-5" />
-                      </>
-                    )}
-                  </button>
-                </>
-              )}
-            </div>
+
+            <button
+              onClick={() => setShowProfileForm(true)}
+              className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+            >
+              <User className="w-5 h-5" />
+              <span className="text-lg font-medium">Complete Your Profile</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <FeatureCard
-              icon={Users}
-              title="Family Registration"
-              description="Register your family and students with our home education program"
-              gradient="from-pink-500 to-purple-500"
-            />
-            <FeatureCard
-              icon={DollarSign}
-              title="Reimbursement Support"
-              description="Access up to $900 annually in home education reimbursements"
-              gradient="from-purple-500 to-cyan-500"
-            />
-            <FeatureCard
-              icon={GraduationCap}
-              title="Educational Resources"
-              description="Access quality educational materials and support for your students"
-              gradient="from-cyan-500 to-blue-500"
-            />
-          </div>
-
-          {/* Info Section */}
-          <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">About RTD Connect</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-start space-x-3">
-                <Heart className="w-6 h-6 text-pink-500 mt-1 flex-shrink-0" />
-                <div>
-                  <h4 className="font-medium text-gray-900">Personalized Support</h4>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Get dedicated support for your family's unique home education needs and goals.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <Shield className="w-6 h-6 text-blue-500 mt-1 flex-shrink-0" />
-                <div>
-                  <h4 className="font-medium text-gray-900">Secure & Reliable</h4>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Your family's information is secure and protected with enterprise-level security.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <CheckCircle2 className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
-                <div>
-                  <h4 className="font-medium text-gray-900">Easy Process</h4>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Simple registration and reimbursement processes designed with families in mind.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <FileText className="w-6 h-6 text-purple-500 mt-1 flex-shrink-0" />
-                <div>
-                  <h4 className="font-medium text-gray-900">Comprehensive Tracking</h4>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Track your students' progress and manage all your home education documentation.
-                  </p>
-                </div>
-              </div>
+          {/* Feature preview */}
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">What's Available After Setup</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FeatureCard 
+                icon={GraduationCap}
+                title="Student Management"
+                description="Register and manage your home education students"
+                gradient="from-purple-500 to-pink-500"
+              />
+              <FeatureCard 
+                icon={FileText}
+                title="Annual Registration"
+                description="Complete yearly registration requirements online"
+                gradient="from-pink-500 to-red-500"
+              />
+              <FeatureCard 
+                icon={DollarSign}
+                title="Reimbursements"
+                description="Submit and track reimbursement requests"
+                gradient="from-cyan-500 to-blue-500"
+              />
             </div>
           </div>
         </main>
 
-        {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 mt-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="text-center text-sm text-gray-500">
-              <p>&copy; {new Date().getFullYear()} RTD Connect - Home Education Portal. All rights reserved.</p>
-              <p className="mt-1">Need help? Contact us at support@rtdacademy.com</p>
-            </div>
-          </div>
-        </footer>
-
-        {/* Profile Form Sheet */}
+        {/* Profile Sheet */}
         <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
           <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
@@ -1164,140 +997,63 @@ const RTDConnectDashboard = () => {
               </SheetDescription>
             </SheetHeader>
 
-            <div className="mt-6 space-y-6">
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 gap-6">
-                <FormField
-                  label="First Name"
-                  icon={User}
-                  error={profileErrors.firstName}
-                  required
-                >
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <FormField label="First Name" error={profileErrors.firstName} required>
                   <input
                     type="text"
                     value={profileData.firstName}
                     onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
-                    className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                      profileErrors.firstName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
-                    }`}
+                    className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
                     placeholder="Enter your first name"
                   />
                 </FormField>
 
-                <FormField
-                  label="Last Name"
-                  icon={User}
-                  error={profileErrors.lastName}
-                  required
-                >
+                <FormField label="Last Name" error={profileErrors.lastName} required>
                   <input
                     type="text"
                     value={profileData.lastName}
                     onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
-                    className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                      profileErrors.lastName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
-                    }`}
+                    className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
                     placeholder="Enter your last name"
+                  />
+                </FormField>
+
+                <FormField label="Phone Number" error={profileErrors.phone} required>
+                  <input
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handlePhoneChange}
+                    className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="(403) 555-0123"
+                  />
+                </FormField>
+
+                <FormField label="Address" error={profileErrors.address} required>
+                  <AddressPicker
+                    value={profileData.address}
+                    onAddressSelect={handleAddressSelect}
+                    error={profileErrors.address}
+                    placeholder="Start typing your address..."
                   />
                 </FormField>
               </div>
 
-              {/* Phone Field */}
-              <FormField
-                label="Phone Number"
-                icon={Phone}
-                error={profileErrors.phone}
-                required
-              >
-                <input
-                  type="tel"
-                  value={profileData.phone}
-                  onChange={handlePhoneChange}
-                  className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                    profileErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
-                  }`}
-                  placeholder="(123) 456-7890"
-                  maxLength={14}
-                />
-              </FormField>
-
-              {/* Address Field */}
-              <FormField
-                label="Home Address"
-                icon={MapPin}
-                error={profileErrors.address}
-                required
-              >
-                <div className="relative">
-                  {profileData.address ? (
-                    <div className="space-y-4">
-                      <div className="rounded-md border border-gray-300 bg-gray-50 p-4 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium text-sm text-gray-900">Current Address</h4>
-                            <p className="text-sm text-gray-600">{profileData.address.fullAddress || profileData.address.formattedAddress}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleAddressSelect(null)}
-                            className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-                          >
-                            Change
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {profileData.address.streetAddress && (
-                            <div>
-                              <span className="font-medium text-gray-500">Street:</span>
-                              <p className="text-gray-700">{profileData.address.streetAddress}</p>
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-medium text-gray-500">City:</span>
-                            <p className="text-gray-700">{profileData.address.city || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-500">Province:</span>
-                            <p className="text-gray-700">{profileData.address.province || 'Not specified'}</p>
-                          </div>
-                          {profileData.address.postalCode && (
-                            <div>
-                              <span className="font-medium text-gray-500">Postal Code:</span>
-                              <p className="text-gray-700">{profileData.address.postalCode}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <AddressPicker
-                      onAddressSelect={handleAddressSelect}
-                      studentType="Parent Verification"
-                    />
-                  )}
-                </div>
-              </FormField>
-
-              {/* Submit Error */}
               {profileErrors.submit && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                    <span className="text-sm text-red-700">{profileErrors.submit}</span>
-                  </div>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">{profileErrors.submit}</p>
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-3 pt-6">
+              <div className="pt-4">
                 <button
-                  onClick={handleSaveProfile}
+                  type="submit"
                   disabled={isSubmittingProfile}
-                  className={`w-full flex items-center justify-center px-6 py-3 text-white rounded-md font-medium transition-all ${
-                    isSubmittingProfile
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 hover:from-pink-600 hover:via-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
-                  }`}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    isSubmittingProfile 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
                 >
                   {isSubmittingProfile ? (
                     <>
@@ -1311,480 +1067,213 @@ const RTDConnectDashboard = () => {
                     </>
                   )}
                 </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setShowProfileForm(false)}
-                  className="w-full px-6 py-3 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-                >
-                  Cancel
-                </button>
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* Family Creation Sheet */}
-        <Sheet open={showFamilyCreation} onOpenChange={setShowFamilyCreation}>
-          <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-left">
-                <div className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-purple-500" />
-                  <span>Create Your Family</span>
-                </div>
-              </SheetTitle>
-              <SheetDescription className="text-left">
-                Add your family name, students, and family members to create your RTD Connect family profile.
-              </SheetDescription>
-            </SheetHeader>
-
-            <div className="mt-6">
-              {/* Family Name Section */}
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-900 mb-2">Family Name</h3>
-                <p className="text-sm text-blue-700 mb-3">
-                  Choose how you'd like your family to be displayed (e.g., "The Brown Family", "Smith Homeschool")
-                </p>
-                <input
-                  type="text"
-                  value={familyData.familyName}
-                  onChange={(e) => setFamilyData(prev => ({ ...prev, familyName: e.target.value }))}
-                  placeholder="The Brown Family"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Tab Navigation */}
-              <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-6">
-                <button
-                  onClick={() => setActiveTab('students')}
-                  className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'students'
-                      ? 'bg-white text-purple-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  <span>Students ({familyData.students.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('guardians')}
-                  className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'guardians'
-                      ? 'bg-white text-purple-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Parents/Guardians ({familyData.guardians.length})</span>
-                </button>
-              </div>
-
-              {/* Students Tab */}
-              {activeTab === 'students' && (
-                <div className="space-y-6">
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <h3 className="font-medium text-blue-900 mb-2">Add Students</h3>
-                    <p className="text-sm text-blue-700">
-                      Add each student who will be part of your home education program. You'll need their Alberta Student Number (ASN), legal name, and birthday.
-                    </p>
-                  </div>
-
-                  {/* Student List */}
-                  {familyData.students.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-900">Your Students</h4>
-                      {familyData.students.map((student, index) => (
-                        <StudentCard
-                          key={student.id}
-                          student={student}
-                          index={index}
-                          onEdit={handleEditStudent}
-                          onRemove={handleRemoveStudent}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Student Form */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 mb-4">
-                      {editingStudentIndex !== null ? 'Edit Student' : 'Add New Student'}
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        label="Alberta Student Number (ASN)"
-                        icon={Hash}
-                        error={studentFormErrors.asn}
-                        required
-                      >
-                        <input
-                          type="text"
-                          value={studentFormData.asn}
-                          onChange={(e) => handleStudentFormChange('asn', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            studentFormErrors.asn ? 'border-red-500' : ''
-                          }`}
-                          placeholder="1234-5678-9"
-                          maxLength={11}
-                        />
-                      </FormField>
-
-                      <FormField
-                        label="Birthday"
-                        icon={Calendar}
-                        error={studentFormErrors.birthday}
-                        required
-                      >
-                        <input
-                          type="date"
-                          value={studentFormData.birthday}
-                          onChange={(e) => handleStudentFormChange('birthday', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            studentFormErrors.birthday ? 'border-red-500' : ''
-                          }`}
-                        />
-                      </FormField>
-
-                      <FormField
-                        label="Legal First Name"
-                        icon={User}
-                        error={studentFormErrors.firstName}
-                        required
-                      >
-                        <input
-                          type="text"
-                          value={studentFormData.firstName}
-                          onChange={(e) => handleStudentFormChange('firstName', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            studentFormErrors.firstName ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Enter legal first name"
-                        />
-                      </FormField>
-
-                      <FormField
-                        label="Legal Last Name"
-                        icon={User}
-                        error={studentFormErrors.lastName}
-                        required
-                      >
-                        <input
-                          type="text"
-                          value={studentFormData.lastName}
-                          onChange={(e) => handleStudentFormChange('lastName', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            studentFormErrors.lastName ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Enter legal last name"
-                        />
-                      </FormField>
-
-                      <FormField
-                        label="Preferred Name (Optional)"
-                        icon={User}
-                      >
-                        <input
-                          type="text"
-                          value={studentFormData.preferredName}
-                          onChange={(e) => handleStudentFormChange('preferredName', e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
-                          placeholder="Enter preferred name if different"
-                        />
-                      </FormField>
-
-                      {/* Optional Email Field */}
-                      <FormField
-                        label="Email (Optional)"
-                        icon={User}
-                        error={studentFormErrors.email}
-                      >
-                        <input
-                          type="email"
-                          value={studentFormData.email}
-                          onChange={(e) => handleStudentFormChange('email', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            studentFormErrors.email ? 'border-red-500' : ''
-                          }`}
-                          placeholder="student@email.com (optional)"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Optional: For future communication with the student
-                        </p>
-                      </FormField>
-                    </div>
-
-                    <div className="mt-6 flex justify-end">
-                      <button
-                        onClick={handleAddStudent}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>{editingStudentIndex !== null ? 'Update Student' : 'Add Student'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Guardians Tab */}
-              {activeTab === 'guardians' && (
-                <div className="space-y-6">
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <h3 className="font-medium text-green-900 mb-2">Family Members</h3>
-                    <p className="text-sm text-green-700">
-                      You are the primary parent/guardian. You can add additional parents or guardians and set their permissions for managing family information.
-                    </p>
-                  </div>
-
-                  {/* Guardian List */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900">Parents & Guardians</h4>
-                    {familyData.guardians.map((guardian, index) => (
-                      <GuardianCard
-                        key={guardian.id || guardian.email}
-                        guardian={guardian}
-                        index={index}
-                        isPrimary={guardian.isPrimary}
-                        onEdit={handleEditGuardian}
-                        onRemove={handleRemoveGuardian}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Guardian Form */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 mb-4">
-                      {editingGuardianIndex !== null ? 'Edit Parent/Guardian' : 'Add Parent/Guardian'}
-                    </h4>
-                    
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          label="First Name"
-                          icon={User}
-                          error={guardianFormErrors.firstName}
-                          required
-                        >
-                          <input
-                            type="text"
-                            value={guardianFormData.firstName}
-                            onChange={(e) => handleGuardianFormChange('firstName', e.target.value)}
-                            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                              guardianFormErrors.firstName ? 'border-red-500' : ''
-                            }`}
-                            placeholder="Enter first name"
-                          />
-                        </FormField>
-
-                        <FormField
-                          label="Last Name"
-                          icon={User}
-                          error={guardianFormErrors.lastName}
-                          required
-                        >
-                          <input
-                            type="text"
-                            value={guardianFormData.lastName}
-                            onChange={(e) => handleGuardianFormChange('lastName', e.target.value)}
-                            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                              guardianFormErrors.lastName ? 'border-red-500' : ''
-                            }`}
-                            placeholder="Enter last name"
-                          />
-                        </FormField>
-
-                        <FormField
-                          label="Email Address"
-                          icon={User}
-                          error={guardianFormErrors.email}
-                          required
-                        >
-                          <input
-                            type="email"
-                            value={guardianFormData.email}
-                            onChange={(e) => handleGuardianFormChange('email', e.target.value)}
-                            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                              guardianFormErrors.email ? 'border-red-500' : ''
-                            }`}
-                            placeholder="Enter email address"
-                          />
-                        </FormField>
-
-                        <FormField
-                          label="Phone Number"
-                          icon={Phone}
-                          error={guardianFormErrors.phone}
-                          required
-                        >
-                          <input
-                            type="tel"
-                            value={guardianFormData.phone}
-                            onChange={(e) => handleGuardianFormChange('phone', formatPhoneNumber(e.target.value))}
-                            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                              guardianFormErrors.phone ? 'border-red-500' : ''
-                            }`}
-                            placeholder="(123) 456-7890"
-                            maxLength={14}
-                          />
-                        </FormField>
-                      </div>
-
-                      <FormField
-                        label="Address"
-                        icon={MapPin}
-                        error={guardianFormErrors.address}
-                        required
-                      >
-                        <div className="relative">
-                          {guardianFormData.address ? (
-                            <div className="space-y-4">
-                              <div className="rounded-md border border-gray-300 bg-gray-50 p-4 space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-medium text-sm text-gray-900">Current Address</h4>
-                                    <p className="text-sm text-gray-600">{guardianFormData.address.fullAddress || guardianFormData.address.formattedAddress}</p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleGuardianFormChange('address', null)}
-                                    className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-                                  >
-                                    Change
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <AddressPicker
-                              onAddressSelect={(address) => handleGuardianFormChange('address', address)}
-                              studentType="Guardian Verification"
-                            />
-                          )}
-                        </div>
-                      </FormField>
-
-                      {/* Relation to Students */}
-                      <FormField
-                        label="Relation to Students"
-                        error={guardianFormErrors.relationToStudents}
-                        required
-                      >
-                        <select
-                          value={guardianFormData.relationToStudents}
-                          onChange={(e) => handleGuardianFormChange('relationToStudents', e.target.value)}
-                          className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm ${
-                            guardianFormErrors.relationToStudents ? 'border-red-500' : ''
-                          }`}
-                        >
-                          <option value="Mother">Mother</option>
-                          <option value="Father">Father</option>
-                          <option value="Guardian">Guardian</option>
-                          <option value="Grandparent">Grandparent</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </FormField>
-
-                      {/* Permissions */}
-                      <div>
-                        <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                          <Settings className="w-4 h-4 mr-2 text-purple-500" />
-                          Permissions
-                        </h5>
-                        <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={guardianFormData.permissions.canEditFamily}
-                              onChange={(e) => handleGuardianFormChange('permissions.canEditFamily', e.target.checked)}
-                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Can edit family information</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={guardianFormData.permissions.canViewReports}
-                              onChange={(e) => handleGuardianFormChange('permissions.canViewReports', e.target.checked)}
-                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Can view student reports and progress</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={guardianFormData.permissions.canSubmitReimbursements}
-                              onChange={(e) => handleGuardianFormChange('permissions.canSubmitReimbursements', e.target.checked)}
-                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Can submit reimbursement requests</span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex justify-end">
-                      <button
-                        onClick={handleAddGuardian}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-md hover:from-green-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>{editingGuardianIndex !== null ? 'Update Guardian' : 'Add Guardian'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Complete Registration Button */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    <p>Students: {familyData.students.length}</p>
-                    <p>Parents/Guardians: {familyData.guardians.length}</p>
-                    {familyData.students.length > 0 && (
-                      <p className="text-green-600 font-medium mt-1">
-                        ✓ Ready to complete family creation
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setShowFamilyCreation(false)}
-                      className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      Close
-                    </button>
-                    {familyData.students.length > 0 && (
-                      <button
-                        onClick={handleCompleteRegistration}
-                        className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 hover:from-pink-600 hover:via-purple-600 hover:to-cyan-600 text-white rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Complete Family Creation</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            </form>
           </SheetContent>
         </Sheet>
       </div>
     );
   }
 
-  // If family is registered, show the full dashboard (this part can be expanded later)
+  // If profile is complete but no family registration, show family setup
+  if (!hasRegisteredFamily && !customClaims?.familyId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <RTDConnectLogo />
+              
+              <div className="flex items-center space-x-3">
+                <ProfileDropdown 
+                  userProfile={{ ...userProfile, email: user?.email }}
+                  onEditProfile={() => setShowProfileForm(true)}
+                  onSignOut={handleSignOut}
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Family Profile</h1>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Now let's set up your family profile. Add your students and family members to get started with home education services.
+              </p>
+            </div>
+
+            <button
+              onClick={handleStartRegistration}
+              disabled={isSettingUpFamily}
+              className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg font-medium transition-colors ${
+                isSettingUpFamily
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
+              }`}
+            >
+              {isSettingUpFamily ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-lg">Setting Up...</span>
+                </>
+              ) : (
+                <>
+                  <Users className="w-5 h-5" />
+                  <span className="text-lg">Create Family Profile</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Feature preview */}
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Coming Soon to Your Dashboard</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FeatureCard 
+                icon={Calendar}
+                title="Course Scheduling"
+                description="Plan and track your students' course schedules"
+                gradient="from-purple-500 to-pink-500"
+              />
+              <FeatureCard 
+                icon={FileText}
+                title="Report Generation"
+                description="Generate progress reports and transcripts"
+                gradient="from-pink-500 to-red-500"
+              />
+              <FeatureCard 
+                icon={Shield}
+                title="Secure Communication"
+                description="Communicate securely with RTD Academy staff"
+                gradient="from-cyan-500 to-blue-500"
+              />
+            </div>
+          </div>
+        </main>
+
+        {/* Profile Sheet */}
+        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">
+                <div className="flex items-center space-x-2">
+                  <User className="w-5 h-5 text-purple-500" />
+                  <span>Edit Your Profile</span>
+                </div>
+              </SheetTitle>
+              <SheetDescription className="text-left">
+                Update your basic information and contact details.
+              </SheetDescription>
+            </SheetHeader>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <FormField label="First Name" error={profileErrors.firstName} required>
+                  <input
+                    type="text"
+                    value={profileData.firstName}
+                    onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your first name"
+                  />
+                </FormField>
+
+                <FormField label="Last Name" error={profileErrors.lastName} required>
+                  <input
+                    type="text"
+                    value={profileData.lastName}
+                    onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your last name"
+                  />
+                </FormField>
+
+                <FormField label="Phone Number" error={profileErrors.phone} required>
+                  <input
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handlePhoneChange}
+                    className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="(403) 555-0123"
+                  />
+                </FormField>
+
+                <FormField label="Address" error={profileErrors.address} required>
+                  <AddressPicker
+                    value={profileData.address}
+                    onAddressSelect={handleAddressSelect}
+                    error={profileErrors.address}
+                    placeholder="Start typing your address..."
+                  />
+                </FormField>
+              </div>
+
+              {profileErrors.submit && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">{profileErrors.submit}</p>
+                </div>
+              )}
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmittingProfile}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    isSubmittingProfile 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
+                >
+                  {isSubmittingProfile ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Save Profile
+                      <CheckCircle2 className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        {/* Family Creation Sheet */}
+        <FamilyCreationSheet
+          isOpen={showFamilyCreation}
+          onOpenChange={setShowFamilyCreation}
+          familyKey={hasRegisteredFamily ? familyKey : null}
+          hasRegisteredFamily={hasRegisteredFamily}
+          initialFamilyData={familyData}
+          onFamilyDataChange={handleFamilyDataChange}
+          onComplete={handleFamilyComplete}
+        />
+      </div>
+    );
+  }
+
+  // If family is registered, show the full dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <RTDConnectLogo />
+            <div className="flex items-center space-x-6">
+              <RTDConnectLogo />
+              <UserTypeBadge customClaims={customClaims} />
+            </div>
             
             <div className="flex items-center space-x-3">
               <ProfileDropdown 
@@ -1792,35 +1281,332 @@ const RTDConnectDashboard = () => {
                 onEditProfile={() => setShowProfileForm(true)}
                 onSignOut={handleSignOut}
               />
-              <button
-                onClick={handleSignOut}
-                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content - Registered Family Dashboard */}
+      {/* Main Content - Family Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <CheckCircle2 className="w-16 h-16 mx-auto text-green-500 mb-4" />
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Family Dashboard
+            {familyData.familyName || 'Family Dashboard'}
           </h1>
-          <p className="text-gray-600 mb-8">
-            Welcome back! Your family is registered and ready to go.
+          <p className="text-gray-600 mb-4">
+            Welcome back! Here's your family information at a glance.
           </p>
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-            <p className="text-gray-600">
-              Your full family dashboard features will be available here once we implement 
-              the complete family management system.
-            </p>
+          
+          {/* Registration Status Card */}
+          <RegistrationStatusCard 
+            registrationStatus={getRegistrationStatus()}
+            onActionClick={() => {
+              // Find the first student needing a form and open individual form
+              const studentsNeedingForms = familyData.students?.filter(student => 
+                studentFormStatuses[student.id]?.current === 'pending'
+              ) || [];
+              
+              if (studentsNeedingForms.length > 0) {
+                // Open form for first student needing registration
+                setSelectedStudent(studentsNeedingForms[0]);
+                setShowNotificationForm(true);
+              }
+            }}
+          />
+        </div>
+
+        {/* Quick Actions & Family Status */}
+        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            {/* Action Button */}
+            <div className="flex-shrink-0">
+              {customClaims?.familyRole === 'primary_guardian' ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleStartRegistration}
+                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors whitespace-nowrap"
+                  >
+                    <Edit3 className="w-5 h-5" />
+                    <span>Update Family Information</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200 whitespace-nowrap">
+                  <Shield className="w-5 h-5" />
+                  <span>Only Primary Guardian Can Edit</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Family Status Info */}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Family Status</h3>
+                  <p className="text-sm text-green-600 font-medium">Active • Profile Complete</p>
+                </div>
+              </div>
+              
+              <div className="hidden md:flex items-center space-x-6 text-sm text-gray-600">
+                <div className="flex items-center space-x-2">
+                  <GraduationCap className="w-4 h-4 text-purple-500" />
+                  <span><strong>{familyData.students?.length || 0}</strong> Students</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Users className="w-4 h-4 text-pink-500" />
+                  <span><strong>{familyData.guardians?.length || 0}</strong> Guardians</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-blue-500" />
+                  <span>
+                    <strong>
+                      {familyData.students?.filter(student => 
+                        studentFormStatuses[student.id]?.current === 'completed'
+                      ).length || 0}
+                    </strong> of <strong>{familyData.students?.length || 0}</strong> forms complete
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Registration Progress Summary */}
+        {familyData.students && familyData.students.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-md p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+              <FileText className="w-6 h-6 mr-2 text-blue-500" />
+              {activeSchoolYear} Registration Progress
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mr-3" />
+                  <div>
+                    <p className="text-2xl font-bold text-green-700">
+                      {familyData.students.filter(student => 
+                        studentFormStatuses[student.id]?.current === 'completed'
+                      ).length}
+                    </p>
+                    <p className="text-sm text-green-600">Completed</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <AlertCircle className="w-8 h-8 text-orange-500 mr-3" />
+                  <div>
+                    <p className="text-2xl font-bold text-orange-700">
+                      {familyData.students.filter(student => 
+                        studentFormStatuses[student.id]?.current === 'pending'
+                      ).length}
+                    </p>
+                    <p className="text-sm text-orange-600">Pending</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <GraduationCap className="w-8 h-8 text-blue-500 mr-3" />
+                  <div>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {familyData.students.length}
+                    </p>
+                    <p className="text-sm text-blue-600">Total Students</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+                <span className="text-sm text-gray-500">
+                  {Math.round((familyData.students.filter(student => 
+                    studentFormStatuses[student.id]?.current === 'completed'
+                  ).length / familyData.students.length) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div 
+                  className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${(familyData.students.filter(student => 
+                      studentFormStatuses[student.id]?.current === 'completed'
+                    ).length / familyData.students.length) * 100}%` 
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Family Members List */}
+        {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
+          <div className="mt-8 bg-white rounded-lg shadow-md p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Family Members</h2>
+            
+            {/* Students Section */}
+            {familyData.students && familyData.students.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                  <GraduationCap className="w-5 h-5 mr-2 text-green-500" />
+                  Students ({familyData.students.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {familyData.students.map((student, index) => {
+                    const formStatus = studentFormStatuses[student.id] || 'pending';
+                    return (
+                      <div key={student.id || index} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">
+                              {student.preferredName || student.firstName} {student.lastName}
+                            </h4>
+                            <div className="mt-2 space-y-1 text-sm text-gray-600">
+                              <p>ASN: {student.asn}</p>
+                              <p>Grade: {student.grade}</p>
+                              <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender || 'Not specified'}</p>
+                              <p>Birthday: {new Date(student.birthday).toLocaleDateString()}</p>
+                              {student.email && <p>Email: {student.email}</p>}
+                              {student.phone && <p>Phone: {student.phone}</p>}
+                            </div>
+                            
+                            {/* Home Education Notification Form Status */}
+                            <div className="mt-3 pt-3 border-t border-green-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <FileText className="w-4 h-4 text-blue-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {activeSchoolYear} Registration
+                                  </span>
+                                  {formStatus === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : formStatus === 'pending' ? (
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                  ) : (
+                                    <X className="w-4 h-4 text-red-500" />
+                                  )}
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                  formStatus === 'completed' ? 'bg-green-100 text-green-700' :
+                                  formStatus === 'pending' ? 'bg-orange-100 text-orange-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>
+                                  {formStatus === 'completed' ? 'Complete' :
+                                   formStatus === 'pending' ? 'Required' : 'Not Started'}
+                                </span>
+                              </div>
+                              
+                              {/* Previous years status summary */}
+                              {studentFormStatuses[student.id] && Object.keys(studentFormStatuses[student.id]).length > 2 && (
+                                <div className="mb-2">
+                                  <p className="text-xs text-gray-500 mb-1">Previous years:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {getAllSeptemberCountDates()
+                                      .filter(({schoolYear}) => schoolYear !== activeSchoolYear)
+                                      .map(({schoolYear}) => {
+                                        const status = studentFormStatuses[student.id][schoolYear];
+                                        return (
+                                          <span 
+                                            key={schoolYear}
+                                            className={`text-xs px-2 py-1 rounded ${
+                                              status === 'completed' ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400'
+                                            }`}
+                                          >
+                                            {schoolYear}: {status === 'completed' ? '✓' : '—'}
+                                          </span>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Form Access Button - Only for Primary Guardians */}
+                              {customClaims?.familyRole === 'primary_guardian' ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedStudent(student);
+                                      setShowNotificationForm(true);
+                                    }}
+                                    className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                                      formStatus === 'completed' ?
+                                      'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                                      'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                    }`}
+                                  >
+                                    {formStatus === 'completed' ? `Update ${activeSchoolYear} Form` : `Complete ${activeSchoolYear} Form`}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                  Contact Primary Guardian
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="ml-3">
+                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                              <GraduationCap className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Guardians Section */}
+            {familyData.guardians && familyData.guardians.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                  <Shield className="w-5 h-5 mr-2 text-blue-500" />
+                  Guardians ({familyData.guardians.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {familyData.guardians.map((guardian, index) => (
+                    <div key={guardian.email || index} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">
+                            {guardian.firstName} {guardian.lastName}
+                          </h4>
+                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                            <p>Email: {guardian.email}</p>
+                            {guardian.phone && <p>Phone: {guardian.phone}</p>}
+                            <p>Role: {guardian.guardianType === 'primary_guardian' ? 'Primary Guardian' : 'Guardian'}</p>
+                          </div>
+                        </div>
+                        <div className="ml-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            guardian.guardianType === 'primary_guardian' 
+                              ? 'bg-purple-500' 
+                              : 'bg-blue-500'
+                          }`}>
+                            {guardian.guardianType === 'primary_guardian' ? (
+                              <Crown className="w-4 h-4 text-white" />
+                            ) : (
+                              <Shield className="w-4 h-4 text-white" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Footer */}
@@ -1832,6 +1618,126 @@ const RTDConnectDashboard = () => {
           </div>
         </div>
       </footer>
+
+      {/* Profile Sheet */}
+      <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <User className="w-5 h-5 text-purple-500" />
+                <span>Edit Your Profile</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Update your basic information and contact details.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
+            <div className="space-y-4">
+              <FormField label="First Name" error={profileErrors.firstName} required>
+                <input
+                  type="text"
+                  value={profileData.firstName}
+                  onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
+                  className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter your first name"
+                />
+              </FormField>
+
+              <FormField label="Last Name" error={profileErrors.lastName} required>
+                <input
+                  type="text"
+                  value={profileData.lastName}
+                  onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
+                  className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter your last name"
+                />
+              </FormField>
+
+              <FormField label="Phone Number" error={profileErrors.phone} required>
+                <input
+                  type="tel"
+                  value={profileData.phone}
+                  onChange={handlePhoneChange}
+                  className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="(403) 555-0123"
+                />
+              </FormField>
+
+              <FormField label="Address" error={profileErrors.address} required>
+                <AddressPicker
+                  value={profileData.address}
+                  onAddressSelect={handleAddressSelect}
+                  error={profileErrors.address}
+                  placeholder="Start typing your address..."
+                />
+              </FormField>
+            </div>
+
+            {profileErrors.submit && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{profileErrors.submit}</p>
+              </div>
+            )}
+
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={isSubmittingProfile}
+                className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                  isSubmittingProfile 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
+              >
+                {isSubmittingProfile ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Save Profile
+                    <CheckCircle2 className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* Family Creation Sheet - Only for Primary Guardians */}
+      {customClaims?.familyRole === 'primary_guardian' && (
+        <FamilyCreationSheet
+          isOpen={showFamilyCreation}
+          onOpenChange={setShowFamilyCreation}
+          familyKey={hasRegisteredFamily ? familyKey : null}
+          hasRegisteredFamily={hasRegisteredFamily}
+          initialFamilyData={familyData}
+          onFamilyDataChange={handleFamilyDataChange}
+          onComplete={handleFamilyComplete}
+        />
+      )}
+
+      {/* Home Education Notification Form - Only for Primary Guardians */}
+      {customClaims?.familyRole === 'primary_guardian' && showNotificationForm && (
+        <HomeEducationNotificationFormV2
+          isOpen={showNotificationForm}
+          onOpenChange={(open) => {
+            setShowNotificationForm(open);
+            if (!open) {
+              setSelectedStudent(null);
+            }
+          }}
+          familyId={customClaims?.familyId}
+          familyData={familyData}
+          selectedStudent={selectedStudent}
+          schoolYear={activeSchoolYear}
+        />
+      )}
     </div>
   );
 };

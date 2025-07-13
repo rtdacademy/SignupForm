@@ -6,6 +6,7 @@ class BuildManager {
   constructor(options = {}) {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
+    this.isRTDConnect = options.isRTDConnect;
     this.memorySize = options.memorySize || 8192; // Default to 8GB for this large project
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
@@ -35,6 +36,11 @@ class BuildManager {
     if (this.isSecondSite && fs.existsSync('public-second')) {
       fs.rmSync('public-second', { recursive: true });
     }
+    
+    // Clean rtd-connect directory if needed
+    if (this.isRTDConnect && fs.existsSync('public-rtdconnect')) {
+      fs.rmSync('public-rtdconnect', { recursive: true });
+    }
 
     // Clean cache
     if (fs.existsSync('node_modules/.cache')) {
@@ -48,20 +54,24 @@ class BuildManager {
     if (this.isSecondSite) {
       fs.mkdirSync('public-second', { recursive: true });
     }
+    if (this.isRTDConnect) {
+      fs.mkdirSync('public-rtdconnect', { recursive: true });
+    }
   }
 
   copyFiles() {
-    const indexSource = path.join(
-      'assets',
-      'templates',
-      this.isSecondSite ? 'index.second.html' : 'index.main.html'
-    );
-
-    const faviconSource = path.join(
-      'assets',
-      'favicons',
-      this.isSecondSite ? 'edbotz-favicon.svg' : 'Logo.svg'
-    );
+    let indexSource, faviconSource;
+    
+    if (this.isRTDConnect) {
+      indexSource = path.join('assets', 'templates', 'index.rtdconnect.html');
+      faviconSource = path.join('public', 'connectImages', 'Connect.png');
+    } else if (this.isSecondSite) {
+      indexSource = path.join('assets', 'templates', 'index.second.html');
+      faviconSource = path.join('assets', 'favicons', 'edbotz-favicon.svg');
+    } else {
+      indexSource = path.join('assets', 'templates', 'index.main.html');
+      faviconSource = path.join('assets', 'favicons', 'Logo.svg');
+    }
 
     if (!fs.existsSync(indexSource) || !fs.existsSync(faviconSource)) {
       throw new Error('Required source files missing');
@@ -72,12 +82,13 @@ class BuildManager {
 
     console.log('Successfully prepared environment:', {
       env: this.isSandbox ? 'sandbox' : 'production',
-      site: this.isSecondSite ? 'second' : 'main',
+      site: this.isRTDConnect ? 'rtdconnect' : (this.isSecondSite ? 'second' : 'main'),
       indexSource,
       faviconSource,
       directories: {
         public: 'created/verified',
         publicSecond: this.isSecondSite ? 'created/verified' : 'n/a',
+        publicRTDConnect: this.isRTDConnect ? 'created/verified' : 'n/a',
         build: 'cleaned'
       }
     });
@@ -107,6 +118,32 @@ class BuildManager {
     
     copyRecursive('build', 'public-second');
     console.log('Files copied successfully to public-second directory');
+  }
+
+  copyBuildToPublicRTDConnect() {
+    console.log('Copying build files to public-rtdconnect directory...');
+    
+    const copyRecursive = (src, dest) => {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+      
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        if (entry.isDirectory()) {
+          copyRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+    
+    copyRecursive('build', 'public-rtdconnect');
+    console.log('Files copied successfully to public-rtdconnect directory');
   }
 
   formatMemoryUsage(bytes) {
@@ -246,9 +283,14 @@ class BuildManager {
     }
 
     try {
-      const envFile = this.isSecondSite 
-        ? `.env.${this.isSandbox ? 'development' : 'production'}.second`
-        : `.env.${this.isSandbox ? 'development' : 'production'}`;
+      let envFile;
+      if (this.isRTDConnect) {
+        envFile = `.env.${this.isSandbox ? 'development' : 'production'}.rtdconnect`;
+      } else if (this.isSecondSite) {
+        envFile = `.env.${this.isSandbox ? 'development' : 'production'}.second`;
+      } else {
+        envFile = `.env.${this.isSandbox ? 'development' : 'production'}`;
+      }
 
       const nodeOptions = `--max-old-space-size=${this.memorySize}`;
       const command = this.isStart
@@ -299,8 +341,12 @@ class BuildManager {
         execSync(command, { stdio: 'inherit' });
       }
 
-      if (!this.isStart && this.isSecondSite) {
-        this.copyBuildToPublicSecond();
+      if (!this.isStart) {
+        if (this.isSecondSite) {
+          this.copyBuildToPublicSecond();
+        } else if (this.isRTDConnect) {
+          this.copyBuildToPublicRTDConnect();
+        }
       }
 
       return true;

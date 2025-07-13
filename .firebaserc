@@ -5,11 +5,14 @@
   "targets": {
     "rtd-academy": {
       "hosting": {
+        "second-site": [
+          "edbotz"
+        ],
         "main": [
           "rtd-academy"
         ],
-        "second-site": [
-          "edbotz"
+        "rtd-connect": [
+          "rtd-connect"
         ]
       }
     }

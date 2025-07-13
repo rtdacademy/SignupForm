@@ -46,7 +46,6 @@ const retrieveUserActivityFunctions = require('./retrieveUserActivity');
 const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
-const userRolesFunctions = require('./setUserRoles');
 const updateStudentProfileFunctions = require('./updateStudentProfile');
 
 // PASI data management
@@ -220,12 +219,15 @@ exports.updateGuardianInfo = studentPropertiesFunctions.updateGuardianInfo;
 exports.updateStudentStatus = studentPropertiesFunctions.updateStudentStatus;
 exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocuments;
 
-// User roles and custom claims functions
-exports.setUserRoles = userRolesFunctions.setUserRoles;
 
 // Family custom claims functions
 const familyCustomClaimsFunctions = require('./setFamilyCustomClaims');
-exports.setFamilyCustomClaims = familyCustomClaimsFunctions.setFamilyCustomClaims;
+const saveFamilyDataFunction = require('./saveFamilyData');
+//exports.setFamilyCustomClaims = familyCustomClaimsFunctions.setFamilyCustomClaims;
+//exports.syncGuardianPermissions = familyCustomClaimsFunctions.syncGuardianPermissions;
+//exports.syncStudentPermissions = familyCustomClaimsFunctions.syncStudentPermissions;
+exports.applyPendingPermissions = familyCustomClaimsFunctions.applyPendingPermissions;
+exports.saveFamilyData = saveFamilyDataFunction;
 
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;

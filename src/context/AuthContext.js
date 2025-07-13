@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { getDatabase, ref, get, set, serverTimestamp } from "firebase/database";
+import { getDatabase, ref, get, set, serverTimestamp, onValue, off } from "firebase/database";
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -114,6 +114,7 @@ export function AuthProvider({ children }) {
 
   // Define all public routes - lowercase for consistent comparison
   const publicRoutes = [
+    '/',
     '/login',
     '/migrate',
     '/staff-login',
@@ -133,7 +134,7 @@ export function AuthProvider({ children }) {
     '/parent-verify-email',
     '/rtd-learning-login',
     '/rtd-learning-admin-login',
-    '/rtd-connect-login'
+    '/facilitators'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -149,6 +150,11 @@ export function AuthProvider({ children }) {
     if (normalizedPath.startsWith('/student-portal/')) {
       const studentPortalPattern = /^\/student-portal\/[^/]+\/[^/]+$/i;
       return studentPortalPattern.test(normalizedPath);
+    }
+
+    // Check facilitator routes
+    if (normalizedPath.startsWith('/facilitator/')) {
+      return true;
     }
 
     return false;
@@ -588,6 +594,140 @@ export function AuthProvider({ children }) {
     };
   }, [user, trackActivity, resetInactivityTimeout, checkTokenExpiration, currentSessionId]);
 
+  // Listen for metadata changes to trigger token refresh
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getDatabase();
+    const metadataRef = ref(db, `metadata/${user.uid}`);
+    
+    const handleMetadataChange = async (snapshot) => {
+      if (snapshot.exists()) {
+        const metadata = snapshot.val();
+        console.log('Metadata change detected, refreshing token...');
+        
+        try {
+          // Force token refresh to get updated custom claims
+          await user.getIdToken(true);
+          console.log('Token refreshed successfully after metadata change');
+          
+          // Trigger a custom event to notify components to re-read custom claims
+          window.dispatchEvent(new CustomEvent('tokenRefreshed', { 
+            detail: { timestamp: Date.now() } 
+          }));
+        } catch (error) {
+          console.error('Error refreshing token after metadata change:', error);
+        }
+      }
+    };
+
+    // Listen for metadata changes
+    const unsubscribe = onValue(metadataRef, handleMetadataChange, (error) => {
+      // Silently handle permission errors - metadata might not exist yet
+      if (error.code !== 'PERMISSION_DENIED') {
+        console.error('Error listening to metadata changes:', error);
+      }
+    });
+
+    return () => {
+      off(metadataRef, 'value', unsubscribe);
+    };
+  }, [user?.uid]);
+
+  // Check and apply pending permissions for the user
+  const checkAndApplyPendingPermissions = async (user) => {
+    if (!user?.email) return null;
+    
+    try {
+      console.log('Checking for pending permissions for user:', user.email);
+      
+      // Import and call the cloud function
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const applyPendingPermissions = httpsCallable(functions, 'applyPendingPermissions');
+      
+      const result = await applyPendingPermissions();
+      
+      if (result.data.success) {
+        console.log('✅ Applied pending permissions:', result.data);
+        
+        // First attempt: Try immediate token refresh
+        console.log('Attempting immediate token refresh after pending permissions...');
+        try {
+          await user.getIdToken(true);
+          const immediateTokenResult = await user.getIdTokenResult();
+          if (immediateTokenResult.claims.familyId) {
+            console.log('familyId found immediately after pending permissions:', immediateTokenResult.claims.familyId);
+            return result.data;
+          }
+        } catch (error) {
+          console.log('Immediate token refresh did not work, waiting for metadata trigger...');
+        }
+        
+        // Fallback: Wait for metadata-triggered token refresh
+        const waitForTokenRefresh = () => {
+          return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 10; // Check every 500ms for up to 5 seconds
+            
+            const checkClaims = async () => {
+              attempts++;
+              try {
+                const idTokenResult = await user.getIdTokenResult(true);
+                
+                if (idTokenResult.claims.familyId) {
+                  console.log(`familyId found after pending permissions, attempt ${attempts}:`, idTokenResult.claims.familyId);
+                  resolve();
+                } else if (attempts >= maxAttempts) {
+                  console.log('Max attempts reached for pending permissions token refresh');
+                  resolve();
+                } else {
+                  console.log(`Pending permissions attempt ${attempts}: familyId not yet in claims, retrying...`);
+                  setTimeout(checkClaims, 500);
+                }
+              } catch (error) {
+                console.error('Error checking claims after pending permissions:', error);
+                if (attempts >= maxAttempts) {
+                  resolve();
+                } else {
+                  setTimeout(checkClaims, 500);
+                }
+              }
+            };
+            
+            // Also listen for the token refresh event as a trigger
+            const handleTokenRefresh = () => {
+              console.log('Token refresh event detected after pending permissions, checking claims...');
+              checkClaims();
+            };
+            
+            window.addEventListener('tokenRefreshed', handleTokenRefresh);
+            
+            // Start checking
+            checkClaims();
+            
+            // Cleanup listener when done
+            setTimeout(() => {
+              window.removeEventListener('tokenRefreshed', handleTokenRefresh);
+            }, 6000);
+          });
+        };
+        
+        // Wait for the token refresh
+        await waitForTokenRefresh();
+        
+        return result.data;
+      } else {
+        console.log('No pending permissions found or already applied');
+        return null;
+      }
+    } catch (error) {
+      // This is expected when no pending permissions exist
+      console.log('No pending permissions to apply:', error.message);
+      return null;
+    }
+  };
+
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
     // Add staff verification at the start of the function
@@ -748,132 +888,8 @@ export function AuthProvider({ children }) {
     return null;
   };
 
-  // Custom Claims Helper Functions
-  const checkAndSetCustomClaims = async (user, forceRefresh = false) => {
-    if (!user) {
-      return null;
-    }
-    
-    try {
-      
-      // Get the user's current ID token with claims
-      const idTokenResult = await user.getIdTokenResult();
-      const claims = idTokenResult.claims;
-      
-      
-      // Determine which portal the user is trying to access
-      const currentPath = location.pathname.toLowerCase();
-      const isAccessingParentPortal = currentPath.includes('parent');
-      const isAccessingStaffPortal = currentPath.includes('staff') || currentPath.includes('teacher');
-      
-      // Check if current claims support the portal being accessed
-      let needsClaimsUpdate = false;
-      
-      if (isAccessingParentPortal && claims.permissions && !claims.permissions.canAccessParentPortal) {
-        needsClaimsUpdate = true;
-      }
-      
-      if (isAccessingStaffPortal && claims.permissions && !claims.permissions.isStaff) {
-        needsClaimsUpdate = true;
-      }
-      
-      // Check if custom claims exist and are recent (within 24 hours)
-      const hasValidClaims = claims.roles && 
-                           claims.permissions && 
-                           claims.lastUpdated &&
-                           (Date.now() - claims.lastUpdated) < 24 * 60 * 60 * 1000;
-      
-      if (!hasValidClaims || needsClaimsUpdate || forceRefresh) {
-        
-        // Import the cloud function
-        const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const functions = getFunctions();
-        const setUserRoles = httpsCallable(functions, 'setUserRoles');
-        
-        // Call the function to set custom claims
-        const result = await setUserRoles();
-        
-        // Force token refresh to get new claims
-        await user.getIdToken(true);
-        
-        // Get updated token with new claims
-        const updatedTokenResult = await user.getIdTokenResult();
-        return updatedTokenResult.claims;
-      }
-      
-      return claims;
-    } catch (error) {
-      return null;
-    }
-  };
 
-  const getUserRolesFromClaims = (claims) => {
-    if (!claims || !claims.roles || !claims.permissions) {
-      return {
-        roles: [],
-        primaryRole: 'student',
-        permissions: {},
-        hasCustomClaims: false
-      };
-    }
-    
-    return {
-      roles: claims.roles || [],
-      primaryRole: claims.primaryRole || 'student',
-      permissions: claims.permissions || {},
-      hasCustomClaims: true,
-      lastUpdated: claims.lastUpdated
-    };
-  };
 
-  // Enhanced role checking with custom claims fallback
-  const checkUserRoles = async (user, emailKey, forceRefresh = false) => {
-    
-    // First try to get roles from custom claims
-    const claims = await checkAndSetCustomClaims(user, forceRefresh);
-    const claimsData = getUserRolesFromClaims(claims);
-    
-    
-    if (claimsData.hasCustomClaims) {
-      return claimsData;
-    }
-    
-    // Fallback to existing database checking logic
-    const roles = [];
-    const permissions = {};
-    
-    // Check staff status
-    const staffStatus = checkIsStaff(user);
-    if (staffStatus) {
-      roles.push('staff');
-      permissions.isStaff = true;
-    }
-    
-    // Check parent status
-    const parentStatus = await checkIsParent(user, emailKey);
-    if (parentStatus) {
-      roles.push('parent');
-      permissions.canAccessParentPortal = true;
-    }
-    
-    // Home education status will be determined by custom claims during family registration
-    // No longer checking database nodes during login
-    
-    // Default to student if no other roles
-    if (roles.length === 0) {
-      roles.push('student');
-      permissions.canAccessStudentPortal = true;
-    }
-    
-    const result = {
-      roles,
-      primaryRole: staffStatus ? 'staff' : (parentStatus ? 'parent' : 'student'),
-      permissions,
-      hasCustomClaims: false
-    };
-    
-    return result;
-  };
 
   // Updated auth state change handler
   useEffect(() => {
@@ -925,9 +941,6 @@ export function AuthProvider({ children }) {
               dataCreated = await ensureStaffNode(currentUser, emailKey);
               if (dataCreated) {
                 try {
-                  // Check and set custom claims for staff user
-                  const userRoles = await checkUserRoles(currentUser, emailKey);
-                  
                   await Promise.all([
                     fetchStaffMembers(),
                     fetchCourseTeachers(),
@@ -956,16 +969,20 @@ export function AuthProvider({ children }) {
                                         location.pathname === '/parent-dashboard' ||
                                         localStorage.getItem('parentPortalSignup') === 'true';
             
-            const isHomeEducationPortalAccess = location.pathname === '/rtd-connect-login' || 
-                                              location.pathname === '/rtd-connect-dashboard' ||
+            const isHomeEducationPortalAccess = location.pathname === '/rtd-connect/login' || 
+                                              location.pathname === '/rtd-connect/dashboard' ||
                                               localStorage.getItem('rtdConnectPortalLogin') === 'true' ||
-                                              localStorage.getItem('rtdConnectPortalSignup') === 'true';
+                                              localStorage.getItem('rtdConnectPortalSignup') === 'true' ||
+                                              process.env.REACT_APP_SITE === 'rtdconnect';
             
             if (isHomeEducationPortalAccess) {
               // RTD Connect user - simplified login without home education node creation
               dataCreated = await ensureUserNode(currentUser, emailKey);
               if (dataCreated && isMounted) {
                 try {
+                  // Check for pending permissions first
+                  await checkAndApplyPendingPermissions(currentUser);
+                  
                   // Initialize basic user session
                   await Promise.all([
                     checkTokenExpiration(),
@@ -991,9 +1008,9 @@ export function AuthProvider({ children }) {
                 localStorage.removeItem('rtdConnectPortalLogin');
                 
                 // Navigate to RTD Connect dashboard
-                if (location.pathname.toLowerCase() === '/rtd-connect-login') {
+                if (location.pathname.toLowerCase() === '/rtd-connect/login') {
                   authTimeout = setTimeout(() => {
-                    if (isMounted) navigate('/rtd-connect-dashboard');
+                    if (isMounted) navigate('/rtd-connect/dashboard');
                   }, 500);
                 }
               }
@@ -1014,8 +1031,8 @@ export function AuthProvider({ children }) {
                 });
 
                 try {
-                  // Check and set custom claims for parent user - force refresh to ensure parent permissions are checked
-                  const userRoles = await checkUserRoles(currentUser, emailKey, true);
+                  // Check for pending permissions first
+                  await checkAndApplyPendingPermissions(currentUser);
                   
                   await Promise.all([
                     checkTokenExpiration(),
@@ -1059,12 +1076,8 @@ export function AuthProvider({ children }) {
               dataCreated = await ensureUserNode(currentUser, emailKey);
               if (dataCreated && isMounted) {
                 try {
-                  // Check and set custom claims for the user
-                  const userRoles = await checkUserRoles(currentUser, emailKey);
-                  
-                  // Set parent user status based on custom claims or database check
-                  if (userRoles.permissions.canAccessParentPortal) {
-                  }
+                  // Check for pending permissions first
+                  await checkAndApplyPendingPermissions(currentUser);
                   
                   await archivePreviousSession(currentUser);
                   await initializeUserSession(currentUser);
@@ -1116,8 +1129,8 @@ export function AuthProvider({ children }) {
                     navigate('/staff-login');
                   } else if (currentPath.toLowerCase() === '/parent-dashboard') {
                     navigate('/parent-login');
-                  } else if (currentPath.toLowerCase() === '/rtd-connect-dashboard') {
-                    navigate('/rtd-connect-login');
+                  } else if (currentPath.toLowerCase() === '/rtd-connect/dashboard') {
+                    navigate('/rtd-connect/login');
                   } else if (currentPath.toLowerCase() === '/rtd-learning-dashboard') {
                     navigate('/rtd-learning-login');
                   } else if (currentPath.toLowerCase() === '/rtd-learning-admin-dashboard') {
@@ -1225,7 +1238,7 @@ export function AuthProvider({ children }) {
       if (wasStaff) {
         navigate('/staff-login');
       } else if (wasHomeEducation || currentPath.includes('rtd-connect')) {
-        navigate('/rtd-connect-login');
+        navigate('/rtd-connect/login');
       } else if (wasParent || currentPath.includes('parent')) {
         navigate('/parent-login');
       } else {
@@ -1397,19 +1410,9 @@ export function AuthProvider({ children }) {
     homeEducationLoginProgress,
     setHomeEducationLoginProgress,
 
-    // Custom Claims functions
-    checkAndSetCustomClaims,
-    getUserRolesFromClaims,
-    checkUserRoles,
-    
-    // Helper to force refresh custom claims
-    refreshUserRoles: async () => {
-      if (user) {
-        const emailKey = sanitizeEmail(user.email);
-        return await checkUserRoles(user, emailKey, true);
-      }
-      return null;
-    }
+    // Pending permissions function
+    checkAndApplyPendingPermissions: () => checkAndApplyPendingPermissions(user),
+
   };
 
   return (

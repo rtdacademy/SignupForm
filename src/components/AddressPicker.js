@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GooglePlacesAutocomplete, { geocodeByPlaceId, getLatLng } from 'react-google-places-autocomplete';
 import { Button } from "./ui/button";
 import { X, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
 
-const AddressPicker = ({ onAddressSelect, studentType }) => {
+const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder = "Start typing your address..." }) => {
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [error, setError] = useState(null);
+  const [internalError, setInternalError] = useState(null);
+
+  // Initialize selectedPlace from value prop
+  useEffect(() => {
+    if (value) {
+      setSelectedPlace(value);
+    } else {
+      setSelectedPlace(null);
+    }
+  }, [value]);
 
   const handleSelect = async (selection) => {
     try {
-      setError(null);
+      setInternalError(null);
       const results = await geocodeByPlaceId(selection.value.place_id);
       if (results?.[0]) {
         const place = results[0];
@@ -83,7 +92,7 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
                                 normalizedStudentType !== 'Parent Verification';
         
         if (isRestrictedType && province !== 'AB') {
-          setError('Please select an address within Alberta. The selected address is in ' + province + '.');
+          setInternalError('Please select an address within Alberta. The selected address is in ' + province + '.');
           return;
         }
         
@@ -111,14 +120,14 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
       }
     } catch (error) {
       console.error('Error fetching place details:', error);
-      setError('Failed to fetch address details. Please try again.');
+      setInternalError('Failed to fetch address details. Please try again.');
     }
   };
 
   const handleClear = () => {
     setSelectedPlace(null);
     onAddressSelect(null);
-    setError(null);
+    setInternalError(null);
   };
   // Different configurations based on student type
   const isUnrestrictedType = studentType === 'International Student' || 
@@ -134,7 +143,7 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
         componentRestrictions: { country: 'ca' }
       };
 
-  const placeholder = isUnrestrictedType
+  const searchPlaceholder = isUnrestrictedType
     ? 'Search for your address'
     : 'Search for your address in Canada';
 
@@ -149,7 +158,7 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
               value: { place_id: selectedPlace.placeId } 
             } : null,
             onChange: handleSelect,
-            placeholder: placeholder,
+            placeholder: placeholder || searchPlaceholder,
             classNames: {
               control: () => 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
               menu: () => 'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -174,11 +183,11 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
         )}
       </div>
 
-      {error && (
+      {(error || internalError) && (
         <Alert className="bg-red-50 border-red-200">
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-sm text-red-700">
-            {error}
+            {error || internalError}
           </AlertDescription>
         </Alert>
       )}

@@ -44,6 +44,10 @@ import RTDLearningAdminLogin from './rtdLearning/AdminLogin';
 import RTDLearningAdminDashboard from './rtdLearning/AdminDashboard';
 import RTDConnectLogin from './RTDConnect/Login';
 import RTDConnectDashboard from './RTDConnect/Dashboard';
+import RTDConnectLandingPage from './RTDConnect/LandingPage';
+import FacilitatorsPage from './RTDConnect/FacilitatorsPage';
+import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
+import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -168,13 +172,6 @@ function MainApp() {
 <Route path="/parent-verify-email" element={<ParentEmailVerification />} />
 <Route path="/parent-dashboard" element={user ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
 
-{/* RTD Connect Routes */}
-<Route path="/rtd-connect-login" element={
-  user && isHomeEducationParent ? <Navigate to="/rtd-connect-dashboard" /> : <RTDConnectLogin />
-} />
-<Route path="/rtd-connect-dashboard" element={
-  user && isHomeEducationParent ? <RTDConnectDashboard /> : <Navigate to="/rtd-connect-login" />
-} />
 
 {/* RTD Learning Routes */}
 <Route path="/rtd-learning-login" element={
@@ -325,11 +322,57 @@ function EdBotzApp() {
   );
 }
 
+function RTDConnectApp() {
+  const { user, loading, isHomeEducationParent } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="RTDConnectApp">
+      <Routes>
+        {/* Public routes - always accessible */}
+        <Route path="/" element={<RTDConnectLandingPage />} />
+        <Route path="/facilitators" element={<FacilitatorsPage />} />
+        <Route path="/facilitator/sarah-johnson" element={<FacilitatorProfile1 />} />
+        <Route path="/facilitator/michael-chen" element={<FacilitatorProfile2 />} />
+        
+        <Route path="/login" element={
+          user && isHomeEducationParent ? <Navigate to="/dashboard" /> : <RTDConnectLogin />
+        } />
+
+        {/* Protected routes - require login and home education parent status */}
+        <Route path="/dashboard" element={
+          user && isHomeEducationParent ? <RTDConnectDashboard /> : <Navigate to="/login" />
+        } />
+
+        {/* Shared routes */}
+        <Route path="/auth-action-handler" element={<MultiActionAuthHandler />} />
+        
+        {/* Catch-all route - redirect unknown paths to landing page */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </div>
+  );
+}
+
 function App() {
-  // Check if we're running the second site
-  const isSecondSite = process.env.REACT_APP_SITE === 'second';
-  console.log('Site Type:', isSecondSite ? 'EdBotz' : 'Main', process.env.REACT_APP_SITE);
-  return isSecondSite ? <EdBotzApp /> : <MainApp />;
+  // Check which site we're running
+  const siteType = process.env.REACT_APP_SITE;
+  console.log('Site Type:', siteType || 'main', process.env.REACT_APP_SITE);
+  
+  if (siteType === 'second') {
+    return <EdBotzApp />;
+  } else if (siteType === 'rtdconnect') {
+    return <RTDConnectApp />;
+  } else {
+    return <MainApp />;
+  }
 }
 
 export default App;
