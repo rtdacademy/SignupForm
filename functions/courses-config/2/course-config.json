@@ -798,7 +798,7 @@
         "contentPath": "39-l19-21-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 70,
+          "timeLimit": 60,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
@@ -816,7 +816,53 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_39_l1921_question1",
+            "title": "Compass and Magnetic Field - Electron Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question2",
+            "title": "Moving Charge - Magnetic Field Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question3",
+            "title": "Coil Magnetic Field - Electron Flow",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question4",
+            "title": "Proton Deflection in Magnetic Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question5",
+            "title": "Magnetic Field Strength Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question6",
+            "title": "Conductor Movement - Current Direction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question7",
+            "title": "Current Direction from Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question8",
+            "title": "Conductor Force Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_39_l1921_question9",
+            "title": "Conductor Force with Angle Calculation",
+            "points": 1
+          }
+        ]
       },
       "assignment_l22_24": {
         "title": "Assignment L22-24 - Electromagnetic Induction",

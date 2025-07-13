@@ -68,6 +68,7 @@ const { assessmentConfigs: generatorEffectConfigs } = require('../2b/40-generato
 const { assessmentConfigs: electromagneticRadiationConfigs } = require('../2b/42-electromagnetic-radiation/assessments');
 const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
 const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
+const { assessmentConfigs: l1921AssignmentConfigs } = require('../2b/39-l19-21-assignment/assessments');
 const { assessmentConfigs: activitiesConfigs } = require('../2/41-activities/assessments');
 
 /**
@@ -116,7 +117,8 @@ const getAllAssessmentConfigs = () => {
     ...electromagneticRadiationConfigs,
     ...activitiesConfigs,
     ...l1518AssignmentConfigs,
-    ...l118CumulativeConfigs
+    ...l118CumulativeConfigs,
+    ...l1921AssignmentConfigs
   };
 };
 
