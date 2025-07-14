@@ -386,12 +386,7 @@ const ExcitationStatesComponent = () => {
   );
 };
 
-const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
-  const [isIntroOpen, setIsIntroOpen] = useState(false);
-  const [isEmissionOpen, setIsEmissionOpen] = useState(false);
-  const [isAbsorptionOpen, setIsAbsorptionOpen] = useState(false);
-  const [isFranckHertzOpen, setIsFranckHertzOpen] = useState(false);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
     <div className="space-y-6">
@@ -405,632 +400,591 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         </p>
       </div>
 
-      {/* Introduction to Light Spectra Section */}
-      <div>
-        <button
-          onClick={() => setIsIntroOpen(!isIntroOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">Introduction to Light Spectra</h3>
-          <span className="text-blue-600">{isIntroOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isIntroOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              {/* Types of Spectra */}
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-                <h4 className="font-semibold text-yellow-800 mb-3">🔬 What Are Light Spectra?</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  In our study of the nature of the atom and the quantization of light energy, we've learned 
-                  about how they led to our current conception of the atom. Light spectra are the patterns 
-                  produced when light is either dispersed through an optical glass prism or is diffracted 
-                  apart by a diffraction grating – i.e. light is separated into its constituent colours.
-                </p>
-              </div>
-
-              {/* Three Types of Spectra */}
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
-                <h4 className="font-semibold text-green-800 mb-3">📊 Three Types of Spectra</h4>
-                
-                <div className="space-y-4">
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">1. Continuous Spectrum</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      When a solid or a liquid is made white hot, white light is emitted. When the light passes 
-                      through a prism it is dispersed into its colours. The short wavelengths (violet, blue) are 
-                      refracted more by the prism than the longer wavelengths (orange, red). The result is a 
-                      continuous spectrum of light from violet to red.
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+            <AIAccordion.Item value="introduction" title="Introduction to Light Spectra" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  {/* Types of Spectra */}
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+                    <h4 className="font-semibold text-yellow-800 mb-3">🔬 What Are Light Spectra?</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      In our study of the nature of the atom and the quantization of light energy, we've learned 
+                      about how they led to our current conception of the atom. Light spectra are the patterns 
+                      produced when light is either dispersed through an optical glass prism or is diffracted 
+                      apart by a diffraction grating – i.e. light is separated into its constituent colours.
                     </p>
-                    <div className="p-2 bg-green-100 rounded text-center">
-                      <p className="text-green-800 font-semibold text-sm">
-                        Source: Hot solid or liquid → Complete rainbow of colors
+                  </div>
+
+                  {/* Three Types of Spectra */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
+                    <h4 className="font-semibold text-green-800 mb-3">📊 Three Types of Spectra</h4>
+                    
+                    <div className="space-y-4">
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">1. Continuous Spectrum</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          When a solid or a liquid is made white hot, white light is emitted. When the light passes 
+                          through a prism it is dispersed into its colours. The short wavelengths (violet, blue) are 
+                          refracted more by the prism than the longer wavelengths (orange, red). The result is a 
+                          continuous spectrum of light from violet to red.
+                        </p>
+                        <div className="p-2 bg-green-100 rounded text-center">
+                          <p className="text-green-800 font-semibold text-sm">
+                            Source: Hot solid or liquid → Complete rainbow of colors
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">2. Emission/Bright-line Spectrum</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          Recall from Lesson 28 that a hot solid or liquid acts as a blackbody radiator and that the 
+                          light emitted is not affected by the type or kind of solid or liquid being heated. Gases will 
+                          also produce light when heated to a high temperature. In 1752 a Scottish physicist named 
+                          Thomas Melvill observed the spectra produced by a heated gas.
+                        </p>
+                        <div className="p-2 bg-green-100 rounded text-center">
+                          <p className="text-green-800 font-semibold text-sm">
+                            Source: Hot gas → Bright colored lines against dark background
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">3. Absorption/Dark-line Spectrum</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          In 1802, British scientist William Wollaston found seven dark lines within the continuous 
+                          spectrum produced by light from the sun. In 1814, the German physicist Joseph van Fraunhofer 
+                          was able to detect hundreds of these dark lines formed on the continuous solar spectrum. 
+                          These lines are now called Fraunhofer Lines in his honour.
+                        </p>
+                        <div className="p-2 bg-green-100 rounded text-center">
+                          <p className="text-green-800 font-semibold text-sm">
+                            Source: White light through cool gas → Dark lines in continuous spectrum
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive Spectral Lines Component */}
+                  <SpectralLinesComponent />
+                </div>
+              </div>
+            </AIAccordion.Item>
+
+            <AIAccordion.Item value="emission" title="Discovery of Emission Spectra" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  {/* Melvill's Discovery */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
+                    <h4 className="font-semibold text-purple-800 mb-3">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Thomas Melvill's Discovery (1752)</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Melvill discovered that gases do not produce a continuous spectrum, rather they produce a spectrum 
+                      that is composed of bright coloured lines against a black background. We call this type of spectrum 
+                      a bright line or emission spectrum (i.e. the gas emits the light). He also noted that the colours 
+                      and locations of the bright lines were different when different gases were used.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-purple-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Key Observation:</strong> Each gas produces its own unique pattern of bright spectral lines, 
+                        like a fingerprint that identifies the specific element.
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">2. Emission/Bright-line Spectrum</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      Recall from Lesson 28 that a hot solid or liquid acts as a blackbody radiator and that the 
-                      light emitted is not affected by the type or kind of solid or liquid being heated. Gases will 
-                      also produce light when heated to a high temperature. In 1752 a Scottish physicist named 
-                      Thomas Melvill observed the spectra produced by a heated gas.
+
+                  {/* Gas Excitation Methods */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                    <h4 className="font-semibold text-blue-800 mb-3">⚡ Methods of Gas Excitation</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      By 1823, scientists had found that gases could be induced to glow when excited by electricity. 
+                      If the gas was sealed inside a tube with an anode and a cathode, it would glow when electricity 
+                      was passed through it. Modern electric signs, for example, are composed of tubes with neon, argon, 
+                      and other gases which are exposed to a potential difference.
                     </p>
-                    <div className="p-2 bg-green-100 rounded text-center">
-                      <p className="text-green-800 font-semibold text-sm">
-                        Source: Hot gas → Bright colored lines against dark background
+                    <div className="bg-white p-3 rounded border border-blue-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Modern Applications:</strong> Neon signs, fluorescent lights, and gas discharge tubes 
+                        all work on this principle. Each gas gives off its own characteristic colours of light.
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">3. Absorption/Dark-line Spectrum</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      In 1802, British scientist William Wollaston found seven dark lines within the continuous 
-                      spectrum produced by light from the sun. In 1814, the German physicist Joseph van Fraunhofer 
-                      was able to detect hundreds of these dark lines formed on the continuous solar spectrum. 
-                      These lines are now called Fraunhofer Lines in his honour.
+
+                  {/* Herschel's Contribution */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-800 mb-3">🔬 John Herschel's Insight</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      John Herschel, the British Astronomer, suggested that if each gas had a characteristic bright line 
+                      spectrum then elements might be identified by their spectrum. Spectral analysis was the result of 
+                      this idea. In 1860, Gustav Kirchoff and Robert Bunsen discovered two substances with unique emission 
+                      spectra that did not match any known spectrum at the time.
                     </p>
-                    <div className="p-2 bg-green-100 rounded text-center">
-                      <p className="text-green-800 font-semibold text-sm">
-                        Source: White light through cool gas → Dark lines in continuous spectrum
+                    <div className="bg-white p-3 rounded border border-green-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Historic Discovery:</strong> Using this technique they had isolated two new elements: 
+                        cesium and rubidium. Many other elements were discovered using this technique.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
+            </AIAccordion.Item>
 
-              {/* Interactive Spectral Lines Component */}
-              <SpectralLinesComponent />
-            </div>
+            <AIAccordion.Item value="absorption" title="Absorption/Dark-line Spectra" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  {/* Fraunhofer's Work */}
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
+                    <h4 className="font-semibold text-orange-800 mb-3">🌞 Fraunhofer Lines in Solar Spectrum</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      In 1859, Gustav Kirchoff was able to produce a dark line (absorption) spectrum by passing white 
+                      light through a glass container holding cold sodium gas and then viewing the emerging light with a prism. 
+                      The gas in the container absorbed a few discreet wavelengths or colours of light while the majority 
+                      of the light passed through the gas.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-orange-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Process:</strong> White light source → Cool gas → Prism → Continuous spectrum with dark absorption lines
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Emission vs Absorption Comparison */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
+                    <h4 className="font-semibold text-purple-800 mb-3">🔄 Comparison of Emission and Absorption Spectra</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      When Kirchoff compared the emission spectra with the absorption spectra of sodium vapor, he noted 
+                      that the position of the dark lines in the absorption spectra corresponded exactly with the position 
+                      of the two bright yellow lines in the emission spectra.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-3 rounded border border-purple-300">
+                        <h5 className="font-semibold text-purple-700 mb-2">Emission Spectrum</h5>
+                        <div className="bg-black p-2 rounded mb-2 text-center">
+                          <span className="text-yellow-400 font-bold">|</span>
+                          <span className="text-white mx-2">Dark Background</span>
+                          <span className="text-yellow-400 font-bold">|</span>
+                        </div>
+                        <p className="text-gray-700 text-xs">Bright lines on dark background</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-purple-300">
+                        <h5 className="font-semibold text-purple-700 mb-2">Absorption Spectrum</h5>
+                        <div className="bg-gradient-to-r from-purple-400 via-blue-500 via-green-500 via-yellow-500 via-orange-500 to-red-500 p-2 rounded mb-2 text-center relative">
+                          <span className="absolute left-1/4 top-0 bottom-0 w-0.5 bg-black"></span>
+                          <span className="absolute right-1/4 top-0 bottom-0 w-0.5 bg-black"></span>
+                          <span className="text-white text-xs">Continuous</span>
+                        </div>
+                        <p className="text-gray-700 text-xs">Dark lines in continuous spectrum</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-white rounded border border-purple-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Key Discovery:</strong> All other elements were quickly checked and an exact match up resulted 
+                        for all the other known elements. Apparently the light energy absorbed by an element from white light 
+                        matched exactly the light energy emitted by the excited element.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quantum Explanation */}
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <h4 className="font-semibold text-red-800 mb-3">❓ The Puzzling Phenomenon</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      However, a rather puzzling phenomenon was that there were always more lines in the emission spectrum 
+                      than in the absorption spectrum. Why? We will answer this question shortly, but first we need to 
+                      understand how spectral analysis reveals the chemical composition of distant objects.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-red-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Coming Up:</strong> The answer involves quantum energy levels and electron transitions between 
+                        different energy states in atoms.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AIAccordion.Item>
+
+            <AIAccordion.Item value="franck-hertz" title="The Franck-Hertz Experiment" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  {/* Introduction */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
+                    <h4 className="font-semibold text-purple-800 mb-3">🧪 Understanding Atomic Energy Absorption</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Earlier studies of emission and absorption spectra had revealed that atoms emit and absorb light 
+                      energy only at discrete, characteristic wavelengths or energies, but there was no theory that 
+                      could explain how they worked. A significant contribution to our understanding of atomic structure 
+                      was provided by a team of two German physicists, James Franck and Gustav Hertz, in 1914.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-purple-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Objective:</strong> Franck and Hertz devised an experiment to investigate how atoms 
+                        absorb energy in collisions with fast-moving electrons.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Experimental Setup */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                    <h4 className="font-semibold text-blue-800 mb-3">⚙️ Experimental Apparatus</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Using an apparatus similar to that shown, free electrons emitted from the cathode were accelerated 
+                      through low pressure mercury vapour by a voltage applied to the wire screen anode. (An electron 
+                      accelerated by a potential difference of 5.0 V, for example, acquires a kinetic energy of 5.0 eV.)
+                    </p>
+                    <div className="bg-white p-3 rounded border border-blue-300 mb-3">
+                      <p className="text-gray-700 text-sm mb-2">
+                        Most of the electrons went through the screen and were collected by the anode plate beyond the screen. 
+                        This flow of electrons constituted an electric current, which was measured by a microammeter.
+                      </p>
+                    </div>
+                    <div className="bg-white p-3 rounded border border-blue-300">
+                      <p className="text-gray-700 text-sm">
+                        <strong>Method:</strong> The experiment consisted of gradually increasing the accelerating voltage 
+                        and, for each value, measuring the electric current passing through the mercury vapour and collected by the plate.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Experimental Results */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
+                    <h4 className="font-semibold text-green-800 mb-3">📊 Franck and Hertz Results</h4>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">Initial Observations:</h5>
+                        <p className="text-gray-700 text-sm">
+                          As the accelerating voltage was increased slowly from zero, the current gradually increased as well.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">First Critical Point - 4.89 V:</h5>
+                        <p className="text-gray-700 text-sm">
+                          Then, at a voltage of 4.89 V, the current dropped dramatically. As the voltage was increased further, 
+                          the current once again began to increase.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">Additional Critical Points:</h5>
+                        <p className="text-gray-700 text-sm">
+                          Similar minor decreases in current also occurred at voltages of 6.67 V and 8.84 V. Another 
+                          significant decrease in current occurred at a voltage of 9.8 V.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">Pattern Discovery:</h5>
+                        <p className="text-gray-700 text-sm">
+                          The results indicated that for certain values of bombarding electron energy (4.89 eV, 6.67 eV, 8.84 eV, 9.8 eV, ...) 
+                          the electrons do not "make it" through the mercury vapour. Their energy is lost because of collisions with mercury vapour atoms.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quantum Interpretation */}
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
+                    <h4 className="font-semibold text-orange-800 mb-3">⚛️ Quantum Energy Level Interpretation</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Their energy is lost by the collision as internal energy quanta or amounts of energy. Their 
+                      proposed interpretation was that the electrons within the atom normally exist in a ground state (0 eV). 
+                      When they are given enough energy, they jump up to an excited energy state.
+                    </p>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border border-orange-300">
+                        <h5 className="font-semibold text-orange-700 mb-2">Energy Below 4.9 eV:</h5>
+                        <p className="text-gray-700 text-sm">
+                          When the energy of the incident electrons was less than 4.9 eV, they simply bounced off any 
+                          mercury atoms they encountered with no loss of energy and continued on as part of the current.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-orange-300">
+                        <h5 className="font-semibold text-orange-700 mb-2">Energy at 4.9 eV:</h5>
+                        <p className="text-gray-700 text-sm">
+                          Those electrons with an energy of 4.9 eV that collided with a mercury atom transferred all of 
+                          their energy to the mercury atom and, therefore, with no energy remaining, did not reach the plate.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-orange-300">
+                        <h5 className="font-semibold text-orange-700 mb-2">Higher Energy Levels:</h5>
+                        <p className="text-gray-700 text-sm">
+                          At energies greater than 4.9 eV, electrons colliding with mercury atoms can give up 4.9 eV in the collision 
+                          and still move off with the remaining energy and reach the plate. Only certain excitation energy levels 
+                          are allowed – i.e. electrons can only absorb specific amounts of energy.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Light Emission */}
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200 mb-6">
+                    <h4 className="font-semibold text-red-800 mb-3">💡 Light Emission from Excited Mercury</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      As the experiment progressed Franck and Hertz also noted that the mercury vapour began to emit light. 
+                      The next step in their experiment was to measure the wavelength of the light emitted by the excited mercury atoms.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-red-300 mb-3">
+                      <p className="text-gray-700 text-sm mb-2">
+                        <strong>Observed Wavelengths:</strong> When the input electron had energy of 9.00 eV, the mercury vapour 
+                        released photons that produced spectral lines at 686.8 nm, 572.9 nm, 312.3 nm, 254.2 nm, 186.4 nm and 140.6 nm.
+                      </p>
+                    </div>
+                    <div className="bg-white p-3 rounded border border-red-300">
+                      <p className="text-gray-700 text-sm">
+                        Using Planck's equation, the energies of each of these wavelengths could be calculated. For example, 
+                        for the 254.2 nm light: E = hc/λ = (4.14 × 10⁻¹⁵ eV·s)(3.00 × 10⁸ m/s)/(254.2 × 10⁻⁹ m) = 4.89 eV
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Energy Level Diagram */}
+                  <ExcitationStatesComponent />
+
+                  {/* Complete Energy Analysis */}
+                  <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200 mt-6">
+                    <h4 className="font-semibold text-cyan-800 mb-3">📈 Complete Energy Level Analysis</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Franck and Hertz interpreted the energies and wavelengths as the result of jumps of mercury atom 
+                      electrons falling from excitation states down toward the ground state. As the electron falls or 
+                      de-excites back toward the ground state, it releases its energy in the form of a photon.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-cyan-300 mb-3">
+                      <p className="text-gray-700 text-sm mb-2">
+                        <strong>Photon Energy Formula:</strong> In general, the photon's energy is determined by the difference 
+                        in the initial (higher) and final (lower) energy levels:
+                      </p>
+                      <div className="text-center p-2 bg-cyan-100 rounded">
+                        <InlineMath math="E_{photon} = E_i - E_f" />
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded border border-cyan-300">
+                      <p className="text-gray-700 text-sm">
+                        The wavelength or frequency of the photon may be calculated using Planck's equation. The remaining 
+                        wavelength/energy pairs above can be explained by intermediate jumps to lower energy states. For example, 
+                        an electron in the third excitation state could fall to the second level before falling to the ground state.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-6">
+                    <h4 className="font-semibold text-yellow-800 mb-3">🎯 Key Discoveries</h4>
+                    <div className="space-y-2">
+                      <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
+                        <strong>Quantized Energy Levels:</strong> Atoms can only absorb and emit specific, discrete amounts of energy
+                      </div>
+                      <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
+                        <strong>Ground and Excited States:</strong> Electrons exist in specific energy levels within atoms
+                      </div>
+                      <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
+                        <strong>Energy Conservation:</strong> Absorbed energy equals emitted photon energy during de-excitation
+                      </div>
+                      <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
+                        <strong>Spectral Line Origin:</strong> Each spectral line corresponds to a specific electron energy transition
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AIAccordion.Item>
+
+            <AIAccordion.Item value="summary" title="Summary: Absorption of Spectra and Excitation States" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  {/* Two Ways of Energy Absorption */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
+                    <h4 className="font-semibold text-green-800 mb-3">🔋 Two Ways Atoms Absorb Energy</h4>
+                    <div className="space-y-4">
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">1. By Collisions with High Energy Electrons</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          In these collisions the electron in the atom absorbs only the amount of energy corresponding 
+                          to a jump from the ground state to an excitation state. The incoming electron continues on 
+                          with the remaining energy.
+                        </p>
+                        <div className="bg-green-100 p-2 rounded text-sm">
+                          <strong>Example:</strong> A 6.00 eV incoming electron colliding with a mercury atom will lose 
+                          4.89 eV to the atom and then continue on with an energy of 1.11 eV. Note, for this type of 
+                          energy absorption, the incoming particle need only have an energy greater than the first 
+                          excitation energy.
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <h5 className="font-semibold text-green-700 mb-2">2. By Absorbing a Photon</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          In this case, the atom will absorb only those photons that have energies that exactly match 
+                          the excitation state energies. Since electrons normally reside in the ground state, this 
+                          means that it will absorb only those photons that match its excitation states from the ground level.
+                        </p>
+                        <div className="bg-green-100 p-2 rounded text-sm">
+                          <strong>Result:</strong> Therefore, when full spectrum white light is sent through a gas, only 
+                          those wavelengths of light that correspond to the excitation states of the gas are absorbed 
+                          by the gas. The remaining wavelengths simply pass through the gas. This explains the dark 
+                          lines for absorption spectra.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Release of Energy */}
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
+                    <h4 className="font-semibold text-orange-800 mb-3">💡 Release of Energy</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      Once atoms have been excited they will eventually fall back to the ground state. Some atoms, 
+                      for example hydrogen, will return to the ground state immediately after being excited. Other 
+                      atoms, like phosphorous, can stay in an excited state for hours before returning to the ground state.
+                    </p>
+                    <div className="bg-white p-3 rounded border border-orange-300">
+                      <p className="text-gray-700 text-sm mb-2">
+                        <strong>Why Glow-in-the-Dark Paint Works:</strong> This is why diverswatches have phosphorous 
+                        paint numbers – they will continue to emit light for hours.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Two Ways of Falling Back */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
+                    <h4 className="font-semibold text-purple-800 mb-3">⬇️ Atoms Can Fall Back to Ground State in Two Ways</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-3 rounded border border-purple-300">
+                        <h5 className="font-semibold text-purple-700 mb-2">Direct Jump</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          The atom can fall straight back to the ground state from the excitation state. 
+                          In this case, one high energy photon is emitted.
+                        </p>
+                        <div className="text-center p-2 bg-purple-100 rounded">
+                          <span className="text-sm font-mono">n=3 → n=0</span>
+                          <br />
+                          <span className="text-xs">One photon emitted</span>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-purple-300">
+                        <h5 className="font-semibold text-purple-700 mb-2">Step-by-Step Cascade</h5>
+                        <p className="text-gray-700 text-sm mb-2">
+                          The atom can fall through a series of intermediate excitation states to the ground state. 
+                          In this case, several lower energy photons will be emitted.
+                        </p>
+                        <div className="text-center p-2 bg-purple-100 rounded">
+                          <span className="text-sm font-mono">n=3 → n=2 → n=1 → n=0</span>
+                          <br />
+                          <span className="text-xs">Multiple photons emitted</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Energy Level Diagram with Transitions */}
+                  <div className="bg-black rounded p-4 mb-6">
+                    <svg width="500" height="300" className="w-full">
+                      {/* Energy levels */}
+                      <line x1="50" y1="250" x2="200" y2="250" stroke="#2ECC71" strokeWidth="3" />
+                      <text x="210" y="255" fill="#2ECC71" fontSize="12" fontWeight="bold">0 eV (Ground)</text>
+                      
+                      <line x1="50" y1="190" x2="200" y2="190" stroke="#3498DB" strokeWidth="3" />
+                      <text x="210" y="195" fill="#3498DB" fontSize="12" fontWeight="bold">4.89 eV</text>
+                      
+                      <line x1="50" y1="140" x2="200" y2="140" stroke="#9B59B6" strokeWidth="3" />
+                      <text x="210" y="145" fill="#9B59B6" fontSize="12" fontWeight="bold">6.67 eV</text>
+                      
+                      <line x1="50" y1="90" x2="200" y2="90" stroke="#E74C3C" strokeWidth="3" />
+                      <text x="210" y="95" fill="#E74C3C" fontSize="12" fontWeight="bold">8.84 eV</text>
+
+                      {/* Absorption arrows (incoming) */}
+                      <defs>
+                        <marker id="arrowUp" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                          <polygon points="0 0, 10 3.5, 0 7" fill="#FFD700" />
+                        </marker>
+                        <marker id="arrowDown" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                          <polygon points="0 0, 10 3.5, 0 7" fill="#FF6B6B" />
+                        </marker>
+                      </defs>
+                      
+                      {/* Incoming photons */}
+                      <line x1="20" y1="220" x2="35" y2="205" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
+                      <text x="10" y="235" fill="#FFD700" fontSize="10">177 nm</text>
+                      <text x="10" y="245" fill="#FFD700" fontSize="9">(7.00 eV)</text>
+                      
+                      <line x1="20" y1="200" x2="35" y2="185" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
+                      <text x="10" y="215" fill="#FFD700" fontSize="10">207 nm</text>
+                      <text x="10" y="225" fill="#FFD700" fontSize="9">(6.00 eV)</text>
+                      
+                      <line x1="20" y1="180" x2="35" y2="165" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
+                      <text x="10" y="195" fill="#FFD700" fontSize="10">186 nm</text>
+                      <text x="10" y="205" fill="#FFD700" fontSize="9">(6.67 eV)</text>
+
+                      {/* Outgoing photons */}
+                      <line x1="240" y1="105" x2="255" y2="120" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
+                      <text x="260" y="95" fill="#FF6B6B" fontSize="10">140.6 nm</text>
+                      <text x="260" y="105" fill="#FF6B6B" fontSize="9">(8.84 eV)</text>
+                      
+                      <line x1="240" y1="155" x2="255" y2="170" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
+                      <text x="260" y="145" fill="#FF6B6B" fontSize="10">186.4 nm</text>
+                      <text x="260" y="155" fill="#FF6B6B" fontSize="9">(6.67 eV)</text>
+                      
+                      <line x1="240" y1="205" x2="255" y2="220" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
+                      <text x="260" y="195" fill="#FF6B6B" fontSize="10">254.2 nm</text>
+                      <text x="260" y="205" fill="#FF6B6B" fontSize="9">(4.89 eV)</text>
+                      
+                      <line x1="240" y1="125" x2="255" y2="140" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
+                      <text x="260" y="115" fill="#FF6B6B" fontSize="10">572.9 nm</text>
+                      <text x="260" y="125" fill="#FF6B6B" fontSize="9">(2.17 eV)</text>
+
+                      {/* Labels */}
+                      <text x="25" y="30" fill="#FFD700" fontSize="14" fontWeight="bold">Incoming</text>
+                      <text x="25" y="45" fill="#FFD700" fontSize="14" fontWeight="bold">Photons</text>
+                      <text x="270" y="30" fill="#FF6B6B" fontSize="14" fontWeight="bold">Outgoing</text>
+                      <text x="270" y="45" fill="#FF6B6B" fontSize="14" fontWeight="bold">Photons</text>
+                    </svg>
+                  </div>
+
+                  {/* Emission vs Absorption Explanation */}
+                  <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+                    <h4 className="font-semibold text-cyan-800 mb-3">🔄 Why Emission and Absorption Spectra Differ</h4>
+                    <p className="text-gray-700 text-sm mb-3">
+                      The emission of photons when atoms fall back toward the ground state explains two things about emission spectra:
+                    </p>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border border-cyan-300">
+                        <h5 className="font-semibold text-cyan-700 mb-2">1. Spectral Line Matching:</h5>
+                        <p className="text-gray-700 text-sm">
+                          Bright lines of emission spectra correspond with the dark lines of absorption spectra 
+                          for the same element or molecule.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded border border-cyan-300">
+                        <h5 className="font-semibold text-cyan-700 mb-2">2. More Lines in Emission:</h5>
+                        <p className="text-gray-700 text-sm">
+                          The presence of more lines in emission spectra compared to absorption spectra can be 
+                          explained by the intermediate jumps that can occur when atoms fall toward their ground state.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AIAccordion.Item>
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Fallback content - show all sections expanded */}
+          <div className="bg-gray-100 p-4 rounded-lg border border-gray-300">
+            <h3 className="text-lg font-semibold text-gray-700">Course content loading...</h3>
+            <p className="text-gray-600">Please wait while we prepare the interactive content.</p>
           </div>
-        )}
-      </div>
-
-      {/* Discovery of Emission Spectra Section */}
-      <div>
-        <button
-          onClick={() => setIsEmissionOpen(!isEmissionOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">Discovery of Emission Spectra</h3>
-          <span className="text-blue-600">{isEmissionOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isEmissionOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              {/* Melvill's Discovery */}
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
-                <h4 className="font-semibold text-purple-800 mb-3">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Thomas Melvill's Discovery (1752)</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Melvill discovered that gases do not produce a continuous spectrum, rather they produce a spectrum 
-                  that is composed of bright coloured lines against a black background. We call this type of spectrum 
-                  a bright line or emission spectrum (i.e. the gas emits the light). He also noted that the colours 
-                  and locations of the bright lines were different when different gases were used.
-                </p>
-                <div className="bg-white p-3 rounded border border-purple-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Key Observation:</strong> Each gas produces its own unique pattern of bright spectral lines, 
-                    like a fingerprint that identifies the specific element.
-                  </p>
-                </div>
-              </div>
-
-              {/* Gas Excitation Methods */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                <h4 className="font-semibold text-blue-800 mb-3">⚡ Methods of Gas Excitation</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  By 1823, scientists had found that gases could be induced to glow when excited by electricity. 
-                  If the gas was sealed inside a tube with an anode and a cathode, it would glow when electricity 
-                  was passed through it. Modern electric signs, for example, are composed of tubes with neon, argon, 
-                  and other gases which are exposed to a potential difference.
-                </p>
-                <div className="bg-white p-3 rounded border border-blue-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Modern Applications:</strong> Neon signs, fluorescent lights, and gas discharge tubes 
-                    all work on this principle. Each gas gives off its own characteristic colours of light.
-                  </p>
-                </div>
-              </div>
-
-              {/* Herschel's Contribution */}
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <h4 className="font-semibold text-green-800 mb-3">🔬 John Herschel's Insight</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  John Herschel, the British Astronomer, suggested that if each gas had a characteristic bright line 
-                  spectrum then elements might be identified by their spectrum. Spectral analysis was the result of 
-                  this idea. In 1860, Gustav Kirchoff and Robert Bunsen discovered two substances with unique emission 
-                  spectra that did not match any known spectrum at the time.
-                </p>
-                <div className="bg-white p-3 rounded border border-green-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Historic Discovery:</strong> Using this technique they had isolated two new elements: 
-                    cesium and rubidium. Many other elements were discovered using this technique.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Absorption Spectra Section */}
-      <div>
-        <button
-          onClick={() => setIsAbsorptionOpen(!isAbsorptionOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">Absorption/Dark-line Spectra</h3>
-          <span className="text-blue-600">{isAbsorptionOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isAbsorptionOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              {/* Fraunhofer's Work */}
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
-                <h4 className="font-semibold text-orange-800 mb-3">🌞 Fraunhofer Lines in Solar Spectrum</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  In 1859, Gustav Kirchoff was able to produce a dark line (absorption) spectrum by passing white 
-                  light through a glass container holding cold sodium gas and then viewing the emerging light with a prism. 
-                  The gas in the container absorbed a few discreet wavelengths or colours of light while the majority 
-                  of the light passed through the gas.
-                </p>
-                <div className="bg-white p-3 rounded border border-orange-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Process:</strong> White light source → Cool gas → Prism → Continuous spectrum with dark absorption lines
-                  </p>
-                </div>
-              </div>
-
-              {/* Emission vs Absorption Comparison */}
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
-                <h4 className="font-semibold text-purple-800 mb-3">🔄 Comparison of Emission and Absorption Spectra</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  When Kirchoff compared the emission spectra with the absorption spectra of sodium vapor, he noted 
-                  that the position of the dark lines in the absorption spectra corresponded exactly with the position 
-                  of the two bright yellow lines in the emission spectra.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded border border-purple-300">
-                    <h5 className="font-semibold text-purple-700 mb-2">Emission Spectrum</h5>
-                    <div className="bg-black p-2 rounded mb-2 text-center">
-                      <span className="text-yellow-400 font-bold">|</span>
-                      <span className="text-white mx-2">Dark Background</span>
-                      <span className="text-yellow-400 font-bold">|</span>
-                    </div>
-                    <p className="text-gray-700 text-xs">Bright lines on dark background</p>
-                  </div>
-                  <div className="bg-white p-3 rounded border border-purple-300">
-                    <h5 className="font-semibold text-purple-700 mb-2">Absorption Spectrum</h5>
-                    <div className="bg-gradient-to-r from-purple-400 via-blue-500 via-green-500 via-yellow-500 via-orange-500 to-red-500 p-2 rounded mb-2 text-center relative">
-                      <span className="absolute left-1/4 top-0 bottom-0 w-0.5 bg-black"></span>
-                      <span className="absolute right-1/4 top-0 bottom-0 w-0.5 bg-black"></span>
-                      <span className="text-white text-xs">Continuous</span>
-                    </div>
-                    <p className="text-gray-700 text-xs">Dark lines in continuous spectrum</p>
-                  </div>
-                </div>
-                
-                <div className="mt-4 p-3 bg-white rounded border border-purple-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Key Discovery:</strong> All other elements were quickly checked and an exact match up resulted 
-                    for all the other known elements. Apparently the light energy absorbed by an element from white light 
-                    matched exactly the light energy emitted by the excited element.
-                  </p>
-                </div>
-              </div>
-
-              {/* Quantum Explanation */}
-              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                <h4 className="font-semibold text-red-800 mb-3">❓ The Puzzling Phenomenon</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  However, a rather puzzling phenomenon was that there were always more lines in the emission spectrum 
-                  than in the absorption spectrum. Why? We will answer this question shortly, but first we need to 
-                  understand how spectral analysis reveals the chemical composition of distant objects.
-                </p>
-                <div className="bg-white p-3 rounded border border-red-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Coming Up:</strong> The answer involves quantum energy levels and electron transitions between 
-                    different energy states in atoms.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Franck-Hertz Experiment Section */}
-      <div>
-        <button
-          onClick={() => setIsFranckHertzOpen(!isFranckHertzOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">The Franck-Hertz Experiment</h3>
-          <span className="text-blue-600">{isFranckHertzOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isFranckHertzOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              {/* Introduction */}
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
-                <h4 className="font-semibold text-purple-800 mb-3">🧪 Understanding Atomic Energy Absorption</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Earlier studies of emission and absorption spectra had revealed that atoms emit and absorb light 
-                  energy only at discrete, characteristic wavelengths or energies, but there was no theory that 
-                  could explain how they worked. A significant contribution to our understanding of atomic structure 
-                  was provided by a team of two German physicists, James Franck and Gustav Hertz, in 1914.
-                </p>
-                <div className="bg-white p-3 rounded border border-purple-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Objective:</strong> Franck and Hertz devised an experiment to investigate how atoms 
-                    absorb energy in collisions with fast-moving electrons.
-                  </p>
-                </div>
-              </div>
-
-              {/* Experimental Setup */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                <h4 className="font-semibold text-blue-800 mb-3">⚙️ Experimental Apparatus</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Using an apparatus similar to that shown, free electrons emitted from the cathode were accelerated 
-                  through low pressure mercury vapour by a voltage applied to the wire screen anode. (An electron 
-                  accelerated by a potential difference of 5.0 V, for example, acquires a kinetic energy of 5.0 eV.)
-                </p>
-                <div className="bg-white p-3 rounded border border-blue-300 mb-3">
-                  <p className="text-gray-700 text-sm mb-2">
-                    Most of the electrons went through the screen and were collected by the anode plate beyond the screen. 
-                    This flow of electrons constituted an electric current, which was measured by a microammeter.
-                  </p>
-                </div>
-                <div className="bg-white p-3 rounded border border-blue-300">
-                  <p className="text-gray-700 text-sm">
-                    <strong>Method:</strong> The experiment consisted of gradually increasing the accelerating voltage 
-                    and, for each value, measuring the electric current passing through the mercury vapour and collected by the plate.
-                  </p>
-                </div>
-              </div>
-
-              {/* Experimental Results */}
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
-                <h4 className="font-semibold text-green-800 mb-3">📊 Franck and Hertz Results</h4>
-                <div className="space-y-3">
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">Initial Observations:</h5>
-                    <p className="text-gray-700 text-sm">
-                      As the accelerating voltage was increased slowly from zero, the current gradually increased as well.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">First Critical Point - 4.89 V:</h5>
-                    <p className="text-gray-700 text-sm">
-                      Then, at a voltage of 4.89 V, the current dropped dramatically. As the voltage was increased further, 
-                      the current once again began to increase.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">Additional Critical Points:</h5>
-                    <p className="text-gray-700 text-sm">
-                      Similar minor decreases in current also occurred at voltages of 6.67 V and 8.84 V. Another 
-                      significant decrease in current occurred at a voltage of 9.8 V.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">Pattern Discovery:</h5>
-                    <p className="text-gray-700 text-sm">
-                      The results indicated that for certain values of bombarding electron energy (4.89 eV, 6.67 eV, 8.84 eV, 9.8 eV, ...) 
-                      the electrons do not "make it" through the mercury vapour. Their energy is lost because of collisions with mercury vapour atoms.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quantum Interpretation */}
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
-                <h4 className="font-semibold text-orange-800 mb-3">⚛️ Quantum Energy Level Interpretation</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Their energy is lost by the collision as internal energy quanta or amounts of energy. Their 
-                  proposed interpretation was that the electrons within the atom normally exist in a ground state (0 eV). 
-                  When they are given enough energy, they jump up to an excited energy state.
-                </p>
-                <div className="space-y-3">
-                  <div className="bg-white p-3 rounded border border-orange-300">
-                    <h5 className="font-semibold text-orange-700 mb-2">Energy Below 4.9 eV:</h5>
-                    <p className="text-gray-700 text-sm">
-                      When the energy of the incident electrons was less than 4.9 eV, they simply bounced off any 
-                      mercury atoms they encountered with no loss of energy and continued on as part of the current.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-orange-300">
-                    <h5 className="font-semibold text-orange-700 mb-2">Energy at 4.9 eV:</h5>
-                    <p className="text-gray-700 text-sm">
-                      Those electrons with an energy of 4.9 eV that collided with a mercury atom transferred all of 
-                      their energy to the mercury atom and, therefore, with no energy remaining, did not reach the plate.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-orange-300">
-                    <h5 className="font-semibold text-orange-700 mb-2">Higher Energy Levels:</h5>
-                    <p className="text-gray-700 text-sm">
-                      At energies greater than 4.9 eV, electrons colliding with mercury atoms can give up 4.9 eV in the collision 
-                      and still move off with the remaining energy and reach the plate. Only certain excitation energy levels 
-                      are allowed – i.e. electrons can only absorb specific amounts of energy.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Light Emission */}
-              <div className="bg-red-50 p-4 rounded-lg border border-red-200 mb-6">
-                <h4 className="font-semibold text-red-800 mb-3">💡 Light Emission from Excited Mercury</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  As the experiment progressed Franck and Hertz also noted that the mercury vapour began to emit light. 
-                  The next step in their experiment was to measure the wavelength of the light emitted by the excited mercury atoms.
-                </p>
-                <div className="bg-white p-3 rounded border border-red-300 mb-3">
-                  <p className="text-gray-700 text-sm mb-2">
-                    <strong>Observed Wavelengths:</strong> When the input electron had energy of 9.00 eV, the mercury vapour 
-                    released photons that produced spectral lines at 686.8 nm, 572.9 nm, 312.3 nm, 254.2 nm, 186.4 nm and 140.6 nm.
-                  </p>
-                </div>
-                <div className="bg-white p-3 rounded border border-red-300">
-                  <p className="text-gray-700 text-sm">
-                    Using Planck's equation, the energies of each of these wavelengths could be calculated. For example, 
-                    for the 254.2 nm light: E = hc/λ = (4.14 × 10⁻¹⁵ eV·s)(3.00 × 10⁸ m/s)/(254.2 × 10⁻⁹ m) = 4.89 eV
-                  </p>
-                </div>
-              </div>
-
-              {/* Energy Level Diagram */}
-              <ExcitationStatesComponent />
-
-              {/* Complete Energy Analysis */}
-              <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200 mt-6">
-                <h4 className="font-semibold text-cyan-800 mb-3">📈 Complete Energy Level Analysis</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Franck and Hertz interpreted the energies and wavelengths as the result of jumps of mercury atom 
-                  electrons falling from excitation states down toward the ground state. As the electron falls or 
-                  de-excites back toward the ground state, it releases its energy in the form of a photon.
-                </p>
-                <div className="bg-white p-3 rounded border border-cyan-300 mb-3">
-                  <p className="text-gray-700 text-sm mb-2">
-                    <strong>Photon Energy Formula:</strong> In general, the photon's energy is determined by the difference 
-                    in the initial (higher) and final (lower) energy levels:
-                  </p>
-                  <div className="text-center p-2 bg-cyan-100 rounded">
-                    <InlineMath math="E_{photon} = E_i - E_f" />
-                  </div>
-                </div>
-                <div className="bg-white p-3 rounded border border-cyan-300">
-                  <p className="text-gray-700 text-sm">
-                    The wavelength or frequency of the photon may be calculated using Planck's equation. The remaining 
-                    wavelength/energy pairs above can be explained by intermediate jumps to lower energy states. For example, 
-                    an electron in the third excitation state could fall to the second level before falling to the ground state.
-                  </p>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-6">
-                <h4 className="font-semibold text-yellow-800 mb-3">🎯 Key Discoveries</h4>
-                <div className="space-y-2">
-                  <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
-                    <strong>Quantized Energy Levels:</strong> Atoms can only absorb and emit specific, discrete amounts of energy
-                  </div>
-                  <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
-                    <strong>Ground and Excited States:</strong> Electrons exist in specific energy levels within atoms
-                  </div>
-                  <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
-                    <strong>Energy Conservation:</strong> Absorbed energy equals emitted photon energy during de-excitation
-                  </div>
-                  <div className="bg-white p-2 rounded border border-yellow-300 text-sm">
-                    <strong>Spectral Line Origin:</strong> Each spectral line corresponds to a specific electron energy transition
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Summary Section */}
-      <div>
-        <button
-          onClick={() => setIsSummaryOpen(!isSummaryOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">Summary: Absorption of Spectra and Excitation States</h3>
-          <span className="text-blue-600">{isSummaryOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isSummaryOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              {/* Two Ways of Energy Absorption */}
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-6">
-                <h4 className="font-semibold text-green-800 mb-3">🔋 Two Ways Atoms Absorb Energy</h4>
-                <div className="space-y-4">
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">1. By Collisions with High Energy Electrons</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      In these collisions the electron in the atom absorbs only the amount of energy corresponding 
-                      to a jump from the ground state to an excitation state. The incoming electron continues on 
-                      with the remaining energy.
-                    </p>
-                    <div className="bg-green-100 p-2 rounded text-sm">
-                      <strong>Example:</strong> A 6.00 eV incoming electron colliding with a mercury atom will lose 
-                      4.89 eV to the atom and then continue on with an energy of 1.11 eV. Note, for this type of 
-                      energy absorption, the incoming particle need only have an energy greater than the first 
-                      excitation energy.
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-green-300">
-                    <h5 className="font-semibold text-green-700 mb-2">2. By Absorbing a Photon</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      In this case, the atom will absorb only those photons that have energies that exactly match 
-                      the excitation state energies. Since electrons normally reside in the ground state, this 
-                      means that it will absorb only those photons that match its excitation states from the ground level.
-                    </p>
-                    <div className="bg-green-100 p-2 rounded text-sm">
-                      <strong>Result:</strong> Therefore, when full spectrum white light is sent through a gas, only 
-                      those wavelengths of light that correspond to the excitation states of the gas are absorbed 
-                      by the gas. The remaining wavelengths simply pass through the gas. This explains the dark 
-                      lines for absorption spectra.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Release of Energy */}
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
-                <h4 className="font-semibold text-orange-800 mb-3">💡 Release of Energy</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  Once atoms have been excited they will eventually fall back to the ground state. Some atoms, 
-                  for example hydrogen, will return to the ground state immediately after being excited. Other 
-                  atoms, like phosphorous, can stay in an excited state for hours before returning to the ground state.
-                </p>
-                <div className="bg-white p-3 rounded border border-orange-300">
-                  <p className="text-gray-700 text-sm mb-2">
-                    <strong>Why Glow-in-the-Dark Paint Works:</strong> This is why diverswatches have phosphorous 
-                    paint numbers – they will continue to emit light for hours.
-                  </p>
-                </div>
-              </div>
-
-              {/* Two Ways of Falling Back */}
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
-                <h4 className="font-semibold text-purple-800 mb-3">⬇️ Atoms Can Fall Back to Ground State in Two Ways</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded border border-purple-300">
-                    <h5 className="font-semibold text-purple-700 mb-2">Direct Jump</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      The atom can fall straight back to the ground state from the excitation state. 
-                      In this case, one high energy photon is emitted.
-                    </p>
-                    <div className="text-center p-2 bg-purple-100 rounded">
-                      <span className="text-sm font-mono">n=3 → n=0</span>
-                      <br />
-                      <span className="text-xs">One photon emitted</span>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-purple-300">
-                    <h5 className="font-semibold text-purple-700 mb-2">Step-by-Step Cascade</h5>
-                    <p className="text-gray-700 text-sm mb-2">
-                      The atom can fall through a series of intermediate excitation states to the ground state. 
-                      In this case, several lower energy photons will be emitted.
-                    </p>
-                    <div className="text-center p-2 bg-purple-100 rounded">
-                      <span className="text-sm font-mono">n=3 → n=2 → n=1 → n=0</span>
-                      <br />
-                      <span className="text-xs">Multiple photons emitted</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Energy Level Diagram with Transitions */}
-              <div className="bg-black rounded p-4 mb-6">
-                <svg width="500" height="300" className="w-full">
-                  {/* Energy levels */}
-                  <line x1="50" y1="250" x2="200" y2="250" stroke="#2ECC71" strokeWidth="3" />
-                  <text x="210" y="255" fill="#2ECC71" fontSize="12" fontWeight="bold">0 eV (Ground)</text>
-                  
-                  <line x1="50" y1="190" x2="200" y2="190" stroke="#3498DB" strokeWidth="3" />
-                  <text x="210" y="195" fill="#3498DB" fontSize="12" fontWeight="bold">4.89 eV</text>
-                  
-                  <line x1="50" y1="140" x2="200" y2="140" stroke="#9B59B6" strokeWidth="3" />
-                  <text x="210" y="145" fill="#9B59B6" fontSize="12" fontWeight="bold">6.67 eV</text>
-                  
-                  <line x1="50" y1="90" x2="200" y2="90" stroke="#E74C3C" strokeWidth="3" />
-                  <text x="210" y="95" fill="#E74C3C" fontSize="12" fontWeight="bold">8.84 eV</text>
-
-                  {/* Absorption arrows (incoming) */}
-                  <defs>
-                    <marker id="arrowUp" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                      <polygon points="0 0, 10 3.5, 0 7" fill="#FFD700" />
-                    </marker>
-                    <marker id="arrowDown" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                      <polygon points="0 0, 10 3.5, 0 7" fill="#FF6B6B" />
-                    </marker>
-                  </defs>
-                  
-                  {/* Incoming photons */}
-                  <line x1="20" y1="220" x2="35" y2="205" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
-                  <text x="10" y="235" fill="#FFD700" fontSize="10">177 nm</text>
-                  <text x="10" y="245" fill="#FFD700" fontSize="9">(7.00 eV)</text>
-                  
-                  <line x1="20" y1="200" x2="35" y2="185" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
-                  <text x="10" y="215" fill="#FFD700" fontSize="10">207 nm</text>
-                  <text x="10" y="225" fill="#FFD700" fontSize="9">(6.00 eV)</text>
-                  
-                  <line x1="20" y1="180" x2="35" y2="165" stroke="#FFD700" strokeWidth="2" markerEnd="url(#arrowUp)" />
-                  <text x="10" y="195" fill="#FFD700" fontSize="10">186 nm</text>
-                  <text x="10" y="205" fill="#FFD700" fontSize="9">(6.67 eV)</text>
-
-                  {/* Outgoing photons */}
-                  <line x1="240" y1="105" x2="255" y2="120" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
-                  <text x="260" y="95" fill="#FF6B6B" fontSize="10">140.6 nm</text>
-                  <text x="260" y="105" fill="#FF6B6B" fontSize="9">(8.84 eV)</text>
-                  
-                  <line x1="240" y1="155" x2="255" y2="170" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
-                  <text x="260" y="145" fill="#FF6B6B" fontSize="10">186.4 nm</text>
-                  <text x="260" y="155" fill="#FF6B6B" fontSize="9">(6.67 eV)</text>
-                  
-                  <line x1="240" y1="205" x2="255" y2="220" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
-                  <text x="260" y="195" fill="#FF6B6B" fontSize="10">254.2 nm</text>
-                  <text x="260" y="205" fill="#FF6B6B" fontSize="9">(4.89 eV)</text>
-                  
-                  <line x1="240" y1="125" x2="255" y2="140" stroke="#FF6B6B" strokeWidth="2" markerEnd="url(#arrowDown)" />
-                  <text x="260" y="115" fill="#FF6B6B" fontSize="10">572.9 nm</text>
-                  <text x="260" y="125" fill="#FF6B6B" fontSize="9">(2.17 eV)</text>
-
-                  {/* Labels */}
-                  <text x="25" y="30" fill="#FFD700" fontSize="14" fontWeight="bold">Incoming</text>
-                  <text x="25" y="45" fill="#FFD700" fontSize="14" fontWeight="bold">Photons</text>
-                  <text x="270" y="30" fill="#FF6B6B" fontSize="14" fontWeight="bold">Outgoing</text>
-                  <text x="270" y="45" fill="#FF6B6B" fontSize="14" fontWeight="bold">Photons</text>
-                </svg>
-              </div>
-
-              {/* Emission vs Absorption Explanation */}
-              <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
-                <h4 className="font-semibold text-cyan-800 mb-3">🔄 Why Emission and Absorption Spectra Differ</h4>
-                <p className="text-gray-700 text-sm mb-3">
-                  The emission of photons when atoms fall back toward the ground state explains two things about emission spectra:
-                </p>
-                <div className="space-y-3">
-                  <div className="bg-white p-3 rounded border border-cyan-300">
-                    <h5 className="font-semibold text-cyan-700 mb-2">1. Spectral Line Matching:</h5>
-                    <p className="text-gray-700 text-sm">
-                      Bright lines of emission spectra correspond with the dark lines of absorption spectra 
-                      for the same element or molecule.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border border-cyan-300">
-                    <h5 className="font-semibold text-cyan-700 mb-2">2. More Lines in Emission:</h5>
-                    <p className="text-gray-700 text-sm">
-                      The presence of more lines in emission spectra compared to absorption spectra can be 
-                      explained by the intermediate jumps that can occur when atoms fall toward their ground state.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

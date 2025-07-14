@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -358,47 +358,26 @@ const StandingWaveComponent = () => {
   );
 };
 
-const WaveParticleNatureManual = (props) => {
-  const [openSections, setOpenSections] = useState({
-    introduction: true,
-    wavelengths: false,
-    orbiting: false,
-    examples: false,
-    doubleSlit: false,
-    uncertainty: false,
-    additionalExamples: false
-  });
-
-  const toggleSection = (section) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Lesson 62: Wave–Particle Nature of Light and Matter
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Wave–Particle Nature of Light and Matter
         </h1>
-        <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+        <p className="text-lg text-gray-600">
+          The revolutionary discovery of quantum duality
+        </p>
       </div>
 
-      {/* Introduction Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('introduction')}
-          className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-blue-800">Wave-Particle Duality</h2>
-          <span className={`transform transition-transform ${openSections.introduction ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.introduction && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="introduction" title="Wave-Particle Duality" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Many centuries ago, especially in the time of Isaac Newton and Christian Huygens, there was an 
               intense debate over the nature of light. Newton argued for a corpuscular (i.e. small particle) 
@@ -445,24 +424,11 @@ const WaveParticleNatureManual = (props) => {
                 particular phenomenon that we are investigating.
               </p>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Wavelengths of Matter Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('wavelengths')}
-          className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-green-800">I. Wavelengths of Matter</h2>
-          <span className={`transform transition-transform ${openSections.wavelengths ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.wavelengths && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="wavelengths" title="I. Wavelengths of Matter" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-blue-100 p-4 rounded-lg mb-6">
               <h4 className="font-semibold text-blue-800 mb-2">Louis de Broglie (1892-1987)</h4>
               <p className="text-sm">
@@ -538,24 +504,11 @@ const WaveParticleNatureManual = (props) => {
                 we are not aware of the wave nature of everyday material objects.
               </p>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Orbiting Electron Waves Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('orbiting')}
-          className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-purple-800">II. Orbiting Electron Waves</h2>
-          <span className={`transform transition-transform ${openSections.orbiting ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.orbiting && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="orbiting" title="II. Orbiting Electron Waves" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Louis de Broglie now began to apply the wave nature of the electron to the electrons orbiting 
               around hydrogen nuclei. Assuming that the electron acts like a wave in the hydrogen atom rather 
@@ -598,24 +551,11 @@ const WaveParticleNatureManual = (props) => {
                 explains why they do not continuously radiate electromagnetic energy.
               </p>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Examples Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('examples')}
-          className="w-full flex items-center justify-between p-4 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-orange-800">Examples</h2>
-          <span className={`transform transition-transform ${openSections.examples ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.examples && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="examples" title="Examples" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             
             {/* Example 1 */}
             <div className="mb-8 p-6 bg-white rounded-lg border border-gray-300 shadow-sm">
@@ -737,24 +677,11 @@ const WaveParticleNatureManual = (props) => {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Double-slit Interference Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('doubleSlit')}
-          className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-indigo-800">III. Double-slit Interference of Particle Waves</h2>
-          <span className={`transform transition-transform ${openSections.doubleSlit ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.doubleSlit && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="doubleSlit" title="III. Double-slit Interference of Particle Waves" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               The de Broglie equation for particle wavelength provides no hint as to what kind of wave is 
               associated with a particle of matter. To gain some insight into the nature of this wave, an 
@@ -874,24 +801,11 @@ const WaveParticleNatureManual = (props) => {
                 In doing so, they established a new branch of physics called <strong>quantum mechanics</strong>.
               </p>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Heisenberg Uncertainty Principle Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('uncertainty')}
-          className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-red-800">IV. The Heisenberg Uncertainty Principle</h2>
-          <span className={`transform transition-transform ${openSections.uncertainty ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.uncertainty && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="uncertainty" title="IV. The Heisenberg Uncertainty Principle" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-blue-100 p-4 rounded-lg mb-6">
               <h4 className="font-semibold text-blue-800 mb-2">Werner Heisenberg (1901-1976)</h4>
               <p className="text-sm mb-2">
@@ -951,24 +865,11 @@ const WaveParticleNatureManual = (props) => {
                 <li>• <strong>Long wavelength EMR source:</strong> Small momentum kick but terrible accuracy in position</li>
               </ul>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Additional Examples Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('additionalExamples')}
-          className="w-full flex items-center justify-between p-4 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-teal-800">Additional Examples</h2>
-          <span className={`transform transition-transform ${openSections.additionalExamples ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.additionalExamples && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="additionalExamples" title="Additional Examples" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             
             {/* Example 5 */}
             <div className="mb-8 p-6 bg-white rounded-lg border border-gray-300 shadow-sm">
@@ -1041,39 +942,40 @@ const WaveParticleNatureManual = (props) => {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Key Takeaways Section */}
-      <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">
-        <h3 className="text-xl font-bold text-blue-900 mb-4">📝 Key Takeaways</h3>
-        <div className="space-y-3">
-          {[
-            "Light exhibits both wave and particle properties depending on the energy (E = hf) and the type of experiment conducted",
-            "The electromagnetic spectrum shows a transition from wave-dominated behavior (radio waves) to particle-dominated behavior (gamma rays)",
-            "Louis de Broglie proposed that matter has wave properties with wavelength λ = h/(mv), earning him the 1929 Nobel Prize",
-            "Davisson-Germer (1923) and G.P. Thomson (1927) experimentally confirmed electron diffraction through crystal structures",
-            "de Broglie's wavelength for macroscopic objects is extremely small (∼10⁻³⁵ m), explaining why we don't observe wave behavior in daily life",
-            "Electrons in atoms behave as standing waves with the condition 2πr = nλ, leading to Bohr's quantization: mvr = nh/(2π)",
-            "de Broglie's wave model successfully derived the same orbital radii as Bohr's hydrogen atom calculations",
-            "Tonomura's electron double-slit experiment (1988-89) showed that single electrons create interference patterns over time",
-            "Max Born's interpretation (1926): particle waves are waves of probability, introducing quantum indeterminacy",
-            "Heisenberg's Uncertainty Principle (1927): Δp·Δx ≥ h/(4π) - we cannot measure both position and momentum with unlimited accuracy",
-            "Schrödinger and Heisenberg independently developed quantum mechanics in 1925, establishing the theoretical framework for atomic structure",
-            "Quantum mechanics reveals that nature operates probabilistically rather than deterministically at the atomic scale"
-          ].map((point, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-sm font-bold">
-                {index + 1}
               </div>
-              <p className="text-gray-700 text-sm leading-relaxed">{point}</p>
-            </div>
-          ))}
+            </AIAccordion.Item>
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="space-y-3">
+          <ul className="list-disc list-inside space-y-2 text-sm">
+            <li>Light exhibits both wave and particle properties depending on the energy (E = hf) and the type of experiment conducted</li>
+            <li>The electromagnetic spectrum shows a transition from wave-dominated behavior (radio waves) to particle-dominated behavior (gamma rays)</li>
+            <li>Louis de Broglie proposed that matter has wave properties with wavelength λ = h/(mv), earning him the 1929 Nobel Prize</li>
+            <li>Davisson-Germer (1923) and G.P. Thomson (1927) experimentally confirmed electron diffraction through crystal structures</li>
+            <li>de Broglie's wavelength for macroscopic objects is extremely small (∼10⁻³⁵ m), explaining why we don't observe wave behavior in daily life</li>
+            <li>Electrons in atoms behave as standing waves with the condition 2πr = nλ, leading to Bohr's quantization: mvr = nh/(2π)</li>
+            <li>de Broglie's wave model successfully derived the same orbital radii as Bohr's hydrogen atom calculations</li>
+            <li>Tonomura's electron double-slit experiment (1988-89) showed that single electrons create interference patterns over time</li>
+            <li>Max Born's interpretation (1926): particle waves are waves of probability, introducing quantum indeterminacy</li>
+            <li>Heisenberg's Uncertainty Principle (1927): Δp·Δx ≥ h/(4π) - we cannot measure both position and momentum with unlimited accuracy</li>
+            <li>Schrödinger and Heisenberg independently developed quantum mechanics in 1925, establishing the theoretical framework for atomic structure</li>
+            <li>Quantum mechanics reveals that nature operates probabilistically rather than deterministically at the atomic scale</li>
+          </ul>
         </div>
       </div>
     </div>
   );
 };
 
-export default WaveParticleNatureManual;
+export default ManualContent;

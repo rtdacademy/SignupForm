@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -276,21 +276,18 @@ const QuantumNumbersTable = () => {
   );
 };
 
-const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
-  const [isIntroOpen, setIsIntroOpen] = useState(false);
-  const [isQuantumNumbersOpen, setIsQuantumNumbersOpen] = useState(false);
-  const [isPauliOpen, setIsPauliOpen] = useState(false);
-  const [isElectronStructureOpen, setIsElectronStructureOpen] = useState(false);
-  const [isOrbitalPatternsOpen, setIsOrbitalPatternsOpen] = useState(false);
-  const [isMolecularShapesOpen, setIsMolecularShapesOpen] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Lesson 64: Quantum Mechanics (Optional Reading)
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Quantum Mechanics (Optional Reading)
         </h1>
-        <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+        <p className="text-lg text-gray-600">
+          The mathematical framework of modern atomic theory
+        </p>
         
         <div className="mt-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
           <p className="text-orange-800 text-sm">
@@ -301,19 +298,12 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         </div>
       </div>
 
-      {/* Introduction Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsIntroOpen(!isIntroOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">I. The Quantum Model of the Atom</h3>
-          <span className="text-blue-600">{isIntroOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isIntroOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="introduction" title="I. The Quantum Model of the Atom" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <p className="text-gray-700 leading-relaxed mb-4">
                 Ernest Rutherford's model of the atom was quite easy to visualize and understand conceptually, 
                 but, as we have seen, it had severe flaws when it was scrutinized. Neils Bohr's quantum model 
@@ -358,24 +348,11 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   the Bohr radius (r₁), its position may be further from or closer to the nucleus at any given time.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Quantum Numbers Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsQuantumNumbersOpen(!isQuantumNumbersOpen)}
-          className="w-full text-left p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">II. Quantum Numbers</h3>
-          <span className="text-green-600">{isQuantumNumbersOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isQuantumNumbersOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="quantumNumbers" title="II. Quantum Numbers" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <p className="text-gray-700 leading-relaxed mb-6">
                 Originally, Bohr's model of the atom required just one quantum number to describe the energy 
                 of the electron. The first quantum number (n) is called the principal quantum number or the 
@@ -442,24 +419,11 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   of the applied magnetic field.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Pauli Exclusion Principle Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsPauliOpen(!isPauliOpen)}
-          className="w-full text-left p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">III. Pauli Exclusion Principle</h3>
-          <span className="text-purple-600">{isPauliOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isPauliOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="pauli" title="III. Pauli Exclusion Principle" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
                 <h4 className="font-semibold text-blue-800 mb-2">👨‍🔬 Wolfgang Pauli (1900-1958)</h4>
                 <p className="text-gray-700 text-sm">
@@ -514,24 +478,11 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </div>
                 <p className="text-gray-700 text-xs mt-1">Example: Sodium (11 electrons)</p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Electron Structure Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsElectronStructureOpen(!isElectronStructureOpen)}
-          className="w-full text-left p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">IV. Electron Structure</h3>
-          <span className="text-orange-600">{isElectronStructureOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isElectronStructureOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="electronStructure" title="IV. Electron Structure" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <p className="text-gray-700 leading-relaxed mb-6">
                 It's no simple matter to sort out electron structure. For that analysis, chemical behaviour 
                 and atomic spectra were required as guides. As stated above, electrons are ordered in shells 
@@ -612,24 +563,11 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   Overall electron structure: 1s² 2s² 2p⁶ 3s¹
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Orbital Patterns and Periodicity Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsOrbitalPatternsOpen(!isOrbitalPatternsOpen)}
-          className="w-full text-left p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">V. Electron Orbital Patterns and Chemical Periodicity</h3>
-          <span className="text-indigo-600">{isOrbitalPatternsOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isOrbitalPatternsOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="orbitalPatterns" title="V. Electron Orbital Patterns and Chemical Periodicity" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <p className="text-gray-700 leading-relaxed mb-6">
                 The relatively simple emission spectrum of hydrogen, and the excellent agreement of the 
                 calculated energy levels with that spectrum, are due to the electrical simplicity of this 
@@ -702,24 +640,11 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   atomic theory - the theoretical justification for the periodic classification of the elements.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Molecular Shapes Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsMolecularShapesOpen(!isMolecularShapesOpen)}
-          className="w-full text-left p-4 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">VI. Molecular Shapes - Covalent Bonding</h3>
-          <span className="text-teal-600">{isMolecularShapesOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isMolecularShapesOpen && (
-          <div className="mt-4">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="molecularShapes" title="VI. Molecular Shapes - Covalent Bonding" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
               <p className="text-gray-700 leading-relaxed mb-6">
                 Schrödinger's wave mechanical model was also able to explain the bonding and shapes 
                 characteristics of molecules. For example, water is composed of two hydrogen atoms with 
@@ -776,38 +701,38 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   and the three-dimensional shapes they adopt.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Key Takeaways Section */}
-      <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">
-        <h3 className="text-xl font-bold text-blue-900 mb-4">📝 Key Takeaways</h3>
-        <div className="space-y-3">
-          {[
-            "Schrödinger's wave mechanical model describes electrons as probability distributions rather than fixed orbits",
-            "Four quantum numbers (n, l, ml, ms) completely specify each electron's state in an atom",
-            "Principal quantum number (n) determines energy level and distance from nucleus (1, 2, 3...)",
-            "Angular momentum quantum number (l) determines orbital shape: s(0), p(1), d(2), f(3)",
-            "Magnetic quantum number (ml) determines orbital orientation in space (-l to +l)",
-            "Spin quantum number (ms) describes electron spin direction (+½ or -½)",
-            "Pauli Exclusion Principle: no two electrons can have identical quantum numbers",
-            "Each orbital holds maximum 2 electrons with opposite spins",
-            "Zeeman effect demonstrates magnetic field splitting of energy levels into sublevels",
-            "Electron configuration notation (1s² 2s² 2p⁶...) describes arrangement of electrons in atoms",
-            "Quantum mechanics explains periodic table structure: electron capacity per shell matches period lengths",
-            "Wave mechanical model successfully explains molecular shapes through orbital hybridization",
-            "Multi-electron atoms require approximations in Schrödinger's equation due to electron-electron interactions",
-            "Quantum mechanics provides theoretical foundation for chemical bonding and molecular geometry"
-          ].map((point, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-sm font-bold">
-                {index + 1}
               </div>
-              <p className="text-gray-700 text-sm leading-relaxed">{point}</p>
-            </div>
-          ))}
+            </AIAccordion.Item>
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="space-y-3">
+          <ul className="list-disc list-inside space-y-2 text-sm">
+            <li>Schrödinger's wave mechanical model describes electrons as probability distributions rather than fixed orbits</li>
+            <li>Four quantum numbers (n, l, ml, ms) completely specify each electron's state in an atom</li>
+            <li>Principal quantum number (n) determines energy level and distance from nucleus (1, 2, 3...)</li>
+            <li>Angular momentum quantum number (l) determines orbital shape: s(0), p(1), d(2), f(3)</li>
+            <li>Magnetic quantum number (ml) determines orbital orientation in space (-l to +l)</li>
+            <li>Spin quantum number (ms) describes electron spin direction (+½ or -½)</li>
+            <li>Pauli Exclusion Principle: no two electrons can have identical quantum numbers</li>
+            <li>Each orbital holds maximum 2 electrons with opposite spins</li>
+            <li>Zeeman effect demonstrates magnetic field splitting of energy levels into sublevels</li>
+            <li>Electron configuration notation (1s² 2s² 2p⁶...) describes arrangement of electrons in atoms</li>
+            <li>Quantum mechanics explains periodic table structure: electron capacity per shell matches period lengths</li>
+            <li>Wave mechanical model successfully explains molecular shapes through orbital hybridization</li>
+            <li>Multi-electron atoms require approximations in Schrödinger's equation due to electron-electron interactions</li>
+            <li>Quantum mechanics provides theoretical foundation for chemical bonding and molecular geometry</li>
+          </ul>
         </div>
       </div>
     </div>

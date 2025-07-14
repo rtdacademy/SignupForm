@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -159,46 +159,26 @@ const XRayProductionComponent = () => {
   );
 };
 
-const ComptonEffectManual = (props) => {
-  const [openSections, setOpenSections] = useState({
-    discovery: true,
-    properties: false,
-    comptonEffect: false,
-    examples: false,
-    newExamples: false,
-    keyTakeaways: false
-  });
-
-  const toggleSection = (section) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Lesson 61: The Compton Effect
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          The Compton Effect
         </h1>
-        <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+        <p className="text-lg text-gray-600">
+          Proving the particle nature of electromagnetic radiation
+        </p>
       </div>
 
-      {/* Discovery of X-rays Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('discovery')}
-          className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-blue-800">Discovery of X-rays</h2>
-          <span className={`transform transition-transform ${openSections.discovery ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.discovery && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="discovery" title="Discovery of X-rays" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               During all the research on cathode rays, several scientists missed their chance at some glory. 
               Heinrich Hertz narrowly missed discovering x-rays during his photoelectric effect research. 
@@ -257,25 +237,11 @@ const ComptonEffectManual = (props) => {
                 <BlockMath math="qV = hf" />
                 <BlockMath math="\lambda = \frac{hc}{qV}" />
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Examples Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('examples')}
-          className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-green-800">Examples</h2>
-          <span className={`transform transition-transform ${openSections.examples ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.examples && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="examples" title="X-ray Production Examples" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             
             {/* Example 1 */}
             <div className="mb-8 p-6 bg-white rounded-lg border border-gray-300 shadow-sm">
@@ -341,25 +307,11 @@ const ComptonEffectManual = (props) => {
                   <BlockMath math="\lambda = 1.55 \times 10^{-11} \text{ m}" />
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Properties of X-rays Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('properties')}
-          className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-purple-800">Properties of X-rays</h2>
-          <span className={`transform transition-transform ${openSections.properties ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.properties && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="properties" title="Properties of X-rays" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               The properties of x-rays are rather unique because of their ability to act as a wave or 
               as a particle to a much greater extent than visible light.
@@ -383,24 +335,11 @@ const ComptonEffectManual = (props) => {
                 </ul>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* The Compton Effect Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('comptonEffect')}
-          className="w-full flex items-center justify-between p-4 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-orange-800">The Compton Effect</h2>
-          <span className={`transform transition-transform ${openSections.comptonEffect ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.comptonEffect && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="comptonEffect" title="The Compton Effect" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-blue-100 p-4 rounded-lg mb-6">
               <h4 className="font-semibold text-blue-800 mb-2">Arthur Holly Compton (1892-1962)</h4>
               <p className="text-sm mb-2">
@@ -496,24 +435,11 @@ const ComptonEffectManual = (props) => {
               can be regarded as a particle with a definite momentum and energy. Photons have momentum and 
               energy (like a moving particle) but they also have a frequency and a wavelength (like a wave).
             </p>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* New Examples Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('newExamples')}
-          className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-indigo-800">Additional Examples</h2>
-          <span className={`transform transition-transform ${openSections.newExamples ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.newExamples && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <AIAccordion.Item value="newExamples" title="Additional Examples" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             
             {/* Example 3 */}
             <div className="mb-8 p-6 bg-white rounded-lg border border-gray-300 shadow-sm">
@@ -582,52 +508,48 @@ const ComptonEffectManual = (props) => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </AIAccordion.Item>
 
-      {/* Key Takeaways Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => toggleSection('keyTakeaways')}
-          className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
-        >
-          <h2 className="text-xl font-semibold text-gray-800">Key Takeaways</h2>
-          <span className={`transform transition-transform ${openSections.keyTakeaways ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-        </button>
-        
-        {openSections.keyTakeaways && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold text-blue-800 mb-3">X-ray Properties & Production</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm">
-                  <li>X-rays are electromagnetic radiation with wavelengths around 0.1 nm</li>
-                  <li>They exhibit both wave and particle characteristics</li>
-                  <li>X-ray production: <InlineMath math="qV = hf_{max}" /> and <InlineMath math="\lambda_{min} = \frac{hc}{qV}" /></li>
-                  <li>X-rays can penetrate matter but are stopped by dense materials like bone</li>
-                  <li>They can be diffracted by crystal structures (Bragg diffraction)</li>
-                </ol>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-green-800 mb-3">Compton Effect & Photon Momentum</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm">
-                  <li>Photons have momentum: <InlineMath math="p = \frac{h}{\lambda} = \frac{E}{c}" /></li>
-                  <li>Compton scattering proves particle nature of electromagnetic radiation</li>
-                  <li>Compton equation: <InlineMath math="\Delta\lambda = \frac{h}{mc}(1 - \cos\theta)" /></li>
-                  <li>Both energy and momentum are conserved in photon-electron collisions</li>
-                  <li>Arthur Compton won Nobel Prize in Physics (1927) for this discovery</li>
-                </ol>
-              </div>
-            </div>
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">X-ray Properties & Production</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>X-rays are electromagnetic radiation with wavelengths around 0.1 nm</li>
+              <li>They exhibit both wave and particle characteristics</li>
+              <li>X-ray production: <InlineMath math="qV = hf_{max}" /> and <InlineMath math="\lambda_{min} = \frac{hc}{qV}" /></li>
+              <li>X-rays can penetrate matter but are stopped by dense materials like bone</li>
+              <li>They can be diffracted by crystal structures (Bragg diffraction)</li>
+            </ul>
           </div>
-        )}
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Compton Effect & Photon Momentum</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Photons have momentum: <InlineMath math="p = \frac{h}{\lambda} = \frac{E}{c}" /></li>
+              <li>Compton scattering proves particle nature of electromagnetic radiation</li>
+              <li>Compton equation: <InlineMath math="\Delta\lambda = \frac{h}{mc}(1 - \cos\theta)" /></li>
+              <li>Both energy and momentum are conserved in photon-electron collisions</li>
+              <li>Arthur Compton won Nobel Prize in Physics (1927) for this discovery</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default ComptonEffectManual;
+export default ManualContent;

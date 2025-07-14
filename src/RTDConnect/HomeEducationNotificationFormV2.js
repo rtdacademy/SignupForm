@@ -985,7 +985,7 @@ I/We understand and agree that the development, administration and management of
                       Select the address where the home education program will be conducted.
                     </p>
                   </div>
-                )
+                )}
               </div>
             </CardContent>
           </Card>
