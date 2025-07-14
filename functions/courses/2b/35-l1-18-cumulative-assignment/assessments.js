@@ -1,4 +1,12 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+const ACTIVITY_TYPE = 'assignment';
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Question pools for each group - allows randomization while maintaining grouping
 const questionPools = {
@@ -301,30 +309,32 @@ const questions = [
   ...questionPools.group7
 ];
 
-// Export individual handlers for each question (15 total)
-const questionHandlers = {};
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
+
+// Assessment configurations for master function 
 const assessmentConfigs = {};
 
 for (let i = 1; i <= 15; i++) {
   const questionIndex = i - 1;
   const questionId = `course2_35_l118_question${i}`;
   
-  questionHandlers[questionId] = createStandardMultipleChoice({
-    questions: [questions[questionIndex]],
-    randomizeOptions: true,
-    activityType: 'assignment',
-    maxAttempts: 1,
-    pointsValue: 1
-  });
-  
   assessmentConfigs[questionId] = {
+    type: 'multiple-choice',
     questions: [questions[questionIndex]],
+    randomizeQuestions: false,
     randomizeOptions: true,
-    activityType: 'assignment', 
+    allowSameQuestion: true,
+    pointsValue: 1,
     maxAttempts: 1,
-    pointsValue: 1
+    showFeedback: true,
+    activityType: ACTIVITY_TYPE,
+    theme: 'purple'
   };
 }
 
-// Export all question handlers
-module.exports = { ...questionHandlers, assessmentConfigs };
+module.exports = { assessmentConfigs };

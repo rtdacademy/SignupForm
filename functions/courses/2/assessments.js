@@ -28,111 +28,151 @@ const { StandardLongAnswerCore } = require('../../shared/assessment-types/standa
 // We need to extract and recreate the question generator functions from the original file
 // Rather than importing the cloud functions, we'll recreate the core logic here
 
-// Import assessment configurations from all lesson files
-const { assessmentConfigs: physicsReviewConfigs } = require('../2a/01-physics-20-review/assessments');
-const { assessmentConfigs: momentum1DConfigs } = require('../2a/02-momentum-one-dimension/assessments');
-const { assessmentConfigs: momentum2DConfigs } = require('../2a/03-momentum-two-dimensions/assessments');
-const { assessmentConfigs: impulseConfigs } = require('../2a/04-impulse-momentum-change/assessments');
-const { assessmentConfigs: l13AssignmentConfigs } = require('../2a/05-l1-3-assignment/assessments');
-const { assessmentConfigs: graphingTechniquesConfigs } = require('../2a/06-graphing-techniques/assessments');
-const { assessmentConfigs: labMomentumConfigs } = require('../2a/07-lab-momentum-conservation/assessments');
-const { assessmentConfigs: l14CumulativeConfigs } = require('../2a/08-l1-4-cumulative-assignment/assessments');
-const { assessmentConfigs: introToLightConfigs } = require('../2a/09-introduction-to-light/assessments');
-const { assessmentConfigs: reflectionOfLightConfigs } = require('../2a/10-reflection-of-light/assessments');
-const { assessmentConfigs: curvedMirrorsConfigs } = require('../2a/11-curved-mirrors/assessments');
-const { assessmentConfigs: l57AssignmentConfigs } = require('../2a/12-l5-7-assignment/assessments');
-const { assessmentConfigs: refractionConfigs } = require('../2a2/13-refraction-of-light/assessments');
-const { assessmentConfigs: opticsLensesConfigs } = require('../2a2/14-optics-lenses/assessments');
-const { assessmentConfigs: labMirrorsLensesConfigs } = require('../2a2/15-lab-mirrors-lenses/assessments');
-const { assessmentConfigs: l89AssignmentConfigs } = require('../2a2/16-l8-9-assignment/assessments');
-const { assessmentConfigs: dispersionScatteringConfigs } = require('../2a2/17-dispersion-scattering/assessments');
-const { assessmentConfigs: interferenceOfLightConfigs } = require('../2a2/18-interference-of-light/assessments');
-const { assessmentConfigs: diffractionGratingsConfigs } = require('../2a2/19-diffraction-gratings/assessments');
-const { assessmentConfigs: labLaserWavelengthConfigs } = require('../2a2/20-lab-laser-wavelength/assessments');
-const { assessmentConfigs: l112CumulativeConfigs } = require('../2a2/21-l1-12-cumulative-assignment/assessments');
-const { assessmentConfigs: unit1ReviewConfigs } = require('../2a2/22-unit-1-review/assessments');
-const { assessmentConfigs: unit2ReviewConfigs } = require('../2a2/23-unit-2-review/assessments');
-const { assessmentConfigs: section1ExamConfigs } = require('../2a2/24-section-1-exam/assessments');
-
-const { assessmentConfigs: electrostaticsConfigs } = require('../2b/25-electrostatics/assessments');
-const { assessmentConfigs: coulombsLawConfigs } = require('../2b/26-coulombs-law/assessments');
-const { assessmentConfigs: l1314AssignmentConfigs } = require('../2b/28-l13-14-assignment/assessments');
-const { assessmentConfigs: electricFieldsConfigs } = require('../2b/29-electric-fields/assessments');
-const { assessmentConfigs: electricPotentialConfigs } = require('../2b/30-electric-potential/assessments');
-const { assessmentConfigs: parallelPlatesConfigs } = require('../2b/31-parallel-plates/assessments');
-const { assessmentConfigs: electricCurrentConfigs } = require('../2b/32-electric-current/assessments');
-const { assessmentConfigs: magneticFieldsConfigs } = require('../2b/36-magnetic-fields/assessments');
-const { assessmentConfigs: magneticForcesParticlesConfigs } = require('../2b/37-magnetic-forces-particles/assessments');
-const { assessmentConfigs: motorEffectConfigs } = require('../2b/38-motor-effect/assessments');
-const { assessmentConfigs: generatorEffectConfigs } = require('../2b/40-generator-effect/assessments');
-const { assessmentConfigs: electromagneticRadiationConfigs } = require('../2b/42-electromagnetic-radiation/assessments');
-const { assessmentConfigs: l1518AssignmentConfigs } = require('../2b/34-l15-18-assignment/assessments');
-const { assessmentConfigs: l118CumulativeConfigs } = require('../2b/35-l1-18-cumulative-assignment/assessments');
-const { assessmentConfigs: l1921AssignmentConfigs } = require('../2b/39-l19-21-assignment/assessments');
-const { assessmentConfigs: l2224AssignmentConfigs } = require('../2b/44-l22-24-assignment/assessments');
-const { assessmentConfigs: l124CumulativeConfigs } = require('../2b/45-l1-24-cumulative-assignment/assessments');
-const { assessmentConfigs: unit3ReviewConfigs } = require('../2b/46-unit-3-review/assessments');
-const { assessmentConfigs: unit4ReviewConfigs } = require('../2b/47-unit-4-review/assessments');
-const { assessmentConfigs: activitiesConfigs } = require('../2/41-activities/assessments');
+// ON-DEMAND LOADING: Assessment configurations are now loaded only when needed
+// This prevents the massive memory overhead of loading all assessment configs at startup
 
 /**
- * Assessment Configuration Mapping
- * Maps assessmentId to the appropriate assessment configuration
- * Now imports directly from the original assessment files
+ * Maps assessment ID patterns to their corresponding file paths
+ * This allows dynamic loading of only the needed assessment configuration
  */
-const getAllAssessmentConfigs = () => {
-  return {
-    // Standard Assessment Configurations
-    ...physicsReviewConfigs,
-    ...momentum1DConfigs,
-    ...momentum2DConfigs,
-    ...impulseConfigs,
-    ...l13AssignmentConfigs,
-    ...graphingTechniquesConfigs,
-    ...labMomentumConfigs,
-    ...l14CumulativeConfigs,
-    ...introToLightConfigs,
-    ...reflectionOfLightConfigs,
-    ...curvedMirrorsConfigs,
-    ...l57AssignmentConfigs,
-    ...refractionConfigs,
-    ...opticsLensesConfigs,
-    ...labMirrorsLensesConfigs,
-    ...l89AssignmentConfigs,
-    ...dispersionScatteringConfigs,
-    ...interferenceOfLightConfigs,
-    ...diffractionGratingsConfigs,
-    ...labLaserWavelengthConfigs,
-    ...l112CumulativeConfigs,
-    ...unit1ReviewConfigs,
-    ...unit2ReviewConfigs,
-    ...section1ExamConfigs,
-    ...electrostaticsConfigs,
-    ...coulombsLawConfigs,
-    ...l1314AssignmentConfigs,
-    ...electricFieldsConfigs,
-    ...electricPotentialConfigs,
-    ...parallelPlatesConfigs,
-    ...electricCurrentConfigs,
-    ...magneticFieldsConfigs,
-    ...magneticForcesParticlesConfigs,
-    ...motorEffectConfigs,
-    ...generatorEffectConfigs,
-    ...electromagneticRadiationConfigs,
-    ...activitiesConfigs,
-    ...l1518AssignmentConfigs,
-    ...l118CumulativeConfigs,
-    ...l1921AssignmentConfigs,
-    ...l2224AssignmentConfigs,
-    ...l124CumulativeConfigs,
-    ...unit3ReviewConfigs,
-    ...unit4ReviewConfigs
+const getAssessmentFilePath = (assessmentId) => {
+  // Extract lesson identifier from assessmentId (e.g., course2_25_question1 -> 25)
+  const match = assessmentId.match(/course2_(\d+[a-z]*)_/);
+  if (!match) {
+    console.error(`Cannot parse lesson number from assessmentId: ${assessmentId}`);
+    return null;
+  }
+  
+  const lessonNumber = match[1];
+  
+  // Map lesson numbers to their directory paths
+  const lessonMapping = {
+    // Course 2a lessons
+    '01': '../2a/01-physics-20-review/assessments',
+    '02': '../2a/02-momentum-one-dimension/assessments', 
+    '03': '../2a/03-momentum-two-dimensions/assessments',
+    '04': '../2a/04-impulse-momentum-change/assessments',
+    '05': '../2a/05-l1-3-assignment/assessments',
+    '06': '../2a/06-graphing-techniques/assessments',
+    '07': '../2a/07-lab-momentum-conservation/assessments',
+    '08': '../2a/08-l1-4-cumulative-assignment/assessments',
+    '09': '../2a/09-introduction-to-light/assessments',
+    '10': '../2a/10-reflection-of-light/assessments',
+    '11': '../2a/11-curved-mirrors/assessments',
+    '12': '../2a/12-l5-7-assignment/assessments',
+    
+    // Course 2a2 lessons  
+    '13': '../2a2/13-refraction-of-light/assessments',
+    '14': '../2a2/14-optics-lenses/assessments',
+    '15': '../2a2/15-lab-mirrors-lenses/assessments',
+    '16': '../2a2/16-l8-9-assignment/assessments',
+    '17': '../2a2/17-dispersion-scattering/assessments',
+    '18': '../2a2/18-interference-of-light/assessments',
+    '19': '../2a2/19-diffraction-gratings/assessments',
+    '20': '../2a2/20-lab-laser-wavelength/assessments',
+    '21': '../2a2/21-l1-12-cumulative-assignment/assessments',
+    '22': '../2a2/22-unit-1-review/assessments',
+    '23': '../2a2/23-unit-2-review/assessments',
+    '24': '../2a2/24-section-1-exam/assessments',
+    
+    // Course 2b lessons
+    '25': '../2b/25-electrostatics/assessments',
+    '26': '../2b/26-coulombs-law/assessments',
+    '27': '../2a/27-lab-electrostatic/assessments',
+    '28': '../2b/28-l13-14-assignment/assessments',
+    '29': '../2b/29-electric-fields/assessments',
+    '30': '../2b/30-electric-potential/assessments',
+    '31': '../2b/31-parallel-plates/assessments',
+    '32': '../2b/32-electric-current/assessments',
+    '33': '../2a/33-lab-electric-fields/assessments',
+    '34': '../2b/34-l15-18-assignment/assessments',
+    '35': '../2b/35-l1-18-cumulative-assignment/assessments',
+    '36': '../2b/36-magnetic-fields/assessments',
+    '37': '../2b/37-magnetic-forces-particles/assessments',
+    '38': '../2b/38-motor-effect/assessments',
+    '39': '../2b/39-l19-21-assignment/assessments',
+    '40': '../2b/40-generator-effect/assessments',
+    '41': '../2/41-activities/assessments',
+    '42': '../2b/42-electromagnetic-radiation/assessments',
+    '43': '../2b/43-lab-electromagnet/assessments',
+    '44': '../2b/44-l22-24-assignment/assessments',
+    '45': '../2b/45-l1-24-cumulative-assignment/assessments',
+    '46': '../2b/46-unit-3-review/assessments',
+    '47': '../2b/47-unit-4-review/assessments',
+    '48': '../2b/48-section-2-exam/assessments',
+    
+    // Course 2c lessons
+    '49': '../2b/49-early-atomic-models/assessments',
+    '50': '../2b/50-cathode-rays/assessments',
+    '51': '../2b/51-rutherford-atom/assessments',
+    '52': '../2b/52-l25-27-assignment/assessments',
+    '53': '../2b/53-quantization-of-light/assessments',
+    '54': '../2c/54-lab-plancks-constant/assessments',
+    '55': '../2b/55-photoelectric-effect/assessments',
+    '56': '../2c/56-lab-millikans-oil-drop/assessments',
+    '57': '../2c/57-light-spectra-excitation/assessments',
+    '58': '../2c/58-lab-marshmallow-speed-light/assessments',
+    '59': '../2c/59-l28-30-assignment/assessments',
+    '60': '../2c/60-bohr-model/assessments',
+    '61': '../2c/61-compton-effect/assessments',
+    '62': '../2c/62-wave-particle-nature/assessments',
+    '63': '../2c/63-l31-33-assignment/assessments',
+    '64': '../2c/64-quantum-mechanics/assessments',
+    '65': '../2c/65-l1-34-cumulative-assignment/assessments',
+    '66': '../2c/66-nuclear-physics/assessments',
+    '67': '../2c/67-radioactivity/assessments',
+    '68': '../2c/68-lab-half-life/assessments',
+    '69': '../2c/69-l35-36-assignment/assessments',
+    '70': '../2c/70-particle-physics/assessments',
+    '71': '../2c/71-quarks/assessments',
+    '72': '../2c/72-l37-38-assignment/assessments',
+    '73': '../2c/73-l1-38-cumulative-assignment/assessments',
+    '74': '../2c/74-unit-5-review/assessments',
+    '75': '../2c/75-unit-6-review/assessments',
+    '76': '../2c/76-section-3-exam/assessments',
+    '77': '../2c/77-diploma-exam-review/assessments',
+    '78': '../2c/78-diploma-exam/assessments'
   };
+  
+  return lessonMapping[lessonNumber] || null;
 };
 
+/**
+ * Dynamically loads assessment configuration only when needed
+ * This replaces the previous approach of loading all configs at startup
+ */
 const getAssessmentConfig = (assessmentId) => {
-  const allConfigs = getAllAssessmentConfigs();
-  return allConfigs[assessmentId] || null;
+  try {
+    const filePath = getAssessmentFilePath(assessmentId);
+    if (!filePath) {
+      console.error(`No file path found for assessmentId: ${assessmentId}`);
+      return null;
+    }
+    
+    console.log(`Loading assessment config from: ${filePath}`);
+    
+    // Dynamically require the assessment file
+    const assessmentModule = require(filePath);
+    
+    if (!assessmentModule.assessmentConfigs) {
+      console.error(`No assessmentConfigs exported from: ${filePath}`);
+      return null;
+    }
+    
+    const config = assessmentModule.assessmentConfigs[assessmentId];
+    if (!config) {
+      console.error(`Assessment config not found for ${assessmentId} in ${filePath}`);
+      console.log('Available configs:', Object.keys(assessmentModule.assessmentConfigs));
+      return null;
+    }
+    
+    console.log(`Successfully loaded config for: ${assessmentId}`);
+    return config;
+    
+  } catch (error) {
+    console.error(`Error loading assessment config for ${assessmentId}:`, error.message);
+    return null;
+  }
 };
 
 /**

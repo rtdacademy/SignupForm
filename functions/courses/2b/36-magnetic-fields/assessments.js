@@ -1,7 +1,5 @@
-//const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-//const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-//const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');
@@ -253,189 +251,32 @@ const questionPool = [
 
 
 
-// Assessment configurations for master function 
-const assessmentConfigs = {
-  'course2_36_question1': {
-    type: 'multiple-choice',
-    questions: [questionPool[0]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question2': {
-    type: 'multiple-choice',
-    questions: [questionPool[1]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question3': {
-    type: 'multiple-choice',
-    questions: [questionPool[2]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question4': {
-    type: 'multiple-choice',
-    questions: [questionPool[3]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question5': {
-    type: 'multiple-choice',
-    questions: [questionPool[4]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question6': {
-    type: 'multiple-choice',
-    questions: [questionPool[5]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question7': {
-    type: 'multiple-choice',
-    questions: [questionPool[6]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question8': {
-    type: 'multiple-choice',
-    questions: [questionPool[7]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question9': {
-    type: 'multiple-choice',
-    questions: [questionPool[8]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question10': {
-    type: 'multiple-choice',
-    questions: [questionPool[9]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question11': {
-    type: 'multiple-choice',
-    questions: [questionPool[10]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question12': {
-    type: 'multiple-choice',
-    questions: [questionPool[11]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question13': {
-    type: 'multiple-choice',
-    questions: [questionPool[12]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question14': {
-    type: 'multiple-choice',
-    questions: [questionPool[13]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  },
-  'course2_36_question15': {
-    type: 'multiple-choice',
-    questions: [questionPool[14]],
-    randomizeQuestions: false,
-    randomizeOptions: true,
-    allowSameQuestion: true,
-    pointsValue: 1,
-    maxAttempts: 9999,
-    showFeedback: true,
-    activityType: 'lesson',
-    theme: 'blue'
-  }
-};
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
 
-// Export for master function
-exports.assessmentConfigs = assessmentConfigs;
+// Assessment configurations for master function 
+const assessmentConfigs = {};
+
+questionPool.forEach((questionData, index) => {
+  const questionNumber = index + 1;
+  const questionId = `course2_36_question${questionNumber}`;
+  
+  assessmentConfigs[questionId] = {
+    type: 'multiple-choice',
+    questions: [questionData],
+    randomizeQuestions: false,
+    randomizeOptions: true,
+    allowSameQuestion: true,
+    pointsValue: 1,
+    maxAttempts: 9999,
+    showFeedback: true,
+    activityType: ACTIVITY_TYPE,
+    theme: 'blue'
+  };
+});
+
+module.exports = { assessmentConfigs };
