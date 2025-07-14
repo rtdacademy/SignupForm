@@ -1,7 +1,5 @@
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');

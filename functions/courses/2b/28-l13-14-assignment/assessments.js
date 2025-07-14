@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 const questions = [
   // Question 1
@@ -152,86 +152,7 @@ const questions = [
   }
 ];
 
-// Export the handlers directly for Firebase Functions
-exports.course2_28_l1314_question1 = createStandardMultipleChoice({
-  questions: [questions[0]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
 
-exports.course2_28_l1314_question2 = createStandardMultipleChoice({
-  questions: [questions[1]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question3 = createStandardMultipleChoice({
-  questions: [questions[2]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question4 = createStandardMultipleChoice({
-  questions: [questions[3]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question5 = createStandardMultipleChoice({
-  questions: [questions[4]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question6 = createStandardMultipleChoice({
-  questions: [questions[5]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question7 = createStandardMultipleChoice({
-  questions: [questions[6]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question8 = createStandardMultipleChoice({
-  questions: [questions[7]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question9 = createStandardMultipleChoice({
-  questions: [questions[8]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
-
-exports.course2_28_l1314_question10 = createStandardMultipleChoice({
-  questions: [questions[9]],
-  randomizeOptions: true,
-  activityType: 'assignment',
-  maxAttempts: 3,
-  pointsValue: 1
-});
 
 // Export assessment configurations for master function
 const assessmentConfigs = {

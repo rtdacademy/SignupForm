@@ -1,7 +1,5 @@
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');
@@ -164,138 +162,12 @@ const questionPool = [
   }
 ];
 
-// Individual question exports for SlideshowKnowledgeCheck
-exports.course2_32_question1 = createStandardMultipleChoice({
-  questions: [questionPool[0]], // Toaster current calculation
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question2 = createStandardMultipleChoice({
-  questions: [questionPool[1]], // Light bulb charge
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question3 = createStandardMultipleChoice({
-  questions: [questionPool[2]], // Electroscope discharge current
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question4 = createStandardMultipleChoice({
-  questions: [questionPool[3]], // Motor time calculation
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question5 = createStandardMultipleChoice({
-  questions: [questionPool[4]], // Electrons per second
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question6 = createStandardMultipleChoice({
-  questions: [questionPool[5]], // Radio resistance
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question7 = createStandardMultipleChoice({
-  questions: [questionPool[6]], // Clothes dryer current
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question8 = createStandardMultipleChoice({
-  questions: [questionPool[7]], // TV tube voltage
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question9 = createStandardMultipleChoice({
-  questions: [questionPool[8]], // Toaster current from voltage
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question10 = createStandardMultipleChoice({
-  questions: [questionPool[9]], // Load voltage requirement
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_32_question11 = createStandardMultipleChoice({
-  questions: [questionPool[10]], // Conventional current vs electron flow
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
 
 // Assessment configurations for master function 
 const assessmentConfigs = {
@@ -433,5 +305,6 @@ const assessmentConfigs = {
   }
 };
 
-// Export for master function
-exports.assessmentConfigs = assessmentConfigs;
+module.exports = { 
+  assessmentConfigs
+};

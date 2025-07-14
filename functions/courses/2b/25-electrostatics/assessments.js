@@ -1,7 +1,5 @@
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');
@@ -451,189 +449,11 @@ const createDifferentSpheresQuestion = () => {
 };
 
 // ========================================
-// EXPORT ASSESSMENT CONFIGURATIONS
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
 // ========================================
-
-// Export each question with 5 random variations
-exports.course2_25_conservation_of_charge = createStandardMultipleChoice({
-  questions: [
-    createConservationQuestion(),
-    createConservationQuestion(),
-    createConservationQuestion(),
-    createConservationQuestion(),
-    createConservationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_charge_movement_in_solids = createStandardMultipleChoice({
-  questions: [
-    createChargeMovementQuestion(),
-    createChargeMovementQuestion(),
-    createChargeMovementQuestion(),
-    createChargeMovementQuestion(),
-    createChargeMovementQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_conductor_vs_insulator = createStandardMultipleChoice({
-  questions: [
-    createConductorInsulatorQuestion(),
-    createConductorInsulatorQuestion(),
-    createConductorInsulatorQuestion(),
-    createConductorInsulatorQuestion(),
-    createConductorInsulatorQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_electrostatic_series = createStandardMultipleChoice({
-  questions: [
-    createElectrostaticSeriesQuestion(),
-    createElectrostaticSeriesQuestion(),
-    createElectrostaticSeriesQuestion(),
-    createElectrostaticSeriesQuestion(),
-    createElectrostaticSeriesQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_electron_charge = createStandardMultipleChoice({
-  questions: [
-    createElectronChargeQuestion(),
-    createElectronChargeQuestion(),
-    createElectronChargeQuestion(),
-    createElectronChargeQuestion(),
-    createElectronChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_induced_charge = createStandardMultipleChoice({
-  questions: [
-    createInducedChargeQuestion(),
-    createInducedChargeQuestion(),
-    createInducedChargeQuestion(),
-    createInducedChargeQuestion(),
-    createInducedChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_conduction_charging = createStandardMultipleChoice({
-  questions: [
-    createConductionChargingQuestion(),
-    createConductionChargingQuestion(),
-    createConductionChargingQuestion(),
-    createConductionChargingQuestion(),
-    createConductionChargingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_induction_charging = createStandardMultipleChoice({
-  questions: [
-    createInductionChargingQuestion(),
-    createInductionChargingQuestion(),
-    createInductionChargingQuestion(),
-    createInductionChargingQuestion(),
-    createInductionChargingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_conduction_result = createStandardMultipleChoice({
-  questions: [
-    createConductionResultQuestion(),
-    createConductionResultQuestion(),
-    createConductionResultQuestion(),
-    createConductionResultQuestion(),
-    createConductionResultQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_induction_result = createStandardMultipleChoice({
-  questions: [
-    createInductionResultQuestion(),
-    createInductionResultQuestion(),
-    createInductionResultQuestion(),
-    createInductionResultQuestion(),
-    createInductionResultQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_spheres_charge = createStandardMultipleChoice({
-  questions: [
-    createSpheresChargeQuestion(),
-    createSpheresChargeQuestion(),
-    createSpheresChargeQuestion(),
-    createSpheresChargeQuestion(),
-    createSpheresChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_25_different_spheres = createStandardMultipleChoice({
-  questions: [
-    createDifferentSpheresQuestion(),
-    createDifferentSpheresQuestion(),
-    createDifferentSpheresQuestion(),
-    createDifferentSpheresQuestion(),
-    createDifferentSpheresQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
 
 // Export the assessment configurations for the master function
 const assessmentConfigs = {
@@ -831,16 +651,6 @@ const assessmentConfigs = {
   }
 };
 
-const assessments = {
-  assessment1: {
-    type: 'ai-multiple-choice',
-    handler: createAIMultipleChoice({
-      systemPrompt: `You are an assessment generator for Lesson 13 - Electrostatics in Electrostatics & Electricity.`,
-      userPrompt: `Generate a multiple choice question about Lesson 13 - Electrostatics concepts.`,
-      temperature: 0.7,
-      courseId: 2
-    })
-  }
+module.exports = { 
+  assessmentConfigs
 };
-
-exports.assessmentConfigs = assessmentConfigs;

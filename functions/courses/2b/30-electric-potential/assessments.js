@@ -1,7 +1,5 @@
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');
@@ -99,78 +97,12 @@ const questionPool = [
   }
 ];
 
-// Individual question exports for SlideshowKnowledgeCheck
-exports.course2_30_question1 = createStandardMultipleChoice({
-  questions: [questionPool[0]], // Spark gap potential
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_30_question2 = createStandardMultipleChoice({
-  questions: [questionPool[1]], // Alpha particle speed
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_30_question3 = createStandardMultipleChoice({
-  questions: [questionPool[2]], // Fluorine nucleus kinetic energy
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_30_question4 = createStandardMultipleChoice({
-  questions: [questionPool[3]], // Alpha particle to 1/10 speed of light
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_30_question5 = createStandardMultipleChoice({
-  questions: [questionPool[4]], // Proton momentum
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
-
-exports.course2_30_question6 = createStandardMultipleChoice({
-  questions: [questionPool[5]], // Electron collision speed
-  randomizeQuestions: false,
-  randomizeOptions: true,
-  allowSameQuestion: true,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  activityType: 'lesson',
-  theme: 'indigo'
-});
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
 
 // Assessment configurations for master function 
 const assessmentConfigs = {
@@ -248,5 +180,6 @@ const assessmentConfigs = {
   }
 };
 
-// Export for master function
-exports.assessmentConfigs = assessmentConfigs;
+module.exports = { 
+  assessmentConfigs
+};

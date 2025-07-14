@@ -1,7 +1,5 @@
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+// Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../shared/utilities/database-utils');
 
 // Load course configuration
 const courseConfig = require('../shared/courses-config/2/course-config.json');
@@ -511,171 +509,12 @@ const createEquilibriumPositionQuestion = () => {
   };
 };
 
-// Export configurations for individual functions and assessment configs
-exports.course2_26_basic_force = createStandardMultipleChoice({
-  questions: [
-    createBasicForceQuestion(),
-    createBasicForceQuestion(),
-    createBasicForceQuestion(),
-    createBasicForceQuestion(),
-    createBasicForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_force_scaling = createStandardMultipleChoice({
-  questions: [
-    createForceScalingQuestion(),
-    createForceScalingQuestion(),
-    createForceScalingQuestion(),
-    createForceScalingQuestion(),
-    createForceScalingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_unknown_charge = createStandardMultipleChoice({
-  questions: [
-    createUnknownChargeQuestion(),
-    createUnknownChargeQuestion(),
-    createUnknownChargeQuestion(),
-    createUnknownChargeQuestion(),
-    createUnknownChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_spheres_contact = createStandardMultipleChoice({
-  questions: [
-    createSpheresContactQuestion(),
-    createSpheresContactQuestion(),
-    createSpheresContactQuestion(),
-    createSpheresContactQuestion(),
-    createSpheresContactQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_force_changes = createStandardMultipleChoice({
-  questions: [
-    createForceChangeQuestion(),
-    createForceChangeQuestion(),
-    createForceChangeQuestion(),
-    createForceChangeQuestion(),
-    createForceChangeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_third_charge = createStandardMultipleChoice({
-  questions: [
-    createThirdChargeQuestion1(),
-    createThirdChargeQuestion1(),
-    createThirdChargeQuestion1(),
-    createThirdChargeQuestion1(),
-    createThirdChargeQuestion1()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_larger_charge = createStandardMultipleChoice({
-  questions: [
-    createLargerChargeQuestion(),
-    createLargerChargeQuestion(),
-    createLargerChargeQuestion(),
-    createLargerChargeQuestion(),
-    createLargerChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_triangle_forces = createStandardMultipleChoice({
-  questions: [
-    createTriangleChargesQuestion(),
-    createTriangleChargesQuestion(),
-    createTriangleChargesQuestion(),
-    createTriangleChargesQuestion(),
-    createTriangleChargesQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_vector_forces = createStandardMultipleChoice({
-  questions: [
-    createVectorForceQuestion(),
-    createVectorForceQuestion(),
-    createVectorForceQuestion(),
-    createVectorForceQuestion(),
-    createVectorForceQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_minimum_charge = createStandardMultipleChoice({
-  questions: [
-    createMinimumChargeQuestion(),
-    createMinimumChargeQuestion(),
-    createMinimumChargeQuestion(),
-    createMinimumChargeQuestion(),
-    createMinimumChargeQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
-exports.course2_26_equilibrium_position = createStandardMultipleChoice({
-  questions: [
-    createEquilibriumPositionQuestion(),
-    createEquilibriumPositionQuestion(),
-    createEquilibriumPositionQuestion(),
-    createEquilibriumPositionQuestion(),
-    createEquilibriumPositionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
 
 // Assessment configurations for master function
 const assessmentConfigs = {
@@ -857,16 +696,6 @@ const assessmentConfigs = {
   }
 };
 
-exports.assessmentConfigs = assessmentConfigs;
-
-const assessments = {
-  assessment1: {
-    type: 'ai-multiple-choice',
-    handler: createAIMultipleChoice({
-      systemPrompt: `You are an assessment generator for Lesson 14 - Coulomb's Law in Electrostatics & Electricity.`,
-      userPrompt: `Generate a multiple choice question about Lesson 14 - Coulomb's Law concepts.`,
-      temperature: 0.7,
-      courseId: 2
-    })
-  }
+module.exports = { 
+  assessmentConfigs
 };
