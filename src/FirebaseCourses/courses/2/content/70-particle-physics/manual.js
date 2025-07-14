@@ -424,30 +424,26 @@ const ForcesComponent = () => {
   );
 };
 
-const ManualContent = () => {
-  const [showIntroduction, setShowIntroduction] = useState(false);
-  const [showDetectors, setShowDetectors] = useState(false);
-  const [showAntiparticles, setShowAntiparticles] = useState(false);
-  const [showExample1, setShowExample1] = useState(false);
-  const [showExample2, setShowExample2] = useState(false);
-  const [showForces, setShowForces] = useState(false);
-  const [showKeyTakeaways, setShowKeyTakeaways] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6">
-      <h2 className="text-3xl font-bold text-center mb-8">Lesson 37: Particle Physics</h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Particle Physics
+        </h1>
+        <p className="text-lg text-gray-600">
+          Elementary particles and fundamental forces
+        </p>
+      </div>
 
-      {/* Introduction */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowIntroduction(!showIntroduction)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Introduction to Particle Physics</span>
-          <span>{showIntroduction ? '−' : '+'}</span>
-        </button>
-        {showIntroduction && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="introduction" title="Introduction to Particle Physics" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <blockquote className="italic text-gray-700 mb-4 border-l-4 border-blue-500 pl-4">
               "The stumbling way in which even the ablest of the scientists in every generation 
               have had to fight through thickets of erroneous observations, misleading generalizations, 
@@ -476,20 +472,10 @@ const ManualContent = () => {
               participants in the field of physics known as <strong>elementary particle physics</strong>.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Particle Detectors */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowDetectors(!showDetectors)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Particle Detectors</span>
-          <span>{showDetectors ? '−' : '+'}</span>
-        </button>
-        {showDetectors && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="detectors" title="Particle Detectors" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Subatomic particles are far too small and move too fast to be observed directly. 
               Also, most elementary particles decay into smaller particles very quickly – i.e. 
@@ -539,20 +525,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Antiparticles */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAntiparticles(!showAntiparticles)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Antiparticles and Pair Production</span>
-          <span>{showAntiparticles ? '−' : '+'}</span>
-        </button>
-        {showAntiparticles && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="antiparticles" title="Antiparticles and Pair Production" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Carl Anderson was the first to observe the positron. In his experiment, high-energy 
               cosmic rays, consisting of highly energetic gamma ray photons, passed through a cloud 
@@ -604,20 +580,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 1 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample1(!showExample1)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 1: Minimum Energy for Pair Production</span>
-          <span>{showExample1 ? '−' : '+'}</span>
-        </button>
-        {showExample1 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example1" title="Minimum Energy for Pair Production" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               What is the minimum frequency of a photon required to produce a stationary electron-positron pair?
             </p>
@@ -640,20 +606,10 @@ const ManualContent = () => {
               which is much shorter than visible light wavelengths.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Nuclear Forces */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowForces(!showForces)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Nuclear Forces</span>
-          <span>{showForces ? '−' : '+'}</span>
-        </button>
-        {showForces && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="forces" title="Nuclear Forces" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Soon after the nucleus was discovered there arose an obvious question: Since a group 
               of positively charge particles must repel each other, what holds the nucleus together? 
@@ -703,20 +659,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 2 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample2(!showExample2)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 2: Force Between Protons</span>
-          <span>{showExample2 ? '−' : '+'}</span>
-        </button>
-        {showExample2 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example2" title="Force Between Protons" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               Calculate the electrostatic repulsion force between two protons separated by 2.0 × 10⁻¹⁵ m 
               (typical nuclear dimension).
@@ -746,39 +692,64 @@ const ManualContent = () => {
               to hold the nucleus together.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Key Takeaways */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowKeyTakeaways(!showKeyTakeaways)}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Key Takeaways</span>
-          <span>{showKeyTakeaways ? '−' : '+'}</span>
-        </button>
-        {showKeyTakeaways && (
-          <div className="mt-4 p-6 bg-purple-50 rounded-lg shadow-inner">
-            <ol className="list-decimal list-inside space-y-3">
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">Particle Detection & Discovery</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Elementary particle physics studies the fundamental building blocks of matter</li>
               <li>Over 300 subatomic particles have been discovered since the 1930s</li>
-              <li>Particle detectors use interactions between particles and detector materials to track particle paths</li>
               <li>Cloud chambers show particle tracks as vapor condensation trails around ions</li>
               <li>Bubble chambers use superheated liquids that boil around charged particle tracks</li>
               <li>Only charged particles leave visible tracks; neutral particles are detected indirectly</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Antiparticles & Pair Production</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Carl Anderson discovered the positron through cosmic ray experiments in cloud chambers</li>
               <li>Pair production: high-energy photon creates electron-positron pair near nucleus</li>
               <li>Minimum energy for pair production: <InlineMath math="E = 2m_e c^2 = 1.022 \text{ MeV}" /></li>
               <li>Pair annihilation: electron and positron destroy each other, producing two gamma rays</li>
               <li>Antiparticles have same mass but opposite charge of their corresponding particles</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-purple-800 mb-3">Fundamental Forces</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Strong nuclear force holds nucleus together despite proton-proton repulsion</li>
               <li>Strong force: strongest force, range ≈ 10⁻¹⁵ m, attractive at nuclear distances</li>
               <li>Four fundamental forces: strong, electromagnetic, weak nuclear, gravitational</li>
               <li>Nuclear instability arises from limited range of strong force and weak force effects</li>
-            </ol>
+            </ul>
           </div>
-        )}
+          
+          <div>
+            <h4 className="font-semibold text-orange-800 mb-3">Energy & Calculations</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Particle detectors use interactions between particles and detector materials to track particle paths</li>
+              <li>High-energy physics requires relativistic calculations and mass-energy equivalence</li>
+              <li>Electromagnetic repulsion between protons requires strong force to overcome in nucleus</li>
+              <li>Particle physics calculations often involve extremely large energies and small distances</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

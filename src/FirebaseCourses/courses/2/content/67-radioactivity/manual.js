@@ -213,36 +213,26 @@ const DecayGraphComponent = () => {
   );
 };
 
-const ManualContent = () => {
-  const [showDiscovery, setShowDiscovery] = useState(false);
-  const [showAlphaBeta, setShowAlphaBeta] = useState(false);
-  const [showGamma, setShowGamma] = useState(false);
-  const [showConservationAlpha, setShowConservationAlpha] = useState(false);
-  const [showConservationBeta, setShowConservationBeta] = useState(false);
-  const [showBiological, setShowBiological] = useState(false);
-  const [showDecayRate, setShowDecayRate] = useState(false);
-  const [showExample1, setShowExample1] = useState(false);
-  const [showExample2, setShowExample2] = useState(false);
-  const [showExample3, setShowExample3] = useState(false);
-  const [showExample4, setShowExample4] = useState(false);
-  const [showExample5, setShowExample5] = useState(false);
-  const [showKeyTakeaways, setShowKeyTakeaways] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6">
-      <h2 className="text-3xl font-bold text-center mb-8">Lesson 36: Radioactivity</h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Radioactivity
+        </h1>
+        <p className="text-lg text-gray-600">
+          Spontaneous nuclear decay and radiation emission
+        </p>
+      </div>
 
-      {/* Discovery of Radioactivity */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowDiscovery(!showDiscovery)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Discovery of Radioactivity</span>
-          <span>{showDiscovery ? '−' : '+'}</span>
-        </button>
-        {showDiscovery && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="discovery" title="Discovery of Radioactivity" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Recall from Lesson 25 that one of Dalton's postulates was that atoms are permanent and unchangeable. 
               In 1896, Henri Becquerel was doing experiments to find x-ray emissions from phosphorescent crystals 
@@ -269,20 +259,10 @@ const ManualContent = () => {
               a third type of emission, gamma (γ) rays.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Alpha and Beta Particles */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAlphaBeta(!showAlphaBeta)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Alpha and Beta Particles</span>
-          <span>{showAlphaBeta ? '−' : '+'}</span>
-        </button>
-        {showAlphaBeta && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="alphaBeta" title="Alpha and Beta Particles" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <h3 className="text-xl font-semibold mb-3">Alpha (α) particles</h3>
             <ul className="list-disc list-inside mb-4 space-y-2">
               <li>They are positively charged particles ejected from a nucleus (actually <InlineMath math="^4_2He" /> nuclei)</li>
@@ -304,20 +284,10 @@ const ManualContent = () => {
               <li>High energy γ rays can penetrate at least 30 cm of lead and 2 km of air</li>
             </ul>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 1 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample1(!showExample1)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 1: Nuclear Equations</span>
-          <span>{showExample1 ? '−' : '+'}</span>
-        </button>
-        {showExample1 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example1" title="Nuclear Equations" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">Write complete nuclear equations for the following:</p>
             
             <div className="mb-4">
@@ -348,20 +318,10 @@ const ManualContent = () => {
               <BlockMath math="^{226}_{88}Ra \\rightarrow ^4_2He + ^{222}_{86}Rn" />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Conservation Laws - Alpha Decay */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowConservationAlpha(!showConservationAlpha)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Conservation Laws Applied to Alpha Decay</span>
-          <span>{showConservationAlpha ? '−' : '+'}</span>
-        </button>
-        {showConservationAlpha && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="conservationAlpha" title="Conservation Laws Applied to Alpha Decay" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               As we saw in Lesson 35, the law of conservation of energy includes Einstein's mass-energy 
               relationship (E = mc²). We will now apply this to radioactive decay.
@@ -391,20 +351,10 @@ const ManualContent = () => {
               all have the same energy.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Conservation Laws - Beta Decay */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowConservationBeta(!showConservationBeta)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Conservation Laws Applied to Beta Decay</span>
-          <span>{showConservationBeta ? '−' : '+'}</span>
-        </button>
-        {showConservationBeta && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="conservationBeta" title="Conservation Laws Applied to Beta Decay" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               For alpha particles, conservation of mass-energy worked well, but this was not so for beta particles. 
               Beta particles were found to have a range of kinetic energies, not a single value.
@@ -435,20 +385,10 @@ const ManualContent = () => {
               <p><strong>β⁺ decay:</strong> <InlineMath math="^A_ZX \\rightarrow ^A_{Z-1}Y + ^0_{+1}e + \\nu" /></p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 2 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample2(!showExample2)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 2: Beta Decay Equations</span>
-          <span>{showExample2 ? '−' : '+'}</span>
-        </button>
-        {showExample2 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example2" title="Beta Decay Equations" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">Write complete nuclear equations for the following:</p>
             
             <div className="mb-4">
@@ -479,20 +419,10 @@ const ManualContent = () => {
               <BlockMath math="^{234}_{93}Np \\rightarrow ^0_{+1}e + \\nu + ^{234}_{92}U" />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Gamma Radiation */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowGamma(!showGamma)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Gamma Radiation</span>
-          <span>{showGamma ? '−' : '+'}</span>
-        </button>
-        {showGamma && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="gamma" title="Gamma Radiation" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Like atoms, nuclei also have excitation energy levels. When making a transition to a lower-energy 
               state, a nucleus emits a gamma-ray photon.
@@ -513,20 +443,10 @@ const ManualContent = () => {
               nucleus. Gamma rays can have energies ranging from thousands to millions of electron volts.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Biological Effects */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowBiological(!showBiological)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Biological Effects of Ionizing Radiation</span>
-          <span>{showBiological ? '−' : '+'}</span>
-        </button>
-        {showBiological && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="biological" title="Biological Effects of Ionizing Radiation" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Ionizing radiation consists of photons and/or moving particles that have sufficient energy to 
               knock an electron out of an atom or molecule, thus forming an ion.
@@ -575,20 +495,10 @@ const ManualContent = () => {
               The severity depends on the dose received.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Decay Rate and Half-Life */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowDecayRate(!showDecayRate)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Decay Rate and Half-Life</span>
-          <span>{showDecayRate ? '−' : '+'}</span>
-        </button>
-        {showDecayRate && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="decayRate" title="Decay Rate and Half-Life" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               Radioactive elements do not decay all at once. Their decay rate is governed by an exponential equation:
             </p>
@@ -615,20 +525,10 @@ const ManualContent = () => {
               <DecayGraphComponent />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 3 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample3(!showExample3)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 3: Activity After Time</span>
-          <span>{showExample3 ? '−' : '+'}</span>
-        </button>
-        {showExample3 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example3" title="Activity After Time" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               The half-life of a radioactive isotope is 2.5 years. If the activity of the original sample 
               of this isotope was 3.2 × 10³ Bq, what is its activity after 5 years?
@@ -645,20 +545,10 @@ const ManualContent = () => {
               <BlockMath math="N = 8.0 \\times 10^2\\text{ Bq}" />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 4 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample4(!showExample4)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 4: Mass Remaining</span>
-          <span>{showExample4 ? '−' : '+'}</span>
-        </button>
-        {showExample4 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example4" title="Mass Remaining" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               A 2.0 gram sample of a radioactive isotope undergoes radioactive decay. If the half-life 
               of the isotope is 45 minutes, how much of this isotope remains after 5.0 hours?
@@ -674,20 +564,10 @@ const ManualContent = () => {
               <BlockMath math="N = 0.020\\text{ g}" />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 5 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample5(!showExample5)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 5: Finding Half-Life</span>
-          <span>{showExample5 ? '−' : '+'}</span>
-        </button>
-        {showExample5 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example5" title="Finding Half-Life" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               If the activity of a radioactive sample of Q is 28 Bq and 8.0 hours later its activity is 7 Bq, 
               what is the half-life of Q?
@@ -709,39 +589,64 @@ const ManualContent = () => {
               <BlockMath math="t_{1/2} = 4.0\\text{ h}" />
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Key Takeaways */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowKeyTakeaways(!showKeyTakeaways)}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Key Takeaways</span>
-          <span>{showKeyTakeaways ? '−' : '+'}</span>
-        </button>
-        {showKeyTakeaways && (
-          <div className="mt-4 p-6 bg-purple-50 rounded-lg shadow-inner">
-            <ol className="list-decimal list-inside space-y-3">
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">Discovery & Types of Radiation</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Radioactivity was discovered accidentally by Henri Becquerel in 1896 using uranium compounds</li>
               <li>Three types of radiation: alpha (⁴₂He nuclei), beta (electrons), and gamma (high-energy photons)</li>
               <li>Alpha particles have +2 charge, limited penetration (~5 cm air), stopped by aluminum foil</li>
               <li>Beta particles have -1 charge, moderate penetration (~50 cm air), stopped by aluminum</li>
               <li>Gamma rays have no charge, great penetration (through lead and body), electromagnetic radiation</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Nuclear Decay Equations</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Conservation laws apply to all nuclear reactions: mass-energy, charge, nucleon number</li>
-              <li>Alpha decay: <InlineMath math="^A_ZX \\rightarrow ^{A-4}_{Z-2}Y + ^4_2He" /></li>
-              <li>Beta-minus decay: <InlineMath math="^A_ZX \\rightarrow ^A_{Z+1}Y + ^0_{-1}e + \\bar{\\nu}" /></li>
-              <li>Beta-plus decay: <InlineMath math="^A_ZX \\rightarrow ^A_{Z-1}Y + ^0_{+1}e + \\nu" /></li>
+              <li>Alpha decay: <InlineMath math="^A_ZX \rightarrow ^{A-4}_{Z-2}Y + ^4_2He" /></li>
+              <li>Beta-minus decay: <InlineMath math="^A_ZX \rightarrow ^A_{Z+1}Y + ^0_{-1}e + \bar{\nu}" /></li>
+              <li>Beta-plus decay: <InlineMath math="^A_ZX \rightarrow ^A_{Z-1}Y + ^0_{+1}e + \nu" /></li>
               <li>Neutrinos were proposed to save conservation of energy, momentum, and angular momentum in beta decay</li>
-              <li>Gamma emission occurs when excited nuclei transition to lower energy states</li>
-              <li>Radioactive decay follows exponential law: <InlineMath math="N = N_0(\\frac{1}{2})^{t/t_{1/2}}" /></li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-purple-800 mb-3">Half-Life & Decay Laws</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Radioactive decay follows exponential law: <InlineMath math="N = N_0(\frac{1}{2})^{t/t_{1/2}}" /></li>
               <li>Half-life is time for half of radioactive sample to decay, ranges from microseconds to billions of years</li>
+              <li>Gamma emission occurs when excited nuclei transition to lower energy states</li>
+              <li>Each radioactive isotope has a characteristic half-life that cannot be changed by external factors</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-orange-800 mb-3">Biological Effects</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Ionizing radiation can damage living tissue; effects depend on type, energy, and exposure time</li>
               <li>Natural background radiation comes from cosmic rays, radon, and radioactive elements in our bodies</li>
-            </ol>
+              <li>Alpha particles are most dangerous when inside the body due to high ionization density</li>
+              <li>Radiation effects can be acute (immediate) or latent (appearing years later)</li>
+            </ul>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

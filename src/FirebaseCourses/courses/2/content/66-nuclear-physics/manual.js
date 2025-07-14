@@ -273,23 +273,18 @@ const ChainReactionComponent = () => {
   );
 };
 
-const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
-  const [isNotationOpen, setIsNotationOpen] = useState(false);
-  const [isIsotopesOpen, setIsIsotopesOpen] = useState(false);
-  const [isEquationsOpen, setIsEquationsOpen] = useState(false);
-  const [isMassUnitsOpen, setIsMassUnitsOpen] = useState(false);
-  const [isMassDefectOpen, setIsMassDefectOpen] = useState(false);
-  const [isConservationOpen, setIsConservationOpen] = useState(false);
-  const [isReactionsOpen, setIsReactionsOpen] = useState(false);
-  const [isElementFormationOpen, setIsElementFormationOpen] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Lesson 66: Nuclear Physics
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Nuclear Physics
         </h1>
-        <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+        <p className="text-lg text-gray-600">
+          From atomic structure to stellar nucleosynthesis
+        </p>
         
         <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
           <p className="text-blue-800 text-sm">
@@ -302,18 +297,12 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         </div>
       </div>
 
-      {/* Nuclear Notation Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsNotationOpen(!isNotationOpen)}
-          className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">I. Nuclear "Physlish"</h3>
-          <span className="text-blue-600">{isNotationOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isNotationOpen && (
-          <div className="mt-4">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="notation" title="Nuclear Notation" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 In order to discuss nuclear physics we must first understand the "short-hand" language 
@@ -322,7 +311,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">📝 Nuclear Notation Components</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Nuclear Notation Components</h4>
                 <ul className="space-y-2 text-sm text-gray-700">
                   <li className="flex items-start gap-2">
                     <span className="text-blue-600">•</span>
@@ -342,29 +331,17 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               <NuclearNotationComponent />
               
               <div className="mt-6 bg-green-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">🧮 Example</h4>
+                <h4 className="font-semibold text-green-800 mb-2">Example</h4>
                 <p className="text-gray-700 text-sm">
                   The element tungsten-186, for example, is written as <InlineMath math="^{186}_{74}W" /> which 
                   means that it has 74 protons and 186 – 74 = 112 neutrons.
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Isotopes Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsIsotopesOpen(!isIsotopesOpen)}
-          className="w-full text-left p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">II. Isotopes</h3>
-          <span className="text-green-600">{isIsotopesOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isIsotopesOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="isotopes" title="Isotopes" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-4">
                 Recall from Lesson 27 that in 1911 Rutherford discovered the nucleus and was also able to 
@@ -381,7 +358,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-yellow-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-yellow-800 mb-2">🔬 Frederick Soddy's Discovery</h4>
+                <h4 className="font-semibold text-yellow-800 mb-2">Frederick Soddy's Discovery</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   Frederick Soddy discovered isotopes while studying the nature of radioactivity. 
                   <strong>Isotopes of an element have the same atomic number but a different atomic mass.</strong>
@@ -406,7 +383,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="bg-indigo-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-indigo-800 mb-2">🎯 James Chadwick's Discovery (1932)</h4>
+                <h4 className="font-semibold text-indigo-800 mb-2">James Chadwick's Discovery (1932)</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   In order to explain the existence of isotopes, it was suggested by Rutherford that the 
                   nucleus must contain some neutral particle as well as the protons. It was not until 1932 
@@ -453,22 +430,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Nuclear Equations Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsEquationsOpen(!isEquationsOpen)}
-          className="w-full text-left p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">III. Nuclear Equations – Conservation of Charge & Nucleons</h3>
-          <span className="text-purple-600">{isEquationsOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isEquationsOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="equations" title="Nuclear Equations - Conservation of Charge & Nucleons" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 Nuclear interactions are represented by nuclear equations. Nuclear interactions can involve 
@@ -479,7 +444,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-red-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-red-800 mb-2">⚖️ Conservation Laws</h4>
+                <h4 className="font-semibold text-red-800 mb-2">Conservation Laws</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   When writing nuclear equations it is important to conserve electric charge and to conserve 
                   the number of nucleons. In other words:
@@ -533,22 +498,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Atomic Mass Units Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsMassUnitsOpen(!isMassUnitsOpen)}
-          className="w-full text-left p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">IV. Atomic Mass Units</h3>
-          <span className="text-orange-600">{isMassUnitsOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isMassUnitsOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="massUnits" title="Atomic Mass Units" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 In previous lessons, when precision was less of an issue, we used 1.67 × 10⁻²⁷ kg for the mass 
@@ -557,7 +510,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">📏 Unified Atomic Mass Unit (u)</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Unified Atomic Mass Unit (u)</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   In nuclear physics we often use the <strong>unified atomic mass unit (u)</strong> rather than 
                   the actual kilogram value for different nucleons and subatomic particles. The unified atomic 
@@ -608,22 +561,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Mass Defect Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsMassDefectOpen(!isMassDefectOpen)}
-          className="w-full text-left p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">V. Mass Defect and Mass–Energy Equivalence</h3>
-          <span className="text-indigo-600">{isMassDefectOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isMassDefectOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="massDefect" title="Mass Defect and Mass-Energy Equivalence" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 After scientists discovered that the nucleus contained protons and neutrons, they were able 
@@ -644,7 +585,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               <MassDefectCalculator />
               
               <div className="mt-6 bg-red-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-red-800 mb-2">🧮 Helium-4 Example</h4>
+                <h4 className="font-semibold text-red-800 mb-2">Helium-4 Example</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   The theoretical mass of helium-4 is calculated by adding the masses of 2 protons and 2 neutrons:
                 </p>
@@ -655,7 +596,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="mt-6 bg-purple-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-purple-800 mb-2">⚡ Einstein's Mass-Energy Equivalence</h4>
+                <h4 className="font-semibold text-purple-800 mb-2">Einstein's Mass-Energy Equivalence</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   Since the measured mass is less than the theoretical mass, physicists call the difference 
                   in mass the <strong>mass defect (Δm)</strong>. In general:
@@ -726,7 +667,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="mt-6 bg-green-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">🔒 Binding Energy Interpretation</h4>
+                <h4 className="font-semibold text-green-800 mb-2">Binding Energy Interpretation</h4>
                 <p className="text-gray-700 text-sm">
                   Based on the idea of mass-energy equivalence, physicists interpreted the mass defect as the 
                   <strong>binding energy</strong> that holds the protons and neutrons together in the nucleus. 
@@ -737,22 +678,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Conservation of Mass-Energy Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsConservationOpen(!isConservationOpen)}
-          className="w-full text-left p-4 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">VI. Conservation of Mass-Energy</h3>
-          <span className="text-teal-600">{isConservationOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isConservationOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="conservation" title="Conservation of Mass-Energy" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 After Einstein demonstrated that energy and mass are inter-convertible it became apparent 
@@ -763,7 +692,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">⚡ Electron Rest Mass Energy</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Electron Rest Mass Energy</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   In this conception we can think of an electron, for example, as having a mass of 
                   9.109383 × 10⁻³¹ kg or as an equivalent energy:
@@ -777,7 +706,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="bg-yellow-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-yellow-800 mb-2">📊 Particle Physics Convention</h4>
+                <h4 className="font-semibold text-yellow-800 mb-2">Particle Physics Convention</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   On your Physics Data Sheet, the masses for some first generation fermions (see Lesson 37) 
                   are given as an energy in eV or MeV over c². For example, an electron has a mass of:
@@ -789,22 +718,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Nuclear Reactions Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsReactionsOpen(!isReactionsOpen)}
-          className="w-full text-left p-4 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">VII. Nuclear Reactions</h3>
-          <span className="text-red-600">{isReactionsOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isReactionsOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="reactions" title="Nuclear Reactions" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 The presence of such huge quantities of energy within nuclei explains why nuclear reactions 
@@ -814,7 +731,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">🔄 Four Basic Types of Nuclear Reactions</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Four Basic Types of Nuclear Reactions</h4>
                 <ul className="space-y-2 text-sm text-gray-700">
                   <li className="flex items-start gap-2">
                     <span className="text-blue-600">1.</span>
@@ -837,7 +754,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               
               {/* Induced Nuclear Reactions */}
               <div className="bg-green-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-green-800 mb-2">⚗️ Induced Nuclear Reactions</h4>
+                <h4 className="font-semibold text-green-800 mb-2">Induced Nuclear Reactions</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   It is possible to bring about or "induce" the disintegration of a stable nucleus by 
                   striking it with another nucleus, an atomic or subatomic particle, or a γ-ray photon. 
@@ -892,7 +809,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               
               {/* Transuranium Elements */}
               <div className="bg-purple-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-purple-800 mb-2">🧪 Transuranium Elements</h4>
+                <h4 className="font-semibold text-purple-800 mb-2">Transuranium Elements</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   Induced nuclear transmutations can be used to produce isotopes that are not found naturally. 
                   In 1934, Enrico Fermi suggested a method for producing elements with a higher atomic number 
@@ -918,7 +835,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               
               {/* Fission Reactions */}
               <div className="bg-orange-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-orange-800 mb-2">💥 Fission Reactions</h4>
+                <h4 className="font-semibold text-orange-800 mb-2">Fission Reactions</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   In nuclear fission we take heavy elements and break them apart to produce smaller nuclei. 
                   The process involves bombarding particular nuclei with neutrons. A neutron captured by a 
@@ -963,7 +880,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               
               {/* Fusion Reactions */}
               <div className="bg-yellow-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-yellow-800 mb-2">🌟 Fusion Reactions</h4>
+                <h4 className="font-semibold text-yellow-800 mb-2">Fusion Reactions</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   In nuclear fusion we take light elements and force them together to form larger sized atoms. 
                   Examples include:
@@ -986,22 +903,10 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Element Formation Section */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsElementFormationOpen(!isElementFormationOpen)}
-          className="w-full text-left p-4 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
-        >
-          <h3 className="text-xl font-semibold">VIII. Element Formation</h3>
-          <span className="text-pink-600">{isElementFormationOpen ? '▼' : '▶'}</span>
-        </button>
-        
-        {isElementFormationOpen && (
-          <div className="mt-4">
+            <AIAccordion.Item value="elementFormation" title="Element Formation" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <p className="text-gray-700 leading-relaxed mb-6">
                 75% of the matter in the universe is in the form of hydrogen. In fact, it is from hydrogen 
@@ -1011,7 +916,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </p>
               
               <div className="bg-blue-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">☀️ Stellar Fusion Reactions</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Stellar Fusion Reactions</h4>
                 <p className="text-gray-700 text-sm mb-3">
                   The main reaction that powers the Sun's energy is a series of reactions leading to the 
                   formation of helium from hydrogen:
@@ -1027,7 +932,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="bg-green-100 p-4 rounded-lg mb-6">
-                <h4 className="font-semibold text-green-800 mb-2">🔄 Stellar Evolution & Element Synthesis</h4>
+                <h4 className="font-semibold text-green-800 mb-2">Stellar Evolution & Element Synthesis</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   These reactions will continue until the hydrogen fuel has been mostly exhausted. As the 
                   reaction rate decreases the gravitational pressure will partially collapse the Sun which 
@@ -1042,7 +947,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
               </div>
               
               <div className="bg-red-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-red-800 mb-2">💥 Supernovae & Heavy Element Formation</h4>
+                <h4 className="font-semibold text-red-800 mb-2">Supernovae & Heavy Element Formation</h4>
                 <p className="text-gray-700 text-sm mb-2">
                   Elements beyond iron are formed in truly spectacular explosions called <strong>supernovae</strong>. 
                   It is interesting to note that since the Earth has all elements within its crust, from hydrogen 
@@ -1056,38 +961,61 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Key Takeaways Section */}
-      <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">
-        <h3 className="text-xl font-bold text-blue-900 mb-4">📝 Key Takeaways</h3>
-        <div className="space-y-3">
-          {[
-            "Nuclear notation ᴬ𝒁X specifies atomic mass number (A), atomic number (Z), and element symbol (X)",
-            "Isotopes have the same atomic number but different mass numbers (same protons, different neutrons)",
-            "Nuclear equations must conserve both charge (atomic numbers) and nucleons (mass numbers)",
-            "The unified atomic mass unit (u) is defined as 1/12 the mass of a carbon-12 nucleus",
-            "Mass defect (Δm) is the difference between theoretical and measured nuclear masses",
-            "Einstein's E = mc² explains that mass defect converts to binding energy holding nuclei together",
-            "Conservation of mass-energy unifies the laws of conservation of mass and conservation of energy",
-            "Nuclear reactions release millions of times more energy per gram than chemical reactions",
-            "Four types of nuclear reactions: radioactivity, induced transmutations, fission, and fusion",
-            "Transuranium elements (Z > 92) are artificially created through induced nuclear reactions",
-            "Nuclear fission splits heavy nuclei, releasing energy through chain reactions in reactors and weapons",
-            "Nuclear fusion combines light nuclei, requiring extreme temperatures and pressures like in stars",
-            "75% of universe matter is hydrogen; all heavier elements form through stellar fusion processes",
-            "Elements up to iron form in stellar cores; elements heavier than iron form in supernova explosions",
-            "Earth's elements indicate our solar system formed from supernova remnants billions of years ago"
-          ].map((point, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-sm font-bold">
-                {index + 1}
-              </div>
-              <p className="text-gray-700 text-sm leading-relaxed">{point}</p>
-            </div>
-          ))}
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">Nuclear Structure & Notation</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Nuclear notation ᴬ𝒁X specifies atomic mass number (A), atomic number (Z), and element symbol (X)</li>
+              <li>Isotopes have the same atomic number but different mass numbers (same protons, different neutrons)</li>
+              <li>Nuclear equations must conserve both charge (atomic numbers) and nucleons (mass numbers)</li>
+              <li>The unified atomic mass unit (u) is defined as 1/12 the mass of a carbon-12 nucleus</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Mass-Energy & Binding Energy</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Mass defect (Δm) is the difference between theoretical and measured nuclear masses</li>
+              <li>Einstein's E = mc² explains that mass defect converts to binding energy holding nuclei together</li>
+              <li>Conservation of mass-energy unifies the laws of conservation of mass and conservation of energy</li>
+              <li>Nuclear reactions release millions of times more energy per gram than chemical reactions</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-purple-800 mb-3">Nuclear Reactions</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Four types of nuclear reactions: radioactivity, induced transmutations, fission, and fusion</li>
+              <li>Transuranium elements (Z > 92) are artificially created through induced nuclear reactions</li>
+              <li>Nuclear fission splits heavy nuclei, releasing energy through chain reactions</li>
+              <li>Nuclear fusion combines light nuclei, requiring extreme temperatures and pressures</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-orange-800 mb-3">Stellar Nucleosynthesis</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>75% of universe matter is hydrogen; all heavier elements form through stellar fusion processes</li>
+              <li>Elements up to iron form in stellar cores; elements heavier than iron form in supernova explosions</li>
+              <li>Earth's elements indicate our solar system formed from supernova remnants billions of years ago</li>
+              <li>Stars are nuclear fusion reactors that synthesize heavy elements from hydrogen and helium</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

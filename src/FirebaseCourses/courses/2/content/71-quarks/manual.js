@@ -418,31 +418,26 @@ const StandardModelComponent = () => {
   );
 };
 
-const ManualContent = () => {
-  const [showQuarkTheory, setShowQuarkTheory] = useState(false);
-  const [showExample1, setShowExample1] = useState(false);
-  const [showColorCharge, setShowColorCharge] = useState(false);
-  const [showConfinement, setShowConfinement] = useState(false);
-  const [showNeutronDecay, setShowNeutronDecay] = useState(false);
-  const [showToQuark, setShowToQuark] = useState(false);
-  const [showStandardModel, setShowStandardModel] = useState(false);
-  const [showKeyTakeaways, setShowKeyTakeaways] = useState(false);
+const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6">
-      <h2 className="text-3xl font-bold text-center mb-8">Lesson 38: Quarks</h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Quarks
+        </h1>
+        <p className="text-lg text-gray-600">
+          The fundamental building blocks of matter
+        </p>
+      </div>
 
-      {/* Development of Quark Theory (Mostly Optional) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowQuarkTheory(!showQuarkTheory)}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Development of Quark Theory <span className="text-amber-200 font-normal">(Mostly Optional)</span></span>
-          <span>{showQuarkTheory ? '−' : '+'}</span>
-        </button>
-        {showQuarkTheory && (
-          <div className="mt-4 p-6 bg-amber-50 rounded-lg shadow-inner border-l-4 border-amber-500">
+      {AIAccordion ? (
+        <div className="my-8">
+          <AIAccordion className="space-y-0">
+
+            <AIAccordion.Item value="quarkTheory" title="Development of Quark Theory (Mostly Optional)" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-amber-100 p-3 rounded mb-4">
               <p className="text-amber-800 font-medium">⚠️ This section is mostly optional content</p>
             </div>
@@ -564,20 +559,10 @@ const ManualContent = () => {
               kinds of neutrinos, limiting us to six leptons and six quark flavours in three generations.
             </p>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Example 1 */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowExample1(!showExample1)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Example 1: Quark Composition Verification</span>
-          <span>{showExample1 ? '−' : '+'}</span>
-        </button>
-        {showExample1 && (
-          <div className="mt-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="example1" title="Quark Composition Verification" theme="green" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="font-semibold mb-3">
               The proton consists of two up quarks and one down quark (uud). The neutron consists 
               of one up quark and two down quarks (udd). For both baryons show that the sum of 
@@ -634,20 +619,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Color Charge and Strong Force (Optional) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowColorCharge(!showColorCharge)}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>"Color" Charge and the Strong Force <span className="text-amber-200 font-normal">(Optional)</span></span>
-          <span>{showColorCharge ? '−' : '+'}</span>
-        </button>
-        {showColorCharge && (
-          <div className="mt-4 p-6 bg-amber-50 rounded-lg shadow-inner border-l-4 border-amber-500">
+            <AIAccordion.Item value="colorCharge" title="Color Charge and the Strong Force (Optional)" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-amber-100 p-3 rounded mb-4">
               <p className="text-amber-800 font-medium">⚠️ This section is optional content</p>
             </div>
@@ -696,20 +671,10 @@ const ManualContent = () => {
               </ul>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* No Individual Quarks (Optional) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowConfinement(!showConfinement)}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>No Individual Quarks <span className="text-amber-200 font-normal">(Optional)</span></span>
-          <span>{showConfinement ? '−' : '+'}</span>
-        </button>
-        {showConfinement && (
-          <div className="mt-4 p-6 bg-amber-50 rounded-lg shadow-inner border-l-4 border-amber-500">
+            <AIAccordion.Item value="confinement" title="No Individual Quarks (Optional)" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-amber-100 p-3 rounded mb-4">
               <p className="text-amber-800 font-medium">⚠️ This section is optional content</p>
             </div>
@@ -800,20 +765,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Neutron Decay Revisited */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowNeutronDecay(!showNeutronDecay)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Neutron Decay Revisited</span>
-          <span>{showNeutronDecay ? '−' : '+'}</span>
-        </button>
-        {showNeutronDecay && (
-          <div className="mt-4 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <AIAccordion.Item value="neutronDecay" title="Neutron Decay Revisited" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <p className="mb-4">
               When physicists determined that the neutron is composed of quarks (one up quark and two down quarks), 
               they realized that the neutron itself was not decaying, but rather one of the quarks was decaying.
@@ -911,20 +866,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* To Quark or Not to Quark (Optional) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowToQuark(!showToQuark)}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>To Quark or Not to Quark? <span className="text-amber-200 font-normal">(Optional)</span></span>
-          <span>{showToQuark ? '−' : '+'}</span>
-        </button>
-        {showToQuark && (
-          <div className="mt-4 p-6 bg-amber-50 rounded-lg shadow-inner border-l-4 border-amber-500">
+            <AIAccordion.Item value="toQuark" title="To Quark or Not to Quark? (Optional)" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-amber-100 p-3 rounded mb-4">
               <p className="text-amber-800 font-medium">⚠️ This section is optional content</p>
             </div>
@@ -964,20 +909,10 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* The Standard Model (Optional) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowStandardModel(!showStandardModel)}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>The Standard Model <span className="text-amber-200 font-normal">(Optional)</span></span>
-          <span>{showStandardModel ? '−' : '+'}</span>
-        </button>
-        {showStandardModel && (
-          <div className="mt-4 p-6 bg-amber-50 rounded-lg shadow-inner border-l-4 border-amber-500">
+            <AIAccordion.Item value="standardModel" title="The Standard Model (Optional)" onAskAI={onAIAccordionContent}>
+              <div className="mt-4">
             <div className="bg-amber-100 p-3 rounded mb-4">
               <p className="text-amber-800 font-medium">⚠️ This section is optional content</p>
             </div>
@@ -1027,39 +962,64 @@ const ManualContent = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+            </AIAccordion.Item>
 
-      {/* Key Takeaways */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowKeyTakeaways(!showKeyTakeaways)}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-between items-center"
-        >
-          <span>Key Takeaways</span>
-          <span>{showKeyTakeaways ? '−' : '+'}</span>
-        </button>
-        {showKeyTakeaways && (
-          <div className="mt-4 p-6 bg-purple-50 rounded-lg shadow-inner">
-            <ol className="list-decimal list-inside space-y-3">
+          </AIAccordion>
+        </div>
+      ) : (
+        <div className="my-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-center">
+            This lesson content is optimized for AI interaction. Please ensure the AIAccordion component is available.
+          </p>
+        </div>
+      )}
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">Quark Fundamentals</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Quarks are the fundamental building blocks of protons and neutrons</li>
               <li>Six quark flavors exist in three generations: (u,d), (c,s), (t,b)</li>
               <li>Quarks have fractional electric charges: +2/3 or -1/3</li>
               <li>Baryons are made of three quarks (qqq), mesons of quark-antiquark pairs (qq̄)</li>
               <li>Proton = uud (charge +1), Neutron = udd (charge 0)</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Color Charge & Confinement</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Color charge is the quark property that responds to strong force</li>
               <li>All observable particles must be color neutral (colorless)</li>
               <li>Gluons carry color charge and mediate the strong force between quarks</li>
               <li>Quark confinement: free quarks cannot exist due to constant strong force</li>
+              <li>Force remains constant as quarks separate (unlike other forces)</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-purple-800 mb-3">Nuclear Processes & Generations</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Neutron decay occurs at quark level: d → u + W⁻ → u + e⁻ + ν̄ₑ</li>
               <li>Only first generation quarks (u,d) needed for ordinary matter</li>
               <li>Higher generation quarks appear only in high-energy environments</li>
+              <li>W boson mediates weak force interactions between quarks</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-orange-800 mb-3">Standard Model & Unity</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
               <li>Standard Model describes electromagnetic, weak, and strong forces</li>
               <li>Electroweak force unifies electromagnetic and weak interactions</li>
               <li>Everyday matter requires only: up quarks, down quarks, electrons, electron neutrinos</li>
-            </ol>
+              <li>Three generations of particles exist, but only first generation needed for ordinary matter</li>
+            </ul>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
