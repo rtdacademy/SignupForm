@@ -1632,6 +1632,202 @@
           }
         ]
       },
+      "64_quantum_mechanics": {
+        "title": "Quantum Mechanics",
+        "type": "lesson",
+        "contentPath": "64-quantum-mechanics",
+        "questions": [
+          {
+            "questionId": "course2_64_question1",
+            "title": "Question 1: Standing Wave Conditions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question2",
+            "title": "Question 2: Classical vs Quantum Mechanics",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question3",
+            "title": "Question 3: Uncertainty Principle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question4",
+            "title": "Question 4: Wave-Particle Duality",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question5",
+            "title": "Question 5: Quantum Orbitals",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question6",
+            "title": "Question 6: Energy Quantization",
+            "points": 1
+          }
+        ]
+      },
+      "66_nuclear_physics": {
+        "title": "Nuclear Physics",
+        "type": "lesson",
+        "contentPath": "66-nuclear-physics",
+        "questions": [
+          {
+            "questionId": "course2_66_question1",
+            "title": "Question 1: Nuclear Reaction Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question2",
+            "title": "Question 2: Artificial Transmutation Products",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question3",
+            "title": "Question 3: Velocity Selector Potential Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question4",
+            "title": "Question 4: Mass from Ion Trajectory",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question5",
+            "title": "Question 5: Carbon Isotope Mass Number",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question6",
+            "title": "Question 6: Cobalt-59 Mass Defect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question7",
+            "title": "Question 7: Weighted Average of Chlorine Isotopes",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question8",
+            "title": "Question 8: Binding Energy of Lithium-7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question9",
+            "title": "Question 9: Binding Energy of Radium-226",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question10",
+            "title": "Question 10: Sun's Mass Loss Rate",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question11",
+            "title": "Question 11: Uranium-235 Fission Events",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question12",
+            "title": "Question 12: Uranium-235 Fission Mass Conversion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question13",
+            "title": "Question 13: Nuclear Reaction Energy – U-235 Fission",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question14",
+            "title": "Question 14: Helium Fusion Reaction Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question15",
+            "title": "Question 15: Mass Loss in Reactor",
+            "points": 1
+          }
+        ]
+      },
+      "67_radioactivity": {
+        "title": "Radioactivity",
+        "type": "lesson",
+        "contentPath": "67-radioactivity",
+        "questions": [
+          {
+            "questionId": "course2_67_question1",
+            "title": "Question 1: Oxygen-16 Isotope Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question2",
+            "title": "Question 2: Tin-120 Isotope Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question3",
+            "title": "Question 3: Beta-Minus Decay of Phosphorus-34",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question4",
+            "title": "Question 4: Radon-222 Alpha Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question5",
+            "title": "Question 5: Uranium-238 Alpha Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question6",
+            "title": "Question 6: Chlorine-35 Decay Reaction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question7",
+            "title": "Question 7: Radium-226 Alpha Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question8",
+            "title": "Question 8: Polonium-218 Decay in Series",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question9",
+            "title": "Question 9: Half-Life Calculation (80 hours)",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question10",
+            "title": "Question 10: Strontium-82 Decay Time",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question11",
+            "title": "Question 11: Radon Activity Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question12",
+            "title": "Question 12: Half-Life from Decay Fraction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question13",
+            "title": "Question 13: Uranium-235 Fission Products",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question14",
+            "title": "Question 14: Thorium-228 Alpha Decay Energy",
+            "points": 1
+          }
+        ]
+      },
       "assignment_l31_33": {
         "title": "Assignment L31-33 - Wave-Particle Duality",
         "type": "assignment",
@@ -1664,7 +1860,7 @@
         "contentPath": "65-l1-34-cumulative-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 90,
+          "timeLimit": 120,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
@@ -1682,7 +1878,108 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_65_l134_question1",
+            "title": "Momentum from Force-Time",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question2",
+            "title": "Velocity from Impulse",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question3",
+            "title": "Index of Refraction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question4",
+            "title": "Wave Nature Evidence",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question5",
+            "title": "Double-Slit Screen Distance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question6",
+            "title": "Mirror Image Height",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question7",
+            "title": "Coulomb's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question8",
+            "title": "Electric Current Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question9",
+            "title": "Faraday's Law",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question10",
+            "title": "Magnetic Force on Electron",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question11",
+            "title": "Thomson's Contribution",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question12",
+            "title": "Photoelectric Electron Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question13",
+            "title": "Photoelectric Stopping Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question14",
+            "title": "Proton Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question15",
+            "title": "Charge-to-Mass Ratio",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question16",
+            "title": "Proton Circular Motion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question17",
+            "title": "Planck's Quantum Hypothesis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question18",
+            "title": "Laser Photon Emission",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question19",
+            "title": "Electron Stopping Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_65_l134_question20",
+            "title": "Spectral Line Energy",
+            "points": 1
+          }
+        ]
       },
       "assignment_l35_36": {
         "title": "Assignment L35-36 - Nuclear Physics",
@@ -1690,7 +1987,7 @@
         "contentPath": "69-l35-36-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 70,
+          "timeLimit": 40,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
@@ -1708,7 +2005,38 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_69_l3536_question1",
+            "title": "Proton-Induced Nuclear Reaction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_69_l3536_question2",
+            "title": "Alpha Decay Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_69_l3536_question3",
+            "title": "Half-Life Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_69_l3536_question4",
+            "title": "Strontium-86 Binding Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_69_l3536_question5",
+            "title": "Cobalt-60 Binding Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_69_l3536_question6",
+            "title": "Radium-226 Decay Energy",
+            "points": 1
+          }
+        ]
       },
       "assignment_l37_38": {
         "title": "Assignment L37-38 - Particle Physics",
@@ -1761,6 +2089,93 @@
           }
         },
         "questions": []
+      },
+      "70_particle_physics": {
+        "title": "Particle Physics",
+        "type": "lesson",
+        "contentPath": "70-particle-physics",
+        "questions": [
+          {
+            "questionId": "course2_70_question1",
+            "title": "Question 1: Bubble vs Cloud Chambers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question2",
+            "title": "Question 2: Particle Visibility in Bubble Chambers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question3",
+            "title": "Question 3: Magnetic Fields in Detection",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question4",
+            "title": "Question 4: Alpha vs Proton Tracks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question5",
+            "title": "Question 5: Proton vs Electron Tracks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question6",
+            "title": "Question 6: Psi Particle Mass Conversion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question7",
+            "title": "Question 7: Neutrino Energy from Beta Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question8",
+            "title": "Question 8: Beta Decay Electron Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question9",
+            "title": "Question 9: Positron Emission Neutrino Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question10",
+            "title": "Question 10: Neutron-Antineutron Pair Production",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question11",
+            "title": "Question 11: Electron-Positron Pair Production",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question12",
+            "title": "Question 12: Annihilation Photon Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question13",
+            "title": "Question 13: Conservation Laws in Interactions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question14",
+            "title": "Question 14: Proton-Proton Attraction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question15",
+            "title": "Question 15: Fundamental Force Strengths",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question16",
+            "title": "Question 16: Quantum Field Theory Forces",
+            "points": 1
+          }
+        ]
       },
       "lab_momentum_conservation": {
         "title": "Lab - Momentum Conservation",
@@ -5915,12 +6330,114 @@
             "itemId": "assignment_l1_34",
             "type": "assignment",
             "title": "Assignment L1-34 - Unit 5 Cumulative",
-            "description": "Comprehensive quantum physics review",
+            "description": "Comprehensive review covering momentum, optics, electromagnetism, and atomic theory",
             "contentPath": "65-l1-34-cumulative-assignment",
-            "estimatedTime": 60,
+            "estimatedTime": 120,
             "order": 17,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_65_l134_question1",
+                "title": "Momentum from Force-Time",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question2",
+                "title": "Velocity from Impulse",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question3",
+                "title": "Index of Refraction",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question4",
+                "title": "Wave Nature Evidence",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question5",
+                "title": "Double-Slit Screen Distance",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question6",
+                "title": "Mirror Image Height",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question7",
+                "title": "Coulomb's Law",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question8",
+                "title": "Electric Current Definition",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question9",
+                "title": "Faraday's Law",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question10",
+                "title": "Magnetic Force on Electron",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question11",
+                "title": "Thomson's Contribution",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question12",
+                "title": "Photoelectric Electron Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question13",
+                "title": "Photoelectric Stopping Voltage",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question14",
+                "title": "Proton Momentum",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question15",
+                "title": "Charge-to-Mass Ratio",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question16",
+                "title": "Proton Circular Motion",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question17",
+                "title": "Planck's Quantum Hypothesis",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question18",
+                "title": "Laser Photon Emission",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question19",
+                "title": "Electron Stopping Voltage",
+                "points": 1
+              },
+              {
+                "questionId": "course2_65_l134_question20",
+                "title": "Spectral Line Energy",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "66_nuclear_physics",
@@ -5959,12 +6476,44 @@
             "itemId": "assignment_l35_36",
             "type": "assignment",
             "title": "Assignment L35-36 - Nuclear Physics",
-            "description": "Nuclear decay and radiation problems",
+            "description": "Nuclear reactions, decay processes, binding energy, and half-life calculations",
             "contentPath": "69-l35-36-assignment",
-            "estimatedTime": 60,
+            "estimatedTime": 40,
             "order": 21,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_69_l3536_question1",
+                "title": "Proton-Induced Nuclear Reaction",
+                "points": 1
+              },
+              {
+                "questionId": "course2_69_l3536_question2",
+                "title": "Alpha Decay Identification",
+                "points": 1
+              },
+              {
+                "questionId": "course2_69_l3536_question3",
+                "title": "Half-Life Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_69_l3536_question4",
+                "title": "Strontium-86 Binding Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_69_l3536_question5",
+                "title": "Cobalt-60 Binding Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_69_l3536_question6",
+                "title": "Radium-226 Decay Energy",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "70_particle_physics",

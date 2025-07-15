@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Half-Life Visualization Component
 const HalfLifeComponent = () => {
@@ -600,6 +601,90 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <div className="my-8">
+        <SlideshowKnowledgeCheck
+          courseId={courseId}
+          lessonPath="67-radioactivity"
+          course={course}
+          itemConfig={itemConfig}
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question1',
+              title: 'Question 1: Oxygen-16 Isotope Composition'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question2',
+              title: 'Question 2: Tin-120 Isotope Composition'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question3',
+              title: 'Question 3: Beta-Minus Decay of Phosphorus-34'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question4',
+              title: 'Question 4: Radon-222 Alpha Decay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question5',
+              title: 'Question 5: Uranium-238 Alpha Decay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question6',
+              title: 'Question 6: Chlorine-35 Decay Reaction'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question7',
+              title: 'Question 7: Radium-226 Alpha Decay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question8',
+              title: 'Question 8: Polonium-218 Decay in Series'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question9',
+              title: 'Question 9: Half-Life Calculation (80 hours)'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question10',
+              title: 'Question 10: Strontium-82 Decay Time'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question11',
+              title: 'Question 11: Radon Activity Decay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question12',
+              title: 'Question 12: Half-Life from Decay Fraction'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question13',
+              title: 'Question 13: Uranium-235 Fission Products'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_67_question14',
+              title: 'Question 14: Thorium-228 Alpha Decay Energy'
+            }
+          ]}
+          title="☢️ Radioactivity Knowledge Check"
+          subtitle="Test your understanding of radioactive decay, nuclear equations, and half-life calculations"
+        />
+      </div>
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
