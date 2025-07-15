@@ -1330,6 +1330,314 @@
         "contentPath": "63-l31-33-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
+          "timeLimit": 60,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "medium",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT", "color": "bg-purple-100 text-purple-800 border-purple-300" },
+          "theme": {
+            "gradient": "from-purple-600 to-indigo-600",
+            "gradientHover": "from-purple-700 to-indigo-700",
+            "accent": "purple-600",
+            "light": "purple-100",
+            "border": "purple-200",
+            "ring": "ring-purple-200"
+          }
+        },
+        "questions": [
+          {
+            "questionId": "course2_63_l3133_question1",
+            "title": "de Broglie Wavelength Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question2",
+            "title": "Photoelectric Frequency Effects",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question3",
+            "title": "Electron Wave Evidence",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question4",
+            "title": "Hydrogen Energy Transitions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question5",
+            "title": "Ionization Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question6",
+            "title": "X-ray Photon Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question7",
+            "title": "Double-Slit with Electrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question8",
+            "title": "de Broglie Particle Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_63_l3133_question9",
+            "title": "Uncertainty Principle",
+            "points": 1
+          }
+        ]
+      },
+      "60_bohr_model": {
+        "title": "Bohr Model",
+        "type": "lesson",
+        "contentPath": "60-bohr-model",
+        "questions": [
+          {
+            "questionId": "course2_60_question1",
+            "title": "Question 1: Rutherford Model Problem",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question2",
+            "title": "Question 2: Photon Emission Process",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question3",
+            "title": "Question 3: Bohr Model Spectral Explanation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question4",
+            "title": "Question 4: Bohr Model Strengths",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question5",
+            "title": "Question 5: Bohr Model Weaknesses",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question6",
+            "title": "Question 6: Energy Level Calculations",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question7",
+            "title": "Question 7: Energy Conservation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question8",
+            "title": "Question 8: Photon Color and Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question9",
+            "title": "Question 9: Ionization Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question10",
+            "title": "Question 10: Wavelength Calculations",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question11",
+            "title": "Question 11: Hydrogen Gas Excitation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question12",
+            "title": "Question 12: Photon Wavelength from n=6→n=2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question13",
+            "title": "Question 13: Photon Frequency from n=7→n=3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question14",
+            "title": "Question 14: Energy Absorption n=1→n=8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_60_question15",
+            "title": "Question 15: Ionization Energy from Diagram",
+            "points": 1
+          }
+        ]
+      },
+      "61_compton_effect": {
+        "title": "Compton Effect",
+        "type": "lesson",
+        "contentPath": "61-compton-effect",
+        "questions": [
+          {
+            "questionId": "course2_61_question1",
+            "title": "Question 1: Minimum X-ray Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question2",
+            "title": "Question 2: X-ray Tube Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question3",
+            "title": "Question 3: Electron Collision Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question4",
+            "title": "Question 4: CRT Radiation Safety",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question5",
+            "title": "Question 5: Alpha Particle Radiation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question6",
+            "title": "Question 6: Electron Beam Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question7",
+            "title": "Question 7: Elastic Collision Conservation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question8",
+            "title": "Question 8: Photon Momentum Theory",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question9",
+            "title": "Question 9: Photon Mass Properties",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question10",
+            "title": "Question 10: Quantum Measurement Problem",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question11",
+            "title": "Question 11: Photon Momentum Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question12",
+            "title": "Question 12: High Energy Photon Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question13",
+            "title": "Question 13: Compton Scattering Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question14",
+            "title": "Question 14: Electron Recoil Speed",
+            "points": 1
+          },
+          {
+            "questionId": "course2_61_question15",
+            "title": "Question 15: Wavelength Shift Formula",
+            "points": 1
+          }
+        ]
+      },
+      "62_wave_particle_nature": {
+        "title": "Wave-Particle Nature",
+        "type": "lesson",
+        "contentPath": "62-wave-particle-nature",
+        "questions": [
+          {
+            "questionId": "course2_62_question1",
+            "title": "Question 1: de Broglie Wavelength Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question2",
+            "title": "Question 2: Wavelength from Kinetic Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question3",
+            "title": "Question 3: Smallest Orbital Radius",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question4",
+            "title": "Question 4: Ionization Energy and Radius",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question5",
+            "title": "Question 5: Macroscopic Object Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question6",
+            "title": "Question 6: Accelerated Electron Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question7",
+            "title": "Question 7: Bohr Orbit Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question8",
+            "title": "Question 8: Wavelength vs Orbit Comparison",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question9",
+            "title": "Question 9: Double-Slit Electron Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question10",
+            "title": "Question 10: Electron Momentum from Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question11",
+            "title": "Question 11: Electron Kinetic Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question12",
+            "title": "Question 12: Light Wave-Particle Nature",
+            "points": 1
+          },
+          {
+            "questionId": "course2_62_question13",
+            "title": "Question 13: Universal Wave-Particle Duality",
+            "points": 1
+          }
+        ]
+      },
+      "assignment_l31_33": {
+        "title": "Assignment L31-33 - Wave-Particle Duality",
+        "type": "assignment",
+        "contentPath": "63-l31-33-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
           "timeLimit": 75,
           "maxAttempts": 3,
           "allowEasyExit": true,
@@ -5538,12 +5846,59 @@
             "itemId": "assignment_l31_33",
             "type": "assignment",
             "title": "Assignment L31-33 - Wave-Particle Duality",
-            "description": "Bohr model and Compton effect problems",
+            "description": "de Broglie wavelengths, atomic energy levels, and quantum measurement",
             "contentPath": "63-l31-33-assignment",
             "estimatedTime": 60,
             "order": 15,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_63_l3133_question1",
+                "title": "de Broglie Wavelength Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question2",
+                "title": "Photoelectric Frequency Effects",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question3",
+                "title": "Electron Wave Evidence",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question4",
+                "title": "Hydrogen Energy Transitions",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question5",
+                "title": "Ionization Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question6",
+                "title": "X-ray Photon Momentum",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question7",
+                "title": "Double-Slit with Electrons",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question8",
+                "title": "de Broglie Particle Wavelength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_63_l3133_question9",
+                "title": "Uncertainty Principle",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "64_quantum_mechanics",

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive X-ray Production Component
 const XRayProductionComponent = () => {
@@ -522,6 +523,93 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="61-compton-effect"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question1',
+            title: 'Question 1: Minimum X-ray Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question2',
+            title: 'Question 2: X-ray Tube Voltage'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question3',
+            title: 'Question 3: Electron Collision Frequency'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question4',
+            title: 'Question 4: CRT Radiation Safety'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question5',
+            title: 'Question 5: Alpha Particle Radiation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question6',
+            title: 'Question 6: Electron Beam Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question7',
+            title: 'Question 7: Elastic Collision Conservation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question8',
+            title: 'Question 8: Photon Momentum Theory'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question9',
+            title: 'Question 9: Photon Mass Properties'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question10',
+            title: 'Question 10: Quantum Measurement Problem'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question11',
+            title: 'Question 11: Photon Momentum Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question12',
+            title: 'Question 12: High Energy Photon Momentum'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question13',
+            title: 'Question 13: Compton Scattering Analysis'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question14',
+            title: 'Question 14: Electron Recoil Speed'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_61_question15',
+            title: 'Question 15: Wavelength Shift Formula'
+          }
+        ]}
+        title="📡 Compton Effect Knowledge Check"
+        subtitle="Test your understanding of X-ray production, photon momentum, and Compton scattering"
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
