@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -238,6 +238,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 <BlockMath math="\lambda = \frac{hc}{qV}" />
               </div>
               </div>
+              </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="examples" title="X-ray Production Examples" theme="green" onAskAI={onAIAccordionContent}>
@@ -306,6 +307,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 <div className="bg-blue-100 p-3 rounded">
                   <BlockMath math="\lambda = 1.55 \times 10^{-11} \text{ m}" />
                 </div>
+              </div>
               </div>
               </div>
             </AIAccordion.Item>

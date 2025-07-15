@@ -338,6 +338,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
+            </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="isotopes" title="Isotopes" onAskAI={onAIAccordionContent}>
@@ -430,6 +431,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </div>
               </div>
             </div>
+            </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="equations" title="Nuclear Equations - Conservation of Charge & Nucleons" onAskAI={onAIAccordionContent}>
@@ -498,6 +500,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </div>
               </div>
             </div>
+            </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="massUnits" title="Atomic Mass Units" onAskAI={onAIAccordionContent}>
@@ -560,6 +563,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   designed for convenience when dealing with atomic-scale masses.
                 </p>
               </div>
+            </div>
             </div>
             </AIAccordion.Item>
 
@@ -678,6 +682,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
+            </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="conservation" title="Conservation of Mass-Energy" onAskAI={onAIAccordionContent}>
@@ -717,6 +722,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   energy that must be generated in a particle accelerator in order to create that particular particle.
                 </p>
               </div>
+            </div>
             </div>
             </AIAccordion.Item>
 
@@ -903,6 +909,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                 </p>
               </div>
             </div>
+            </div>
             </AIAccordion.Item>
 
             <AIAccordion.Item value="elementFormation" title="Element Formation" onAskAI={onAIAccordionContent}>
@@ -960,6 +967,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
                   become the smaller, more stable isotopes like iron and bromine.
                 </p>
               </div>
+            </div>
             </div>
             </AIAccordion.Item>
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
   // Rutherford Model Animation Component
@@ -682,6 +683,67 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="51-rutherford-atom"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question1',
+            title: 'Question 1: Alpha Particles'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question2',
+            title: 'Question 2: Gold Foil'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question3',
+            title: 'Question 3: Why Gold?'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question4',
+            title: 'Question 4: Alpha Particle Behavior'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question5',
+            title: 'Question 5: Head-on Deflection'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question6',
+            title: 'Question 6: Zinc Sulfide Screen'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question7',
+            title: 'Question 7: Empty Space'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question8',
+            title: 'Question 8: Nuclear Model'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question9',
+            title: 'Question 9: Nuclear Size'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_51_question10',
+            title: 'Question 10: Model Limitations'
+          }
+        ]}
+        theme="indigo"
+      />
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

@@ -130,6 +130,78 @@
   },
   "gradebook": {
     "itemStructure": {
+      "assignment_l25_27": {
+        "title": "L25-27 Assignment - Cathode Rays and Rutherford Model",
+        "type": "assignment",
+        "contentPath": "52-l25-27-assignment",
+        "assessmentSettings": {
+          "activityType": "assignment",
+          "timeLimit": 60,
+          "maxAttempts": 3,
+          "allowEasyExit": true,
+          "showExitButton": true,
+          "useSession": true,
+          "allowImmediateFeedback": true,
+          "secureModeIntensity": "medium",
+          "title": "Assignment in Progress",
+          "badge": { "text": "ASSIGNMENT", "color": "bg-blue-100 text-blue-800 border-blue-300" },
+          "theme": {
+            "gradient": "from-blue-600 to-indigo-600",
+            "gradientHover": "from-blue-700 to-indigo-700",
+            "accent": "blue-600",
+            "light": "blue-100",
+            "border": "blue-200",
+            "ring": "ring-blue-200"
+          }
+        },
+        "questions": [
+          {
+            "questionId": "course2_52_l2527_question1",
+            "title": "Cathode Ray Theory",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question2",
+            "title": "Cathode Ray Velocity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question3",
+            "title": "Charge-to-Mass Ratio",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question4",
+            "title": "Particle Charge Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question5",
+            "title": "Alpha Particle Electric Field",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question6",
+            "title": "Rutherford Model Explanation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question7",
+            "title": "Maxwell Theory and Electrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question8",
+            "title": "Atomic Structure Dimensions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_52_l2527_question9",
+            "title": "Rutherford Experiment Analysis",
+            "points": 1
+          }
+        ]
+      },
       "exam_section_1": {
         "title": "Section 1 Exam - Momentum and Optics",
         "type": "exam",
@@ -296,7 +368,133 @@
             "ring": "ring-red-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_48_section2_exam_q1",
+            "title": "Section2 Exam Q1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q2",
+            "title": "Section2 Exam Q2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q3",
+            "title": "Section2 Exam Q3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q4",
+            "title": "Section2 Exam Q4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q5",
+            "title": "Section2 Exam Q5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q6",
+            "title": "Section2 Exam Q6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q7",
+            "title": "Section2 Exam Q7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q8",
+            "title": "Section2 Exam Q8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q9",
+            "title": "Section2 Exam Q9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q10",
+            "title": "Section2 Exam Q10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q11",
+            "title": "Section2 Exam Q11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q12",
+            "title": "Section2 Exam Q12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q13",
+            "title": "Section2 Exam Q13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q14",
+            "title": "Section2 Exam Q14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q15",
+            "title": "Section2 Exam Q15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q16",
+            "title": "Section2 Exam Q16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q17",
+            "title": "Section2 Exam Q17",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q18",
+            "title": "Section2 Exam Q18",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q19",
+            "title": "Section2 Exam Q19",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q20",
+            "title": "Section2 Exam Q20",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q21",
+            "title": "Section2 Exam Q21",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q22",
+            "title": "Section2 Exam Q22",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q23",
+            "title": "Section2 Exam Q23",
+            "points": 1
+          },
+          {
+            "questionId": "course2_48_section2_exam_q24",
+            "title": "Section2 Exam Q24 (WR1)",
+            "points": 4
+          },
+          {
+            "questionId": "course2_48_section2_exam_q25",
+            "title": "Section2 Exam Q25 (WR2)",
+            "points": 5
+          }
+        ]
       },
       "exam_section_3": {
         "title": "Section 3 Exam - Atomic Physics and Nuclear",
@@ -1065,25 +1263,66 @@
         "contentPath": "59-l28-30-assignment",
         "assessmentSettings": {
           "activityType": "assignment",
-          "timeLimit": 70,
+          "timeLimit": 60,
           "maxAttempts": 3,
           "allowEasyExit": true,
           "showExitButton": true,
           "useSession": true,
           "allowImmediateFeedback": true,
-          "secureModeIntensity": "low",
+          "secureModeIntensity": "medium",
           "title": "Assignment in Progress",
-          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
+          "badge": { "text": "ASSIGNMENT", "color": "bg-blue-100 text-blue-800 border-blue-300" },
           "theme": {
-            "gradient": "from-green-600 to-emerald-600",
-            "gradientHover": "from-green-700 to-emerald-700",
-            "accent": "green-600",
-            "light": "green-100",
-            "border": "green-200",
-            "ring": "ring-green-200"
+            "gradient": "from-blue-600 to-indigo-600",
+            "gradientHover": "from-blue-700 to-indigo-700",
+            "accent": "blue-600",
+            "light": "blue-100",
+            "border": "blue-200",
+            "ring": "ring-blue-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_59_l2830_question1",
+            "title": "Quantum Energy Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question2",
+            "title": "Photon Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question3",
+            "title": "Work Function Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question4",
+            "title": "Photoelectron Speed",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question5",
+            "title": "Stopping Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question6",
+            "title": "Energy Level Transitions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question7",
+            "title": "Absorption Wavelengths",
+            "points": 1
+          },
+          {
+            "questionId": "course2_59_l2830_question8",
+            "title": "Emission Spectral Lines",
+            "points": 1
+          }
+        ]
       },
       "assignment_l31_33": {
         "title": "Assignment L31-33 - Wave-Particle Duality",
@@ -1300,13 +1539,13 @@
         ]
       },
       "lab_millikans_oil_drop": {
-        "title": "Lab - Millikan's Oil Drop",
+        "title": "Lab - Millikan's Photoelectric Experiment",
         "type": "lab",
         "contentPath": "56-lab-millikans-oil-drop",
         "questions": [
           {
-            "questionId": "course2_lab_millikans_oil_drop",
-            "title": "Lab - Millikan's Oil Drop",
+            "questionId": "course2_lab_photoelectric_effect",
+            "title": "Lab - Millikan's Photoelectric Experiment",
             "points": 15
           }
         ]
@@ -3628,6 +3867,463 @@
             "points": 1
           }
         ]
+      },
+      "49_early_atomic_models": {
+        "title": "Early Atomic Models",
+        "type": "lesson",
+        "contentPath": "49-early-atomic-models",
+        "questions": [
+          {
+            "questionId": "course2_49_question1",
+            "title": "Question 1: Classical Elements",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question2",
+            "title": "Question 2: Philosopher's Stone",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question3",
+            "title": "Question 3: Father of Chemistry",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question4",
+            "title": "Question 4: Dalton's Atomic Theory",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question5",
+            "title": "Question 5: Meyer's Discovery",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question6",
+            "title": "Question 6: Mendeleev's Contribution",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question7",
+            "title": "Question 7: Mendeleev's Table Error",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question8",
+            "title": "Question 8: Moseley's Improvement",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question9",
+            "title": "Question 9: Atomic Number Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_49_question10",
+            "title": "Question 10: Modern Periodic Table",
+            "points": 1
+          }
+        ]
+      },
+      "50_cathode_rays": {
+        "title": "Cathode Rays",
+        "type": "lesson",
+        "contentPath": "50-cathode-rays",
+        "questions": [
+          {
+            "questionId": "course2_50_question1",
+            "title": "Question 1: Cathode Ray Discovery",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question2",
+            "title": "Question 2: Fluorescent Screen",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question3",
+            "title": "Question 3: Magnetic Field Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question4",
+            "title": "Question 4: Electric Field Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question5",
+            "title": "Question 5: Particle Properties",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question6",
+            "title": "Question 6: Charge-to-Mass Ratio",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question7",
+            "title": "Question 7: Thomson's Method",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question8",
+            "title": "Question 8: Velocity Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question9",
+            "title": "Question 9: Final Velocity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question10",
+            "title": "Question 10: e/m Ratio",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question11",
+            "title": "Question 11: Electron Mass",
+            "points": 1
+          },
+          {
+            "questionId": "course2_50_question12",
+            "title": "Question 12: Thomson's Discovery",
+            "points": 1
+          }
+        ]
+      },
+      "51_rutherford_atom": {
+        "title": "Rutherford Atom",
+        "type": "lesson",
+        "contentPath": "51-rutherford-atom",
+        "questions": [
+          {
+            "questionId": "course2_51_question1",
+            "title": "Question 1: Thomson's Model",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question2",
+            "title": "Question 2: Alpha Particles",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question3",
+            "title": "Question 3: Gold Foil Choice",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question4",
+            "title": "Question 4: Expected Results",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question5",
+            "title": "Question 5: Actual Observations",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question6",
+            "title": "Question 6: Scattering Angle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question7",
+            "title": "Question 7: Nuclear Model",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question8",
+            "title": "Question 8: Nuclear Size",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question9",
+            "title": "Question 9: Energy Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_51_question10",
+            "title": "Question 10: Model Problems",
+            "points": 1
+          }
+        ]
+      },
+      "53_quantization_of_light": {
+        "title": "Quantization of Energy & Light",
+        "type": "lesson",
+        "contentPath": "53-quantization-of-light",
+        "questions": [
+          {
+            "questionId": "course2_53_question1",
+            "title": "Question 1: Radio Wave Energy (Joules)",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question2",
+            "title": "Question 2: Radio Wave Energy (eV)",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question3",
+            "title": "Question 3: Blue Light Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question4",
+            "title": "Question 4: 1.0 MeV Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question5",
+            "title": "Question 5: Electromagnetic Type",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question6",
+            "title": "Question 6: Laser Photon Rate",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question7",
+            "title": "Question 7: Light Bulb Efficiency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question8",
+            "title": "Question 8: Red Light in Darkroom",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question9",
+            "title": "Question 9: Star Temperatures",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question10",
+            "title": "Question 10: Dark Object Visibility",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question11",
+            "title": "Question 11: Particle Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question12",
+            "title": "Question 12: Wave Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_53_question13",
+            "title": "Question 13: Electron vs Photon",
+            "points": 1
+          }
+        ]
+      },
+      "55_photoelectric_effect": {
+        "title": "Photoelectric Effect",
+        "type": "lesson",
+        "contentPath": "55-photoelectric-effect",
+        "questions": [
+          {
+            "questionId": "course2_55_question1",
+            "title": "Question 1: Photon Energy Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question2",
+            "title": "Question 2: Photon Rate Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question3",
+            "title": "Question 3: Electron Emission Rate",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question4",
+            "title": "Question 4: Photocurrent Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question5",
+            "title": "Question 5: Intensity Effect on Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question6",
+            "title": "Question 6: Frequency Effect on Current",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question7",
+            "title": "Question 7: Electron Speed vs Intensity",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question8",
+            "title": "Question 8: Electron Speed vs Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question9",
+            "title": "Question 9: Threshold Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question10",
+            "title": "Question 10: Maximum Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question11",
+            "title": "Question 11: Maximum Kinetic Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question12",
+            "title": "Question 12: Below Threshold Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question13",
+            "title": "Question 13: Incident Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_55_question14",
+            "title": "Question 14: Stopping Voltage",
+            "points": 1
+          }
+        ]
+      },
+      "57_light_spectra_excitation": {
+        "title": "Light Spectra & Excitation States",
+        "type": "lesson",
+        "contentPath": "57-light-spectra-excitation",
+        "questions": [
+          {
+            "questionId": "course2_57_question1",
+            "title": "Question 1: Continuous Spectrum Source",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question2",
+            "title": "Question 2: Rarefied Gas Emission",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question3",
+            "title": "Question 3: Spectral Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question4",
+            "title": "Question 4: Absorption Spectrum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question5",
+            "title": "Question 5: Franck-Hertz Experiment",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question6",
+            "title": "Question 6: Ground State Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question7",
+            "title": "Question 7: Excitation States",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question8",
+            "title": "Question 8: Energy Level Difference",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question9",
+            "title": "Question 9: Emission Process",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question10",
+            "title": "Question 10: Hydrogen Spectral Series",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question11",
+            "title": "Question 11: Sodium D-Line",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question12",
+            "title": "Question 12: Photon Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question13",
+            "title": "Question 13: Absorption Temperature",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question14",
+            "title": "Question 14: Spectroscopic Applications",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question15",
+            "title": "Question 15: Required Photon Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question16",
+            "title": "Question 16: Multiple Photon Absorption",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question17",
+            "title": "Question 17: UV Light Emission",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question18",
+            "title": "Question 18: Franck-Hertz Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question19",
+            "title": "Question 19: Electron Impact Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question20",
+            "title": "Question 20: Quantum Number Transition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question21",
+            "title": "Question 21: Hydrogen Transition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question22",
+            "title": "Question 22: Series Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question23",
+            "title": "Question 23: IR Radiation Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_57_question24",
+            "title": "Question 24: Mercury Spectrum Analysis",
+            "points": 1
+          }
+        ]
       }
     }
   },
@@ -4299,7 +4995,59 @@
             "estimatedTime": 120,
             "order": 1,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_49_question1",
+                "title": "Question 1: Classical Elements",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question2",
+                "title": "Question 2: Philosopher's Stone",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question3",
+                "title": "Question 3: Father of Chemistry",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question4",
+                "title": "Question 4: Dalton's Atomic Theory",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question5",
+                "title": "Question 5: Meyer's Discovery",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question6",
+                "title": "Question 6: Mendeleev's Contribution",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question7",
+                "title": "Question 7: Mendeleev's Table Error",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question8",
+                "title": "Question 8: Moseley's Improvement",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question9",
+                "title": "Question 9: Classical vs Modern Physics",
+                "points": 1
+              },
+              {
+                "questionId": "course2_49_question10",
+                "title": "Question 10: Scientific Method",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "50_cathode_rays",
@@ -4310,7 +5058,69 @@
             "estimatedTime": 120,
             "order": 2,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_50_question1",
+                "title": "Question 1: Velocity Selector",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question2",
+                "title": "Question 2: Charge-to-Mass Ratio",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question3",
+                "title": "Question 3: Potential Difference",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question4",
+                "title": "Question 4: Alpha Particle Deflection",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question5",
+                "title": "Question 5: Charge Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question6",
+                "title": "Question 6: Magnetic Field Strength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question7",
+                "title": "Question 7: Electric Field Strength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question8",
+                "title": "Question 8: Particle Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question9",
+                "title": "Question 9: Acceleration Voltage",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question10",
+                "title": "Question 10: Electron Arc Radius",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question11",
+                "title": "Question 11: Millikan Oil Drop",
+                "points": 1
+              },
+              {
+                "questionId": "course2_50_question12",
+                "title": "Question 12: Oil Drop Acceleration",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "51_rutherford_atom",
@@ -4321,7 +5131,59 @@
             "estimatedTime": 120,
             "order": 3,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_51_question1",
+                "title": "Question 1: Alpha Particles",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question2",
+                "title": "Question 2: Gold Foil",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question3",
+                "title": "Question 3: Why Gold?",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question4",
+                "title": "Question 4: Alpha Particle Behavior",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question5",
+                "title": "Question 5: Head-on Deflection",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question6",
+                "title": "Question 6: Zinc Sulfide Screen",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question7",
+                "title": "Question 7: Empty Space",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question8",
+                "title": "Question 8: Nuclear Model",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question9",
+                "title": "Question 9: Nuclear Size",
+                "points": 1
+              },
+              {
+                "questionId": "course2_51_question10",
+                "title": "Question 10: Model Limitations",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "assignment_l25_27",
@@ -4332,7 +5194,54 @@
             "estimatedTime": 120,
             "order": 4,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_52_l2527_question1",
+                "title": "Cathode Ray Theory",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question2",
+                "title": "Cathode Ray Velocity",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question3",
+                "title": "Charge-to-Mass Ratio",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question4",
+                "title": "Particle Charge Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question5",
+                "title": "Alpha Particle Electric Field",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question6",
+                "title": "Rutherford Model Explanation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question7",
+                "title": "Maxwell Theory and Electrons",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question8",
+                "title": "Atomic Structure Dimensions",
+                "points": 1
+              },
+              {
+                "questionId": "course2_52_l2527_question9",
+                "title": "Rutherford Experiment Analysis",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "53_quantization_of_light",
@@ -4343,7 +5252,74 @@
             "estimatedTime": 120,
             "order": 5,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_53_question1",
+                "title": "Question 1: Radio Wave Energy (Joules)",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question2",
+                "title": "Question 2: Radio Wave Energy (eV)",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question3",
+                "title": "Question 3: Blue Light Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question4",
+                "title": "Question 4: 1.0 MeV Frequency",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question5",
+                "title": "Question 5: 1.0 MeV Radiation Type",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question6",
+                "title": "Question 6: Neon Laser Photons",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question7",
+                "title": "Question 7: Light Bulb Photons",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question8",
+                "title": "Question 8: Red Light & Film",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question9",
+                "title": "Question 9: Star Temperatures",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question10",
+                "title": "Question 10: Dark Objects",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question11",
+                "title": "Question 11: Particle Definition",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question12",
+                "title": "Question 12: Wave Definition",
+                "points": 1
+              },
+              {
+                "questionId": "course2_53_question13",
+                "title": "Question 13: Electrons vs Photons",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "lab_plancks_constant",
@@ -4365,7 +5341,79 @@
             "estimatedTime": 120,
             "order": 7,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_55_question1",
+                "title": "Question 1: Photon Energy Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question2",
+                "title": "Question 2: Photon Rate Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question3",
+                "title": "Question 3: Electron Emission Rate",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question4",
+                "title": "Question 4: Photocurrent Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question5",
+                "title": "Question 5: Intensity Effect on Current",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question6",
+                "title": "Question 6: Frequency Effect on Current",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question7",
+                "title": "Question 7: Electron Speed vs Intensity",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question8",
+                "title": "Question 8: Electron Speed vs Frequency",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question9",
+                "title": "Question 9: Threshold Frequency",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question10",
+                "title": "Question 10: Maximum Wavelength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question11",
+                "title": "Question 11: Maximum Kinetic Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question12",
+                "title": "Question 12: Below Threshold Energy",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question13",
+                "title": "Question 13: Incident Wavelength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_55_question14",
+                "title": "Question 14: Stopping Voltage",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "lab_millikans_oil_drop",
@@ -4409,7 +5457,49 @@
             "estimatedTime": 60,
             "order": 11,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_59_l2830_question1",
+                "title": "Quantum Energy Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question2",
+                "title": "Photon Wavelength",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question3",
+                "title": "Work Function Calculation",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question4",
+                "title": "Photoelectron Speed",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question5",
+                "title": "Stopping Voltage",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question6",
+                "title": "Energy Level Transitions",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question7",
+                "title": "Absorption Wavelengths",
+                "points": 1
+              },
+              {
+                "questionId": "course2_59_l2830_question8",
+                "title": "Emission Spectral Lines",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "60_bohr_model",

@@ -1,6 +1,7 @@
 import React from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
 
@@ -707,6 +708,82 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="53-quantization-of-light"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question1',
+            title: 'Question 1: Radio Wave Energy (Joules)'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question2',
+            title: 'Question 2: Radio Wave Energy (eV)'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question3',
+            title: 'Question 3: Blue Light Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question4',
+            title: 'Question 4: 1.0 MeV Frequency'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question5',
+            title: 'Question 5: 1.0 MeV Radiation Type'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question6',
+            title: 'Question 6: Neon Laser Photons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question7',
+            title: 'Question 7: Light Bulb Photons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question8',
+            title: 'Question 8: Red Light & Film'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question9',
+            title: 'Question 9: Star Temperatures'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question10',
+            title: 'Question 10: Dark Objects'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question11',
+            title: 'Question 11: Particle Definition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question12',
+            title: 'Question 12: Wave Definition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_53_question13',
+            title: 'Question 13: Electrons vs Photons'
+          }
+        ]}
+        theme="indigo"
+      />
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

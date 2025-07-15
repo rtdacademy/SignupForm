@@ -343,7 +343,7 @@ class StandardMultipleChoiceCore {
       timestamp: getServerTimestamp(),
       questionText: question.questionText,
       options: question.options.map(opt => ({ id: opt.id, text: opt.text })),
-      image: question.image || null, // Include image data if available
+      image: question.image ? { url: question.image, alt: 'Question diagram' } : null, // Include image data if available
       topic: params.topic,
       difficulty: question.difficulty || params.difficulty,
       generatedBy: 'standard',
