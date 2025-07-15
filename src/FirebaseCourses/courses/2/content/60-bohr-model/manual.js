@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Planetary Model Component
 const PlanetaryModelComponent = () => {
@@ -1188,6 +1189,93 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </div>
         </div>
       )}
+
+      {/* Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="60-bohr-model"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question1',
+            title: 'Question 1: Rutherford Model Problem'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question2',
+            title: 'Question 2: Photon Emission Process'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question3',
+            title: 'Question 3: Bohr Model Spectral Explanation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question4',
+            title: 'Question 4: Bohr Model Strengths'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question5',
+            title: 'Question 5: Bohr Model Weaknesses'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question6',
+            title: 'Question 6: Energy Level Calculations'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question7',
+            title: 'Question 7: Energy Conservation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question8',
+            title: 'Question 8: Photon Color and Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question9',
+            title: 'Question 9: Ionization Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question10',
+            title: 'Question 10: Wavelength Calculations'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question11',
+            title: 'Question 11: Hydrogen Gas Excitation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question12',
+            title: 'Question 12: Photon Wavelength from n=6→n=2'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question13',
+            title: 'Question 13: Photon Frequency from n=7→n=3'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question14',
+            title: 'Question 14: Energy Absorption n=1→n=8'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_60_question15',
+            title: 'Question 15: Ionization Energy from Diagram'
+          }
+        ]}
+        title="⚛️ Bohr Model Knowledge Check"
+        subtitle="Test your understanding of the Bohr atomic model, energy levels, and quantum transitions"
+      />
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

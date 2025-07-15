@@ -49,9 +49,11 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   
   // UI state
   const [currentSection, setCurrentSection] = useState('hypothesis');
+  const [labStarted, setLabStarted] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
   const autoSaveIntervalRef = useRef(null);
   
   // Firebase functions
@@ -60,7 +62,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   
   // Auto-save functionality
   useEffect(() => {
-    if (userId && !isSubmitted) {
+    if (userId && !isSubmitted && labStarted) {
       autoSaveIntervalRef.current = setInterval(handleAutoSave, 30000); // Auto-save every 30 seconds
       return () => {
         if (autoSaveIntervalRef.current) {
@@ -68,7 +70,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
         }
       };
     }
-  }, [userId, sectionContent, observationData, analysisData, sectionStatus, isSubmitted]);
+  }, [userId, sectionContent, observationData, analysisData, sectionStatus, isSubmitted, labStarted]);
   
   // Load existing data on component mount
   useEffect(() => {
@@ -95,7 +97,10 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
         if (data.analysisData) setAnalysisData(data.analysisData);
         if (data.sectionStatus) setSectionStatus(data.sectionStatus);
         if (data.isSubmitted) setIsSubmitted(data.isSubmitted);
+        if (data.labStarted !== undefined) setLabStarted(data.labStarted);
+        if (data.currentSection) setCurrentSection(data.currentSection);
         if (data.lastSaved) setLastSaved(new Date(data.lastSaved));
+        setHasSavedProgress(true);
         console.log('Lab data loaded successfully');
       }
     } catch (error) {
@@ -117,6 +122,8 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
         analysisData,
         sectionStatus,
         isSubmitted,
+        labStarted,
+        currentSection,
         lastSaved: Date.now(),
         autoSave: true
       };
@@ -279,6 +286,40 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   const canSubmit = () => {
     const completedSections = Object.values(sectionStatus).filter(status => status === 'completed').length;
     return completedSections >= 3; // Require at least 3 of 4 sections completed
+  };
+  
+  // Start lab function
+  const startLab = async () => {
+    setLabStarted(true);
+    setCurrentSection('hypothesis');
+    
+    const newSectionStatus = {
+      hypothesis: 'not-started',
+      observations: 'not-started',
+      analysis: 'not-started',
+      error: 'not-started'
+    };
+    setSectionStatus(newSectionStatus);
+    
+    // Save lab start to Firebase
+    try {
+      const db = getDatabase();
+      const labRef = ref(db, `users/${userId}/FirebaseCourses/${courseId}/course2_lab_plancks_constant`);
+      
+      const saveData = {
+        labStarted: true,
+        currentSection: 'hypothesis',
+        sectionStatus: newSectionStatus,
+        lastSaved: Date.now()
+      };
+      
+      await set(labRef, saveData);
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error('Error starting lab:', error);
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const renderCurrentSection = () => {
@@ -571,6 +612,113 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
     }
   };
   
+  // If lab hasn't been started, show welcome screen
+  if (!labStarted) {
+    const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
+    const totalSections = Object.keys(sectionStatus).length;
+
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-4xl mx-auto px-4 space-y-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">Lab 7 - Planck's Constant</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Determine Planck's constant using LED threshold voltages and the photoelectric effect
+            </p>
+          </div>
+          
+          {/* Lab Overview */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Lab Overview</h2>
+            <div className="space-y-4 text-gray-700">
+              <p>
+                In this lab, you will determine the value of Planck's constant by measuring the threshold 
+                voltages of different colored LEDs and applying Einstein's photoelectric equation.
+              </p>
+              <p>
+                You'll use an interactive LED circuit simulation to measure threshold voltages, 
+                plot the relationship between voltage and frequency, calculate the slope manually, 
+                and determine Planck's constant from your results.
+              </p>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="font-medium text-blue-800">Objective:</p>
+                <p className="text-blue-700">Determine Planck's constant using the photoelectric effect with LEDs</p>
+              </div>
+              
+              <div className="grid md:grid-cols-4 gap-4 mt-6">
+                <div className="text-center p-3 bg-purple-50 rounded-lg">
+                  <h3 className="font-semibold text-purple-800">Hypothesis</h3>
+                  <p className="text-sm text-purple-600">Predict the voltage-frequency relationship</p>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <h3 className="font-semibold text-green-800">Observations</h3>
+                  <p className="text-sm text-green-600">Measure 5 LED threshold voltages</p>
+                </div>
+                <div className="text-center p-3 bg-orange-50 rounded-lg">
+                  <h3 className="font-semibold text-orange-800">Analysis</h3>
+                  <p className="text-sm text-orange-600">Graph data and calculate Planck's constant</p>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <h3 className="font-semibold text-red-800">Error</h3>
+                  <p className="text-sm text-red-600">Analyze experimental uncertainty</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Start Lab Box */}
+          <div className="max-w-md mx-auto">
+            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-md text-center">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                {hasSavedProgress ? 'Welcome Back!' : 'Ready to Begin?'}
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {hasSavedProgress 
+                  ? 'Your progress has been saved. You can continue where you left off.'
+                  : 'This lab contains 4 sections with interactive simulations and calculations.'
+                }
+              </p>
+              
+              {/* Progress Summary for returning students */}
+              {hasSavedProgress && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Your Progress:</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {Object.entries(sectionStatus).map(([section, status]) => (
+                      <div key={section} className="flex items-center gap-1">
+                        <span className={`text-xs ${
+                          status === 'completed' ? 'text-green-600' : 
+                          status === 'in-progress' ? 'text-yellow-600' : 
+                          'text-gray-400'
+                        }`}>
+                          {status === 'completed' ? '✓' : 
+                           status === 'in-progress' ? '◐' : '○'}
+                        </span>
+                        <span className="text-xs text-gray-600 capitalize">
+                          {section}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {completedCount} of {totalSections} sections completed
+                  </p>
+                </div>
+              )}
+              
+              <button
+                onClick={startLab}
+                className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200 text-lg"
+              >
+                {hasSavedProgress ? 'Continue Lab' : 'Start Lab'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isSubmitted) {
     return (
       <PostSubmissionOverlay

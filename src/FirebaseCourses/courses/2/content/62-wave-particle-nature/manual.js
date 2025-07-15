@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Wave-Particle Spectrum Component
 const WaveParticleSpectrumComponent = () => {
@@ -953,6 +954,83 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="62-wave-particle-nature"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question1',
+            title: 'Question 1: de Broglie Wavelength Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question2',
+            title: 'Question 2: Wavelength from Kinetic Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question3',
+            title: 'Question 3: Smallest Orbital Radius'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question4',
+            title: 'Question 4: Ionization Energy and Radius'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question5',
+            title: 'Question 5: Macroscopic Object Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question6',
+            title: 'Question 6: Accelerated Electron Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question7',
+            title: 'Question 7: Bohr Orbit Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question8',
+            title: 'Question 8: Wavelength vs Orbit Comparison'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question9',
+            title: 'Question 9: Double-Slit Electron Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question10',
+            title: 'Question 10: Electron Momentum from Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question11',
+            title: 'Question 11: Electron Kinetic Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question12',
+            title: 'Question 12: Light Wave-Particle Nature'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_62_question13',
+            title: 'Question 13: Universal Wave-Particle Duality'
+          }
+        ]}
+        title="🌊 Wave-Particle Nature Knowledge Check"
+        subtitle="Test your understanding of de Broglie wavelengths, quantum mechanics, and wave-particle duality"
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
