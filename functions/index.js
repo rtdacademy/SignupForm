@@ -229,6 +229,11 @@ const saveFamilyDataFunction = require('./saveFamilyData');
 exports.applyPendingPermissions = familyCustomClaimsFunctions.applyPendingPermissions;
 exports.saveFamilyData = saveFamilyDataFunction;
 
+// Staff custom claims functions
+const staffCustomClaimsFunctions = require('./setStaffCustomClaims');
+exports.setStaffCustomClaims = staffCustomClaimsFunctions.setStaffCustomClaims;
+exports.getStaffPermissions = staffCustomClaimsFunctions.getStaffPermissions;
+
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;
 

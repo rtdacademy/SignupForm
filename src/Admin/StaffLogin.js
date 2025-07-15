@@ -4,13 +4,22 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { auth, microsoftProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { sanitizeEmail } from "../utils/sanitizeEmail";
+import { useStaffClaims } from "../customClaims/useStaffClaims";
+import { isStaffEmail } from "../customClaims/staffPermissions";
 
 const StaffLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { isStaff, ensureStaffNode, loading } = useAuth();
+  const { loading } = useAuth();
+  const { 
+    isStaff, 
+    checkAndApplyStaffClaims, 
+    loading: claimsLoading, 
+    error: claimsError,
+    isApplyingClaims 
+  } = useStaffClaims();
 
   // Get the redirect URL from query parameters
   const searchParams = new URLSearchParams(location.search);
@@ -26,7 +35,7 @@ const StaffLogin = () => {
 
   const signInWithMicrosoft = async () => {
     // Prevent multiple login attempts
-    if (isLoggingIn) return;
+    if (isLoggingIn || isApplyingClaims) return;
     
     setError(null);
     setIsLoggingIn(true);
@@ -38,24 +47,32 @@ const StaffLogin = () => {
       const result = await signInWithPopup(auth, microsoftProvider);
       const user = result.user;
       
-      if (isStaff(user)) {
-        const staffNodeCreated = await ensureStaffNode(user, sanitizeEmail(user.email));
-        if (staffNodeCreated) {
-          console.log("Signed in staff:", user.displayName);
-          // Use setTimeout to ensure auth state is fully updated before navigation
+      // Check if user has a staff email domain
+      if (isStaffEmail(user.email)) {
+        console.log("Staff email detected, applying custom claims:", user.email);
+        
+        // Check and apply staff claims
+        const staffClaims = await checkAndApplyStaffClaims();
+        
+        if (staffClaims && staffClaims.staffPermissions && staffClaims.staffPermissions.length > 0) {
+          console.log("Successfully applied staff claims:", staffClaims);
+          console.log("Signed in staff:", user.displayName, "with permissions:", staffClaims.staffPermissions);
+          
+          // Navigate to dashboard with a slight delay to ensure state is updated
           setTimeout(() => {
             navigate(redirectTo);
             setIsLoggingIn(false);
-          }, 500);
+          }, 1000);
         } else {
-          setError("Failed to create staff profile. Please contact support.");
+          setError("Failed to apply staff permissions. Please contact support.");
           await auth.signOut();
           setIsLoggingIn(false);
         }
       } else {
         setError(
           <div className="text-center">
-            <p className="mb-2">This login page is for RTD Math Academy staff only.</p>
+            <p className="mb-2">This login page is for RTD Academy staff only.</p>
+            <p className="mb-2">Only @rtdacademy.com and @rtd-connect.com email addresses are allowed.</p>
             <p>Students should login at:{" "}
               <a 
                 href="https://yourway.rtdacademy.com/login" 
@@ -97,18 +114,18 @@ const StaffLogin = () => {
             <div>
               <button
                 onClick={signInWithMicrosoft}
-                disabled={isLoggingIn || loading}
+                disabled={isLoggingIn || loading || claimsLoading || isApplyingClaims}
                 className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-                  (isLoggingIn || loading) ? "opacity-70 cursor-not-allowed" : ""
+                  (isLoggingIn || loading || claimsLoading || isApplyingClaims) ? "opacity-70 cursor-not-allowed" : ""
                 }`}
               >
-                {isLoggingIn ? (
+                {isLoggingIn || isApplyingClaims ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Signing in...
+                    {isApplyingClaims ? "Setting up permissions..." : "Signing in..."}
                   </>
                 ) : (
                   <>
@@ -122,9 +139,9 @@ const StaffLogin = () => {
                 )}
               </button>
             </div>
-            {error && (
+            {(error || claimsError) && (
               <div className="mt-2 text-sm text-red-600">
-                {error}
+                {error || claimsError}
               </div>
             )}
             <div className="mt-6 text-center space-y-2">

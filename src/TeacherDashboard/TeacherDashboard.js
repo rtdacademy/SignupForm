@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLayout } from '../context/LayoutContext';
 import { useUserPreferences } from '../context/UserPreferencesContext';
+import { getAuth } from 'firebase/auth';
+import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Button } from "../components/ui/button";
@@ -26,7 +28,8 @@ import {
   Shield,
   Grid,
   Database,
-  FolderOpen
+  FolderOpen,
+  Home
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -54,6 +57,14 @@ function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
   const { isFullScreen, setIsFullScreen } = useLayout();
   const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
+  const { 
+    checkAndApplyStaffClaims, 
+    isStaff: hasStaffClaims, 
+    loading: claimsLoading, 
+    error: claimsError,
+    staffPermissions,
+    staffRole
+  } = useStaffClaims();
   const [activeSection, setActiveSection] = useState('react-dashboard');
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -178,6 +189,53 @@ function TeacherDashboard() {
     return () => unsubscribe();
   }, [user]);
 
+  // Debug: Log custom claims when user is available AND check/apply staff claims
+  useEffect(() => {
+    if (!user) return;
+
+    const debugAndEnsureStaffClaims = async () => {
+      try {
+        const auth = getAuth();
+        if (auth.currentUser) {
+          const result = await auth.currentUser.getIdTokenResult();
+          console.log('🔍 Teacher Dashboard - Custom claims:', result.claims);
+          console.log('📧 User email:', user.email);
+          console.log('🆔 User UID:', user.uid);
+          
+          // Log specific staff permissions if they exist
+          if (result.claims.staffPermissions) {
+            console.log('👨‍🏫 Staff permissions:', result.claims.staffPermissions);
+            console.log('🎭 Staff role:', result.claims.staffRole);
+            console.log('📅 Last permission update:', result.claims.lastPermissionUpdate);
+            console.log('📍 Permission source:', result.claims.permissionSource);
+          } else {
+            console.log('⚠️ No staff permissions found in claims');
+            
+            // If no staff permissions found, try to apply them
+            console.log('🔧 Attempting to apply staff claims...');
+            const appliedClaims = await checkAndApplyStaffClaims();
+            if (appliedClaims) {
+              console.log('✅ Staff claims applied successfully:', appliedClaims);
+            } else {
+              console.log('❌ Failed to apply staff claims');
+            }
+          }
+          
+          // Also log from the hook state
+          console.log('🎯 Hook state - hasStaffClaims:', hasStaffClaims);
+          console.log('🎯 Hook state - staffPermissions:', staffPermissions);
+          console.log('🎯 Hook state - staffRole:', staffRole);
+          console.log('🎯 Hook state - claimsLoading:', claimsLoading);
+          console.log('🎯 Hook state - claimsError:', claimsError);
+        }
+      } catch (error) {
+        console.error('❌ Error getting custom claims:', error);
+      }
+    };
+
+    debugAndEnsureStaffClaims();
+  }, [user, checkAndApplyStaffClaims, hasStaffClaims, staffPermissions, staffRole, claimsLoading, claimsError]);
+
   const memoizedChatApp = useMemo(() => {
     return <ChatApp />;
   }, []);
@@ -200,6 +258,7 @@ function TeacherDashboard() {
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Shield, label: 'Parent Management', key: 'parent-management' },
+      { icon: Home, label: 'Home Education', key: 'home-education' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
     ];
 
@@ -285,6 +344,12 @@ function TeacherDashboard() {
       return;
     }
 
+    // Handle navigation to external routes
+    if (key === 'home-education') {
+      navigate('/home-education-staff');
+      return;
+    }
+
     setActiveSection(activeSection === key ? null : key);
     setIsFullScreen(false);
     setIsChatExpanded(key === 'chat');
@@ -332,7 +397,40 @@ function TeacherDashboard() {
     </nav>
   );
 
-  if (!user || !isStaff(user)) {
+  // Show loading state while claims are being applied
+  if (claimsLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Setting up your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if claims failed to apply
+  if (claimsError) {
+    return (
+      <div className="p-4">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="text-red-800">
+            <h3 className="font-medium">Permission Error</h3>
+            <p className="mt-1">{claimsError}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check access using either legacy isStaff or new staff claims
+  if (!user || (!isStaff(user) && !hasStaffClaims)) {
     return <div className="p-4">Access Denied. This page is only for staff members.</div>;
   }
 
