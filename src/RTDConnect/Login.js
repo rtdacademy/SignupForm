@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
@@ -13,6 +15,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { auth, googleProvider, microsoftProvider } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +69,8 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [isResetingPassword, setIsResetingPassword] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
 
   const db = getDatabase();
 
@@ -91,6 +96,8 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
       'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
       'auth/operation-not-allowed': 'This sign-in method is not enabled. Please try another method.',
+      'auth/redirect-cancelled-by-user': 'Sign-in was cancelled. Please try again.',
+      'auth/web-storage-unsupported': 'Your browser does not support web storage. Please try a different browser or enable cookies.',
       
       // Password reset errors
       'auth/expired-action-code': 'The password reset link has expired. Please request a new one.',
@@ -204,6 +211,77 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   };
 
   useEffect(() => {
+    // Handle redirect result from social sign-in
+    const handleRedirectResult = async () => {
+      try {
+        setCheckingRedirect(true);
+        console.log('Checking for redirect result...');
+        
+        // Check if we were expecting a redirect
+        const authInProgress = sessionStorage.getItem('rtdConnectAuthInProgress');
+        const authProvider = sessionStorage.getItem('rtdConnectAuthProvider');
+        
+        if (authInProgress) {
+          console.log(`Expecting redirect result from ${authProvider}`);
+        }
+        
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          console.log('Redirect sign-in successful for:', result.user.email);
+          
+          // Clear session storage flags
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+          
+          const user = result.user;
+          
+          if (!user.email) {
+            setError("Unable to retrieve email from provider. Please try again.");
+            return;
+          }
+
+          if (isStaffEmail(user.email)) {
+            await auth.signOut();
+            handleStaffAttempt();
+          } else {
+            await ensureUserData(user);
+            navigate("/dashboard");
+          }
+        } else if (authInProgress) {
+          // We were expecting a redirect but didn't get one - this might indicate an error
+          console.log('Expected redirect result but none found');
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+        }
+      } catch (error) {
+        console.error("Redirect sign-in error:", error);
+        
+        // Handle specific mobile authentication errors
+        if (error.message && error.message.includes('missing initial state')) {
+          console.log('Detected missing initial state error - likely storage issue on mobile');
+          
+          // Clear any stale session data
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+          
+          // Provide helpful error message for mobile users
+          setError(
+            isMobileDevice() 
+              ? "Authentication failed due to browser storage restrictions. Please try clearing your browser data or using a different browser."
+              : "Authentication failed. Please try again or use email sign-in instead."
+          );
+        } else if (error.code !== 'auth/redirect-cancelled-by-user' && 
+                  error.code !== 'auth/popup-blocked' &&
+                  error.code !== 'auth/operation-not-allowed') {
+          // Only show error for actual failures, not expected states
+          setError(getFriendlyErrorMessage(error) || "Failed to complete sign-in. Please try again.");
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
     // Handle verification flag
     const handleVerificationFlag = () => {
       const verificationFlag = localStorage.getItem('verificationEmailSent');
@@ -218,6 +296,8 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       }
     };
     
+    // Check for redirect result first
+    handleRedirectResult();
     handleVerificationFlag();
 
     // Check for navigation state message
@@ -277,25 +357,62 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const handleProviderSignIn = async (provider) => {
     setError(null);
     setMessage(null);
+    setIsAuthenticating(true);
+    
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      if (!user.email) {
-        setError("Unable to retrieve email from provider. Please try again.");
-        return;
-      }
-
-      if (isStaffEmail(user.email)) {
-        await auth.signOut();
-        handleStaffAttempt();
+      const deviceType = getDeviceType();
+      console.log(`Attempting sign-in on ${deviceType} device`);
+      
+      if (isMobileDevice()) {
+        // Use redirect flow for mobile devices
+        console.log('Using redirect flow for mobile device');
+        
+        // Store a flag to indicate we're expecting a redirect
+        sessionStorage.setItem('rtdConnectAuthInProgress', 'true');
+        sessionStorage.setItem('rtdConnectAuthProvider', provider.providerId);
+        
+        await signInWithRedirect(auth, provider);
+        // User will be redirected away, so we won't reach here
       } else {
-        await ensureUserData(user);
-        navigate("/dashboard");
+        // Use popup flow for desktop
+        console.log('Using popup flow for desktop');
+        
+        try {
+          const result = await signInWithPopup(auth, provider);
+          const user = result.user;
+
+          if (!user.email) {
+            setError("Unable to retrieve email from provider. Please try again.");
+            return;
+          }
+
+          if (isStaffEmail(user.email)) {
+            await auth.signOut();
+            handleStaffAttempt();
+          } else {
+            await ensureUserData(user);
+            navigate("/dashboard");
+          }
+        } catch (popupError) {
+          // If popup fails (blocked), fall back to redirect
+          if (popupError.code === 'auth/popup-blocked' || 
+              popupError.code === 'auth/popup-closed-by-user') {
+            console.log('Popup blocked or closed, falling back to redirect flow');
+            
+            sessionStorage.setItem('rtdConnectAuthInProgress', 'true');
+            sessionStorage.setItem('rtdConnectAuthProvider', provider.providerId);
+            
+            await signInWithRedirect(auth, provider);
+          } else {
+            throw popupError;
+          }
+        }
       }
     } catch (error) {
       console.error("Sign-in error:", error);
       setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -438,6 +555,11 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
           <p className="mt-1 text-sm font-medium bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
             Recommended: Use your Google or Microsoft account
           </p>
+          {isMobileDevice() && (
+            <p className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+              📱 Mobile users: You'll be redirected to sign in securely
+            </p>
+          )}
         </div>
         
         {renderAlerts()}
@@ -445,26 +567,50 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => handleProviderSignIn(googleProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 hover:border-purple-300 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 hover:border-purple-300'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-              alt="Google logo"
-            />
-            <span>Continue with Google</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Google'}</span>
           </button>
 
           <button
             onClick={() => handleProviderSignIn(microsoftProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 hover:border-cyan-300 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 hover:border-cyan-300'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-              alt="Microsoft logo"
-            />
-            <span>Continue with Microsoft</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                alt="Microsoft logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Microsoft'}</span>
           </button>
         </div>
       </div>

@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { getDatabase, ref, get, set, serverTimestamp, onValue, off } from "firebase/database";
+import { getDatabase, ref, get, set, update, serverTimestamp, onValue, off } from "firebase/database";
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { getEdmontonTimestamp } from '../utils/timeZoneUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Permission level indicators
@@ -88,7 +89,7 @@ export function AuthProvider({ children }) {
   const inactivityTimeoutRef = useRef(null);
   const tokenRefreshTimeoutRef = useRef(null);
   const userActivityTracking = useRef({
-    lastActivity: Date.now(),
+    lastActivity: getEdmontonTimestamp(),
     isActive: true
   });
 
@@ -96,7 +97,7 @@ export function AuthProvider({ children }) {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const activityBuffer = useRef([]);
   const lastDatabaseUpdate = useRef(0);
-  const DATABASE_UPDATE_INTERVAL = 60 * 1000; // Update database max once per minute
+  const DATABASE_UPDATE_INTERVAL = 10 * 60 * 1000; // Update database max once per 10 minutes
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -276,7 +277,7 @@ export function AuthProvider({ children }) {
       const sessionData = {
         sessionId,
         startTime: serverTimestamp(),
-        lastActivity: serverTimestamp(),
+        lastActivityTimestamp: getEdmontonTimestamp(),
         userAgent: navigator.userAgent,
         activityEvents: []
       };
@@ -296,7 +297,7 @@ export function AuthProvider({ children }) {
   const addActivityEvent = useCallback((eventType, eventData = {}) => {
     if (!user || !currentSessionId) return;
     
-    const timestamp = Date.now();
+    const timestamp = getEdmontonTimestamp();
     const event = {
       timestamp,
       type: eventType,
@@ -308,16 +309,16 @@ export function AuthProvider({ children }) {
     
     activityBuffer.current.push(event);
     
-    // Keep buffer size reasonable (last 100 events)
-    if (activityBuffer.current.length > 100) {
-      activityBuffer.current = activityBuffer.current.slice(-100);
+    // Keep buffer size reasonable (last 20 events)
+    if (activityBuffer.current.length > 20) {
+      activityBuffer.current = activityBuffer.current.slice(-20);
     }
   }, [user, currentSessionId]);
 
   const updateUserActivityInDatabase = useCallback(async () => {
     if (!user || !currentSessionId) return;
     
-    const now = Date.now();
+    const now = getEdmontonTimestamp();
     
     // Throttle database updates
     if (now - lastDatabaseUpdate.current < DATABASE_UPDATE_INTERVAL) {
@@ -330,10 +331,11 @@ export function AuthProvider({ children }) {
       // Get current events from buffer
       const eventsToUpdate = [...activityBuffer.current];
       
-      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/lastActivity`), serverTimestamp());
-      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/lastActivityTimestamp`), now);
-      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/activityEvents`), eventsToUpdate);
-      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/eventCount`), eventsToUpdate.length);
+      // Single batched update instead of multiple set() calls
+      await update(ref(db, `users/${user.uid}/activityTracking/currentSession`), {
+        lastActivityTimestamp: now,
+        activityEvents: eventsToUpdate
+      });
       
       lastDatabaseUpdate.current = now;
       
@@ -436,7 +438,7 @@ export function AuthProvider({ children }) {
     
     try {
       // Track the activity
-      userActivityTracking.current.lastActivity = Date.now();
+      userActivityTracking.current.lastActivity = getEdmontonTimestamp();
       userActivityTracking.current.isActive = true;
       
       // Force a token refresh if token is going to expire soon
@@ -468,7 +470,7 @@ export function AuthProvider({ children }) {
       clearTimeout(inactivityTimeoutRef.current);
     }
 
-    const now = Date.now();
+    const now = getEdmontonTimestamp();
     
     // Update activity tracking in memory
     userActivityTracking.current.lastActivity = now;
@@ -510,7 +512,7 @@ export function AuthProvider({ children }) {
     
     // Add activity event to buffer
     addActivityEvent('user_interaction', {
-      timestamp: Date.now(),
+      timestamp: getEdmontonTimestamp(),
       path: window.location.pathname
     });
     

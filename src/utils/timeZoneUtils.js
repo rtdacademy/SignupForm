@@ -347,6 +347,42 @@ export const formatDateForInput = (date) => {
 };
 
 /**
+ * Get current timestamp in Edmonton timezone
+ * 
+ * @returns {number} Current timestamp as Unix milliseconds
+ */
+export const getEdmontonTimestamp = () => {
+  // Create a new Date object representing the current time
+  const now = new Date();
+  
+  // Convert to Edmonton timezone and get the timestamp
+  const edmontonTime = new Date(now.toLocaleString("en-US", {timeZone: EDMONTON_TIMEZONE}));
+  
+  return edmontonTime.getTime();
+};
+
+/**
+ * Format a timestamp to Edmonton timezone string
+ * 
+ * @param {number} timestamp - Unix timestamp in milliseconds
+ * @returns {string} Formatted date string in Edmonton timezone
+ */
+export const formatEdmontonTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  
+  const date = new Date(timestamp);
+  return date.toLocaleString("en-US", {
+    timeZone: EDMONTON_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+/**
  * Check if a date range is valid based on constraints
  * 
  * @param {string|Date} startDate - Start date string in YYYY-MM-DD format or Date object

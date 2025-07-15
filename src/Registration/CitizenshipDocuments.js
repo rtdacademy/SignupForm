@@ -6,7 +6,14 @@ import { Button } from "../components/ui/button";
 import { AlertTriangle, Upload, Check, Loader2, FileText, X, Camera } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
 
-const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = [], error: externalError }, ref) => {
+const CitizenshipDocuments = forwardRef(({ 
+  onUploadComplete, 
+  initialDocuments = [], 
+  error: externalError,
+  familyId = null,
+  studentId = null,
+  saveToStudentProfile = false
+}, ref) => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState(initialDocuments);
   const [uploadingIndex, setUploadingIndex] = useState(null);

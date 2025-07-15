@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { getCurrentSchoolYear, formatImportantDate } from '../config/importantDates';
-import CitizenshipDocuments from '../Registration/CitizenshipDocuments';
+import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANCOPHONE_OPTIONS } from './utils/homeEducationFormConstants';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
 import AddressPicker from '../components/AddressPicker';
 
@@ -67,8 +67,8 @@ const FormField = ({ label, error, children, required = false, readOnly = false,
               <Info className="h-4 w-4 text-gray-400" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-96 p-4">
-            <p className="text-sm text-gray-600">{legalText}</p>
+          <PopoverContent className="w-[600px] max-w-[90vw] p-4 max-h-[80vh] overflow-y-auto">
+            <div className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{legalText}</div>
           </PopoverContent>
         </Popover>
       )}
@@ -153,8 +153,8 @@ const SmartFormField = ({
                 <Info className="h-4 w-4 text-gray-400" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-4">
-              <p className="text-sm text-gray-600">{legalText}</p>
+            <PopoverContent className="w-[600px] max-w-[90vw] p-4 max-h-[80vh] overflow-y-auto">
+              <div className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{legalText}</div>
             </PopoverContent>
           </Popover>
         )}
@@ -198,7 +198,6 @@ const HomeEducationNotificationFormV2 = ({
   const [saving, setSaving] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [existingSubmission, setExistingSubmission] = useState(null);
-  const [citizenshipDocuments, setCitizenshipDocuments] = useState([]);
   
   // Data for smart copying
   const [familyFormData, setFamilyFormData] = useState({});
@@ -237,23 +236,47 @@ const HomeEducationNotificationFormV2 = ({
         const db = getDatabase();
         
         // Load current student's form
-        const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear}/${selectedStudent.id}`);
+        const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
         const snapshot = await get(formRef);
         
         if (snapshot.exists()) {
           const data = snapshot.val();
           setExistingSubmission(data);
-          setCitizenshipDocuments(data.citizenshipDocuments || []);
           
-          // Populate form with existing data
-          Object.keys(data.editableFields || {}).forEach(key => {
-            setValue(key, data.editableFields[key]);
-          });
+          // Handle both old and new data structures
+          if (data.PART_A) {
+            // New structure
+            setValue('formType', data.PART_A.formType);
+            Object.keys(data.PART_A.editableFields || {}).forEach(key => {
+              setValue(key, data.PART_A.editableFields[key]);
+            });
+            if (data.PART_A.addresses) {
+              setValue('programAddressDifferent', data.PART_A.addresses.programAddressDifferent);
+              setValue('programAddress', data.PART_A.addresses.programAddress);
+            }
+            if (data.PART_B?.declaration) {
+              setValue('programAlberta', data.PART_B.declaration.programAlberta);
+              setValue('programSchedule', data.PART_B.declaration.programSchedule);
+              setValue('signatureAgreed', data.PART_B.declaration.signatureAgreed);
+            }
+            if (data.PART_D) {
+              setValue('partDMethod', data.PART_D.partDMethod);
+              setValue('partDResources', data.PART_D.partDResources);
+              setValue('partDEvaluation', data.PART_D.partDEvaluation);
+              setValue('partDFacilities', data.PART_D.partDFacilities);
+            }
+          } else {
+            // Legacy structure support
+            setValue('formType', data.formType);
+            Object.keys(data.editableFields || {}).forEach(key => {
+              setValue(key, data.editableFields[key]);
+            });
+          }
         } else {
           // Check previous year for renewal determination
           const prevYear = getPreviousSchoolYear(schoolYear);
           if (prevYear) {
-            const prevFormRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${prevYear}/${selectedStudent.id}`);
+            const prevFormRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${prevYear.replace('/', '_')}/${selectedStudent.id}`);
             const prevSnapshot = await get(prevFormRef);
             if (prevSnapshot.exists()) {
               setValue('formType', 'renewal');
@@ -294,13 +317,19 @@ const HomeEducationNotificationFormV2 = ({
         
         for (const student of familyData.students || []) {
           try {
-            const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${year}/${student.id}`);
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${year.replace('/', '_')}/${student.id}`);
             const snapshot = await get(formRef);
             
             if (snapshot.exists()) {
+              const formData = snapshot.val();
               familyFormsData[year][student.id] = {
-                ...snapshot.val(),
-                studentName: `${student.preferredName || student.firstName} ${student.lastName}`
+                ...formData,
+                studentName: `${student.preferredName || student.firstName} ${student.lastName}`,
+                // Normalize data structure for copy functionality
+                editableFields: formData.PART_A?.editableFields || formData.editableFields || {},
+                addresses: formData.PART_A?.addresses || {},
+                declaration: formData.PART_B?.declaration || {},
+                partD: formData.PART_D || {}
               };
             }
           } catch (error) {
@@ -311,6 +340,7 @@ const HomeEducationNotificationFormV2 = ({
       
       // Build copy options for each field
       const fieldsToCopy = [
+        'citizenship',
         'residentSchoolBoard', 
         'formType',
         'additionalInstructor',
@@ -318,7 +348,6 @@ const HomeEducationNotificationFormV2 = ({
         'aboriginalDeclaration',
         'francophoneEligible',
         'francophoneExercise',
-        'citizenship',
         'previousSchoolProgram',
         'programAlberta',
         'programSchedule',
@@ -335,10 +364,23 @@ const HomeEducationNotificationFormV2 = ({
         
         // Current year - other siblings
         Object.entries(familyFormsData[schoolYear] || {}).forEach(([studentId, formData]) => {
-          if (studentId !== selectedStudent.id && formData.editableFields?.[fieldName]) {
+          let value = null;
+          
+          // Check different sections for the field
+          if (formData.editableFields?.[fieldName]) {
+            value = formData.editableFields[fieldName];
+          } else if (formData.addresses?.[fieldName]) {
+            value = formData.addresses[fieldName];
+          } else if (formData.declaration?.[fieldName]) {
+            value = formData.declaration[fieldName];
+          } else if (formData.partD?.[fieldName]) {
+            value = formData.partD[fieldName];
+          }
+          
+          if (studentId !== selectedStudent.id && value) {
             copyOpts[fieldName].push({
               source: formData.studentName,
-              value: formData.editableFields[fieldName],
+              value: value,
               type: 'sibling-current'
             });
           }
@@ -346,20 +388,46 @@ const HomeEducationNotificationFormV2 = ({
         
         // Previous year - same student
         const prevYearData = familyFormsData[getPreviousSchoolYear(schoolYear)]?.[selectedStudent.id];
-        if (prevYearData?.editableFields?.[fieldName]) {
-          copyOpts[fieldName].push({
-            source: 'Last Year',
-            value: prevYearData.editableFields[fieldName],
-            type: 'self-previous'
-          });
+        if (prevYearData) {
+          let value = null;
+          
+          if (prevYearData.editableFields?.[fieldName]) {
+            value = prevYearData.editableFields[fieldName];
+          } else if (prevYearData.addresses?.[fieldName]) {
+            value = prevYearData.addresses[fieldName];
+          } else if (prevYearData.declaration?.[fieldName]) {
+            value = prevYearData.declaration[fieldName];
+          } else if (prevYearData.partD?.[fieldName]) {
+            value = prevYearData.partD[fieldName];
+          }
+          
+          if (value) {
+            copyOpts[fieldName].push({
+              source: 'Last Year',
+              value: value,
+              type: 'self-previous'
+            });
+          }
         }
         
         // Previous year - other siblings
         Object.entries(familyFormsData[getPreviousSchoolYear(schoolYear)] || {}).forEach(([studentId, formData]) => {
-          if (studentId !== selectedStudent.id && formData.editableFields?.[fieldName]) {
+          let value = null;
+          
+          if (formData.editableFields?.[fieldName]) {
+            value = formData.editableFields[fieldName];
+          } else if (formData.addresses?.[fieldName]) {
+            value = formData.addresses[fieldName];
+          } else if (formData.declaration?.[fieldName]) {
+            value = formData.declaration[fieldName];
+          } else if (formData.partD?.[fieldName]) {
+            value = formData.partD[fieldName];
+          }
+          
+          if (studentId !== selectedStudent.id && value) {
             copyOpts[fieldName].push({
               source: `${formData.studentName} (Last Year)`,
-              value: formData.editableFields[fieldName],
+              value: value,
               type: 'sibling-previous'
             });
           }
@@ -492,16 +560,18 @@ const HomeEducationNotificationFormV2 = ({
       yPosition += 8;
       
       doc.setFont('helvetica', 'normal');
-      const formType = submissionData.editableFields.formType === 'new' ? 
+      const formType = submissionData.PART_A.formType === 'new' ? 
         'Notification of Intention to Home Educate with a new associate board or associate private school.' :
         'Notification of Renewal of Intention to Home Educate with the same associate board or associate private school.';
       doc.text(`☑ ${formType}`, 20, yPosition);
       yPosition += 10;
 
       // Student Information Table
-      const student = submissionData.studentInfo;
-      const guardian = submissionData.guardianInfo;
-      const editable = submissionData.editableFields;
+      const student = submissionData.PART_A.studentInfo;
+      const guardian = submissionData.PART_A.guardianInfo;
+      const editable = submissionData.PART_A.editableFields;
+      const addresses = submissionData.PART_A.addresses;
+      const partD = submissionData.PART_D;
       
       doc.autoTable({
         startY: yPosition,
@@ -521,8 +591,8 @@ const HomeEducationNotificationFormV2 = ({
           ['Student Phone Number', student.phoneWithFallback || ''],
           ['Alberta Student Number (ASN)', student.asn || '(To be provided by the school)'],
           ['Student Address', `${student.addressInfo.fullAddress || ''}\nPhone: ${student.addressInfo.phone || ''}`],
-          ['Parent/Guardian Address', guardian.address?.fullAddress || 'Same as student'],
-          ['Program Location Address', editable.programAddressDifferent ? (editable.programAddress?.fullAddress || editable.programAddress?.formattedAddress || 'Address provided') : 'Same as above'],
+          ['Parent/Guardian Address', addresses.parentGuardianAddress?.fullAddress || 'Same as student'],
+          ['Program Location Address', addresses.programAddressDifferent ? (addresses.programAddress?.fullAddress || addresses.programAddress?.formattedAddress || 'Address provided') : 'Same as above'],
           ['Citizenship', editable.citizenship || ''],
           ['Estimated Grade Level', student.estimatedGradeLevel],
           ['Resident School Board', editable.residentSchoolBoard || ''],
@@ -532,7 +602,7 @@ const HomeEducationNotificationFormV2 = ({
           ['Aboriginal Declaration', editable.aboriginalDeclaration || 'Not declared'],
           ['Francophone Education Eligible', editable.francophoneEligible || 'Not specified'],
           ['Exercise Francophone Right', editable.francophoneExercise || 'Not specified'],
-          ['Program Outcomes', `${editable.programAlberta ? '✓ Alberta Programs of Study' : ''}\n${editable.programSchedule ? '✓ Schedule included in the Home Education Regulation' : ''}`]
+          ['Program Outcomes', `${submissionData.PART_B.declaration.programAlberta ? '✓ Alberta Programs of Study' : ''}\n${submissionData.PART_B.declaration.programSchedule ? '✓ Schedule included in the Home Education Regulation' : ''}`]
         ],
         styles: { fontSize: 9 },
         columnStyles: {
@@ -555,7 +625,8 @@ const HomeEducationNotificationFormV2 = ({
       yPosition += 10;
 
       doc.setFont('helvetica', 'normal');
-      const declarationText = `I/We, ${guardian.firstName} ${guardian.lastName}, the parent(s)/guardian(s) of ${student.firstName} ${student.lastName}, declare to the best of my/our knowledge that the home education program and the activities selected for the home education program will enable the student to achieve the outcomes contained in the ${editable.programAlberta ? 'Alberta Programs of Study' : ''}${editable.programAlberta && editable.programSchedule ? ' and ' : ''}${editable.programSchedule ? 'Schedule included in the Home Education Regulation' : ''}.
+      const declaration = submissionData.PART_B.declaration;
+      const declarationText = `I/We, ${guardian.firstName} ${guardian.lastName}, the parent(s)/guardian(s) of ${student.firstName} ${student.lastName}, declare to the best of my/our knowledge that the home education program and the activities selected for the home education program will enable the student to achieve the outcomes contained in the ${declaration.programAlberta ? 'Alberta Programs of Study' : ''}${declaration.programAlberta && declaration.programSchedule ? ' and ' : ''}${declaration.programSchedule ? 'Schedule included in the Home Education Regulation' : ''}.
       
 In addition, I/We understand and agree that the instruction and evaluation of my/our child's progress is my/our responsibility and that the associate board or private school will supervise and evaluate my/our child's progress in accordance with the Home Education Regulation.
 
@@ -574,44 +645,44 @@ I/We understand and agree that the development, administration and management of
       // Signature section
       doc.text('Signature of Supervising Parent(s) or Legal Guardian(s):', 20, yPosition);
       yPosition += 8;
-      doc.text(`${guardian.firstName} ${guardian.lastName} (Digital Signature)`, 20, yPosition);
+      doc.text(declaration.guardianSignature, 20, yPosition);
       yPosition += 6;
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
+      doc.text(`Date: ${new Date(declaration.signatureDate).toLocaleDateString()}`, 20, yPosition);
       yPosition += 15;
 
       // PART D if applicable
-      if (editable.programSchedule) {
+      if (partD.isRequired) {
         if (yPosition > pageHeight - 60) {
           doc.addPage();
           yPosition = 20;
         }
 
         doc.setFont('helvetica', 'bold');
-        doc.text('PART D Requirements for the Home Education Program for Components of the Program that Do Not Follow the Alberta Programs of Study', 20, yPosition);
+        doc.text('PART D - Requirements for the Home Education Program for Components of the Program that Do Not Follow the Alberta Programs of Study', 20, yPosition);
         yPosition += 10;
 
         doc.setFont('helvetica', 'normal');
         doc.text('1. Describe the instructional method to be used, the activities planned for the program and how the instructional method and the activities will enable the student to achieve the learning outcomes contained in the Schedule.', 20, yPosition);
         yPosition += 10;
-        const splitMethod = doc.splitTextToSize(editable.partDMethod || 'Not provided', pageWidth - 40);
+        const splitMethod = doc.splitTextToSize(partD.partDMethod || 'Not provided', pageWidth - 40);
         doc.text(splitMethod, 20, yPosition);
         yPosition += splitMethod.length * 4 + 10;
 
         doc.text('2. Identify the resource materials, if different from provincially authorized materials, to be used for instruction.', 20, yPosition);
         yPosition += 10;
-        const splitResources = doc.splitTextToSize(editable.partDResources || 'Not provided', pageWidth - 40);
+        const splitResources = doc.splitTextToSize(partD.partDResources || 'Not provided', pageWidth - 40);
         doc.text(splitResources, 20, yPosition);
         yPosition += splitResources.length * 4 + 10;
 
         doc.text('3. Describe the methods and nature of the evaluation to be used to assess the student\'s progress, the number of evaluations and how the evaluation addresses the learning outcomes in Question 1.', 20, yPosition);
         yPosition += 10;
-        const splitEvaluation = doc.splitTextToSize(editable.partDEvaluation || 'Not provided', pageWidth - 40);
+        const splitEvaluation = doc.splitTextToSize(partD.partDEvaluation || 'Not provided', pageWidth - 40);
         doc.text(splitEvaluation, 20, yPosition);
         yPosition += splitEvaluation.length * 4 + 10;
 
         doc.text('4. Describe the associate board or associate private school facilities and services that the parent/guardian wishes to use.', 20, yPosition);
         yPosition += 10;
-        const splitFacilities = doc.splitTextToSize(editable.partDFacilities || 'Not provided', pageWidth - 40);
+        const splitFacilities = doc.splitTextToSize(partD.partDFacilities || 'Not provided', pageWidth - 40);
         doc.text(splitFacilities, 20, yPosition);
         yPosition += splitFacilities.length * 4 + 10;
       }
@@ -637,7 +708,7 @@ I/We understand and agree that the development, administration and management of
       const pdfBlob = pdfDoc.output('blob');
       
       const storage = getStorage();
-      const fileRef = storageRef(storage, `rtdAcademy/homeEducationForms/${familyId}/${schoolYear}/${selectedStudent.id}/${filename}`);
+      const fileRef = storageRef(storage, `rtdAcademy/homeEducationForms/${familyId}/${schoolYear.replace('/', '_')}/${selectedStudent.id}/${filename}`);
       
       const snapshot = await uploadBytes(fileRef, pdfBlob);
       const downloadURL = await getDownloadURL(snapshot.ref);
@@ -666,6 +737,12 @@ I/We understand and agree that the development, administration and management of
       return;
     }
 
+    if (data.programAddressDifferent && !data.programAddress) {
+      toast.error('Please select the address where the education program will be conducted.');
+      return;
+    }
+
+
     setSaving(true);
     
     try {
@@ -675,33 +752,64 @@ I/We understand and agree that the development, administration and management of
       const submissionData = {
         submissionId,
         schoolYear,
-        formType: data.formType,
-        studentInfo: getStudentInfo(),
-        guardianInfo: getPrimaryGuardian(),
-        editableFields: {
-          registrationDate: new Date().toISOString().split('T')[0],
-          citizenship: data.citizenship,
-          residentSchoolBoard: data.residentSchoolBoard,
-          previousSchoolProgram: data.previousSchoolProgram,
-          assistanceRequired: data.assistanceRequired,
-          additionalInstructor: data.additionalInstructor,
-          aboriginalDeclaration: data.aboriginalDeclaration,
-          francophoneEligible: data.francophoneEligible,
-          francophoneExercise: data.francophoneExercise,
-          programAlberta: data.programAlberta,
-          programSchedule: data.programSchedule,
-          partDMethod: data.partDMethod,
-          partDResources: data.partDResources,
-          partDEvaluation: data.partDEvaluation,
-          partDFacilities: data.partDFacilities,
-          signatureAgreed: data.signatureAgreed,
-          programAddressDifferent: data.programAddressDifferent,
-          programAddress: data.programAddress,
-        },
-        citizenshipDocuments: citizenshipDocuments,
         submittedAt: existingSubmission?.submittedAt || timestamp,
         lastUpdated: timestamp,
-        submittedBy: user.uid
+        submittedBy: user.uid,
+        
+        PART_A: {
+          formType: data.formType,
+          studentInfo: getStudentInfo(),
+          guardianInfo: getPrimaryGuardian(),
+          addresses: {
+            studentAddress: getStudentInfo().addressInfo,
+            parentGuardianAddress: getPrimaryGuardian().address,
+            programAddressDifferent: data.programAddressDifferent,
+            programAddress: data.programAddress
+          },
+          editableFields: {
+            registrationDate: new Date().toISOString().split('T')[0],
+            citizenship: data.citizenship,
+            residentSchoolBoard: data.residentSchoolBoard,
+            previousSchoolProgram: data.previousSchoolProgram,
+            assistanceRequired: data.assistanceRequired,
+            additionalInstructor: data.additionalInstructor,
+            aboriginalDeclaration: data.aboriginalDeclaration,
+            francophoneEligible: data.francophoneEligible,
+            francophoneExercise: data.francophoneExercise
+          }
+        },
+        
+        PART_B: {
+          declaration: {
+            programAlberta: data.programAlberta,
+            programSchedule: data.programSchedule,
+            signatureAgreed: data.signatureAgreed,
+            guardianSignature: `${getPrimaryGuardian().firstName} ${getPrimaryGuardian().lastName} (Digital Signature)`,
+            signatureDate: new Date().toISOString().split('T')[0],
+            authenticatedUser: getPrimaryGuardian().email
+          }
+        },
+        
+        PART_C: {
+          // For school completion - initially empty
+          acceptanceStatus: null, // 'accepted', 'rejected', 'provisionally_accepted'
+          schoolResponse: null,
+          schoolName: null,
+          schoolContact: null,
+          schoolSignature: null,
+          responseDate: null,
+          schoolNotes: null
+        },
+        
+        PART_D: {
+          // Only populated if programSchedule is true
+          isRequired: data.programSchedule,
+          partDMethod: data.programSchedule ? data.partDMethod : null,
+          partDResources: data.programSchedule ? data.partDResources : null,
+          partDEvaluation: data.programSchedule ? data.partDEvaluation : null,
+          partDFacilities: data.programSchedule ? data.partDFacilities : null,
+          completedAt: data.programSchedule ? new Date().toISOString() : null
+        }
       };
 
       // Generate PDF
@@ -722,7 +830,7 @@ I/We understand and agree that the development, administration and management of
 
       // Save to database
       const db = getDatabase();
-      const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear}/${selectedStudent.id}`);
+      const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
       await set(formRef, submissionData);
 
       toast.success('Form submitted successfully!', {
@@ -967,23 +1075,75 @@ I/We understand and agree that the development, administration and management of
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="programAddressDifferent" {...register('programAddressDifferent')} />
-                  <Label htmlFor="programAddressDifferent">Education program will be conducted at a different location</Label>
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox 
+                      id="programAddressDifferent" 
+                      checked={watch('programAddressDifferent')}
+                      onCheckedChange={(checked) => setValue('programAddressDifferent', checked)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="programAddressDifferent" className="text-sm font-medium text-gray-900">
+                        Education program will be conducted at a different location
+                      </Label>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Check this box if the home education program will take place at an address different from the student's home address listed above.
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 
                 {watch('programAddressDifferent') && (
-                  <div className="p-4 border border-gray-200 rounded-md space-y-3">
-                    <Label className="text-sm font-medium text-gray-900">Education Program Location</Label>
-                    <AddressPicker
-                      value={watch('programAddress')}
-                      onAddressSelect={(address) => setValue('programAddress', address)}
-                      placeholder="Start typing the education program location address..."
+                  <div className="p-4 border border-purple-200 rounded-lg bg-purple-50 space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-5 h-5 text-purple-600" />
+                      <Label className="text-sm font-medium text-gray-900">Education Program Location Address</Label>
+                      <span className="text-red-500 text-sm">*</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <AddressPicker
+                        value={watch('programAddress')}
+                        onAddressSelect={(address) => {
+                          setValue('programAddress', address);
+                          // Clear any validation errors when address is selected
+                          if (address) {
+                            setValue('programAddress', address, { shouldValidate: true });
+                          }
+                        }}
+                        placeholder="Start typing the education program location address..."
+                        error={errors.programAddress?.message}
+                      />
+                      
+                      <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
+                        <div className="flex items-start space-x-2">
+                          <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm text-blue-800">
+                            <p className="font-medium mb-1">Program Location Requirements:</p>
+                            <ul className="text-xs space-y-1">
+                              <li>• Specify the complete address where instruction will primarily take place</li>
+                              <li>• This may include home offices, dedicated learning spaces, or other educational facilities</li>
+                              <li>• The location must be suitable for educational activities and meet local regulations</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Hidden input for validation */}
+                    <input
+                      type="hidden"
+                      {...register('programAddress', {
+                        validate: (value) => {
+                          if (watch('programAddressDifferent') && !value) {
+                            return 'Please select the address where the education program will be conducted';
+                          }
+                          return true;
+                        }
+                      })}
                     />
-                    <p className="text-xs text-gray-500">
-                      Select the address where the home education program will be conducted.
-                    </p>
                   </div>
                 )}
               </div>
@@ -999,55 +1159,56 @@ I/We understand and agree that the development, administration and management of
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SmartFormField 
-                  label="Student's citizenship status" 
+
+              <SmartFormField 
+                label="Student's citizenship and immigration status" 
+                required
+                copyOptions={copyOptions.citizenship || []}
+                onCopy={handleCopyValue}
+                fieldName="citizenship"
+                legalText={LEGAL_TEXT.CITIZENSHIP}
+              >
+                <Textarea
+                  {...register('citizenship', { required: 'Citizenship information is required' })}
+                  placeholder="e.g., Canadian citizen, or Permanent resident (expires: MM/DD/YYYY)"
+                  rows={3}
+                />
+              </SmartFormField>
+
+              <SmartFormField 
+                label="Resident school board" 
+                required 
+                icon={Building2}
+                copyOptions={copyOptions.residentSchoolBoard || []}
+                onCopy={handleCopyValue}
+                fieldName="residentSchoolBoard"
+              >
+                <SchoolBoardSelector
+                  value={watch('residentSchoolBoard') || ''}
+                  onChange={(value) => setValue('residentSchoolBoard', value)}
+                  error={errors.residentSchoolBoard?.message}
+                  placeholder="Search by school board name or code (e.g. 2245)..."
                   required
-                  copyOptions={copyOptions.citizenship || []}
-                  onCopy={handleCopyValue}
-                  fieldName="citizenship"
-                  legalText="The citizenship of the student and, if the student is not a Canadian citizen, the type of visa or other document by which the student is lawfully admitted to Canada for permanent or temporary residence, and the expiry date of that visa or other document:"
-                >
-                  <Textarea
-                    {...register('citizenship', { required: 'Citizenship information is required' })}
-                    placeholder="e.g., Canadian citizen, or Permanent resident (expiry: mm/dd/yyyy), etc."
-                    rows={3}
-                  />
-                </SmartFormField>
+                />
+                <input
+                  type="hidden"
+                  {...register('residentSchoolBoard', { required: 'Resident school board is required' })}
+                />
+              </SmartFormField>
 
-                <SmartFormField 
-                  label="Resident school board" 
-                  required 
-                  icon={Building2}
-                  copyOptions={copyOptions.residentSchoolBoard || []}
-                  onCopy={handleCopyValue}
-                  fieldName="residentSchoolBoard"
-                >
-                  <SchoolBoardSelector
-                    value={watch('residentSchoolBoard') || ''}
-                    onChange={(value) => setValue('residentSchoolBoard', value)}
-                    error={errors.residentSchoolBoard?.message}
-                    placeholder="Search by school board name or code (e.g. 2245)..."
-                    required
-                  />
-                  <input
-                    type="hidden"
-                    {...register('residentSchoolBoard', { required: 'Resident school board is required' })}
-                  />
-                </SmartFormField>
-
-                <SmartFormField 
-                  label="Previous year's education program"
-                  copyOptions={copyOptions.previousSchoolProgram || []}
-                  onCopy={handleCopyValue}
-                  fieldName="previousSchoolProgram"
-                >
-                  <Input
-                    {...register('previousSchoolProgram')}
-                    placeholder="Enter previous school or program name (if applicable)"
-                  />
-                </SmartFormField>
-              </div>
+              <SmartFormField 
+                label="Previous year's education program and school"
+                copyOptions={copyOptions.previousSchoolProgram || []}
+                onCopy={handleCopyValue}
+                fieldName="previousSchoolProgram"
+                legalText={LEGAL_TEXT.PREVIOUS_EDUCATION}
+              >
+                <Textarea
+                  {...register('previousSchoolProgram')}
+                  placeholder="Enter previous school or program (if applicable)"
+                  rows={2}
+                />
+              </SmartFormField>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -1091,7 +1252,7 @@ I/We understand and agree that the development, administration and management of
                 copyOptions={copyOptions.aboriginalDeclaration || []}
                 onCopy={handleCopyValue}
                 fieldName="aboriginalDeclaration"
-                legalText="If you wish to declare that you are an Aboriginal person, please specify: Status Indian/First Nations Non-Status Indian/First Nations Métis Inuit Alberta Education is collecting this personal information pursuant to section 33(c) of the Freedom of Information and Protection of Privacy Act (FOIP Act) as the information relates directly to and is necessary to meet its mandate and responsibilities to measure system effectiveness over time and develop policies, programs and services to improve Aboriginal learner success. Pursuant to section 13 and 14 of the Personal Information Protection Act (PIPA), Level 2 accredited private schools in Alberta are collecting this information in order to develop policies, programs and services to improve Aboriginal learner success. For more information, please contact the office of the Director, Strategy and System Supports, First Nations, Métis and Inuit Education Directorate, Alberta Education at 780-427-8501 (toll-free by first dialing 310-0000). If you have questions regarding the collection activity by the school, please contact the school principal."
+                legalText={LEGAL_TEXT.ABORIGINAL_DECLARATION}
               >
                 <RadioGroup {...register('aboriginalDeclaration')}>
                   <div className="flex items-center space-x-2">
@@ -1121,11 +1282,11 @@ I/We understand and agree that the development, administration and management of
                 <h4 className="font-medium text-gray-900">Francophone education eligibility</h4>
                 
                 <SmartFormField 
-                  label="Are you eligible for French first language education?"
+                  label="According to the criteria above as set out in the Canadian Charter of Rights and Freedoms, are you eligible to have your child receive a French first language (Francophone) education?"
                   copyOptions={copyOptions.francophoneEligible || []}
                   onCopy={handleCopyValue}
                   fieldName="francophoneEligible"
-                  legalText="Section 23 Francophone Education Eligibility Declaration Section 2 (1) of the Student Record Regulation states that: The student record for a student or child must contain all information affecting the decisions made about the education of the student or child that is collected or maintained by a board or an private early childhood services program operator, regardless of the manner in which the student record is contained all information. (s) in the case of a student record maintained by a board, other than a person responsible for the operation of a private school, if the parent/guardian of the student or child has the right to have the student or child receive primary and secondary school instruction in the French language under section 23 of the Canadian Charter of Rights and Freedoms, a notation to indicate that and a notation to indicate whether the parent/guardian wishes to exercise that right. Pursuant to Section 23 of the Canadian Charter of Rights and Freedoms: Citizens of Canada - whose first language learned and still understood is French: or - who have received their primary school instruction in Canada in French have the right to have their children receive primary and secondary instruction in French: or - of whom any child has received or is receiving primary or secondary school instruction in French in Canada, have the right to have all their children receive primary and secondary school instruction in the same language. In Alberta, parents/guardians can only exercise this right by enrolling their child in a French first language (Francophone) program offered by a Francophone Regional authority. A. According to the criteria above as set out in the Canadian Charter of Rights and Freedoms, are you eligible to have your child receive a French first language (Francophone) education? (Please place an X in the appropriate box) Yes No Do not know"
+                  legalText={LEGAL_TEXT.FRANCOPHONE_EDUCATION}
                 >
                   <RadioGroup {...register('francophoneEligible')}>
                     <div className="flex items-center space-x-2">
@@ -1145,7 +1306,7 @@ I/We understand and agree that the development, administration and management of
 
                 {watch('francophoneEligible') === 'yes' && (
                   <SmartFormField 
-                    label="Do you wish to exercise this right?"
+                    label="If yes, do you wish to exercise your right to have your child receive a French first language (Francophone) education?"
                     copyOptions={copyOptions.francophoneExercise || []}
                     onCopy={handleCopyValue}
                     fieldName="francophoneExercise"
@@ -1164,16 +1325,56 @@ I/We understand and agree that the development, administration and management of
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Program outcomes the student will achieve</Label>
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="programAlberta" {...register('programAlberta')} />
-                    <Label htmlFor="programAlberta">Outcomes in the Alberta Programs of Study</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="programSchedule" {...register('programSchedule')} />
-                    <Label htmlFor="programSchedule">Outcomes in the Schedule included in the Home Education Regulation</Label>
+
+              {/* Part B - Declaration */}
+              <div className="border-t pt-6 space-y-6">
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">PART B - Declaration by Parent/Guardian</h3>
+                </div>
+                
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 space-y-4">
+                  <div className="text-sm text-gray-800 leading-relaxed">
+                    <p className="mb-4">
+                      I/We, <strong>{guardian.firstName} {guardian.lastName}</strong>, the parent(s)/guardian(s) of <strong>{student.firstName} {student.lastName}</strong>, 
+                      the student, declare to the best of my/our knowledge that the home education program and the activities selected for the 
+                      home education program will enable the student (check as applicable):
+                    </p>
+                    
+                    <div className="space-y-3 ml-4">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox 
+                          id="programAlberta" 
+                          {...register('programAlberta')}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="programAlberta" className="text-sm leading-relaxed">
+                          to achieve the outcomes contained in the Alberta Programs of Study.
+                        </Label>
+                      </div>
+                      <div className="flex items-start space-x-3">
+                        <Checkbox 
+                          id="programSchedule" 
+                          {...register('programSchedule')}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="programSchedule" className="text-sm leading-relaxed">
+                          to achieve the outcomes contained in the Schedule included in the Home Education Regulation.
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 space-y-4 text-sm">
+                      <p>
+                        In addition, I/We understand and agree that the instruction and evaluation of my/our child's progress is my/our responsibility 
+                        and that the associate board or private school will supervise and evaluate my/our child's progress in accordance with the 
+                        Home Education Regulation.
+                      </p>
+                      
+                      <p>
+                        I/We understand and agree that the development, administration and management of the home education program is our 
+                        responsibility.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1182,12 +1383,13 @@ I/We understand and agree that the development, administration and management of
                 <Alert variant="warning" className="my-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Parents/guardians who provide home education programs acknowledge that there are implications when they choose to use programs different from the Alberta Programs of Study:
-                    <ol className="list-decimal pl-4 mt-2">
+                    <p className="font-medium mb-2">Important Notice:</p>
+                    <p className="mb-2">Parents/guardians who provide home education programs acknowledge that there are implications when they choose to use programs different from the Alberta Programs of Study:</p>
+                    <ol className="list-decimal pl-4 mt-2 space-y-1">
                       <li>Students may not apply to a high school principal for high school credits.</li>
                       <li>Students may not receive an Alberta High School Diploma.</li>
                     </ol>
-                    <p className="mt-2">Any student in a home education program may write a high school diploma examination. However, the diploma examination mark achieved will stand alone and will not result in a final course mark unless accompanied by a recommendation for credit by a high school principal. A final course mark requires both a school awarded mark and a diploma examination mark. Arrangements to write diploma examinations should be made well in advance of the writing date by contacting the associate school board or associate private school for assistance or Exam Administration at 780-427-0010.</p>
+                    <p className="mt-3">Any student in a home education program may write a high school diploma examination. However, the diploma examination mark achieved will stand alone and will not result in a final course mark unless accompanied by a recommendation for credit by a high school principal. A final course mark requires both a school awarded mark and a diploma examination mark. Arrangements to write diploma examinations should be made well in advance of the writing date by contacting the associate school board or associate private school for assistance or Exam Administration at 780-643-9157.</p>
                   </AlertDescription>
                 </Alert>
               )}
@@ -1238,29 +1440,54 @@ I/We understand and agree that the development, administration and management of
                 </div>
               )}
               
-              {/* Citizenship Documents Section */}
-              <div className="border-t pt-6">
-                <CitizenshipDocuments
-                  ref={null}
-                  onUploadComplete={(field, documents) => setCitizenshipDocuments(documents)}
-                  initialDocuments={citizenshipDocuments}
-                  error={null}
-                />
-              </div>
 
-              <div className="border-t pt-6">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="signatureAgreed"
-                    {...register('signatureAgreed', { required: 'You must agree to the declaration' })}
-                  />
-                  <Label htmlFor="signatureAgreed" className="text-sm">
-                    I agree to the parent/guardian declaration and understand my responsibilities.
-                  </Label>
+              {/* Digital Signature Section */}
+              <div className="border-t pt-6 space-y-4">
+                <h4 className="font-medium text-gray-900">Digital Signature</h4>
+                
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="space-y-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Signature(s) of Supervising Parent(s) or Legal Guardian(s)</strong>
+                    </p>
+                    
+                    <div className="bg-white p-3 border border-blue-300 rounded">
+                      <p className="text-sm font-medium text-gray-900">
+                        {guardian.firstName} {guardian.lastName} (Digital Signature)
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Authenticated User: {guardian.email}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Date: {new Date().toLocaleDateString()}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="signatureAgreed"
+                        checked={watch('signatureAgreed')}
+                        onCheckedChange={(checked) => setValue('signatureAgreed', checked)}
+                        className="mt-1"
+                      />
+                      <Label htmlFor="signatureAgreed" className="text-sm leading-relaxed">
+                        By checking this box, I hereby provide my digital signature and certify that I am the parent/guardian named above. 
+                        I confirm that all information provided in this form is true and accurate to the best of my knowledge, and I agree 
+                        to all terms and declarations contained in this Home Education Notification Form.
+                      </Label>
+                    </div>
+                    
+                    {/* Hidden field for validation */}
+                    <input
+                      type="hidden"
+                      {...register('signatureAgreed', { required: 'You must provide your digital signature by checking this box' })}
+                    />
+                    
+                    {errors.signatureAgreed && (
+                      <p className="text-red-600 text-sm">{errors.signatureAgreed.message}</p>
+                    )}
+                  </div>
                 </div>
-                {errors.signatureAgreed && (
-                  <p className="text-red-600 text-sm mt-1">{errors.signatureAgreed.message}</p>
-                )}
               </div>
             </CardContent>
           </Card>

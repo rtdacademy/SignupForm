@@ -537,7 +537,7 @@ const SessionsTab = ({ currentSession, detailedData, formatDuration, formatTimes
                   </div>
                   <div>
                     <p className="text-gray-600">Events</p>
-                    <p className="font-medium">{session.eventCount || session.activityEvents?.length || 0}</p>
+                    <p className="font-medium">{session.activityEvents?.length || 0}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Source</p>

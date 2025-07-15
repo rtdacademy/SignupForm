@@ -5,11 +5,12 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
-import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info } from 'lucide-react';
+import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
+import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import { 
   getCurrentSchoolYear, 
   getActiveSeptemberCount, 
@@ -290,6 +291,7 @@ const RTDConnectDashboard = () => {
   const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
   const [profileErrors, setProfileErrors] = useState({});
   const [isSettingUpFamily, setIsSettingUpFamily] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -312,6 +314,11 @@ const RTDConnectDashboard = () => {
   const [showNotificationForm, setShowNotificationForm] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentFormStatuses, setStudentFormStatuses] = useState({});
+  
+  // Citizenship Documents state
+  const [showCitizenshipDocs, setShowCitizenshipDocs] = useState(false);
+  const [selectedStudentForDocs, setSelectedStudentForDocs] = useState(null);
+  const [studentDocumentStatuses, setStudentDocumentStatuses] = useState({});
   
   // School year tracking state
   const [currentSchoolYear, setCurrentSchoolYear] = useState('');
@@ -519,6 +526,52 @@ const RTDConnectDashboard = () => {
 
     loadStudentFormStatuses();
   }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
+
+  // Effect to load student citizenship document statuses
+  useEffect(() => {
+    if (!customClaims?.familyId || !familyData?.students) {
+      return;
+    }
+
+    const loadStudentDocumentStatuses = async () => {
+      const db = getDatabase();
+      const statuses = {};
+      
+      for (const student of familyData.students) {
+        try {
+          const docsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+          const snapshot = await get(docsRef);
+          
+          if (snapshot.exists()) {
+            const docData = snapshot.val();
+            statuses[student.id] = {
+              status: docData.completionStatus || 'pending',
+              documentCount: docData.documents?.length || 0,
+              lastUpdated: docData.lastUpdated
+            };
+          } else {
+            statuses[student.id] = {
+              status: 'pending',
+              documentCount: 0,
+              lastUpdated: null
+            };
+          }
+        } catch (error) {
+          console.error(`Error loading citizenship docs for student ${student.id}:`, error);
+          statuses[student.id] = {
+            status: 'pending',
+            documentCount: 0,
+            lastUpdated: null
+          };
+        }
+      }
+      
+      setStudentDocumentStatuses(statuses);
+      console.log('Student document statuses loaded:', statuses);
+    };
+
+    loadStudentDocumentStatuses();
+  }, [customClaims?.familyId, familyData?.students]);
 
   // Separate effect for family data based on custom claims
   useEffect(() => {
@@ -861,6 +914,25 @@ const RTDConnectDashboard = () => {
     };
   };
 
+  // Handle opening citizenship documents modal
+  const handleOpenCitizenshipDocs = (student) => {
+    setSelectedStudentForDocs(student);
+    setShowCitizenshipDocs(true);
+  };
+
+  // Handle citizenship documents update
+  const handleDocumentsUpdated = (studentId, documents) => {
+    // Update local state
+    setStudentDocumentStatuses(prev => ({
+      ...prev,
+      [studentId]: {
+        status: documents.length > 0 ? 'completed' : 'pending',
+        documentCount: documents.length,
+        lastUpdated: new Date().toISOString()
+      }
+    }));
+  };
+
   // Check and apply pending permissions (manual trigger)
   const checkAndApplyPendingPermissions = async () => {
     if (!user?.email) return;
@@ -922,12 +994,21 @@ const RTDConnectDashboard = () => {
             <div className="flex justify-between items-center py-4">
               <RTDConnectLogo />
               
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              
+              {/* Desktop sign out button */}
               <button
                 onClick={handleSignOut}
-                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+                className="hidden sm:flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span>Sign Out</span>
               </button>
             </div>
           </div>
@@ -1071,6 +1152,58 @@ const RTDConnectDashboard = () => {
             </form>
           </SheetContent>
         </Sheet>
+
+        {/* Mobile Navigation Sheet */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-80 p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                    {userProfile?.firstName && userProfile?.lastName
+                      ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
+                      : (user?.email ? user.email[0].toUpperCase() : 'U')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userProfile?.firstName && userProfile?.lastName 
+                        ? `${userProfile.firstName} ${userProfile.lastName}`
+                        : user?.email || 'User'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="flex-1 px-6 py-4 space-y-4">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3 text-gray-400" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="text-center text-xs text-gray-500">
+                  <p>&copy; {new Date().getFullYear()} RTD Connect</p>
+                  <p>Home Education Portal</p>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     );
   }
@@ -1085,7 +1218,16 @@ const RTDConnectDashboard = () => {
             <div className="flex justify-between items-center py-4">
               <RTDConnectLogo />
               
-              <div className="flex items-center space-x-3">
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              
+              {/* Desktop profile dropdown */}
+              <div className="hidden sm:flex items-center space-x-3">
                 <ProfileDropdown 
                   userProfile={{ ...userProfile, email: user?.email }}
                   onEditProfile={() => setShowProfileForm(true)}
@@ -1259,6 +1401,95 @@ const RTDConnectDashboard = () => {
           onFamilyDataChange={handleFamilyDataChange}
           onComplete={handleFamilyComplete}
         />
+
+        {/* Mobile Navigation Sheet */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-80 p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                    {userProfile?.firstName && userProfile?.lastName
+                      ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
+                      : (userProfile?.email ? userProfile.email[0].toUpperCase() : 'U')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userProfile?.firstName && userProfile?.lastName 
+                        ? `${userProfile.firstName} ${userProfile.lastName}`
+                        : userProfile?.email || 'User'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {userProfile?.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="flex-1 px-6 py-4 space-y-4">
+                {userProfile?.firstName && (
+                  <div className="pb-4 border-b border-gray-200">
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Profile Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{userProfile.firstName} {userProfile.lastName}</span>
+                      </div>
+                      {userProfile.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">{userProfile.phone}</span>
+                        </div>
+                      )}
+                      {userProfile.address && (
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700 truncate">
+                            {userProfile.address.city}, {userProfile.address.province}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowProfileForm(true);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                    Edit Profile
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3 text-gray-400" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="text-center text-xs text-gray-500">
+                  <p>&copy; {new Date().getFullYear()} RTD Connect</p>
+                  <p>Home Education Portal</p>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     );
   }
@@ -1270,12 +1501,23 @@ const RTDConnectDashboard = () => {
       <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-3 sm:space-x-6">
               <RTDConnectLogo />
-              <UserTypeBadge customClaims={customClaims} />
+              <div className="hidden sm:block">
+                <UserTypeBadge customClaims={customClaims} />
+              </div>
             </div>
             
-            <div className="flex items-center space-x-3">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            
+            {/* Desktop profile dropdown */}
+            <div className="hidden sm:flex items-center space-x-3">
               <ProfileDropdown 
                 userProfile={{ ...userProfile, email: user?.email }}
                 onEditProfile={() => setShowProfileForm(true)}
@@ -1315,41 +1557,41 @@ const RTDConnectDashboard = () => {
         </div>
 
         {/* Quick Actions & Family Status */}
-        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
             {/* Action Button */}
             <div className="flex-shrink-0">
               {customClaims?.familyRole === 'primary_guardian' ? (
                 <div className="flex gap-3">
                   <button
                     onClick={handleStartRegistration}
-                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 transition-colors whitespace-nowrap"
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 transition-colors"
                   >
                     <Edit3 className="w-5 h-5" />
-                    <span>Update Family Information</span>
+                    <span className="text-sm sm:text-base">Update Family Information</span>
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200 whitespace-nowrap">
+                <div className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
                   <Shield className="w-5 h-5" />
-                  <span>Only Primary Guardian Can Edit</span>
+                  <span className="text-sm sm:text-base">Only Primary Guardian Can Edit</span>
                 </div>
               )}
             </div>
             
             {/* Family Status Info */}
-            <div className="flex items-center space-x-6">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-white" />
+                <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Family Status</h3>
-                  <p className="text-sm text-green-600 font-medium">Active • Profile Complete</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Family Status</h3>
+                  <p className="text-xs sm:text-sm text-green-600 font-medium">Active • Profile Complete</p>
                 </div>
               </div>
               
-              <div className="hidden md:flex items-center space-x-6 text-sm text-gray-600">
+              <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-gray-600">
                 <div className="flex items-center space-x-2">
                   <GraduationCap className="w-4 h-4 text-purple-500" />
                   <span><strong>{familyData.students?.length || 0}</strong> Students</span>
@@ -1375,49 +1617,49 @@ const RTDConnectDashboard = () => {
 
         {/* Registration Progress Summary */}
         {familyData.students && familyData.students.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow-md p-6 border border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="w-6 h-6 mr-2 text-blue-500" />
-              {activeSchoolYear} Registration Progress
+          <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
+              <FileText className="w-5 sm:w-6 h-5 sm:h-6 mr-2 text-blue-500" />
+              <span className="truncate">{activeSchoolYear} Registration Progress</span>
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
                 <div className="flex items-center">
-                  <CheckCircle2 className="w-8 h-8 text-green-500 mr-3" />
+                  <CheckCircle2 className="w-6 sm:w-8 h-6 sm:h-8 text-green-500 mr-2 sm:mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-green-700">
+                    <p className="text-xl sm:text-2xl font-bold text-green-700">
                       {familyData.students.filter(student => 
                         studentFormStatuses[student.id]?.current === 'completed'
                       ).length}
                     </p>
-                    <p className="text-sm text-green-600">Completed</p>
+                    <p className="text-xs sm:text-sm text-green-600">Completed</p>
                   </div>
                 </div>
               </div>
               
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4">
                 <div className="flex items-center">
-                  <AlertCircle className="w-8 h-8 text-orange-500 mr-3" />
+                  <AlertCircle className="w-6 sm:w-8 h-6 sm:h-8 text-orange-500 mr-2 sm:mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-orange-700">
+                    <p className="text-xl sm:text-2xl font-bold text-orange-700">
                       {familyData.students.filter(student => 
                         studentFormStatuses[student.id]?.current === 'pending'
                       ).length}
                     </p>
-                    <p className="text-sm text-orange-600">Pending</p>
+                    <p className="text-xs sm:text-sm text-orange-600">Pending</p>
                   </div>
                 </div>
               </div>
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
                 <div className="flex items-center">
-                  <GraduationCap className="w-8 h-8 text-blue-500 mr-3" />
+                  <GraduationCap className="w-6 sm:w-8 h-6 sm:h-8 text-blue-500 mr-2 sm:mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-blue-700">
+                    <p className="text-xl sm:text-2xl font-bold text-blue-700">
                       {familyData.students.length}
                     </p>
-                    <p className="text-sm text-blue-600">Total Students</p>
+                    <p className="text-xs sm:text-sm text-blue-600">Total Students</p>
                   </div>
                 </div>
               </div>
@@ -1449,37 +1691,38 @@ const RTDConnectDashboard = () => {
 
         {/* Family Members List */}
         {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
-          <div className="mt-8 bg-white rounded-lg shadow-md p-6 border border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Family Members</h2>
+          <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Your Family Members</h2>
             
             {/* Students Section */}
             {familyData.students && familyData.students.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                  <GraduationCap className="w-5 h-5 mr-2 text-green-500" />
+                  <GraduationCap className="w-5 h-5 mr-2 text-blue-500" />
                   Students ({familyData.students.length})
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {familyData.students.map((student, index) => {
                     const formStatus = studentFormStatuses[student.id] || 'pending';
+                    const docStatus = studentDocumentStatuses[student.id] || { status: 'pending', documentCount: 0 };
                     return (
-                      <div key={student.id || index} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                      <div key={student.id || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">
                               {student.preferredName || student.firstName} {student.lastName}
                             </h4>
-                            <div className="mt-2 space-y-1 text-sm text-gray-600">
+                            <div className="mt-2 space-y-1 text-xs sm:text-sm text-gray-600">
                               <p>ASN: {student.asn}</p>
                               <p>Grade: {student.grade}</p>
                               <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender || 'Not specified'}</p>
                               <p>Birthday: {new Date(student.birthday).toLocaleDateString()}</p>
-                              {student.email && <p>Email: {student.email}</p>}
+                              {student.email && <p className="truncate">Email: {student.email}</p>}
                               {student.phone && <p>Phone: {student.phone}</p>}
                             </div>
                             
                             {/* Home Education Notification Form Status */}
-                            <div className="mt-3 pt-3 border-t border-green-300">
+                            <div className="mt-3 pt-3 border-t border-blue-300">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center space-x-2">
                                   <FileText className="w-4 h-4 text-blue-500" />
@@ -1494,10 +1737,10 @@ const RTDConnectDashboard = () => {
                                     <X className="w-4 h-4 text-red-500" />
                                   )}
                                 </div>
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                  formStatus === 'completed' ? 'bg-green-100 text-green-700' :
-                                  formStatus === 'pending' ? 'bg-orange-100 text-orange-700' :
-                                  'bg-red-100 text-red-700'
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                  formStatus === 'completed' ? 'bg-green-100 text-green-700 border-green-300' :
+                                  formStatus === 'pending' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                                  'bg-red-100 text-red-700 border-red-300'
                                 }`}>
                                   {formStatus === 'completed' ? 'Complete' :
                                    formStatus === 'pending' ? 'Required' : 'Not Started'}
@@ -1516,8 +1759,8 @@ const RTDConnectDashboard = () => {
                                         return (
                                           <span 
                                             key={schoolYear}
-                                            className={`text-xs px-2 py-1 rounded ${
-                                              status === 'completed' ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400'
+                                            className={`text-xs px-2 py-1 rounded shadow-sm border ${
+                                              status === 'completed' ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-gray-50 text-gray-400 border-gray-200'
                                             }`}
                                           >
                                             {schoolYear}: {status === 'completed' ? '✓' : '—'}
@@ -1536,10 +1779,10 @@ const RTDConnectDashboard = () => {
                                       setSelectedStudent(student);
                                       setShowNotificationForm(true);
                                     }}
-                                    className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                                    className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
                                       formStatus === 'completed' ?
-                                      'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                                      'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                      'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                      'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
                                     {formStatus === 'completed' ? `Update ${activeSchoolYear} Form` : `Complete ${activeSchoolYear} Form`}
@@ -1551,9 +1794,49 @@ const RTDConnectDashboard = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Citizenship Documents Status */}
+                            <div className="mt-3 pt-3 border-t border-blue-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <Upload className="w-4 h-4 text-purple-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Citizenship Documents
+                                  </span>
+                                  {docStatus.status === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                  )}
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                  docStatus.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-orange-100 text-orange-700 border-orange-300'
+                                }`}>
+                                  {docStatus.status === 'completed' ? `${docStatus.documentCount} uploaded` : 'Required'}
+                                </span>
+                              </div>
+                              
+                              {/* Document Upload Button - Only for Primary Guardians */}
+                              {customClaims?.familyRole === 'primary_guardian' ? (
+                                <button
+                                  onClick={() => handleOpenCitizenshipDocs(student)}
+                                  className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                    docStatus.status === 'completed' ?
+                                    'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                    'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
+                                  }`}
+                                >
+                                  {docStatus.status === 'completed' ? 'View/Update Documents' : 'Upload Documents'}
+                                </button>
+                              ) : (
+                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                  Contact Primary Guardian
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="ml-3">
-                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                               <GraduationCap className="w-4 h-4 text-white" />
                             </div>
                           </div>
@@ -1572,16 +1855,16 @@ const RTDConnectDashboard = () => {
                   <Shield className="w-5 h-5 mr-2 text-blue-500" />
                   Guardians ({familyData.guardians.length})
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {familyData.guardians.map((guardian, index) => (
-                    <div key={guardian.email || index} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                    <div key={guardian.email || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className="font-semibold text-gray-900">
                             {guardian.firstName} {guardian.lastName}
                           </h4>
-                          <div className="mt-2 space-y-1 text-sm text-gray-600">
-                            <p>Email: {guardian.email}</p>
+                          <div className="mt-2 space-y-1 text-xs sm:text-sm text-gray-600">
+                            <p className="truncate">Email: {guardian.email}</p>
                             {guardian.phone && <p>Phone: {guardian.phone}</p>}
                             <p>Role: {guardian.guardianType === 'primary_guardian' ? 'Primary Guardian' : 'Guardian'}</p>
                           </div>
@@ -1738,6 +2021,118 @@ const RTDConnectDashboard = () => {
           schoolYear={activeSchoolYear}
         />
       )}
+
+      {/* Student Citizenship Documents Modal - Only for Primary Guardians */}
+      {customClaims?.familyRole === 'primary_guardian' && showCitizenshipDocs && (
+        <StudentCitizenshipDocuments
+          isOpen={showCitizenshipDocs}
+          onOpenChange={(open) => {
+            setShowCitizenshipDocs(open);
+            if (!open) {
+              setSelectedStudentForDocs(null);
+            }
+          }}
+          student={selectedStudentForDocs}
+          familyId={customClaims?.familyId}
+          onDocumentsUpdated={handleDocumentsUpdated}
+        />
+      )}
+
+      {/* Mobile Navigation Sheet */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-80 p-0">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                  {userProfile?.firstName && userProfile?.lastName
+                    ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
+                    : (userProfile?.email ? userProfile.email[0].toUpperCase() : 'U')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {userProfile?.firstName && userProfile?.lastName 
+                      ? `${userProfile.firstName} ${userProfile.lastName}`
+                      : userProfile?.email || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {userProfile?.email}
+                  </p>
+                </div>
+              </div>
+              
+              {/* User Type Badge for Mobile */}
+              {customClaims && (
+                <div className="mt-4">
+                  <UserTypeBadge customClaims={customClaims} />
+                </div>
+              )}
+            </div>
+
+            {/* Navigation Items */}
+            <div className="flex-1 px-6 py-4 space-y-4">
+              {userProfile?.firstName && (
+                <div className="pb-4 border-b border-gray-200">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Profile Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-700">{userProfile.firstName} {userProfile.lastName}</span>
+                    </div>
+                    {userProfile.phone && (
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{userProfile.phone}</span>
+                      </div>
+                    )}
+                    {userProfile.address && (
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700 truncate">
+                          {userProfile.address.city}, {userProfile.address.province}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowProfileForm(true);
+                  }}
+                  className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                  Edit Profile
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <LogOut className="w-4 h-4 mr-3 text-gray-400" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200">
+              <div className="text-center text-xs text-gray-500">
+                <p>&copy; {new Date().getFullYear()} RTD Connect</p>
+                <p>Home Education Portal</p>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
