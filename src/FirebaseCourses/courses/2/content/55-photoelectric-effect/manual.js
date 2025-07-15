@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Millikan Graph Component
 const MillikanGraphComponent = () => {
@@ -1204,6 +1205,90 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           <strong>Note:</strong> Every metal has its own unique work function value, which determines 
           its threshold frequency for the photoelectric effect.
         </p>
+      </div>
+
+      {/* Slideshow Knowledge Check */}
+      <div className="mt-8">
+        <SlideshowKnowledgeCheck
+          courseId={courseId}
+          lessonPath="55-photoelectric-effect"
+          course={course}
+          itemConfig={itemConfig}
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question1',
+              title: 'Question 1: Photon Energy Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question2',
+              title: 'Question 2: Photon Rate Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question3',
+              title: 'Question 3: Electron Emission Rate'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question4',
+              title: 'Question 4: Photocurrent Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question5',
+              title: 'Question 5: Intensity Effect on Current'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question6',
+              title: 'Question 6: Frequency Effect on Current'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question7',
+              title: 'Question 7: Electron Speed vs Intensity'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question8',
+              title: 'Question 8: Electron Speed vs Frequency'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question9',
+              title: 'Question 9: Threshold Frequency'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question10',
+              title: 'Question 10: Maximum Wavelength'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question11',
+              title: 'Question 11: Maximum Kinetic Energy'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question12',
+              title: 'Question 12: Below Threshold Energy'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question13',
+              title: 'Question 13: Incident Wavelength'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_55_question14',
+              title: 'Question 14: Stopping Voltage'
+            }
+          ]}
+          title="📚 Photoelectric Effect Knowledge Check"
+          subtitle="Test your understanding of photons, work functions, and Einstein's explanation"
+        />
       </div>
 
       {/* Key Takeaways Section */}

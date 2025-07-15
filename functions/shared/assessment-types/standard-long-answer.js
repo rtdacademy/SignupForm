@@ -297,6 +297,7 @@ class StandardLongAnswerCore {
     const questionData = {
       timestamp: getServerTimestamp(),
       questionText: question.questionText,
+      image: question.image ? { url: question.image, alt: 'Question diagram' } : null, // Include image data if available
       rubric: question.rubric,
       maxPoints: question.maxPoints,
       wordLimit: question.wordLimit,

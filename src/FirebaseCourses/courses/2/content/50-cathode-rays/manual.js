@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
   // Interactive Thomson Experiment Animation
@@ -692,6 +693,77 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check Section */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="50-cathode-rays"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question1',
+            title: 'Question 1: Velocity Selector'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question2',
+            title: 'Question 2: Charge-to-Mass Ratio'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question3',
+            title: 'Question 3: Potential Difference'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question4',
+            title: 'Question 4: Alpha Particle Deflection'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question5',
+            title: 'Question 5: Charge Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question6',
+            title: 'Question 6: Magnetic Field Strength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question7',
+            title: 'Question 7: Electric Field Strength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question8',
+            title: 'Question 8: Particle Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question9',
+            title: 'Question 9: Acceleration Voltage'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question10',
+            title: 'Question 10: Electron Arc Radius'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question11',
+            title: 'Question 11: Millikan Oil Drop'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_50_question12',
+            title: 'Question 12: Oil Drop Acceleration'
+          }
+        ]}
+        theme="indigo"
+      />
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

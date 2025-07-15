@@ -1,4 +1,5 @@
 import React from 'react';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode, AIAccordion, onAIAccordionContent }) => {
   return (
@@ -582,6 +583,67 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check Section */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="49-early-atomic-models"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question1',
+            title: 'Question 1: Classical Elements'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question2',
+            title: 'Question 2: Philosopher\'s Stone'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question3',
+            title: 'Question 3: Father of Chemistry'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question4',
+            title: 'Question 4: Dalton\'s Atomic Theory'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question5',
+            title: 'Question 5: Meyer\'s Discovery'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question6',
+            title: 'Question 6: Mendeleev\'s Contribution'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question7',
+            title: 'Question 7: Mendeleev\'s Table Error'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question8',
+            title: 'Question 8: Moseley\'s Improvement'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question9',
+            title: 'Question 9: Classical vs Modern Physics'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_49_question10',
+            title: 'Question 10: Scientific Method'
+          }
+        ]}
+        theme="indigo"
+      />
 
       {/* Key Takeaways Section - matching LessonSummary component style */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">

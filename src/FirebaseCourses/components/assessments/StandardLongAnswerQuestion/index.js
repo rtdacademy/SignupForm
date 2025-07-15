@@ -635,6 +635,25 @@ const StandardLongAnswerQuestion = ({
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Display image if available */}
+              {question.image && (
+                <div className="mb-6">
+                  <div className="relative max-w-2xl mx-auto">
+                    <img 
+                      src={question.image.url} 
+                      alt={question.image.alt || 'Question diagram'}
+                      className="w-full h-auto rounded-lg shadow-md border border-gray-200"
+                      style={{ maxHeight: '400px', objectFit: 'contain' }}
+                    />
+                    {question.image.caption && (
+                      <p className="text-sm text-gray-600 text-center mt-2 italic">
+                        {question.image.caption}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Question Text */}
               <div className="text-gray-800 mb-5 text-lg font-medium">
                 {renderEnhancedText(question.questionText)}

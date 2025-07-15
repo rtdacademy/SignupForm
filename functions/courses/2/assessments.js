@@ -159,9 +159,13 @@ const getAssessmentConfig = (assessmentId) => {
       return null;
     }
     
+    // Debug: Show all available configs
+    console.log(`Available configs in ${filePath}:`, Object.keys(assessmentModule.assessmentConfigs));
+    
     const config = assessmentModule.assessmentConfigs[assessmentId];
     if (!config) {
       console.error(`Assessment config not found for ${assessmentId} in ${filePath}`);
+      console.log('Looking for:', assessmentId);
       console.log('Available configs:', Object.keys(assessmentModule.assessmentConfigs));
       return null;
     }
@@ -210,9 +214,7 @@ exports.course2_assessments = onCall({
     
     if (!assessmentConfig) {
       console.error(`No assessment configuration found for assessmentId: ${assessmentId}`);
-      // Log all available assessment IDs for debugging
-      const allConfigs = getAllAssessmentConfigs();
-      console.log('Available assessment IDs:', Object.keys(allConfigs));
+      console.error(`Tried to load from path: ${getAssessmentFilePath(assessmentId)}`);
       throw new Error(`Assessment configuration not found for: ${assessmentId}`);
     }
     

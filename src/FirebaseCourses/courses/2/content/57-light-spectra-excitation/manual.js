@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Spectral Lines Component
 const SpectralLinesComponent = () => {
@@ -985,6 +986,140 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </div>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <div className="mt-8">
+        <SlideshowKnowledgeCheck
+          courseId={courseId}
+          lessonPath="57-light-spectra-excitation"
+          course={course}
+          itemConfig={itemConfig}
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question1',
+              title: 'Question 1: Continuous Spectrum Source'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question2',
+              title: 'Question 2: Emission Spectrum Source'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question3',
+              title: 'Question 3: Spectral Identification'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question4',
+              title: 'Question 4: Absorption Spectrum'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question5',
+              title: 'Question 5: Franck-Hertz Significance'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question6',
+              title: 'Question 6: Ground State Definition'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question7',
+              title: 'Question 7: Excitation States'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question8',
+              title: 'Question 8: Ionization Energy'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question9',
+              title: 'Question 9: Photon Frequency Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question10',
+              title: 'Question 10: Elastic Collision Energy'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question11',
+              title: 'Question 11: Multiple Collision Energies'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question12',
+              title: 'Question 12: Energy Level Analysis'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question13',
+              title: 'Question 13: Excited State Decay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question14',
+              title: 'Question 14: Absorption Mechanism'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question15',
+              title: 'Question 15: Gas Visibility'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question16',
+              title: 'Question 16: Emission vs Absorption Lines'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question17',
+              title: 'Question 17: Mercury Excitation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question18',
+              title: 'Question 18: Photon Energy Matching'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question19',
+              title: 'Question 19: Dark Absorption Lines'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question20',
+              title: 'Question 20: UV Emission Energies'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question21',
+              title: 'Question 21: Sodium D-line Energy'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question22',
+              title: 'Question 22: Elastic Collision Threshold'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question23',
+              title: 'Question 23: Mercury Photon Energies'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'course2_57_question24',
+              title: 'Question 24: Red Light Energy Loss'
+            }
+          ]}
+          title="🌈 Light Spectra & Excitation Knowledge Check"
+          subtitle="Test your understanding of spectroscopy, quantum energy levels, and the Franck-Hertz experiment"
+        />
+      </div>
 
       {/* Key Takeaways Section */}
       <div className="mt-8 bg-blue-50 p-6 rounded-lg border border-blue-200">
