@@ -9,16 +9,38 @@ import { getStripePayments } from '@invertase/firestore-stripe-payments';
 import { getStorage } from 'firebase/storage';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
-  authDomain: "yourway.rtdacademy.com",
-  databaseURL: "https://rtd-academy-default-rtdb.firebaseio.com",
-  projectId: "rtd-academy",
-  storageBucket: "rtd-academy.appspot.com",
-  messagingSenderId: "406494878558",
-  appId: "1:406494878558:web:7d69901b5b089ac2cf0dcf",
-  measurementId: "G-PDQPPYM0BB"
+// Environment detection
+const isDevelopment = window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1';
+
+// Dynamic Firebase configuration based on environment
+const getFirebaseConfig = () => {
+  const baseConfig = {
+    apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
+    databaseURL: "https://rtd-academy-default-rtdb.firebaseio.com",
+    projectId: "rtd-academy",
+    storageBucket: "rtd-academy.appspot.com",
+    messagingSenderId: "406494878558",
+    appId: "1:406494878558:web:7d69901b5b089ac2cf0dcf",
+    measurementId: "G-PDQPPYM0BB"
+  };
+
+  if (isDevelopment) {
+    console.log('Using development Firebase config with popup auth');
+    return {
+      ...baseConfig,
+      authDomain: "yourway.rtdacademy.com" // Keep existing for dev
+    };
+  } else {
+    console.log('Using production Firebase config with redirect auth');
+    return {
+      ...baseConfig,
+      authDomain: window.location.hostname // Use current domain for production
+    };
+  }
 };
+
+const firebaseConfig = getFirebaseConfig();
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -79,5 +101,5 @@ export const payments = getStripePayments(app, {
   }
 });
 
-export { appCheck };
+export { appCheck, isDevelopment };
 export default app;

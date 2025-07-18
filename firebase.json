@@ -95,6 +95,14 @@
           "function": "streamTTS"
         },
         {
+          "source": "/__/auth/**",
+          "destination": "/__/auth/**"
+        },
+        {
+          "source": "/__/firebase/**",
+          "destination": "/__/firebase/**"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

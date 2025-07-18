@@ -5,12 +5,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
-import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu } from 'lucide-react';
+import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
+import SOLOEducationPlanForm from './SOLOEducationPlanForm';
 import { 
   getCurrentSchoolYear, 
   getActiveSeptemberCount, 
@@ -22,6 +23,26 @@ import {
   getAllOpenRegistrationSchoolYears,
   getRegistrationOpenDateForYear
 } from '../config/importantDates';
+
+// Helper function to determine the target school year for SOLO planning
+// Same logic as in SOLOEducationPlanForm.js
+const getTargetSchoolYear = () => {
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // 1-12
+  const currentYear = currentDate.getFullYear();
+  
+  // If it's September (9) or October (10), plan for current school year
+  // Otherwise, plan for next school year
+  if (currentMonth === 9 || currentMonth === 10) {
+    return getCurrentSchoolYear();
+  } else {
+    // Get next school year
+    const currentSchoolYear = getCurrentSchoolYear();
+    const startYear = parseInt('20' + currentSchoolYear.substr(0, 2));
+    const nextStartYear = startYear + 1;
+    return `${nextStartYear.toString().substr(-2)}/${(nextStartYear + 1).toString().substr(-2)}`;
+  }
+};
 
 // RTD Connect Logo with gradient colors
 const RTDConnectLogo = () => (
@@ -135,20 +156,6 @@ const RegistrationStatusCard = ({ registrationStatus, onActionClick }) => {
             )}
           </div>
         </div>
-        {registrationStatus.actionNeeded && (
-          <button
-            onClick={onActionClick}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              registrationStatus.status === 'urgent' || registrationStatus.status === 'overdue'
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : 'bg-purple-600 text-white hover:bg-purple-700'
-            }`}
-          >
-            {registrationStatus.status === 'partial' ? 'Complete Registration' : 
-             registrationStatus.status === 'available' ? 'Start Registration' :
-             'Register Now'}
-          </button>
-        )}
       </div>
     </div>
   );
@@ -320,9 +327,15 @@ const RTDConnectDashboard = () => {
   const [selectedStudentForDocs, setSelectedStudentForDocs] = useState(null);
   const [studentDocumentStatuses, setStudentDocumentStatuses] = useState({});
   
+  // SOLO Education Plan state
+  const [showSOLOPlanForm, setShowSOLOPlanForm] = useState(false);
+  const [selectedStudentForSOLO, setSelectedStudentForSOLO] = useState(null);
+  const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
+  
   // School year tracking state
   const [currentSchoolYear, setCurrentSchoolYear] = useState('');
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
+  const [soloTargetSchoolYear, setSoloTargetSchoolYear] = useState('');
   const [schoolYearStatus, setSchoolYearStatus] = useState({});
   const [nextSeptemberCount, setNextSeptemberCount] = useState(null);
 
@@ -338,13 +351,18 @@ const RTDConnectDashboard = () => {
     // Prioritize the open registration year, otherwise use the active September count year
     const targetSchoolYear = primaryOpenYear || activeSeptember?.schoolYear || currentYear;
     
+    // Get SOLO target school year using the same logic as SOLO form
+    const soloTargetYear = getTargetSchoolYear();
+    
     setCurrentSchoolYear(currentYear);
     setActiveSchoolYear(targetSchoolYear);
+    setSoloTargetSchoolYear(soloTargetYear);
     setNextSeptemberCount(activeSeptember);
     
     console.log('School year tracking initialized:', {
       currentSchoolYear: currentYear,
       activeSchoolYear: targetSchoolYear,
+      soloTargetSchoolYear: soloTargetYear,
       openRegistrationYears,
       primaryOpenYear,
       nextSeptemberCount: activeSeptember
@@ -481,11 +499,17 @@ const RTDConnectDashboard = () => {
         // Check each school year for this student
         for (const {schoolYear} of allSchoolYears) {
           try {
-            const formRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/NOTIFICATION_FORMS/${schoolYear}/${student.id}`);
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${student.id}`);
             const snapshot = await get(formRef);
             
             if (snapshot.exists()) {
-              statuses[student.id][schoolYear] = 'completed';
+              const formData = snapshot.val();
+              // Check if form is actually submitted, not just saved
+              if (formData.submissionStatus === 'submitted') {
+                statuses[student.id][schoolYear] = 'submitted';
+              } else {
+                statuses[student.id][schoolYear] = 'draft';
+              }
             } else {
               statuses[student.id][schoolYear] = 'pending';
             }
@@ -501,16 +525,19 @@ const RTDConnectDashboard = () => {
       
       // Calculate overall school year status for the family
       for (const {schoolYear} of allSchoolYears) {
-        const allStudentsCompleted = familyData.students.every(student => 
-          statuses[student.id][schoolYear] === 'completed'
+        const allStudentsSubmitted = familyData.students.every(student => 
+          statuses[student.id][schoolYear] === 'submitted'
         );
-        const anyStudentCompleted = familyData.students.some(student => 
-          statuses[student.id][schoolYear] === 'completed'
+        const anyStudentSubmitted = familyData.students.some(student => 
+          statuses[student.id][schoolYear] === 'submitted'
+        );
+        const anyStudentStarted = familyData.students.some(student => 
+          statuses[student.id][schoolYear] === 'draft'
         );
         
-        if (allStudentsCompleted && familyData.students.length > 0) {
+        if (allStudentsSubmitted && familyData.students.length > 0) {
           schoolYearStatuses[schoolYear] = 'completed';
-        } else if (anyStudentCompleted) {
+        } else if (anyStudentSubmitted || anyStudentStarted) {
           schoolYearStatuses[schoolYear] = 'partial';
         } else {
           schoolYearStatuses[schoolYear] = 'pending';
@@ -572,6 +599,52 @@ const RTDConnectDashboard = () => {
 
     loadStudentDocumentStatuses();
   }, [customClaims?.familyId, familyData?.students]);
+
+  // Effect to load student SOLO plan statuses
+  useEffect(() => {
+    if (!customClaims?.familyId || !familyData?.students || !soloTargetSchoolYear) {
+      return;
+    }
+
+    const loadStudentSOLOPlanStatuses = async () => {
+      const db = getDatabase();
+      const statuses = {};
+      
+      for (const student of familyData.students) {
+        try {
+          const planRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
+          const snapshot = await get(planRef);
+          
+          if (snapshot.exists()) {
+            const planData = snapshot.val();
+            statuses[student.id] = {
+              status: planData.submissionStatus || 'pending',
+              lastUpdated: planData.lastUpdated,
+              submittedAt: planData.submittedAt
+            };
+          } else {
+            statuses[student.id] = {
+              status: 'pending',
+              lastUpdated: null,
+              submittedAt: null
+            };
+          }
+        } catch (error) {
+          console.error(`Error loading SOLO plan for student ${student.id}:`, error);
+          statuses[student.id] = {
+            status: 'pending',
+            lastUpdated: null,
+            submittedAt: null
+          };
+        }
+      }
+      
+      setStudentSOLOPlanStatuses(statuses);
+      console.log('Student SOLO plan statuses loaded for school year:', soloTargetSchoolYear, statuses);
+    };
+
+    loadStudentSOLOPlanStatuses();
+  }, [customClaims?.familyId, familyData?.students, soloTargetSchoolYear]);
 
   // Separate effect for family data based on custom claims
   useEffect(() => {
@@ -749,9 +822,11 @@ const RTDConnectDashboard = () => {
   };
 
   const handleStartRegistration = async () => {
-    // Only allow primary guardians to edit family data
-    if (customClaims?.familyRole !== 'primary_guardian') {
-      console.log('Access denied: Only primary guardians can edit family data');
+    // Allow family creation/editing in two scenarios:
+    // 1. User is a primary guardian (for existing families)
+    // 2. User has no family yet (for new family creation)
+    if (customClaims?.familyRole !== 'primary_guardian' && hasRegisteredFamily) {
+      console.log('Access denied: Only primary guardians can edit existing family data');
       return;
     }
     
@@ -933,6 +1008,59 @@ const RTDConnectDashboard = () => {
     }));
   };
 
+  // Handle opening SOLO education plan form
+  const handleOpenSOLOPlan = (student) => {
+    setSelectedStudentForSOLO(student);
+    setShowSOLOPlanForm(true);
+  };
+
+  // Handle SOLO plan form close
+  const handleSOLOPlanClose = () => {
+    setShowSOLOPlanForm(false);
+    setSelectedStudentForSOLO(null);
+    
+    // Reload SOLO plan statuses after form close to reflect any changes
+    if (customClaims?.familyId && familyData?.students && soloTargetSchoolYear) {
+      const loadUpdatedStatuses = async () => {
+        const db = getDatabase();
+        const statuses = {};
+        
+        for (const student of familyData.students) {
+          try {
+            const planRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
+            const snapshot = await get(planRef);
+            
+            if (snapshot.exists()) {
+              const planData = snapshot.val();
+              statuses[student.id] = {
+                status: planData.submissionStatus || 'pending',
+                lastUpdated: planData.lastUpdated,
+                submittedAt: planData.submittedAt
+              };
+            } else {
+              statuses[student.id] = {
+                status: 'pending',
+                lastUpdated: null,
+                submittedAt: null
+              };
+            }
+          } catch (error) {
+            console.error(`Error loading SOLO plan for student ${student.id}:`, error);
+            statuses[student.id] = {
+              status: 'pending',
+              lastUpdated: null,
+              submittedAt: null
+            };
+          }
+        }
+        
+        setStudentSOLOPlanStatuses(statuses);
+      };
+      
+      loadUpdatedStatuses();
+    }
+  };
+
   // Check and apply pending permissions (manual trigger)
   const checkAndApplyPendingPermissions = async () => {
     if (!user?.email) return;
@@ -997,7 +1125,7 @@ const RTDConnectDashboard = () => {
               {/* Mobile menu button */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -1005,7 +1133,7 @@ const RTDConnectDashboard = () => {
               {/* Desktop sign out button */}
               <button
                 onClick={handleSignOut}
-                className="hidden sm:flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+                className="hidden lg:flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
@@ -1221,13 +1349,13 @@ const RTDConnectDashboard = () => {
               {/* Mobile menu button */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <Menu className="w-6 h-6" />
               </button>
               
               {/* Desktop profile dropdown */}
-              <div className="hidden sm:flex items-center space-x-3">
+              <div className="hidden lg:flex items-center space-x-3">
                 <ProfileDropdown 
                   userProfile={{ ...userProfile, email: user?.email }}
                   onEditProfile={() => setShowProfileForm(true)}
@@ -1503,7 +1631,7 @@ const RTDConnectDashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3 sm:space-x-6">
               <RTDConnectLogo />
-              <div className="hidden sm:block">
+              <div className="hidden lg:block">
                 <UserTypeBadge customClaims={customClaims} />
               </div>
             </div>
@@ -1511,13 +1639,13 @@ const RTDConnectDashboard = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex sm:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <Menu className="w-6 h-6" />
             </button>
             
             {/* Desktop profile dropdown */}
-            <div className="hidden sm:flex items-center space-x-3">
+            <div className="hidden lg:flex items-center space-x-3">
               <ProfileDropdown 
                 userProfile={{ ...userProfile, email: user?.email }}
                 onEditProfile={() => setShowProfileForm(true)}
@@ -1557,41 +1685,41 @@ const RTDConnectDashboard = () => {
         </div>
 
         {/* Quick Actions & Family Status */}
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg shadow-md p-4 lg:p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
             {/* Action Button */}
             <div className="flex-shrink-0">
               {customClaims?.familyRole === 'primary_guardian' ? (
                 <div className="flex gap-3">
                   <button
                     onClick={handleStartRegistration}
-                    className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 transition-colors"
+                    className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                   >
                     <Edit3 className="w-5 h-5" />
-                    <span className="text-sm sm:text-base">Update Family Information</span>
+                    <span className="text-sm lg:text-base">Update Family Information</span>
                   </button>
                 </div>
               ) : (
-                <div className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
+                <div className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
                   <Shield className="w-5 h-5" />
-                  <span className="text-sm sm:text-base">Only Primary Guardian Can Edit</span>
+                  <span className="text-sm lg:text-base">Only Primary Guardian Can Edit</span>
                 </div>
               )}
             </div>
             
             {/* Family Status Info */}
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+            <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
               <div className="flex items-center space-x-3">
-                <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
+                <div className="w-10 lg:w-12 h-10 lg:h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 lg:w-6 h-5 lg:h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Family Status</h3>
-                  <p className="text-xs sm:text-sm text-green-600 font-medium">Active • Profile Complete</p>
+                  <h3 className="text-base lg:text-lg font-semibold text-gray-900">Family Status</h3>
+                  <p className="text-xs lg:text-sm text-green-600 font-medium">Active • Profile Complete</p>
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-gray-600">
+              <div className="flex flex-wrap gap-4 text-xs lg:text-sm text-gray-600">
                 <div className="flex items-center space-x-2">
                   <GraduationCap className="w-4 h-4 text-purple-500" />
                   <span><strong>{familyData.students?.length || 0}</strong> Students</span>
@@ -1605,9 +1733,9 @@ const RTDConnectDashboard = () => {
                   <span>
                     <strong>
                       {familyData.students?.filter(student => 
-                        studentFormStatuses[student.id]?.current === 'completed'
+                        studentFormStatuses[student.id]?.current === 'submitted'
                       ).length || 0}
-                    </strong> of <strong>{familyData.students?.length || 0}</strong> forms complete
+                    </strong> of <strong>{familyData.students?.length || 0}</strong> forms submitted
                   </span>
                 </div>
               </div>
@@ -1615,79 +1743,6 @@ const RTDConnectDashboard = () => {
           </div>
         </div>
 
-        {/* Registration Progress Summary */}
-        {familyData.students && familyData.students.length > 0 && (
-          <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="w-5 sm:w-6 h-5 sm:h-6 mr-2 text-blue-500" />
-              <span className="truncate">{activeSchoolYear} Registration Progress</span>
-            </h2>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
-                <div className="flex items-center">
-                  <CheckCircle2 className="w-6 sm:w-8 h-6 sm:h-8 text-green-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xl sm:text-2xl font-bold text-green-700">
-                      {familyData.students.filter(student => 
-                        studentFormStatuses[student.id]?.current === 'completed'
-                      ).length}
-                    </p>
-                    <p className="text-xs sm:text-sm text-green-600">Completed</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4">
-                <div className="flex items-center">
-                  <AlertCircle className="w-6 sm:w-8 h-6 sm:h-8 text-orange-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-700">
-                      {familyData.students.filter(student => 
-                        studentFormStatuses[student.id]?.current === 'pending'
-                      ).length}
-                    </p>
-                    <p className="text-xs sm:text-sm text-orange-600">Pending</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                <div className="flex items-center">
-                  <GraduationCap className="w-6 sm:w-8 h-6 sm:h-8 text-blue-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xl sm:text-2xl font-bold text-blue-700">
-                      {familyData.students.length}
-                    </p>
-                    <p className="text-xs sm:text-sm text-blue-600">Total Students</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-                <span className="text-sm text-gray-500">
-                  {Math.round((familyData.students.filter(student => 
-                    studentFormStatuses[student.id]?.current === 'completed'
-                  ).length / familyData.students.length) * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div 
-                  className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${(familyData.students.filter(student => 
-                      studentFormStatuses[student.id]?.current === 'completed'
-                    ).length / familyData.students.length) * 100}%` 
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Family Members List */}
         {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
@@ -1703,7 +1758,7 @@ const RTDConnectDashboard = () => {
                 </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {familyData.students.map((student, index) => {
-                    const formStatus = studentFormStatuses[student.id] || 'pending';
+                    const formStatus = studentFormStatuses[student.id]?.current || 'pending';
                     const docStatus = studentDocumentStatuses[student.id] || { status: 'pending', documentCount: 0 };
                     return (
                       <div key={student.id || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
@@ -1729,47 +1784,23 @@ const RTDConnectDashboard = () => {
                                   <span className="text-sm font-medium text-gray-700">
                                     {activeSchoolYear} Registration
                                   </span>
-                                  {formStatus === 'completed' ? (
+                                  {formStatus === 'submitted' ? (
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                  ) : formStatus === 'pending' ? (
-                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                  ) : formStatus === 'draft' ? (
+                                    <Clock className="w-4 h-4 text-blue-500" />
                                   ) : (
-                                    <X className="w-4 h-4 text-red-500" />
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
                                   )}
                                 </div>
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
-                                  formStatus === 'completed' ? 'bg-green-100 text-green-700 border-green-300' :
-                                  formStatus === 'pending' ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                                  'bg-red-100 text-red-700 border-red-300'
+                                  formStatus === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' :
+                                  formStatus === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                  'bg-orange-100 text-orange-700 border-orange-300'
                                 }`}>
-                                  {formStatus === 'completed' ? 'Complete' :
-                                   formStatus === 'pending' ? 'Required' : 'Not Started'}
+                                  {formStatus === 'submitted' ? 'Submitted' :
+                                   formStatus === 'draft' ? 'Draft' : 'Required'}
                                 </span>
                               </div>
-                              
-                              {/* Previous years status summary */}
-                              {studentFormStatuses[student.id] && Object.keys(studentFormStatuses[student.id]).length > 2 && (
-                                <div className="mb-2">
-                                  <p className="text-xs text-gray-500 mb-1">Previous years:</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {getAllSeptemberCountDates()
-                                      .filter(({schoolYear}) => schoolYear !== activeSchoolYear)
-                                      .map(({schoolYear}) => {
-                                        const status = studentFormStatuses[student.id][schoolYear];
-                                        return (
-                                          <span 
-                                            key={schoolYear}
-                                            className={`text-xs px-2 py-1 rounded shadow-sm border ${
-                                              status === 'completed' ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-gray-50 text-gray-400 border-gray-200'
-                                            }`}
-                                          >
-                                            {schoolYear}: {status === 'completed' ? '✓' : '—'}
-                                          </span>
-                                        );
-                                      })}
-                                  </div>
-                                </div>
-                              )}
                               
                               {/* Form Access Button - Only for Primary Guardians */}
                               {customClaims?.familyRole === 'primary_guardian' ? (
@@ -1780,12 +1811,16 @@ const RTDConnectDashboard = () => {
                                       setShowNotificationForm(true);
                                     }}
                                     className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
-                                      formStatus === 'completed' ?
+                                      formStatus === 'submitted' ?
                                       'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                      formStatus === 'draft' ?
+                                      'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
-                                    {formStatus === 'completed' ? `Update ${activeSchoolYear} Form` : `Complete ${activeSchoolYear} Form`}
+                                    {formStatus === 'submitted' ? `Update ${activeSchoolYear} Form` : 
+                                     formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
+                                     `Start ${activeSchoolYear} Form`}
                                   </button>
                                 </div>
                               ) : (
@@ -1828,6 +1863,73 @@ const RTDConnectDashboard = () => {
                                 >
                                   {docStatus.status === 'completed' ? 'View/Update Documents' : 'Upload Documents'}
                                 </button>
+                              ) : (
+                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                  Contact Primary Guardian
+                                </div>
+                              )}
+                            </div>
+
+                            {/* SOLO Education Plan Status */}
+                            <div className="mt-3 pt-3 border-t border-blue-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <FileText className="w-4 h-4 text-green-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    SOLO Education Plan
+                                  </span>
+                                  {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : studentSOLOPlanStatuses[student.id]?.status === 'draft' ? (
+                                    <Clock className="w-4 h-4 text-blue-500" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                  )}
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                  studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' : 
+                                  studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' : 
+                                  'bg-orange-100 text-orange-700 border-orange-300'
+                                }`}>
+                                  {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'Completed' : 
+                                   studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'In Progress' : 'Required'}
+                                </span>
+                              </div>
+                              
+                              {/* SOLO Plan Button - Only for Primary Guardians */}
+                              {customClaims?.familyRole === 'primary_guardian' ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => handleOpenSOLOPlan(student)}
+                                    className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                      studentSOLOPlanStatuses[student.id]?.status === 'submitted' ?
+                                      'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                      studentSOLOPlanStatuses[student.id]?.status === 'draft' ?
+                                      'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
+                                      'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
+                                    }`}
+                                  >
+                                    {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'View/Update SOLO Plan' : 
+                                     studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'Continue SOLO Plan' : 'Create SOLO Plan'}
+                                  </button>
+                                  
+                                  {/* Download Latest PDF Button - Only for submitted plans */}
+                                  {studentSOLOPlanStatuses[student.id]?.status === 'submitted' && 
+                                   studentSOLOPlanStatuses[student.id]?.pdfVersions?.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        const latestPDF = studentSOLOPlanStatuses[student.id].pdfVersions[
+                                          studentSOLOPlanStatuses[student.id].pdfVersions.length - 1
+                                        ];
+                                        window.open(latestPDF.url, '_blank');
+                                      }}
+                                      className="w-full px-3 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      <span>Download Latest PDF</span>
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
                                   Contact Primary Guardian
@@ -2035,6 +2137,17 @@ const RTDConnectDashboard = () => {
           student={selectedStudentForDocs}
           familyId={customClaims?.familyId}
           onDocumentsUpdated={handleDocumentsUpdated}
+        />
+      )}
+
+      {/* SOLO Education Plan Form - Only for Primary Guardians */}
+      {customClaims?.familyRole === 'primary_guardian' && showSOLOPlanForm && (
+        <SOLOEducationPlanForm
+          isOpen={showSOLOPlanForm}
+          onOpenChange={handleSOLOPlanClose}
+          student={selectedStudentForSOLO}
+          familyId={customClaims?.familyId}
+          schoolYear={soloTargetSchoolYear}
         />
       )}
 

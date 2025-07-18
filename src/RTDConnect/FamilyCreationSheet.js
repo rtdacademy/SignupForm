@@ -1050,7 +1050,7 @@ const FamilyCreationSheet = ({
 
                       <div>
                         <label htmlFor="student-grade" className="block text-sm font-medium text-gray-700 mb-1">
-                          Grade Level
+                          Expected Grade Level
                         </label>
                         <select
                           id="student-grade"
@@ -1058,11 +1058,12 @@ const FamilyCreationSheet = ({
                           onChange={(e) => setStudentFormData({...studentFormData, grade: e.target.value})}
                           className={`w-full px-3 py-2 border ${studentErrors.grade ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
                         >
-                          <option value="">Select grade</option>
+                          <option value="">Select expected grade</option>
                           {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(grade => (
                             <option key={grade} value={grade}>Grade {grade}</option>
                           ))}
                         </select>
+                        <p className="mt-1 text-sm text-gray-500">Best estimate - this can be adjusted later</p>
                         {studentErrors.grade && (
                           <p className="mt-1 text-sm text-red-600">{studentErrors.grade}</p>
                         )}

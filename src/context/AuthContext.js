@@ -489,8 +489,9 @@ export function AuthProvider({ children }) {
       const currentTime = Date.now();
       const inactivityDuration = currentTime - storedTimestamp;
       
-      if (inactivityDuration >= INACTIVITY_TIMEOUT) {
-        console.log("Inactivity timeout reached - logging user out");
+      // Add buffer time to prevent false logouts from quick interactions
+      if (inactivityDuration >= (INACTIVITY_TIMEOUT + 5000)) {
+        console.log(`Inactivity timeout reached after ${Math.round(inactivityDuration / 1000)}s - logging user out`);
         // Clear localStorage items
         localStorage.removeItem('rtd_last_activity_timestamp');
         localStorage.removeItem('rtd_scheduled_logout_time');
@@ -499,6 +500,9 @@ export function AuthProvider({ children }) {
         firebaseSignOut(auth).catch(error => {
           console.error("Error during inactivity logout:", error);
         });
+      } else {
+        // Reset the timeout if user is still active
+        resetInactivityTimeout();
       }
     };
     
@@ -543,13 +547,16 @@ export function AuthProvider({ children }) {
     // Handle browser visibility changes for sleep/wake detection
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // When tab becomes visible again, check if we should be logged out
+        // When tab becomes visible again, update activity and check if we should be logged out
         const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
         const currentTime = Date.now();
         const inactivityDuration = currentTime - storedTimestamp;
         
-        if (inactivityDuration >= INACTIVITY_TIMEOUT) {
-          // Perform logout directly without async function
+        // Only logout if truly inactive for more than the timeout period
+        // Add a 30-second buffer to prevent false logouts from quick tab switches
+        if (inactivityDuration >= (INACTIVITY_TIMEOUT + 30000)) {
+          console.log(`User inactive for ${Math.round(inactivityDuration / 1000)}s, logging out...`);
+          
           // Clear localStorage items
           localStorage.removeItem('rtd_last_activity_timestamp');
           localStorage.removeItem('rtd_scheduled_logout_time');
@@ -563,9 +570,23 @@ export function AuthProvider({ children }) {
             console.error("Error during inactivity logout:", error);
           });
         } else {
-          // Not timed out, but refresh the token status
+          // Update activity timestamp on tab focus to prevent false timeouts
+          const now = Date.now();
+          localStorage.setItem('rtd_last_activity_timestamp', now.toString());
+          userActivityTracking.current.lastActivity = now;
+          userActivityTracking.current.isActive = true;
+          
+          // Reset the inactivity timeout
+          resetInactivityTimeout();
+          
+          // Refresh the token status
           checkTokenExpiration();
         }
+      } else {
+        // When tab becomes hidden, update the last activity timestamp
+        const now = Date.now();
+        localStorage.setItem('rtd_last_activity_timestamp', now.toString());
+        userActivityTracking.current.lastActivity = now;
       }
     };
     

@@ -45,16 +45,22 @@ function MultiActionAuthHandler() {
             setStatus('Email verified successfully! You can now sign in.');
             console.log("Verification complete, redirecting to login");
             
-            // Check if this is a parent verification by looking at localStorage flag
+            // Check which portal this verification is for by looking at localStorage flags
             const isParentVerification = localStorage.getItem('parentPortalSignup') === 'true';
-            const redirectPath = isParentVerification ? '/parent-login' : '/login';
+            const isRtdConnectVerification = localStorage.getItem('rtdConnectPortalSignup') === 'true';
+            
+            let redirectUrl;
+            if (isRtdConnectVerification) {
+              redirectUrl = 'https://rtd-connect.com/login';
+            } else if (isParentVerification) {
+              redirectUrl = 'https://yourway.rtdacademy.com/parent-login';
+            } else {
+              redirectUrl = 'https://yourway.rtdacademy.com/login';
+            }
             
             setTimeout(() => {
-              navigate(redirectPath, { 
-                state: { 
-                  message: 'Email verified successfully! You can now sign in.' 
-                }
-              });
+              // Use window.location.href for external redirects
+              window.location.href = redirectUrl;
             }, 3000);
           } catch (verificationError) {
             console.error("Email verification error:", verificationError);
@@ -134,16 +140,22 @@ function MultiActionAuthHandler() {
       
       setStatus('Password reset successful! You can now sign in with your new password.');
       
-      // Check if this is a parent password reset by looking at localStorage flag
+      // Check which portal this password reset is for by looking at localStorage flags
       const isParentReset = localStorage.getItem('parentPortalSignup') === 'true';
-      const redirectPath = isParentReset ? '/parent-login' : '/login';
+      const isRtdConnectReset = localStorage.getItem('rtdConnectPortalSignup') === 'true';
+      
+      let redirectUrl;
+      if (isRtdConnectReset) {
+        redirectUrl = 'https://rtd-connect.com/login';
+      } else if (isParentReset) {
+        redirectUrl = 'https://yourway.rtdacademy.com/parent-login';
+      } else {
+        redirectUrl = 'https://yourway.rtdacademy.com/login';
+      }
       
       setTimeout(() => {
-        navigate(redirectPath, { 
-          state: { 
-            message: 'Password reset successful! You can now sign in with your new password.' 
-          }
-        });
+        // Use window.location.href for external redirects
+        window.location.href = redirectUrl;
       }, 3000);
     } catch (error) {
       console.error("Error confirming password reset:", error);
@@ -160,10 +172,31 @@ function MultiActionAuthHandler() {
     }
   };
 
+  // Check which portal this is for to show appropriate branding
+  const isRtdConnectPortal = localStorage.getItem('rtdConnectPortalSignup') === 'true';
+  
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className={`min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 ${
+      isRtdConnectPortal ? 'bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50' : 'bg-gray-100'
+    }`}>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-3xl font-extrabold text-center text-primary">RTD Academy</h1>
+        {isRtdConnectPortal ? (
+          <div className="flex items-center justify-center space-x-4 mb-6">
+            <img 
+              src="/connectImages/Connect.png" 
+              alt="RTD Connect Logo"
+              className="h-16 w-auto"
+            />
+            <div className="text-center">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
+                RTD Connect
+              </h1>
+              <p className="text-lg text-gray-600 font-medium">Home Education Portal</p>
+            </div>
+          </div>
+        ) : (
+          <h1 className="text-3xl font-extrabold text-center text-primary">RTD Academy</h1>
+        )}
         <p className="mt-2 text-center text-sm text-gray-600">
           {mode === 'verifyEmail' ? 'Email Verification' : 'Password Reset'}
         </p>
@@ -221,7 +254,7 @@ function MultiActionAuthHandler() {
       </div>
 
       <footer className="mt-8 text-center text-sm text-gray-500">
-        <p>&copy; {new Date().getFullYear()} RTD Math Academy. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} {isRtdConnectPortal ? 'RTD Connect - Home Education Portal' : 'RTD Math Academy'}. All rights reserved.</p>
       </footer>
     </div>
   );

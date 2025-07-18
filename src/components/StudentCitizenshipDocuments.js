@@ -139,15 +139,64 @@ const StudentCitizenshipDocuments = ({
           <SheetTitle className="text-left">
             <div className="flex items-center space-x-2">
               <FileText className="w-5 h-5 text-purple-500" />
-              <span>Citizenship Documents</span>
+              <span>Citizenship Documents for School Registration</span>
             </div>
           </SheetTitle>
           <SheetDescription className="text-left">
-            Upload and manage citizenship verification documents for {student.firstName} {student.lastName}.
+            Upload required citizenship documents for {student.firstName} {student.lastName}'s school registration in Alberta.
           </SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {/* Information Section */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Why These Documents Are Required
+            </h3>
+            <div className="text-sm text-blue-800 space-y-3">
+              <p>
+                <strong>Alberta Education requires schools to verify each student's identity, age, and legal status</strong> before enrollment. 
+                These documents provide official proof of your child's citizenship or legal status in Canada.
+              </p>
+              
+              <div>
+                <p className="font-medium mb-2">For school registration in Alberta, you must provide ONE of the following:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Birth Certificate:</strong> Most common document. Shows your child was born in Canada and is a Canadian citizen.</li>
+                  <li><strong>Canadian Passport:</strong> Official proof of Canadian citizenship. Accepted by all schools.</li>
+                  <li><strong>Canadian Citizenship Certificate or Card:</strong> Official proof for naturalized Canadian citizens.</li>
+                  <li><strong>Immigration Documents:</strong> For non-Canadian citizens, including permanent resident cards, visas, or other legal immigration documentation.</li>
+                </ul>
+              </div>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 mt-3">
+                <p className="text-amber-800 text-sm">
+                  <strong>Important:</strong> These documents are required by Alberta Education regulations. 
+                  Without proper citizenship verification, your child cannot be enrolled in school.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Document Guidelines */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+              <CheckCircle2 className="w-5 h-5 mr-2 text-green-600" />
+              Document Guidelines
+            </h3>
+            <div className="text-sm text-gray-700 space-y-2">
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Original or certified copies</strong> are preferred, but clear photos or scans are acceptable for initial submission</li>
+                <li><strong>All text must be clearly readable</strong> - avoid blurry or cropped images</li>
+                <li><strong>Include all four corners</strong> of the document in your photo/scan</li>
+                <li><strong>File formats:</strong> PDF, JPEG, or PNG files only</li>
+                <li><strong>File size:</strong> Maximum 5MB per file</li>
+                <li><strong>Multiple documents:</strong> You can upload multiple documents if needed (e.g., both sides of a card)</li>
+              </ul>
+            </div>
+          </div>
+
           {/* Current Status Alert */}
           <Alert className={`${hasExistingDocs ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
             <div className="flex items-center">
@@ -158,8 +207,8 @@ const StudentCitizenshipDocuments = ({
               )}
               <AlertDescription className={`ml-2 ${hasExistingDocs ? 'text-green-800' : 'text-orange-800'}`}>
                 {hasExistingDocs 
-                  ? `${documents.length} citizenship document(s) uploaded for this student.`
-                  : 'No citizenship documents uploaded yet. Please upload required documents to complete verification.'
+                  ? `✓ ${documents.length} citizenship document(s) uploaded for ${student.firstName}. Your child's citizenship has been verified for school registration.`
+                  : `⚠️ No citizenship documents uploaded yet for ${student.firstName}. Please upload at least one required document to complete school registration verification.`
                 }
               </AlertDescription>
             </div>

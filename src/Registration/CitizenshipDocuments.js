@@ -223,23 +223,25 @@ const CitizenshipDocuments = forwardRef(({
             {existingDocuments.length > 0 ? (
               <>
                 <p className="font-medium mb-2">You have previously uploaded citizenship documents. You may add additional documents if needed.</p>
-                <p>Accepted document types:</p>
-                <ul className="list-disc pl-5 mt-1">
-                  <li>Birth Certificate within Canada</li>
-                  <li>Canadian Citizenship Certificate or Card</li>
-                  <li>Canadian Passport</li>
-                  <li>Type of Visa or other document supporting lawful admittance to Canada</li>
+                <p className="mb-2"><strong>Required for Alberta school registration:</strong> Upload clear copies of ONE of the following documents:</p>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
+                  <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
+                  <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
+                  <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
                 </ul>
+                <p className="mt-2 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>
               </>
             ) : (
               <>
-                Upload acceptable copies of one of the following:
-                <ul className="list-disc pl-5 mt-2">
-                  <li>Birth Certificate within Canada</li>
-                  <li>Canadian Citizenship Certificate or Card</li>
-                  <li>Canadian Passport</li>
-                  <li>Type of Visa or other document supporting lawful admittance to Canada</li>
+                <p className="font-medium mb-2"><strong>Required for Alberta school registration:</strong> Upload clear copies of ONE of the following documents:</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1">
+                  <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
+                  <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
+                  <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
+                  <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
                 </ul>
+                <p className="mt-3 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>
               </>
             )}
           </AlertDescription>

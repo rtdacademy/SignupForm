@@ -453,6 +453,84 @@ const HomeEducationNotificationFormV2 = ({
     toast.success(`Copied ${fieldName} successfully!`);
   };
 
+  // Handle PDF download
+  const handleDownloadPDF = async () => {
+    try {
+      setGeneratingPDF(true);
+      
+      // Create submission data structure for PDF generation
+      const submissionData = {
+        submissionId: existingSubmission?.submissionId || `sub_${Date.now()}`,
+        schoolYear,
+        
+        PART_A: {
+          formType: watch('formType'),
+          studentInfo: getStudentInfo(),
+          guardianInfo: getPrimaryGuardian(),
+          addresses: {
+            studentAddress: getStudentInfo().addressInfo,
+            parentGuardianAddress: getPrimaryGuardian().address,
+            programAddressDifferent: watch('programAddressDifferent'),
+            programAddress: watch('programAddressDifferent') ? (watch('programAddress') || null) : null
+          },
+          editableFields: {
+            registrationDate: new Date().toISOString().split('T')[0],
+            citizenship: watch('citizenship'),
+            residentSchoolBoard: watch('residentSchoolBoard'),
+            previousSchoolProgram: watch('previousSchoolProgram'),
+            assistanceRequired: watch('assistanceRequired'),
+            additionalInstructor: watch('additionalInstructor'),
+            aboriginalDeclaration: watch('aboriginalDeclaration'),
+            francophoneEligible: watch('francophoneEligible'),
+            francophoneExercise: watch('francophoneExercise')
+          }
+        },
+        
+        PART_B: {
+          declaration: {
+            programAlberta: watch('programAlberta'),
+            programSchedule: watch('programSchedule'),
+            signatureAgreed: watch('signatureAgreed'),
+            guardianSignature: `${getPrimaryGuardian().firstName} ${getPrimaryGuardian().lastName} (Digital Signature)`,
+            signatureDate: new Date().toISOString().split('T')[0],
+            authenticatedUser: getPrimaryGuardian().email
+          }
+        },
+        
+        PART_C: {
+          acceptanceStatus: null,
+          schoolResponse: null,
+          schoolName: null,
+          schoolContact: null,
+          schoolSignature: null,
+          responseDate: null,
+          schoolNotes: null
+        },
+        
+        PART_D: {
+          isRequired: watch('programSchedule'),
+          partDMethod: watch('programSchedule') ? watch('partDMethod') : null,
+          partDResources: watch('programSchedule') ? watch('partDResources') : null,
+          partDEvaluation: watch('programSchedule') ? watch('partDEvaluation') : null,
+          partDFacilities: watch('programSchedule') ? watch('partDFacilities') : null,
+          completedAt: watch('programSchedule') ? new Date().toISOString() : null
+        }
+      };
+
+      // Generate and download PDF
+      const pdfDoc = await generatePDF(submissionData);
+      pdfDoc.save(`HomeEducation_NotificationForm_${schoolYear}_${selectedStudent.firstName}_${selectedStudent.lastName}_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success('PDF downloaded successfully!');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
 
   // Get primary guardian information
   const getPrimaryGuardian = () => {
@@ -518,93 +596,94 @@ const HomeEducationNotificationFormV2 = ({
       const pageHeight = doc.internal.pageSize.height;
       let yPosition = 20;
 
-      // Header
-      doc.setFontSize(16);
+      // Document Header
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('NOTIFICATION FORM FOR HOME EDUCATION PROGRAM', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 8;
+      doc.text(FORM_CONSTANTS.FORM_TITLE, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 6;
       
       doc.setFontSize(12);
-      doc.text('SUPERVISED BY A SCHOOL AUTHORITY', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 6;
-      
-      doc.setFont('helvetica', 'normal');
-      doc.text('HOME EDUCATION REGULATION A.R. 89/2019', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 6;
-      
-      doc.text('Education Act, Section 20', pageWidth / 2, yPosition, { align: 'center' });
+      doc.text(FORM_CONSTANTS.FORM_SUBTITLE, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 6;
       
       doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(FORM_CONSTANTS.REGULATION, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 5;
+      
+      doc.text(FORM_CONSTANTS.EDUCATION_ACT, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 8;
+      
       doc.setFont('helvetica', 'bold');
       doc.text(`School Year: ${submissionData.schoolYear}`, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 10;
 
-      // Legal text at top
-      doc.setFontSize(8);
-      const legalText = "The personal information collected on this form is collected pursuant to the provisions of Section 33(c) of the Freedom of Information and Protection of Privacy Act, R.S.A. 2000, c F-25, the Student Record Regulation, A.R. 97/2019 and Section 2 of the Home Education Regulation, A.R. 89/2019 (in the case where the collection is done by an associate board) and pursuant to the provisions of the Personal Information Protection Act, the Private Schools Regulation, A.R. 93/2019 and Section 2 of the Home Education Regulation, A.R. 89/2019 (in the case where the collection is done by an associate private school) for the purposes of (a) notifying a School Board or an Accredited Private School that a parent/guardian wishes to educate a student in a home education program, (b) verifying that a student is eligible for a home education program, (c) and for providing further particulars on the home education program in which the student will be participating so that the associate board or accredited private school can supervise the program to ensure compliance with the Education Act. This information will be treated in accordance with the Freedom of Information and Protection of Privacy Act and the Personal Information Protection Act as applicable and depending on whether the personal information is in the custody of an associate board or an associate private school. Should you have any questions regarding this activity, please contact Alberta Education, Field Services, 9th Floor, 44 Capital Boulevard, 10044 – 108 Street NW, Edmonton, Alberta, T5J 5E6 Telephone: 780-427-6272 (toll-free by first dialing 310-0000).";
-      const splitLegal = doc.splitTextToSize(legalText, pageWidth - 40);
-      doc.text(splitLegal, 20, yPosition);
-      yPosition += splitLegal.length * 4 + 10;
+      // Legal Information Table
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Legal Information']],
+        body: [
+          [LEGAL_TEXT.PRIVACY_COLLECTION],
+          [LEGAL_TEXT.IMPORTANT_NOTES],
+          [LEGAL_TEXT.FORM_INSTRUCTIONS]
+        ],
+        styles: { 
+          fontSize: 8,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [240, 240, 240],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        margin: { left: 15, right: 15 }
+      });
 
-      // Notes
-      const notesText = "Alberta Education does not require parents/guardians who complete a Notification Form to complete a registration form for the associate board or associate private school. Parents/guardians choosing shared responsibility programs may be required by the school to complete additional forms.";
-      const splitNotes = doc.splitTextToSize(notesText, pageWidth - 40);
-      doc.text(splitNotes, 20, yPosition);
-      yPosition += splitNotes.length * 4 + 10;
+      yPosition = doc.lastAutoTable.finalY + 10;
+      
+      // Check if we need a new page
+      if (yPosition > pageHeight - 50) {
+        doc.addPage();
+        yPosition = 20;
+      }
 
-      // Form Type
+      // PART A Header
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text('PART A - Student Information', 20, yPosition);
       yPosition += 8;
-      
-      doc.setFont('helvetica', 'normal');
-      const formType = submissionData.PART_A.formType === 'new' ? 
-        'Notification of Intention to Home Educate with a new associate board or associate private school.' :
-        'Notification of Renewal of Intention to Home Educate with the same associate board or associate private school.';
-      doc.text(`☑ ${formType}`, 20, yPosition);
-      yPosition += 10;
 
-      // Student Information Table
+      // Form Type Table
       const student = submissionData.PART_A.studentInfo;
       const guardian = submissionData.PART_A.guardianInfo;
       const editable = submissionData.PART_A.editableFields;
       const addresses = submissionData.PART_A.addresses;
       const partD = submissionData.PART_D;
       
+      const formTypeLabel = submissionData.PART_A.formType === 'new' ? 
+        FORM_CONSTANTS.FORM_TYPE_LABELS.NEW : 
+        FORM_CONSTANTS.FORM_TYPE_LABELS.RENEWAL;
+
       doc.autoTable({
         startY: yPosition,
-        head: [['Field', 'Information']],
+        head: [['Form Type', 'Selected']],
         body: [
-          ['Legal Surname', student.lastName || ''],
-          ['Legal Given Name(s)', student.firstName || ''],
-          ['Birthdate', student.birthday ? new Date(student.birthday).toLocaleDateString() : ''],
-          ['Gender', student.genderDisplay],
-          ['Registration Date', editable.registrationDate || ''],
-          ['Student Also Known As - Surname', student.alsoKnownAs ? student.lastName : ''],
-          ['Student Also Known As - Given Name(s)', student.alsoKnownAs || ''],
-          ['Parent/Guardian 1 - Last Name', guardian.lastName || ''],
-          ['Parent/Guardian 1 - First Name', guardian.firstName || ''],
-          ['Parent/Guardian 1 - Home Phone', guardian.phone || ''],
-          ['Parent/Guardian Email Address', guardian.email || ''],
-          ['Student Phone Number', student.phoneWithFallback || ''],
-          ['Alberta Student Number (ASN)', student.asn || '(To be provided by the school)'],
-          ['Student Address', `${student.addressInfo.fullAddress || ''}\nPhone: ${student.addressInfo.phone || ''}`],
-          ['Parent/Guardian Address', addresses.parentGuardianAddress?.fullAddress || 'Same as student'],
-          ['Program Location Address', addresses.programAddressDifferent ? (addresses.programAddress?.fullAddress || addresses.programAddress?.formattedAddress || 'Address provided') : 'Same as above'],
-          ['Citizenship', editable.citizenship || ''],
-          ['Estimated Grade Level', student.estimatedGradeLevel],
-          ['Resident School Board', editable.residentSchoolBoard || ''],
-          ['Previous School Program', editable.previousSchoolProgram || ''],
-          ['Assistance Required', editable.assistanceRequired ? 'Yes' : 'No'],
-          ['Additional Instructor', editable.additionalInstructor || 'N/A'],
-          ['Aboriginal Declaration', editable.aboriginalDeclaration || 'Not declared'],
-          ['Francophone Education Eligible', editable.francophoneEligible || 'Not specified'],
-          ['Exercise Francophone Right', editable.francophoneExercise || 'Not specified'],
-          ['Program Outcomes', `${submissionData.PART_B.declaration.programAlberta ? '✓ Alberta Programs of Study' : ''}\n${submissionData.PART_B.declaration.programSchedule ? '✓ Schedule included in the Home Education Regulation' : ''}`]
+          ['Form Type', formTypeLabel]
         ],
-        styles: { fontSize: 9 },
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
         columnStyles: {
           0: { fontStyle: 'bold', cellWidth: 60 },
           1: { cellWidth: 110 }
@@ -612,79 +691,283 @@ const HomeEducationNotificationFormV2 = ({
         margin: { left: 20, right: 20 }
       });
 
+      yPosition = doc.lastAutoTable.finalY + 10;
+
+      // Student Information Table
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Student Information', 'Details']],
+        body: [
+          ['Legal Surname', student.lastName || ''],
+          ['Legal Given Name(s)', student.firstName || ''],
+          ['Birthdate', student.birthday ? new Date(student.birthday).toLocaleDateString() : ''],
+          ['Gender', student.genderDisplay || ''],
+          ['Student Also Known As - Surname', student.alsoKnownAs ? student.lastName : ''],
+          ['Student Also Known As - Given Name(s)', student.alsoKnownAs || ''],
+          ['Alberta Student Number (ASN)', student.asn || '(To be provided by the school)'],
+          ['Estimated Grade Level', student.estimatedGradeLevel || ''],
+          ['Student Phone Number', student.phoneWithFallback || ''],
+          ['Citizenship', editable.citizenship || ''],
+          ['Resident School Board', editable.residentSchoolBoard || ''],
+          ['Previous School Program', editable.previousSchoolProgram || ''],
+          ['Assistance Required', editable.assistanceRequired ? 'Yes' : 'No'],
+          ['Additional Instructor', editable.additionalInstructor || 'N/A'],
+          ['Aboriginal Declaration', editable.aboriginalDeclaration || 'Not declared'],
+          ['Francophone Education Eligible', editable.francophoneEligible || 'Not specified'],
+          ['Exercise Francophone Right', editable.francophoneExercise || 'Not specified']
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 100 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPosition = doc.lastAutoTable.finalY + 10;
+      
       // Check if we need a new page
-      yPosition = doc.lastAutoTable.finalY + 15;
-      if (yPosition > pageHeight - 40) {
+      if (yPosition > pageHeight - 50) {
         doc.addPage();
         yPosition = 20;
       }
 
-      // Part B - Declaration
+      // Guardian Information Table
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Parent/Guardian Information', 'Details']],
+        body: [
+          ['Parent/Guardian 1 - Last Name', guardian.lastName || ''],
+          ['Parent/Guardian 1 - First Name', guardian.firstName || ''],
+          ['Parent/Guardian 1 - Home Phone', guardian.phone || ''],
+          ['Parent/Guardian Email Address', guardian.email || ''],
+          ['Registration Date', editable.registrationDate || '']
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 100 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPosition = doc.lastAutoTable.finalY + 10;
+
+      // Address Information Table
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Address Information', 'Details']],
+        body: [
+          ['Student Address', `${student.addressInfo?.fullAddress || ''}\nPhone: ${student.addressInfo?.phone || ''}`],
+          ['Parent/Guardian Address', addresses.parentGuardianAddress?.fullAddress || 'Same as student'],
+          ['Program Location Address', addresses.programAddressDifferent ? 
+            (addresses.programAddress?.fullAddress || addresses.programAddress?.formattedAddress || 'Address not provided') : 
+            'Same as student address']
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 100 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPosition = doc.lastAutoTable.finalY + 15;
+      
+      // Check if we need a new page
+      if (yPosition > pageHeight - 50) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      // PART B - Declaration
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
       doc.text('PART B - Declaration by Parent/Guardian', 20, yPosition);
       yPosition += 10;
 
-      doc.setFont('helvetica', 'normal');
       const declaration = submissionData.PART_B.declaration;
-      const declarationText = `I/We, ${guardian.firstName} ${guardian.lastName}, the parent(s)/guardian(s) of ${student.firstName} ${student.lastName}, declare to the best of my/our knowledge that the home education program and the activities selected for the home education program will enable the student to achieve the outcomes contained in the ${declaration.programAlberta ? 'Alberta Programs of Study' : ''}${declaration.programAlberta && declaration.programSchedule ? ' and ' : ''}${declaration.programSchedule ? 'Schedule included in the Home Education Regulation' : ''}.
       
-In addition, I/We understand and agree that the instruction and evaluation of my/our child's progress is my/our responsibility and that the associate board or private school will supervise and evaluate my/our child's progress in accordance with the Home Education Regulation.
+      // Declaration Table
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Declaration Information', 'Details']],
+        body: [
+          ['Parent/Guardian Name', `${guardian.firstName} ${guardian.lastName}`],
+          ['Student Name', `${student.firstName} ${student.lastName}`],
+          ['Program Outcomes Selected', `${declaration.programAlberta ? '✓ Alberta Programs of Study' : ''}\n${declaration.programSchedule ? '✓ Schedule included in the Home Education Regulation' : ''}`],
+          ['Declaration Text', LEGAL_TEXT.PART_B_DECLARATION],
+          ['Signature', declaration.guardianSignature || `${guardian.firstName} ${guardian.lastName} (Digital Signature)`],
+          ['Date', new Date(declaration.signatureDate).toLocaleDateString()],
+          ['Authenticated User', declaration.authenticatedUser || guardian.email]
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 100 }
+        },
+        margin: { left: 20, right: 20 }
+      });
 
-I/We understand and agree that the development, administration and management of the home education program is our responsibility.`;
-      
-      const splitDeclaration = doc.splitTextToSize(declarationText, pageWidth - 40);
-      doc.text(splitDeclaration, 20, yPosition);
-      yPosition += splitDeclaration.length * 4 + 10;
+      yPosition = doc.lastAutoTable.finalY + 10;
 
-      // Implications note
-      const implicationsText = "Parents/guardians who provide home education programs acknowledge that there are implications when they choose to use programs different from the Alberta Programs of Study:\n1. Students may not apply to a high school principal for high school credits.\n2. Students may not receive an Alberta High School Diploma.\n\nAny student in a home education program may write a high school diploma examination. However, the diploma examination mark achieved will stand alone and will not result in a final course mark unless accompanied by a recommendation for credit by a high school principal. A final course mark requires both a school awarded mark and a diploma examination mark. Arrangements to write diploma examinations should be made well in advance of the writing date by contacting the associate school board or associate private school for assistance or Exam Administration at 780-427-0010.";
-      const splitImplications = doc.splitTextToSize(implicationsText, pageWidth - 40);
-      doc.text(splitImplications, 20, yPosition);
-      yPosition += splitImplications.length * 4 + 10;
+      // Alberta Programs Implications (if applicable)
+      if (declaration.programSchedule) {
+        if (yPosition > pageHeight - 50) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      // Signature section
-      doc.text('Signature of Supervising Parent(s) or Legal Guardian(s):', 20, yPosition);
-      yPosition += 8;
-      doc.text(declaration.guardianSignature, 20, yPosition);
-      yPosition += 6;
-      doc.text(`Date: ${new Date(declaration.signatureDate).toLocaleDateString()}`, 20, yPosition);
-      yPosition += 15;
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Important Notice - Alberta Programs Implications']],
+          body: [
+            [LEGAL_TEXT.ALBERTA_PROGRAMS_IMPLICATIONS]
+          ],
+          styles: { 
+            fontSize: 8,
+            cellPadding: 3,
+            lineColor: [0, 0, 0],
+            lineWidth: 0.5
+          },
+          headStyles: { 
+            fillColor: [255, 240, 240],
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+            halign: 'center'
+          },
+          margin: { left: 20, right: 20 }
+        });
 
-      // PART D if applicable
-      if (partD.isRequired) {
-        if (yPosition > pageHeight - 60) {
+        yPosition = doc.lastAutoTable.finalY + 15;
+      }
+
+      // PART C - School Response (Empty for now)
+      if (yPosition > pageHeight - 50) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PART C - For School/Board Use Only', 20, yPosition);
+      yPosition += 10;
+
+      doc.autoTable({
+        startY: yPosition,
+        head: [['School Response Information', 'Details']],
+        body: [
+          ['Acceptance Status', submissionData.PART_C?.acceptanceStatus || 'Pending'],
+          ['School Name', submissionData.PART_C?.schoolName || 'To be completed by school'],
+          ['School Contact', submissionData.PART_C?.schoolContact || 'To be completed by school'],
+          ['Response Date', submissionData.PART_C?.responseDate || 'To be completed by school'],
+          ['School Signature', submissionData.PART_C?.schoolSignature || 'To be completed by school'],
+          ['School Notes', submissionData.PART_C?.schoolNotes || 'To be completed by school']
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [240, 240, 240],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 100 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPosition = doc.lastAutoTable.finalY + 15;
+
+      // PART D - Required Descriptions (if applicable)
+      if (partD?.isRequired) {
+        if (yPosition > pageHeight - 50) {
           doc.addPage();
           yPosition = 20;
         }
 
         doc.setFont('helvetica', 'bold');
-        doc.text('PART D - Requirements for the Home Education Program for Components of the Program that Do Not Follow the Alberta Programs of Study', 20, yPosition);
+        doc.setFontSize(12);
+        doc.text('PART D - Required Descriptions for Home Education Program', 20, yPosition);
         yPosition += 10;
 
-        doc.setFont('helvetica', 'normal');
-        doc.text('1. Describe the instructional method to be used, the activities planned for the program and how the instructional method and the activities will enable the student to achieve the learning outcomes contained in the Schedule.', 20, yPosition);
-        yPosition += 10;
-        const splitMethod = doc.splitTextToSize(partD.partDMethod || 'Not provided', pageWidth - 40);
-        doc.text(splitMethod, 20, yPosition);
-        yPosition += splitMethod.length * 4 + 10;
+        // Part D Questions Table
+        const partDQuestions = [
+          [PART_D_QUESTIONS.METHOD.title, PART_D_QUESTIONS.METHOD.description, partD.partDMethod || 'Not provided'],
+          [PART_D_QUESTIONS.RESOURCES.title, PART_D_QUESTIONS.RESOURCES.description, partD.partDResources || 'Not provided'],
+          [PART_D_QUESTIONS.EVALUATION.title, PART_D_QUESTIONS.EVALUATION.description, partD.partDEvaluation || 'Not provided'],
+          [PART_D_QUESTIONS.FACILITIES.title, PART_D_QUESTIONS.FACILITIES.description, partD.partDFacilities || 'Not provided']
+        ];
 
-        doc.text('2. Identify the resource materials, if different from provincially authorized materials, to be used for instruction.', 20, yPosition);
-        yPosition += 10;
-        const splitResources = doc.splitTextToSize(partD.partDResources || 'Not provided', pageWidth - 40);
-        doc.text(splitResources, 20, yPosition);
-        yPosition += splitResources.length * 4 + 10;
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Question', 'Description', 'Response']],
+          body: partDQuestions,
+          styles: { 
+            fontSize: 8,
+            cellPadding: 3,
+            lineColor: [0, 0, 0],
+            lineWidth: 0.5
+          },
+          headStyles: { 
+            fillColor: [230, 230, 230],
+            textColor: [0, 0, 0],
+            fontStyle: 'bold'
+          },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 40 },
+            1: { cellWidth: 60 },
+            2: { cellWidth: 70 }
+          },
+          margin: { left: 20, right: 20 }
+        });
 
-        doc.text('3. Describe the methods and nature of the evaluation to be used to assess the student\'s progress, the number of evaluations and how the evaluation addresses the learning outcomes in Question 1.', 20, yPosition);
-        yPosition += 10;
-        const splitEvaluation = doc.splitTextToSize(partD.partDEvaluation || 'Not provided', pageWidth - 40);
-        doc.text(splitEvaluation, 20, yPosition);
-        yPosition += splitEvaluation.length * 4 + 10;
-
-        doc.text('4. Describe the associate board or associate private school facilities and services that the parent/guardian wishes to use.', 20, yPosition);
-        yPosition += 10;
-        const splitFacilities = doc.splitTextToSize(partD.partDFacilities || 'Not provided', pageWidth - 40);
-        doc.text(splitFacilities, 20, yPosition);
-        yPosition += splitFacilities.length * 4 + 10;
+        yPosition = doc.lastAutoTable.finalY + 10;
       }
 
       // Footer
@@ -764,7 +1047,7 @@ I/We understand and agree that the development, administration and management of
             studentAddress: getStudentInfo().addressInfo,
             parentGuardianAddress: getPrimaryGuardian().address,
             programAddressDifferent: data.programAddressDifferent,
-            programAddress: data.programAddress
+            programAddress: data.programAddressDifferent ? (data.programAddress || null) : null
           },
           editableFields: {
             registrationDate: new Date().toISOString().split('T')[0],
@@ -828,19 +1111,25 @@ I/We understand and agree that the development, administration and management of
         }
       ];
 
+      // Add submission status
+      submissionData.submissionStatus = 'submitted';
+      submissionData.submissionCompletedAt = new Date().toISOString();
+
       // Save to database
       const db = getDatabase();
       const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
       await set(formRef, submissionData);
 
-      toast.success('Form submitted successfully!', {
-        description: 'PDF generated and saved to cloud storage'
+      toast.success('Home Education Notification Form submitted successfully!', {
+        description: `Form for ${selectedStudent.firstName} ${selectedStudent.lastName} has been completed and saved. You can download the PDF anytime from your dashboard.`
       });
 
       setExistingSubmission(submissionData);
       
-      // Download PDF automatically
-      pdfDoc.save(`HomeEducation_NotificationForm_${schoolYear}_${selectedStudent.firstName}_${selectedStudent.lastName}_${new Date().toISOString().split('T')[0]}.pdf`);
+      // Close the sheet on successful submission
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 2000);
       
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -1492,36 +1781,90 @@ I/We understand and agree that the development, administration and management of
             </CardContent>
           </Card>
 
-          {/* Existing Submissions */}
-          {existingSubmission && existingSubmission.pdfVersions && (
+          {/* Form Status and Downloads */}
+          {existingSubmission && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center">
                   <Download className="w-5 h-5 mr-2 text-green-500" />
-                  Previous Submissions
+                  Form Status & Downloads
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {existingSubmission.pdfVersions.map((pdf, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="space-y-4">
+                  {/* Submission Status */}
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
                       <div>
-                        <p className="font-medium text-sm">Version {pdf.version}</p>
-                        <p className="text-xs text-gray-500">
-                          Generated: {new Date(pdf.generatedAt).toLocaleString()}
+                        <p className="font-medium text-sm text-green-800">
+                          {existingSubmission.submissionStatus === 'submitted' ? 'Form Submitted' : 'Form Saved'}
+                        </p>
+                        <p className="text-xs text-green-600">
+                          {existingSubmission.submissionCompletedAt ? 
+                            `Completed: ${new Date(existingSubmission.submissionCompletedAt).toLocaleString()}` :
+                            `Last Updated: ${new Date(existingSubmission.lastUpdated).toLocaleString()}`
+                          }
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(pdf.url, '_blank')}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Download Current PDF */}
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div>
+                      <p className="font-medium text-sm text-blue-800">Download Current Form</p>
+                      <p className="text-xs text-blue-600">
+                        Generate PDF with current form data
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadPDF}
+                      disabled={generatingPDF}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      {generatingPDF ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Previous PDF Versions */}
+                  {existingSubmission.pdfVersions && existingSubmission.pdfVersions.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm text-gray-700">Previous PDF Versions</h4>
+                      {existingSubmission.pdfVersions.map((pdf, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">Version {pdf.version}</p>
+                            <p className="text-xs text-gray-500">
+                              Generated: {new Date(pdf.generatedAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(pdf.url, '_blank')}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1542,7 +1885,7 @@ I/We understand and agree that the development, administration and management of
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  {existingSubmission ? 'Update & Generate New PDF' : 'Submit & Generate PDF'}
+                  {existingSubmission?.submissionStatus === 'submitted' ? 'Update Form' : 'Submit Form'}
                 </>
               )}
             </Button>
