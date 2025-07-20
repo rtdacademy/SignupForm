@@ -219,7 +219,7 @@ exports.course2_assessments = onCall({
     }
     
     console.log(`Found assessment config for: ${assessmentId}`);
-    console.log(`Config structure:`, JSON.stringify(assessmentConfig, null, 2));
+    // console.log(`Config structure:`, JSON.stringify(assessmentConfig, null, 2)); // Commented out to prevent TRIGGER_PAYLOAD_TOO_LARGE error
     
     console.log(`Processing assessment directly for: ${assessmentId}`);
     
