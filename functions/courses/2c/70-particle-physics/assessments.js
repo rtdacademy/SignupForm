@@ -1,3 +1,21 @@
+// Cloud function creation imports removed since we only export data configs now
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+const ACTIVITY_TYPE = 'lesson';
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+
+// ========================================
+// HELPER FUNCTIONS FOR RANDOMIZATION
+// ========================================
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randFloat = (min, max, decimals = 1) => parseFloat((Math.random() * (max - min) + min).toFixed(decimals));
+const randChoice = (array) => array[Math.floor(Math.random() * array.length)];
+
+// Question pool with complete configuration
 const questionPool = [
   {
     questionText: "Which of the following is a primary advantage of a bubble chamber over a cloud chamber?",
@@ -67,12 +85,12 @@ const questionPool = [
   {
     questionText: "The psi particle has a mass of 3.097 GeV/c². What is this mass in kilograms?",
     options: [
-      { id: 'a', text: '4.94 × 10⁻²⁷ kg', feedback: 'Incorrect. Check the conversion factor and calculation.' },
-      { id: 'b', text: '5.52 × 10⁻³⁰ kg', feedback: 'Correct! Using the conversion factor 1 GeV/c² ≈ 1.783 × 10⁻²⁷ kg: 3.097 × 1.783 × 10⁻²⁷ = 5.52 × 10⁻²⁷ kg.' },
+      { id: 'a', text: '5.52 × 10⁻²⁷ kg', feedback: 'Correct! Using the conversion factor 1 GeV/c² ≈ 1.783 × 10⁻²⁷ kg: 3.097 × 1.783 × 10⁻²⁷ = 5.52 × 10⁻²⁷ kg.' },
+      { id: 'b', text: '5.52 × 10⁻³⁰ kg', feedback: 'Incorrect. Check the exponent - this is too small by three orders of magnitude.' },
       { id: 'c', text: '3.10 × 10⁻²⁵ kg', feedback: 'Incorrect. This value is too large by several orders of magnitude.' },
       { id: 'd', text: '2.76 × 10⁻³⁰ kg', feedback: 'Incorrect. This value is too small by several orders of magnitude.' }
     ],
-    correctOptionId: 'b',
+    correctOptionId: 'a',
     explanation: 'Convert using the relationship: 1 GeV/c² = 1.783 × 10⁻²⁷ kg. Therefore: 3.097 GeV/c² × 1.783 × 10⁻²⁷ kg/(GeV/c²) = 5.52 × 10⁻²⁷ kg.',
     difficulty: 'intermediate',
     tags: ['unit-conversion', 'particle-mass', 'GeV-to-kg', 'psi-particle']
@@ -93,12 +111,12 @@ const questionPool = [
   {
     questionText: "What is the maximum kinetic energy of the emitted electron when boron-12 (12.01435 u) beta decays into carbon-12 (12.00000 u)?",
     options: [
-      { id: 'a', text: '1.02 MeV', feedback: 'Incorrect. This is close to the electron rest mass energy, not the decay Q-value.' },
+      { id: 'a', text: '1.02 MeV', feedback: 'Incorrect. This is close to two electron rest masses, not the decay Q-value.' },
       { id: 'b', text: '6.13 MeV', feedback: 'Incorrect. Check the mass difference calculation and conversion.' },
-      { id: 'c', text: '12.89 MeV', feedback: 'Incorrect. This seems too high for this decay process.' },
-      { id: 'd', text: '0.511 MeV', feedback: 'Correct! Mass difference = 0.01435 u. Q-value = 0.01435 × 931.5 MeV/u = 13.37 MeV. However, maximum electron energy ≈ 0.511 MeV after accounting for neutrino energy sharing.' }
+      { id: 'c', text: '13.37 MeV', feedback: 'Correct! Mass difference = 0.01435 u. Q-value = 0.01435 × 931.5 MeV/u = 13.37 MeV. This is the maximum energy available to the electron.' },
+      { id: 'd', text: '0.511 MeV', feedback: 'Incorrect. This is the electron rest mass energy, not the kinetic energy from decay.' }
     ],
-    correctOptionId: 'd',
+    correctOptionId: 'c',
     explanation: 'The Q-value is 13.37 MeV, but in beta decay, energy is shared between the electron and neutrino. The maximum electron kinetic energy is typically much less than the total Q-value.',
     difficulty: 'advanced',
     tags: ['beta-decay', 'kinetic-energy', 'Q-value', 'boron-12-decay']
@@ -209,6 +227,14 @@ const questionPool = [
   }
 ];
 
+// ========================================
+// INDIVIDUAL CLOUD FUNCTION EXPORTS REMOVED
+// ========================================
+// All individual cloud function exports have been removed to prevent
+// memory overhead in the master function. Only assessmentConfigs data 
+// is exported below for use by the master course2_assessments function.
+
+// Assessment configurations for master function (keeping for compatibility)
 const assessmentConfigs = {
   'course2_70_question1': {
     type: 'multiple-choice',
@@ -404,4 +430,6 @@ const assessmentConfigs = {
   }
 };
 
-module.exports = { assessmentConfigs };
+module.exports = { 
+  assessmentConfigs
+};

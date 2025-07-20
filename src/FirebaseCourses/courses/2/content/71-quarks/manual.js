@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Quark Composition Component
 const QuarkCompositionComponent = () => {
@@ -1021,6 +1022,107 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </div>
         </div>
       </div>
+
+      {/* Practice Questions */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="71-quarks"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question1',
+            title: 'Question 1: Historical Fundamental Particles'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question2',
+            title: 'Question 2: Quark Theory Origin'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question3',
+            title: 'Question 3: Six Quarks in Standard Model'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question4',
+            title: 'Question 4: Leptons vs Hadrons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question5',
+            title: 'Question 5: Mesons vs Baryons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question6',
+            title: 'Question 6: Fermions vs Bosons'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question7',
+            title: 'Question 7: Proton Structure Evidence'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question8',
+            title: 'Question 8: High-Energy Particles'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question9',
+            title: 'Question 9: Quark Confinement'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question10',
+            title: 'Question 10: Neutron vs Proton Composition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question11',
+            title: 'Question 11: Meson Composition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question12',
+            title: 'Question 12: Neutron Beta Decay'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question13',
+            title: 'Question 13: Lepton Conservation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question14',
+            title: 'Question 14: MeV/c² Units'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question15',
+            title: 'Question 15: Quark Evidence'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question16',
+            title: 'Question 16: Sixth Quark Prediction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question17',
+            title: 'Question 17: Top Quark Discovery'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_71_question18',
+            title: 'Question 18: Quark Charge Calculation'
+          }
+        ]}
+        theme="indigo"
+      />
     </div>
   );
 };
