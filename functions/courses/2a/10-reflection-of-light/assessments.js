@@ -1,4 +1,17 @@
 const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+// Set the activity type for all assessments in this content module
+// Options: 'lesson', 'assignment', 'lab', 'exam'
+// This determines which default settings are used from course-config.json
+const ACTIVITY_TYPE = 'lesson';
+
+// Get the default settings for this activity type
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 /**
  * Reflection of Light Practice Problems - 7 Questions
@@ -214,13 +227,34 @@ exports.course2_10_mirror_time_reading = createStandardMultipleChoice(course2_10
 
 // Export assessment configurations for master function (raw config objects)
 const assessmentConfigs = {
-  'course2_10_angle_of_incidence_basic': course2_10_angle_of_incidence_basic,
-  'course2_10_surface_to_normal_angle': course2_10_surface_to_normal_angle,
-  'course2_10_total_angle_between_rays': course2_10_total_angle_between_rays,
-  'course2_10_two_mirrors_scenario_a': course2_10_two_mirrors_scenario_a,
-  'course2_10_two_mirrors_scenario_b': course2_10_two_mirrors_scenario_b,
-  'course2_10_mirror_image_description': course2_10_mirror_image_description,
-  'course2_10_mirror_time_reading': course2_10_mirror_time_reading
+  'course2_10_angle_of_incidence_basic': {
+    ...course2_10_angle_of_incidence_basic,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_surface_to_normal_angle': {
+    ...course2_10_surface_to_normal_angle,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_total_angle_between_rays': {
+    ...course2_10_total_angle_between_rays,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_two_mirrors_scenario_a': {
+    ...course2_10_two_mirrors_scenario_a,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_two_mirrors_scenario_b': {
+    ...course2_10_two_mirrors_scenario_b,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_mirror_image_description': {
+    ...course2_10_mirror_image_description,
+    theme: activityDefaults.theme || 'purple'
+  },
+  'course2_10_mirror_time_reading': {
+    ...course2_10_mirror_time_reading,
+    theme: activityDefaults.theme || 'purple'
+  }
 };
 
 exports.assessmentConfigs = assessmentConfigs;
