@@ -1,5 +1,6 @@
 
 
+
 /**
  * Curved Mirrors Practice Problems - 6 Questions
  * Course 2, Lesson 11 - Curved Mirrors
@@ -469,4 +470,3 @@ const assessmentConfigs = {
 };
 
 exports.assessmentConfigs = assessmentConfigs;
-

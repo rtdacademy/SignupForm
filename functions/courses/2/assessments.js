@@ -1,3 +1,4 @@
+
 /**
  * Master Cloud Function for Course 2 (Physics 30) Assessments
  * 
@@ -389,4 +390,5 @@ exports.course2_lab_submit = onCall({
     console.error('❌ Lab submission failed:', error);
     throw new Error('Failed to submit lab: ' + error.message);
   }
+
 });
