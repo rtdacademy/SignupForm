@@ -1,8 +1,8 @@
 // Cloud function creation imports removed since we only export data configs now
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';

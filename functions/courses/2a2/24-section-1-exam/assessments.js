@@ -1,5 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { createStandardLongAnswer } = require('../shared/assessment-types/standard-long-answer');
+
 
 // Multiple Choice Questions Array
 const multipleChoiceQuestions = [

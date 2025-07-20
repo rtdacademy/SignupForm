@@ -117,6 +117,15 @@ exports.handleSubscriptionUpdateV2 = stripeFunctions.handleSubscriptionUpdateV2;
 exports.handleSubscriptionScheduleV2 = stripeFunctions.handleSubscriptionScheduleV2;
 exports.getPaymentStatusV2 = stripeFunctions.getPaymentStatusV2;
 
+// Stripe Connect functions for parent payouts
+const { createStripeConnectAccount } = require('./createStripeConnectAccount');
+const { createStripeAccountSession } = require('./createStripeAccountSession');
+const { processReimbursementPayout } = require('./processReimbursementPayout');
+
+exports.createStripeConnectAccount = createStripeConnectAccount;
+exports.createStripeAccountSession = createStripeAccountSession;
+exports.processReimbursementPayout = processReimbursementPayout;
+
 // LTI functions
 exports.ltiJwksV2 = ltiFunctions.ltiJwksV2;
 exports.ltiLoginV2 = ltiFunctions.ltiLoginV2;
@@ -249,6 +258,8 @@ exports.updateStudentProfile = studentProfileFunctions.updateStudentProfile;
 // Student Schedule functions
 const studentScheduleFunctions = require('./saveStudentSchedule');
 exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
+
+// Legacy reimbursement functions removed - replaced with Stripe Connect
 
 // Gradebook functions
 exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;

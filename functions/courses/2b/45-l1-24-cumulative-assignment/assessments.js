@@ -1,4 +1,3 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Question pools for L1-24 Cumulative Assignment - Units 3-4 Review
 const questionPools = {
@@ -229,30 +228,25 @@ const questions = [
   ...questionPools.group4
 ];
 
-// Export individual handlers for each question (15 total)
-const questionHandlers = {};
+// Create assessment configurations for the master function (15 total)
 const assessmentConfigs = {};
 
 for (let i = 1; i <= 15; i++) {
   const questionIndex = i - 1;
   const questionId = `course2_45_l124_question${i}`;
   
-  questionHandlers[questionId] = createStandardMultipleChoice({
-    questions: [questions[questionIndex]],
-    randomizeOptions: true,
-    activityType: 'assignment',
-    maxAttempts: 3,
-    pointsValue: 1
-  });
-  
   assessmentConfigs[questionId] = {
+    type: 'multiple-choice',
     questions: [questions[questionIndex]],
+    randomizeQuestions: false,
     randomizeOptions: true,
-    activityType: 'assignment', 
+    allowSameQuestion: true,
+    pointsValue: 1,
     maxAttempts: 3,
-    pointsValue: 1
+    showFeedback: true,
+    activityType: 'assignment',
+    theme: 'blue'
   };
 }
 
-// Export all question handlers
-module.exports = { ...questionHandlers, assessmentConfigs };
+module.exports = { assessmentConfigs };

@@ -7,17 +7,15 @@
  * using the shared assessment system with Physics 30 specific configuration.
  */
 
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+// Removed imports from deleted shared directories
+//const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
+// const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';
 
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+// Removed code that depends on deleted imports
+// const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== HELPER FUNCTIONS FOR RANDOMIZATION =====
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -84,21 +82,7 @@ const createCarTruckCollision2DQuestion = () => {
   };
 };
 
-exports.course2_03_car_truck_2d_collision = createStandardMultipleChoice({
-  questions: [
-    createCarTruckCollision2DQuestion(),
-    createCarTruckCollision2DQuestion(),
-    createCarTruckCollision2DQuestion(),
-    createCarTruckCollision2DQuestion(),
-    createCarTruckCollision2DQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 2: Nuclear decay with three particles
 const createNuclearDecayQuestion = () => {
@@ -143,21 +127,6 @@ const createNuclearDecayQuestion = () => {
   };
 };
 
-exports.course2_03_nuclear_decay_2d = createStandardMultipleChoice({
-  questions: [
-    createNuclearDecayQuestion(),
-    createNuclearDecayQuestion(),
-    createNuclearDecayQuestion(),
-    createNuclearDecayQuestion(),
-    createNuclearDecayQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 3: Glancing collision of steel balls
 const createGlancingCollisionQuestion = () => {
@@ -210,21 +179,6 @@ const createGlancingCollisionQuestion = () => {
   };
 };
 
-exports.course2_03_glancing_collision_2d = createStandardMultipleChoice({
-  questions: [
-    createGlancingCollisionQuestion(),
-    createGlancingCollisionQuestion(),
-    createGlancingCollisionQuestion(),
-    createGlancingCollisionQuestion(),
-    createGlancingCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 4: Space capsule firing projectile
 const createSpaceCapsuleQuestion = () => {
@@ -272,21 +226,7 @@ const createSpaceCapsuleQuestion = () => {
   };
 };
 
-exports.course2_03_space_capsule_projectile = createStandardMultipleChoice({
-  questions: [
-    createSpaceCapsuleQuestion(),
-    createSpaceCapsuleQuestion(),
-    createSpaceCapsuleQuestion(),
-    createSpaceCapsuleQuestion(),
-    createSpaceCapsuleQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // ===== ADVANCED TWO-DIMENSIONAL MOMENTUM PRACTICE PROBLEMS =====
 
@@ -341,21 +281,6 @@ const createSteelBallDeflectionQuestion = () => {
   };
 };
 
-exports.course2_03_steel_ball_deflection = createStandardMultipleChoice({
-  questions: [
-    createSteelBallDeflectionQuestion(),
-    createSteelBallDeflectionQuestion(),
-    createSteelBallDeflectionQuestion(),
-    createSteelBallDeflectionQuestion(),
-    createSteelBallDeflectionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 6: Mass explosion into two pieces
 const createMassExplosionQuestion = () => {
@@ -409,22 +334,6 @@ const createMassExplosionQuestion = () => {
   };
 };
 
-exports.course2_03_mass_explosion = createStandardMultipleChoice({
-  questions: [
-    createMassExplosionQuestion(),
-    createMassExplosionQuestion(),
-    createMassExplosionQuestion(),
-    createMassExplosionQuestion(),
-    createMassExplosionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
-
 // Question 7: Two steel balls elastic collision at 90°
 const createElasticCollision90Question = () => {
   const m = randFloat(2.2, 2.8, 2); // Both balls have same mass: 2.2-2.8 kg
@@ -458,21 +367,7 @@ const createElasticCollision90Question = () => {
   };
 };
 
-exports.course2_03_elastic_collision_90 = createStandardMultipleChoice({
-  questions: [
-    createElasticCollision90Question(),
-    createElasticCollision90Question(),
-    createElasticCollision90Question(),
-    createElasticCollision90Question(),
-    createElasticCollision90Question()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 8: Plasticene inelastic collision
 const createPlasticeneCollisionQuestion = () => {
@@ -526,21 +421,6 @@ const createPlasticeneCollisionQuestion = () => {
   };
 };
 
-exports.course2_03_plasticene_collision = createStandardMultipleChoice({
-  questions: [
-    createPlasticeneCollisionQuestion(),
-    createPlasticeneCollisionQuestion(),
-    createPlasticeneCollisionQuestion(),
-    createPlasticeneCollisionQuestion(),
-    createPlasticeneCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
 // Export all assessment configurations for use by the master function

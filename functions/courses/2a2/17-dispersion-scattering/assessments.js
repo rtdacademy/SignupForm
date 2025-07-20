@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 // Dispersion and Scattering Knowledge Check Questions
 const questions = [

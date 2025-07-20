@@ -1,5 +1,3 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { createStandardLongAnswer } = require('../shared/assessment-types/standard-long-answer');
 
 // SECTION 2 EXAM - ELECTROMAGNETISM
 // Physics 30 - Topics: Electrostatics, Electric Fields, Magnetic Fields, Motor Effect

@@ -1032,9 +1032,7 @@ const StandardMultipleChoiceQuestion = ({
   // Extract question content for AI chat (following AIAccordion pattern)
   const handleAskAI = () => {
     if (!onAIAccordionContent) {
-      console.warn('onAIAccordionContent callback not provided to StandardMultipleChoiceQuestion. Please ensure the parent component passes this prop.');
-      // For now, show an alert to help with debugging
-      alert('AI integration not fully set up. The onAIAccordionContent prop needs to be passed from the parent component.');
+      console.warn('onAIAccordionContent callback not provided to StandardMultipleChoiceQuestion. AI assistance not available for this question.');
       return;
     }
 

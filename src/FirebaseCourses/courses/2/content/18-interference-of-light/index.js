@@ -758,8 +758,53 @@ AIAccordion, onAIAccordionContent }) => {
             questions={[
               {
                 type: 'multiple-choice',
-                questionId: 'course2_18_interference_light_wave_theory_q1',
-                title: 'Question 1: Wave Theory and Interference'
+                questionId: 'course2_17_dispersion_air_speeds',
+                title: 'Question 1: Light Speed in Air'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_diamond_dispersion',
+                title: 'Question 2: Diamond Dispersion'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_microscopy_scattering',
+                title: 'Question 3: Microscopy and Scattering'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_clothing_color_heat',
+                title: 'Question 4: Clothing Color and Heat'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_red_orange_difference',
+                title: 'Question 5: Red vs Orange Light'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_stage_lighting_color',
+                title: 'Question 6: Stage Lighting Effects'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_window_glass_dispersion',
+                title: 'Question 7: Window Glass Dispersion'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_green_object_lighting',
+                title: 'Question 8: Green Object Under Different Lights'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_cat_color_vision',
+                title: 'Question 9: Cat Color Vision'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_17_moonlight_colorless',
+                title: 'Question 10: Moonlight and Color'
               }
             ]}
             theme="purple"

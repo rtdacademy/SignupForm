@@ -36,11 +36,8 @@ const SUPER_ADMIN_EMAILS = [
 // Blocked emails that should never be allowed to login
 const BLOCKED_EMAILS = [];
 
-// Session timeout constants
-const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes by default
-const STAFF_SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes for staff
-const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 60 minutes of inactivity will force logout
-// Firebase ID tokens last 1 hour by default; this aligns with our timeout values
+// Firebase handles session management automatically - ID tokens refresh every hour
+// We only need to track activity for analytics, not for forced logout
 
 // For tracking app version to handle cache issues
 const APP_VERSION_KEY = 'rtd_app_version';
@@ -85,13 +82,8 @@ export function AuthProvider({ children }) {
   const [emulatedUserEmailKey, setEmulatedUserEmailKey] = useState(null);
   const [isEmulating, setIsEmulating] = useState(false);
 
-  // Session timeout refs
-  const inactivityTimeoutRef = useRef(null);
+  // Token refresh ref for Firebase native token management
   const tokenRefreshTimeoutRef = useRef(null);
-  const userActivityTracking = useRef({
-    lastActivity: getEdmontonTimestamp(),
-    isActive: true
-  });
 
   // Activity tracking state
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -394,7 +386,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Function to check token and set up expiration
+  // Simplified token expiration check - Firebase handles automatic refresh
   const checkTokenExpiration = useCallback(async () => {
     if (!user || !auth.currentUser) return;
     
@@ -404,27 +396,6 @@ export function AuthProvider({ children }) {
       const expirationTime = new Date(tokenResult.expirationTime).getTime();
       setTokenExpirationTime(expirationTime);
       
-      // Clear any existing token refresh timeout
-      if (tokenRefreshTimeoutRef.current) {
-        clearTimeout(tokenRefreshTimeoutRef.current);
-      }
-      
-      const now = Date.now();
-      const timeUntilExpiration = expirationTime - now;
-      
-      // If token will expire in less than 5 minutes and user is active, schedule a refresh
-      if (timeUntilExpiration < 5 * 60 * 1000 && userActivityTracking.current.isActive) {
-        // Schedule token refresh for 1 minute before expiration
-        const refreshTime = Math.max(0, timeUntilExpiration - 60 * 1000);
-        
-        tokenRefreshTimeoutRef.current = setTimeout(async () => {
-          if (userActivityTracking.current.isActive && auth.currentUser) {
-            console.log('Refreshing Firebase token');
-            await auth.currentUser.getIdToken(true);
-          }
-        }, refreshTime);
-      }
-      
       return expirationTime;
     } catch (error) {
       console.error('Error checking token expiration:', error);
@@ -432,89 +403,26 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  // New refreshSession method that forces a token refresh
+  // Simplified session refresh - Firebase handles this automatically
   const refreshSession = useCallback(async () => {
-    if (!user) return false;
+    if (!user || !auth.currentUser) return false;
     
     try {
-      // Track the activity
-      userActivityTracking.current.lastActivity = getEdmontonTimestamp();
-      userActivityTracking.current.isActive = true;
-      
-      // Force a token refresh if token is going to expire soon
-      if (tokenExpirationTime && auth.currentUser) {
-        const timeUntilExpiration = tokenExpirationTime - Date.now();
-        if (timeUntilExpiration < 10 * 60 * 1000) { // Less than 10 minutes left
-          await auth.currentUser.getIdToken(true);
-          await checkTokenExpiration(); // Update expiration time
-        }
-      } else if (auth.currentUser) {
-        // If we don't have the expiration time yet, check it now
-        await checkTokenExpiration();
-      }
-      
+      // Simply check token status - Firebase will refresh automatically if needed
+      await checkTokenExpiration();
       return true;
     } catch (error) {
       console.error('Error refreshing session:', error);
       return false;
     }
-  }, [user, tokenExpirationTime, checkTokenExpiration]);
+  }, [user, checkTokenExpiration]);
 
 
-  // Session timeout handling - updated to use token expiration
-  const resetInactivityTimeout = useCallback(() => {
-    if (!user) return;
-
-    // Clear any existing timeout
-    if (inactivityTimeoutRef.current) {
-      clearTimeout(inactivityTimeoutRef.current);
-    }
-
-    const now = getEdmontonTimestamp();
-    
-    // Update activity tracking in memory
-    userActivityTracking.current.lastActivity = now;
-    userActivityTracking.current.isActive = true;
-    
-    // Also store in localStorage for persistence across sleep/hibernation
-    localStorage.setItem('rtd_last_activity_timestamp', now.toString());
-    
-    // Refresh token if it's close to expiration
-    refreshSession();
-    
-    // Use a local function to handle the logout to avoid reference issues
-    const handleInactivityTimeout = () => {
-      // Double-check if user is still inactive by comparing with localStorage timestamp
-      const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
-      const currentTime = Date.now();
-      const inactivityDuration = currentTime - storedTimestamp;
-      
-      // Add buffer time to prevent false logouts from quick interactions
-      if (inactivityDuration >= (INACTIVITY_TIMEOUT + 5000)) {
-        console.log(`Inactivity timeout reached after ${Math.round(inactivityDuration / 1000)}s - logging user out`);
-        // Clear localStorage items
-        localStorage.removeItem('rtd_last_activity_timestamp');
-        localStorage.removeItem('rtd_scheduled_logout_time');
-        
-        // Sign out of Firebase (using promise instead of await)
-        firebaseSignOut(auth).catch(error => {
-          console.error("Error during inactivity logout:", error);
-        });
-      } else {
-        // Reset the timeout if user is still active
-        resetInactivityTimeout();
-      }
-    };
-    
-    // Set up an inactivity timeout that will log the user out
-    inactivityTimeoutRef.current = setTimeout(handleInactivityTimeout, INACTIVITY_TIMEOUT + 1000); // Add 1 second buffer
-  }, [user, refreshSession]);
-
-  // Track user activity
+  // Simple activity tracking for analytics only - no forced logout
   const trackActivity = useCallback(() => {
     if (!user) return;
     
-    // Add activity event to buffer
+    // Add activity event to buffer for analytics
     addActivityEvent('user_interaction', {
       timestamp: getEdmontonTimestamp(),
       path: window.location.pathname
@@ -522,87 +430,40 @@ export function AuthProvider({ children }) {
     
     // Update database if enough time has passed
     updateUserActivityInDatabase();
-    
-    // Reset the timeout on user activity
-    resetInactivityTimeout();
-  }, [user, resetInactivityTimeout, updateUserActivityInDatabase, addActivityEvent]);
+  }, [user, updateUserActivityInDatabase, addActivityEvent]);
 
-  // Set up activity tracking
+
+  // Set up activity tracking (for analytics only - no forced logout)
   useEffect(() => {
     if (!user) return;
 
-    // Initialize activity tracking when user logs in
-    resetInactivityTimeout();
-    
-    // Check token expiration immediately
+    // Check token expiration immediately - Firebase handles refresh automatically
     checkTokenExpiration();
 
-    // Add event listeners to track user activity
+    // Add event listeners to track user activity for analytics
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
     
     activityEvents.forEach(event => {
       document.addEventListener(event, trackActivity, { passive: true });
     });
     
-    // Handle browser visibility changes for sleep/wake detection
+    // Handle browser visibility changes - just for token status check
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // When tab becomes visible again, update activity and check if we should be logged out
-        const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
-        const currentTime = Date.now();
-        const inactivityDuration = currentTime - storedTimestamp;
-        
-        // Only logout if truly inactive for more than the timeout period
-        // Add a 30-second buffer to prevent false logouts from quick tab switches
-        if (inactivityDuration >= (INACTIVITY_TIMEOUT + 30000)) {
-          console.log(`User inactive for ${Math.round(inactivityDuration / 1000)}s, logging out...`);
-          
-          // Clear localStorage items
-          localStorage.removeItem('rtd_last_activity_timestamp');
-          localStorage.removeItem('rtd_scheduled_logout_time');
-          
-          // Reset timeouts
-          if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
-          if (tokenRefreshTimeoutRef.current) clearTimeout(tokenRefreshTimeoutRef.current);
-          
-          // Sign out of Firebase using promises
-          firebaseSignOut(auth).catch(error => {
-            console.error("Error during inactivity logout:", error);
-          });
-        } else {
-          // Update activity timestamp on tab focus to prevent false timeouts
-          const now = Date.now();
-          localStorage.setItem('rtd_last_activity_timestamp', now.toString());
-          userActivityTracking.current.lastActivity = now;
-          userActivityTracking.current.isActive = true;
-          
-          // Reset the inactivity timeout
-          resetInactivityTimeout();
-          
-          // Refresh the token status
-          checkTokenExpiration();
-        }
-      } else {
-        // When tab becomes hidden, update the last activity timestamp
-        const now = Date.now();
-        localStorage.setItem('rtd_last_activity_timestamp', now.toString());
-        userActivityTracking.current.lastActivity = now;
+        // When tab becomes visible, just check token status
+        checkTokenExpiration();
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Set up interval to periodically check token expiration
+    // Set up interval to periodically check token expiration  
     const tokenCheckInterval = setInterval(() => {
       checkTokenExpiration();
     }, 5 * 60 * 1000); // Check every 5 minutes
 
     // Clean up event listeners and intervals
     return () => {
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-      }
-      
       if (tokenRefreshTimeoutRef.current) {
         clearTimeout(tokenRefreshTimeoutRef.current);
       }
@@ -615,7 +476,7 @@ export function AuthProvider({ children }) {
         document.removeEventListener(event, trackActivity);
       });
     };
-  }, [user, trackActivity, resetInactivityTimeout, checkTokenExpiration, currentSessionId]);
+  }, [user, trackActivity, checkTokenExpiration, currentSessionId]);
 
   // Listen for metadata changes to trigger token refresh
   useEffect(() => {
@@ -1210,11 +1071,6 @@ export function AuthProvider({ children }) {
       }
       
       // Clear any existing timeouts
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-        inactivityTimeoutRef.current = null;
-      }
-      
       if (tokenRefreshTimeoutRef.current) {
         clearTimeout(tokenRefreshTimeoutRef.current);
         tokenRefreshTimeoutRef.current = null;
@@ -1243,7 +1099,6 @@ export function AuthProvider({ children }) {
       
       // Clear localStorage items used for session management
       localStorage.removeItem('rtd_last_activity_timestamp');
-      localStorage.removeItem('rtd_scheduled_logout_time');
       
       // Clear portal-specific flags
       localStorage.removeItem('rtdConnectPortalLogin');
@@ -1341,29 +1196,15 @@ export function AuthProvider({ children }) {
     return snapshot.exists();
   };
 
-  // Updated function to get remaining session time based on token expiration
+  // Get remaining session time based on Firebase token expiration
   const getRemainingSessionTime = useCallback(() => {
-    if (!user) return 0;
+    if (!user || !tokenExpirationTime) return 0;
     
-    // Get stored last activity from localStorage (more resilient to sleep/hibernation)
-    const storedLastActivity = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || 
-                                       String(userActivityTracking.current.lastActivity), 10);
     const currentTime = Date.now();
+    const timeUntilTokenExpires = Math.max(0, tokenExpirationTime - currentTime);
     
-    if (tokenExpirationTime) {
-      // Calculate both token expiration and inactivity timeouts
-      const timeUntilTokenExpires = Math.max(0, tokenExpirationTime - currentTime);
-      const timeUntilInactivityTimeout = Math.max(0, INACTIVITY_TIMEOUT - (currentTime - storedLastActivity));
-      
-      // Return the smaller of the two (whichever will happen first)
-      return Math.min(timeUntilTokenExpires, timeUntilInactivityTimeout);
-    } else {
-      // Fall back to the session timeout if token expiration is not available
-      const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
-      const elapsedTime = currentTime - storedLastActivity;
-      return Math.max(0, timeoutDuration - elapsedTime);
-    }
-  }, [user, tokenExpirationTime, isStaffUser]);
+    return timeUntilTokenExpires;
+  }, [user, tokenExpirationTime]);
 
   const value = {
     // Original auth values
@@ -1383,10 +1224,9 @@ export function AuthProvider({ children }) {
     staffMembers,
     getTeacherForCourse,
     
-    // Session timeout values and functions - updated for token-based timeouts
+    // Firebase native session management
     refreshSession,
     getRemainingSessionTime,
-    sessionTimeout: isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT,
     tokenExpirationTime,
     
     // Emulation values 

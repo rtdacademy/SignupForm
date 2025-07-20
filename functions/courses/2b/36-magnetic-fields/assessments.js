@@ -1,8 +1,8 @@
 // Cloud function creation imports removed since we only export data configs now
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';
@@ -20,7 +20,7 @@ const questionPool = [
   {
     questionText: "In the diagram below, a compass is placed under the conductor and the conductor is carrying conventional current from A to B. In which direction will the compass needle point?",
     image: {
-      url: '/courses/2/content/36-magnetic-fields/assests/36-practice1diagram.png',
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice1diagram.png',
       alt: 'Diagram showing a conductor with current from A to B and a compass placed underneath',
       caption: 'Compass placed under conductor with conventional current from A to B'
     },
@@ -37,11 +37,11 @@ const questionPool = [
   },
   {
     questionText: "In the diagram below, a compass is placed over a conductor and the conductor is carrying electrons from B to A. In which direction will the compass needle point?",
-    // image: {
-    //   url: '/courses/2/content/36-magnetic-fields/assests/36-practice2diagram.png',
-    //   alt: 'Diagram showing a conductor with electron flow from B to A and a compass placed above',
-    //   caption: 'Compass placed over conductor with electron flow from B to A'
-    // },
+    image: {
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice2diagram.png',
+      alt: 'Diagram showing a conductor with electron flow from B to A and a compass placed above',
+      caption: 'Compass placed over conductor with electron flow from B to A'
+    },
     options: [
       { id: 'a', text: 'To the left', feedback: 'Correct! The Left Hand Rule for electron flow predicts that the compass needle deflects and points to the left.' },
       { id: 'b', text: 'To the right', feedback: 'Incorrect. Remember that electron flow is opposite to conventional current direction. Use the Left Hand Rule.' },
@@ -55,11 +55,11 @@ const questionPool = [
   },
   {
     questionText: "In the diagram below, the compass is pointing toward the right side of the page. In which direction is current flowing in the conductor, A to B or B to A?",
-    // image: {
-    //   url: '/courses/2/content/36-magnetic-fields/assests/36-practice3diagram.png',
-    //   alt: 'Diagram showing a conductor with compass pointing right',
-    //   caption: 'Compass pointing to the right side of the page'
-    // },
+    image: {
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice3diagram.png',
+      alt: 'Diagram showing a conductor with compass pointing right',
+      caption: 'Compass pointing to the right side of the page'
+    },
     options: [
       { id: 'a', text: 'From B to A', feedback: 'Correct! Using the right hand rule, if the compass points right and is below the wire, current must flow from B to A.' },
       { id: 'b', text: 'From A to B', feedback: 'Incorrect. If current flowed A to B, the compass below the wire would point left, not right.' },
@@ -73,11 +73,11 @@ const questionPool = [
   },
   {
     questionText: "In the diagram below, the circle represents the cross-section of a conductor coming out of the page. The direction of the current is represented by the dot in the centre of the conductor. In what direction will a compass needle point if it is placed at point P?",
-    // image: {
-    //   url: '/courses/2/content/36-magnetic-fields/assests/36-practice4diagram.png',
-    //   alt: 'Cross-section view of conductor with current coming out of page (dot symbol) and point P marked',
-    //   caption: 'Cross-section of conductor with current out of page (⊙) and compass at point P'
-    // },
+    image: {
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice4diagram.png',
+      alt: 'Cross-section view of conductor with current coming out of page (dot symbol) and point P marked',
+      caption: 'Cross-section of conductor with current out of page (⊙) and compass at point P'
+    },
     options: [
       { id: 'a', text: 'Down the page', feedback: 'Correct! Using the right hand rule, with current out of the page, the magnetic field circles counterclockwise. At point P, this points down the page.' },
       { id: 'b', text: 'Up the page', feedback: 'Incorrect. The magnetic field at point P would point up if the current were into the page (⊗), not out of the page (⊙).' },
@@ -91,11 +91,11 @@ const questionPool = [
   },
   {
     questionText: "In the diagram, electrons are flowing from A to B. Which end of the solenoid becomes the north pole?",
-    // image: {
-    //   url: '/courses/2/content/36-magnetic-fields/assests/36-practice5diagram.png',
-    //   alt: 'Solenoid diagram with electron flow from A to B',
-    //   caption: 'Solenoid with electron flow from A to B'
-    // },
+    image: {
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice5diagram.png',
+      alt: 'Solenoid diagram with electron flow from A to B',
+      caption: 'Solenoid with electron flow from A to B'
+    },
     options: [
       { id: 'a', text: 'Left end', feedback: 'Correct! Using the Left Hand Rule for electron flow, the north pole is at the left end of the solenoid.' },
       { id: 'b', text: 'Right end', feedback: 'Incorrect. With electron flow A to B, the Left Hand Rule indicates the north pole is at the left end.' },
@@ -110,7 +110,7 @@ const questionPool = [
   {
     questionText: "In the diagram, current is flowing from A to B. Which end of the solenoid becomes the south pole?",
     image: {
-      url: '/courses/2/content/36-magnetic-fields/assests/36-practice6diagram.png',
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice6diagram.png',
       alt: 'Solenoid diagram with conventional current from A to B',
       caption: 'Solenoid with conventional current from A to B'
     },
@@ -128,7 +128,7 @@ const questionPool = [
   {
     questionText: "In the diagram, the top of the solenoid is the induced north pole. Which way is the current flowing, A to B or B to A?",
     image: {
-      url: '/courses/2/content/36-magnetic-fields/assests/36-practice7diagram.png',
+      url: '/courses/2/content/36-magnetic-fields/assets/36-practice7diagram.png',
       alt: 'Solenoid diagram with north pole marked at top',
       caption: 'Solenoid with north pole at the top end'
     },

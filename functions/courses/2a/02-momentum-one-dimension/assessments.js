@@ -7,13 +7,10 @@
  * using the shared assessment system with Physics 30 specific configuration.
  */
 
-const { createAIMultipleChoice } = require('../shared/assessment-types/ai-multiple-choice');
-const { createAILongAnswer } = require('../shared/assessment-types/ai-long-answer');
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { createAIShortAnswer } = require('../shared/assessment-types/ai-short-answer');
-const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../shared/utilities/config-loader');
-const { MOMENTUM_RUBRICS } = require('../shared/rubrics');
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../../../shared/utilities/config-loader');
+//const { MOMENTUM_RUBRICS } = require('../../../shared/rubrics');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
@@ -23,291 +20,10 @@ const ACTIVITY_TYPE = 'lesson';
 
 // Get the default settings for this activity type
 const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
-const longAnswerDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE, 'longAnswer');
+//const longAnswerDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE, 'longAnswer');
 
-/**
- * AI-powered multiple choice assessment for momentum in one dimension
- * Function name: course2_02_momentum_one_dimension_aiQuestion
- * 
- * CONFIGURATION GUIDE:
- * All parameters below can be customized. Current values match course defaults from:
- * functions/courses-config/2/course-config.json -> activityTypes.lesson
- * 
- * To override any setting, simply change the value.
- * To use course defaults, you can comment out the line.
- */
-exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
-  // ===== REQUIRED: Activity Type =====
-  // Activity type is set at the top of this file: ACTIVITY_TYPE = '${ACTIVITY_TYPE}'
-  activityType: ACTIVITY_TYPE,
-  
-  // ===== REQUIRED: Course-specific prompts =====
-  prompts: {
-    beginner: `Create a multiple-choice question about basic momentum concepts in one dimension for a Grade 12 Physics 30 student. 
-    Focus on:
-    - Definition of momentum (p = mv)
-    - Units of momentum (kg·m/s)
-    - Simple momentum calculations
-    - Understanding the relationship between mass, velocity, and momentum
-    
-    Make the question clear and straightforward, testing fundamental understanding rather than complex applications.
-    Include realistic values and everyday examples like cars, balls, or people moving.`,
-    
-    intermediate: `Create a multiple-choice question about momentum in one dimension for a Grade 12 Physics 30 student at an intermediate level.
-    Focus on:
-    - Conservation of momentum in simple collisions
-    - Comparing momentum of different objects
-    - Analyzing momentum changes when velocity or mass changes
-    - Impulse-momentum relationship (J = Δp)
-    
-    Use scenarios that require students to apply momentum concepts to solve problems.
-    Include reasonable physics values and relatable situations like sports, vehicles, or everyday collisions.`,
-    
-    advanced: `Create a challenging multiple-choice question about momentum in one dimension for a Grade 12 Physics 30 student.
-    Focus on:
-    - Complex momentum conservation problems
-    - Elastic and inelastic collision scenarios
-    - Systems with multiple objects
-    - Analysis of momentum before and after interactions
-    - Integration of momentum with other physics concepts
-    
-    Design problems that require multi-step thinking and deep understanding of momentum principles.
-    Use realistic physics scenarios with appropriate values for Grade 12 level.`
-  },
-  
-  // ===== ASSESSMENT SETTINGS =====
-  // These use values from course-config.json -> activityTypes[ACTIVITY_TYPE]
-  // Change any value below to override the course default
-  maxAttempts: activityDefaults.maxAttempts,                      // Course default: 999
-  pointsValue: activityDefaults.pointValue,                       // Course default: 5
-  showFeedback: activityDefaults.showDetailedFeedback,           // Course default: true
-  enableHints: activityDefaults.enableHints,                     // Course default: true
-  attemptPenalty: activityDefaults.attemptPenalty,               // Course default: 0
-  theme: activityDefaults.theme,                                 // Course default: 'purple'
-  allowDifficultySelection: activityDefaults.allowDifficultySelection, // Course default: false
-  defaultDifficulty: activityDefaults.defaultDifficulty,         // Course default: 'intermediate'
-  
-  // ===== AI GENERATION SETTINGS =====
-  // From course-config.json -> activityTypes[ACTIVITY_TYPE].aiSettings
-  // Change any value below to override the course default
-  aiSettings: {
-    temperature: activityDefaults.aiSettings.temperature,  // Course default: 0.7
-    topP: activityDefaults.aiSettings.topP,               // Course default: 0.9
-    topK: 40  // Not in config, using assessment system default
-  },
-  
-  // ===== FORMATTING OPTIONS =====
-  katexFormatting: true,  // Enable LaTeX math rendering
-  
-  // ===== COURSE METADATA =====
-  subject: 'Physics 30',
-  gradeLevel: 12,
-  topic: 'Momentum in One Dimension',
-  learningObjectives: [
-    'Define momentum and identify its units',
-    'Calculate momentum using p = mv',
-    'Apply conservation of momentum to simple collisions',
-    'Analyze the relationship between impulse and momentum change'
-  ],
-  
-  // ===== AI CHAT INTEGRATION =====
-  enableAIChat: true,  // Show AI chat button for student support
-  aiChatContext: "This assessment focuses on momentum concepts in one dimension. Students are learning about the definition of momentum (p = mv), calculating momentum values, understanding conservation of momentum in collisions, and the relationship between impulse and momentum change. Common student difficulties include confusing momentum with force, incorrect unit usage (kg⋅m/s), and misapplying conservation laws in collision scenarios. AI tutors should emphasize conceptual understanding of momentum as 'quantity of motion' and guide students through step-by-step problem-solving approaches.",
-  
-  // ===== FALLBACK QUESTIONS =====
-  // Used when AI generation fails
-  fallbackQuestions: [
-    {
-      questionText: "A 2000 kg car traveling at 15 m/s has what momentum?",
-      options: [
-        { id: 'a', text: '$30{,}000\\text{ kg}\\cdot\\text{m/s}$' },
-        { id: 'b', text: '$15{,}000\\text{ kg}\\cdot\\text{m/s}$' },
-        { id: 'c', text: '$2{,}000\\text{ kg}\\cdot\\text{m/s}$' },
-        { id: 'd', text: '$7.5\\text{ kg}\\cdot\\text{m/s}$' }
-      ],
-      correctOptionId: 'a',
-      explanation: 'Momentum = mass $\\times$ velocity = $2000\\text{ kg} \\times 15\\text{ m/s} = 30{,}000\\text{ kg}\\cdot\\text{m/s}$',
-      difficulty: 'beginner'
-    },
-    {
-      questionText: "If a 0.5 kg ball moving at 10 m/s collides with and sticks to a 1.5 kg ball at rest, what is their combined velocity after collision?",
-      options: [
-        { id: 'a', text: '2.5 m/s' },
-        { id: 'b', text: '5.0 m/s' },
-        { id: 'c', text: '7.5 m/s' },
-        { id: 'd', text: '10.0 m/s' }
-      ],
-      correctOptionId: 'a',
-      explanation: 'Using conservation of momentum: (0.5 kg)(10 m/s) = (0.5 + 1.5 kg)(v). Therefore v = 5/(2) = 2.5 m/s',
-      difficulty: 'intermediate'
-    }
-  ],
-  
-  // ===== CLOUD FUNCTION SETTINGS =====
-  timeout: 120,         // Function timeout in seconds
-  memory: '512MiB',     // Memory allocation
-  region: 'us-central1' // Deployment region
-});
 
-/**
- * AI-powered long answer assessment for momentum in one dimension
- * Function name: course2_02_momentum_one_dimension_aiLongAnswer
- * 
- * CONFIGURATION GUIDE:
- * All parameters below can be customized. Current values match course defaults from:
- * functions/courses-config/2/course-config.json -> activityTypes.assignment.longAnswer
- * 
- * To override any setting, simply change the value.
- * To use course defaults, you can comment out the line.
- */
-exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
-  // ===== REQUIRED: Activity Type =====
-  // Activity type is set at the top of this file: ACTIVITY_TYPE = '${ACTIVITY_TYPE}'
-  activityType: ACTIVITY_TYPE,
-  
-  // ===== STANDARD RUBRICS =====
-  // Use the predefined rubrics for consistency
-  rubrics: MOMENTUM_RUBRICS,
-  
-  // ===== REQUIRED: Course-specific prompts =====
-  prompts: {
-    beginner: `Create a simple long answer question about momentum for Grade 12 Physics.
-    
-    The question should ask students to:
-    - Define momentum and explain what it means physically
-    - Give one clear real-world example
-    - Explain why momentum is important in physics
-    
-    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').max} words
-    
-    Use the provided rubric exactly as given - do not modify the criteria or point values.`,
-    
-    intermediate: `Create a momentum conservation question for Grade 12 Physics.
-    
-    The question should ask students to:
-    - Explain conservation of momentum in a collision scenario
-    - Calculate the final velocity using given values
-    - Identify the type of collision and explain why
-    
-    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').max} words
-    
-    Use the provided rubric exactly as given - do not modify the criteria or point values.`,
-    
-    advanced: `Create a challenging momentum question for Grade 12 Physics.
-    
-    The question should ask students to:
-    - Analyze a complex collision with multiple objects
-    - Compare elastic vs inelastic collisions in the scenario
-    - Calculate key values and explain the physics
-    - Discuss real-world applications
-    
-    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').max} words
-    
-    Use the provided rubric exactly as given - do not modify the criteria or point values.`
-  },
-  
-  // ===== ASSESSMENT SETTINGS =====
-  // These use values from course-config.json -> activityTypes[ACTIVITY_TYPE]
-  // Change any value below to override the course default
-  maxAttempts: longAnswerDefaults.maxAttempts,                      // Course default: 999
-  theme: longAnswerDefaults.theme,                                 // Course default: 'purple'
-  allowDifficultySelection: longAnswerDefaults.allowDifficultySelection, // Course default: false
-  defaultDifficulty: longAnswerDefaults.defaultDifficulty,         // Course default: 'intermediate'
-  
-  // ===== LONG ANSWER SPECIFIC SETTINGS =====
-  // From course-config.json -> activityTypes[ACTIVITY_TYPE].longAnswer
-  // Change any value below to override the course default
-  totalPoints: 12,                                      // Override: Using 12 points for all momentum assessments
-  rubricCriteria: 4,                                    // Override: Using 4 criteria for all levels
-  wordLimits: longAnswerDefaults.wordLimits,           // Course default: {min: 50, max: 200}
-  showRubric: longAnswerDefaults.showRubric,           // Course default: true
-  showWordCount: longAnswerDefaults.showWordCount,     // Course default: true
-  showHints: false,                    // Custom override - not using default
-  
-  // ===== AI GENERATION SETTINGS =====
-  // From course-config.json -> activityTypes[ACTIVITY_TYPE].aiSettings
-  // Change any value below to override the course default
-  aiSettings: {
-    temperature: longAnswerDefaults.aiSettings.temperature,  // Course default: 0.7
-    topP: longAnswerDefaults.aiSettings.topP,               // Course default: 0.9
-    topK: 40  // Not in config, using assessment system default
-  },
-  
-  // ===== FORMATTING OPTIONS =====
-  katexFormatting: true,  // Enable LaTeX math rendering
-  
-  // ===== COURSE METADATA =====
-  subject: 'Physics 30',
-  gradeLevel: 12,
-  topic: 'Momentum in One Dimension',
-  learningObjectives: [
-    'Explain the concept of momentum and its conservation',
-    'Apply conservation of momentum to analyze collisions',
-    'Distinguish between elastic and inelastic collisions',
-    'Connect momentum concepts to real-world scenarios'
-  ],
-  
-  // ===== AI CHAT INTEGRATION =====
-  enableAIChat: true,  // Show AI chat button for student support
-  aiChatContext: "This long answer assessment focuses on explaining momentum concepts and applying conservation laws. Students often struggle with: 1) Clearly distinguishing between momentum and force, 2) Explaining WHY momentum is conserved in collisions, 3) Connecting mathematical calculations to physical meaning. The rubric emphasizes both conceptual understanding and mathematical application. Guide students to structure their answers to address each rubric criterion.",
-  
-  // ===== EVALUATION GUIDANCE =====
-  evaluationGuidance: {
-    commonMistakes: [
-      "Confusing momentum (p = mv) with kinetic energy (KE = ½mv²)",
-      "Not including units (kg·m/s) or using incorrect units",
-      "Stating momentum is conserved without explaining why (Newton's third law)",
-      "Mixing up elastic vs inelastic collision definitions",
-      "Forgetting momentum is a vector (direction matters)"
-    ],
-    scoringNotes: {
-      beginner: "Use the 4-level rubric (0-3 points per criterion). Focus on conceptual understanding.",
-      intermediate: "Use the 4-level rubric (0-3 points per criterion). Balance conceptual understanding with mathematical accuracy.",
-      advanced: "Use the 4-level rubric (0-3 points per criterion). Expect sophisticated analysis and connections."
-    },
-    scoringReminder: "IMPORTANT: Only assign whole number scores (0, 1, 2, or 3) based on the rubric levels. No partial points."
-  },
-  
-  // ===== FALLBACK QUESTIONS =====
-  // Used when AI generation fails
-  fallbackQuestions: [
-    {
-      questionText: "A 1500 kg car traveling at 20 m/s collides with a stationary 1000 kg car. After the collision, the cars stick together. Explain conservation of momentum, calculate the final velocity, and identify what type of collision this is.",
-      rubric: MOMENTUM_RUBRICS.intermediate,
-      maxPoints: 12,
-      wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate'),
-      sampleAnswer: `Conservation of momentum states that total momentum before a collision equals total momentum after, when no external forces act on the system.
 
-Initial momentum: p = m₁v₁ + m₂v₂ = (1500 kg)(20 m/s) + (1000 kg)(0 m/s) = 30,000 kg·m/s
-
-After collision, both cars move together at velocity v_f:
-Final momentum: (1500 + 1000)v_f = 2500v_f
-
-By conservation: 30,000 = 2500v_f
-Therefore: v_f = 12 m/s
-
-This is an inelastic collision because the cars stick together. In inelastic collisions, kinetic energy is lost but momentum is conserved.`,
-      difficulty: 'intermediate'
-    },
-    {
-      questionText: "Define momentum and explain what it means physically. Give one clear real-world example. Explain why momentum is important in physics.",
-      rubric: MOMENTUM_RUBRICS.beginner,
-      maxPoints: 12,
-      wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner'),
-      sampleAnswer: `Momentum is the product of mass and velocity: p = mv. Units are kg·m/s. It represents the "quantity of motion" an object has - how hard it is to stop.
-
-Example: A bowling ball has more momentum than a tennis ball at the same speed because of its greater mass. This is why the bowling ball knocks down pins more effectively.
-
-Momentum is important because it's conserved in collisions. This conservation law lets us predict outcomes in crashes, explosions, and other interactions. It's a fundamental tool for solving physics problems.`,
-      difficulty: 'beginner'
-    }
-  ],
-  
-  // ===== CLOUD FUNCTION SETTINGS =====
-  timeout: 180,         // Function timeout in seconds (longer for evaluation)
-  memory: '1GiB',       // Memory allocation (more for text processing)
-  region: 'us-central1' // Deployment region
-});
 
 // ===== HELPER FUNCTIONS FOR RANDOMIZATION =====
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -316,42 +32,6 @@ const randFloat = (min, max, decimals = 1) => {
   return parseFloat(num.toFixed(decimals));
 };
 
-// ===== SLIDESHOW KNOWLEDGE CHECK QUESTIONS =====
-
-// Question 1: AI Short Answer - Explain difference between momentum and inertia
-exports.course2_02_momentum_inertia_difference = createAIShortAnswer({
-  activityType: ACTIVITY_TYPE,
-  
-  prompts: {
-    intermediate: `Create an AI assessment for the question: "Explain, in your own words, the difference between momentum and inertia."
-    
-    This question tests students' conceptual understanding of two fundamental physics concepts.
-    
-    Key points students should address:
-    - Momentum is a measure of motion (p = mv), while inertia is resistance to change in motion
-    - Momentum depends on both mass AND velocity, inertia depends only on mass
-    - Momentum is a vector quantity with direction, inertia is a scalar
-    - Both are related to mass but serve different purposes in physics
-    
-    Word limit: 50-150 words`
-  },
-  
-  expectedAnswers: [
-    "Momentum is the quantity of motion an object has, calculated as mass times velocity (p = mv). Inertia is an object's resistance to changes in its motion - its tendency to keep doing what it's already doing. The key difference is that momentum requires movement and depends on both mass and velocity, while inertia is just about mass and exists whether the object is moving or not. A heavy truck at rest has high inertia but zero momentum, while the same truck moving has both high inertia and high momentum."
-  ],
-  
-  keyWords: ["momentum", "inertia", "motion", "mass", "velocity", "resistance", "change"],
-  wordLimits: { min: 50, max: 150 },
-  
-  maxAttempts: 9999,
-  pointsValue: 2,
-  showFeedback: true,
-  theme: 'blue',
-  
-  subject: 'Physics 30',
-  gradeLevel: 12,
-  topic: 'Momentum vs Inertia',
-});
 
 // Question 2: Multiple Choice - Bowling ball momentum calculation with randomization
 const createBowlingBallMomentumQuestion = () => {
@@ -378,22 +58,6 @@ const createBowlingBallMomentumQuestion = () => {
     topic: "Momentum Calculation"
   };
 };
-
-exports.course2_02_bowling_ball_momentum = createStandardMultipleChoice({
-  questions: [
-    createBowlingBallMomentumQuestion(),
-    createBowlingBallMomentumQuestion(),
-    createBowlingBallMomentumQuestion(),
-    createBowlingBallMomentumQuestion(),
-    createBowlingBallMomentumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 3: Multiple Choice - Bullet velocity calculation with randomization
 const createBulletVelocityQuestion = () => {
@@ -423,21 +87,6 @@ const createBulletVelocityQuestion = () => {
   };
 };
 
-exports.course2_02_bullet_velocity = createStandardMultipleChoice({
-  questions: [
-    createBulletVelocityQuestion(),
-    createBulletVelocityQuestion(),
-    createBulletVelocityQuestion(),
-    createBulletVelocityQuestion(),
-    createBulletVelocityQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 4: Multiple Choice - Hockey puck mass calculation with randomization
 const createHockeyPuckMassQuestion = () => {
@@ -466,22 +115,6 @@ const createHockeyPuckMassQuestion = () => {
   };
 };
 
-exports.course2_02_hockey_puck_mass = createStandardMultipleChoice({
-  questions: [
-    createHockeyPuckMassQuestion(),
-    createHockeyPuckMassQuestion(),
-    createHockeyPuckMassQuestion(),
-    createHockeyPuckMassQuestion(),
-    createHockeyPuckMassQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
-
 // Question 5a: Multiple Choice - Jet momentum calculation with randomization
 const createJetMomentumQuestion = () => {
   const mass = randInt(2000, 3000); // Random mass between 2000-3000 kg
@@ -509,21 +142,6 @@ const createJetMomentumQuestion = () => {
   };
 };
 
-exports.course2_02_jet_momentum_a = createStandardMultipleChoice({
-  questions: [
-    createJetMomentumQuestion(),
-    createJetMomentumQuestion(),
-    createJetMomentumQuestion(),
-    createJetMomentumQuestion(),
-    createJetMomentumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 5b: Multiple Choice - Jet momentum with changed mass and velocity
 const createJetChangedMomentumQuestion = () => {
@@ -554,21 +172,6 @@ const createJetChangedMomentumQuestion = () => {
   };
 };
 
-exports.course2_02_jet_momentum_b = createStandardMultipleChoice({
-  questions: [
-    createJetChangedMomentumQuestion(),
-    createJetChangedMomentumQuestion(),
-    createJetChangedMomentumQuestion(),
-    createJetChangedMomentumQuestion(),
-    createJetChangedMomentumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // ===== COLLISION PRACTICE PROBLEMS =====
 
@@ -606,21 +209,6 @@ const createTwoObjectCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_collision_rebound = createStandardMultipleChoice({
-  questions: [
-    createTwoObjectCollisionQuestion(),
-    createTwoObjectCollisionQuestion(),
-    createTwoObjectCollisionQuestion(),
-    createTwoObjectCollisionQuestion(),
-    createTwoObjectCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 8: Ball collision - elastic vs inelastic determination
 const createBallCollisionQuestion = () => {
@@ -659,21 +247,6 @@ const createBallCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_ball_collision_type = createStandardMultipleChoice({
-  questions: [
-    createBallCollisionQuestion(),
-    createBallCollisionQuestion(),
-    createBallCollisionQuestion(),
-    createBallCollisionQuestion(),
-    createBallCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 9: Car-truck collision - find unknown mass
 const createCarTruckCollisionQuestion = () => {
@@ -707,21 +280,6 @@ const createCarTruckCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_unknown_mass_collision = createStandardMultipleChoice({
-  questions: [
-    createCarTruckCollisionQuestion(),
-    createCarTruckCollisionQuestion(),
-    createCarTruckCollisionQuestion(),
-    createCarTruckCollisionQuestion(),
-    createCarTruckCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 10: Football tackle - find receiver mass
 const createFootballTackleQuestion = () => {
@@ -754,21 +312,6 @@ const createFootballTackleQuestion = () => {
   };
 };
 
-exports.course2_02_football_tackle_mass = createStandardMultipleChoice({
-  questions: [
-    createFootballTackleQuestion(),
-    createFootballTackleQuestion(),
-    createFootballTackleQuestion(),
-    createFootballTackleQuestion(),
-    createFootballTackleQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 11: Arrow and apple collision
 const createArrowAppleQuestion = () => {
@@ -801,21 +344,6 @@ const createArrowAppleQuestion = () => {
   };
 };
 
-exports.course2_02_arrow_apple_mass = createStandardMultipleChoice({
-  questions: [
-    createArrowAppleQuestion(),
-    createArrowAppleQuestion(),
-    createArrowAppleQuestion(),
-    createArrowAppleQuestion(),
-    createArrowAppleQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 12: Truck-car head-on collision (using weights/forces)
 const createTruckCarHeadOnQuestion = () => {
@@ -855,21 +383,6 @@ const createTruckCarHeadOnQuestion = () => {
   };
 };
 
-exports.course2_02_truck_car_headon = createStandardMultipleChoice({
-  questions: [
-    createTruckCarHeadOnQuestion(),
-    createTruckCarHeadOnQuestion(),
-    createTruckCarHeadOnQuestion(),
-    createTruckCarHeadOnQuestion(),
-    createTruckCarHeadOnQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // ===== ADVANCED PRACTICE PROBLEMS =====
 
@@ -904,21 +417,6 @@ const createAstronautRecoilQuestion = () => {
   };
 };
 
-exports.course2_02_astronaut_recoil = createStandardMultipleChoice({
-  questions: [
-    createAstronautRecoilQuestion(),
-    createAstronautRecoilQuestion(),
-    createAstronautRecoilQuestion(),
-    createAstronautRecoilQuestion(),
-    createAstronautRecoilQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 14: Two-stage rocket separation
 const createRocketSeparationQuestion = () => {
@@ -951,21 +449,6 @@ const createRocketSeparationQuestion = () => {
   };
 };
 
-exports.course2_02_rocket_separation = createStandardMultipleChoice({
-  questions: [
-    createRocketSeparationQuestion(),
-    createRocketSeparationQuestion(),
-    createRocketSeparationQuestion(),
-    createRocketSeparationQuestion(),
-    createRocketSeparationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 15: Machine gun recoil (James Bond scenario)
 const createMachineGunRecoilQuestion = () => {
@@ -1000,22 +483,6 @@ const createMachineGunRecoilQuestion = () => {
   };
 };
 
-exports.course2_02_machine_gun_recoil = createStandardMultipleChoice({
-  questions: [
-    createMachineGunRecoilQuestion(),
-    createMachineGunRecoilQuestion(),
-    createMachineGunRecoilQuestion(),
-    createMachineGunRecoilQuestion(),
-    createMachineGunRecoilQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
-
 // Question 16: Uranium atom disintegration
 const createUraniumDisintegrationQuestion = () => {
   const mass_ratio = randInt(55, 65); // Mass ratio: 55-65 times
@@ -1049,21 +516,6 @@ const createUraniumDisintegrationQuestion = () => {
   };
 };
 
-exports.course2_02_uranium_disintegration = createStandardMultipleChoice({
-  questions: [
-    createUraniumDisintegrationQuestion(),
-    createUraniumDisintegrationQuestion(),
-    createUraniumDisintegrationQuestion(),
-    createUraniumDisintegrationQuestion(),
-    createUraniumDisintegrationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 17: Ballistic pendulum with energy analysis
 const createBallisticPendulumQuestion = () => {
@@ -1109,21 +561,7 @@ const createBallisticPendulumQuestion = () => {
   };
 };
 
-exports.course2_02_ballistic_pendulum = createStandardMultipleChoice({
-  questions: [
-    createBallisticPendulumQuestion(),
-    createBallisticPendulumQuestion(),
-    createBallisticPendulumQuestion(),
-    createBallisticPendulumQuestion(),
-    createBallisticPendulumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 18: Canoe momentum comparison (simultaneous vs sequential)
 const createCanoeComparisonQuestion = () => {
@@ -1171,21 +609,7 @@ const createCanoeComparisonQuestion = () => {
   };
 };
 
-exports.course2_02_canoe_comparison = createStandardMultipleChoice({
-  questions: [
-    createCanoeComparisonQuestion(),
-    createCanoeComparisonQuestion(),
-    createCanoeComparisonQuestion(),
-    createCanoeComparisonQuestion(),
-    createCanoeComparisonQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 19: Two men jumping from cart
 const createCartJumpingQuestion = () => {
@@ -1226,21 +650,6 @@ const createCartJumpingQuestion = () => {
   };
 };
 
-exports.course2_02_cart_jumping = createStandardMultipleChoice({
-  questions: [
-    createCartJumpingQuestion(),
-    createCartJumpingQuestion(),
-    createCartJumpingQuestion(),
-    createCartJumpingQuestion(),
-    createCartJumpingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 20: Elastic collision of atoms
 const createAtomCollisionQuestion = () => {
@@ -1277,21 +686,6 @@ const createAtomCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_atom_collision = createStandardMultipleChoice({
-  questions: [
-    createAtomCollisionQuestion(),
-    createAtomCollisionQuestion(),
-    createAtomCollisionQuestion(),
-    createAtomCollisionQuestion(),
-    createAtomCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // ===== MOMENTUM KNOWLEDGE CHECK QUESTIONS =====
 // Questions for the slideshow knowledge check after "Important Note: Inertia vs Momentum"
@@ -1336,20 +730,6 @@ const createInertiaMomentumConceptQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q1 = createStandardMultipleChoice({
-  questions: [
-    createInertiaMomentumConceptQuestion(),
-    createInertiaMomentumConceptQuestion(),
-    createInertiaMomentumConceptQuestion(),
-    createInertiaMomentumConceptQuestion(),
-    createInertiaMomentumConceptQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for randomized bowling ball momentum questions (Knowledge Check)
 const createKcBowlingBallMomentumQuestion = () => {
@@ -1372,20 +752,6 @@ const createKcBowlingBallMomentumQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q2 = createStandardMultipleChoice({
-  questions: [
-    createKcBowlingBallMomentumQuestion(),
-    createKcBowlingBallMomentumQuestion(),
-    createKcBowlingBallMomentumQuestion(),
-    createKcBowlingBallMomentumQuestion(),
-    createKcBowlingBallMomentumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for randomized bullet velocity questions (Knowledge Check)
 const createKcBulletVelocityQuestion = () => {
@@ -1409,21 +775,6 @@ const createKcBulletVelocityQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q3 = createStandardMultipleChoice({
-  questions: [
-    createKcBulletVelocityQuestion(),
-    createKcBulletVelocityQuestion(),
-    createKcBulletVelocityQuestion(),
-    createKcBulletVelocityQuestion(),
-    createKcBulletVelocityQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function for randomized hockey puck mass questions (Knowledge Check)
 const createKcHockeyPuckMassQuestion = () => {
   const momentum = randFloat(3.5, 4.5, 1); // 3.5-4.5 kg·m/s
@@ -1445,20 +796,7 @@ const createKcHockeyPuckMassQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q4 = createStandardMultipleChoice({
-  questions: [
-    createKcHockeyPuckMassQuestion(),
-    createKcHockeyPuckMassQuestion(),
-    createKcHockeyPuckMassQuestion(),
-    createKcHockeyPuckMassQuestion(),
-    createKcHockeyPuckMassQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for randomized jet momentum questions (Knowledge Check - part a only)
 const createKcJetMomentumQuestion = () => {
@@ -1481,20 +819,6 @@ const createKcJetMomentumQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q5 = createStandardMultipleChoice({
-  questions: [
-    createKcJetMomentumQuestion(),
-    createKcJetMomentumQuestion(),
-    createKcJetMomentumQuestion(),
-    createKcJetMomentumQuestion(),
-    createKcJetMomentumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1, // Worth 1 point since it's just part (a)
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // ===== COLLISION KNOWLEDGE CHECK QUESTIONS =====
 // Questions 6-11 for the second slideshow knowledge check
@@ -1527,20 +851,6 @@ const createKcTwoObjectCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q6 = createStandardMultipleChoice({
-  questions: [
-    createKcTwoObjectCollisionQuestion(),
-    createKcTwoObjectCollisionQuestion(),
-    createKcTwoObjectCollisionQuestion(),
-    createKcTwoObjectCollisionQuestion(),
-    createKcTwoObjectCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for ball collision with elasticity check (Question 7)
 const createKcBallElasticityQuestion = () => {
@@ -1576,21 +886,6 @@ const createKcBallElasticityQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q7 = createStandardMultipleChoice({
-  questions: [
-    createKcBallElasticityQuestion(),
-    createKcBallElasticityQuestion(),
-    createKcBallElasticityQuestion(),
-    createKcBallElasticityQuestion(),
-    createKcBallElasticityQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
-
 // Helper function for car-truck collision with unknown mass (Question 8)
 const createKcCarTruckUnknownMassQuestion = () => {
   const m_car = randFloat(900, 950, 25); // 900-950 kg
@@ -1615,20 +910,6 @@ const createKcCarTruckUnknownMassQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q8 = createStandardMultipleChoice({
-  questions: [
-    createKcCarTruckUnknownMassQuestion(),
-    createKcCarTruckUnknownMassQuestion(),
-    createKcCarTruckUnknownMassQuestion(),
-    createKcCarTruckUnknownMassQuestion(),
-    createKcCarTruckUnknownMassQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for football tackle (Question 9)
 const createKcFootballTackleQuestion = () => {
@@ -1654,20 +935,7 @@ const createKcFootballTackleQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q9 = createStandardMultipleChoice({
-  questions: [
-    createKcFootballTackleQuestion(),
-    createKcFootballTackleQuestion(),
-    createKcFootballTackleQuestion(),
-    createKcFootballTackleQuestion(),
-    createKcFootballTackleQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for arrow and apple (Question 10)
 const createKcArrowAppleQuestion = () => {
@@ -1695,20 +963,7 @@ const createKcArrowAppleQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q10 = createStandardMultipleChoice({
-  questions: [
-    createKcArrowAppleQuestion(),
-    createKcArrowAppleQuestion(),
-    createKcArrowAppleQuestion(),
-    createKcArrowAppleQuestion(),
-    createKcArrowAppleQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for truck-car head-on collision (Question 11)
 const createKcTruckCarHeadOnQuestion = () => {
@@ -1740,20 +995,6 @@ const createKcTruckCarHeadOnQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q11 = createStandardMultipleChoice({
-  questions: [
-    createKcTruckCarHeadOnQuestion(),
-    createKcTruckCarHeadOnQuestion(),
-    createKcTruckCarHeadOnQuestion(),
-    createKcTruckCarHeadOnQuestion(),
-    createKcTruckCarHeadOnQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // ===== ADVANCED MOMENTUM KNOWLEDGE CHECK QUESTIONS =====
 // Questions 12-19 for the third slideshow knowledge check
@@ -1782,20 +1023,7 @@ const createKcAstronautRecoilQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q12 = createStandardMultipleChoice({
-  questions: [
-    createKcAstronautRecoilQuestion(),
-    createKcAstronautRecoilQuestion(),
-    createKcAstronautRecoilQuestion(),
-    createKcAstronautRecoilQuestion(),
-    createKcAstronautRecoilQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for rocket separation (Question 13)
 const createKcRocketSeparationQuestion = () => {
@@ -1822,20 +1050,6 @@ const createKcRocketSeparationQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q13 = createStandardMultipleChoice({
-  questions: [
-    createKcRocketSeparationQuestion(),
-    createKcRocketSeparationQuestion(),
-    createKcRocketSeparationQuestion(),
-    createKcRocketSeparationQuestion(),
-    createKcRocketSeparationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for machine gun recoil (Question 14)
 const createKcMachineGunRecoilQuestion = () => {
@@ -1862,20 +1076,7 @@ const createKcMachineGunRecoilQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q14 = createStandardMultipleChoice({
-  questions: [
-    createKcMachineGunRecoilQuestion(),
-    createKcMachineGunRecoilQuestion(),
-    createKcMachineGunRecoilQuestion(),
-    createKcMachineGunRecoilQuestion(),
-    createKcMachineGunRecoilQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for uranium disintegration (Question 15)
 const createKcUraniumDisintegrationQuestion = () => {
@@ -1902,20 +1103,7 @@ const createKcUraniumDisintegrationQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q15 = createStandardMultipleChoice({
-  questions: [
-    createKcUraniumDisintegrationQuestion(),
-    createKcUraniumDisintegrationQuestion(),
-    createKcUraniumDisintegrationQuestion(),
-    createKcUraniumDisintegrationQuestion(),
-    createKcUraniumDisintegrationQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for ballistic pendulum (Question 16)
 const createKcBallisticPendulumQuestion = () => {
@@ -1948,20 +1136,6 @@ const createKcBallisticPendulumQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q16 = createStandardMultipleChoice({
-  questions: [
-    createKcBallisticPendulumQuestion(),
-    createKcBallisticPendulumQuestion(),
-    createKcBallisticPendulumQuestion(),
-    createKcBallisticPendulumQuestion(),
-    createKcBallisticPendulumQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for canoe comparison (Question 17)
 const createKcCanoeComparisonQuestion = () => {
@@ -1998,20 +1172,6 @@ const createKcCanoeComparisonQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q17 = createStandardMultipleChoice({
-  questions: [
-    createKcCanoeComparisonQuestion(),
-    createKcCanoeComparisonQuestion(),
-    createKcCanoeComparisonQuestion(),
-    createKcCanoeComparisonQuestion(),
-    createKcCanoeComparisonQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // Helper function for cart jumping (Question 18)
 const createKcCartJumpingQuestion = () => {
@@ -2050,20 +1210,7 @@ const createKcCartJumpingQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q18 = createStandardMultipleChoice({
-  questions: [
-    createKcCartJumpingQuestion(),
-    createKcCartJumpingQuestion(),
-    createKcCartJumpingQuestion(),
-    createKcCartJumpingQuestion(),
-    createKcCartJumpingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
+
 
 // Helper function for elastic atomic collision (Question 19)
 const createKcElasticAtomicCollisionQuestion = () => {
@@ -2096,20 +1243,6 @@ const createKcElasticAtomicCollisionQuestion = () => {
   };
 };
 
-exports.course2_02_momentum_one_dimension_kc_q19 = createStandardMultipleChoice({
-  questions: [
-    createKcElasticAtomicCollisionQuestion(),
-    createKcElasticAtomicCollisionQuestion(),
-    createKcElasticAtomicCollisionQuestion(),
-    createKcElasticAtomicCollisionQuestion(),
-    createKcElasticAtomicCollisionQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 1,
-  maxAttempts: 9999,
-  showFeedback: true
-});
 
 // ===== ASSESSMENT CONFIGURATIONS FOR MASTER FUNCTION =====
 // Export all assessment configurations for use by the master function

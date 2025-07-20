@@ -13,11 +13,10 @@
  * - Lesson 42: Electromagnetic Radiation
  */
 
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';
@@ -339,9 +338,6 @@ const assessmentConfigs = {
   }
 };
 
-// Export individual assessment functions
-Object.keys(assessmentConfigs).forEach(questionId => {
-  exports[questionId] = createStandardMultipleChoice(questionId, assessmentConfigs[questionId]);
-});
-
+// Only export the assessment configurations
+// The main course2_assessments function will handle creating the handlers on-demand
 exports.assessmentConfigs = assessmentConfigs;

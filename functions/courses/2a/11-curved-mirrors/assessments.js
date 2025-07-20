@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 /**
  * Curved Mirrors Practice Problems - 6 Questions
@@ -6,7 +6,7 @@ const { createStandardMultipleChoice } = require('../shared/assessment-types/sta
  */
 
 // Question 1: Concave Mirror - Image Distance
-const concave_mirror_image_distance = createStandardMultipleChoice({
+const concave_mirror_image_distance = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a concave mirror with a radius of curvature of 60 cm. What is the image distance?',
@@ -29,10 +29,10 @@ const concave_mirror_image_distance = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 2: Concave Mirror - Image Size
-const concave_mirror_image_size = createStandardMultipleChoice({
+const concave_mirror_image_size = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a concave mirror with a radius of curvature of 60 cm. What is the size of the image produced?',
@@ -55,10 +55,10 @@ const concave_mirror_image_size = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 3: Concave Mirror - Image Description
-const concave_mirror_image_description = createStandardMultipleChoice({
+const concave_mirror_image_description = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a concave mirror with a radius of curvature of 60 cm. Describe the image.',
@@ -81,10 +81,10 @@ const concave_mirror_image_description = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 4: Convex Mirror - Image Distance
-const convex_mirror_image_distance = createStandardMultipleChoice({
+const convex_mirror_image_distance = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a convex mirror with a radius of curvature of 60 cm. What is the image distance?',
@@ -107,10 +107,10 @@ const convex_mirror_image_distance = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 5: Convex Mirror - Image Size
-const convex_mirror_image_size = createStandardMultipleChoice({
+const convex_mirror_image_size = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a convex mirror with a radius of curvature of 60 cm. What is the size of the image produced?',
@@ -133,10 +133,10 @@ const convex_mirror_image_size = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 6: Convex Mirror - Image Description
-const convex_mirror_image_description = createStandardMultipleChoice({
+const convex_mirror_image_description = {
   questions: [
     {
       questionText: 'A 6.0 cm tall object is placed 40 cm in front of a convex mirror with a radius of curvature of 60 cm. Describe the image.',
@@ -159,10 +159,10 @@ const convex_mirror_image_description = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 7: Mirror Type Identification - Erect Image at 80cm
-const mirror_type_erect_80cm = createStandardMultipleChoice({
+const mirror_type_erect_80cm = {
   questions: [
     {
       questionText: 'An object is placed 50 cm in front of a spherical mirror. The image formed is erect and located 80 cm from the mirror. What type of mirror is this?',
@@ -185,10 +185,10 @@ const mirror_type_erect_80cm = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 8: Mirror Type Identification - General Erect Image
-const mirror_type_identification_erect = createStandardMultipleChoice({
+const mirror_type_identification_erect = {
   questions: [
     {
       questionText: 'A spherical mirror always produces erect images regardless of object position. What type of mirror is this?',
@@ -211,10 +211,10 @@ const mirror_type_identification_erect = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 9: Mirror Radius - Inverted Image at 120cm
-const mirror_radius_inverted_120cm = createStandardMultipleChoice({
+const mirror_radius_inverted_120cm = {
   questions: [
     {
       questionText: 'An object placed 40 cm in front of a concave mirror produces an inverted image 120 cm from the mirror. What is the radius of curvature of the mirror?',
@@ -237,10 +237,10 @@ const mirror_radius_inverted_120cm = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 10: Mirror Type - Inverted Image at 120cm
-const mirror_type_inverted_120cm = createStandardMultipleChoice({
+const mirror_type_inverted_120cm = {
   questions: [
     {
       questionText: 'An object placed 40 cm in front of a spherical mirror produces an inverted image 120 cm from the mirror. What type of mirror is this?',
@@ -263,10 +263,10 @@ const mirror_type_inverted_120cm = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 11: Convex Mirror Radius - 20cm Object Distance
-const convex_mirror_radius_20cm = createStandardMultipleChoice({
+const convex_mirror_radius_20cm = {
   questions: [
     {
       questionText: 'A convex mirror with a radius of curvature of 60 cm forms an image of an object placed 20 cm in front of it. What is the image distance?',
@@ -289,10 +289,10 @@ const convex_mirror_radius_20cm = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 12: Convex Mirror Type Identification
-const convex_mirror_type_identification = createStandardMultipleChoice({
+const convex_mirror_type_identification = {
   questions: [
     {
       questionText: 'A spherical mirror forms images that are always erect, virtual, and smaller than the object. What type of mirror is this?',
@@ -315,10 +315,10 @@ const convex_mirror_type_identification = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 13: Object Movement and Image Size
-const object_movement_image_size = createStandardMultipleChoice({
+const object_movement_image_size = {
   questions: [
     {
       questionText: 'An object is moved closer to a concave mirror from a position beyond the center of curvature. How does the image size change?',
@@ -341,10 +341,10 @@ const object_movement_image_size = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 14: Object Movement - Image Size Change
-const object_movement_image_size_change = createStandardMultipleChoice({
+const object_movement_image_size_change = {
   questions: [
     {
       questionText: 'A 20 cm object located 30 cm in front of a mirror generates an erect image that is 10 cm tall. What is the size of image produced when the object is moved 60 cm further from the mirror\'s surface?',
@@ -367,10 +367,10 @@ const object_movement_image_size_change = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 15: Concave Mirror - Inverted Image 3x Size
-const concave_mirror_3x_inverted_distance = createStandardMultipleChoice({
+const concave_mirror_3x_inverted_distance = {
   questions: [
     {
       questionText: 'An object located in front of a concave mirror with a radius of curvature of 80 cm produced an inverted image that is three times the size of the object. What is the object distance?',
@@ -393,10 +393,10 @@ const concave_mirror_3x_inverted_distance = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 16: Concave Mirror - Erect Image 2x Size
-const concave_mirror_2x_erect_distance = createStandardMultipleChoice({
+const concave_mirror_2x_erect_distance = {
   questions: [
     {
       questionText: 'An object located in front of a concave mirror with a radius of curvature of 180 cm produced an erect image that is two times the size of the object. What is the object distance?',
@@ -419,10 +419,10 @@ const concave_mirror_2x_erect_distance = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Question 17: Convex Mirror - 1/6 Size Object Distance
-const convex_mirror_one_sixth_distance = createStandardMultipleChoice({
+const convex_mirror_one_sixth_distance = {
   questions: [
     {
       questionText: 'An object located in front of a convex mirror with a focal length of 60 cm produced an erect image that is 1/6 the size of the object. What is the object distance?',
@@ -445,7 +445,7 @@ const convex_mirror_one_sixth_distance = createStandardMultipleChoice({
   randomizeQuestions: false,
   randomizeOptions: true,
   allowSameQuestion: true
-});
+};
 
 // Export assessment configurations for the master function
 const assessmentConfigs = {

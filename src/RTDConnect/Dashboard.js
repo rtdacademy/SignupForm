@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, get, set, onValue, off } from 'firebase/database';
+import { getDatabase, ref, get, set, push, onValue, off } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
@@ -12,6 +12,8 @@ import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
+import StripeConnectOnboarding from '../components/StripeConnectOnboarding';
+import ReimbursementSubmissionForm from '../components/ReimbursementSubmissionForm';
 import { 
   getCurrentSchoolYear, 
   getActiveSeptemberCount, 
@@ -332,6 +334,16 @@ const RTDConnectDashboard = () => {
   const [selectedStudentForSOLO, setSelectedStudentForSOLO] = useState(null);
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
   
+  // Reimbursement system state
+  const [showStripeOnboarding, setShowStripeOnboarding] = useState(false);
+  const [showReimbursementForm, setShowReimbursementForm] = useState(false);
+  const [selectedStudentForReimbursement, setSelectedStudentForReimbursement] = useState(null);
+  const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
+  const [studentReimbursementStatuses, setStudentReimbursementStatuses] = useState({});
+  const [isSubmittingReimbursement, setIsSubmittingReimbursement] = useState(false);
+  const [stripeConnectError, setStripeConnectError] = useState(null);
+  const [reimbursementError, setReimbursementError] = useState(null);
+  
   // School year tracking state
   const [currentSchoolYear, setCurrentSchoolYear] = useState('');
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
@@ -645,6 +657,20 @@ const RTDConnectDashboard = () => {
 
     loadStudentSOLOPlanStatuses();
   }, [customClaims?.familyId, familyData?.students, soloTargetSchoolYear]);
+
+  // Effect to load Stripe Connect status
+  useEffect(() => {
+    if (customClaims?.familyId && user?.uid && customClaims?.familyRole === 'primary_guardian') {
+      loadStripeConnectStatus();
+    }
+  }, [customClaims?.familyId, user?.uid, customClaims?.familyRole]);
+
+  // Effect to load reimbursement statuses
+  useEffect(() => {
+    if (customClaims?.familyId && familyData?.students && activeSchoolYear) {
+      loadReimbursementStatuses();
+    }
+  }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
 
   // Separate effect for family data based on custom claims
   useEffect(() => {
@@ -1081,6 +1107,203 @@ const RTDConnectDashboard = () => {
       }
     } catch (error) {
       console.error('Error manually applying pending permissions:', error);
+    }
+  };
+
+  // Stripe Connect handlers
+  const handleStripeAccountCreated = (accountData) => {
+    setStripeConnectStatus({
+      accountId: accountData.accountId,
+      status: accountData.status,
+      onboardingComplete: accountData.status === 'active'
+    });
+    console.log('Stripe Connect account created:', accountData);
+  };
+
+  const handleStripeOnboardingComplete = () => {
+    setShowStripeOnboarding(false);
+    // Reload the Stripe Connect status to get updated information
+    loadStripeConnectStatus();
+    console.log('Stripe onboarding completed');
+  };
+
+  const handleSubmitReimbursement = async (reimbursementData) => {
+    setIsSubmittingReimbursement(true);
+    setReimbursementError(null);
+
+    try {
+      // Get current user's family ID from custom claims
+      const idTokenResult = await user.getIdTokenResult();
+      const familyId = idTokenResult.claims.familyId;
+      
+      if (!familyId) {
+        throw new Error('User must be part of a family to submit reimbursements');
+      }
+
+      // Convert file objects to base64 for storage
+      const receiptFiles = await Promise.all(
+        reimbursementData.receipts.map(async (file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                data: reader.result.split(',')[1], // Remove data:... prefix
+                name: file.name,
+                type: file.type,
+                size: file.size
+              });
+            };
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+
+      // Generate a unique reimbursement ID
+      const reimbursementId = `reimb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Find the student name from familyData
+      const student = familyData.students.find(s => s.id === reimbursementData.studentId);
+      const studentName = student ? `${student.firstName} ${student.lastName}` : 'Unknown Student';
+
+      // Create reimbursement record
+      const reimbursementRecord = {
+        id: reimbursementId,
+        studentId: reimbursementData.studentId,
+        studentName: studentName,
+        amount: parseFloat(reimbursementData.amount),
+        description: reimbursementData.description,
+        category: reimbursementData.category,
+        purchaseDate: reimbursementData.purchaseDate,
+        receiptFiles: receiptFiles,
+        submittedAt: new Date().toISOString(),
+        submittedBy: user.uid,
+        submittedByEmail: user.email,
+        status: 'pending_review',
+        schoolYear: activeSchoolYear,
+        payout_status: 'pending',
+        lastUpdated: new Date().toISOString()
+      };
+
+      const db = getDatabase();
+      
+      // Write to family reimbursements
+      const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/REIMBURSEMENTS/${activeSchoolYear.replace('/', '_')}/${reimbursementData.studentId}/${reimbursementId}`);
+      await set(reimbursementRef, reimbursementRecord);
+
+      // Add to admin queue for review
+      const adminQueueRef = ref(db, `adminReimbursementQueue/${reimbursementId}`);
+      await set(adminQueueRef, {
+        ...reimbursementRecord,
+        familyId: familyId,
+        queuedAt: new Date().toISOString()
+      });
+
+      // Log the action for audit purposes
+      const auditLogRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/AUDIT_LOG`);
+      await push(auditLogRef, {
+        action: 'reimbursement_submitted',
+        performed_by: user.uid,
+        performed_by_email: user.email,
+        timestamp: new Date().toISOString(),
+        details: {
+          reimbursementId: reimbursementId,
+          studentId: reimbursementData.studentId,
+          studentName: studentName,
+          amount: reimbursementData.amount,
+          category: reimbursementData.category
+        }
+      });
+
+      console.log('Reimbursement submitted successfully:', reimbursementId);
+      
+      setShowReimbursementForm(false);
+      setSelectedStudentForReimbursement(null);
+      
+      // Reload reimbursement statuses
+      await loadReimbursementStatuses();
+    } catch (error) {
+      console.error('Error submitting reimbursement:', error);
+      setReimbursementError(error.message || 'Failed to submit reimbursement');
+    } finally {
+      setIsSubmittingReimbursement(false);
+    }
+  };
+
+  const handleOpenReimbursementForm = (student) => {
+    // Check if Stripe Connect account is set up
+    if (!stripeConnectStatus?.onboardingComplete) {
+      alert('Please complete the secure payout setup before submitting reimbursements.');
+      setShowStripeOnboarding(true);
+      return;
+    }
+    
+    setSelectedStudentForReimbursement(student);
+    setShowReimbursementForm(true);
+  };
+
+  const loadReimbursementStatuses = async () => {
+    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+      const statuses = {};
+      
+      for (const student of familyData.students) {
+        const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENTS/${activeSchoolYear.replace('/', '_')}/${student.id}`);
+        const snapshot = await get(reimbursementRef);
+        
+        if (snapshot.exists()) {
+          const reimbursements = snapshot.val();
+          const reimbursementList = Object.values(reimbursements);
+          
+          statuses[student.id] = {
+            total: reimbursementList.length,
+            pending: reimbursementList.filter(r => r.status === 'pending_review').length,
+            approved: reimbursementList.filter(r => r.status === 'approved').length,
+            paid: reimbursementList.filter(r => r.payout_status === 'paid').length,
+            totalAmount: reimbursementList.reduce((sum, r) => sum + (r.amount || 0), 0)
+          };
+        } else {
+          statuses[student.id] = {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            paid: 0,
+            totalAmount: 0
+          };
+        }
+      }
+      
+      setStudentReimbursementStatuses(statuses);
+    } catch (error) {
+      console.error('Error loading reimbursement statuses:', error);
+    }
+  };
+
+  const loadStripeConnectStatus = async () => {
+    if (!customClaims?.familyId || !user?.uid) {
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STRIPE_CONNECT`);
+      const snapshot = await get(stripeDataRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setStripeConnectStatus({
+          accountId: data.accountId,
+          status: data.status,
+          onboardingComplete: data.status === 'active',
+          createdAt: data.createdAt,
+          lastUpdated: data.lastUpdated
+        });
+      }
+    } catch (error) {
+      console.error('Error loading Stripe Connect status:', error);
     }
   };
 
@@ -1936,6 +2159,66 @@ const RTDConnectDashboard = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Reimbursement Section */}
+                            <div className="mt-3 pt-3 border-t border-blue-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Reimbursements
+                                  </span>
+                                  {studentReimbursementStatuses[student.id]?.pending > 0 ? (
+                                    <Clock className="w-4 h-4 text-orange-500" />
+                                  ) : studentReimbursementStatuses[student.id]?.paid > 0 ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-gray-500" />
+                                  )}
+                                </div>
+                                <div className="flex flex-col text-right">
+                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                    studentReimbursementStatuses[student.id]?.pending > 0 ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                                    studentReimbursementStatuses[student.id]?.paid > 0 ? 'bg-green-100 text-green-700 border-green-300' :
+                                    'bg-gray-100 text-gray-700 border-gray-300'
+                                  }`}>
+                                    {studentReimbursementStatuses[student.id]?.total || 0} submitted
+                                  </span>
+                                  {studentReimbursementStatuses[student.id]?.totalAmount > 0 && (
+                                    <span className="text-xs text-gray-500 mt-1">
+                                      ${studentReimbursementStatuses[student.id].totalAmount.toFixed(2)} total
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Stripe Connect Setup for Primary Guardians */}
+                              {customClaims?.familyRole === 'primary_guardian' ? (
+                                <div className="space-y-2">
+                                  {!stripeConnectStatus?.onboardingComplete && (
+                                    <button
+                                      onClick={() => setShowStripeOnboarding(true)}
+                                      className="w-full px-3 py-2 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400 transition-all shadow-sm hover:shadow-md"
+                                    >
+                                      Set Up Secure Payouts
+                                    </button>
+                                  )}
+                                  
+                                  {stripeConnectStatus?.onboardingComplete && (
+                                    <button
+                                      onClick={() => handleOpenReimbursementForm(student)}
+                                      className="w-full px-3 py-2 text-sm rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md"
+                                    >
+                                      Submit Reimbursement
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                  Contact Primary Guardian
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="ml-3">
                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -2150,6 +2433,67 @@ const RTDConnectDashboard = () => {
           schoolYear={soloTargetSchoolYear}
         />
       )}
+
+      {/* Stripe Connect Onboarding Sheet */}
+      <Sheet open={showStripeOnboarding} onOpenChange={setShowStripeOnboarding}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-green-500" />
+                <span>Secure Payout Setup</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Set up secure payouts through Stripe to receive reimbursement payments directly to your bank account.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6">
+            <StripeConnectOnboarding
+              familyId={customClaims?.familyId}
+              userProfile={userProfile}
+              onAccountCreated={handleStripeAccountCreated}
+              onOnboardingComplete={handleStripeOnboardingComplete}
+              existingStripeAccount={stripeConnectStatus}
+              error={stripeConnectError}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Reimbursement Submission Sheet */}
+      <Sheet open={showReimbursementForm} onOpenChange={setShowReimbursementForm}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-blue-500" />
+                <span>Submit Reimbursement</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Submit an educational expense for reimbursement review.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6">
+            {selectedStudentForReimbursement && (
+              <ReimbursementSubmissionForm
+                student={selectedStudentForReimbursement}
+                onSubmit={handleSubmitReimbursement}
+                onCancel={() => {
+                  setShowReimbursementForm(false);
+                  setSelectedStudentForReimbursement(null);
+                  setReimbursementError(null);
+                }}
+                isSubmitting={isSubmittingReimbursement}
+                error={reimbursementError}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Mobile Navigation Sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
