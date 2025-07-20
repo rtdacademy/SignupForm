@@ -48,6 +48,7 @@ import RTDConnectLandingPage from './RTDConnect/LandingPage';
 import FacilitatorsPage from './RTDConnect/FacilitatorsPage';
 import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
 import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
+import HomeEducationStaffDashboard from './HomeEducation/HomeEducationStaffDashboard';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -222,6 +223,9 @@ function MainApp() {
         } />
         <Route path="/teacher-dashboard" element={
           user && isStaff(user) ? <Layout><TeacherDashboard /></Layout> : <Navigate to="/staff-login" />
+        } />
+        <Route path="/home-education-staff" element={
+          user && isStaff(user) ? <Layout><HomeEducationStaffDashboard /></Layout> : <Navigate to="/staff-login" />
         } />
         
         <Route path="/file-storage" element={

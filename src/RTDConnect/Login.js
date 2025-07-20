@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
   sendEmailVerification,
   onAuthStateChanged,
-  fetchSignInMethodsForEmail
+  fetchSignInMethodsForEmail,
+  setPersistence,
+  browserSessionPersistence,
+  linkWithPopup,
+  linkWithRedirect,
+  GoogleAuthProvider,
+  OAuthProvider
 } from "firebase/auth";
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { auth, googleProvider, microsoftProvider } from "../firebase";
+import { auth, googleProvider, microsoftProvider, isDevelopment } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
+import AuthLoadingScreen from './AuthLoadingScreen';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +76,13 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [isResetingPassword, setIsResetingPassword] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+  const [showAuthLoading, setShowAuthLoading] = useState(false);
+  const [authLoadingMessage, setAuthLoadingMessage] = useState("Completing your sign-in...");
+  const [showLinkAccountDialog, setShowLinkAccountDialog] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState(null);
+  const [linkingEmail, setLinkingEmail] = useState("");
 
   const db = getDatabase();
 
@@ -86,11 +103,13 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       'auth/weak-password': 'Your password is too weak. Please use a stronger password with at least 7 characters including numbers and symbols.',
       
       // Social sign-in errors
-      'auth/account-exists-with-different-credential': 'An account already exists with this email. Try signing in with a different method.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email. Please sign in with your email and password first. Then you can add this sign-in method to your account.',
       'auth/popup-closed-by-user': 'The sign-in window was closed. Please try again.',
       'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
       'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
       'auth/operation-not-allowed': 'This sign-in method is not enabled. Please try another method.',
+      'auth/redirect-cancelled-by-user': 'Sign-in was cancelled. Please try again.',
+      'auth/web-storage-unsupported': 'Your browser does not support web storage. Please try a different browser or enable cookies.',
       
       // Password reset errors
       'auth/expired-action-code': 'The password reset link has expired. Please request a new one.',
@@ -168,14 +187,19 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     const emailKey = sanitizeEmail(user.email);
     
     try {
+      setAuthLoadingMessage("Setting up your account...");
+      
       // Mark this as an RTD Connect portal login
       localStorage.setItem('rtdConnectPortalLogin', 'true');
+      
+      setAuthLoadingMessage("Verifying your profile...");
       
       // Create/update user in users table
       const userRef = ref(db, `users/${uid}`);
       const userSnapshot = await get(child(ref(db), `users/${uid}`));
       
       if (!userSnapshot.exists()) {
+        setAuthLoadingMessage("Creating your profile...");
         const userData = {
           uid: uid,
           email: user.email,
@@ -188,6 +212,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         };
         await set(userRef, userData);
       } else {
+        setAuthLoadingMessage("Updating your profile...");
         const existingData = userSnapshot.val();
         await set(userRef, {
           ...existingData,
@@ -204,6 +229,194 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   };
 
   useEffect(() => {
+    const initializePersistence = async () => {
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+        console.log('Auth persistence set to browser session');
+      } catch (error) {
+        console.error('Failed to set auth persistence:', error);
+      }
+    };
+
+    initializePersistence();
+    
+    // Check if user is already signed in and trying to link accounts
+    const checkExistingAuth = async () => {
+      const user = auth.currentUser;
+      if (user && user.emailVerified) {
+        // User is already signed in - they might be trying to add another sign-in method
+        console.log('User already signed in:', user.email);
+        // We'll handle this in the provider sign-in function
+      }
+    };
+    
+    checkExistingAuth();
+
+    // Handle redirect result from social sign-in (only in production)
+    const handleRedirectResult = async () => {
+      if (isDevelopment) {
+        console.log('Skipping redirect result check in development');
+        setCheckingRedirect(false);
+        return;
+      }
+
+      try {
+        setCheckingRedirect(true);
+        console.log('Checking for redirect result in production...');
+        
+        // Check if we were linking accounts
+        const linkingInProgress = sessionStorage.getItem('rtdConnectLinkingInProgress');
+        const linkingProvider = sessionStorage.getItem('rtdConnectLinkingProvider');
+        
+        if (linkingInProgress) {
+          console.log(`Expecting account linking result from ${linkingProvider}`);
+          sessionStorage.removeItem('rtdConnectLinkingInProgress');
+          sessionStorage.removeItem('rtdConnectLinkingProvider');
+        }
+        
+        // Check if we were expecting a redirect
+        const authInProgress = sessionStorage.getItem('rtdConnectAuthInProgress');
+        const authProvider = sessionStorage.getItem('rtdConnectAuthProvider');
+        
+        if (authInProgress) {
+          console.log(`Expecting redirect result from ${authProvider}`);
+        }
+        
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          console.log('Redirect sign-in successful for:', result.user.email);
+          
+          // Show loading screen immediately
+          setShowAuthLoading(true);
+          setAuthLoadingMessage("Completing your sign-in...");
+          
+          // Clear session storage flags
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+          
+          const user = result.user;
+          
+          if (!user.email) {
+            setShowAuthLoading(false);
+            setError("Unable to retrieve email from provider. Please try again.");
+            return;
+          }
+
+          if (isStaffEmail(user.email)) {
+            setShowAuthLoading(false);
+            await auth.signOut();
+            handleStaffAttempt();
+          } else {
+            setAuthLoadingMessage("Preparing your dashboard...");
+            const success = await ensureUserData(user);
+            if (success) {
+              setAuthLoadingMessage("Almost ready...");
+              // Add a small delay to show the final message, then navigate
+              setTimeout(() => {
+                setShowAuthLoading(false);
+                navigate("/dashboard");
+              }, 1000);
+            } else {
+              setShowAuthLoading(false);
+            }
+          }
+        } else if (authInProgress) {
+          // We were expecting a redirect but didn't get one - this might indicate an error
+          console.log('Expected redirect result but none found');
+          setShowAuthLoading(false);
+          
+          setError("Sign-in process was interrupted or cancelled. Please try again.");
+          
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+        }
+      } catch (error) {
+        console.error("Redirect sign-in error:", error);
+        setShowAuthLoading(false);
+        
+        // Handle account linking case for redirect flow
+        if (error.code === 'auth/account-exists-with-different-credential') {
+          const email = error.customData?.email || error.email;
+          const authProvider = sessionStorage.getItem('rtdConnectAuthProvider');
+          
+          if (email && authProvider) {
+            try {
+              // Check which sign-in methods exist for this email
+              const methods = await fetchSignInMethodsForEmail(auth, email);
+              console.log('Existing sign-in methods for', email, ':', methods);
+              
+              // If methods array is empty, Firebase might not be returning the correct info
+              // In this case, we'll assume it's a password account and show the linking dialog
+              if (methods.length === 0) {
+                console.log('No sign-in methods found (redirect), assuming password account and showing linking dialog');
+                setError(null); // Clear any existing error
+                setPendingProvider(authProvider);
+                setLinkingEmail(email);
+                setShowLinkAccountDialog(true);
+                sessionStorage.removeItem('rtdConnectAuthInProgress');
+                sessionStorage.removeItem('rtdConnectAuthProvider');
+                return;
+              }
+              
+              // If the existing account uses a social provider, prompt to sign in with that
+              if (methods.includes('google.com') && authProvider !== 'google.com') {
+                setError(`This email is already linked to a Google account. Please sign in with Google instead.`);
+                sessionStorage.removeItem('rtdConnectAuthInProgress');
+                sessionStorage.removeItem('rtdConnectAuthProvider');
+                return;
+              } else if (methods.includes('microsoft.com') && authProvider !== 'microsoft.com') {
+                setError(`This email is already linked to a Microsoft account. Please sign in with Microsoft instead.`);
+                sessionStorage.removeItem('rtdConnectAuthInProgress');
+                sessionStorage.removeItem('rtdConnectAuthProvider');
+                return;
+              } else if (methods.includes('password')) {
+                // If they have email/password, show dialog to sign in and link
+                console.log('Showing account linking dialog for email (redirect):', email);
+                setError(null); // Clear any existing error
+                setPendingProvider(authProvider);
+                setLinkingEmail(email);
+                setShowLinkAccountDialog(true);
+                sessionStorage.removeItem('rtdConnectAuthInProgress');
+                sessionStorage.removeItem('rtdConnectAuthProvider');
+                return;
+              }
+            } catch (fetchError) {
+              console.error('Error fetching sign-in methods:', fetchError);
+              // If we can't fetch methods, show a generic error
+              setError('An account already exists with this email. Please try signing in with the method you used to create your account.');
+              sessionStorage.removeItem('rtdConnectAuthInProgress');
+              sessionStorage.removeItem('rtdConnectAuthProvider');
+              return;
+            }
+          }
+        }
+        
+        // Handle specific mobile authentication errors
+        if (error.message && error.message.includes('missing initial state')) {
+          console.log('Detected missing initial state error - likely storage issue on mobile');
+          
+          // Clear any stale session data
+          sessionStorage.removeItem('rtdConnectAuthInProgress');
+          sessionStorage.removeItem('rtdConnectAuthProvider');
+          
+          // Provide helpful error message for mobile users
+          setError(
+            isMobileDevice() 
+              ? "Authentication failed due to browser storage restrictions. Please try clearing your browser data or using a different browser."
+              : "Authentication failed. Please try again or use email sign-in instead."
+          );
+        } else if (error.code !== 'auth/redirect-cancelled-by-user' && 
+                  error.code !== 'auth/popup-blocked' &&
+                  error.code !== 'auth/operation-not-allowed') {
+          // Only show error for actual failures, not expected states
+          setError(getFriendlyErrorMessage(error) || "Failed to complete sign-in. Please try again.");
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
     // Handle verification flag
     const handleVerificationFlag = () => {
       const verificationFlag = localStorage.getItem('verificationEmailSent');
@@ -218,6 +431,8 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       }
     };
     
+    // Check for redirect result first
+    handleRedirectResult();
     handleVerificationFlag();
 
     // Check for navigation state message
@@ -227,9 +442,13 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       navigate(location.pathname, { replace: true, state: {} });
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        ensureUserData(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // Only process auth state changes if we're not currently handling a redirect
+      if (user && !checkingRedirect) {
+        const success = await ensureUserData(user);
+        if (success) {
+          navigate("/dashboard");
+        }
       }
     });
     return () => unsubscribe();
@@ -274,28 +493,171 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     }
   };
 
+  const handleAccountLinking = async (password) => {
+    if (!pendingProvider || !linkingEmail) return;
+    
+    setError(null);
+    setMessage(null);
+    setIsAuthenticating(true);
+    
+    try {
+      // First, sign in with email/password
+      const userCredential = await signInWithEmailAndPassword(auth, linkingEmail, password);
+      const user = userCredential.user;
+      
+      // Now link the provider
+      const provider = pendingProvider === 'google.com' ? googleProvider : microsoftProvider;
+      
+      if (isDevelopment) {
+        // Use linkWithPopup in development
+        const result = await linkWithPopup(user, provider);
+        console.log('Successfully linked account:', result.user.email);
+        
+        // Close the dialog
+        setShowLinkAccountDialog(false);
+        setPendingProvider(null);
+        setLinkingEmail("");
+        
+        // Proceed with normal user setup
+        const success = await ensureUserData(result.user);
+        if (success) {
+          navigate("/dashboard");
+        }
+      } else {
+        // Use linkWithRedirect in production
+        sessionStorage.setItem('rtdConnectLinkingInProgress', 'true');
+        sessionStorage.setItem('rtdConnectLinkingProvider', provider.providerId);
+        await linkWithRedirect(user, provider);
+        // User will be redirected
+      }
+    } catch (error) {
+      console.error("Account linking error:", error);
+      setError(getFriendlyErrorMessage(error) || "Failed to link accounts. Please try again.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
   const handleProviderSignIn = async (provider) => {
     setError(null);
     setMessage(null);
+    setIsAuthenticating(true);
+    let showingLinkDialog = false;
+    
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      if (isDevelopment) {
+        // Use popup in development
+        console.log('Using popup flow for development');
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
+        if (!user.email) {
+          setError("Unable to retrieve email from provider. Please try again.");
+          return;
+        }
 
-      if (!user.email) {
-        setError("Unable to retrieve email from provider. Please try again.");
-        return;
-      }
-
-      if (isStaffEmail(user.email)) {
-        await auth.signOut();
-        handleStaffAttempt();
+        if (isStaffEmail(user.email)) {
+          await auth.signOut();
+          handleStaffAttempt();
+        } else {
+          const success = await ensureUserData(user);
+          if (success) {
+            navigate("/dashboard");
+          }
+        }
       } else {
-        await ensureUserData(user);
-        navigate("/dashboard");
+        // Use redirect in production
+        console.log('Using redirect flow for production');
+        
+        // Store a flag to indicate we're expecting a redirect
+        sessionStorage.setItem('rtdConnectAuthInProgress', 'true');
+        sessionStorage.setItem('rtdConnectAuthProvider', provider.providerId);
+        
+        await signInWithRedirect(auth, provider);
+        // User will be redirected away, so we won't reach here
       }
     } catch (error) {
       console.error("Sign-in error:", error);
-      setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+      
+      // Handle account linking case
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        console.log('Account linking error detected:', error);
+        console.log('Error custom data:', error.customData);
+        console.log('Error email:', error.email);
+        console.log('Error credential:', error.credential);
+        console.log('Full error object:', JSON.stringify(error, null, 2));
+        
+        // Extract email from different possible locations
+        const email = error.customData?.email || error.email || error.credential?.email;
+        const credential = error.credential;
+        
+        if (email) {
+          console.log('Extracted email for account linking:', email);
+          try {
+            // Check which sign-in methods exist for this email
+            const methods = await fetchSignInMethodsForEmail(auth, email);
+            console.log('Existing sign-in methods for', email, ':', methods);
+            
+            // If methods array is empty, Firebase might not be returning the correct info
+            // In this case, we'll assume it's a password account and show the linking dialog
+            if (methods.length === 0) {
+              console.log('No sign-in methods found, assuming password account and showing linking dialog');
+              setError(null); // Clear any existing error
+              setPendingProvider(provider.providerId);
+              setLinkingEmail(email);
+              setShowLinkAccountDialog(true);
+              showingLinkDialog = true;
+              setIsAuthenticating(false);
+              return;
+            }
+            
+            // If the existing account uses a social provider, prompt to sign in with that
+            if (methods.includes('google.com') && provider.providerId !== 'google.com') {
+              setError(`This email is already linked to a Google account. Please sign in with Google instead.`);
+              setIsAuthenticating(false);
+              return;
+            } else if (methods.includes('microsoft.com') && provider.providerId !== 'microsoft.com') {
+              setError(`This email is already linked to a Microsoft account. Please sign in with Microsoft instead.`);
+              setIsAuthenticating(false);
+              return;
+            } else if (methods.includes('password')) {
+              // If they have email/password, show dialog to sign in and link
+              console.log('Showing account linking dialog for email:', email);
+              setError(null); // Clear any existing error
+              setPendingProvider(provider.providerId);
+              setLinkingEmail(email);
+              setShowLinkAccountDialog(true);
+              showingLinkDialog = true;
+              setIsAuthenticating(false);
+              return;
+            }
+          } catch (fetchError) {
+            console.error('Error fetching sign-in methods:', fetchError);
+            // If we can't fetch methods, show a generic error
+            setError('An account already exists with this email. Please try signing in with the method you used to create your account.');
+            setIsAuthenticating(false);
+            return;
+          }
+        } else {
+          console.log('No email found in error object, showing generic account linking error');
+          setError('An account already exists with this email. Please try signing in with the method you used to create your account.');
+          setIsAuthenticating(false);
+          return;
+        }
+      }
+      
+      // Handle popup blocked error specifically for development
+      if (isDevelopment && error.code === 'auth/popup-blocked') {
+        setError("Popup was blocked. Please allow popups for this site and try again.");
+      } else if (error.code !== 'auth/account-exists-with-different-credential') {
+        // Don't show generic error for account linking cases
+        setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+      }
+    } finally {
+      // Don't set isAuthenticating to false if we're showing the account linking dialog
+      if (!showingLinkDialog) {
+        setIsAuthenticating(false);
+      }
     }
   };
 
@@ -438,6 +800,9 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
           <p className="mt-1 text-sm font-medium bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
             Recommended: Use your Google or Microsoft account
           </p>
+          <p className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            {isDevelopment ? "A popup window will open for secure sign-in" : "You'll be redirected to sign in securely"}
+          </p>
         </div>
         
         {renderAlerts()}
@@ -445,26 +810,50 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => handleProviderSignIn(googleProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 hover:border-purple-300 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 hover:border-purple-300'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-              alt="Google logo"
-            />
-            <span>Continue with Google</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Google'}</span>
           </button>
 
           <button
             onClick={() => handleProviderSignIn(microsoftProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 hover:border-cyan-300 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 hover:border-cyan-300'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-              alt="Microsoft logo"
-            />
-            <span>Continue with Microsoft</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                alt="Microsoft logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Microsoft'}</span>
           </button>
         </div>
       </div>
@@ -681,6 +1070,11 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     );
   };
 
+  // Show auth loading screen if we're processing authentication
+  if (showAuthLoading) {
+    return <AuthLoadingScreen message={authLoadingMessage} />;
+  }
+
   return (
     <>
       <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
@@ -706,6 +1100,75 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
               className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-md hover:from-pink-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
             >
               Got it, I'll check my email
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLinkAccountDialog} onOpenChange={setShowLinkAccountDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Your Accounts</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-4 mt-4">
+                <div>
+                  An account with the email <span className="font-medium bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">{linkingEmail}</span> already exists.
+                </div>
+                <div>
+                  To continue with {pendingProvider === 'google.com' ? 'Google' : 'Microsoft'}, please enter your existing password to link these accounts.
+                </div>
+                <div className="text-sm text-gray-600">
+                  Once linked, you'll be able to sign in with either method.
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-2">
+                Enter your account password
+              </label>
+              <input
+                id="link-password"
+                type="password"
+                placeholder="Your existing password"
+                className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAccountLinking(e.target.value);
+                  }
+                }}
+              />
+            </div>
+            {error && (
+              <Alert variant="destructive" className="border-red-500 bg-red-50">
+                <AlertDescription className="text-red-800">{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-center space-x-2">
+            <button
+              onClick={() => {
+                setShowLinkAccountDialog(false);
+                setPendingProvider(null);
+                setLinkingEmail("");
+                setError(null);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const passwordInput = document.getElementById('link-password');
+                if (passwordInput?.value) {
+                  handleAccountLinking(passwordInput.value);
+                }
+              }}
+              disabled={isAuthenticating}
+              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-md hover:from-pink-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+            >
+              {isAuthenticating ? 'Linking...' : 'Link Accounts'}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -747,7 +1210,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
           </div>
 
           <footer className="mt-8 text-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} RTD Connect - Home Education Portal. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} RTD Connect - Home Education Portal. All rights reserved.</p>
           </footer>
         </div>
       )}

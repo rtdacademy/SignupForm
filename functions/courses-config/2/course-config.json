@@ -1231,32 +1231,6 @@
           }
         ]
       },
-      "assignment_l25_27": {
-        "title": "Assignment L25-27 - Early Atomic Models",
-        "type": "assignment",
-        "contentPath": "52-l25-27-assignment",
-        "assessmentSettings": {
-          "activityType": "assignment",
-          "timeLimit": 65,
-          "maxAttempts": 3,
-          "allowEasyExit": true,
-          "showExitButton": true,
-          "useSession": true,
-          "allowImmediateFeedback": true,
-          "secureModeIntensity": "low",
-          "title": "Assignment in Progress",
-          "badge": { "text": "ASSIGNMENT MODE", "color": "bg-green-100 text-green-800 border-green-300" },
-          "theme": {
-            "gradient": "from-green-600 to-emerald-600",
-            "gradientHover": "from-green-700 to-emerald-700",
-            "accent": "green-600",
-            "light": "green-100",
-            "border": "green-200",
-            "ring": "ring-green-200"
-          }
-        },
-        "questions": []
-      },
       "assignment_l28_30": {
         "title": "Assignment L28-30 - Quantum Effects",
         "type": "assignment",

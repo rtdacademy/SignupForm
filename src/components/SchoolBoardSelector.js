@@ -17,21 +17,18 @@ const SchoolBoardSelector = ({
   const searchInputRef = useRef(null);
   const dropdownRef = useRef(null);
   
-  // Get all authorities for validation and display
-  const allAuthorities = getAllAuthorities();
-  const publicAuthorities = getAllPublicAuthorities();
-  const separateAuthorities = getAllSeparateAuthorities();
-  
   // Initialize search term from value if it's a full authority name
   useEffect(() => {
     if (value && !searchTerm) {
+      // Get all authorities for validation and display
+      const allAuthorities = getAllAuthorities();
       // Check if value is an authority name
       const authorityEntry = Object.entries(allAuthorities).find(([code, name]) => name === value);
       if (authorityEntry) {
         setSearchTerm(value);
       }
     }
-  }, [value, allAuthorities, searchTerm]);
+  }, [value, searchTerm]);
   
   // Update filtered options when search term changes
   useEffect(() => {
@@ -41,6 +38,7 @@ const SchoolBoardSelector = ({
       
       // Also check if search term matches any authority codes
       const searchTermUpper = searchTerm.toUpperCase();
+      const allAuthorities = getAllAuthorities();
       Object.entries(allAuthorities).forEach(([code, name]) => {
         if (code.includes(searchTermUpper) && !results.find(r => r.code === code)) {
           results.push({ code, name });
@@ -52,7 +50,7 @@ const SchoolBoardSelector = ({
     } else {
       setFilteredOptions([]);
     }
-  }, [searchTerm, allAuthorities]);
+  }, [searchTerm]);
   
   // Handle search input changes
   const handleSearchChange = (e) => {
@@ -146,12 +144,15 @@ const SchoolBoardSelector = ({
   // Get current authority code if value matches an authority name
   const getCurrentAuthorityCode = () => {
     if (!value) return '';
+    const allAuthorities = getAllAuthorities();
     const authorityEntry = Object.entries(allAuthorities).find(([code, name]) => name === value);
     return authorityEntry ? authorityEntry[0] : '';
   };
   
   // Check if authority is public or separate
   const getAuthorityType = (code) => {
+    const publicAuthorities = getAllPublicAuthorities();
+    const separateAuthorities = getAllSeparateAuthorities();
     if (publicAuthorities[code]) return 'public';
     if (separateAuthorities[code]) return 'separate';
     return 'unknown';
