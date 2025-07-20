@@ -2,8 +2,8 @@ const express = require("express");
 const app = express();
 
 const stripe = require("stripe")(
-  // This is your test secret API key.
-  'sk_test_51QE8svFQ2LFjAOXoKVGlXYdTRDpxZvn9M5PfVjzIW4aqxEreaG7Da5urT5N37l1Mo5fZuhQ8GnM0vMnTZewYCRJO007N51lIzg',
+  // Use environment variable for the secret API key
+  process.env.STRIPE_SECRET_KEY || 'your_stripe_secret_key_here',
   {
     apiVersion: "2023-10-16",
   }
