@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Orbital Visualization Component
 const OrbitalVisualizationComponent = () => {
@@ -712,6 +713,48 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="64-quantum-mechanics"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question1',
+            title: 'Question 1: Standing Wave Conditions'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question2',
+            title: 'Question 2: Classical vs Quantum Mechanics'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question3',
+            title: 'Question 3: Uncertainty Principle'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question4',
+            title: 'Question 4: Wave-Particle Duality'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question5',
+            title: 'Question 5: Quantum Orbitals'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_64_question6',
+            title: 'Question 6: Energy Quantization'
+          }
+        ]}
+        title="⚛️ Quantum Mechanics Knowledge Check"
+        subtitle="Test your understanding of quantum mechanics principles, wave-particle duality, and atomic structure"
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">

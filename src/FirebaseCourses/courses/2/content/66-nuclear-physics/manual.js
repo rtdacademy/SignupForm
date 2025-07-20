@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Nuclear Notation Component
 const NuclearNotationComponent = () => {
@@ -980,6 +981,93 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="66-nuclear-physics"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question1',
+            title: 'Question 1: Nuclear Reaction Identification'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question2',
+            title: 'Question 2: Artificial Transmutation Products'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question3',
+            title: 'Question 3: Velocity Selector Potential Difference'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question4',
+            title: 'Question 4: Mass from Ion Trajectory'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question5',
+            title: 'Question 5: Carbon Isotope Mass Number'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question6',
+            title: 'Question 6: Cobalt-59 Mass Defect'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question7',
+            title: 'Question 7: Weighted Average of Chlorine Isotopes'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question8',
+            title: 'Question 8: Binding Energy of Lithium-7'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question9',
+            title: 'Question 9: Binding Energy of Radium-226'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question10',
+            title: 'Question 10: Sun\'s Mass Loss Rate'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question11',
+            title: 'Question 11: Uranium-235 Fission Events'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question12',
+            title: 'Question 12: Uranium-235 Fission Mass Conversion'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question13',
+            title: 'Question 13: Nuclear Reaction Energy – U-235 Fission'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question14',
+            title: 'Question 14: Helium Fusion Reaction Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question15',
+            title: 'Question 15: Mass Loss in Reactor'
+          }
+        ]}
+        title="☢️ Nuclear Physics Knowledge Check"
+        subtitle="Test your understanding of nuclear reactions, mass-energy equivalence, binding energy, and nuclear processes"
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
