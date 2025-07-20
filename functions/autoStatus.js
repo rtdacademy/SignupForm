@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {

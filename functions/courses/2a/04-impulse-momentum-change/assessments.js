@@ -7,11 +7,11 @@
  * using the shared assessment system with Physics 30 specific configuration.
  */
 
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';
@@ -64,21 +64,7 @@ const createBasicImpulseQuestion = () => {
   };
 };
 
-exports.course2_04_basic_impulse = createStandardMultipleChoice({
-  questions: [
-    createBasicImpulseQuestion(),
-    createBasicImpulseQuestion(),
-    createBasicImpulseQuestion(),
-    createBasicImpulseQuestion(),
-    createBasicImpulseQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 2: Person falling and landing
 const createPersonFallingQuestion = () => {
@@ -117,21 +103,6 @@ const createPersonFallingQuestion = () => {
   };
 };
 
-exports.course2_04_person_falling = createStandardMultipleChoice({
-  questions: [
-    createPersonFallingQuestion(),
-    createPersonFallingQuestion(),
-    createPersonFallingQuestion(),
-    createPersonFallingQuestion(),
-    createPersonFallingQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 4: Quantities used to calculate impulse
 const createImpulseQuantitiesQuestion = () => {
@@ -174,21 +145,6 @@ const createImpulseQuantitiesQuestion = () => {
   };
 };
 
-exports.course2_04_impulse_quantities = createStandardMultipleChoice({
-  questions: [
-    createImpulseQuantitiesQuestion(),
-    createImpulseQuantitiesQuestion(),
-    createImpulseQuantitiesQuestion(),
-    createImpulseQuantitiesQuestion(),
-    createImpulseQuantitiesQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 5: Karate board breaking
 const createKarateBoardQuestion = () => {
@@ -235,21 +191,7 @@ const createKarateBoardQuestion = () => {
   };
 };
 
-exports.course2_04_karate_board = createStandardMultipleChoice({
-  questions: [
-    createKarateBoardQuestion(),
-    createKarateBoardQuestion(),
-    createKarateBoardQuestion(),
-    createKarateBoardQuestion(),
-    createKarateBoardQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 6: Safety features (seat belts and headrests)
 const createSafetyFeaturesQuestion = () => {
@@ -307,21 +249,6 @@ const createSafetyFeaturesQuestion = () => {
   };
 };
 
-exports.course2_04_safety_features = createStandardMultipleChoice({
-  questions: [
-    createSafetyFeaturesQuestion(),
-    createSafetyFeaturesQuestion(),
-    createSafetyFeaturesQuestion(),
-    createSafetyFeaturesQuestion(),
-    createSafetyFeaturesQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 7: Golf ball and woman driver
 const createGolfBallDriverQuestion = () => {
@@ -366,21 +293,7 @@ const createGolfBallDriverQuestion = () => {
   };
 };
 
-exports.course2_04_golf_ball_driver = createStandardMultipleChoice({
-  questions: [
-    createGolfBallDriverQuestion(),
-    createGolfBallDriverQuestion(),
-    createGolfBallDriverQuestion(),
-    createGolfBallDriverQuestion(),
-    createGolfBallDriverQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // ===== IMPULSE AND MOMENTUM PRACTICE PROBLEMS SET 2 =====
 
@@ -426,21 +339,7 @@ const createChildBallQuestion = () => {
   };
 };
 
-exports.course2_04_child_ball = createStandardMultipleChoice({
-  questions: [
-    createChildBallQuestion(),
-    createChildBallQuestion(),
-    createChildBallQuestion(),
-    createChildBallQuestion(),
-    createChildBallQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 3,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
+
 
 // Question 9: Ball struck by bat
 const createBallBatQuestion = () => {
@@ -480,21 +379,6 @@ const createBallBatQuestion = () => {
   };
 };
 
-exports.course2_04_ball_bat = createStandardMultipleChoice({
-  questions: [
-    createBallBatQuestion(),
-    createBallBatQuestion(),
-    createBallBatQuestion(),
-    createBallBatQuestion(),
-    createBallBatQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 10: Bullet through wood block
 const createBulletWoodQuestion = () => {
@@ -541,21 +425,6 @@ const createBulletWoodQuestion = () => {
   };
 };
 
-exports.course2_04_bullet_wood = createStandardMultipleChoice({
-  questions: [
-    createBulletWoodQuestion(),
-    createBulletWoodQuestion(),
-    createBulletWoodQuestion(),
-    createBulletWoodQuestion(),
-    createBulletWoodQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 11: Water stream and turbine blade
 const createWaterTurbineQuestion = () => {
@@ -590,21 +459,6 @@ const createWaterTurbineQuestion = () => {
   };
 };
 
-exports.course2_04_water_turbine = createStandardMultipleChoice({
-  questions: [
-    createWaterTurbineQuestion(),
-    createWaterTurbineQuestion(),
-    createWaterTurbineQuestion(),
-    createWaterTurbineQuestion(),
-    createWaterTurbineQuestion()
-  ],
-  randomizeQuestions: true,
-  allowSameQuestion: false,
-  pointsValue: 4,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // ===== CONFIGURATION EXPORTS FOR MASTER FUNCTION =====
 // Export raw configurations that can be imported by the master function

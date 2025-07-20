@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 // Optics: Lenses Practice Questions  
 const questions = [

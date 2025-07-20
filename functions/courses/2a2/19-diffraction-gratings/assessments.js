@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 // Diffraction Gratings Knowledge Check Questions
 const questions = [

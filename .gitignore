@@ -17,3 +17,4 @@ ui-debug.log
 **/.claude/settings.local.json
 functions/.cache/
 functions/.puppeteerrc.cjs
+stripe-sample-code/

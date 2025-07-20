@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 

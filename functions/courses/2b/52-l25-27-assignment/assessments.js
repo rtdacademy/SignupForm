@@ -1,4 +1,3 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
 
 // Question pools for L25-27 Assignment - Cathode Rays and Rutherford's Model
 const questionPools = {

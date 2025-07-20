@@ -13,17 +13,15 @@
  * - Lesson 32: Electric Current
  */
 
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+// Removed imports from deleted shared directories
+// const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
+// const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'lesson';
 
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+// Removed code that depends on deleted imports
+// const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== UNIT 3 REVIEW QUESTIONS =====
 
@@ -338,9 +336,6 @@ const assessmentConfigs = {
   }
 };
 
-// Export individual assessment functions
-Object.keys(assessmentConfigs).forEach(questionId => {
-  exports[questionId] = createStandardMultipleChoice(questionId, assessmentConfigs[questionId]);
-});
-
+// Only export the assessment configurations
+// The main course2_assessments function will handle creating the handlers on-demand
 exports.assessmentConfigs = assessmentConfigs;

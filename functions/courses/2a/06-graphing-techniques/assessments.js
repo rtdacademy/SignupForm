@@ -1,8 +1,8 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+//const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 
 // Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
+const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
@@ -61,17 +61,6 @@ What is the slope of the line of best fit?`,
   };
 };
 
-exports.course2_06_graphing_techniques_question1 = createStandardMultipleChoice({
-  questions: [
-    createDistanceVsTimeQuestion()
-  ],
-  randomizeQuestions: false,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 2: Force vs Acceleration Analysis
 const createForceVsAccelerationQuestion = () => {
@@ -118,17 +107,6 @@ What is the slope of the line of best fit, and what does it represent?`,
   };
 };
 
-exports.course2_06_graphing_techniques_question2 = createStandardMultipleChoice({
-  questions: [
-    createForceVsAccelerationQuestion()
-  ],
-  randomizeQuestions: false,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 3: Velocity vs Time Analysis
 const createVelocityVsTimeQuestion = () => {
@@ -175,17 +153,6 @@ What is the slope of the line of best fit, and what does it represent?`,
   };
 };
 
-exports.course2_06_graphing_techniques_question3 = createStandardMultipleChoice({
-  questions: [
-    createVelocityVsTimeQuestion()
-  ],
-  randomizeQuestions: false,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Question 4: Current vs Voltage Analysis
 const createCurrentVsVoltageQuestion = () => {
@@ -233,17 +200,6 @@ What is the slope of the line of best fit, and what does it represent?`,
   };
 };
 
-exports.course2_06_graphing_techniques_question4 = createStandardMultipleChoice({
-  questions: [
-    createCurrentVsVoltageQuestion()
-  ],
-  randomizeQuestions: false,
-  allowSameQuestion: false,
-  pointsValue: 2,
-  maxAttempts: 9999,
-  showFeedback: true,
-  theme: 'blue'
-});
 
 // Export assessment configurations for master function
 const assessmentConfigs = {

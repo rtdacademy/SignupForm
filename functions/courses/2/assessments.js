@@ -1,3 +1,4 @@
+
 /**
  * Master Cloud Function for Course 2 (Physics 30) Assessments
  * 
@@ -219,7 +220,7 @@ exports.course2_assessments = onCall({
     }
     
     console.log(`Found assessment config for: ${assessmentId}`);
-    // console.log(`Config structure:`, JSON.stringify(assessmentConfig, null, 2)); // Commented out to prevent TRIGGER_PAYLOAD_TOO_LARGE error
+    console.log(`Config structure:`, JSON.stringify(assessmentConfig, null, 2));
     
     console.log(`Processing assessment directly for: ${assessmentId}`);
     
@@ -389,4 +390,5 @@ exports.course2_lab_submit = onCall({
     console.error('❌ Lab submission failed:', error);
     throw new Error('Failed to submit lab: ' + error.message);
   }
+
 });

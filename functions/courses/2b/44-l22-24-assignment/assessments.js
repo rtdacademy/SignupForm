@@ -1,4 +1,4 @@
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+
 
 // Question pools for L22-24 Assignment - Electromagnetic Induction
 const questionPools = {
@@ -151,30 +151,25 @@ const questions = [
   ...questionPools.group3
 ];
 
-// Export individual handlers for each question (8 total)
-const questionHandlers = {};
+// Create assessment configurations for the master function (8 total)
 const assessmentConfigs = {};
 
 for (let i = 1; i <= 8; i++) {
   const questionIndex = i - 1;
   const questionId = `course2_44_l2224_question${i}`;
   
-  questionHandlers[questionId] = createStandardMultipleChoice({
-    questions: [questions[questionIndex]],
-    randomizeOptions: true,
-    activityType: 'assignment',
-    maxAttempts: 3,
-    pointsValue: 1
-  });
-  
   assessmentConfigs[questionId] = {
+    type: 'multiple-choice',
     questions: [questions[questionIndex]],
+    randomizeQuestions: false,
     randomizeOptions: true,
-    activityType: 'assignment', 
+    allowSameQuestion: true,
+    pointsValue: 1,
     maxAttempts: 3,
-    pointsValue: 1
+    showFeedback: true,
+    activityType: 'assignment',
+    theme: 'blue'
   };
 }
 
-// Export all question handlers
-module.exports = { ...questionHandlers, assessmentConfigs };
+module.exports = { assessmentConfigs };

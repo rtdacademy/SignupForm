@@ -1,3 +1,4 @@
+
 // Cloud function creation imports removed since we only export data configs now
 const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
 
@@ -483,3 +484,4 @@ const assessmentConfigs = {
 module.exports = { 
   assessmentConfigs
 };
+
