@@ -32,7 +32,7 @@ const gradebookFunctions = require('./gradebook');
 
 // Course management
 const categoryFunctions = require('./categories');
-const summaryFunctions = require('./summaries');
+//const summaryFunctions = require('./summaries');
 const sessionScoreRecalculationFunctions = require('./sessionScoreRecalculation');
 const ltiFunctions = require('./lti');
 const IMathASFunctions = require('./IMathAS_Database');
@@ -40,7 +40,7 @@ const normalizedScheduleFunctions = require('./normalizedSchedule');
 const asnFunctions = require('./asnSync');
 
 // User management
-const archiveStudentDataFunctions = require('./archiveStudentData');
+// const archiveStudentDataFunctions = require('./archiveStudentData'); // Moved to triggers codebase
 const archiveUserActivityFunctions = require('./archiveUserActivity');
 const retrieveUserActivityFunctions = require('./retrieveUserActivity');
 const profileHistoryFunctions = require('./profileHistory');
@@ -85,8 +85,8 @@ exports.sendChatMessageV2 = chatFunctions.sendChatMessageV2;
 
 // Student management functions
 exports.deleteCategoryForStudentsV2 = categoryFunctions.deleteCategoryForStudentsV2;
-exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
-exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
+// exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2; // Moved to triggers codebase
+// exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2; // Moved to triggers codebase
 exports.archiveUserActivity = archiveUserActivityFunctions.archiveUserActivity;
 exports.cleanupOldActivityData = archiveUserActivityFunctions.cleanupOldActivityData;
 exports.retrieveUserActivity = retrieveUserActivityFunctions.retrieveUserActivity;
@@ -94,11 +94,12 @@ exports.generateActivityReport = retrieveUserActivityFunctions.generateActivityR
 exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
 exports.trackCourseEnrollmentChangesV2 = profileHistoryFunctions.trackCourseEnrollmentChangesV2;
 
-// Course summary and data functions
+/* Course summary and data functions
 exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSummariesV2;
 exports.updateStudentCourseSummaryV2 = summaryFunctions.updateStudentCourseSummaryV2;
 exports.createStudentCourseSummaryOnCourseCreateV2 = summaryFunctions.createStudentCourseSummaryOnCourseCreateV2;
 exports.batchSyncStudentDataV2 = summaryFunctions.batchSyncStudentDataV2;
+*/
 
 // Session score recalculation functions
 exports.recalculateSessionScores = sessionScoreRecalculationFunctions.recalculateSessionScores;

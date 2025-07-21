@@ -739,12 +739,32 @@ const RTDConnectDashboard = () => {
     };
   }, [customClaims?.familyId]);
 
-  // Check for pending permissions when user logs in
+  // Enhanced permission checking when user logs in
   useEffect(() => {
     if (user && !loading && hasCompleteProfile) {
       checkAndApplyPendingPermissions();
     }
   }, [user, loading, hasCompleteProfile]);
+
+  // Additional fallback: If user has a complete profile but no family registration after 3 seconds,
+  // try to recover permissions one more time
+  useEffect(() => {
+    if (user && !loading && hasCompleteProfile && !hasRegisteredFamily && !customClaims?.familyId) {
+      const timer = setTimeout(async () => {
+        console.log('Dashboard fallback: Attempting permission recovery for user with complete profile but no family...');
+        try {
+          const result = await checkAndApplyPendingPermissions();
+          if (result) {
+            console.log('✅ Dashboard fallback successfully recovered permissions:', result);
+          }
+        } catch (error) {
+          console.error('Dashboard fallback permission recovery failed:', error);
+        }
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user, loading, hasCompleteProfile, hasRegisteredFamily, customClaims?.familyId]);
 
   const handleSignOut = async () => {
     try {

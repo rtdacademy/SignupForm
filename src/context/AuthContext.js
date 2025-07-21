@@ -518,14 +518,44 @@ export function AuthProvider({ children }) {
     };
   }, [user?.uid]);
 
-  // Check and apply pending permissions for the user
+  // Enhanced permission checking that guarantees primary guardian permissions
   const checkAndApplyPendingPermissions = async (user) => {
     if (!user?.email) return null;
     
     try {
       console.log('Checking for pending permissions for user:', user.email);
       
-      // Import and call the cloud function
+      // First, check if user already has familyId in claims
+      const currentTokenResult = await user.getIdTokenResult();
+      if (currentTokenResult.claims.familyId) {
+        console.log('User already has familyId in claims:', currentTokenResult.claims.familyId);
+        return null; // No need to apply pending permissions
+      }
+      
+      // Check if user is a primary guardian based on database lookup
+      const isEmailStaff = user.email.endsWith('@rtdacademy.com');
+      if (!isEmailStaff) {
+        const hasExistingFamily = await checkForExistingFamily(user);
+        if (hasExistingFamily) {
+          console.log('User appears to be primary guardian but missing claims, forcing refresh...');
+          
+          // Force token refresh to get updated claims
+          await user.getIdToken(true);
+          const refreshedTokenResult = await user.getIdTokenResult();
+          
+          if (refreshedTokenResult.claims.familyId) {
+            console.log('✅ Claims restored after forced refresh:', refreshedTokenResult.claims.familyId);
+            return {
+              success: true,
+              familyId: refreshedTokenResult.claims.familyId,
+              familyRole: refreshedTokenResult.claims.familyRole,
+              source: 'forced_refresh'
+            };
+          }
+        }
+      }
+      
+      // Import and call the cloud function for pending permissions
       const { getFunctions, httpsCallable } = await import('firebase/functions');
       const functions = getFunctions();
       const applyPendingPermissions = httpsCallable(functions, 'applyPendingPermissions');
@@ -535,80 +565,55 @@ export function AuthProvider({ children }) {
       if (result.data.success) {
         console.log('✅ Applied pending permissions:', result.data);
         
-        // First attempt: Try immediate token refresh
-        console.log('Attempting immediate token refresh after pending permissions...');
-        try {
-          await user.getIdToken(true);
-          const immediateTokenResult = await user.getIdTokenResult();
-          if (immediateTokenResult.claims.familyId) {
-            console.log('familyId found immediately after pending permissions:', immediateTokenResult.claims.familyId);
-            return result.data;
-          }
-        } catch (error) {
-          console.log('Immediate token refresh did not work, waiting for metadata trigger...');
+        // Force immediate token refresh
+        await user.getIdToken(true);
+        const tokenResult = await user.getIdTokenResult();
+        
+        if (tokenResult.claims.familyId) {
+          console.log('✅ familyId confirmed in claims after pending permissions:', tokenResult.claims.familyId);
+          return result.data;
+        } else {
+          console.log('⚠️ familyId not yet in claims, will trigger metadata refresh...');
+          return result.data;
         }
-        
-        // Fallback: Wait for metadata-triggered token refresh
-        const waitForTokenRefresh = () => {
-          return new Promise((resolve) => {
-            let attempts = 0;
-            const maxAttempts = 10; // Check every 500ms for up to 5 seconds
-            
-            const checkClaims = async () => {
-              attempts++;
-              try {
-                const idTokenResult = await user.getIdTokenResult(true);
-                
-                if (idTokenResult.claims.familyId) {
-                  console.log(`familyId found after pending permissions, attempt ${attempts}:`, idTokenResult.claims.familyId);
-                  resolve();
-                } else if (attempts >= maxAttempts) {
-                  console.log('Max attempts reached for pending permissions token refresh');
-                  resolve();
-                } else {
-                  console.log(`Pending permissions attempt ${attempts}: familyId not yet in claims, retrying...`);
-                  setTimeout(checkClaims, 500);
-                }
-              } catch (error) {
-                console.error('Error checking claims after pending permissions:', error);
-                if (attempts >= maxAttempts) {
-                  resolve();
-                } else {
-                  setTimeout(checkClaims, 500);
-                }
-              }
-            };
-            
-            // Also listen for the token refresh event as a trigger
-            const handleTokenRefresh = () => {
-              console.log('Token refresh event detected after pending permissions, checking claims...');
-              checkClaims();
-            };
-            
-            window.addEventListener('tokenRefreshed', handleTokenRefresh);
-            
-            // Start checking
-            checkClaims();
-            
-            // Cleanup listener when done
-            setTimeout(() => {
-              window.removeEventListener('tokenRefreshed', handleTokenRefresh);
-            }, 6000);
-          });
-        };
-        
-        // Wait for the token refresh
-        await waitForTokenRefresh();
-        
-        return result.data;
       } else {
         console.log('No pending permissions found or already applied');
         return null;
       }
     } catch (error) {
-      // This is expected when no pending permissions exist
-      console.log('No pending permissions to apply:', error.message);
+      console.log('No pending permissions to apply or error occurred:', error.message);
       return null;
+    }
+  };
+
+  // Helper function to check if user has an existing family (for primary guardians)
+  const checkForExistingFamily = async (user) => {
+    if (!user?.email) return false;
+    
+    try {
+      const db = getDatabase();
+      const userEmailKey = sanitizeEmail(user.email);
+      
+      // Check if user exists in any family as primary guardian
+      const familiesRef = ref(db, 'homeEducationFamilies/familyInformation');
+      const snapshot = await get(familiesRef);
+      
+      if (snapshot.exists()) {
+        const families = snapshot.val();
+        for (const [familyId, familyData] of Object.entries(families)) {
+          if (familyData.guardians && 
+              familyData.guardians[userEmailKey] && 
+              familyData.guardians[userEmailKey].guardianType === 'primary_guardian') {
+            console.log('Found existing family for user as primary guardian:', familyId);
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking for existing family:', error);
+      return false;
     }
   };
 
@@ -860,12 +865,17 @@ export function AuthProvider({ children }) {
                                               process.env.REACT_APP_SITE === 'rtdconnect';
             
             if (isHomeEducationPortalAccess) {
-              // RTD Connect user - simplified login without home education node creation
+              // RTD Connect user - enhanced permission checking
               dataCreated = await ensureUserNode(currentUser, emailKey);
               if (dataCreated && isMounted) {
                 try {
-                  // Check for pending permissions first
-                  await checkAndApplyPendingPermissions(currentUser);
+                  // Enhanced permission checking - this will handle both pending permissions 
+                  // and missing claims for existing primary guardians
+                  const permissionResult = await checkAndApplyPendingPermissions(currentUser);
+                  
+                  if (permissionResult) {
+                    console.log('✅ RTD Connect permissions applied/restored:', permissionResult);
+                  }
                   
                   // Initialize basic user session
                   await Promise.all([
@@ -884,7 +894,7 @@ export function AuthProvider({ children }) {
                 setIsParentUser(false);
                 
                 // For RTD Connect portal access, set isHomeEducationParent to true
-                // Custom claims will be set later during family registration
+                // This ensures access to the portal even if custom claims are delayed
                 setIsHomeEducationParent(true);
                 
                 // Clear RTD Connect signup/login flags if they exist

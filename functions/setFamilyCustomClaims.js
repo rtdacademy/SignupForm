@@ -81,14 +81,47 @@ const applyPendingPermissions = onCall({
       ...customClaims
     };
     
-    // Apply the custom claims
-    await admin.auth().setCustomUserClaims(auth.uid, finalClaims);
-    console.log(`✓ Successfully set custom claims for user ${auth.uid} with familyId: ${pendingData.familyId}`);
+    // Apply the custom claims with retry logic
+    let claimsSet = false;
+    let attempts = 0;
+    const maxAttempts = 3;
     
-    // Verify the claims were set by reading them back
-    const updatedUserRecord = await admin.auth().getUser(auth.uid);
-    const verifyCustomClaims = updatedUserRecord.customClaims || {};
-    console.log(`✓ Verified custom claims - familyId: ${verifyCustomClaims.familyId}, familyRole: ${verifyCustomClaims.familyRole}`);
+    while (!claimsSet && attempts < maxAttempts) {
+      attempts++;
+      
+      try {
+        await admin.auth().setCustomUserClaims(auth.uid, finalClaims);
+        console.log(`✓ Attempt ${attempts}: Set custom claims for user ${auth.uid} with familyId: ${pendingData.familyId}`);
+        
+        // Verify the claims were set by reading them back
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for propagation
+        const updatedUserRecord = await admin.auth().getUser(auth.uid);
+        const verifyCustomClaims = updatedUserRecord.customClaims || {};
+        
+        if (verifyCustomClaims.familyId === pendingData.familyId) {
+          console.log(`✓ Verified custom claims - familyId: ${verifyCustomClaims.familyId}, familyRole: ${verifyCustomClaims.familyRole}`);
+          claimsSet = true;
+        } else {
+          console.log(`⚠️ Attempt ${attempts}: Claims verification failed, retrying...`);
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+          }
+        }
+      } catch (error) {
+        console.error(`✗ Attempt ${attempts} failed:`, error);
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    if (!claimsSet) {
+      throw new Error('Failed to set and verify custom claims after multiple attempts');
+    }
+    
+    console.log(`✓ Successfully set and verified custom claims for user ${auth.uid} with familyId: ${pendingData.familyId}`);
     
     // Small delay to ensure claims are propagated
     await new Promise(resolve => setTimeout(resolve, 1000));

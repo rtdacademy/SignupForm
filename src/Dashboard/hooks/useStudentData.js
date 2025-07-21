@@ -620,7 +620,7 @@ export const useStudentData = (userEmailKey) => {
       }));
     };
 
-    const setupListeners = () => {
+    const setupListeners = async () => {
       const profileRef = ref(db, `students/${userEmailKey}/profile`);
       const coursesRef = ref(db, `students/${userEmailKey}/courses`);
       const datesRef = ref(db, 'ImportantDates');
@@ -648,33 +648,61 @@ export const useStudentData = (userEmailKey) => {
         checkLoadingComplete();
       }, handleError);
 
-      // Listen for course changes
-      const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
-        if (!isMounted) return;
+      // Set up optimized course listeners - listen to specific paths only to avoid large payloads
+      const setupOptimizedCourseListeners = async () => {
+        // First, get the list of courses the student is enrolled in (initial fetch is OK)
+        const coursesListRef = ref(db, `students/${userEmailKey}/courses`);
+        const coursesListSnapshot = await get(coursesListRef);
+        
+        if (!coursesListSnapshot.exists()) {
+          setStudentData(prev => ({
+            ...prev,
+            courses: []
+          }));
+          coursesReceived = true;
+          checkLoadingComplete();
+          return () => {}; // Return empty cleanup function
+        }
 
-        // console.log('Courses received:', coursesSnapshot.exists());
+        const coursesData = coursesListSnapshot.val();
+        const courseIds = Object.keys(coursesData).filter(key => 
+          key !== 'sections' && key !== 'normalizedSchedule'
+        );
 
-        if (coursesSnapshot.exists()) {
-          const coursesData = coursesSnapshot.val();
+        // Track all unsubscribe functions
+        const courseUnsubscribers = [];
+        
+        // State to accumulate course data from multiple listeners
+        const courseDataAccumulator = {};
+        
+        // Initialize accumulator with course IDs
+        courseIds.forEach(courseId => {
+          courseDataAccumulator[courseId] = {};
+        });
+
+        // Helper function to update course data and reprocess
+        const updateCourseData = async (courseId, path, value) => {
+          // Update the specific path in the accumulator
+          if (path === 'root') {
+            // For root level properties like Created, Course, etc.
+            courseDataAccumulator[courseId] = { ...courseDataAccumulator[courseId], ...value };
+          } else {
+            // For nested paths
+            courseDataAccumulator[courseId][path] = value;
+          }
           
-          // Remove jsonStudentNotes from each course before processing
-          // since students no longer have read access to this field
-          const sanitizedCoursesData = Object.fromEntries(
-            Object.entries(coursesData).map(([courseId, courseData]) => {
-              if (courseData && typeof courseData === 'object') {
-                const { jsonStudentNotes, ...sanitizedCourseData } = courseData;
-                return [courseId, sanitizedCourseData];
-              }
-              return [courseId, courseData];
-            })
-          );
+          // Reconstruct the full courses data structure
+          const reconstructedCoursesData = { ...coursesData };
+          Object.entries(courseDataAccumulator).forEach(([id, data]) => {
+            reconstructedCoursesData[id] = { ...reconstructedCoursesData[id], ...data };
+          });
           
-          const processedCourses = await processCourses(sanitizedCoursesData);
+          // Process courses with the updated data
+          const processedCourses = await processCourses(reconstructedCoursesData);
           
           if (!isMounted) return;
 
           setStudentData(prev => {
-            // Need to re-process notifications if courses changed
             let updatedCourses = processedCourses;
             
             if (prev.profile && prev.allNotifications) {
@@ -691,17 +719,94 @@ export const useStudentData = (userEmailKey) => {
               studentExists: true
             };
           });
-        } else {
-          setStudentData(prev => ({
-            ...prev,
-            courses: []
-          }));
+        };
+
+        // Set up individual listeners for each course and each specific path
+        for (const courseId of courseIds) {
+          // Define the specific paths we want to listen to (excluding Assessments)
+          const pathsToListen = [
+            'ActiveFutureArchived/Value',
+            'DiplomaMonthChoices/Value', 
+            'Grades/assessments',
+            'School_x0020_Year/Value',
+            'Status/Value',
+            'StudentType/Value',
+            'TeacherComments'
+          ];
+
+          // Listen to each specific path
+          pathsToListen.forEach(pathSuffix => {
+            const specificRef = ref(db, `students/${userEmailKey}/courses/${courseId}/${pathSuffix}`);
+            
+            const unsubscribe = onValue(specificRef, (snapshot) => {
+              if (!isMounted) return;
+              
+              const value = snapshot.exists() ? snapshot.val() : null;
+              updateCourseData(courseId, pathSuffix.replace('/', '_'), value);
+            }, handleError);
+            
+            courseUnsubscribers.push(unsubscribe);
+          });
+
+          // Listen to specific root-level course properties individually to avoid large payloads
+          const rootPropertiesToListen = [
+            'Created',
+            'Course/Value', 
+            'CourseID',
+            'Enrolled_x0020_Date',
+            'Final_x0020_Grade',
+            'Program',
+            'Semester'
+          ];
+
+          rootPropertiesToListen.forEach(propertyPath => {
+            const propertyRef = ref(db, `students/${userEmailKey}/courses/${courseId}/${propertyPath}`);
+            const propertyUnsubscribe = onValue(propertyRef, (snapshot) => {
+              if (!isMounted) return;
+              
+              const value = snapshot.exists() ? snapshot.val() : null;
+              updateCourseData(courseId, propertyPath.replace('/', '_'), value);
+            }, handleError);
+            
+            courseUnsubscribers.push(propertyUnsubscribe);
+          });
         }
+
+        // Initial processing with existing data
+        const processedCourses = await processCourses(coursesData);
         
-        // Mark courses as received after async processing is complete
+        if (isMounted) {
+          setStudentData(prev => {
+            let updatedCourses = processedCourses;
+            
+            if (prev.profile && prev.allNotifications) {
+              updatedCourses = processNotificationsForCourses(
+                processedCourses,
+                prev.profile,
+                prev.allNotifications
+              );
+            }
+            
+            return {
+              ...prev,
+              courses: updatedCourses,
+              studentExists: true
+            };
+          });
+        }
+
+        // Mark courses as received
         coursesReceived = true;
         checkLoadingComplete();
-      }, handleError);
+
+        // Return cleanup function
+        return () => {
+          courseUnsubscribers.forEach(unsubscribe => unsubscribe());
+        };
+      };
+
+      // Set up the optimized course listeners
+      const coursesUnsubscribe = await setupOptimizedCourseListeners();
 
       // Listen for ImportantDates changes
       const datesUnsubscribe = onValue(datesRef, async (datesSnapshot) => {
@@ -764,7 +869,9 @@ export const useStudentData = (userEmailKey) => {
 
       return () => {
         profileUnsubscribe();
-        coursesUnsubscribe();
+        if (coursesUnsubscribe && typeof coursesUnsubscribe === 'function') {
+          coursesUnsubscribe();
+        }
         datesUnsubscribe();
         notificationsUnsubscribe();
       };
@@ -850,7 +957,9 @@ export const useStudentData = (userEmailKey) => {
       }).catch(handleError);
     } else {
       // Set up real-time listeners
-      unsubscribe = setupListeners();
+      setupListeners().then(cleanupFn => {
+        unsubscribe = cleanupFn;
+      }).catch(handleError);
     }
 
     return () => {
