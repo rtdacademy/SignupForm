@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { FaGraduationCap } from 'react-icons/fa';
 import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X, Minimize2, RotateCcw } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
 import { getLessonAccessibility } from './utils/lessonAccess';
@@ -11,6 +12,7 @@ import {
   calculateLessonScore, 
   calculateCategoryScores 
 } from './utils/gradeCalculations';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
@@ -237,6 +239,11 @@ const FirebaseCourseWrapperContent = ({
   
   // Simplified AI state - just prepopulated message for chat input
   const [prepopulatedMessage, setPrepopulatedMessage] = useState('');
+  
+  // State for realtime grades updates
+  const [realtimeGrades, setRealtimeGrades] = useState(null);
+  const [realtimeExamSessions, setRealtimeExamSessions] = useState(null);
+  const [dataUpdateTrigger, setDataUpdateTrigger] = useState(0);
   
   // State for content context from AI accordion
   const [contentContextData, setContentContextData] = useState(null);
@@ -968,8 +975,99 @@ const FirebaseCourseWrapperContent = ({
     });
     
     setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, course?.Assessments, profile?.StudentEmail, currentUser?.email]);
+  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, course?.Assessments, profile?.StudentEmail, currentUser?.email, realtimeGrades, realtimeExamSessions, dataUpdateTrigger]);
 
+  // Realtime listener for grades updates
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Sanitize email for Firebase path
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    const gradesPath = `students/${sanitizedEmail}/courses/${courseId}/Grades/assessments`;
+    
+    console.log('🔄 Setting up realtime grades listener for:', gradesPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const gradesRef = ref(db, gradesPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(gradesRef, (snapshot) => {
+      const gradesData = snapshot.val();
+      console.log('📊 Realtime grades update received:', gradesData ? 'Data present' : 'No data');
+      
+      // Update the realtime grades state
+      setRealtimeGrades(gradesData || {});
+      
+      // Update the course object's grades if they exist
+      if (gradesData && course?.Grades) {
+        course.Grades.assessments = gradesData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in grades listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up grades listener');
+      off(gradesRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
+
+  // Realtime listener for ExamSessions updates (for session-based scoring)
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Listen to the student's specific exam sessions path
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    const examSessionsPath = `students/${sanitizedEmail}/courses/${courseId}/ExamSessions`;
+    
+    console.log('🔄 Setting up realtime ExamSessions listener for:', examSessionsPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const examSessionsRef = ref(db, examSessionsPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(examSessionsRef, (snapshot) => {
+      const sessionsData = snapshot.val();
+      console.log('📊 Realtime ExamSessions update received:', sessionsData ? 'Data present' : 'No data');
+      
+      // Update the realtime exam sessions state
+      setRealtimeExamSessions(sessionsData || {});
+      
+      // Update the course object's exam sessions if they exist
+      if (sessionsData && course) {
+        course.ExamSessions = sessionsData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in ExamSessions listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up ExamSessions listener');
+      off(examSessionsRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
  
   
   // Get current unit index
