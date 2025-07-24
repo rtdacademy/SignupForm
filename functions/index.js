@@ -120,12 +120,16 @@ exports.getPaymentStatusV2 = stripeFunctions.getPaymentStatusV2;
 
 // Stripe Connect functions for parent payouts
 const { createStripeConnectAccount } = require('./createStripeConnectAccount');
-const { createStripeAccountSession } = require('./createStripeAccountSession');
+const { createAccountSession } = require('./createAccountSession');
 const { processReimbursementPayout } = require('./processReimbursementPayout');
+const { debugStripeAccount } = require('./debugStripeAccount');
 
 exports.createStripeConnectAccount = createStripeConnectAccount;
-exports.createStripeAccountSession = createStripeAccountSession;
+exports.createAccountSession = createAccountSession;
 exports.processReimbursementPayout = processReimbursementPayout;
+exports.debugStripeAccount = debugStripeAccount;
+
+
 
 // LTI functions
 exports.ltiJwksV2 = ltiFunctions.ltiJwksV2;
@@ -241,8 +245,13 @@ exports.saveFamilyData = saveFamilyDataFunction;
 
 // Staff custom claims functions
 const staffCustomClaimsFunctions = require('./setStaffCustomClaims');
+exports.setBasicStaffClaim = staffCustomClaimsFunctions.setBasicStaffClaim;
 exports.setStaffCustomClaims = staffCustomClaimsFunctions.setStaffCustomClaims;
-exports.getStaffPermissions = staffCustomClaimsFunctions.getStaffPermissions;
+exports.getAnyStaffPermissions = staffCustomClaimsFunctions.getAnyStaffPermissions;
+exports.getAllStaffPermissions = staffCustomClaimsFunctions.getAllStaffPermissions;
+exports.getAnyUserPermissions = staffCustomClaimsFunctions.getAnyUserPermissions;
+exports.updateStaffPermissions = staffCustomClaimsFunctions.updateStaffPermissions;
+exports.removeStaffPermissions = staffCustomClaimsFunctions.removeStaffPermissions;
 
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;
@@ -250,6 +259,10 @@ exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfil
 // Student Registration functions
 const studentRegistrationFunctions = require('./submitStudentRegistration');
 exports.submitStudentRegistration = studentRegistrationFunctions.submitStudentRegistration;
+
+// Reimbursement submission function
+const reimbursementFunctions = require('./submitReimbursement');
+exports.submitReimbursement = reimbursementFunctions.submitReimbursement;
 
 
 // Student Profile functions

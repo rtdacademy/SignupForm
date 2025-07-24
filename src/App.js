@@ -355,6 +355,8 @@ function RTDConnectApp() {
           user && isHomeEducationParent ? <RTDConnectDashboard /> : <Navigate to="/login" />
         } />
 
+   
+
         {/* Shared routes */}
         <Route path="/auth-action-handler" element={<MultiActionAuthHandler />} />
         

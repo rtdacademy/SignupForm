@@ -38,10 +38,10 @@ const STAFF_PERMISSIONS = {
   
   // Permission hierarchy (higher levels include lower level permissions)
   HIERARCHY: {
-    'super_admin': ['admin', 'course_manager', 'teacher', 'staff'],
-    'admin': ['course_manager', 'teacher', 'staff'],
-    'course_manager': ['teacher', 'staff'],
-    'teacher': ['staff'],
+    'super_admin': ['super_admin', 'admin', 'course_manager', 'teacher', 'staff'],
+    'admin': ['admin', 'course_manager', 'teacher', 'staff'],
+    'course_manager': ['course_manager', 'teacher', 'staff'],
+    'teacher': ['teacher', 'staff'],
     'staff': ['staff']
   }
 };
@@ -136,9 +136,117 @@ function isStaffEmail(email) {
 }
 
 /**
- * Cloud Function: setStaffCustomClaims
+ * Cloud Function: setBasicStaffClaim
+ * 
+ * Sets basic staff claims for users with staff domain emails (@rtdacademy.com or @rtd-connect.com)
+ * This is called during login to establish basic staff status only
+ */
+const setBasicStaffClaim = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const uid = request.auth.uid;
+  const userEmail = request.auth.token.email;
+  
+  if (!userEmail) {
+    throw new HttpsError('invalid-argument', 'User email is required.');
+  }
+
+  console.log(`Setting basic staff claim for user: ${userEmail} (${uid})`);
+
+  // Validate that this is a staff email
+  if (!isStaffEmail(userEmail)) {
+    throw new HttpsError(
+      'permission-denied', 
+      'Only users with @rtdacademy.com or @rtd-connect.com email addresses can have staff claims.'
+    );
+  }
+
+  const db = admin.database();
+  
+  try {
+    // Get user's existing custom claims
+    const userRecord = await admin.auth().getUser(uid);
+    const existingClaims = userRecord.customClaims || {};
+    
+    // Prepare the basic staff claims (matching your example structure)
+    const basicStaffClaims = {
+      // Preserve existing non-staff claims
+      ...existingClaims,
+      
+      // Basic staff structure
+      roles: ['staff'],
+      primaryRole: 'staff',
+      permissions: {
+        isStaff: true
+      },
+      lastUpdated: Date.now(),
+      email: userEmail,
+      
+      // Legacy staff fields
+      staffPermissions: ['staff'],
+      staffRole: 'staff',
+      lastPermissionUpdate: Date.now(),
+      permissionSource: 'domain',
+      isStaffUser: true,
+      isAdminUser: false,
+      isSuperAdminUser: false
+    };
+    
+    // Set the custom claims
+    await admin.auth().setCustomUserClaims(uid, basicStaffClaims);
+    console.log(`✓ Successfully set basic staff claim for user ${uid}`);
+    
+    // Small delay to ensure claims are propagated
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Update metadata to trigger token refresh
+    try {
+      await db.ref(`metadata/${uid}`).set({
+        refreshTime: Date.now(),
+        basicStaffClaimApplied: Date.now()
+      });
+      console.log(`✓ Updated metadata to trigger token refresh for user ${uid}`);
+    } catch (error) {
+      console.error(`✗ Failed to update metadata for user ${uid}:`, error);
+      // Don't throw here as the claims were successfully set
+    }
+    
+    return {
+      success: true,
+      message: 'Basic staff claim applied successfully',
+      claims: {
+        roles: ['staff'],
+        primaryRole: 'staff',
+        isStaffUser: true
+      }
+    };
+    
+  } catch (error) {
+    console.error('Error setting basic staff claim:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while setting basic staff claim.');
+  }
+});
+
+/**
+ * Cloud Function: setStaffCustomClaims (LEGACY - kept for manual management)
  * 
  * Sets custom claims for staff members based on their email domain and specific permissions
+ * NOTE: This is now primarily used by the manual permission management system
  */
 const setStaffCustomClaims = onCall({
   concurrency: 50,
@@ -247,21 +355,6 @@ const setStaffCustomClaims = onCall({
       // Don't throw here as the claims were successfully set
     }
     
-    // Log the activity for audit purposes
-    try {
-      await db.ref(`staffClaimsAudit/${uid}`).push({
-        email: userEmail,
-        action: 'claims_applied',
-        permissions: expandedPermissions,
-        staffRole: highestPermission,
-        permissionSource: permissionSource,
-        timestamp: Date.now(),
-        appliedBy: 'system'
-      });
-    } catch (error) {
-      console.error('Failed to log staff claims audit:', error);
-      // Don't throw here as it's just for logging
-    }
     
     return {
       success: true,
@@ -282,12 +375,13 @@ const setStaffCustomClaims = onCall({
   }
 });
 
+
 /**
- * Cloud Function: getStaffPermissions
+ * Cloud Function: getAnyStaffPermissions
  * 
- * Returns the current staff permissions for the authenticated user
+ * Returns the current staff permissions for any specified user (super admin only)
  */
-const getStaffPermissions = onCall({
+const getAnyStaffPermissions = onCall({
   concurrency: 50,
   cors: [
     "https://yourway.rtdacademy.com", 
@@ -300,31 +394,674 @@ const getStaffPermissions = onCall({
     throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
   }
 
-  const uid = request.auth.uid;
-  const userEmail = request.auth.token.email;
+  const callerEmail = request.auth.token.email;
+  const { targetEmail, targetUid } = request.data;
+  
+  // Verify caller has super admin permissions
+  const callerTokenResult = await admin.auth().getUser(request.auth.uid);
+  const callerClaims = callerTokenResult.customClaims || {};
+  
+  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only super admin users can fetch staff permissions for other users.');
+  }
+  
+  console.log(`Super admin ${callerEmail} requesting permissions for: ${targetEmail || targetUid}`);
   
   try {
-    // Get user's current custom claims
-    const userRecord = await admin.auth().getUser(uid);
-    const customClaims = userRecord.customClaims || {};
+    let targetUser;
+    
+    // Get target user by email or UID
+    if (targetEmail) {
+      targetUser = await admin.auth().getUserByEmail(targetEmail);
+    } else if (targetUid) {
+      targetUser = await admin.auth().getUser(targetUid);
+    } else {
+      throw new HttpsError('invalid-argument', 'Either targetEmail or targetUid must be provided.');
+    }
+    
+    // Check if target user is staff
+    if (!isStaffEmail(targetUser.email)) {
+      return {
+        success: true,
+        email: targetUser.email,
+        uid: targetUser.uid,
+        isStaff: false,
+        message: 'User is not a staff member'
+      };
+    }
+    
+    // Get target user's current custom claims
+    const customClaims = targetUser.customClaims || {};
+    
+    // Get expected permissions for comparison
+    const expectedBasePermissions = getPermissionsForEmail(targetUser.email);
+    const expectedExpandedPermissions = expandPermissions(expectedBasePermissions);
+    const expectedHighestPermission = getHighestPermission(expectedBasePermissions);
     
     return {
       success: true,
-      email: userEmail,
-      staffPermissions: customClaims.staffPermissions || [],
-      staffRole: customClaims.staffRole || null,
-      lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
-      permissionSource: customClaims.permissionSource || null,
-      isStaffUser: customClaims.isStaffUser || false
+      email: targetUser.email,
+      uid: targetUser.uid,
+      isStaff: true,
+      currentClaims: {
+        staffPermissions: customClaims.staffPermissions || [],
+        staffRole: customClaims.staffRole || null,
+        lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
+        permissionSource: customClaims.permissionSource || null,
+        isStaffUser: customClaims.isStaffUser || false,
+        isAdminUser: customClaims.isAdminUser || false,
+        isSuperAdminUser: customClaims.isSuperAdminUser || false
+      },
+      expectedClaims: {
+        staffPermissions: expectedExpandedPermissions,
+        staffRole: expectedHighestPermission,
+        isStaffUser: true,
+        isAdminUser: expectedExpandedPermissions.includes('admin'),
+        isSuperAdminUser: expectedHighestPermission === 'super_admin'
+      },
+      claimsMatch: JSON.stringify(customClaims.staffPermissions || []) === JSON.stringify(expectedExpandedPermissions) &&
+                   customClaims.staffRole === expectedHighestPermission &&
+                   customClaims.isStaffUser === true &&
+                   customClaims.isAdminUser === expectedExpandedPermissions.includes('admin') &&
+                   customClaims.isSuperAdminUser === (expectedHighestPermission === 'super_admin')
     };
     
   } catch (error) {
     console.error('Error getting staff permissions:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+    
     throw new HttpsError('internal', 'An error occurred while retrieving staff permissions.');
   }
 });
 
+/**
+ * Cloud Function: getAllStaffPermissions
+ * 
+ * Returns permissions for all staff members (super admin only)
+ */
+const getAllStaffPermissions = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const callerEmail = request.auth.token.email;
+  
+  // Verify caller has super admin permissions
+  const callerTokenResult = await admin.auth().getUser(request.auth.uid);
+  const callerClaims = callerTokenResult.customClaims || {};
+  
+  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only super admin users can fetch all staff permissions.');
+  }
+  
+  console.log(`Super admin ${callerEmail} requesting all staff permissions`);
+  
+  try {
+    // Get all users from Firebase Auth (paginated)
+    let allUsers = [];
+    let nextPageToken;
+    
+    do {
+      const result = await admin.auth().listUsers(1000, nextPageToken);
+      allUsers = allUsers.concat(result.users);
+      nextPageToken = result.pageToken;
+    } while (nextPageToken);
+    
+    // Filter for staff users only
+    const staffUsers = allUsers.filter(user => 
+      user.email && isStaffEmail(user.email)
+    );
+    
+    console.log(`Found ${staffUsers.length} staff users out of ${allUsers.length} total users`);
+    
+    // Process each staff user
+    const staffPermissions = [];
+    
+    for (const user of staffUsers) {
+      try {
+        // Get expected permissions for this user
+        const expectedBasePermissions = getPermissionsForEmail(user.email);
+        const expectedExpandedPermissions = expandPermissions(expectedBasePermissions);
+        const expectedHighestPermission = getHighestPermission(expectedBasePermissions);
+        
+        // Get current custom claims
+        const customClaims = user.customClaims || {};
+        
+        // Check if claims match expected values
+        const currentStaffPermissions = customClaims.staffPermissions || [];
+        const claimsMatch = JSON.stringify(currentStaffPermissions) === JSON.stringify(expectedExpandedPermissions) &&
+                           customClaims.staffRole === expectedHighestPermission &&
+                           customClaims.isStaffUser === true &&
+                           customClaims.isAdminUser === expectedExpandedPermissions.includes('admin') &&
+                           customClaims.isSuperAdminUser === (expectedHighestPermission === 'super_admin');
+        
+        staffPermissions.push({
+          email: user.email,
+          uid: user.uid,
+          emailVerified: user.emailVerified,
+          disabled: user.disabled,
+          lastSignInTime: user.metadata.lastSignInTime,
+          creationTime: user.metadata.creationTime,
+          currentClaims: {
+            staffPermissions: currentStaffPermissions,
+            staffRole: customClaims.staffRole || null,
+            lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
+            permissionSource: customClaims.permissionSource || null,
+            isStaffUser: customClaims.isStaffUser || false,
+            isAdminUser: customClaims.isAdminUser || false,
+            isSuperAdminUser: customClaims.isSuperAdminUser || false
+          },
+          expectedClaims: {
+            staffPermissions: expectedExpandedPermissions,
+            staffRole: expectedHighestPermission,
+            isStaffUser: true,
+            isAdminUser: expectedExpandedPermissions.includes('admin'),
+            isSuperAdminUser: expectedHighestPermission === 'super_admin'
+          },
+          claimsMatch,
+          needsUpdate: !claimsMatch
+        });
+      } catch (error) {
+        console.error(`Error processing user ${user.email}:`, error);
+        // Continue processing other users even if one fails
+        staffPermissions.push({
+          email: user.email,
+          uid: user.uid,
+          error: 'Failed to process user permissions',
+          claimsMatch: false,
+          needsUpdate: true
+        });
+      }
+    }
+    
+    // Sort by email for consistent ordering
+    staffPermissions.sort((a, b) => a.email.localeCompare(b.email));
+    
+    const summary = {
+      totalStaff: staffPermissions.length,
+      validClaims: staffPermissions.filter(user => user.claimsMatch).length,
+      invalidClaims: staffPermissions.filter(user => !user.claimsMatch).length,
+      superAdmins: staffPermissions.filter(user => 
+        user.expectedClaims && user.expectedClaims.isSuperAdminUser
+      ).length,
+      admins: staffPermissions.filter(user => 
+        user.expectedClaims && user.expectedClaims.isAdminUser && !user.expectedClaims.isSuperAdminUser
+      ).length
+    };
+    
+    return {
+      success: true,
+      summary,
+      staffPermissions,
+      timestamp: Date.now()
+    };
+    
+  } catch (error) {
+    console.error('Error getting all staff permissions:', error);
+    throw new HttpsError('internal', 'An error occurred while retrieving staff permissions.');
+  }
+});
+
+/**
+ * Cloud Function: getAnyUserPermissions
+ * 
+ * Returns user information and permissions for any user (super admin only)
+ */
+const getAnyUserPermissions = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const callerEmail = request.auth.token.email;
+  const { targetEmail, targetUid } = request.data;
+  
+  // Verify caller has super admin permissions
+  const callerTokenResult = await admin.auth().getUser(request.auth.uid);
+  const callerClaims = callerTokenResult.customClaims || {};
+  
+  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only super admin users can fetch user permissions.');
+  }
+  
+  console.log(`Super admin ${callerEmail} requesting permissions for: ${targetEmail || targetUid}`);
+  
+  try {
+    let targetUser;
+    
+    // Get target user by email or UID
+    if (targetEmail) {
+      targetUser = await admin.auth().getUserByEmail(targetEmail);
+    } else if (targetUid) {
+      targetUser = await admin.auth().getUser(targetUid);
+    } else {
+      throw new HttpsError('invalid-argument', 'Either targetEmail or targetUid must be provided.');
+    }
+    
+    // Determine user type
+    const userIsStaff = isStaffEmail(targetUser.email);
+    const customClaims = targetUser.customClaims || {};
+    
+    const userInfo = {
+      success: true,
+      email: targetUser.email,
+      uid: targetUser.uid,
+      emailVerified: targetUser.emailVerified,
+      disabled: targetUser.disabled,
+      lastSignInTime: targetUser.metadata.lastSignInTime,
+      creationTime: targetUser.metadata.creationTime,
+      userType: userIsStaff ? 'staff' : 'regular_user'
+    };
+    
+    if (userIsStaff) {
+      // Handle staff user - show staff permissions
+      const expectedBasePermissions = getPermissionsForEmail(targetUser.email);
+      const expectedExpandedPermissions = expandPermissions(expectedBasePermissions);
+      const expectedHighestPermission = getHighestPermission(expectedBasePermissions);
+      
+      const claimsMatch = JSON.stringify(customClaims.staffPermissions || []) === JSON.stringify(expectedExpandedPermissions) &&
+                         customClaims.staffRole === expectedHighestPermission &&
+                         customClaims.isStaffUser === true &&
+                         customClaims.isAdminUser === expectedExpandedPermissions.includes('admin') &&
+                         customClaims.isSuperAdminUser === (expectedHighestPermission === 'super_admin');
+      
+      return {
+        ...userInfo,
+        isStaff: true,
+        currentClaims: {
+          staffPermissions: customClaims.staffPermissions || [],
+          staffRole: customClaims.staffRole || null,
+          lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
+          permissionSource: customClaims.permissionSource || null,
+          isStaffUser: customClaims.isStaffUser || false,
+          isAdminUser: customClaims.isAdminUser || false,
+          isSuperAdminUser: customClaims.isSuperAdminUser || false
+        },
+        expectedClaims: {
+          staffPermissions: expectedExpandedPermissions,
+          staffRole: expectedHighestPermission,
+          isStaffUser: true,
+          isAdminUser: expectedExpandedPermissions.includes('admin'),
+          isSuperAdminUser: expectedHighestPermission === 'super_admin'
+        },
+        claimsMatch,
+        needsUpdate: !claimsMatch,
+        allCustomClaims: customClaims // Add this for raw claims viewer
+      };
+    } else {
+      // Handle regular user - show family/parent permissions if they exist
+      const familyClaims = {
+        familyId: customClaims.familyId || null,
+        familyRole: customClaims.familyRole || null,
+        isParent: customClaims.isParent || false,
+        isHomeEducationParent: customClaims.isHomeEducationParent || false,
+        lastFamilyUpdate: customClaims.lastFamilyUpdate || null
+      };
+      
+      return {
+        ...userInfo,
+        isStaff: false,
+        currentClaims: {
+          ...familyClaims,
+          // Include any other custom claims
+          customClaimsKeys: Object.keys(customClaims)
+        },
+        allCustomClaims: customClaims // Include all claims for debugging
+      };
+    }
+    
+  } catch (error) {
+    console.error('Error getting user permissions:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while retrieving user permissions.');
+  }
+});
+
+/**
+ * Cloud Function: updateStaffPermissions
+ * 
+ * Manually update staff permissions with hierarchy support and custom claims (super admin only)
+ */
+const updateStaffPermissions = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const callerEmail = request.auth.token.email;
+  const callerUid = request.auth.uid;
+  const { 
+    targetEmail, 
+    targetUid, 
+    staffRole, 
+    individualPermissions, 
+    customClaims: additionalCustomClaims,
+    reason 
+  } = request.data;
+  
+  // Verify caller has super admin permissions
+  const callerTokenResult = await admin.auth().getUser(callerUid);
+  const callerClaims = callerTokenResult.customClaims || {};
+  
+  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only super admin users can update staff permissions.');
+  }
+  
+  console.log(`Super admin ${callerEmail} updating permissions for: ${targetEmail || targetUid}`);
+  
+  try {
+    let targetUser;
+    
+    // Get target user by email or UID
+    if (targetEmail) {
+      targetUser = await admin.auth().getUserByEmail(targetEmail);
+    } else if (targetUid) {
+      targetUser = await admin.auth().getUser(targetUid);
+    } else {
+      throw new HttpsError('invalid-argument', 'Either targetEmail or targetUid must be provided.');
+    }
+    
+    // Prevent super admins from removing their own super admin status
+    if (targetUser.uid === callerUid && staffRole !== 'super_admin' && callerClaims.staffRole === 'super_admin') {
+      throw new HttpsError('permission-denied', 'Cannot remove your own super admin privileges.');
+    }
+    
+    // Get current claims for comparison
+    const currentClaims = targetUser.customClaims || {};
+    
+    // Build new staff permissions
+    let finalStaffPermissions = [];
+    let finalStaffRole = null;
+    
+    if (staffRole && STAFF_PERMISSIONS.HIERARCHY[staffRole]) {
+      // Use hierarchy to determine permissions
+      finalStaffPermissions = [...STAFF_PERMISSIONS.HIERARCHY[staffRole]];
+      finalStaffRole = staffRole;
+    } else if (individualPermissions && Array.isArray(individualPermissions)) {
+      // Use individual permissions (no hierarchy auto-fill)
+      finalStaffPermissions = [...individualPermissions];
+      // Determine highest role from individual permissions
+      const permissionOrder = ['super_admin', 'admin', 'course_manager', 'teacher', 'staff'];
+      for (const level of permissionOrder) {
+        if (finalStaffPermissions.includes(level)) {
+          finalStaffRole = level;
+          break;
+        }
+      }
+    }
+    
+    // Ensure staff permission is always included if any staff permissions are set
+    if (finalStaffPermissions.length > 0 && !finalStaffPermissions.includes('staff')) {
+      finalStaffPermissions.push('staff');
+    }
+    
+    // Remove duplicates and sort
+    finalStaffPermissions = [...new Set(finalStaffPermissions)].sort();
+    
+    // Build the complete custom claims object
+    const newCustomClaims = {
+      // Preserve non-staff claims
+      ...currentClaims,
+      
+      // Staff permissions
+      staffPermissions: finalStaffPermissions,
+      staffRole: finalStaffRole,
+      lastPermissionUpdate: Date.now(),
+      permissionSource: 'manual_admin',
+      lastUpdatedBy: callerEmail,
+      
+      // Staff boolean flags for compatibility
+      isStaffUser: finalStaffPermissions.length > 0,
+      isAdminUser: finalStaffPermissions.includes('admin'),
+      isSuperAdminUser: finalStaffPermissions.includes('super_admin'),
+      
+      // Add any additional custom claims
+      ...(additionalCustomClaims || {})
+    };
+    
+    // If no staff permissions, remove staff-related claims
+    if (finalStaffPermissions.length === 0) {
+      delete newCustomClaims.staffPermissions;
+      delete newCustomClaims.staffRole;
+      delete newCustomClaims.isStaffUser;
+      delete newCustomClaims.isAdminUser;
+      delete newCustomClaims.isSuperAdminUser;
+      delete newCustomClaims.permissionSource;
+    }
+    
+    // Set the custom claims
+    await admin.auth().setCustomUserClaims(targetUser.uid, newCustomClaims);
+    console.log(`✅ Successfully updated permissions for user ${targetUser.uid}`);
+    
+    // Update metadata to trigger token refresh
+    const db = admin.database();
+    try {
+      await db.ref(`metadata/${targetUser.uid}`).set({
+        refreshTime: Date.now(),
+        permissionsUpdated: Date.now(),
+        lastManualUpdate: Date.now()
+      });
+      console.log(`✅ Updated metadata to trigger token refresh for user ${targetUser.uid}`);
+    } catch (error) {
+      console.error(`✗ Failed to update metadata for user ${targetUser.uid}:`, error);
+    }
+    
+    // Log the permission change for audit trail
+    try {
+      const auditEntry = {
+        targetUser: {
+          email: targetUser.email,
+          uid: targetUser.uid
+        },
+        updatedBy: {
+          email: callerEmail,
+          uid: callerUid
+        },
+        changes: {
+          previousClaims: {
+            staffPermissions: currentClaims.staffPermissions || [],
+            staffRole: currentClaims.staffRole || null,
+            isStaffUser: currentClaims.isStaffUser || false,
+            isAdminUser: currentClaims.isAdminUser || false,
+            isSuperAdminUser: currentClaims.isSuperAdminUser || false
+          },
+          newClaims: {
+            staffPermissions: finalStaffPermissions,
+            staffRole: finalStaffRole,
+            isStaffUser: newCustomClaims.isStaffUser,
+            isAdminUser: newCustomClaims.isAdminUser,
+            isSuperAdminUser: newCustomClaims.isSuperAdminUser
+          },
+          additionalCustomClaims: additionalCustomClaims || {}
+        },
+        reason: reason || 'Manual permission update',
+        timestamp: Date.now(),
+        method: 'manual_update'
+      };
+      
+      await db.ref(`permissionAudit/${targetUser.uid}`).push(auditEntry);
+      console.log(`✅ Logged permission change to audit trail`);
+    } catch (error) {
+      console.error('Failed to log permission change:', error);
+      // Don't throw here as the main operation succeeded
+    }
+    
+    return {
+      success: true,
+      targetUser: {
+        email: targetUser.email,
+        uid: targetUser.uid
+      },
+      updatedClaims: {
+        staffPermissions: finalStaffPermissions,
+        staffRole: finalStaffRole,
+        isStaffUser: newCustomClaims.isStaffUser,
+        isAdminUser: newCustomClaims.isAdminUser,
+        isSuperAdminUser: newCustomClaims.isSuperAdminUser,
+        additionalCustomClaims: additionalCustomClaims || {}
+      },
+      message: 'Staff permissions updated successfully'
+    };
+    
+  } catch (error) {
+    console.error('Error updating staff permissions:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while updating staff permissions.');
+  }
+});
+
+/**
+ * Cloud Function: removeStaffPermissions
+ * 
+ * Remove all staff permissions from a user (super admin only)
+ */
+const removeStaffPermissions = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const callerEmail = request.auth.token.email;
+  const callerUid = request.auth.uid;
+  const { targetEmail, targetUid, reason } = request.data;
+  
+  // Verify caller has super admin permissions
+  const callerTokenResult = await admin.auth().getUser(callerUid);
+  const callerClaims = callerTokenResult.customClaims || {};
+  
+  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only super admin users can remove staff permissions.');
+  }
+  
+  try {
+    let targetUser;
+    
+    if (targetEmail) {
+      targetUser = await admin.auth().getUserByEmail(targetEmail);
+    } else if (targetUid) {
+      targetUser = await admin.auth().getUser(targetUid);
+    } else {
+      throw new HttpsError('invalid-argument', 'Either targetEmail or targetUid must be provided.');
+    }
+    
+    // Prevent super admins from removing their own permissions
+    if (targetUser.uid === callerUid) {
+      throw new HttpsError('permission-denied', 'Cannot remove your own staff permissions.');
+    }
+    
+    const currentClaims = targetUser.customClaims || {};
+    
+    // Remove all staff-related claims
+    const newCustomClaims = { ...currentClaims };
+    delete newCustomClaims.staffPermissions;
+    delete newCustomClaims.staffRole;
+    delete newCustomClaims.isStaffUser;
+    delete newCustomClaims.isAdminUser;
+    delete newCustomClaims.isSuperAdminUser;
+    delete newCustomClaims.permissionSource;
+    delete newCustomClaims.lastPermissionUpdate;
+    delete newCustomClaims.lastUpdatedBy;
+    
+    await admin.auth().setCustomUserClaims(targetUser.uid, newCustomClaims);
+    
+    // Update metadata and log audit entry (similar to updateStaffPermissions)
+    const db = admin.database();
+    
+    try {
+      await db.ref(`metadata/${targetUser.uid}`).set({
+        refreshTime: Date.now(),
+        permissionsRemoved: Date.now()
+      });
+    } catch (error) {
+      console.error(`Failed to update metadata:`, error);
+    }
+    
+    // Log the removal
+    try {
+      const auditEntry = {
+        targetUser: { email: targetUser.email, uid: targetUser.uid },
+        updatedBy: { email: callerEmail, uid: callerUid },
+        action: 'remove_all_staff_permissions',
+        previousClaims: {
+          staffPermissions: currentClaims.staffPermissions || [],
+          staffRole: currentClaims.staffRole || null
+        },
+        reason: reason || 'Manual staff permissions removal',
+        timestamp: Date.now()
+      };
+      
+      await db.ref(`permissionAudit/${targetUser.uid}`).push(auditEntry);
+    } catch (error) {
+      console.error('Failed to log permission removal:', error);
+    }
+    
+    return {
+      success: true,
+      message: 'All staff permissions removed successfully',
+      targetUser: { email: targetUser.email, uid: targetUser.uid }
+    };
+    
+  } catch (error) {
+    console.error('Error removing staff permissions:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while removing staff permissions.');
+  }
+});
+
 module.exports = {
+  setBasicStaffClaim,
   setStaffCustomClaims,
-  getStaffPermissions
+  getAnyStaffPermissions,
+  getAllStaffPermissions,
+  getAnyUserPermissions,
+  updateStaffPermissions,
+  removeStaffPermissions
 };

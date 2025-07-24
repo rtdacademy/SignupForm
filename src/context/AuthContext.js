@@ -617,6 +617,133 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Staff permissions configuration (mirrored from cloud function)
+  const STAFF_PERMISSIONS = {
+    LEVELS: {
+      STAFF: 'staff',
+      TEACHER: 'teacher',
+      COURSE_MANAGER: 'course_manager',
+      ADMIN: 'admin',
+      SUPER_ADMIN: 'super_admin'
+    },
+    
+    DOMAIN_PERMISSIONS: {
+      '@rtdacademy.com': ['staff'],
+      '@rtd-connect.com': ['staff']
+    },
+    
+    EMAIL_PERMISSIONS: {
+      'kyle@rtdacademy.com': ['staff', 'super_admin'],
+      'stan@rtdacademy.com': ['staff', 'super_admin'],
+      'charlie@rtdacademy.com': ['staff', 'super_admin'],
+    },
+    
+    HIERARCHY: {
+      'super_admin': ['super_admin', 'admin', 'course_manager', 'teacher', 'staff'],
+      'admin': ['admin', 'course_manager', 'teacher', 'staff'],
+      'course_manager': ['course_manager', 'teacher', 'staff'],
+      'teacher': ['teacher', 'staff'],
+      'staff': ['staff']
+    }
+  };
+
+  // Get expected permissions for an email address
+  const getExpectedPermissionsForEmail = (email) => {
+    if (!email || typeof email !== 'string') {
+      return [];
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    const permissions = new Set();
+    
+    // Check domain-based permissions
+    for (const [domain, domainPermissions] of Object.entries(STAFF_PERMISSIONS.DOMAIN_PERMISSIONS)) {
+      if (normalizedEmail.endsWith(domain.toLowerCase())) {
+        domainPermissions.forEach(permission => permissions.add(permission));
+      }
+    }
+    
+    // Check email-specific permissions
+    if (STAFF_PERMISSIONS.EMAIL_PERMISSIONS[normalizedEmail]) {
+      STAFF_PERMISSIONS.EMAIL_PERMISSIONS[normalizedEmail].forEach(permission => 
+        permissions.add(permission)
+      );
+    }
+    
+    return Array.from(permissions);
+  };
+
+  // Expand permissions based on hierarchy
+  const expandPermissions = (permissions) => {
+    const expanded = new Set();
+    
+    permissions.forEach(permission => {
+      if (STAFF_PERMISSIONS.HIERARCHY[permission]) {
+        STAFF_PERMISSIONS.HIERARCHY[permission].forEach(inheritedPermission => 
+          expanded.add(inheritedPermission)
+        );
+      } else {
+        expanded.add(permission);
+      }
+    });
+    
+    return Array.from(expanded);
+  };
+
+  // Get highest permission level
+  const getHighestPermission = (permissions) => {
+    if (!permissions || permissions.length === 0) {
+      return null;
+    }
+    
+    const permissionOrder = ['super_admin', 'admin', 'course_manager', 'teacher', 'staff'];
+    
+    for (const level of permissionOrder) {
+      if (permissions.includes(level)) {
+        return level;
+      }
+    }
+    
+    return null;
+  };
+
+  // Validate if staff member has basic staff claim
+  const validateStaffClaims = async (user) => {
+    if (!user || !checkIsStaff(user)) {
+      return { needsUpdate: false, reason: 'not_staff' };
+    }
+    
+    try {
+      // Get current token claims
+      const tokenResult = await user.getIdTokenResult();
+      const currentClaims = tokenResult.claims;
+      
+      // Check if user has basic staff claim
+      const hasStaffUser = currentClaims.isStaffUser === true;
+      const hasStaffRole = currentClaims.roles && currentClaims.roles.includes('staff');
+      const hasStaffPermission = currentClaims.permissions && currentClaims.permissions.isStaff === true;
+      
+      // User needs basic staff claim if they don't have any of the staff indicators
+      if (!hasStaffUser && !hasStaffRole && !hasStaffPermission) {
+        return {
+          needsUpdate: true,
+          reason: 'missing_basic_staff_claim',
+          current: {
+            isStaffUser: currentClaims.isStaffUser || false,
+            roles: currentClaims.roles || [],
+            permissions: currentClaims.permissions || {}
+          }
+        };
+      }
+      
+      return { needsUpdate: false, reason: 'basic_staff_claim_exists' };
+      
+    } catch (error) {
+      console.error('Error validating staff claims:', error);
+      return { needsUpdate: true, reason: 'validation_error' };
+    }
+  };
+
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
     // Add staff verification at the start of the function
@@ -817,6 +944,34 @@ export function AuthProvider({ children }) {
           
           let dataCreated = false;
           if (staffStatus) {
+            // First validate if staff claims need updating
+            console.log('Validating staff claims for:', currentUser.email);
+            const claimsValidation = await validateStaffClaims(currentUser);
+            
+            if (claimsValidation.needsUpdate) {
+              console.log('Basic staff claim missing:', claimsValidation.reason);
+              try {
+                // Import and call the new basic staff claim function
+                const { getFunctions, httpsCallable } = await import('firebase/functions');
+                const functions = getFunctions();
+                const setBasicStaffClaim = httpsCallable(functions, 'setBasicStaffClaim');
+                
+                const result = await setBasicStaffClaim();
+                if (result.data.success) {
+                  console.log('✅ Basic staff claim set successfully:', result.data);
+                  
+                  // Force token refresh to get updated claims
+                  await currentUser.getIdToken(true);
+                } else {
+                  console.error('Failed to set basic staff claim:', result.data);
+                }
+              } catch (error) {
+                console.error('Error setting basic staff claim:', error);
+              }
+            } else {
+              console.log('Basic staff claim exists, skipping cloud function call');
+            }
+            
             // Fetch admin emails first for staff users
             const adminEmailsList = await fetchAdminEmails();
             if (isMounted) {

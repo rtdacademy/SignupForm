@@ -38,7 +38,7 @@ const saveFamilyData = onCall({
     throw new HttpsError('invalid-argument', 'Family name is required.');
   }
 
-  if (!familyData.students || familyData.students.length === 0) {
+  if (!familyData.students || Object.keys(familyData.students).length === 0) {
     throw new HttpsError('invalid-argument', 'At least one student is required.');
   }
 
@@ -211,34 +211,38 @@ const saveFamilyData = onCall({
     primaryGuardianCount = 1;
     console.log(`Added/updated primary guardian: ${userEmail}`);
     
-    // Process students
-    const studentsByAsn = {};
-    const studentEmailKeys = new Set();
-    
-    for (const student of familyData.students) {
-      if (!student.asn || !student.firstName || !student.lastName) {
-        throw new HttpsError('invalid-argument', 'Each student must have ASN, first name, and last name.');
-      }
-      
-      const asnKey = student.asn; // Keep ASN with dashes as key
-      studentsByAsn[asnKey] = {
-        ...student,
-        familyId: familyId,
-        addedAt: existingFamilyData.students?.[asnKey]?.addedAt || Date.now(),
-        addedBy: existingFamilyData.students?.[asnKey]?.addedBy || uid,
-        updatedAt: Date.now(),
-        updatedBy: uid
-      };
-      
-      // Track student emails for permission syncing
-      if (student.email && student.email.trim()) {
-        const emailKey = sanitizeEmail(student.email);
-        studentsByAsn[asnKey].emailKey = emailKey;
-        studentEmailKeys.add(emailKey);
-      }
-    }
-    
-    familyDataToSave.students = studentsByAsn;
+// Process students
+const studentsById = {};
+const studentEmailKeys = new Set();
+
+for (const student of Object.values(familyData.students)) {
+  if (!student.firstName || !student.lastName) {
+    throw new HttpsError('invalid-argument', 'Each student must have first name, and last name.');
+  }
+  
+  const studentId = student.id;
+  if (!studentId) {
+    throw new HttpsError('invalid-argument', 'Each student must have an id.');
+  }
+  
+  studentsById[studentId] = {
+    ...student,
+    familyId: familyId,
+    addedAt: existingFamilyData.students?.[studentId]?.addedAt || Date.now(),
+    addedBy: existingFamilyData.students?.[studentId]?.addedBy || uid,
+    updatedAt: Date.now(),
+    updatedBy: uid
+  };
+  
+  // Track student emails for permission syncing
+  if (student.email && student.email.trim()) {
+    const emailKey = sanitizeEmail(student.email);
+    studentsById[studentId].emailKey = emailKey;
+    studentEmailKeys.add(emailKey);
+  }
+}
+
+familyDataToSave.students = studentsById;
     
     // Process guardians 
     const guardianEmailKeys = new Set();
@@ -247,7 +251,7 @@ const saveFamilyData = onCall({
     guardianEmailKeys.add(userEmailKey);
     
     if (familyData.guardians) {
-      for (const guardian of familyData.guardians) {
+      for (const guardian of Object.values(familyData.guardians)) {
         if (!guardian.email || !guardian.firstName || !guardian.lastName) {
           continue; // Skip invalid guardians
         }

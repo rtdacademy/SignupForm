@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getDatabase, ref, onValue, get } from 'firebase/database';
+import { getDatabase, ref, onValue, get, off } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useCourse } from '../context/CourseContext';
@@ -18,6 +18,10 @@ import { ChevronLeft, Flame, User, ArrowLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Badge } from "../components/ui/badge";
+import { useUserPreferences } from '../context/UserPreferencesContext';
+import StudentNotes from './StudentNotes';
+import { ClipboardList, X, Maximize2 } from 'lucide-react';
+import { Sheet, SheetContent } from "../components/ui/sheet";
 
 function StudentManagement({ 
   isFullScreen, 
@@ -81,11 +85,17 @@ function StudentManagement({
   const [showMultipleAsnsOnly, setShowMultipleAsnsOnly] = useState(false);
   const [recordTypeFilter, setRecordTypeFilter] = useState('yourway'); // Default to 'yourway' (hide PASI-only records)
   
-  // State to track if selected student's course is a Firebase course
-  const [selectedStudentHasFirebaseCourse, setSelectedStudentHasFirebaseCourse] = useState(false);
-
   const { user_email_key, user } = useAuth();
   const { getCourseById } = useCourse();
+  const { preferences, updatePreferences } = useUserPreferences();
+  
+  // State to track if selected student's course is a Firebase course
+  const [selectedStudentHasFirebaseCourse, setSelectedStudentHasFirebaseCourse] = useState(false);
+  
+  // State for notes panel (similar to StudentDetail)
+  const [isNotesVisible, setIsNotesVisible] = useState(preferences?.notesVisible ?? true);
+  const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
+  const [studentNotes, setStudentNotes] = useState([]);
 
   // Holds a count or a toggle to force re-mount
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
@@ -93,6 +103,13 @@ function StudentManagement({
   const handleRefreshStudent = useCallback(() => {
     setDetailRefreshKey(prev => prev + 1);
   }, []);
+  
+  // Initialize notes visibility from preferences
+  useEffect(() => {
+    if (preferences?.notesVisible !== undefined) {
+      setIsNotesVisible(preferences.notesVisible);
+    }
+  }, [preferences?.notesVisible]);
 
   // Effect to check if selected student's course is a Firebase course
   useEffect(() => {
@@ -125,7 +142,7 @@ function StudentManagement({
 
     checkFirebaseCourse();
   }, [selectedStudent?.CourseID]);
-
+  
   // Get student email key for teacher data hook
   const selectedStudentEmailKey = useMemo(() => {
     if (!selectedStudent?.StudentEmail) return null;
@@ -136,6 +153,34 @@ function StudentManagement({
       return null;
     }
   }, [selectedStudent?.StudentEmail]);
+
+  // Effect to load student notes when student is selected with real-time updates
+  useEffect(() => {
+    if (!selectedStudent?.StudentEmail || !selectedStudent?.CourseID || !selectedStudentEmailKey) {
+      setStudentNotes([]);
+      return;
+    }
+
+    const db = getDatabase();
+    const notesRef = ref(
+      db, 
+      `students/${selectedStudentEmailKey}/courses/${selectedStudent.CourseID}/jsonStudentNotes`
+    );
+    
+    const unsubscribe = onValue(notesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const notes = snapshot.val();
+        setStudentNotes(Array.isArray(notes) ? notes : []);
+      } else {
+        setStudentNotes([]);
+      }
+    }, (error) => {
+      console.error('Error loading student notes:', error);
+      setStudentNotes([]);
+    });
+
+    return () => unsubscribe();
+  }, [selectedStudent?.StudentEmail, selectedStudent?.CourseID, selectedStudentEmailKey]);
 
   // Teacher permissions for accessing student data
   const teacherPermissions = useMemo(() => ({
@@ -186,6 +231,22 @@ function StudentManagement({
     toast.success(`Removed course "${courseName}" from ${studentName}`);
     // If the removed course was for the selected student, clear the selection
     setSelectedStudent(null);
+  }, []);
+  
+  const handleToggleNotesPanel = useCallback(() => {
+    setIsNotesVisible(prev => {
+      const newValue = !prev;
+      // Save preference
+      updatePreferences({
+        ...preferences,
+        notesVisible: newValue
+      });
+      return newValue;
+    });
+  }, [preferences, updatePreferences]);
+  
+  const handleNotesUpdate = useCallback((updatedNotes) => {
+    setStudentNotes(updatedNotes);
   }, []);
 
   // Setup ResizeObserver to monitor container width changes
@@ -450,6 +511,18 @@ function StudentManagement({
 
   // Render student detail
   const renderStudentDetail = useCallback(() => {
+    if (!selectedStudent) {
+      return (
+        <Card className="h-full bg-white shadow-md">
+          <CardContent className="h-full p-4 overflow-auto flex items-center justify-center">
+            <p className="text-gray-500">Select a student to view details</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // Determine which component to render
+    let detailComponent;
 
     // If the selected student has a Firebase course, show the GradebookDashboard
     if (selectedStudentHasFirebaseCourse && memoizedFirebaseCourses && memoizedFirebaseCourses.length > 0) {
@@ -465,64 +538,152 @@ function StudentManagement({
         );
       }
       
-      // Calculate required props for GradebookDashboard
-      const allCourseItems = getAllCourseItems(targetCourse);
-      
-      // Calculate actual student lesson accessibility based on their progress
-      // This shows the real accessibility status that the student experiences
-      const courseStructure = targetCourse.Gradebook?.courseConfig?.courseStructure || 
-                             targetCourse.Gradebook?.courseStructure || 
-                             targetCourse.courseStructure;
-      
-      const gradebookWithGrades = {
-        ...targetCourse.Gradebook,
-        grades: {
-          assessments: targetCourse?.Grades?.assessments || {}
-        }
-      };
-      
-      const lessonAccessibility = getLessonAccessibility(
-        courseStructure, 
-        targetCourse.Gradebook?.items || {}, 
-        gradebookWithGrades,
-        {
-          isDeveloperBypass: false // Show actual student restrictions in teacher view
-        }
-      );
-      
-      
       if (targetCourse) {
+        // Calculate required props for GradebookDashboard
+        const allCourseItems = getAllCourseItems(targetCourse);
+        
+        // Calculate actual student lesson accessibility based on their progress
+        // This shows the real accessibility status that the student experiences
+        const courseStructure = targetCourse.Gradebook?.courseConfig?.courseStructure || 
+                               targetCourse.Gradebook?.courseStructure || 
+                               targetCourse.courseStructure;
+        
+        const gradebookWithGrades = {
+          ...targetCourse.Gradebook,
+          grades: {
+            assessments: targetCourse?.Grades?.assessments || {}
+          }
+        };
+        
+        const lessonAccessibility = getLessonAccessibility(
+          courseStructure, 
+          targetCourse.Gradebook?.items || {}, 
+          gradebookWithGrades,
+          {
+            isDeveloperBypass: false // Show actual student restrictions in teacher view
+          }
+        );
 
-        return (
-          <Card className="h-full bg-white shadow-md">
-            <CardContent className="h-full p-2 overflow-auto">
-              {/* Teacher Context Header */}
-            
-
-              {/* GradebookDashboard Component */}
-              <GradebookDashboard 
-                course={targetCourse}
-                allCourseItems={allCourseItems}
-                profile={memoizedFirebaseProfile}
-                lessonAccessibility={lessonAccessibility}
-                showHeader={false}
-              />
-            </CardContent>
-          </Card>
+        detailComponent = (
+          <GradebookDashboard 
+            course={targetCourse}
+            allCourseItems={allCourseItems}
+            profile={memoizedFirebaseProfile}
+            lessonAccessibility={lessonAccessibility}
+            showHeader={false}
+          />
         );
       }
     }
 
     // Default to regular StudentDetail for non-Firebase courses or when no Firebase data
+    if (!detailComponent) {
+      detailComponent = (
+        <StudentDetail
+          key={detailRefreshKey}
+          studentSummary={selectedStudent}
+          isMobile={isMobile}
+          onRefresh={handleRefreshStudent}
+        />
+      );
+    }
+
+    // Wrap with notes panel layout (similar to StudentDetail.js)
     return (
       <Card className="h-full bg-white shadow-md">
-        <CardContent className="h-full p-4 overflow-auto">
-          <StudentDetail
-            key={detailRefreshKey}
-            studentSummary={selectedStudent}
-            isMobile={isMobile}
-            onRefresh={handleRefreshStudent}
-          />
+        <CardContent className="h-full p-2 overflow-hidden">
+          <div className="flex h-full">
+            {/* Notes Panel - Left side with animation */}
+            <AnimatePresence mode="wait">
+              {isNotesVisible && (
+                <motion.div
+                  key="notes-panel"
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: "320px", opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ 
+                    duration: 0.3, 
+                    ease: "easeInOut",
+                    width: { duration: 0.3 },
+                    opacity: { duration: 0.2 }
+                  }}
+                  className="flex-shrink-0 h-full mr-4 overflow-hidden bg-white rounded-xl border-t-4 border-t-indigo-500 border-x border-b border-gray-200 shadow-md"
+                >
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.1, duration: 0.2 }}
+                    className="p-3 h-full"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="font-semibold text-indigo-600 flex items-center">
+                        <ClipboardList className="h-4 w-4 mr-1" />
+                        Student Notes
+                      </h4>
+                      <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleToggleNotesPanel}
+                          className="h-6 w-6 p-0"
+                          title="Close notes panel"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsNotesSheetOpen(true)}
+                          className="h-6 w-6 p-0"
+                          title="Expand notes"
+                        >
+                          <Maximize2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="h-[calc(100%-2rem)] overflow-hidden">
+                      <StudentNotes
+                        studentEmail={selectedStudentEmailKey}
+                        courseId={selectedStudent.CourseID}
+                        initialNotes={studentNotes}
+                        onNotesUpdate={handleNotesUpdate}
+                        readOnly={false}
+                        isExpanded={false}
+                      />
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Main content area */}
+            <div className="flex-1 overflow-auto relative">
+              {/* Toggle button when notes are hidden - positioned in main content area */}
+              <AnimatePresence>
+                {!isNotesVisible && (
+                  <motion.div
+                    key="notes-toggle"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2, delay: 0.1 }}
+                    className="absolute left-2 top-2 z-10"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleToggleNotesPanel}
+                      className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:bg-gray-50"
+                      title="Show notes panel"
+                    >
+                      <ClipboardList className="h-4 w-4 text-indigo-600" />
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {detailComponent}
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -535,7 +696,12 @@ function StudentManagement({
     studentFirebaseData.error,
     isMobile, 
     detailRefreshKey,
-    handleRefreshStudent
+    handleRefreshStudent,
+    isNotesVisible,
+    selectedStudentEmailKey,
+    studentNotes,
+    handleNotesUpdate,
+    handleToggleNotesPanel
   ]);
   
   return (
@@ -631,6 +797,33 @@ function StudentManagement({
           </div>
         )}
       </div>
+      
+      {/* Notes Expanded Sheet */}
+      <Sheet open={isNotesSheetOpen} onOpenChange={setIsNotesSheetOpen}>
+        <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="mb-4 flex-shrink-0">
+              <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
+                <ClipboardList className="h-5 w-5 mr-2" />
+                Student Notes
+              </h2>
+            </div>
+            
+            {/* Notes Content */}
+            <div className="flex-1 overflow-auto">
+              <StudentNotes
+                studentEmail={selectedStudentEmailKey}
+                courseId={selectedStudent?.CourseID}
+                initialNotes={studentNotes}
+                onNotesUpdate={handleNotesUpdate}
+                readOnly={false}
+                isExpanded={true}
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
