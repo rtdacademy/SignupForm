@@ -483,7 +483,7 @@ const CollapsibleNavigation = ({
                   <span className="text-xs font-semibold text-red-600">
                     ERROR
                   </span>
-                ) : !hasNoSessions && gradePercentage !== null ? (
+                ) : !hasCalculationError && gradePercentage !== null && gradePercentage > 0 ? (
                   <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
                     {formatScore(gradePercentage)}%
                   </span>
