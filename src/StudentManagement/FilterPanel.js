@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Checkbox } from "../components/ui/checkbox";
-import { useMode, MODES } from '../context/ModeContext';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 //import { getSchoolYearOptions, TERM_OPTIONS, getTermInfo } from '../config/DropdownOptions';
 import {
@@ -13,7 +11,7 @@ import {
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
   MessageCircle, Users, Presentation, FileText, Filter, Loader2, 
-  UserSquare2, ClipboardList, Grid2X2, FilterX
+  Grid2X2, FilterX
 } from "lucide-react";
 import CategoryManager from './CategoryManager';
 import AdvancedFilters from './AdvancedFilters';
@@ -55,16 +53,6 @@ const iconMap = {
   'grid-2x2': Grid2X2, // Added Grid2X2 to iconMap
 };
 
-const MODE_CONFIG = {
-  [MODES.TEACHER]: {
-    icon: <UserSquare2 className="h-4 w-4" />,
-    tooltip: "Teacher Mode"
-  },
-  [MODES.REGISTRATION]: {
-    icon: <ClipboardList className="h-4 w-4" />,
-    tooltip: "Registration Mode"
-  }
-};
 
 const ClearingOverlay = ({ isClearing }) => {
   if (!isClearing) return null;
@@ -167,7 +155,6 @@ const FilterPanel = memo(function FilterPanel({
   const [localFilters, setLocalFilters] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isClearing, setIsClearing] = useState(false);
-  const { currentMode, setCurrentMode } = useMode();
   const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
 
   const groupCategoriesByType = useMemo(() => {
@@ -221,12 +208,8 @@ const FilterPanel = memo(function FilterPanel({
       setLocalFilters(safeFilters);
       onFilterChange(safeFilters);
       onSearchChange(preferences.filters.searchTerm || '');
-      
-      if (preferences.filters.currentMode) {
-        setCurrentMode(preferences.filters.currentMode);
-      }
     }
-  }, [preferences, onFilterChange, onSearchChange, setCurrentMode]);
+  }, [preferences, onFilterChange, onSearchChange]);
 
   // Mobile check effect
   useEffect(() => {
@@ -254,9 +237,9 @@ const FilterPanel = memo(function FilterPanel({
       (searchTerm ? 1 : 0) +
       // Count date filters
       (localFilters.dateFilters ? Object.keys(localFilters.dateFilters).length : 0) +
-      // Count other filters except mode
+      // Count other filters
       availableFilters.reduce((sum, { key }) => {
-        if (key !== 'categories' && key !== 'currentMode' && Array.isArray(localFilters[key])) {
+        if (key !== 'categories' && Array.isArray(localFilters[key])) {
           return sum + (localFilters[key].length || 0);
         }
         return sum;
@@ -286,9 +269,8 @@ const FilterPanel = memo(function FilterPanel({
         categories: [],
         hasSchedule: [],
         dateFilters: {},
-        currentMode: localFilters.currentMode || MODES.TEACHER,
         ...Object.keys(localFilters).reduce((acc, key) => {
-            if (key !== 'currentMode' && key !== 'dateFilters' && key !== 'hasSchedule') {
+            if (key !== 'dateFilters' && key !== 'hasSchedule') {
                 acc[key] = [];
             }
             return acc;
@@ -311,10 +293,6 @@ const FilterPanel = memo(function FilterPanel({
     }, 1000);
 }, [localFilters, onFilterChange, onSearchChange, updateFilterPreferences]);
 
-  const handleModeChange = useCallback((newMode) => {
-    setCurrentMode(newMode);
-    updateFilterPreferences({ currentMode: newMode });
-  }, [setCurrentMode, updateFilterPreferences]);
 
   const handleCategoryChange = useCallback(
     (categoryId, teacherEmailKey) => {
@@ -698,39 +676,6 @@ const FilterPanel = memo(function FilterPanel({
 
               <CategoryManager onCategoryChange={() => {}} />
 
-              <div className="border-l border-gray-200 pl-2">
-                <TooltipProvider>
-                  <RadioGroup
-                    value={currentMode}
-                    onValueChange={handleModeChange}
-                    className="flex items-center space-x-1"
-                  >
-                    {Object.entries(MODE_CONFIG).map(([mode, config]) => (
-                      <Tooltip key={mode}>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center">
-                            <RadioGroupItem
-                              value={mode}
-                              id={mode}
-                              className="peer hidden"
-                            />
-                            <label
-                              htmlFor={mode}
-                              className="flex items-center justify-center p-1.5 rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer
-                                peer-data-[state=checked]:text-blue-600 peer-data-[state=checked]:bg-blue-50"
-                            >
-                              {config.icon}
-                            </label>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>{config.tooltip}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </RadioGroup>
-                </TooltipProvider>
-              </div>
 
               {/* Enhanced Filter Indicator */}
               {activeFilterCount > 0 && (

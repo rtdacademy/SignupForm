@@ -49,6 +49,7 @@ import PASIDataUploadV2 from '../PASI/PASIDataUploadV2';
 import TeacherFileStorage from './TeacherFileStorage';
 import ParentStudentManagement from './ParentStudentManagement';
 import StaffPermissionsManager from './StaffPermissionsManager';
+import AuthActivityDashboard from './AuthActivityDashboard';
 
 
 function TeacherDashboard() {
@@ -258,6 +259,7 @@ function TeacherDashboard() {
       { icon: Shield, label: 'Parent Management', key: 'parent-management' },
       { icon: Home, label: 'Home Education', key: 'home-education' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
+      { icon: Shield, label: 'Auth Activity', key: 'auth-activity' },
     ];
 
     // Only add admin items if user has admin access
@@ -335,6 +337,8 @@ function TeacherDashboard() {
         return <ParentStudentManagement />;
       case 'staff-permissions':
         return <StaffPermissionsManager />;
+      case 'auth-activity':
+        return <AuthActivityDashboard />;
       default:
         return null;
     }

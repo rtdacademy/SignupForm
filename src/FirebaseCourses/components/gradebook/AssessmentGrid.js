@@ -65,6 +65,13 @@ import {
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
+import { Progress } from '../../../components/ui/progress';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -456,10 +463,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                   </div>
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Questions
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Progress
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -504,6 +508,63 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   );
 };
 
+// Helper function to get progress bar color
+const getProgressColor = (rate) => {
+  if (rate === 100) return 'bg-green-500';
+  if (rate >= 50) return 'bg-yellow-500';
+  if (rate > 0) return 'bg-blue-500';
+  return 'bg-gray-300';
+};
+
+// Helper function to get status badge for session-based items and labs
+const getStatusBadge = (lesson) => {
+  // Handle session-based items
+  if (lesson.shouldBeSessionBased && lesson.sessionCount > 0) {
+    if (lesson.sessionStatus === 'completed') {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <Badge className="bg-green-100 text-green-800 text-xs">Submitted</Badge>
+        </div>
+      );
+    } else if (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <RotateCcw className="h-4 w-4 text-yellow-500" />
+          <Badge className="bg-yellow-100 text-yellow-800 text-xs">In Progress</Badge>
+        </div>
+      );
+    }
+  }
+  
+  // Handle labs - submitted if any progress > 0
+  if (lesson.activityType === 'lab') {
+    if (lesson.completionRate > 0) {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <Badge className="bg-green-100 text-green-800 text-xs">Submitted</Badge>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <Clock className="h-4 w-4 text-gray-400" />
+          <Badge className="bg-gray-100 text-gray-600 text-xs">Not Started</Badge>
+        </div>
+      );
+    }
+  }
+  
+  // Not started or no sessions (for session-based items)
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <Clock className="h-4 w-4 text-gray-400" />
+      <Badge className="bg-gray-100 text-gray-600 text-xs">Not Started</Badge>
+    </div>
+  );
+};
+
 // Lesson Row Component
 const LessonRow = ({ lesson, course, onViewDetails }) => {
   // Handle row click to open details modal
@@ -521,26 +582,6 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
     if (pct >= 70) return 'text-yellow-700 bg-yellow-50';
     if (pct >= 60) return 'text-orange-700 bg-orange-50';
     return 'text-red-700 bg-red-50';
-  };
-
-  const getStatusIcon = () => {
-    // For session-based assessments, use session status
-    if (lesson.shouldBeSessionBased && lesson.sessionCount > 0) {
-      if (lesson.sessionStatus === 'completed') {
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      } else if (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') {
-        return <RotateCcw className="h-4 w-4 text-yellow-500" />;
-      }
-      return <Clock className="h-4 w-4 text-gray-400" />;
-    }
-    
-    // For all non-session-based items, check actual completion
-    if (lesson.completedQuestions === lesson.totalQuestions && lesson.totalQuestions > 0) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    } else if (lesson.completedQuestions > 0) {
-      return <RotateCcw className="h-4 w-4 text-yellow-500" />;
-    }
-    return <Clock className="h-4 w-4 text-gray-400" />;
   };
 
   const getTypeColor = (type) => {
@@ -662,57 +703,102 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
       </td>
       <td className="px-6 py-4 text-center">
         {lesson.isConfigured ? (
-          <>
-            {lesson.shouldBeSessionBased ? (
-              // Session-based assessment display
-              lesson.hasNoSessions ? (
-                <span className="text-sm text-gray-400">No sessions</span>
-              ) : (
-                <div>
-                  <div className="text-sm text-gray-600">
-                    {lesson.sessionCount} session{lesson.sessionCount !== 1 ? 's' : ''}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full cursor-help">
+                  {lesson.shouldBeSessionBased || lesson.activityType === 'lab' ? (
+                    // Session-based items and labs: Show status badge
+                    getStatusBadge(lesson)
+                  ) : (
+                    // Other items (lessons, etc.): Show progress bar
+                    <>
+                      <div className="w-full bg-gray-200 rounded-full h-3 mx-auto max-w-[120px]">
+                        <div 
+                          className={`h-3 rounded-full transition-all duration-300 ${getProgressColor(lesson.completionRate)}`}
+                          style={{ width: `${lesson.completionRate}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {Math.round(lesson.completionRate)}%
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                {lesson.shouldBeSessionBased ? (
+                  // Session-based assessment tooltip
+                  lesson.hasNoSessions ? (
+                    <div className="text-center">
+                      <div className="font-medium">No sessions started</div>
+                      <div className="text-xs opacity-75">Session-based assessment</div>
+                    </div>
+                  ) : (
+                    <div className="text-center space-y-1">
+                      <div className="font-medium">
+                        {lesson.sessionStatus === 'completed' ? 'Session submitted' :
+                         lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited' ? 'Session in progress' :
+                         'Session status unknown'}
+                      </div>
+                      
+                      {/* Show session progress details if available */}
+                      {lesson.sessionData?.latestSession && (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') && (
+                        <div className="text-xs">
+                          <div>
+                            {lesson.sessionData.latestSession.answeredQuestions || 0} / {lesson.sessionData.latestSession.totalQuestions || 0} questions attempted in current session
+                          </div>
+                          <div className="opacity-75">
+                            ({Math.round(lesson.completionRate)}% progress)
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show completed session info */}
+                      {lesson.sessionStatus === 'completed' && (
+                        <div className="text-xs opacity-75">
+                          {lesson.sessionCount} session{lesson.sessionCount !== 1 ? 's' : ''} completed
+                        </div>
+                      )}
+                      
+                      {/* Show scoring strategy */}
+                      <div className="text-xs opacity-75 border-t pt-1">
+                        Strategy: {lesson.scoringStrategy === 'takeHighest' ? 'Highest score' :
+                                 lesson.scoringStrategy === 'latest' ? 'Latest attempt' :
+                                 lesson.scoringStrategy === 'average' ? 'Average score' :
+                                 'Session-based'}
+                      </div>
+                    </div>
+                  )
+                ) : lesson.activityType === 'lab' ? (
+                  // Lab tooltip
+                  <div className="text-center">
+                    <div className="font-medium">
+                      {lesson.completionRate > 0 ? 'Lab submitted' : 'Lab not started'}
+                    </div>
+                    <div className="text-xs opacity-75">
+                      {lesson.completionRate > 0 ? 
+                        `Submitted with ${Math.round(lesson.completionRate)}% completion` : 
+                        'Lab assignment not yet submitted'}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {lesson.scoringStrategy === 'takeHighest' ? 'Highest score' :
-                     lesson.scoringStrategy === 'latest' ? 'Latest attempt' :
-                     lesson.scoringStrategy === 'average' ? 'Average score' :
-                     'Session-based'}
+                ) : (
+                  // Individual question-based tooltip (lessons, etc.)
+                  <div className="text-center">
+                    <div className="font-medium">
+                      {lesson.completedQuestions} / {lesson.totalQuestions} questions attempted
+                    </div>
+                    <div className="text-xs opacity-75">
+                      {Math.round(lesson.completionRate)}% progress
+                    </div>
                   </div>
-                </div>
-              )
-            ) : (
-              // Individual question-based display
-              <div>
-                <div className="text-sm text-gray-600">
-                  {lesson.completedQuestions} / {lesson.totalQuestions}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {Math.round(lesson.completionRate)}% complete
-                </div>
-              </div>
-            )}
-          </>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
-      </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center justify-center gap-2">
-          {getStatusIcon()}
-          <span className="text-xs text-gray-600 capitalize">
-            {lesson.shouldBeSessionBased && lesson.sessionCount > 0 ? (
-              // Show actual session status for session-based assessments
-              lesson.sessionStatus === 'completed' ? 'Completed' :
-              lesson.sessionStatus === 'in_progress' ? 'In Progress' :
-              lesson.sessionStatus === 'exited' ? 'Exited' :
-              lesson.sessionStatus || 'Unknown'
-            ) : (
-              // Show status based on actual question completion for all non-session-based items
-              lesson.completedQuestions === lesson.totalQuestions && lesson.totalQuestions > 0 ? 'Completed' :
-              lesson.completedQuestions > 0 ? 'In Progress' : 'Not Started'
-            )}
-          </span>
-        </div>
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center justify-between">
@@ -746,16 +832,5 @@ const SortIcon = ({ field, currentSort, sortOrder }) => {
     : <ChevronDown className="h-3 w-3 text-gray-700" />;
 };
 
-// Helper Functions
-const getItemStatus = (lesson) => {
-  // Determine lesson status based on completion
-  if (lesson.completedQuestions === 0) {
-    return 'not_started';
-  } else if (lesson.completedQuestions === lesson.totalQuestions) {
-    return 'completed';
-  } else {
-    return 'in_progress';
-  }
-};
 
 export default AssessmentGrid;

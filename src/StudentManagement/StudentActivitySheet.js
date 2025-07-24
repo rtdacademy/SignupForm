@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Calendar, Clock, Activity, BarChart3, Download, RefreshCw, User, Globe } from 'lucide-react';
+import { Calendar, Clock, Activity, BarChart3, Download, RefreshCw, User, Globe, Shield, AlertTriangle, LogIn, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
@@ -15,6 +15,9 @@ const StudentActivitySheet = ({ studentData, courseId, onClose }) => {
   const [currentSession, setCurrentSession] = useState(null);
   const [archivedSessions, setArchivedSessions] = useState([]);
   const [detailedData, setDetailedData] = useState(null);
+  const [authData, setAuthData] = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [securityAlerts, setSecurityAlerts] = useState(null);
   const [dateRange, setDateRange] = useState('7days');
   const [activeTab, setActiveTab] = useState('overview');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -109,6 +112,68 @@ const StudentActivitySheet = ({ studentData, courseId, onClose }) => {
     }
   }, [studentUid, getDateRange]);
 
+  // Fetch authentication activity data
+  const fetchAuthData = useCallback(async () => {
+    if (!studentUid && !studentData?.profile?.email) return;
+
+    try {
+      setAuthLoading(true);
+      const functions = getFunctions();
+      const retrieveAuthActivityLogs = httpsCallable(functions, 'retrieveAuthActivityLogs');
+      
+      const { start, end } = getDateRange();
+      const result = await retrieveAuthActivityLogs({
+        uid: studentUid,
+        email: studentData?.profile?.email,
+        startDate: start,
+        endDate: end,
+        limit: 100
+      });
+
+      if (result.data.success) {
+        setAuthData(result.data);
+      } else {
+        toast.error('Failed to fetch authentication data');
+      }
+    } catch (error) {
+      console.error('Error fetching auth data:', error);
+      toast.error('Error loading authentication data');
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [studentUid, studentData?.profile?.email, getDateRange]);
+
+  // Fetch security alerts
+  const fetchSecurityAlerts = useCallback(async () => {
+    try {
+      const functions = getFunctions();
+      const getAuthSecurityAlerts = httpsCallable(functions, 'getAuthSecurityAlerts');
+      
+      const { start, end } = getDateRange();
+      const result = await getAuthSecurityAlerts({
+        startDate: start,
+        endDate: end,
+        alertTypes: ['failed_login', 'multiple_failures']
+      });
+
+      if (result.data.success) {
+        // Filter alerts for this specific user
+        const userEmail = studentData?.profile?.email;
+        const filteredAlerts = result.data.alerts.filter(alert => 
+          alert.user === userEmail || alert.ip === studentData?.profile?.lastKnownIP
+        );
+        
+        setSecurityAlerts({
+          ...result.data,
+          alerts: filteredAlerts
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching security alerts:', error);
+      // Don't show toast for security alerts failure as it's not critical
+    }
+  }, [studentData?.profile?.email, studentData?.profile?.lastKnownIP, getDateRange]);
+
   // Generate and download activity report
   const generateReport = async (reportType = 'summary') => {
     if (!studentUid) return;
@@ -160,19 +225,23 @@ const StudentActivitySheet = ({ studentData, courseId, onClose }) => {
     const archivedSessionsUnsubscribe = fetchArchivedSessions();
     
     fetchDetailedData();
+    fetchAuthData();
+    fetchSecurityAlerts();
 
     return () => {
       if (currentSessionUnsubscribe) currentSessionUnsubscribe();
       if (archivedSessionsUnsubscribe) archivedSessionsUnsubscribe();
     };
-  }, [studentUid, fetchCurrentSession, fetchArchivedSessions, fetchDetailedData]);
+  }, [studentUid, fetchCurrentSession, fetchArchivedSessions, fetchDetailedData, fetchAuthData, fetchSecurityAlerts]);
 
   // Refresh data when date range changes
   useEffect(() => {
-    if (studentUid) {
+    if (studentUid || studentData?.profile?.email) {
       fetchDetailedData();
+      fetchAuthData();
+      fetchSecurityAlerts();
     }
-  }, [dateRange, fetchDetailedData]);
+  }, [dateRange, fetchDetailedData, fetchAuthData, fetchSecurityAlerts]);
 
   // Format duration helper
   const formatDuration = (ms) => {
@@ -285,6 +354,7 @@ const StudentActivitySheet = ({ studentData, courseId, onClose }) => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="authentication">Authentication</TabsTrigger>
           </TabsList>
           
           <div className="flex-1 overflow-auto p-6">
@@ -327,6 +397,16 @@ const StudentActivitySheet = ({ studentData, courseId, onClose }) => {
                 detailedData={detailedData}
                 formatTimestamp={formatTimestamp}
                 loading={loading}
+              />
+            </TabsContent>
+            
+            <TabsContent value="authentication" className="mt-0">
+              <AuthenticationTab 
+                authData={authData}
+                securityAlerts={securityAlerts}
+                studentData={studentData}
+                formatTimestamp={formatTimestamp}
+                loading={authLoading}
               />
             </TabsContent>
           </div>
@@ -698,5 +778,268 @@ const TimelineTab = ({ detailedData, formatTimestamp, loading }) => {
     </div>
   );
 };
+
+// Authentication Tab Component
+const AuthenticationTab = ({ authData, securityAlerts, studentData, formatTimestamp, loading }) => {
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <Skeleton className="h-4 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  const logs = authData?.logs || [];
+  const summary = authData?.summary || {};
+  const alerts = securityAlerts?.alerts || [];
+
+  // Helper function to get event type icon
+  const getEventTypeIcon = (eventType) => {
+    switch (eventType) {
+      case 'signin': return <LogIn className="h-4 w-4 text-green-600" />;
+      case 'signup': return <UserPlus className="h-4 w-4 text-blue-600" />;
+      case 'password_reset': return <Shield className="h-4 w-4 text-orange-600" />;
+      case 'account_deletion': return <AlertTriangle className="h-4 w-4 text-red-600" />;
+      case 'account_update': return <User className="h-4 w-4 text-purple-600" />;
+      default: return <Activity className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  // Helper function to get event type color
+  const getEventTypeColor = (eventType, isError = false) => {
+    if (isError) return 'text-red-600 bg-red-50 border-red-200';
+    
+    switch (eventType) {
+      case 'signin': return 'text-green-600 bg-green-50 border-green-200';
+      case 'signup': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'password_reset': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'account_deletion': return 'text-red-600 bg-red-50 border-red-200';
+      case 'account_update': return 'text-purple-600 bg-purple-50 border-purple-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  // Helper function to get method name readable format
+  const getReadableMethodName = (methodName) => {
+    if (!methodName) return 'Unknown';
+    
+    const method = methodName.replace('google.cloud.identitytoolkit.v1.', '').replace('Service.', '');
+    return method.replace(/([A-Z])/g, ' $1').trim().toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Auth Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.totalEvents || 0}</div>
+            <p className="text-sm text-gray-600">
+              {Object.keys(summary.eventTypes || {}).length} event types
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Sign-in Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {summary.eventTypes?.signin?.successCount || 0}
+            </div>
+            <p className="text-sm text-gray-600">
+              {summary.eventTypes?.signin?.errorCount || 0} failed attempts
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Registration Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {summary.eventTypes?.signup?.count || 0}
+            </div>
+            <p className="text-sm text-gray-600">
+              {summary.eventTypes?.signup?.errorCount || 0} failed registrations
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Security Alerts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{alerts.length}</div>
+            <p className="text-sm text-gray-600">
+              {alerts.filter(a => a.severity === 'high').length} high priority
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Security Alerts */}
+      {alerts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <span>Security Alerts</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {alerts.slice(0, 5).map((alert, index) => (
+                <div key={index} className={`p-3 rounded-lg border ${
+                  alert.severity === 'high' ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className={`h-4 w-4 ${
+                          alert.severity === 'high' ? 'text-red-600' : 'text-orange-600'
+                        }`} />
+                        <span className="font-medium capitalize">{alert.type.replace('_', ' ')}</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          alert.severity === 'high' 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {alert.severity}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1">{alert.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatTimestamp(alert.timestamp)}
+                        {alert.ip && ` • IP: ${alert.ip}`}
+                        {alert.count && ` • Count: ${alert.count}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Authentication Events */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Shield className="h-5 w-5" />
+            <span>Authentication Events</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {logs.map((log, index) => {
+              const eventType = getEventTypeFromLogMethod(log.methodName);
+              const isError = !!log.error;
+              
+              return (
+                <div key={index} className={`p-3 rounded-lg border ${getEventTypeColor(eventType, isError)}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3 flex-1">
+                      {getEventTypeIcon(eventType)}
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium">{getReadableMethodName(log.methodName)}</span>
+                          {isError && (
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                              Error
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="text-sm text-gray-600 mt-1">
+                          <p>{formatTimestamp(log.timestamp)}</p>
+                          {log.userAgent && (
+                            <p className="font-mono text-xs mt-1">{log.userAgent}</p>
+                          )}
+                          {log.ip && (
+                            <p className="text-xs mt-1">IP: {log.ip}</p>
+                          )}
+                        </div>
+
+                        {log.error && (
+                          <div className="mt-2 p-2 bg-red-100 rounded text-sm">
+                            <p className="font-medium text-red-800">Error: {log.error.message}</p>
+                            {log.error.code && (
+                              <p className="text-red-600 text-xs">Code: {log.error.code}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {(log.request?.email || log.response?.email) && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            Email: {log.request?.email || log.response?.email}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            
+            {logs.length === 0 && (
+              <div className="text-center py-8">
+                <Shield className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-lg font-medium text-gray-600">No Authentication Events</p>
+                <p className="text-sm text-gray-500">No authentication activity found for the selected date range</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Helper function to extract event type from log method name (duplicated from Cloud Function)
+function getEventTypeFromLogMethod(methodName) {
+  if (!methodName) return 'unknown';
+  
+  const method = methodName.toLowerCase();
+  
+  if (method.includes('signin') || method.includes('signinnwith')) {
+    return 'signin';
+  } else if (method.includes('signup')) {
+    return 'signup';
+  } else if (method.includes('resetpassword') || method.includes('getoobcode')) {
+    return 'password_reset';
+  } else if (method.includes('deleteaccount')) {
+    return 'account_deletion';
+  } else if (method.includes('setaccountinfo')) {
+    return 'account_update';
+  } else if (method.includes('getaccountinfo')) {
+    return 'account_info';
+  } else if (method.includes('createauthuri')) {
+    return 'auth_uri_creation';
+  } else if (method.includes('sendverificationcode')) {
+    return 'verification_code';
+  } else if (method.includes('getprojectconfig')) {
+    return 'config_request';
+  }
+  
+  return 'other';
+}
 
 export default StudentActivitySheet;

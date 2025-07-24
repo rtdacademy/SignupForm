@@ -6,27 +6,23 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, ChevronRight, ChevronLeft, Activity, UserCheck } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, DollarSign, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
-import { Label } from "../components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible";
 import { Switch } from "../components/ui/switch";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import StudentDetailsSheet from './StudentDetailsSheet';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
 import ScheduleMaker from '../Schedule/ScheduleMaker';
 import SchedCombined from '../Schedule/schedCombined';
 import ScheduleDisplay from '../Schedule/ScheduleDisplay';
-import RegistrationInfo from './RegistrationInfo';
 import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
-import PaymentInfo from './PaymentInfo'; 
+ 
 import StudentGradesDisplay from './StudentGradesDisplay';
-import StudentActivitySheet from './StudentActivitySheet';
 import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
 import GradebookDashboard from '../FirebaseCourses/components/gradebook/GradebookDashboard';
 
@@ -62,7 +58,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isComparisonSheetOpen, setIsComparisonSheetOpen] = useState(false);
   const { user } = useAuth();
@@ -115,7 +110,12 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const getRegularButtonStylesMobile = () => {
     return "flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center";
   };
-  const [visibleSections, setVisibleSections] = useState(isMobile ? 'registration' : ['registration']);
+  // Section expansion states
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(true);
+  const [isGradebookExpanded, setIsGradebookExpanded] = useState(true);
+  const [isProgressExpanded, setIsProgressExpanded] = useState(true);
+  const [isGradesExpanded, setIsGradesExpanded] = useState(true);
+  
   const [changedFields, setChangedFields] = useState({});
   const [assignedStaff, setAssignedStaff] = useState([]);
   const [courseId, setCourseId] = useState(null);
@@ -133,16 +133,15 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
   
   // Payment sheet state
-  const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
   // Documents sheet state (for international docs)
   const [isDocumentsSheetOpen, setIsDocumentsSheetOpen] = useState(false);
   
+  // Sheet states for full-screen overlays
+  const [isScheduleSheetOpen, setIsScheduleSheetOpen] = useState(false);
+  const [isGradebookSheetOpen, setIsGradebookSheetOpen] = useState(false);
   
-  // Activity sheet state
-  const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
-  
-  // Registration sheet state
-  const [isRegistrationSheetOpen, setIsRegistrationSheetOpen] = useState(false);
+  // For mobile, only show one section at a time
+  const [mobileActiveSection, setMobileActiveSection] = useState('schedule');
   
   // User custom claims state
   const [userClaims, setUserClaims] = useState(null);
@@ -307,52 +306,36 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     }
   };
 
-  // Updated getAvailableTabs function - no longer depends on mode
-  const getAvailableTabs = () => {
-    // If no student data or no courses, return empty tabs
-    if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
-      return [];
-    }
-  
-    // Determine available tabs based on course data
-    // If course has ltiLinksComplete, show grades tab instead of schedule/gradebook
-    if (ltiLinksComplete) {
-      return ['grades'];
-    } else if (studentData.courses[courseId].jsonGradebookSchedule) {
-      return ['progress'];
-    } else {
-      return ['schedule', 'gradebook'];
-    }
-  };
+  // Determine which sections should be available
+  const shouldShowGrades = ltiLinksComplete;
+  const shouldShowProgress = !ltiLinksComplete && studentData?.courses?.[courseId]?.jsonGradebookSchedule;
+  const shouldShowSchedule = !ltiLinksComplete && !studentData?.courses?.[courseId]?.jsonGradebookSchedule;
+  const shouldShowGradebook = !ltiLinksComplete && !studentData?.courses?.[courseId]?.jsonGradebookSchedule;
 
+  // Load section expansion states from preferences
   useEffect(() => {
-    return () => {};
-  }, []);
-
+    if (preferences?.sectionExpansion) {
+      setIsScheduleExpanded(preferences.sectionExpansion.schedule ?? true);
+      setIsGradebookExpanded(preferences.sectionExpansion.gradebook ?? true);
+      setIsProgressExpanded(preferences.sectionExpansion.progress ?? true);
+      setIsGradesExpanded(preferences.sectionExpansion.grades ?? true);
+    }
+  }, [preferences]);
+  
+  // Set default mobile section based on what's available
   useEffect(() => {
     if (isMobile) {
-      // For mobile, show first available tab
-      const availableTabs = getAvailableTabs();
-      if (availableTabs.length > 0) {
-        setVisibleSections(availableTabs[0]);
-      }
-    } else {
-      // For desktop, use saved preferences or default to initial set of tabs
-      const availableTabs = getAvailableTabs();
-      const savedTabs = preferences?.selectedTabs?.default || [];
-      
-      // Filter saved tabs to only include currently available tabs
-      const validSavedTabs = savedTabs.filter(tab => availableTabs.includes(tab));
-      
-      if (validSavedTabs.length > 0) {
-        setVisibleSections(validSavedTabs);
-      } else if (availableTabs.length > 2) {
-        setVisibleSections(availableTabs.slice(0, 3));
-      } else {
-        setVisibleSections(availableTabs);
+      if (shouldShowGrades) {
+        setMobileActiveSection('grades');
+      } else if (shouldShowProgress) {
+        setMobileActiveSection('progress');
+      } else if (shouldShowSchedule) {
+        setMobileActiveSection('schedule');
+      } else if (shouldShowGradebook) {
+        setMobileActiveSection('gradebook');
       }
     }
-  }, [studentData, courseId, isMobile, preferences, ltiLinksComplete]);
+  }, [isMobile, shouldShowGrades, shouldShowProgress, shouldShowSchedule, shouldShowGradebook]);
 
   // Original Firebase data fetching logic
   useEffect(() => {
@@ -518,23 +501,39 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     }
   }, [isMobile, studentData, nameRef.current, containerRef.current]);
 
-  const handleToggleSection = (value) => {
-    if (isMobile) {
-      // In mobile mode, value will be a single string
-      setVisibleSections(value);
-    } else {
-      if (value.length > 0) {
-        setVisibleSections(value);
-        // Save preferences
-        updatePreferences({
-          ...preferences,
-          selectedTabs: {
-            ...preferences.selectedTabs,
-            default: value
-          }
-        });
+  // Toggle handlers for each section
+  const toggleSchedule = () => {
+    const newState = !isScheduleExpanded;
+    setIsScheduleExpanded(newState);
+    saveExpansionPreferences({ schedule: newState });
+  };
+  
+  const toggleGradebook = () => {
+    const newState = !isGradebookExpanded;
+    setIsGradebookExpanded(newState);
+    saveExpansionPreferences({ gradebook: newState });
+  };
+  
+  const toggleProgress = () => {
+    const newState = !isProgressExpanded;
+    setIsProgressExpanded(newState);
+    saveExpansionPreferences({ progress: newState });
+  };
+  
+  const toggleGrades = () => {
+    const newState = !isGradesExpanded;
+    setIsGradesExpanded(newState);
+    saveExpansionPreferences({ grades: newState });
+  };
+  
+  const saveExpansionPreferences = (updates) => {
+    updatePreferences({
+      ...preferences,
+      sectionExpansion: {
+        ...preferences?.sectionExpansion,
+        ...updates
       }
-    }
+    });
   };
 
   // Create Schedule Button component
@@ -582,18 +581,13 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     }
     
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex justify-end mb-2">
-          <LMSIdButton compact={true} />
-        </div>
-        <div className="w-full h-full min-h-[500px] relative">
-          <iframe
-            src={gradebookUrl}
-            className="w-full h-full absolute inset-0 border-0"
-            title="Student Gradebook"
-            allow="fullscreen"
-          />
-        </div>
+      <div className="w-full h-full min-h-[500px] relative">
+        <iframe
+          src={gradebookUrl}
+          className="w-full h-full absolute inset-0 border-0"
+          title="Student Gradebook"
+          allow="fullscreen"
+        />
       </div>
     );
   };
@@ -659,6 +653,33 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   };
 
   // Updated render function for StudentGradesDisplay
+  // Helper function to render panel header with open-in-sheet button
+  const renderPanelHeader = (title, color, openSheetFn, actionButtons = null) => {
+    const colorClasses = {
+      emerald: { text: 'text-emerald-600', border: 'border-emerald-600', hover: 'hover:bg-emerald-600' },
+      green: { text: 'text-green-600', border: 'border-green-600', hover: 'hover:bg-green-600' },
+      teal: { text: 'text-teal-600', border: 'border-teal-600', hover: 'hover:bg-teal-600' },
+      slate: { text: 'text-slate-600', border: 'border-slate-600', hover: 'hover:bg-slate-600' }
+    };
+    
+    const classes = colorClasses[color] || colorClasses.teal;
+    
+    return (
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between hover:bg-gray-50 transition-colors">
+        <h4 className={`font-semibold ${classes.text}`}>
+          {title}
+        </h4>
+        <div className="flex items-center space-x-2">
+          {actionButtons}
+          <Maximize2
+            className={`h-5 w-5 ${classes.text} cursor-pointer hover:opacity-75 transition-opacity`}
+            onClick={(e) => { e.stopPropagation(); openSheetFn(); }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   const renderGradesContent = () => {
     if (!studentData?.courses[courseId]?.LMSStudentID) {
       return (
@@ -873,75 +894,18 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     );
   }
 
-  const availableTabs = getAvailableTabs();
-
-  const isSectionVisible = (sectionName) => {
-    if (isMobile) {
-      return visibleSections === sectionName;
-    }
-    return Array.isArray(visibleSections) && visibleSections.includes(sectionName);
-  };
-
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
       {/* Header Section */}
       <div className="mb-3">
-        {/* First row: Tabs and Action Buttons on same line */}
+        {/* First row: Action Buttons */}
         {!isMobile ? (
           <div className="flex items-center justify-between mb-1 gap-2">
             <div className="flex gap-2 flex-shrink-0">
             </div>
             
-            {/* Tabs - centered and shown when tabs are available */}
-            {availableTabs.length > 0 && (
-              <div className="flex-1 flex justify-center">
-                <ToggleGroup 
-                  type="multiple" 
-                  value={visibleSections} 
-                  onValueChange={handleToggleSection}
-                  className="bg-gray-100 p-1 rounded-full shadow-md"
-                >
-                  {availableTabs.map(tab => (
-                    <ToggleGroupItem 
-                      key={tab}
-                      value={tab} 
-                      className="px-4 py-1 rounded-full text-gray-600 data-[state=on]:bg-[#40b3b3] data-[state=on]:text-white hover:bg-[#e6f7f7] transition-colors whitespace-nowrap text-sm"
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            )}
-            
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
-              
-              {/* Registration Button - Admin only */}
-              {isAdminUser() && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsRegistrationSheetOpen(true)}
-                  className={getAdminButtonStyles()}
-                >
-                  <UserCheck className="h-4 w-4 mr-1" />
-                  Registration
-                </Button>
-              )}
-              
-              
-              
-              {/* Payment Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPaymentSheetOpen(true)}
-                className={getRegularButtonStyles()}
-              >
-                <DollarSign className="h-4 w-4 mr-1" />
-                Payment
-              </Button>
               
               {/* Documents Button - Visible for students with international docs */}
               {hasInternationalDocs && (
@@ -956,30 +920,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 </Button>
               )}
               
-              {/* Activity Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsActivitySheetOpen(true)}
-                className={getRegularButtonStyles()}
-              >
-                <Activity className="h-4 w-4 mr-1" />
-                Activity
-              </Button>
-              
-              {/* More Info Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsSheetOpen(true)}
-                className={getRegularButtonStyles()}
-              >
-                <InfoIcon className="h-4 w-4 mr-1" />
-                More Info
-              </Button>
-              
-              {/* LMS ID Button - Always visible */}
-              <LMSIdButton compact={true} className={getRegularButtonStyles().replace('flex items-center', 'flex items-center h-8')} />
             </div>
             
             {/* Staff Badges - Fixed width */}
@@ -1013,32 +953,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             {/* Action buttons in a row */}
             <div className="flex flex-wrap gap-2 w-full mb-2">
               
-              {/* Registration Button - Admin only */}
-              {isAdminUser() && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsRegistrationSheetOpen(true)}
-                  className={getAdminButtonStylesMobile()}
-                >
-                  <UserCheck className="h-4 w-4 mr-1" />
-                  Reg
-                </Button>
-              )}
-              
-              
-              
-              {/* Payment Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPaymentSheetOpen(true)}
-                className={getRegularButtonStylesMobile()}
-              >
-                <DollarSign className="h-4 w-4 mr-1" />
-                Payment
-              </Button>
-              
               {/* Documents Button - Visible for students with international docs */}
               {hasInternationalDocs && (
                 <Button
@@ -1052,198 +966,241 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 </Button>
               )}
               
-              {/* Activity Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsActivitySheetOpen(true)}
-                className={getRegularButtonStylesMobile()}
-              >
-                <Activity className="h-4 w-4 mr-1" />
-                Activity
-              </Button>
-              
-              {/* More Info Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsSheetOpen(true)}
-                className={getRegularButtonStylesMobile()}
-              >
-                <InfoIcon className="h-4 w-4 mr-1" />
-                Info
-              </Button>
-              
-              {/* LMS ID Button - Always visible */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsLMSIdDialogOpen(true)}
-                className={getRegularButtonStylesMobile()}
-              >
-                <IdCard className="h-4 w-4 mr-1" />
-                LMS ID
-              </Button>
             </div>
             
-            {/* Tab selectors - shown when tabs are available */}
-            {availableTabs.length > 0 && (
-              <RadioGroup
-                value={visibleSections}
-                onValueChange={handleToggleSection}
-                className="grid grid-cols-2 gap-1.5 w-full mb-2"
-              >
-                {availableTabs.map(tab => (
-                  <div key={tab} className="relative">
-                    <RadioGroupItem value={tab} id={tab} className="peer sr-only" />
-                    <Label
-                      htmlFor={tab}
-                      className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-gray-600 cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#e6f7f7]"
-                    >
-                      <span className="text-xs font-medium text-center whitespace-nowrap">
-                        {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
+            {/* Mobile section selector buttons */}
+            <div className="flex flex-wrap gap-1.5 w-full mb-2">
+              {shouldShowSchedule && (
+                <Button
+                  variant={mobileActiveSection === 'schedule' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMobileActiveSection('schedule')}
+                  className={`flex-1 ${mobileActiveSection === 'schedule' ? 'bg-[#40b3b3] text-white' : 'text-[#40b3b3] border-[#40b3b3]'}`}
+                >
+                  Schedule
+                </Button>
+              )}
+              {shouldShowGradebook && (
+                <Button
+                  variant={mobileActiveSection === 'gradebook' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMobileActiveSection('gradebook')}
+                  className={`flex-1 ${mobileActiveSection === 'gradebook' ? 'bg-[#40b3b3] text-white' : 'text-[#40b3b3] border-[#40b3b3]'}`}
+                >
+                  Gradebook
+                </Button>
+              )}
+              {shouldShowProgress && (
+                <Button
+                  variant={mobileActiveSection === 'progress' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMobileActiveSection('progress')}
+                  className={`flex-1 ${mobileActiveSection === 'progress' ? 'bg-[#40b3b3] text-white' : 'text-[#40b3b3] border-[#40b3b3]'}`}
+                >
+                  Progress
+                </Button>
+              )}
+              {shouldShowGrades && (
+                <Button
+                  variant={mobileActiveSection === 'grades' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMobileActiveSection('grades')}
+                  className={`flex-1 ${mobileActiveSection === 'grades' ? 'bg-[#40b3b3] text-white' : 'text-[#40b3b3] border-[#40b3b3]'}`}
+                >
+                  Progress
+                </Button>
+              )}
+            </div>
           </>
         )}
-
-        {/* Second row: Student Name - Compact */}
-        <div ref={containerRef} className="flex items-center py-1 border-b border-gray-200">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h2 
-                  ref={nameRef}
-                  className="font-semibold text-[#315369] truncate"
-                  style={{ fontSize: `${nameFontSize}px`, lineHeight: '1.1' }}
-                >
-                  {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
-                </h2>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
 
      
       </div>
 
-      {/* Main Content - New 3-Column Layout */}
-      <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {isMobile ? (
+          // Mobile: Keep existing vertical layout
+          <div className="flex flex-col space-y-4 p-4">
+            {/* Grades Section - New section for ltiLinksComplete courses */}
+            {shouldShowGrades && mobileActiveSection === 'grades' && (
+              <div className="w-full">
+                <Collapsible open={isGradesExpanded}>
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-emerald-500 border-x border-b border-gray-200">
+                    <CollapsibleTrigger onClick={toggleGrades} className="w-full">
+                      <div className="px-4 pt-4 pb-2 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                        <h4 className="font-semibold text-emerald-600">Progress</h4>
+                        <div className="flex items-center space-x-2">
+                          {isGradesExpanded && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setIsScheduleDialogOpen(true); }}
+                              className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
+                            >
+                              <Calendar className="h-4 w-4 mr-1" />
+                              {hasSchedule ? "" : "Create"}
+                            </Button>
+                          )}
+                          {isGradesExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="p-4 pt-2">
+                        {renderGradesContent()}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              </div>
+            )}
 
-        {/* Main Content Area - Takes available space except for notes panel */}
-        <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4 h-full overflow-hidden flex-1">
+            {/* Progress Section */}
+            {shouldShowProgress && mobileActiveSection === 'progress' && (
+              <div className="w-full">
+                <Collapsible open={isProgressExpanded}>
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-green-500 border-x border-b border-gray-200">
+                    <CollapsibleTrigger onClick={toggleProgress} className="w-full">
+                      <div className="px-4 pt-4 pb-2 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                        <h4 className="font-semibold text-green-600">Progress</h4>
+                        <div className="flex items-center space-x-2">
+                          {isProgressExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="p-4 pt-2">
+                        {renderProgressContent()}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              </div>
+            )}
 
-          {/* Grades Section - New section for ltiLinksComplete courses */}
-          {isSectionVisible('grades') && ltiLinksComplete && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-emerald-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-            
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-emerald-600">Progress</h4>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsScheduleDialogOpen(true)}
-                        className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
-                      >
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {hasSchedule ? "" : "Create"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsComparisonSheetOpen(true)}
-                        className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
-                      >
-                        <Split className="h-4 w-4 mr-1" />
-                        All
-                      </Button>
-                    </div>
-                  </div>
-                  {renderGradesContent()}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+            {/* Mobile Schedule and Gradebook sections */}
+            {shouldShowSchedule && mobileActiveSection === 'schedule' && (
+              <div className="w-full">
+                <Collapsible open={isScheduleExpanded}>
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-teal-500 border-x border-b border-gray-200">
+                    <CollapsibleTrigger onClick={toggleSchedule} className="w-full">
+                      <div className="px-4 pt-4 pb-2 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                        <h4 className="font-semibold text-teal-600">Schedule</h4>
+                        <div className="flex items-center space-x-2">
+                          {isScheduleExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="p-4 pt-2">
+                        {renderScheduleContent()}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              </div>
+            )}
 
-          {/* Progress Section */}
-          {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-green-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-green-600">Progress</h4>
+            {shouldShowGradebook && mobileActiveSection === 'gradebook' && (
+              <div className="w-full">
+                <Collapsible open={isGradebookExpanded}>
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-slate-500 border-x border-b border-gray-200">
+                    <CollapsibleTrigger onClick={toggleGradebook} className="w-full">
+                      <div className="px-4 pt-4 pb-2 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                        <h4 className="font-semibold text-slate-600">Gradebook</h4>
+                        <div className="flex items-center space-x-2">
+                          {isGradebookExpanded && (
+                            <LMSIdButton compact={true} />
+                          )}
+                          {isGradebookExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="p-4 pt-2">
+                        {renderGradebookContent()}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Desktop: New side-by-side resizable layout
+          <div className="h-full">
+            {/* Single sections (Progress or Grades) - keep vertical */}
+            {shouldShowGrades && (
+              <div className="w-full h-full">
+                <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-emerald-500 border-x border-b border-gray-200 h-full flex flex-col">
+                  {renderPanelHeader("Progress", "emerald", () => setIsComparisonSheetOpen(true), (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-green-600 border-green-600 hover:bg-green-600 hover:text-white flex items-center"
+                      onClick={() => setIsScheduleDialogOpen(true)}
+                      className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
                     >
-                      <Split className="h-4 w-4 mr-1" />
-                      Compare Views
+                      <Calendar className="h-4 w-4 mr-1" />
+                      {hasSchedule ? "" : "Create"}
                     </Button>
-                  </div>
-                  {renderProgressContent()}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  ))}
+                  <CardContent className="p-4 pt-2 flex-1 overflow-auto">
+                    {renderGradesContent()}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
-          {/* Schedule Section - Only shown for non-ltiLinksComplete courses */}
-          {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-teal-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-teal-600">Schedule</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-teal-600 border-teal-600 hover:bg-teal-600 hover:text-white flex items-center"
-                    >
-                      <Split className="h-4 w-4 mr-1" />
-                      Compare Views
-                    </Button>
-                  </div>
-                  {renderScheduleContent()}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+            {shouldShowProgress && (
+              <div className="w-full h-full">
+                <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-green-500 border-x border-b border-gray-200 h-full flex flex-col">
+                  {renderPanelHeader("Progress", "green", () => setIsComparisonSheetOpen(true), null)}
+                  <CardContent className="p-4 pt-2 flex-1 overflow-auto">
+                    {renderProgressContent()}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
-          {/* Gradebook Section - Only shown for non-ltiLinksComplete courses */}
-          {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-slate-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-slate-600">Gradebook</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-slate-600 border-slate-600 hover:bg-slate-600 hover:text-white flex items-center"
-                    >
-                      <Split className="h-4 w-4 mr-1" />
-                      Compare Views
-                    </Button>
-                  </div>
-                  {renderGradebookContent()}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+            {/* Side-by-side Schedule and Gradebook sections */}
+            {shouldShowSchedule && shouldShowGradebook && (
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                {/* Schedule Panel */}
+                <ResizablePanel 
+                  defaultSize={50} 
+                  minSize={25}
+                  className="flex flex-col"
+                >
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-teal-500 border-x border-b border-gray-200 h-full flex flex-col">
+                    {renderPanelHeader("Schedule", "teal", () => setIsScheduleSheetOpen(true), null)}
+                    <CardContent className="p-4 pt-2 flex-1 overflow-auto">
+                      {renderScheduleContent()}
+                    </CardContent>
+                  </Card>
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* Gradebook Panel */}
+                <ResizablePanel 
+                  defaultSize={50} 
+                  minSize={25}
+                  className="flex flex-col"
+                >
+                  <Card className="bg-white shadow-md rounded-xl border-t-4 border-t-slate-500 border-x border-b border-gray-200 h-full flex flex-col">
+                    {renderPanelHeader("Gradebook", "slate", () => setIsGradebookSheetOpen(true), (
+                      <LMSIdButton compact={true} />
+                    ))}
+                    <CardContent className="p-4 pt-2 flex-1 overflow-auto">
+                      {renderGradebookContent()}
+                    </CardContent>
+                  </Card>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            )}
+          </div>
+        )}
       </div>
 
       {/* LMS Student ID Dialog */}
@@ -1329,49 +1286,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
       {/* Additional Sheets and Dialogs */}
       <>
-        {/* Student Details Sheet */}
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent side="right" className="w-full md:w-2/3 bg-gray-50">
-            <StudentDetailsSheet 
-              studentData={studentData}
-              courseData={studentData?.courses[courseId]}
-              changedFields={changedFields}
-              courseId={courseId}
-              studentKey={studentEmailKey}
-              onClose={() => setIsSheetOpen(false)}
-            />
-          </SheetContent>
-        </Sheet>
 
 
-        {/* Payment Sheet */}
-        <Sheet open={isPaymentSheetOpen} onOpenChange={setIsPaymentSheetOpen}>
-          <SheetContent 
-            side="right" 
-            className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col"
-          >
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                  <DollarSign className="h-5 w-5 mr-2" />
-                  Payment Information
-                </h2>
-              </div>
-              
-              {/* Payment Content */}
-              <div className="flex-1 overflow-auto">
-                <PaymentInfo 
-                  studentKey={studentEmailKey}
-                  courseId={courseId}
-                  paymentStatus={studentData.courses[courseId].payment_status?.status}
-                  paymentDetails={studentData.courses[courseId].paymentDetails}
-                  readOnly={false}
-                />
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
 
         {/* Documents Sheet (International) */}
         {hasInternationalDocs && (
@@ -1406,43 +1322,47 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             </div>
           </SheetContent>
         </Sheet>
-        
-        
-        {/* Registration Sheet */}
-        <Sheet open={isRegistrationSheetOpen} onOpenChange={setIsRegistrationSheetOpen}>
-          <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                  <UserCheck className="h-5 w-5 mr-2" />
-                  Registration Information
+
+        {/* Schedule Sheet - Full Schedule View */}
+        <Sheet open={isScheduleSheetOpen} onOpenChange={setIsScheduleSheetOpen}>
+          <SheetContent side="right" className="w-[90%] max-w-6xl p-6 overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-teal-600 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2" />
+                  Full Schedule View
                 </h2>
+                <div className="text-sm text-gray-600">
+                  {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')} - {courseTitle}
+                </div>
               </div>
-              
-              {/* Registration Content */}
               <div className="flex-1 overflow-auto">
-                <RegistrationInfo 
-                  studentData={studentData}
-                  courseId={courseId}
-                  readOnly={false}
-                />
+                {renderScheduleContent()}
               </div>
             </div>
           </SheetContent>
         </Sheet>
 
-
-        {/* Activity Sheet */}
-        <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
-          <SheetContent side="right" className="w-[95%] max-w-6xl p-0 overflow-hidden">
-            <StudentActivitySheet 
-              studentData={studentData}
-              courseId={courseId}
-              onClose={() => setIsActivitySheetOpen(false)}
-            />
+        {/* Gradebook Sheet - Full Gradebook View */}
+        <Sheet open={isGradebookSheetOpen} onOpenChange={setIsGradebookSheetOpen}>
+          <SheetContent side="right" className="w-[90%] max-w-6xl p-6 overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-600 flex items-center">
+                  <ClipboardList className="h-5 w-5 mr-2" />
+                  Full Gradebook View
+                </h2>
+                <div className="text-sm text-gray-600">
+                  {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')} - {courseTitle}
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto">
+                {renderGradebookContent()}
+              </div>
+            </div>
           </SheetContent>
         </Sheet>
+        
 
         {/* Schedule Dialog */}
         <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>

@@ -191,9 +191,10 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
  * Calculate scores by category (lesson, assignment, exam, lab)
  * @param {Object} course - The course object containing gradebook config and grades
  * @param {string} studentEmail - Student email for session-based scoring (optional)
+ * @param {Array} allCourseItems - All course items from course structure (optional, for accurate totals)
  * @returns {Object} - Category scores with totals and percentages
  */
-export const calculateCategoryScores = (course, studentEmail = null) => {
+export const calculateCategoryScores = (course, studentEmail = null, allCourseItems = []) => {
   const validation = validateGradeDataStructures(course);
   if (!validation.valid) {
     return {};
@@ -202,6 +203,7 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
   const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
   const categories = {};
 
+  // First, process items that exist in itemStructure (these have grades/attempts)
   Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
     const itemType = itemConfig.type;
     if (!categories[itemType]) {
@@ -211,6 +213,7 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
         attemptedScore: 0,
         attemptedTotal: 0,
         attemptedCount: 0,
+        completedCount: 0,
         totalCount: 0,
         items: []
       };
@@ -220,7 +223,12 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
     if (lessonScore.valid) {
       categories[itemType].score += lessonScore.score;
       categories[itemType].total += lessonScore.total;
-      categories[itemType].totalCount += 1;
+      
+      // Only count items with actual points as existing items
+      // Items with total: 0 are placeholders and should be treated as missing
+      if (lessonScore.total > 0) {
+        categories[itemType].totalCount += 1;
+      }
       
       // Track attempted work separately
       const hasBeenAttempted = lessonScore.attempted > 0 || 
@@ -232,13 +240,78 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
         categories[itemType].attemptedCount += 1;
       }
       
+      // Track completed work separately - different logic for different item types
+      let isCompleted = false;
+      
+      if (itemType === 'lesson') {
+        // For lessons, use proper completion requirements (score thresholds, etc.)
+        isCompleted = checkLessonCompletion(itemId, course, studentEmail);
+      } else {
+        // For session-based items (assignments, exams, quizzes), consider completed if session was completed
+        if (lessonScore.source === 'session') {
+          isCompleted = lessonScore.sessionsCount > 0 && lessonScore.completedSessionsCount > 0;
+        } else {
+          // For individual question-based non-lesson items, use hasBeenAttempted
+          isCompleted = hasBeenAttempted;
+        }
+      }
+      
+      if (isCompleted) {
+        categories[itemType].completedCount += 1;
+      }
+      
       categories[itemType].items.push({
         itemId,
         hasBeenAttempted,
+        isCompleted,
         ...lessonScore
       });
     }
   });
+
+  // Second, account for items in allCourseItems that don't exist in itemStructure
+  if (allCourseItems.length > 0) {
+    // Count items by category from allCourseItems
+    const categoryItemCounts = {};
+    allCourseItems.forEach(courseItem => {
+      const categoryType = courseItem.type || 'lesson';
+      categoryItemCounts[categoryType] = (categoryItemCounts[categoryType] || 0) + 1;
+    });
+
+
+    // For each category, adjust totals to account for missing items
+    Object.entries(categoryItemCounts).forEach(([categoryType, totalItemsInCategory]) => {
+      if (!categories[categoryType]) {
+        categories[categoryType] = {
+          score: 0,
+          total: 0,
+          attemptedScore: 0,
+          attemptedTotal: 0,
+          attemptedCount: 0,
+          completedCount: 0,
+          totalCount: 0,
+          items: []
+        };
+      }
+
+      const currentItemCount = categories[categoryType].totalCount;
+      
+      if (totalItemsInCategory > currentItemCount) {
+        // We have more items in the course structure than in the gradebook
+        // Add zeros for the missing items
+        const missingItems = totalItemsInCategory - currentItemCount;
+        
+        // Estimate points per item based on existing items
+        const averagePointsPerItem = currentItemCount > 0 ? 
+          categories[categoryType].total / currentItemCount : 1;
+        
+        // Add zero scores for missing items
+        const missingTotalPoints = missingItems * averagePointsPerItem;
+        categories[categoryType].total += missingTotalPoints;
+        categories[categoryType].totalCount = totalItemsInCategory;
+      }
+    });
+  }
 
   // Calculate percentages for each category
   Object.values(categories).forEach(category => {
@@ -250,8 +323,13 @@ export const calculateCategoryScores = (course, studentEmail = null) => {
       ? (category.attemptedScore / category.attemptedTotal) * 100 
       : null; // null indicates no work attempted
     
-    // Completion percentage
+    // Completion percentage (items actually completed vs total items)
     category.completionPercentage = category.totalCount > 0
+      ? (category.completedCount / category.totalCount) * 100
+      : 0;
+      
+    // Attempted percentage (items started vs total items) 
+    category.attemptedItemsPercentage = category.totalCount > 0
       ? (category.attemptedCount / category.totalCount) * 100
       : 0;
   });

@@ -150,6 +150,7 @@ function formatTimestamp(timestamp) {
  *
  * Props:
  * - studentEmail (string): Student's email address
+ * - studentName (string): Student's display name
  * - courseId (string|number): Course ID
  * - initialNotes (array): Array of existing notes
  * - onNotesUpdate (function): Callback when notes are updated
@@ -160,6 +161,7 @@ function formatTimestamp(timestamp) {
  */
 const StudentNotes = ({
   studentEmail,
+  studentName,
   courseId,
   initialNotes = [],
   onNotesUpdate,
@@ -530,6 +532,13 @@ const StudentNotes = ({
   // --------------------------------------------------------------------------
   return (
     <div className={`flex flex-col ${isExpanded ? 'h-full overflow-hidden' : 'space-y-2'}`} ref={containerRef}>
+      {/* Header with student name */}
+      {studentName && !singleNoteMode && (
+        <div className="mb-3">
+          <h3 className="text-lg font-medium text-gray-900">{studentName}</h3>
+        </div>
+      )}
+      
       {/* SINGLE NOTE MODE */}
       {singleNoteMode ? (
         <div className="flex flex-col">

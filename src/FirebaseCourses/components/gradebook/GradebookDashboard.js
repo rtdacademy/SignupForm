@@ -3,7 +3,6 @@ import { BarChart, List, Target } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import GradebookSummary, { getLastActivityTime, getRelativeTime } from './GradebookSummary';
 import AssessmentGrid from './AssessmentGrid';
-import CourseProgress from './CourseProgress';
 //import CourseItemDetailModal from './CourseItemDetailModal';
 //import QuestionReviewModal from './QuestionReviewModal';
 
@@ -41,14 +40,10 @@ const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccess
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart className="h-4 w-4" />
             Overview
-          </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Progress
           </TabsTrigger>
           <TabsTrigger value="assessments" className="flex items-center gap-2">
             <List className="h-4 w-4" />
@@ -58,10 +53,6 @@ const GradebookDashboard = ({ course, allCourseItems = [], profile, lessonAccess
 
         <TabsContent value="overview" className="space-y-6">
           <GradebookSummary course={course} allCourseItems={allCourseItems} profile={profile} />
-        </TabsContent>
-
-        <TabsContent value="progress" className="space-y-6">
-          <CourseProgress course={course} allCourseItems={allCourseItems} profile={profile} lessonAccessibility={lessonAccessibility} />
         </TabsContent>
 
         <TabsContent value="assessments" className="space-y-6">

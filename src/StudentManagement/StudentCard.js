@@ -27,7 +27,6 @@ import { useAuth } from '../context/AuthContext';
 import { useCourse } from '../context/CourseContext';
 import { Checkbox } from "../components/ui/checkbox";
 import StudentDetail from './StudentDetail';
-import { useMode, MODES } from '../context/ModeContext';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 
@@ -380,7 +379,6 @@ const StudentCard = React.memo(({
     };
   }, [student]);
   
-  const { currentMode } = useMode();
   const bgColor = selectedStudentId === student.id 
     ? 'bg-blue-100' 
     : index % 2 === 0 
@@ -1583,7 +1581,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
               1 + // Chat is always visible
               (hasProfileHistory ? 1 : 0) +
               1 + // Emulate is always visible
-              (currentMode === MODES.REGISTRATION ? 1 : 0) +
+              (isAdminUser ? 1 : 0) +
               (isColdStorage ? 1 : 0);
             
             // Three size tiers based on button count
@@ -1681,18 +1679,29 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   Emulate
                 </Button>
 
-                {currentMode === MODES.REGISTRATION && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`${buttonClass} text-red-600 hover:text-red-700`}
-                    onClick={(e) => {
-                      setIsRemovalDialogOpen(true);
-                    }}
-                  >
-                    <Trash2 className={iconClass} />
-                    Remove
-                  </Button>
+                {isAdminUser && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`${buttonClass} text-red-600 hover:text-red-700 border-red-200 bg-red-50 hover:bg-red-100 relative`}
+                        onClick={(e) => {
+                          setIsRemovalDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className={iconClass} />
+                        Remove
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Admin Only"></span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <div className="text-xs">
+                        <div className="font-semibold">Admin Only</div>
+                        <div>Remove course from student record</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
 
                 {isColdStorage && (

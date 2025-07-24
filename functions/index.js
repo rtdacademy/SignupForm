@@ -43,6 +43,7 @@ const asnFunctions = require('./asnSync');
 // const archiveStudentDataFunctions = require('./archiveStudentData'); // Moved to triggers codebase
 const archiveUserActivityFunctions = require('./archiveUserActivity');
 const retrieveUserActivityFunctions = require('./retrieveUserActivity');
+const retrieveAuthActivityLogsFunctions = require('./retrieveAuthActivityLogs');
 const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
@@ -91,6 +92,11 @@ exports.archiveUserActivity = archiveUserActivityFunctions.archiveUserActivity;
 exports.cleanupOldActivityData = archiveUserActivityFunctions.cleanupOldActivityData;
 exports.retrieveUserActivity = retrieveUserActivityFunctions.retrieveUserActivity;
 exports.generateActivityReport = retrieveUserActivityFunctions.generateActivityReport;
+
+// Auth activity logging functions
+exports.retrieveAuthActivityLogs = retrieveAuthActivityLogsFunctions.retrieveAuthActivityLogs;
+exports.getAuthActivitySummary = retrieveAuthActivityLogsFunctions.getAuthActivitySummary;
+exports.getAuthSecurityAlerts = retrieveAuthActivityLogsFunctions.getAuthSecurityAlerts;
 exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
 exports.trackCourseEnrollmentChangesV2 = profileHistoryFunctions.trackCourseEnrollmentChangesV2;
 

@@ -3,7 +3,7 @@ import { FaSignOutAlt, FaArrowLeft, FaUserCircle } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
-import { useMode, MODES } from '../context/ModeContext';
+import { useAuth } from '../context/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,7 +117,7 @@ function Header({
     getNextSchoolYear,
     getPreviousSchoolYear
   } = useSchoolYear();
-  const { currentMode } = useMode();
+  const { isAdminUser } = useAuth();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -314,8 +314,8 @@ function Header({
                   </div>
                 </div>
                 
-                {/* Refresh Button - Only visible in registration mode */}
-                {currentMode === MODES.REGISTRATION && (
+                {/* Refresh Button - Only visible for admin users */}
+                {isAdminUser && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>

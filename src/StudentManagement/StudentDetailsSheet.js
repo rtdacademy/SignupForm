@@ -18,12 +18,36 @@ import GuardianManager from './GuardianManager';
 import { EmailChangeDialog } from './EmailChangeDialog';
 import ProfileHistory from './ProfileHistory';
 import { useAuth } from '../context/AuthContext';
+import PaymentInfo from './PaymentInfo';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const { user } = useAuth();
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
+  const [userClaims, setUserClaims] = useState(null);
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
+  
+  // Fetch user claims
+  useEffect(() => {
+    const fetchUserClaims = async () => {
+      if (user) {
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          setUserClaims(tokenResult.claims);
+        } catch (error) {
+          console.error('Error fetching user claims:', error);
+          setUserClaims(null);
+        }
+      } else {
+        setUserClaims(null);
+      }
+    };
+    
+    fetchUserClaims();
+  }, [user]);
+  
+  // Check if user has admin permissions
+  const isAdminUser = userClaims?.isAdminUser === true;
 
   const GENDER_OPTIONS = [
     { value: 'male', label: 'Male' },
@@ -101,6 +125,8 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
   };
 
   const renderEditableField = (label, field, options, readOnly = false) => {
+    // Make field read-only if user is not admin
+    const isFieldReadOnly = readOnly || !isAdminUser;
     let value;
 
     if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
@@ -124,9 +150,9 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
           <Select 
             value={value}
             onValueChange={(newValue) => handleFieldUpdate(field, newValue)}
-            disabled={readOnly}
+            disabled={isFieldReadOnly}
           >
-            <SelectTrigger className={cn("w-full", !readOnly && "bg-white")}>
+            <SelectTrigger className={cn("w-full", !isFieldReadOnly && "bg-white")}>
               <SelectValue placeholder={`Select ${label}`} />
             </SelectTrigger>
             <SelectContent>
@@ -146,8 +172,8 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
           <Input 
             value={value || ''}
             onChange={(e) => handleFieldUpdate(field, e.target.value)}
-            disabled={readOnly}
-            className={cn(!readOnly && "bg-white")}
+            disabled={isFieldReadOnly}
+            className={cn(!isFieldReadOnly && "bg-white")}
           />
         </div>
       );
@@ -167,6 +193,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
         <TabsList className="mb-4">
           <TabsTrigger value="profile">Profile Data</TabsTrigger>
           <TabsTrigger value="course">Course Data</TabsTrigger>
+          <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
@@ -213,6 +240,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                   <GuardianManager 
                     studentKey={studentKey}
                     onUpdate={onUpdate}
+                    readOnly={!isAdminUser}
                   />
                 </CardContent>
               </Card>
@@ -240,6 +268,17 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
               </CardContent>
             </Card>
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="payment">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <PaymentInfo 
+              studentKey={studentKey}
+              courseId={courseId}
+              paymentStatus={studentData.courses?.[courseId]?.payment_status?.status}
+              paymentDetails={studentData.courses?.[courseId]?.paymentDetails}
+              readOnly={!isAdminUser}
+            />
           </ScrollArea>
         </TabsContent>
         <TabsContent value="history">

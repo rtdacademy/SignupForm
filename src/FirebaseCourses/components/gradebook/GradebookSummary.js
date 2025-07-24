@@ -35,11 +35,9 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
   // Get student email for session-based scoring
   const studentEmail = profile?.StudentEmail || currentUser?.email;
 
-  // 📊 Debug: Log raw course data
-  console.log('📊 GradebookSummary - Raw Course Data:', course);
 
   // Calculate all stats using session-aware utility functions
-  const baseCategoryStats = calculateCategoryScores(course, studentEmail);
+  const baseCategoryStats = calculateCategoryScores(course, studentEmail, allCourseItems);
   const categoryStats = enhanceCategoryStatsWithItemCounts(baseCategoryStats, allCourseItems, weights);
   const overallStats = calculateOverallStatsFromCategories(categoryStats, weights);
   const courseItemStats = calculateCourseItemStats(course, allCourseItems, studentEmail);
@@ -183,17 +181,15 @@ const CategoryCard = ({ type, data }) => {
             <span className="text-2xl font-bold text-gray-400">--</span>
           )}
           <span className="text-xs text-gray-600">
-            {attemptedPercentage !== null ? 'Current score' : 'Not started'}
+            {attemptedPercentage !== null ? 'On attempted' : 'Not started'}
           </span>
         </div>
         
         
         {/* Projected contribution */}
-        {attemptedPercentage !== null && (
-          <div className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
-            Contributes {formatScore(data.percentage * weight / 100)}% to final grade
-          </div>
-        )}
+        <div className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
+          Contributes {formatScore(data.percentage * weight / 100)}% to final grade
+        </div>
       </div>
     </div>
   );
@@ -247,10 +243,11 @@ const calculateOverallStatsFromCategories = (categoryStats, weights) => {
     attemptedPoints += categoryData.attemptedScore || 0;
     attemptedPossible += categoryData.attemptedTotal || 0;
     
-    // Calculate projected weighted grade (includes all work)
+    // Calculate projected weighted grade (includes all work - zeros for incomplete)
     const weight = (weights[categoryType] || 0);
-    const categoryPercentage = categoryData.percentage || 0;
+    const categoryPercentage = categoryData.percentage || 0; // This already includes zeros
     weightedGrade += (categoryPercentage * weight);
+    
     
     // Calculate current weighted grade (only attempted work)
     if (categoryData.attemptedPercentage !== null && categoryData.attemptedCount > 0) {
@@ -258,6 +255,7 @@ const calculateOverallStatsFromCategories = (categoryStats, weights) => {
       totalWeightForAttempted += weight;
     }
   });
+  
   
   // Normalize current weighted grade to show performance on attempted work
   // This gives us the weighted average of only the categories with attempts
@@ -283,12 +281,11 @@ const calculateOverallStatsFromCategories = (categoryStats, weights) => {
   };
 };
 
-// Enhanced category stats that adds item counts from allCourseItems
+// Enhanced category stats that properly calculates overall percentages including zeros
 const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], weights = {}) => {
-  // Add item counts from allCourseItems to the category stats from our utility
   const enhanced = { ...categoryStats };
   
-  // Initialize missing categories and add item counts
+  // Initialize missing categories
   Object.keys(weights).forEach(categoryType => {
     if (!enhanced[categoryType]) {
       enhanced[categoryType] = {
@@ -310,10 +307,13 @@ const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], 
     }
   });
   
-  // The totalCount should already be set from calculateCategoryScores,
-  // but totalItemCount from allCourseItems gives us a double-check
+  // Count all items by category from allCourseItems
+  const categoryItemCounts = {};
   allCourseItems.forEach(courseItem => {
     const categoryType = courseItem.type || 'lesson';
+    categoryItemCounts[categoryType] = (categoryItemCounts[categoryType] || 0) + 1;
+    
+    // Initialize category if it doesn't exist
     if (!enhanced[categoryType]) {
       enhanced[categoryType] = {
         score: 0,
@@ -330,7 +330,25 @@ const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], 
         totalItemCount: 0
       };
     }
-    enhanced[categoryType].totalItemCount = (enhanced[categoryType].totalItemCount || 0) + 1;
+  });
+  
+  // Update completion percentages and total item counts (don't recalculate percentages - trust gradeCalculations.js)
+  Object.entries(enhanced).forEach(([categoryType, categoryData]) => {
+    const totalItemsInCategory = categoryItemCounts[categoryType] || 0;
+    categoryData.totalItemCount = totalItemsInCategory;
+    
+    // Update the totalCount if the course structure has more items
+    const originalTotalCount = categoryData.totalCount;
+    if (totalItemsInCategory > originalTotalCount) {
+      categoryData.totalCount = totalItemsInCategory;
+    }
+    
+    // Recalculate completion percentage with the updated total count
+    if (categoryData.completedCount !== undefined) {
+      categoryData.completionPercentage = totalItemsInCategory > 0 ? 
+        (categoryData.completedCount / totalItemsInCategory) * 100 : 0;
+    }
+      
   });
   
   return enhanced;
