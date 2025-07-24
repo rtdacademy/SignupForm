@@ -989,7 +989,83 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_35_l118_question1",
+            "title": "Question 1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question2", 
+            "title": "Question 2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question3",
+            "title": "Question 3", 
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question4",
+            "title": "Question 4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question5",
+            "title": "Question 5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question6",
+            "title": "Question 6", 
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question7",
+            "title": "Question 7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question8",
+            "title": "Question 8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question9",
+            "title": "Question 9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question10",
+            "title": "Question 10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question11",
+            "title": "Question 11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question12",
+            "title": "Question 12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question13",
+            "title": "Question 13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question14",
+            "title": "Question 14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_35_l118_question15",
+            "title": "Question 15",
+            "points": 1
+          }
+        ]
       },
       "assignment_l19_21": {
         "title": "Assignment L19-21 - Magnetism",
@@ -1603,6 +1679,600 @@
           {
             "questionId": "course2_62_question13",
             "title": "Question 13: Universal Wave-Particle Duality",
+            "points": 1
+          }
+        ]
+      },
+      "64_quantum_mechanics": {
+        "title": "Quantum Mechanics",
+        "type": "lesson",
+        "contentPath": "64-quantum-mechanics",
+        "questions": [
+          {
+            "questionId": "course2_64_question1",
+            "title": "Question 1: Standing Wave Conditions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question2",
+            "title": "Question 2: Classical vs Quantum Mechanics",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question3",
+            "title": "Question 3: Uncertainty Principle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question4",
+            "title": "Question 4: Wave-Particle Duality",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question5",
+            "title": "Question 5: Quantum Orbitals",
+            "points": 1
+          },
+          {
+            "questionId": "course2_64_question6",
+            "title": "Question 6: Quantized Energy Levels",
+            "points": 1
+          }
+        ]
+      },
+      "66_nuclear_physics": {
+        "title": "Nuclear Physics",
+        "type": "lesson",
+        "contentPath": "66-nuclear-physics",
+        "questions": [
+          {
+            "questionId": "course2_66_question1",
+            "title": "Question 1: Nuclear Transmutation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question2",
+            "title": "Question 2: Artificial Transmutation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question3",
+            "title": "Question 3: Velocity Selector",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question4",
+            "title": "Question 4: Ion Mass Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question5",
+            "title": "Question 5: Carbon Isotope Identification",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question6",
+            "title": "Question 6: Mass Defect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question7",
+            "title": "Question 7: Isotope Abundance",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question8",
+            "title": "Question 8: Binding Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question9",
+            "title": "Question 9: Binding Energy per Nucleon",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question10",
+            "title": "Question 10: Solar Mass Loss",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question11",
+            "title": "Question 11: Fission Atom Count",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question12",
+            "title": "Question 12: Mass-Energy Conversion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question13",
+            "title": "Question 13: Fission Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question14",
+            "title": "Question 14: Fusion Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_66_question15",
+            "title": "Question 15: Nuclear Power Mass Change",
+            "points": 1
+          }
+        ]
+      },
+      "67_radioactivity": {
+        "title": "Radioactivity",
+        "type": "lesson",
+        "contentPath": "67-radioactivity",
+        "questions": [
+          {
+            "questionId": "course2_67_question1",
+            "title": "Question 1: Oxygen-16 Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question2",
+            "title": "Question 2: Tin-120 Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question3",
+            "title": "Question 3: Beta-Minus Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question4",
+            "title": "Question 4: Radon Decay Particle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question5",
+            "title": "Question 5: Uranium-238 Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question6",
+            "title": "Question 6: Chlorine-35 Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question7",
+            "title": "Question 7: Radium-226 Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question8",
+            "title": "Question 8: Decay Series Step",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question9",
+            "title": "Question 9: Half-Life Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question10",
+            "title": "Question 10: Strontium-82 Decay Time",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question11",
+            "title": "Question 11: Radon Activity Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question12",
+            "title": "Question 12: Half-Life from Fraction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question13",
+            "title": "Question 13: Uranium Fission Products",
+            "points": 1
+          },
+          {
+            "questionId": "course2_67_question14",
+            "title": "Question 14: Alpha Decay Energy",
+            "points": 1
+          }
+        ]
+      },
+      "70_particle_physics": {
+        "title": "Particle Physics",
+        "type": "lesson",
+        "contentPath": "70-particle-physics",
+        "questions": [
+          {
+            "questionId": "course2_70_question1",
+            "title": "Question 1: Bubble vs Cloud Chambers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question2",
+            "title": "Question 2: Neutral Particle Detection",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question3",
+            "title": "Question 3: Magnetic Fields in Chambers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question4",
+            "title": "Question 4: Alpha vs Proton Tracks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question5",
+            "title": "Question 5: Proton vs Electron Tracks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question6",
+            "title": "Question 6: Psi Particle Mass Conversion",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question7",
+            "title": "Question 7: Beta Decay Neutrino Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question8",
+            "title": "Question 8: Maximum Electron Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question9",
+            "title": "Question 9: Positron Decay Neutrino",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question10",
+            "title": "Question 10: Neutron Pair Production",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question11",
+            "title": "Question 11: X-ray Pair Production",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question12",
+            "title": "Question 12: Annihilation Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question13",
+            "title": "Question 13: Conservation Laws",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question14",
+            "title": "Question 14: Proton Attraction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question15",
+            "title": "Question 15: Force Strengths",
+            "points": 1
+          },
+          {
+            "questionId": "course2_70_question16",
+            "title": "Question 16: Virtual Particle Exchange",
+            "points": 1
+          }
+        ]
+      },
+      "71_quarks": {
+        "title": "Quarks",
+        "type": "lesson",
+        "contentPath": "71-quarks",
+        "questions": [
+          {
+            "questionId": "course2_71_question1",
+            "title": "Question 1: Fundamental Particles History",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question2",
+            "title": "Question 2: Quark Theory Origin",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question3",
+            "title": "Question 3: Six Quarks in Standard Model",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question4",
+            "title": "Question 4: Leptons vs Hadrons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question5",
+            "title": "Question 5: Mesons vs Baryons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question6",
+            "title": "Question 6: Fermions vs Bosons",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question7",
+            "title": "Question 7: Deep Inelastic Scattering",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question8",
+            "title": "Question 8: High-Energy for Structure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question9",
+            "title": "Question 9: Quark Confinement",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question10",
+            "title": "Question 10: Nucleon Quark Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question11",
+            "title": "Question 11: Meson Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question12",
+            "title": "Question 12: Beta Decay Quarks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question13",
+            "title": "Question 13: Lepton Conservation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question14",
+            "title": "Question 14: Mass-Energy Units",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question15",
+            "title": "Question 15: Quark Evidence SLAC",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question16",
+            "title": "Question 16: Sixth Quark Prediction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question17",
+            "title": "Question 17: Top Quark Discovery",
+            "points": 1
+          },
+          {
+            "questionId": "course2_71_question18",
+            "title": "Question 18: Quark Charge Calculation",
+            "points": 1
+          }
+        ]
+      },
+      "74_unit_5_review": {
+        "title": "Unit 5 Review",
+        "type": "lesson",
+        "contentPath": "74-unit-5-review",
+        "questions": [
+          {
+            "questionId": "course2_74_unit5_q1",
+            "title": "Question 1: Photon Energy from Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q2",
+            "title": "Question 2: Photoelectric Maximum KE",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q3",
+            "title": "Question 3: Baseball de Broglie Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q4",
+            "title": "Question 4: MeV Photon Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q5",
+            "title": "Question 5: Photoelectron Kinetic Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q6",
+            "title": "Question 6: Electron Wave Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q7",
+            "title": "Question 7: Proton Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q8",
+            "title": "Question 8: Photon Energy from Frequency",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q9",
+            "title": "Question 9: Stopping Potential",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q10",
+            "title": "Question 10: Photon Energy Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q11",
+            "title": "Question 11: Accelerated Electron Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q12",
+            "title": "Question 12: Laser Power Output",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q13",
+            "title": "Question 13: Light Particle Nature",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q14",
+            "title": "Question 14: Rutherford Experiment",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q15",
+            "title": "Question 15: Spin Quantum Number",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q16",
+            "title": "Question 16: Bohr Model Limitations",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q17",
+            "title": "Question 17: Compton Scattering",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q18",
+            "title": "Question 18: Orbital Shape Quantum Number",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q19",
+            "title": "Question 19: Uncertainty Principle",
+            "points": 1
+          },
+          {
+            "questionId": "course2_74_unit5_q20",
+            "title": "Question 20: Schrödinger Orbital Model",
+            "points": 1
+          }
+        ]
+      },
+      "75_unit_6_review": {
+        "title": "Unit 6 Review",
+        "type": "lesson",
+        "contentPath": "75-unit-6-review",
+        "questions": [
+          {
+            "questionId": "course2_75_unit6_q1",
+            "title": "Question 1: Oxygen-17 Nuclear Reaction",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q2",
+            "title": "Question 2: Fluorine Nuclear Equation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q3",
+            "title": "Question 3: Velocity Selector Voltage",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q4",
+            "title": "Question 4: Mass Spectrometer Ion Mass",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q5",
+            "title": "Question 5: Nickel-58 Mass Defect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q6",
+            "title": "Question 6: Carbon-14 Notation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q7",
+            "title": "Question 7: Polonium-210 Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q8",
+            "title": "Question 8: Iodine-131 Half-Life",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q9",
+            "title": "Question 9: Radioactive Sample Decay Time",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q10",
+            "title": "Question 10: Uranium Fission Products",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q11",
+            "title": "Question 11: Neutron Bubble Chamber",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q12",
+            "title": "Question 12: Muon vs Electron Tracks",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q13",
+            "title": "Question 13: X-ray Pair Production",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q14",
+            "title": "Question 14: Proton-Antiproton Creation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q15",
+            "title": "Question 15: Annihilation Photon Wavelength",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q16",
+            "title": "Question 16: Neutron Quark Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q17",
+            "title": "Question 17: Neutral Pion Composition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q18",
+            "title": "Question 18: Quark Confinement Force",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q19",
+            "title": "Question 19: Top Quark Discovery",
+            "points": 1
+          },
+          {
+            "questionId": "course2_75_unit6_q20",
+            "title": "Question 20: Neutron Beta Decay Quarks",
             "points": 1
           }
         ]

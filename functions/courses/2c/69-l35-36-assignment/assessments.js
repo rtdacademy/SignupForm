@@ -1,5 +1,12 @@
 
-const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
+const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
+
+// Load course configuration
+const courseConfig = require('../shared/courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+const ACTIVITY_TYPE = 'assignment';
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Question pools for L35-36 Assignment - Nuclear Physics
 const questionPools = {
@@ -99,33 +106,25 @@ const questions = [
   ...questionPools.group2
 ];
 
-// Export individual handlers for each question (6 total)
-const questionHandlers = {};
+// Assessment configurations for master function
 const assessmentConfigs = {};
 
 for (let i = 1; i <= 6; i++) {
   const questionIndex = i - 1;
   const questionId = `course2_69_l3536_question${i}`;
   
-  questionHandlers[questionId] = createStandardMultipleChoice({
-    questions: [questions[questionIndex]],
-    randomizeOptions: true,
-    activityType: 'assignment',
-    maxAttempts: 3,
-    pointsValue: 1,
-    timeLimit: 40 // 40 minutes for 6 questions
-  });
-  
   assessmentConfigs[questionId] = {
+    type: 'multiple-choice',
     questions: [questions[questionIndex]],
     randomizeOptions: true,
-    activityType: 'assignment', 
+    activityType: ACTIVITY_TYPE,
     maxAttempts: 3,
     pointsValue: 1,
-    timeLimit: 40 // 40 minutes for 6 questions
+    timeLimit: 40, // 40 minutes for 6 questions
+    theme: activityDefaults.theme || 'green'
   };
 }
 
-// Export all question handlers
-module.exports = { ...questionHandlers, assessmentConfigs };
+// Export only assessment configurations for master function
+module.exports = { assessmentConfigs };
 
