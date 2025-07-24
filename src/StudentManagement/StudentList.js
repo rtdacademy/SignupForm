@@ -13,7 +13,6 @@ import {
 import StudentCard from './StudentCard';
 import { ChevronUp, ChevronDown, SortAsc, FileDown, RefreshCw, Database, ListChecks, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { TutorialButton } from '../components/TutorialButton';
 import CustomCSVExport from './CustomCSVExport';
 import MassUpdateDialog from './Dialog/MassUpdateDialog';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -776,10 +775,6 @@ return (
             {selectedStudents.size > 0 && ` • ${selectedStudents.size} selected`}
           </span>
         </h3>
-        <TutorialButton 
-          tutorialId="student-selection" 
-          tooltipText="Learn about student selection" 
-        />
       </div>
       <div className="flex items-center space-x-2">
         <Select value={sortKey} onValueChange={setSortKey}>

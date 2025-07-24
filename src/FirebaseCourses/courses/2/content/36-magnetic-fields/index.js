@@ -5,7 +5,7 @@ import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
 // Image path constants for magnetic fields lesson
-const ASSET_PATH = '/courses/2/content/36-magnetic-fields/assests/';
+const ASSET_PATH = '/courses/2/content/36-magnetic-fields/assets/';
 const images = {
   // Magnetic domain images
   magneticDomains: `${ASSET_PATH}Permanent magnets - magnetic domains.png`,

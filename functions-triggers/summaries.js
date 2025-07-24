@@ -394,11 +394,11 @@ const updateStudentCourseSummaryScheduleJSON = onValueWritten({
 
 /**
  * Cloud Function: createStudentCourseSummaryOnCourseCreateV2
- * Uses event data directly from the creation event
- * NOTE: This still uses broad listener but only triggers on creation, not updates
+ * Listens to ActiveFutureArchived/Value creation to avoid TRIGGER_PAYLOAD_TOO_LARGE errors
+ * Fetches full course data when needed
  */
 const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
-  ref: '/students/{studentId}/courses/{courseId}',
+  ref: '/students/{studentId}/courses/{courseId}/ActiveFutureArchived/Value',
   region: 'us-central1',
   memory: '1GiB',
   concurrency: 100
@@ -409,13 +409,21 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
   
   console.log(`Processing course creation for student ${studentId}, course ${courseId}`);
   
-  // Check if we have course data in the event
+  // Check if the ActiveFutureArchived value was set
   if (!event.data.exists()) {
-    console.log(`No course data found in event for student ${studentId}, course ${courseId}`);
+    console.log(`No ActiveFutureArchived value found for student ${studentId}, course ${courseId}`);
     return null;
   }
   
   try {
+    // Fetch the full course data since we're now listening to a specific field
+    const courseSnapshot = await db.ref(`students/${studentId}/courses/${courseId}`).once('value');
+    const courseData = courseSnapshot.val();
+    
+    if (!courseData) {
+      console.log(`No course data found for student ${studentId}, course ${courseId}`);
+      return null;
+    }
     // Check if the summary already exists (race condition safety)
     const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
     const summaryExists = (await summaryRef.once('value')).exists();
@@ -508,44 +516,45 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       'Term': 'Term'
     };
 
-    // Extract fields from event data
+    // Extract fields from course data
     for (const [sourcePath, targetField] of Object.entries(fieldMappings)) {
-      const value = getNestedValue(event.data, sourcePath);
+      let value = null;
+      
+      // Handle nested paths
+      if (sourcePath.includes('.')) {
+        const [parent, child] = sourcePath.split('.');
+        if (courseData[parent] && courseData[parent][child] !== undefined) {
+          value = courseData[parent][child];
+        }
+      } else {
+        value = courseData[sourcePath];
+      }
       
       // Handle special cases
       if (sourcePath === 'CourseID') {
         summaryData[targetField] = value || courseId;
       } else if (sourcePath === 'autoStatus' || sourcePath === 'inOldSharePoint') {
-        summaryData[targetField] = value !== null ? value : false;
+        summaryData[targetField] = value !== undefined ? value : false;
       } else if (sourcePath === 'PercentScheduleComplete' || sourcePath === 'PercentCompleteGradebook') {
-        summaryData[targetField] = value !== null ? value : 0;
+        summaryData[targetField] = value !== undefined ? value : 0;
       } else {
-        summaryData[targetField] = value !== null ? value : '';
+        summaryData[targetField] = value !== undefined ? value : '';
       }
     }
 
     // Handle special fields
     // For ScheduleJSON, just check existence
-    summaryData['hasSchedule'] = event.data.child('ScheduleJSON').exists();
+    summaryData['hasSchedule'] = courseData.ScheduleJSON !== undefined;
     
     // For primarySchoolName
-    if (event.data.child('primarySchoolName').exists()) {
-      summaryData['primarySchoolName'] = event.data.child('primarySchoolName').val();
-    } else {
-      summaryData['primarySchoolName'] = '';
-    }
+    summaryData['primarySchoolName'] = courseData.primarySchoolName || '';
     
     // For resumingOnDate
-    if (event.data.child('resumingOnDate').exists()) {
-      summaryData['resumingOnDate'] = event.data.child('resumingOnDate').val();
-    } else {
-      summaryData['resumingOnDate'] = '';
-    }
+    summaryData['resumingOnDate'] = courseData.resumingOnDate || '';
     
     // For payment_status/status
-    if (event.data.child('payment_status').exists() && 
-        event.data.child('payment_status').child('status').exists()) {
-      summaryData['payment_status'] = event.data.child('payment_status').child('status').val();
+    if (courseData.payment_status && courseData.payment_status.status !== undefined) {
+      summaryData['payment_status'] = courseData.payment_status.status;
     } else {
       summaryData['payment_status'] = '';
     }

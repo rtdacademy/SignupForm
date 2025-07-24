@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft, PanelLeft, PanelRight, Maximize2, Activity } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, ChevronRight, ChevronLeft, Activity, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -16,18 +16,15 @@ import { Switch } from "../components/ui/switch";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { useMode, MODES } from '../context/ModeContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import StudentDetailsSheet from './StudentDetailsSheet';
 import ScheduleMaker from '../Schedule/ScheduleMaker';
-import StudentNotes from './StudentNotes';
 import SchedCombined from '../Schedule/schedCombined';
 import ScheduleDisplay from '../Schedule/ScheduleDisplay';
 import RegistrationInfo from './RegistrationInfo';
 import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import PaymentInfo from './PaymentInfo'; 
-import PASIManager from './PASIManager';
 import StudentGradesDisplay from './StudentGradesDisplay';
 import StudentActivitySheet from './StudentActivitySheet';
 import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
@@ -68,8 +65,56 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isComparisonSheetOpen, setIsComparisonSheetOpen] = useState(false);
-  const [notes, setNotes] = useState([]);
   const { user } = useAuth();
+  
+  // Fetch user custom claims
+  useEffect(() => {
+    const fetchUserClaims = async () => {
+      if (user) {
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          setUserClaims(tokenResult.claims);
+        } catch (error) {
+          console.error('Error fetching user claims:', error);
+          setUserClaims(null);
+        }
+      } else {
+        setUserClaims(null);
+      }
+    };
+    
+    fetchUserClaims();
+  }, [user]);
+  
+  // Helper functions to check user permissions
+  const isAdminUser = () => {
+    return userClaims?.permissions?.isAdmin === true || userClaims?.isAdminUser === true;
+  };
+  
+  const isSuperAdminUser = () => {
+    return userClaims?.permissions?.isSuperAdmin === true || userClaims?.isSuperAdminUser === true;
+  };
+  
+  const isStaffUser = () => {
+    return userClaims?.permissions?.isStaff === true || userClaims?.isStaffUser === true;
+  };
+  
+  // Helper function to get admin button styles
+  const getAdminButtonStyles = () => {
+    return "h-8 text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white flex items-center";
+  };
+  
+  const getAdminButtonStylesMobile = () => {
+    return "flex-1 min-w-[80px] text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white flex items-center justify-center";
+  };
+  
+  const getRegularButtonStyles = () => {
+    return "h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center";
+  };
+  
+  const getRegularButtonStylesMobile = () => {
+    return "flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center";
+  };
   const [visibleSections, setVisibleSections] = useState(isMobile ? 'registration' : ['registration']);
   const [changedFields, setChangedFields] = useState({});
   const [assignedStaff, setAssignedStaff] = useState([]);
@@ -81,37 +126,30 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [jsonGradebookSchedule, setJsonGradebookSchedule] = useState(null);
   const [scheduleJSON, setScheduleJSON] = useState(null);
   const [jsonGradebook, setJsonGradebook] = useState(null);
-  const { currentMode } = useMode();
   const { preferences, updatePreferences } = useUserPreferences();
   const [newLMSId, setNewLMSId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(null);
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
   
-  // Notes visibility state
-  const [isNotesVisible, setIsNotesVisible] = useState(true);
-  
-  // Edge Admin sheet state
-  const [isEdgeAdminSheetOpen, setIsEdgeAdminSheetOpen] = useState(false);
   // Payment sheet state
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
   // Documents sheet state (for international docs)
   const [isDocumentsSheetOpen, setIsDocumentsSheetOpen] = useState(false);
   
-  // Notes expanded sheet state
-  const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
-  
-  // PASI sheet state
-  const [isPasiSheetOpen, setIsPasiSheetOpen] = useState(false);
   
   // Activity sheet state
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   
+  // Registration sheet state
+  const [isRegistrationSheetOpen, setIsRegistrationSheetOpen] = useState(false);
+  
+  // User custom claims state
+  const [userClaims, setUserClaims] = useState(null);
+  
   // Firebase course detection state
   const [isCurrentCourseFirebase, setIsCurrentCourseFirebase] = useState(false);
   
-  // Notes panel width - store it for user preference
-  const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
   
   // New refs and state for dynamic font sizing
   const nameRef = useRef(null);
@@ -149,25 +187,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   // Check if student has international documents
   const hasInternationalDocs = !!studentData?.profile?.internationalDocuments;
 
-  // On component initialization, check if we have a user preference for notes visibility
-  useEffect(() => {
-    if (preferences?.notesVisible !== undefined) {
-      setIsNotesVisible(preferences.notesVisible);
-    }
-  }, [preferences]);
-
-  // Save notes visibility preference when it changes
-  useEffect(() => {
-    updatePreferences({
-      ...preferences,
-      notesVisible: isNotesVisible,
-      notesPanelWidth: notesPanelWidth
-    });
-  }, [isNotesVisible, notesPanelWidth]);
-
-  const handleToggleNotesPanel = () => {
-    setIsNotesVisible(!isNotesVisible);
-  };
 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
@@ -288,29 +307,21 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     }
   };
 
-  // Updated getAvailableTabs function to only include registration and pasi for registration mode
+  // Updated getAvailableTabs function - no longer depends on mode
   const getAvailableTabs = () => {
-    // If no student data or no courses, return minimal tabs
+    // If no student data or no courses, return empty tabs
     if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
-      if (currentMode === MODES.REGISTRATION) {
-        return ['registration'];
-      }
       return [];
     }
   
-    // Registration mode tabs - now only registration, PASI moved to button
-    if (currentMode === MODES.REGISTRATION) {
-      return ['registration'];
+    // Determine available tabs based on course data
+    // If course has ltiLinksComplete, show grades tab instead of schedule/gradebook
+    if (ltiLinksComplete) {
+      return ['grades'];
+    } else if (studentData.courses[courseId].jsonGradebookSchedule) {
+      return ['progress'];
     } else {
-      // Non-registration mode tabs
-      // If course has ltiLinksComplete, show grades tab instead of schedule/gradebook
-      if (ltiLinksComplete) {
-        return ['grades'];
-      } else if (studentData.courses[courseId].jsonGradebookSchedule) {
-        return ['progress'];
-      } else {
-        return ['schedule', 'gradebook'];
-      }
+      return ['schedule', 'gradebook'];
     }
   };
 
@@ -328,8 +339,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     } else {
       // For desktop, use saved preferences or default to initial set of tabs
       const availableTabs = getAvailableTabs();
-      const mode = currentMode === MODES.REGISTRATION ? 'registration' : 'default';
-      const savedTabs = preferences?.selectedTabs?.[mode] || [];
+      const savedTabs = preferences?.selectedTabs?.default || [];
       
       // Filter saved tabs to only include currently available tabs
       const validSavedTabs = savedTabs.filter(tab => availableTabs.includes(tab));
@@ -342,13 +352,12 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         setVisibleSections(availableTabs);
       }
     }
-  }, [currentMode, studentData, courseId, isMobile, preferences, ltiLinksComplete]);
+  }, [studentData, courseId, isMobile, preferences, ltiLinksComplete]);
 
   // Original Firebase data fetching logic
   useEffect(() => {
     if (!studentSummary || !studentEmailKey) {
       setStudentData(null);
-      setNotes([]);
       setCourseId(null);
       return;
     }
@@ -372,7 +381,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
           setScheduleJSON(courseData.ScheduleJSON || null);
           setJsonGradebook(courseData.jsonGradebook || null);
-          setNotes(courseData.jsonStudentNotes || []);
           setLocalLMSStudentID(courseData.LMSStudentID || null);
         }
         
@@ -383,7 +391,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         prevDataRef.current = data;
       } else {
         setStudentData(null);
-        setNotes([]);
         setCourseId(null);
       }
       setLoading(false);
@@ -516,30 +523,16 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
       // In mobile mode, value will be a single string
       setVisibleSections(value);
     } else {
-      if (currentMode === MODES.REGISTRATION) {
-        if (value.length > 0) {
-          setVisibleSections(value);
-          // Save preferences
-          updatePreferences({
-            ...preferences,
-            selectedTabs: {
-              ...preferences.selectedTabs,
-              registration: value
-            }
-          });
-        }
-      } else {
-        if (value.length > 0) {
-          setVisibleSections(value);
-          // Save preferences
-          updatePreferences({
-            ...preferences,
-            selectedTabs: {
-              ...preferences.selectedTabs,
-              default: value
-            }
-          });
-        }
+      if (value.length > 0) {
+        setVisibleSections(value);
+        // Save preferences
+        updatePreferences({
+          ...preferences,
+          selectedTabs: {
+            ...preferences.selectedTabs,
+            default: value
+          }
+        });
       }
     }
   };
@@ -615,7 +608,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         {courseData?.ScheduleJSON ? (
           <ScheduleDisplay 
             scheduleJSON={courseData.ScheduleJSON}
-            readOnly={currentMode === MODES.REGISTRATION}
+            readOnly={false}
           />
         ) : courseData?.Schedule ? (
           <div 
@@ -659,7 +652,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         
         <SchedCombined 
           jsonGradebookSchedule={courseData?.jsonGradebookSchedule}
-          readOnly={currentMode === MODES.REGISTRATION}
+          readOnly={false}
         />
       </div>
     );
@@ -737,68 +730,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     );
   };
 
-  // Edge Admin content component
-  const renderEdgeAdminContent = () => {
-    const handleOpenSearchTab = () => {
-      window.open('https://edge.rtdacademy.com/admin/admin2.php', '_blank');
-    };
-  
-    const handleOpenNewStudentTab = () => {
-      window.open(`https://edge.rtdacademy.com/course/listusers.php?cid=${courseId}&newstu=new`, '_blank');
-    };
-  
-    const handleOpenExistingStudentTab = () => {
-      window.open(`https://edge.rtdacademy.com/course/listusers.php?cid=${courseId}&enroll=student`, '_blank');
-    };
-  
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex flex-col space-y-4">
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenSearchTab}
-              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
-            >
-              1. Search for Existing Student
-            </Button>
-            <p className="text-sm mt-2 text-gray-600">
-              Search for the newly registered student to see if they already exist. If they exist, use the third option. If they don't exist, use the second option.
-            </p>
-          </div>
-  
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenNewStudentTab}
-              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
-            >
-              2. Add New Student
-            </Button>
-            <p className="text-sm mt-2 text-gray-600">
-              Use this option when the student does not already have an account. You can add the student to the course from here.
-            </p>
-          </div>
-  
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenExistingStudentTab}
-              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
-            >
-              3. Add Existing Student to Course
-            </Button>
-            <p className="text-sm mt-2 text-gray-600">
-              Use this option to register an existing student by their username.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Updated renderGradebookContent with LMS ID button integration
   const renderGradebookContent = () => {
@@ -936,9 +867,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-gray-500">
           <p className="mb-2">No student selected or no courses available.</p>
-          {currentMode === MODES.REGISTRATION && (
-            <p className="text-sm">Select a student from the list to view or manage their courses.</p>
-          )}
+          <p className="text-sm">Select a student from the list to view or manage their courses.</p>
         </div>
       </div>
     );
@@ -961,29 +890,10 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         {!isMobile ? (
           <div className="flex items-center justify-between mb-1 gap-2">
             <div className="flex gap-2 flex-shrink-0">
-              {/* Notes Toggle Button - Moved to left side */}
-              <div className="flex bg-gray-100 rounded-lg p-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleNotesPanel}
-                  className={`h-8 rounded-l-md flex items-center justify-center ${isNotesVisible ? 'bg-white shadow-sm' : 'bg-transparent'}`}
-                >
-                  {isNotesVisible ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsNotesSheetOpen(true)}
-                  className="h-8 rounded-r-md flex items-center justify-center"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
             
-            {/* Tabs - centered and only shown in non-registration mode or if there's more than one tab */}
-            {availableTabs.length > 0 && (currentMode !== MODES.REGISTRATION || availableTabs.length > 1) && (
+            {/* Tabs - centered and shown when tabs are available */}
+            {availableTabs.length > 0 && (
               <div className="flex-1 flex justify-center">
                 <ToggleGroup 
                   type="multiple" 
@@ -1007,55 +917,39 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
               
-              {/* PASI Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
+              {/* Registration Button - Admin only */}
+              {isAdminUser() && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    // Show PASI content via sheet
-                    setIsPasiSheetOpen(true);
-                  }}
-                  className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                  onClick={() => setIsRegistrationSheetOpen(true)}
+                  className={getAdminButtonStyles()}
                 >
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  PASI
+                  <UserCheck className="h-4 w-4 mr-1" />
+                  Registration
                 </Button>
               )}
               
-              {/* Edge Admin Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEdgeAdminSheetOpen(true)}
-                  className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Edge Admin
-                </Button>
-              )}
               
-              {/* Payment Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPaymentSheetOpen(true)}
-                  className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                >
-                  <DollarSign className="h-4 w-4 mr-1" />
-                  Payment
-                </Button>
-              )}
               
-              {/* Documents Button - Only visible in registration mode for students with international docs */}
-              {currentMode === MODES.REGISTRATION && hasInternationalDocs && (
+              {/* Payment Button - Always visible */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPaymentSheetOpen(true)}
+                className={getRegularButtonStyles()}
+              >
+                <DollarSign className="h-4 w-4 mr-1" />
+                Payment
+              </Button>
+              
+              {/* Documents Button - Visible for students with international docs */}
+              {hasInternationalDocs && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsDocumentsSheetOpen(true)}
-                  className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                  className={getRegularButtonStyles()}
                 >
                   <ClipboardList className="h-4 w-4 mr-1" />
                   Documents
@@ -1067,7 +961,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsActivitySheetOpen(true)}
-                className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                className={getRegularButtonStyles()}
               >
                 <Activity className="h-4 w-4 mr-1" />
                 Activity
@@ -1078,114 +972,80 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsSheetOpen(true)}
-                className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                className={getRegularButtonStyles()}
               >
                 <InfoIcon className="h-4 w-4 mr-1" />
                 More Info
               </Button>
               
               {/* LMS ID Button - Always visible */}
-              <LMSIdButton compact={true} className="h-8" />
+              <LMSIdButton compact={true} className={getRegularButtonStyles().replace('flex items-center', 'flex items-center h-8')} />
             </div>
             
-            {/* Staff Badges - Fixed width, only in non-registration mode */}
-            {currentMode !== MODES.REGISTRATION && (
-              <div className="flex-none -space-x-2 overflow-hidden">
-                {assignedStaff.map((staff) => (
-                  <TooltipProvider key={staff.email}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Avatar 
-                          className="inline-block border-2 border-white w-8 h-8" 
-                          style={{ backgroundColor: getColorFromInitials(`${staff.firstName?.[0] || ''}${staff.lastName?.[0] || ''}`) }}
-                        >
-                          <AvatarFallback className="text-sm">
-                            {staff.firstName?.[0] || ''}{staff.lastName?.[0] || ''}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{staff.displayName || 'N/A'}</p>
-                        <p className="text-xs text-gray-500">{staff.email}</p>
-                        <p className="text-xs font-semibold">{staff.role}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ))}
-              </div>
-            )}
+            {/* Staff Badges - Fixed width */}
+            <div className="flex-none -space-x-2 overflow-hidden">
+              {assignedStaff.map((staff) => (
+                <TooltipProvider key={staff.email}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Avatar 
+                        className="inline-block border-2 border-white w-8 h-8" 
+                        style={{ backgroundColor: getColorFromInitials(`${staff.firstName?.[0] || ''}${staff.lastName?.[0] || ''}`) }}
+                      >
+                        <AvatarFallback className="text-sm">
+                          {staff.firstName?.[0] || ''}{staff.lastName?.[0] || ''}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{staff.displayName || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">{staff.email}</p>
+                      <p className="text-xs font-semibold">{staff.role}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+            </div>
           </div>
         ) : (
           // Mobile layout: buttons first, then tabs below
           <>
             {/* Action buttons in a row */}
             <div className="flex flex-wrap gap-2 w-full mb-2">
-              {/* Notes Toggle Button - Positioned first (leftmost) */}
-              <div className="flex flex-1 min-w-[80px] bg-gray-100 rounded-lg p-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleNotesPanel}
-                  className={`flex-1 flex items-center justify-center rounded-l-md ${isNotesVisible ? 'bg-white shadow-sm' : 'bg-transparent'}`}
-                >
-                  {isNotesVisible ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsNotesSheetOpen(true)}
-                  className="flex-1 rounded-r-md flex items-center justify-center"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
               
-              {/* PASI Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
+              {/* Registration Button - Admin only */}
+              {isAdminUser() && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsPasiSheetOpen(true)}
-                  className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                  onClick={() => setIsRegistrationSheetOpen(true)}
+                  className={getAdminButtonStylesMobile()}
                 >
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  PASI
+                  <UserCheck className="h-4 w-4 mr-1" />
+                  Reg
                 </Button>
               )}
               
-              {/* Edge Admin Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEdgeAdminSheetOpen(true)}
-                  className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Edge
-                </Button>
-              )}
               
-              {/* Payment Button - Only visible in registration mode */}
-              {currentMode === MODES.REGISTRATION && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPaymentSheetOpen(true)}
-                  className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
-                >
-                  <DollarSign className="h-4 w-4 mr-1" />
-                  Payment
-                </Button>
-              )}
               
-              {/* Documents Button - Only visible in registration mode for students with international docs */}
-              {currentMode === MODES.REGISTRATION && hasInternationalDocs && (
+              {/* Payment Button - Always visible */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPaymentSheetOpen(true)}
+                className={getRegularButtonStylesMobile()}
+              >
+                <DollarSign className="h-4 w-4 mr-1" />
+                Payment
+              </Button>
+              
+              {/* Documents Button - Visible for students with international docs */}
+              {hasInternationalDocs && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsDocumentsSheetOpen(true)}
-                  className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                  className={getRegularButtonStylesMobile()}
                 >
                   <ClipboardList className="h-4 w-4 mr-1" />
                   Docs
@@ -1197,7 +1057,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsActivitySheetOpen(true)}
-                className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                className={getRegularButtonStylesMobile()}
               >
                 <Activity className="h-4 w-4 mr-1" />
                 Activity
@@ -1208,7 +1068,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsSheetOpen(true)}
-                className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                className={getRegularButtonStylesMobile()}
               >
                 <InfoIcon className="h-4 w-4 mr-1" />
                 Info
@@ -1219,15 +1079,15 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsLMSIdDialogOpen(true)}
-                className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                className={getRegularButtonStylesMobile()}
               >
                 <IdCard className="h-4 w-4 mr-1" />
                 LMS ID
               </Button>
             </div>
             
-            {/* Tab selectors - only shown in non-registration mode or if there's more than one tab */}
-            {availableTabs.length > 0 && (currentMode !== MODES.REGISTRATION || availableTabs.length > 1) && (
+            {/* Tab selectors - shown when tabs are available */}
+            {availableTabs.length > 0 && (
               <RadioGroup
                 value={visibleSections}
                 onValueChange={handleToggleSection}
@@ -1276,61 +1136,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
       {/* Main Content - New 3-Column Layout */}
       <div className="flex flex-col lg:flex-row h-full overflow-hidden">
-        {/* Notes Panel - Moved to the left side */}
-        {isNotesVisible && (
-          <div className="flex-shrink-0 lg:w-80 h-full mr-4 transition-all duration-500 ease-in-out mt-4 lg:mt-0 overflow-hidden bg-white rounded-xl border-t-4 border-t-indigo-500 border-x border-b border-gray-200 shadow-md p-3">
-            <div className="mb-2">
-              <h4 className="font-semibold text-indigo-600 flex items-center">
-                <ClipboardList className="h-4 w-4 mr-1" />
-                Student Notes
-              </h4>
-            </div>
-            <div className="h-[calc(100%-2rem)] overflow-hidden">
-              <StudentNotes
-                studentEmail={studentEmailKey}
-                courseId={courseId}
-                initialNotes={notes}
-                onNotesUpdate={setNotes}
-                readOnly={currentMode === MODES.REGISTRATION}
-                isExpanded={false}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Main Content Area - Takes available space except for notes panel */}
         <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4 h-full overflow-hidden flex-1">
-          {/* Registration Info Section - Only shown in registration mode */}
-          {currentMode === MODES.REGISTRATION && isSectionVisible('registration') && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md rounded-xl border-t-4 border-t-blue-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <h4 className="font-semibold mb-2 text-blue-600">Registration Info</h4>
-                  <RegistrationInfo 
-                    studentData={studentData}
-                    courseId={courseId}
-                    readOnly={currentMode !== MODES.REGISTRATION}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* PASI Section */}
-          {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
-            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-purple-500 border-x border-b border-gray-200">
-                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <h4 className="font-semibold mb-2 text-purple-600">PASI Management</h4>
-                  <PASIManager 
-                    studentData={studentData} 
-                    courseId={courseId} 
-                    assignedStaff={assignedStaff} 
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
           {/* Grades Section - New section for ltiLinksComplete courses */}
           {isSectionVisible('grades') && ltiLinksComplete && (
@@ -1535,28 +1343,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           </SheetContent>
         </Sheet>
 
-        {/* Edge Admin Sheet */}
-        <Sheet open={isEdgeAdminSheetOpen} onOpenChange={setIsEdgeAdminSheetOpen}>
-          <SheetContent 
-            side="right" 
-            className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col"
-          >
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                  <LayoutGrid className="h-5 w-5 mr-2" />
-                  Edge Admin
-                </h2>
-              </div>
-              
-              {/* Edge Admin Content */}
-              <div className="flex-1 overflow-auto">
-                {renderEdgeAdminContent()}
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
 
         {/* Payment Sheet */}
         <Sheet open={isPaymentSheetOpen} onOpenChange={setIsPaymentSheetOpen}>
@@ -1580,7 +1366,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                   courseId={courseId}
                   paymentStatus={studentData.courses[courseId].payment_status?.status}
                   paymentDetails={studentData.courses[courseId].paymentDetails}
-                  readOnly={currentMode !== MODES.REGISTRATION}
+                  readOnly={false}
                 />
               </div>
             </div>
@@ -1621,56 +1407,31 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           </SheetContent>
         </Sheet>
         
-        {/* Notes Expanded Sheet */}
-        <Sheet open={isNotesSheetOpen} onOpenChange={setIsNotesSheetOpen}>
+        
+        {/* Registration Sheet */}
+        <Sheet open={isRegistrationSheetOpen} onOpenChange={setIsRegistrationSheetOpen}>
           <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
             <div className="flex flex-col h-full">
               {/* Header */}
               <div className="mb-4 flex-shrink-0">
                 <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                  <ClipboardList className="h-5 w-5 mr-2" />
-                  Student Notes
+                  <UserCheck className="h-5 w-5 mr-2" />
+                  Registration Information
                 </h2>
               </div>
               
-              {/* Notes Content */}
+              {/* Registration Content */}
               <div className="flex-1 overflow-auto">
-                <StudentNotes
-                  studentEmail={studentEmailKey}
+                <RegistrationInfo 
+                  studentData={studentData}
                   courseId={courseId}
-                  initialNotes={notes}
-                  onNotesUpdate={setNotes}
-                  readOnly={currentMode === MODES.REGISTRATION}
-                  isExpanded={true}
+                  readOnly={false}
                 />
               </div>
             </div>
           </SheetContent>
         </Sheet>
-        
-        {/* PASI Sheet */}
-        <Sheet open={isPasiSheetOpen} onOpenChange={setIsPasiSheetOpen}>
-          <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-purple-600 flex items-center">
-                  <ClipboardList className="h-5 w-5 mr-2" />
-                  PASI Management
-                </h2>
-              </div>
-              
-              {/* PASI Content */}
-              <div className="flex-1 overflow-auto">
-                <PASIManager 
-                  studentData={studentData} 
-                  courseId={courseId} 
-                  assignedStaff={assignedStaff} 
-                />
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+
 
         {/* Activity Sheet */}
         <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>

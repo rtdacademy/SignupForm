@@ -12,8 +12,14 @@ import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
-import StripeConnectOnboarding from '../components/StripeConnectOnboarding';
-import ReimbursementSubmissionForm from '../components/ReimbursementSubmissionForm';
+import StripeConnectOnboarding from './StripeConnectEmbeddedOnboarding';
+import ReimbursementSubmissionForm from './ReimbursementSubmissionForm';
+import Toast from '../components/Toast';
+import { 
+  EmbeddedAccountManagement, 
+  EmbeddedNotificationBanner, 
+  EmbeddedPayouts 
+} from '../components/ConnectEmbeddedComponents';
 import { 
   getCurrentSchoolYear, 
   getActiveSeptemberCount, 
@@ -335,7 +341,7 @@ const RTDConnectDashboard = () => {
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
   
   // Reimbursement system state
-  const [showStripeOnboarding, setShowStripeOnboarding] = useState(false);
+  const [showStripeConnectOnboarding, setShowStripeConnectOnboarding] = useState(false);
   const [showReimbursementForm, setShowReimbursementForm] = useState(false);
   const [selectedStudentForReimbursement, setSelectedStudentForReimbursement] = useState(null);
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -343,6 +349,19 @@ const RTDConnectDashboard = () => {
   const [isSubmittingReimbursement, setIsSubmittingReimbursement] = useState(false);
   const [stripeConnectError, setStripeConnectError] = useState(null);
   const [reimbursementError, setReimbursementError] = useState(null);
+  
+  // Embedded components state
+  const [showAccountManagement, setShowAccountManagement] = useState(false);
+  const [showPayoutsView, setShowPayoutsView] = useState(false);
+  const [accountSession, setAccountSession] = useState(null);
+  const [onboardingSession, setOnboardingSession] = useState(null);
+  const [managementSession, setManagementSession] = useState(null);
+  const [payoutsSession, setPayoutsSession] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionStates, setSessionStates] = useState({});
+  
+  // Toast notification state
+  const [toast, setToast] = useState(null);
   
   // School year tracking state
   const [currentSchoolYear, setCurrentSchoolYear] = useState('');
@@ -661,9 +680,46 @@ const RTDConnectDashboard = () => {
   // Effect to load Stripe Connect status
   useEffect(() => {
     if (customClaims?.familyId && user?.uid && customClaims?.familyRole === 'primary_guardian') {
+      // Reset all sessions when Stripe status changes
+      setSessionStates({});
+      setAccountSession(null);
+      setOnboardingSession(null);
+      setManagementSession(null);
+      setPayoutsSession(null);
       loadStripeConnectStatus();
     }
   }, [customClaims?.familyId, user?.uid, customClaims?.familyRole]);
+
+  // Effect to create account session for notification banner when Stripe account exists
+  useEffect(() => {
+    const createNotificationSession = async () => {
+      const sessionKey = `${stripeConnectStatus?.accountId}-notification`;
+      
+      if (stripeConnectStatus?.accountId && 
+          !accountSession && 
+          !sessionLoading && 
+          !sessionStates[sessionKey]?.created) {
+        try {
+          const session = await createAccountSession(['notification_banner'], 'notification');
+          if (session) {
+            setSessionStates(prev => ({
+              ...prev,
+              [sessionKey]: { created: true, claimed: false }
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to create notification session:', error);
+          // Mark as attempted to prevent retries
+          setSessionStates(prev => ({
+            ...prev,
+            [sessionKey]: { created: false, claimed: false, error: true }
+          }));
+        }
+      }
+    };
+
+    createNotificationSession();
+  }, [stripeConnectStatus?.accountId, accountSession, sessionLoading, sessionStates]);
 
   // Effect to load reimbursement statuses
   useEffect(() => {
@@ -1131,20 +1187,64 @@ const RTDConnectDashboard = () => {
   };
 
   // Stripe Connect handlers
-  const handleStripeAccountCreated = (accountData) => {
-    setStripeConnectStatus({
+  const handleStripeConnectComplete = (accountData) => {
+    setStripeConnectStatus(prev => ({
+      ...prev,
+      status: 'completed',
       accountId: accountData.accountId,
-      status: accountData.status,
-      onboardingComplete: accountData.status === 'active'
-    });
-    console.log('Stripe Connect account created:', accountData);
+      completedAt: new Date().toISOString()
+    }));
+    setShowStripeConnectOnboarding(false);
+    console.log('Stripe Connect onboarding completed:', accountData);
   };
 
-  const handleStripeOnboardingComplete = () => {
-    setShowStripeOnboarding(false);
-    // Reload the Stripe Connect status to get updated information
-    loadStripeConnectStatus();
-    console.log('Stripe onboarding completed');
+  // Debug function to check Stripe account status
+  const handleDebugStripeAccount = async () => {
+    if (!customClaims?.familyId) {
+      alert('No family ID found');
+      return;
+    }
+
+    try {
+      const functions = getFunctions();
+      const debugStripeAccount = httpsCallable(functions, 'debugStripeAccount');
+      
+      console.log('Calling debugStripeAccount for family:', customClaims.familyId);
+      const result = await debugStripeAccount({
+        familyId: customClaims.familyId
+      });
+      
+      console.log('Debug Stripe Account Result:', result.data);
+      
+      // Display results in alert for easy viewing
+      const { accountData, requirements, capabilities } = result.data;
+      const alertMessage = `
+Stripe Account Debug Results:
+Account ID: ${accountData.id}
+Country: ${accountData.country}
+Default Currency: ${accountData.default_currency}
+Details Submitted: ${accountData.details_submitted}
+Charges Enabled: ${accountData.charges_enabled}
+Payouts Enabled: ${accountData.payouts_enabled}
+
+Requirements:
+- Currently Due: ${requirements.currently_due?.join(', ') || 'None'}
+- Eventually Due: ${requirements.eventually_due?.join(', ') || 'None'}
+- Past Due: ${requirements.past_due?.join(', ') || 'None'}
+- Pending Verification: ${requirements.pending_verification?.join(', ') || 'None'}
+
+Capabilities:
+- Card Payments: ${capabilities.card_payments}
+- Transfers: ${capabilities.transfers}
+
+Check console for full details.
+      `;
+      
+      alert(alertMessage);
+    } catch (error) {
+      console.error('Error debugging Stripe account:', error);
+      alert(`Error debugging Stripe account: ${error.message}`);
+    }
   };
 
   const handleSubmitReimbursement = async (reimbursementData) => {
@@ -1178,16 +1278,16 @@ const RTDConnectDashboard = () => {
         })
       );
 
-      // Generate a unique reimbursement ID
-      const reimbursementId = `reimb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
       // Find the student name from familyData
       const student = familyData.students.find(s => s.id === reimbursementData.studentId);
       const studentName = student ? `${student.firstName} ${student.lastName}` : 'Unknown Student';
 
-      // Create reimbursement record
-      const reimbursementRecord = {
-        id: reimbursementId,
+      // Use the Cloud Function to submit reimbursement
+      const functions = getFunctions();
+      const submitReimbursementFunc = httpsCallable(functions, 'submitReimbursement');
+      
+      const result = await submitReimbursementFunc({
+        familyId: familyId,
         studentId: reimbursementData.studentId,
         studentName: studentName,
         amount: parseFloat(reimbursementData.amount),
@@ -1195,52 +1295,26 @@ const RTDConnectDashboard = () => {
         category: reimbursementData.category,
         purchaseDate: reimbursementData.purchaseDate,
         receiptFiles: receiptFiles,
-        submittedAt: new Date().toISOString(),
-        submittedBy: user.uid,
-        submittedByEmail: user.email,
-        status: 'pending_review',
-        schoolYear: activeSchoolYear,
-        payout_status: 'pending',
-        lastUpdated: new Date().toISOString()
-      };
-
-      const db = getDatabase();
-      
-      // Write to family reimbursements
-      const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/REIMBURSEMENTS/${activeSchoolYear.replace('/', '_')}/${reimbursementData.studentId}/${reimbursementId}`);
-      await set(reimbursementRef, reimbursementRecord);
-
-      // Add to admin queue for review
-      const adminQueueRef = ref(db, `adminReimbursementQueue/${reimbursementId}`);
-      await set(adminQueueRef, {
-        ...reimbursementRecord,
-        familyId: familyId,
-        queuedAt: new Date().toISOString()
+        schoolYear: activeSchoolYear
       });
 
-      // Log the action for audit purposes
-      const auditLogRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/AUDIT_LOG`);
-      await push(auditLogRef, {
-        action: 'reimbursement_submitted',
-        performed_by: user.uid,
-        performed_by_email: user.email,
-        timestamp: new Date().toISOString(),
-        details: {
-          reimbursementId: reimbursementId,
-          studentId: reimbursementData.studentId,
-          studentName: studentName,
-          amount: reimbursementData.amount,
-          category: reimbursementData.category
-        }
-      });
-
-      console.log('Reimbursement submitted successfully:', reimbursementId);
-      
-      setShowReimbursementForm(false);
-      setSelectedStudentForReimbursement(null);
-      
-      // Reload reimbursement statuses
-      await loadReimbursementStatuses();
+      if (result.data.success) {
+        console.log('Reimbursement submitted successfully:', result.data.reimbursementId);
+        
+        // Show success toast
+        setToast({
+          message: `Reimbursement submitted successfully! ID: ${result.data.reimbursementId}`,
+          type: 'success'
+        });
+        
+        setShowReimbursementForm(false);
+        setSelectedStudentForReimbursement(null);
+        
+        // Reload reimbursement statuses
+        await loadReimbursementStatuses();
+      } else {
+        throw new Error('Failed to submit reimbursement');
+      }
     } catch (error) {
       console.error('Error submitting reimbursement:', error);
       setReimbursementError(error.message || 'Failed to submit reimbursement');
@@ -1250,15 +1324,46 @@ const RTDConnectDashboard = () => {
   };
 
   const handleOpenReimbursementForm = (student) => {
-    // Check if Stripe Connect account is set up
-    if (!stripeConnectStatus?.onboardingComplete) {
-      alert('Please complete the secure payout setup before submitting reimbursements.');
-      setShowStripeOnboarding(true);
+    // Check if Stripe Connect is set up
+    if (stripeConnectStatus?.status !== 'completed') {
+      alert('Please complete the Stripe Connect onboarding before submitting reimbursements.');
+      setShowStripeConnectOnboarding(true);
       return;
     }
     
     setSelectedStudentForReimbursement(student);
     setShowReimbursementForm(true);
+  };
+
+  // Handlers for embedded components
+  const handleOpenAccountManagement = async () => {
+    if (!stripeConnectStatus?.accountId) {
+      setToast({
+        message: 'Please complete Stripe Connect setup first',
+        type: 'error'
+      });
+      return;
+    }
+
+    const session = await createAccountSession(['account_management'], 'management');
+    if (session) {
+      setShowAccountManagement(true);
+    }
+  };
+
+  const handleOpenPayoutsView = async () => {
+    if (!stripeConnectStatus?.accountId) {
+      setToast({
+        message: 'Please complete Stripe Connect setup first',
+        type: 'error'
+      });
+      return;
+    }
+
+    const session = await createAccountSession(['payouts'], 'payouts');
+    if (session) {
+      setShowPayoutsView(true);
+    }
   };
 
   const loadReimbursementStatuses = async () => {
@@ -1278,12 +1383,20 @@ const RTDConnectDashboard = () => {
           const reimbursements = snapshot.val();
           const reimbursementList = Object.values(reimbursements);
           
+          // Find the most recent submission
+          const latestSubmission = reimbursementList.reduce((latest, current) => {
+            const currentDate = new Date(current.submittedAt);
+            const latestDate = latest ? new Date(latest.submittedAt) : null;
+            return !latest || currentDate > latestDate ? current : latest;
+          }, null);
+
           statuses[student.id] = {
             total: reimbursementList.length,
             pending: reimbursementList.filter(r => r.status === 'pending_review').length,
             approved: reimbursementList.filter(r => r.status === 'approved').length,
             paid: reimbursementList.filter(r => r.payout_status === 'paid').length,
-            totalAmount: reimbursementList.reduce((sum, r) => sum + (r.amount || 0), 0)
+            totalAmount: reimbursementList.reduce((sum, r) => sum + (r.amount || 0), 0),
+            latestSubmission: latestSubmission
           };
         } else {
           statuses[student.id] = {
@@ -1291,7 +1404,8 @@ const RTDConnectDashboard = () => {
             pending: 0,
             approved: 0,
             paid: 0,
-            totalAmount: 0
+            totalAmount: 0,
+            latestSubmission: null
           };
         }
       }
@@ -1314,16 +1428,97 @@ const RTDConnectDashboard = () => {
       
       if (snapshot.exists()) {
         const data = snapshot.val();
+        
         setStripeConnectStatus({
-          accountId: data.accountId,
           status: data.status,
-          onboardingComplete: data.status === 'active',
+          accountId: data.accountId,
+          onboardingUrl: data.onboardingUrl,
           createdAt: data.createdAt,
+          completedAt: data.completedAt,
           lastUpdated: data.lastUpdated
         });
       }
     } catch (error) {
       console.error('Error loading Stripe Connect status:', error);
+    }
+  };
+
+  // Create account session for specific embedded components
+  const createAccountSession = async (components = ['notification_banner'], sessionType = 'notification') => {
+    if (!customClaims?.familyId || sessionLoading) {
+      return null;
+    }
+
+    const sessionKey = `${stripeConnectStatus?.accountId}-${sessionType}`;
+    
+    // Prevent duplicate session creation
+    if (sessionStates[sessionKey]?.created) {
+      console.log(`${sessionType} session already created, skipping...`);
+      switch (sessionType) {
+        case 'onboarding':
+          return onboardingSession;
+        case 'management':
+          return managementSession;
+        case 'payouts':
+          return payoutsSession;
+        case 'notification':
+        default:
+          return accountSession;
+      }
+    }
+
+    setSessionLoading(true);
+    setStripeConnectError(null);
+
+    try {
+      const functions = getFunctions();
+      const createSession = httpsCallable(functions, 'createAccountSession');
+      
+      const result = await createSession({
+        familyId: customClaims.familyId,
+        components: components
+      });
+
+      if (result.data.success) {
+        // Store session in component-specific state to avoid sharing
+        switch (sessionType) {
+          case 'onboarding':
+            setOnboardingSession(result.data);
+            break;
+          case 'management':
+            setManagementSession(result.data);
+            break;
+          case 'payouts':
+            setPayoutsSession(result.data);
+            break;
+          case 'notification':
+          default:
+            setAccountSession(result.data);
+            break;
+        }
+        return result.data;
+      } else {
+        throw new Error('Failed to create account session');
+      }
+    } catch (error) {
+      console.error(`Error creating ${sessionType} session:`, error);
+      
+      // Handle session claiming errors more gracefully
+      if (error.message?.includes('already been claimed')) {
+        console.warn(`Account session already claimed for ${sessionType} - this may be expected`);
+        
+        // Mark the session as claimed in our tracking
+        setSessionStates(prev => ({
+          ...prev,
+          [sessionKey]: { created: true, claimed: true, error: false }
+        }));
+      } else {
+        setStripeConnectError(error.message || `Failed to create ${sessionType} session`);
+      }
+      
+      return null;
+    } finally {
+      setSessionLoading(false);
     }
   };
 
@@ -1901,6 +2096,16 @@ const RTDConnectDashboard = () => {
 
       {/* Main Content - Family Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Embedded Notification Banner - shows compliance alerts */}
+        {stripeConnectStatus?.accountId && accountSession?.clientSecret && 
+         sessionStates[`${stripeConnectStatus.accountId}-notification`]?.created && 
+         !sessionStates[`${stripeConnectStatus.accountId}-notification`]?.claimed && (
+          <div className="mb-6" key={`notification-${stripeConnectStatus.accountId}-${accountSession.clientSecret.slice(-8)}`}>
+            <EmbeddedNotificationBanner 
+              familyId={customClaims?.familyId}
+            />
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {familyData.familyName || 'Family Dashboard'}
@@ -1933,7 +2138,7 @@ const RTDConnectDashboard = () => {
             {/* Action Button */}
             <div className="flex-shrink-0">
               {customClaims?.familyRole === 'primary_guardian' ? (
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleStartRegistration}
                     className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -1941,6 +2146,41 @@ const RTDConnectDashboard = () => {
                     <Edit3 className="w-5 h-5" />
                     <span className="text-sm lg:text-base">Update Family Information</span>
                   </button>
+                  
+                  {/* Account Management Button - only if Stripe Connect is set up */}
+                  {stripeConnectStatus?.accountId && (
+                    <button
+                      onClick={handleOpenAccountManagement}
+                      disabled={sessionLoading}
+                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      <Settings className="w-5 h-5" />
+                      <span className="text-sm lg:text-base">Banking Settings</span>
+                    </button>
+                  )}
+
+                  {/* Debug Stripe Account Button - TEMPORARY */}
+                  {stripeConnectStatus?.accountId && (
+                    <button
+                      onClick={handleDebugStripeAccount}
+                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="text-sm lg:text-base">Debug Stripe</span>
+                    </button>
+                  )}
+                  
+                  {/* Payouts View Button - only if Stripe Connect is set up */}
+                  {stripeConnectStatus?.accountId && (
+                    <button
+                      onClick={handleOpenPayoutsView}
+                      disabled={sessionLoading}
+                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      <DollarSign className="w-5 h-5" />
+                      <span className="text-sm lg:text-base">View Payouts</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
@@ -2212,19 +2452,34 @@ const RTDConnectDashboard = () => {
                                 </div>
                               </div>
                               
+                              {/* Latest Reimbursement Info */}
+                              {studentReimbursementStatuses[student.id]?.latestSubmission && (
+                                <div className="mt-2 p-2 bg-emerald-50 rounded-md border border-emerald-200">
+                                  <div className="text-xs text-emerald-800">
+                                    <div className="flex justify-between items-start mb-1">
+                                      <span className="font-medium">Latest Submission:</span>
+                                      <span className="text-emerald-600">
+                                        ${studentReimbursementStatuses[student.id].latestSubmission.amount?.toFixed(2) || '0.00'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-emerald-700">
+                                      <span>{studentReimbursementStatuses[student.id].latestSubmission.category || 'N/A'}</span>
+                                      <span>
+                                        {new Date(studentReimbursementStatuses[student.id].latestSubmission.submittedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 text-emerald-600 text-xs">
+                                      ID: {studentReimbursementStatuses[student.id].latestSubmission.id}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
                               {/* Stripe Connect Setup for Primary Guardians */}
                               {customClaims?.familyRole === 'primary_guardian' ? (
                                 <div className="space-y-2">
-                                  {!stripeConnectStatus?.onboardingComplete && (
-                                    <button
-                                      onClick={() => setShowStripeOnboarding(true)}
-                                      className="w-full px-3 py-2 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400 transition-all shadow-sm hover:shadow-md"
-                                    >
-                                      Set Up Secure Payouts
-                                    </button>
-                                  )}
                                   
-                                  {stripeConnectStatus?.onboardingComplete && (
+                                  {stripeConnectStatus?.status === 'completed' && (
                                     <button
                                       onClick={() => handleOpenReimbursementForm(student)}
                                       className="w-full px-3 py-2 text-sm rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md"
@@ -2454,18 +2709,18 @@ const RTDConnectDashboard = () => {
         />
       )}
 
-      {/* Stripe Connect Onboarding Sheet */}
-      <Sheet open={showStripeOnboarding} onOpenChange={setShowStripeOnboarding}>
+      {/* Stripe Connect Setup Sheet */}
+      <Sheet open={showStripeConnectOnboarding} onOpenChange={setShowStripeConnectOnboarding}>
         <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-left">
               <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-green-500" />
-                <span>Secure Payout Setup</span>
+                <DollarSign className="w-5 h-5 text-blue-500" />
+                <span>Stripe Connect Setup</span>
               </div>
             </SheetTitle>
             <SheetDescription className="text-left">
-              Set up secure payouts through Stripe to receive reimbursement payments directly to your bank account.
+              Set up your Stripe Connect account to receive education reimbursements directly.
             </SheetDescription>
           </SheetHeader>
 
@@ -2473,9 +2728,8 @@ const RTDConnectDashboard = () => {
             <StripeConnectOnboarding
               familyId={customClaims?.familyId}
               userProfile={userProfile}
-              onAccountCreated={handleStripeAccountCreated}
-              onOnboardingComplete={handleStripeOnboardingComplete}
-              existingStripeAccount={stripeConnectStatus}
+              onComplete={handleStripeConnectComplete}
+              existingStatus={stripeConnectStatus}
               error={stripeConnectError}
             />
           </div>
@@ -2509,6 +2763,89 @@ const RTDConnectDashboard = () => {
                 }}
                 isSubmitting={isSubmittingReimbursement}
                 error={reimbursementError}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Embedded Account Management Sheet */}
+      <Sheet open={showAccountManagement} onOpenChange={setShowAccountManagement}>
+        <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <Settings className="w-5 h-5 text-green-500" />
+                <span>Banking Settings</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Manage your bank account information and payout settings securely through Stripe.
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Information Section */}
+          <div className="space-y-4 mb-6">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-blue-800 font-medium mb-1">Secure banking management through Stripe</p>
+                  <p className="text-blue-700">
+                    Your financial information is protected with bank-level security. 
+                    All data is encrypted and managed securely by Stripe.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-green-800 font-medium mb-2">Why you see business/professional details</p>
+                  <ul className="text-green-700 space-y-1">
+                    <li>• Most information is pre-filled from your RTD Academy profile</li>
+                    <li>• Business details are set to RTD Academy's information (regulatory requirement)</li>
+                    <li>• You mainly need to verify your identity and update banking details</li>
+                    <li>• Professional categories are required by financial regulations for tax reporting</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            {managementSession?.clientSecret && (
+              <EmbeddedAccountManagement
+                familyId={customClaims?.familyId}
+                className="min-h-[600px]"
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Embedded Payouts View Sheet */}
+      <Sheet open={showPayoutsView} onOpenChange={setShowPayoutsView}>
+        <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-blue-500" />
+                <span>Payout History</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              View your reimbursement payouts, current balance, and payout schedule.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6">
+            {payoutsSession?.clientSecret && (
+              <EmbeddedPayouts
+                familyId={customClaims?.familyId}
+                className="min-h-[600px]"
               />
             )}
           </div>
@@ -2610,6 +2947,15 @@ const RTDConnectDashboard = () => {
           </div>
         </SheetContent>
       </Sheet>
+      
+      {/* Toast notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

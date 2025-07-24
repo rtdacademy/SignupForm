@@ -362,9 +362,8 @@ const FamilyCreationSheet = ({
       }
     }
 
-    if (!studentFormData.asn.trim()) {
-      errors.asn = 'ASN is required';
-    } else if (!validateASN(studentFormData.asn)) {
+    // ASN is now optional, but if provided, must be valid
+    if (studentFormData.asn.trim() && !validateASN(studentFormData.asn)) {
       errors.asn = 'Please enter a valid 9-digit ASN';
     }
 
@@ -683,14 +682,43 @@ const FamilyCreationSheet = ({
     setIsSaving(true);
 
     try {
+      // Prepare students object with id or clean ASN as key
+      const studentsObj = {};
+      familyData.students.forEach((student) => {
+        let key;
+        const cleanAsn = student.asn ? student.asn.replace(/\D/g, '') : '';
+        if (cleanAsn && cleanAsn.length === 9) {
+          key = cleanAsn;
+        } else {
+          key = student.id || `student_${Date.now()}`;
+        }
+        studentsObj[key] = {
+          ...student,
+          id: key
+        };
+      });
+
+      // Prepare guardians object with emailKey as key
+      const guardiansObj = {};
+      familyData.guardians.forEach((guardian) => {
+        const key = guardian.emailKey;
+        if (!key) {
+          throw new Error('Guardian missing emailKey');
+        }
+        guardiansObj[key] = {
+          ...guardian,
+          id: key
+        };
+      });
+
       const functions = getFunctions();
       const saveFamilyData = httpsCallable(functions, 'saveFamilyData');
       
       const result = await saveFamilyData({
         familyData: {
           familyName: familyData.familyName,
-          students: familyData.students,
-          guardians: familyData.guardians
+          students: studentsObj,
+          guardians: guardiansObj
         }
       });
 
@@ -1012,25 +1040,28 @@ const FamilyCreationSheet = ({
                         )}
                       </div>
 
-                      <div>
-                        <label htmlFor="student-asn" className="block text-sm font-medium text-gray-700 mb-1">
-                          Alberta Student Number (ASN)
-                        </label>
-                        <input
-                          type="text"
-                          id="student-asn"
-                          value={studentFormData.asn}
-                          onChange={(e) => {
-                            const formatted = formatASN(e.target.value);
-                            setStudentFormData({...studentFormData, asn: formatted});
-                          }}
-                          className={`w-full px-3 py-2 border ${studentErrors.asn ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                          placeholder="1234-5678-9"
-                        />
-                        {studentErrors.asn && (
-                          <p className="mt-1 text-sm text-red-600">{studentErrors.asn}</p>
-                        )}
-                      </div>
+                   <div>
+  <label htmlFor="student-asn" className="block text-sm font-medium text-gray-700 mb-1">
+    Alberta Student Number (ASN)
+  </label>
+  <input
+    type="text"
+    id="student-asn"
+    value={studentFormData.asn}
+    onChange={(e) => {
+      const formatted = formatASN(e.target.value);
+      setStudentFormData({...studentFormData, asn: formatted});
+    }}
+    className={`w-full px-3 py-2 border ${studentErrors.asn ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+    placeholder="1234-5678-9"
+  />
+  {studentErrors.asn && (
+    <p className="mt-1 text-sm text-red-600">{studentErrors.asn}</p>
+  )}
+  <p className="mt-1 text-sm text-gray-500">
+    Optional: If you don't have the ASN, you can look it up <a href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">here</a>. We can also find it later.
+  </p>
+</div>
 
                       <div>
                         <label htmlFor="student-birthday" className="block text-sm font-medium text-gray-700 mb-1">

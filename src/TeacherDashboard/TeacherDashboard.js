@@ -38,23 +38,21 @@ import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
 import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
 import TemplateManager from '../StudentManagement/TemplateManager';
-import PricingComponent from '../config/PricingComponent';
 import OrgChart from '../OrgChart/OrgChart';
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
-import IMathASGradeImporter from './IMathASGradeImporter';
-import LTIManagement from '../LTI/LTIManagement';
-import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
+ 
 import PASIDataUpload from '../PASI/PASIDataUpload';
 import DataRectification from './DataRectification';
 import PASIDataUploadV2 from '../PASI/PASIDataUploadV2';
 import TeacherFileStorage from './TeacherFileStorage';
 import ParentStudentManagement from './ParentStudentManagement';
+import StaffPermissionsManager from './StaffPermissionsManager';
 
 
 function TeacherDashboard() {
-  const { user, isStaff, hasAdminAccess } = useAuth();
+  const { user, isStaff, hasAdminAccess, isSuperAdminUser } = useAuth();
   const { isFullScreen, setIsFullScreen } = useLayout();
   const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
   const { 
@@ -264,28 +262,40 @@ function TeacherDashboard() {
 
     // Only add admin items if user has admin access
     if (hasAdminAccess()) {
+      const adminSubItems = [
+        { icon: BarChart2, label: 'Reports', key: 'reports' },
+        { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
+      ];
+
+      // Add super admin only items
+      if (isSuperAdminUser || user?.email === 'kyle@rtdacademy.com') {
+        adminSubItems.push(
+          { icon: Shield, label: 'Staff Permissions', key: 'staff-permissions' }
+        );
+      }
+
       baseItems.push({
         icon: Settings,
         label: 'Admin',
         key: 'admin',
-        subItems: [
-          { icon: DollarSign, label: 'Pricing', key: 'pricing' },
-          { icon: BarChart2, label: 'Reports', key: 'reports' },
-          { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
-          { icon: Upload, label: 'IMathAS Import', key: 'imathas-import' },
-          { icon: Link, label: 'LTI Management', key: 'lti-management' }  
-        ]
+        subItems: adminSubItems
       });
     }
 
     return baseItems;
-  }, [unreadChatsCount, hasAdminAccess]);
+  }, [unreadChatsCount, hasAdminAccess, isSuperAdminUser]);
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices', 'sso-testing']; 
+    const adminOnlySections = ['reports', 'contractor-invoices', 'sso-testing']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
+    }
+
+    // Check for super admin-only sections
+    const superAdminOnlySections = ['staff-permissions'];
+    if (superAdminOnlySections.includes(activeSection) && !isSuperAdminUser && user?.email !== 'kyle@rtdacademy.com') {
+      return <div className="p-4">Access Denied. This section requires super admin privileges.</div>;
     }
 
     switch (activeSection) {
@@ -309,18 +319,10 @@ function TeacherDashboard() {
         return <Notifications />;
       case 'contractor-invoices':
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
-      case 'pricing':
-        return <PricingComponent />;
       case 'templates':
         return <TemplateManager defaultOpen={true} />;
       case 'org-chart':
         return <OrgChart />;
-      case 'imathas-import':  
-        return <IMathASGradeImporter />;
-      case 'lti-management':
-        return <LTIManagement />;
-      case 'enrollment-stats':
-        return <EnrollmentStatistics />;
       case 'pasi-data-upload':
         return <PASIDataUpload />;
       case 'pasi-records':
@@ -331,16 +333,24 @@ function TeacherDashboard() {
         return <TeacherFileStorage />;
       case 'parent-management':
         return <ParentStudentManagement />;
+      case 'staff-permissions':
+        return <StaffPermissionsManager />;
       default:
         return null;
     }
   };
 
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices', 'sso-testing'];
+    const adminOnlySections = ['reports', 'contractor-invoices', 'sso-testing'];
+    const superAdminOnlySections = ['staff-permissions'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {
       alert('Access Denied. You do not have the necessary permissions to access this section.');
+      return;
+    }
+
+    if (superAdminOnlySections.includes(key) && !isSuperAdminUser && user?.email !== 'kyle@rtdacademy.com') {
+      alert('Access Denied. You do not have super admin privileges to access this section.');
       return;
     }
 
