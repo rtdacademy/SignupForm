@@ -2353,7 +2353,38 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_72_l3738_question1",
+            "title": "Question 1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_72_l3738_question2",
+            "title": "Question 2",
+            "points": 1
+          },
+          {
+            "questionId": "course2_72_l3738_question3",
+            "title": "Question 3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_72_l3738_question4",
+            "title": "Question 4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_72_l3738_question5",
+            "title": "Question 5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_72_l3738_question6",
+            "title": "Question 6",
+            "points": 1
+          }
+        ]
       },
       "assignment_l1_38": {
         "title": "Assignment L1-38 - Final Cumulative",
@@ -2379,7 +2410,108 @@
             "ring": "ring-green-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_73_l138_question1",
+            "title": "Question 1",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question2",
+            "title": "Question 2", 
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question3",
+            "title": "Question 3",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question4",
+            "title": "Question 4",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question5",
+            "title": "Question 5",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question6",
+            "title": "Question 6",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question7",
+            "title": "Question 7",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question8",
+            "title": "Question 8",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question9",
+            "title": "Question 9",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question10",
+            "title": "Question 10",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question11",
+            "title": "Question 11",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question12",
+            "title": "Question 12",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question13",
+            "title": "Question 13",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question14",
+            "title": "Question 14",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question15",
+            "title": "Question 15",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question16",
+            "title": "Question 16",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question17",
+            "title": "Question 17",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question18",
+            "title": "Question 18",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question19",
+            "title": "Question 19",
+            "points": 1
+          },
+          {
+            "questionId": "course2_73_l138_question20",
+            "title": "Question 20",
+            "points": 1
+          }
+        ]
       },
       "lab_momentum_conservation": {
         "title": "Lab - Momentum Conservation",
