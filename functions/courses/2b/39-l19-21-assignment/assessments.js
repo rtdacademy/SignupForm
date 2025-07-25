@@ -1,4 +1,8 @@
 
+const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+
+// Asset path for images
+const ASSET_PATH = '/courses/2/content/39-l19-21-assignment/assets/';
 
 // Question pools for L19-21 Assignment - Magnetism (Updated: Removed Question 5 - Fluoride Ion)
 const questionPools = {
@@ -49,11 +53,7 @@ const questionPools = {
   group2: [
     {
       questionText: "For a charged particle moving through a magnetic field, what is the direction of the deflecting force if the particle is a proton?",
-      image: {
-        url: '/courses/2/content/39-l19-21-assignment/assets/question_4.png',
-        alt: 'Proton moving through magnetic field diagram',
-        caption: 'A proton moving through a magnetic field'
-      },
+      image: `${ASSET_PATH}question_4.png`,
       options: [
         { id: 'a', text: 'Upward', feedback: 'Incorrect. Consider the Right Hand Rule for positive charges.' },
         { id: 'b', text: 'Downward', feedback: 'Correct! For a proton (positive charge), the Right Hand Rule predicts a downward deflecting force.' },
@@ -84,11 +84,7 @@ const questionPools = {
   group3: [
     {
       questionText: "Current is flowing from A to B in a conductor placed in a magnetic field. Predict the direction of movement of the conductor.",
-      image: {
-        url: '/courses/2/content/39-l19-21-assignment/assets/question_6.png',
-        alt: 'Conductor in magnetic field with current from A to B',
-        caption: 'Current flowing from A to B in a conductor placed in a magnetic field'
-      },
+      image: `${ASSET_PATH}question_6.png`,
       options: [
         { id: 'a', text: 'Into the page', feedback: 'Correct! Using the Right Hand Rule for conventional current from A to B, the conductor will move into the page.' },
         { id: 'b', text: 'Out of the page', feedback: 'Incorrect. Check the direction using the Right Hand Rule.' },
@@ -102,11 +98,7 @@ const questionPools = {
     },
     {
       questionText: "Current through a conductor results in a force to the right. Which way is conventional current flowing?",
-      image: {
-        url: '/courses/2/content/39-l19-21-assignment/assets/question_7.png',
-        alt: 'Conductor with force to the right in magnetic field',
-        caption: 'Conductor experiencing a force to the right in a magnetic field'
-      },
+      image: `${ASSET_PATH}question_7.png`,
       options: [
         { id: 'a', text: 'Into the page', feedback: 'Incorrect. Use the Right Hand Rule to determine current direction from force direction.' },
         { id: 'b', text: 'Out of the page', feedback: 'Correct! If the force is to the right, the Right Hand Rule indicates conventional current is flowing out of the page.' },
@@ -120,11 +112,7 @@ const questionPools = {
     },
     {
       questionText: "In a magnetic field, a 10 cm wire carries a current of 20 A through a magnetic field of 2.0 T. What is the deflecting force on the conductor?",
-      image: {
-        url: '/courses/2/content/39-l19-21-assignment/assets/question_8.png',
-        alt: '10 cm wire with 20 A current in 2.0 T magnetic field',
-        caption: '10 cm wire carrying 20 A current in a 2.0 T magnetic field'
-      },
+      image: `${ASSET_PATH}question_8.png`,
       options: [
         { id: 'a', text: '2.0 N', feedback: 'Incorrect. Check your calculation using F = BIL.' },
         { id: 'b', text: '4.0 N', feedback: 'Correct! Using F = BIL: F = 2.0 T × 20 A × 0.10 m = 4.0 N.' },
