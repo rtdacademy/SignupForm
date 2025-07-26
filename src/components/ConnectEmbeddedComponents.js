@@ -17,23 +17,27 @@ let currentFamilyId = null;
 // Helper function to create fetchClientSecret function
 const createFetchClientSecret = (familyId) => {
   return async () => {
+    console.log('🔥 fetchClientSecret called for familyId:', familyId);
     try {
       const { getFunctions, httpsCallable } = await import('firebase/functions');
       const functions = getFunctions();
       const createSession = httpsCallable(functions, 'createAccountSession');
       
+      console.log('🔥 About to call createAccountSession Firebase function');
       const result = await createSession({
         familyId: familyId,
         components: ['notification_banner', 'account_management', 'account_onboarding', 'payouts']
       });
 
+      console.log('🔥 createAccountSession result:', result.data);
       if (result.data.success) {
+        console.log('🔥 Returning clientSecret:', result.data.clientSecret);
         return result.data.clientSecret;
       } else {
         throw new Error('Failed to create account session');
       }
     } catch (error) {
-      console.error('Error in fetchClientSecret:', error);
+      console.error('🔥 Error in fetchClientSecret:', error);
       throw error;
     }
   };

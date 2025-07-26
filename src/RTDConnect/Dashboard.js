@@ -5,6 +5,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
+import { toDateString, toEdmontonDate, calculateAge } from '../utils/timeZoneUtils';
 import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
@@ -12,7 +13,6 @@ import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
-import StripeConnectOnboarding from './StripeConnectEmbeddedOnboarding';
 import ReimbursementSubmissionForm from './ReimbursementSubmissionForm';
 import Toast from '../components/Toast';
 import { 
@@ -312,7 +312,8 @@ const RTDConnectDashboard = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    address: null
+    address: null,
+    birthday: ''
   });
 
   // Family creation state
@@ -341,7 +342,6 @@ const RTDConnectDashboard = () => {
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
   
   // Reimbursement system state
-  const [showStripeConnectOnboarding, setShowStripeConnectOnboarding] = useState(false);
   const [showReimbursementForm, setShowReimbursementForm] = useState(false);
   const [selectedStudentForReimbursement, setSelectedStudentForReimbursement] = useState(null);
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -353,6 +353,8 @@ const RTDConnectDashboard = () => {
   // Embedded components state
   const [showAccountManagement, setShowAccountManagement] = useState(false);
   const [showPayoutsView, setShowPayoutsView] = useState(false);
+  const [showStripeInfo, setShowStripeInfo] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
   const [accountSession, setAccountSession] = useState(null);
   const [onboardingSession, setOnboardingSession] = useState(null);
   const [managementSession, setManagementSession] = useState(null);
@@ -484,7 +486,8 @@ const RTDConnectDashboard = () => {
             firstName: userData.firstName || '',
             lastName: userData.lastName || '',
             phone: userData.phone || '',
-            address: userData.address || null
+            address: userData.address || null,
+            birthday: userData.birthday ? toDateString(toEdmontonDate(userData.birthday)) : ''
           });
         }
       } else {
@@ -494,7 +497,8 @@ const RTDConnectDashboard = () => {
           firstName: '',
           lastName: '',
           phone: '',
-          address: null
+          address: null,
+          birthday: ''
         });
       }
       setLoading(false);
@@ -889,6 +893,27 @@ const RTDConnectDashboard = () => {
       errors.address = 'Address is required';
     }
     
+    if (!profileData.birthday.trim()) {
+      errors.birthday = 'Birthday is required';
+    } else {
+      // Validate birthday
+      const birthDate = toEdmontonDate(profileData.birthday);
+      if (!birthDate || isNaN(birthDate.getTime())) {
+        errors.birthday = 'Invalid date format';
+      } else {
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (birthDate > today) {
+          errors.birthday = 'Birthday cannot be in the future';
+        } else {
+          const age = calculateAge(birthDate);
+          if (age < 5 || age > 100) {
+            errors.birthday = 'Please enter a valid birthday';
+          }
+        }
+      }
+    }
+    
     return errors;
   };
 
@@ -1187,16 +1212,6 @@ const RTDConnectDashboard = () => {
   };
 
   // Stripe Connect handlers
-  const handleStripeConnectComplete = (accountData) => {
-    setStripeConnectStatus(prev => ({
-      ...prev,
-      status: 'completed',
-      accountId: accountData.accountId,
-      completedAt: new Date().toISOString()
-    }));
-    setShowStripeConnectOnboarding(false);
-    console.log('Stripe Connect onboarding completed:', accountData);
-  };
 
   // Debug function to check Stripe account status
   const handleDebugStripeAccount = async () => {
@@ -1216,26 +1231,28 @@ const RTDConnectDashboard = () => {
       
       console.log('Debug Stripe Account Result:', result.data);
       
-      // Display results in alert for easy viewing
-      const { accountData, requirements, capabilities } = result.data;
+      if (!result.data.success) {
+        alert(`Error: ${result.data.error}`);
+        return;
+      }
+      
+      // Display debug info from the new structure
+      const debugInfo = result.data.debug_info;
       const alertMessage = `
 Stripe Account Debug Results:
-Account ID: ${accountData.id}
-Country: ${accountData.country}
-Default Currency: ${accountData.default_currency}
-Details Submitted: ${accountData.details_submitted}
-Charges Enabled: ${accountData.charges_enabled}
-Payouts Enabled: ${accountData.payouts_enabled}
+Account ID: ${result.data.accountId}
+Details Submitted: ${debugInfo.details_submitted}
+Charges Enabled: ${debugInfo.charges_enabled}
+Payouts Enabled: ${debugInfo.payouts_enabled}
 
-Requirements:
-- Currently Due: ${requirements.currently_due?.join(', ') || 'None'}
-- Eventually Due: ${requirements.eventually_due?.join(', ') || 'None'}
-- Past Due: ${requirements.past_due?.join(', ') || 'None'}
-- Pending Verification: ${requirements.pending_verification?.join(', ') || 'None'}
+Business Profile:
+${debugInfo.business_profile ? JSON.stringify(debugInfo.business_profile, null, 2) : 'Not set'}
 
-Capabilities:
-- Card Payments: ${capabilities.card_payments}
-- Transfers: ${capabilities.transfers}
+Individual Data:
+${typeof debugInfo.individual === 'string' ? debugInfo.individual : JSON.stringify(debugInfo.individual, null, 2)}
+
+Requirements Currently Due:
+${debugInfo.requirements?.currently_due?.join(', ') || 'None'}
 
 Check console for full details.
       `;
@@ -1244,6 +1261,99 @@ Check console for full details.
     } catch (error) {
       console.error('Error debugging Stripe account:', error);
       alert(`Error debugging Stripe account: ${error.message}`);
+    }
+  };
+  
+  // Function to update/fix Stripe account with proper prefilling
+  const handleUpdateStripeAccount = async () => {
+    if (!customClaims?.familyId) {
+      setToast({
+        message: 'No family ID found',
+        type: 'error'
+      });
+      return;
+    }
+
+    try {
+      const functions = getFunctions();
+      const updateStripeAccount = httpsCallable(functions, 'updateStripeAccount');
+      
+      setToast({
+        message: 'Updating Stripe account data...',
+        type: 'info'
+      });
+      
+      const result = await updateStripeAccount({
+        familyId: customClaims.familyId
+      });
+      
+      if (result.data.success) {
+        setToast({
+          message: 'Stripe account updated successfully!',
+          type: 'success'
+        });
+        
+        // Reload Stripe status
+        await loadStripeConnectStatus();
+      } else {
+        throw new Error('Failed to update Stripe account');
+      }
+    } catch (error) {
+      console.error('Error updating Stripe account:', error);
+      setToast({
+        message: `Error updating Stripe account: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
+  // Function to delete Stripe account (for testing)
+  const handleDeleteStripeAccount = async () => {
+    if (!customClaims?.familyId) {
+      setToast({
+        message: 'No family ID found',
+        type: 'error'
+      });
+      return;
+    }
+
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      'Are you sure you want to delete your Stripe account? This action cannot be undone and you will need to set up payments again.'
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      const functions = getFunctions();
+      const deleteStripeAccount = httpsCallable(functions, 'deleteStripeAccount');
+      
+      setToast({
+        message: 'Deleting Stripe account...',
+        type: 'info'
+      });
+      
+      const result = await deleteStripeAccount({
+        familyId: customClaims.familyId
+      });
+      
+      if (result.data.success) {
+        setToast({
+          message: 'Stripe account deleted successfully! You can now create a new one.',
+          type: 'success'
+        });
+        
+        // Reset Stripe status
+        setStripeConnectStatus(null);
+      } else {
+        throw new Error('Failed to delete Stripe account');
+      }
+    } catch (error) {
+      console.error('Error deleting Stripe account:', error);
+      setToast({
+        message: `Error deleting Stripe account: ${error.message}`,
+        type: 'error'
+      });
     }
   };
 
@@ -1326,8 +1436,7 @@ Check console for full details.
   const handleOpenReimbursementForm = (student) => {
     // Check if Stripe Connect is set up
     if (stripeConnectStatus?.status !== 'completed') {
-      alert('Please complete the Stripe Connect onboarding before submitting reimbursements.');
-      setShowStripeConnectOnboarding(true);
+      alert('Please complete the Stripe Connect setup using the Account Management button before submitting reimbursements.');
       return;
     }
     
@@ -1345,9 +1454,67 @@ Check console for full details.
       return;
     }
 
-    const session = await createAccountSession(['account_management'], 'management');
-    if (session) {
-      setShowAccountManagement(true);
+    // Let the EmbeddedAccountManagement component handle session creation automatically
+    setShowAccountManagement(true);
+  };
+
+  // Create account and immediately open account management (the working flow)
+  const handleCreateAndOpenAccountManagement = async () => {
+    if (!customClaims?.familyId || !userProfile) {
+      setToast({
+        message: 'Missing family or user profile information',
+        type: 'error'
+      });
+      return;
+    }
+
+    try {
+      setToast({
+        message: 'Creating your secure banking account...',
+        type: 'info'
+      });
+
+      const functions = getFunctions();
+      const createStripeConnectAccount = httpsCallable(functions, 'createStripeConnectAccount');
+      
+      // Create the account with improved pre-filling
+      const result = await createStripeConnectAccount({
+        familyId: customClaims.familyId,
+        userProfile: userProfile
+      });
+
+      if (result.data.success) {
+        // Update local state
+        setStripeConnectStatus({
+          accountId: result.data.accountId,
+          status: result.data.status || 'pending',
+          createdAt: new Date().toISOString()
+        });
+
+        setToast({
+          message: 'Account created successfully! Opening banking settings...',
+          type: 'success'
+        });
+
+        // Let the EmbeddedAccountManagement component create its own session automatically
+        setToast({
+          message: 'Opening banking management...',
+          type: 'success'
+        });
+        
+        setTimeout(() => {
+          setShowAccountManagement(true);
+        }, 1000);
+
+      } else {
+        throw new Error('Failed to create Stripe account');
+      }
+    } catch (error) {
+      console.error('Error creating Stripe account:', error);
+      setToast({
+        message: `Error creating account: ${error.message}`,
+        type: 'error'
+      });
     }
   };
 
@@ -1676,6 +1843,15 @@ Check console for full details.
                   />
                 </FormField>
 
+                <FormField label="Birthday" error={profileErrors.birthday} required>
+                  <input
+                    type="date"
+                    value={profileData.birthday}
+                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
+                </FormField>
+
                 <FormField label="Address" error={profileErrors.address} required>
                   <AddressPicker
                     value={profileData.address}
@@ -1914,6 +2090,15 @@ Check console for full details.
                   />
                 </FormField>
 
+                <FormField label="Birthday" error={profileErrors.birthday} required>
+                  <input
+                    type="date"
+                    value={profileData.birthday}
+                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
+                </FormField>
+
                 <FormField label="Address" error={profileErrors.address} required>
                   <AddressPicker
                     value={profileData.address}
@@ -2134,8 +2319,8 @@ Check console for full details.
 
         {/* Quick Actions & Family Status */}
         <div className="bg-white rounded-lg shadow-md p-4 lg:p-6 border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-            {/* Action Button */}
+          {/* Action Buttons Row */}
+          <div className="mb-6">
             <div className="flex-shrink-0">
               {customClaims?.familyRole === 'primary_guardian' ? (
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -2147,28 +2332,20 @@ Check console for full details.
                     <span className="text-sm lg:text-base">Update Family Information</span>
                   </button>
                   
-                  {/* Account Management Button - only if Stripe Connect is set up */}
-                  {stripeConnectStatus?.accountId && (
+                  {/* Account Management Button - always show for primary guardians */}
+                  {customClaims?.familyRole === 'primary_guardian' && (
                     <button
-                      onClick={handleOpenAccountManagement}
+                      onClick={stripeConnectStatus?.accountId ? handleOpenAccountManagement : handleCreateAndOpenAccountManagement}
                       disabled={sessionLoading}
-                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300 hover:border-gray-400 transition-colors disabled:opacity-50"
                     >
                       <Settings className="w-5 h-5" />
-                      <span className="text-sm lg:text-base">Banking Settings</span>
+                      <span className="text-sm lg:text-base">
+                        {stripeConnectStatus?.accountId ? 'Banking Settings' : 'Set Up Banking'}
+                      </span>
                     </button>
                   )}
 
-                  {/* Debug Stripe Account Button - TEMPORARY */}
-                  {stripeConnectStatus?.accountId && (
-                    <button
-                      onClick={handleDebugStripeAccount}
-                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      <AlertCircle className="w-5 h-5" />
-                      <span className="text-sm lg:text-base">Debug Stripe</span>
-                    </button>
-                  )}
                   
                   {/* Payouts View Button - only if Stripe Connect is set up */}
                   {stripeConnectStatus?.accountId && (
@@ -2189,9 +2366,67 @@ Check console for full details.
                 </div>
               )}
             </div>
-            
-            {/* Family Status Info */}
-            <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
+          </div>
+
+          {/* Stripe Connect Information Section */}
+          {customClaims?.familyRole === 'primary_guardian' && (
+            <div className="mb-6">
+                <button
+                  onClick={() => setShowStripeInfo(!showStripeInfo)}
+                  className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors mb-2"
+                >
+                  <Info className="w-4 h-4" />
+                  <span>Learn more about secure banking & payouts</span>
+                  <ChevronDown className={`w-4 h-4 transform transition-transform ${showStripeInfo ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showStripeInfo && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3 text-sm">
+                    <div className="flex items-start space-x-3">
+                      <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-blue-800 font-medium mb-1">Bank-level Security with Stripe</p>
+                        <p className="text-blue-700">
+                          We use Stripe for trusted security and PCI compliance. Your banking information is encrypted 
+                          and never stored on our servers - the same security used by major banks and millions of businesses worldwide.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-green-800 font-medium mb-1">Simple Setup, Quick Payouts</p>
+                        <p className="text-green-700">
+                          Quick bank account setup enables direct payouts for education expenses. Once set up, 
+                          receive reimbursements automatically in 1-2 business days - no ongoing worry needed.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Heart className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-purple-800 font-medium mb-1">Parent-Friendly Process</p>
+                        <p className="text-purple-700">
+                          Identity verification is required by financial regulations, but most of your information 
+                          is pre-filled from your RTD Academy profile. You can update banking information anytime through your dashboard.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-blue-200">
+                      <p className="text-blue-600 text-xs">
+                        <strong>Need help?</strong> Contact our support team - we're here to make this process as smooth as possible.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {/* Family Status Info */}
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="flex items-center space-x-3">
                 <div className="w-10 lg:w-12 h-10 lg:h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
                   <CheckCircle2 className="w-5 lg:w-6 h-5 lg:h-6 text-white" />
@@ -2224,8 +2459,6 @@ Check console for full details.
               </div>
             </div>
           </div>
-        </div>
-
 
         {/* Family Members List */}
         {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
@@ -2478,14 +2711,17 @@ Check console for full details.
                               {/* Stripe Connect Setup for Primary Guardians */}
                               {customClaims?.familyRole === 'primary_guardian' ? (
                                 <div className="space-y-2">
-                                  
-                                  {stripeConnectStatus?.status === 'completed' && (
+                                  {stripeConnectStatus?.status === 'completed' ? (
                                     <button
                                       onClick={() => handleOpenReimbursementForm(student)}
                                       className="w-full px-3 py-2 text-sm rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md"
                                     >
                                       Submit Reimbursement
                                     </button>
+                                  ) : (
+                                    <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                      Use Account Management to set up banking
+                                    </div>
                                   )}
                                 </div>
                               ) : (
@@ -2609,6 +2845,15 @@ Check console for full details.
                 />
               </FormField>
 
+              <FormField label="Birthday" error={profileErrors.birthday} required>
+                <input
+                  type="date"
+                  value={profileData.birthday}
+                  onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                  className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                />
+              </FormField>
+
               <FormField label="Address" error={profileErrors.address} required>
                 <AddressPicker
                   value={profileData.address}
@@ -2709,32 +2954,6 @@ Check console for full details.
         />
       )}
 
-      {/* Stripe Connect Setup Sheet */}
-      <Sheet open={showStripeConnectOnboarding} onOpenChange={setShowStripeConnectOnboarding}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="text-left">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-blue-500" />
-                <span>Stripe Connect Setup</span>
-              </div>
-            </SheetTitle>
-            <SheetDescription className="text-left">
-              Set up your Stripe Connect account to receive education reimbursements directly.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-6">
-            <StripeConnectOnboarding
-              familyId={customClaims?.familyId}
-              userProfile={userProfile}
-              onComplete={handleStripeConnectComplete}
-              existingStatus={stripeConnectStatus}
-              error={stripeConnectError}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Reimbursement Submission Sheet */}
       <Sheet open={showReimbursementForm} onOpenChange={setShowReimbursementForm}>
@@ -2816,12 +3035,10 @@ Check console for full details.
           </div>
 
           <div className="mt-6">
-            {managementSession?.clientSecret && (
-              <EmbeddedAccountManagement
-                familyId={customClaims?.familyId}
-                className="min-h-[600px]"
-              />
-            )}
+            <EmbeddedAccountManagement
+              familyId={customClaims?.familyId}
+              className="min-h-[600px]"
+            />
           </div>
         </SheetContent>
       </Sheet>
@@ -2955,6 +3172,87 @@ Check console for full details.
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* Floating Development Tools - Development Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-6 right-6 z-50">
+          {/* Collapsed State - Main Toggle Button */}
+          {!showDevTools && (
+            <div className="relative group">
+              <button
+                onClick={() => setShowDevTools(true)}
+                className="w-12 h-12 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              {/* Tooltip */}
+              <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                Development Tools
+              </div>
+            </div>
+          )}
+
+          {/* Expanded State - Tools Panel */}
+          {showDevTools && (
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-[200px]">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                <h3 className="text-sm font-medium text-gray-900">Dev Tools</h3>
+                <button
+                  onClick={() => setShowDevTools(false)}
+                  className="w-6 h-6 text-gray-400 hover:text-gray-600 flex items-center justify-center rounded transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tools Grid */}
+              <div className="space-y-2">
+                {/* Debug Stripe Account */}
+                {stripeConnectStatus?.accountId && (
+                  <div className="relative group">
+                    <button
+                      onClick={handleDebugStripeAccount}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <AlertCircle className="w-4 h-4 text-orange-500" />
+                      <span>Debug Stripe</span>
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      Check Stripe account status & debug info
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete Stripe Account */}
+                {stripeConnectStatus?.accountId && (
+                  <div className="relative group">
+                    <button
+                      onClick={handleDeleteStripeAccount}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                    >
+                      <X className="w-4 h-4 text-red-500" />
+                      <span>Delete Stripe</span>
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      Delete Stripe account (destructive)
+                    </div>
+                  </div>
+                )}
+
+                {/* Add more dev tools here as needed */}
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="text-xs text-gray-500 text-center">
+                    Development Only
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

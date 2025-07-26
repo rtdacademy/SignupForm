@@ -9,6 +9,7 @@ import PhoneInput from 'react-phone-input-2';
 import "react-phone-input-2/lib/style.css";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
+import { toDateString, toEdmontonDate, calculateAge } from '../utils/timeZoneUtils';
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -16,7 +17,7 @@ const GENDER_OPTIONS = [
   { value: 'prefer-not-to-say', label: 'Prefer not to say' }
 ];
 
-const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender'];
+const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender', 'birthday'];
 
 const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) => {
   const { current_user_email_key } = useAuth();
@@ -48,7 +49,7 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
         preferredFirstName: profile.preferredFirstName || profile.firstName || '',
         StudentPhone: profile.StudentPhone || '',
         gender: profile.gender || '',
-        birthday: profile.birthday || '',
+        birthday: profile.birthday ? toDateString(toEdmontonDate(profile.birthday)) : '',
         albertaStudentNumber: profile.asn || '',
         parentFirstName: profile.ParentFirstName || '',
         parentLastName: profile.ParentLastName || '',
@@ -70,7 +71,7 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
       };
       
       // Check if there are changes compared to original data
-      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender'];
+      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender', 'birthday'];
       const hasChanges = editableFields.some(field => 
         newData[field] !== originalData[field]
       );
@@ -92,7 +93,7 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
       const updateProfile = httpsCallable(functions, 'updateStudentProfile');
       
       // Only include editable fields that have changed
-      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender'];
+      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender', 'birthday'];
       const updates = {};
       
       editableFields.forEach(field => {
@@ -137,7 +138,7 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
     const isPhoneField = type === 'phone';
     const isGenderField = type === 'gender';
     const value = formData[field];
-    const isRequired = ['preferredFirstName', 'StudentPhone', 'gender'].includes(field);
+    const isRequired = ['preferredFirstName', 'StudentPhone', 'gender', 'birthday'].includes(field);
     const isMissing = isRequired && (!value || !String(value).trim());
     
     // Apply global readOnly if set
@@ -248,9 +249,12 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
               </div>
 
               <div className="space-y-4 mt-6">
-                <h4 className="text-sm font-medium text-gray-500">Other Information (Contact instructor to update)</h4>
-                {renderField('Birthday', 'birthday', 'date', true)}
-                {renderField('Alberta Student Number (ASN)', 'albertaStudentNumber', 'text', true)}
+                <h4 className="text-sm font-medium text-gray-500">Other Information</h4>
+                {renderField('Birthday', 'birthday', 'date')}
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-500">Contact instructor to update</h4>
+                  {renderField('Alberta Student Number (ASN)', 'albertaStudentNumber', 'text', true)}
+                </div>
               </div>
             </div>
 

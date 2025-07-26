@@ -124,16 +124,22 @@ exports.handleSubscriptionUpdateV2 = stripeFunctions.handleSubscriptionUpdateV2;
 exports.handleSubscriptionScheduleV2 = stripeFunctions.handleSubscriptionScheduleV2;
 exports.getPaymentStatusV2 = stripeFunctions.getPaymentStatusV2;
 
-// Stripe Connect functions for parent payouts
-const { createStripeConnectAccount } = require('./createStripeConnectAccount');
-const { createAccountSession } = require('./createAccountSession');
+// Stripe Connect functions for parent payouts (consolidated)
+const { 
+  createStripeConnectAccount,
+  createAccountSession,
+  debugStripeAccount,
+  updateStripeAccount,
+  deleteStripeAccount
+} = require('./stripe-connect');
 const { processReimbursementPayout } = require('./processReimbursementPayout');
-const { debugStripeAccount } = require('./debugStripeAccount');
 
 exports.createStripeConnectAccount = createStripeConnectAccount;
 exports.createAccountSession = createAccountSession;
 exports.processReimbursementPayout = processReimbursementPayout;
 exports.debugStripeAccount = debugStripeAccount;
+exports.updateStripeAccount = updateStripeAccount;
+exports.deleteStripeAccount = deleteStripeAccount;
 
 
 

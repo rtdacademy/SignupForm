@@ -14,7 +14,7 @@ const processReimbursementPayout = onCall({
   concurrency: 20,
   memory: '512MiB',
   timeoutSeconds: 120,
-  secrets: ["STRIPE_SECRET_KEY_TEST"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
   // Verify user is authenticated and has admin privileges
   if (!request.auth) {
@@ -90,7 +90,7 @@ const processReimbursementPayout = onCall({
     }
 
     // Initialize Stripe with the secret key from Secret Manager
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY_TEST);
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY_LIVE);
     const transfer = await stripe.transfers.create({
       amount: Math.round(totalAmount * 100), // Convert to cents
       currency: 'cad',
