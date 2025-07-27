@@ -143,22 +143,12 @@ const questions = [
   ...questionPools.group3
 ];
 
-// Export individual handlers for each question (9 total)
-const questionHandlers = {};
+// Export assessment configurations for master function
 const assessmentConfigs = {};
 
 for (let i = 1; i <= 9; i++) {
   const questionIndex = i - 1;
   const questionId = `course2_52_l2527_question${i}`;
-  
-  questionHandlers[questionId] = createStandardMultipleChoice({
-    questions: [questions[questionIndex]],
-    randomizeOptions: true,
-    activityType: 'assignment',
-    maxAttempts: 3,
-    pointsValue: 1,
-    timeLimit: 60 // 60 minutes for 9 questions
-  });
   
   assessmentConfigs[questionId] = {
     questions: [questions[questionIndex]],
@@ -170,5 +160,5 @@ for (let i = 1; i <= 9; i++) {
   };
 }
 
-// Export all question handlers
-module.exports = { ...questionHandlers, assessmentConfigs };
+// Export assessmentConfigs
+exports.assessmentConfigs = assessmentConfigs;

@@ -1,11 +1,5 @@
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
-
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'assignment';
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Question pools for L28-30 Assignment - Quantum Theory and Photoelectric Effect
 const questionPools = {
@@ -152,10 +146,9 @@ for (let i = 1; i <= 8; i++) {
     activityType: ACTIVITY_TYPE,
     maxAttempts: 3,
     pointsValue: 1,
-    timeLimit: 60, // 60 minutes for 8 questions
-    theme: activityDefaults.theme || 'green'
+    timeLimit: 60 // 60 minutes for 8 questions
   };
 }
 
 // Export only assessment configurations for master function
-module.exports = { assessmentConfigs };
+exports.assessmentConfigs = assessmentConfigs;

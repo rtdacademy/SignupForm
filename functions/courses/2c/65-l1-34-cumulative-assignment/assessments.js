@@ -1,12 +1,6 @@
 
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
-
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'assignment';
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Question pools for L1-34 Cumulative Assignment - Mixed Units and Nature of the Atom
 const questionPools = {
@@ -302,11 +296,10 @@ for (let i = 1; i <= 20; i++) {
     activityType: ACTIVITY_TYPE,
     maxAttempts: 3,
     pointsValue: 1,
-    timeLimit: 120, // 120 minutes for 20 questions
-    theme: activityDefaults.theme || 'green'
+    timeLimit: 120 // 120 minutes for 20 questions
   };
 }
 
 // Export only assessment configurations for master function
-module.exports = { assessmentConfigs };
+exports.assessmentConfigs = assessmentConfigs;
 
