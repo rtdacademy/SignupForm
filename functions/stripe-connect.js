@@ -20,6 +20,12 @@ const createStripeConnectAccount = onCall({
   timeoutSeconds: 60,
   secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
+  // Check if we're in emulator and secret is unavailable
+  if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+    console.error('STRIPE_SECRET_KEY_LIVE not available - likely running in emulator');
+    throw new Error('Stripe integration not available in emulator environment. Please use deployed functions.');
+  }
+
   // Verify user is authenticated
   if (!request.auth) {
     throw new Error('User must be authenticated');
@@ -79,9 +85,9 @@ const createStripeConnectAccount = onCall({
           settings: {
             payouts: {
               schedule: {
-                interval: 'weekly',
-                weekly_anchor: 'friday'
-              }
+                interval: 'manual'
+              },
+              statement_descriptor: 'RTD Connect'
             }
           }
         });
@@ -195,9 +201,9 @@ const createStripeConnectAccount = onCall({
       settings: {
         payouts: {
           schedule: {
-            interval: 'weekly',
-            weekly_anchor: 'friday'
-          }
+            interval: 'manual'
+          },
+          statement_descriptor: 'RTD Connect'
         }
       },
       // Update metadata with user info
@@ -279,6 +285,12 @@ const createAccountSession = onCall({
   timeoutSeconds: 60,
   secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
+  // Check if we're in emulator and secret is unavailable
+  if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+    console.error('STRIPE_SECRET_KEY_LIVE not available - likely running in emulator');
+    throw new Error('Stripe integration not available in emulator environment. Please use deployed functions.');
+  }
+
   // Verify user is authenticated
   if (!request.auth) {
     throw new Error('User must be authenticated');
@@ -415,6 +427,12 @@ const debugStripeAccount = onCall({
   timeoutSeconds: 60,
   secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
+  // Check if we're in emulator and secret is unavailable
+  if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+    console.error('STRIPE_SECRET_KEY_LIVE not available - likely running in emulator');
+    throw new Error('Stripe integration not available in emulator environment. Please use deployed functions.');
+  }
+
   // Verify user is authenticated
   if (!request.auth) {
     throw new Error('User must be authenticated');
@@ -597,6 +615,12 @@ const updateStripeAccount = onCall({
   timeoutSeconds: 60,
   secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
+  // Check if we're in emulator and secret is unavailable
+  if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+    console.error('STRIPE_SECRET_KEY_LIVE not available - likely running in emulator');
+    throw new Error('Stripe integration not available in emulator environment. Please use deployed functions.');
+  }
+
   // Verify user is authenticated
   if (!request.auth) {
     throw new Error('User must be authenticated');
@@ -668,9 +692,9 @@ const updateStripeAccount = onCall({
       settings: {
         payouts: {
           schedule: {
-            interval: 'weekly',
-            weekly_anchor: 'friday'
-          }
+            interval: 'manual'
+          },
+          statement_descriptor: 'RTD Connect'
         }
       },
       // Update metadata
@@ -729,6 +753,12 @@ const deleteStripeAccount = onCall({
   timeoutSeconds: 60,
   secrets: ["STRIPE_SECRET_KEY_LIVE"]
 }, async (request) => {
+  // Check if we're in emulator and secret is unavailable
+  if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+    console.error('STRIPE_SECRET_KEY_LIVE not available - likely running in emulator');
+    throw new Error('Stripe integration not available in emulator environment. Please use deployed functions.');
+  }
+
   // Verify user is authenticated
   if (!request.auth) {
     throw new Error('User must be authenticated');
