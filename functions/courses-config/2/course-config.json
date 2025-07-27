@@ -6748,7 +6748,39 @@
             "estimatedTime": 60,
             "order": 24,
             "required": true,
-            "hasCloudFunctions": true
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_72_l3738_question1",
+                "title": "Question 1",
+                "points": 1
+              },
+              {
+                "questionId": "course2_72_l3738_question2",
+                "title": "Question 2",
+                "points": 1
+              },
+              {
+                "questionId": "course2_72_l3738_question3",
+                "title": "Question 3",
+                "points": 1
+              },
+              {
+                "questionId": "course2_72_l3738_question4",
+                "title": "Question 4",
+                "points": 1
+              },
+              {
+                "questionId": "course2_72_l3738_question5",
+                "title": "Question 5",
+                "points": 1
+              },
+              {
+                "questionId": "course2_72_l3738_question6",
+                "title": "Question 6",
+                "points": 1
+              }
+            ]
           },
           {
             "itemId": "assignment_l1_38",

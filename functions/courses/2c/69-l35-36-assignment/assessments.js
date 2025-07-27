@@ -1,12 +1,6 @@
 
-const { getActivityTypeSettings } = require('../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../shared/courses-config/2/course-config.json');
-
 // ===== ACTIVITY TYPE CONFIGURATION =====
 const ACTIVITY_TYPE = 'assignment';
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // Question pools for L35-36 Assignment - Nuclear Physics
 const questionPools = {
@@ -120,11 +114,10 @@ for (let i = 1; i <= 6; i++) {
     activityType: ACTIVITY_TYPE,
     maxAttempts: 3,
     pointsValue: 1,
-    timeLimit: 40, // 40 minutes for 6 questions
-    theme: activityDefaults.theme || 'green'
+    timeLimit: 40 // 40 minutes for 6 questions
   };
 }
 
 // Export only assessment configurations for master function
-module.exports = { assessmentConfigs };
+exports.assessmentConfigs = assessmentConfigs;
 

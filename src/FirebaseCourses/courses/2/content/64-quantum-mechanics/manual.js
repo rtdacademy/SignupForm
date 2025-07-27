@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Orbital Visualization Component
 const OrbitalVisualizationComponent = () => {
@@ -713,6 +714,23 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <div className="my-8">
+        <SlideshowKnowledgeCheck 
+          courseId={2}
+          lessonPath="64-quantum-mechanics"
+          questions={[
+            { questionId: 'course2_64_question1', type: 'multiple-choice' },
+            { questionId: 'course2_64_question2', type: 'multiple-choice' },
+            { questionId: 'course2_64_question3', type: 'multiple-choice' },
+            { questionId: 'course2_64_question4', type: 'multiple-choice' },
+            { questionId: 'course2_64_question5', type: 'multiple-choice' },
+            { questionId: 'course2_64_question6', type: 'multiple-choice' }
+          ]}
+          course={course}
+        />
+      </div>
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
