@@ -976,54 +976,6 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         </div>
       )}
 
-      {/* Key Takeaways Summary */}
-      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-semibold text-blue-800 mb-3">Quark Fundamentals</h4>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              <li>Quarks are the fundamental building blocks of protons and neutrons</li>
-              <li>Six quark flavors exist in three generations: (u,d), (c,s), (t,b)</li>
-              <li>Quarks have fractional electric charges: +2/3 or -1/3</li>
-              <li>Baryons are made of three quarks (qqq), mesons of quark-antiquark pairs (qq̄)</li>
-              <li>Proton = uud (charge +1), Neutron = udd (charge 0)</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold text-green-800 mb-3">Color Charge & Confinement</h4>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              <li>Color charge is the quark property that responds to strong force</li>
-              <li>All observable particles must be color neutral (colorless)</li>
-              <li>Gluons carry color charge and mediate the strong force between quarks</li>
-              <li>Quark confinement: free quarks cannot exist due to constant strong force</li>
-              <li>Force remains constant as quarks separate (unlike other forces)</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold text-purple-800 mb-3">Nuclear Processes & Generations</h4>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              <li>Neutron decay occurs at quark level: d → u + W⁻ → u + e⁻ + ν̄ₑ</li>
-              <li>Only first generation quarks (u,d) needed for ordinary matter</li>
-              <li>Higher generation quarks appear only in high-energy environments</li>
-              <li>W boson mediates weak force interactions between quarks</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold text-orange-800 mb-3">Standard Model & Unity</h4>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              <li>Standard Model describes electromagnetic, weak, and strong forces</li>
-              <li>Electroweak force unifies electromagnetic and weak interactions</li>
-              <li>Everyday matter requires only: up quarks, down quarks, electrons, electron neutrinos</li>
-              <li>Three generations of particles exist, but only first generation needed for ordinary matter</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {/* Practice Questions */}
       <SlideshowKnowledgeCheck
         courseId={courseId}
@@ -1124,6 +1076,54 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         ]}
         theme="indigo"
       />
+
+      {/* Key Takeaways Summary */}
+      <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Takeaways</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-3">Quark Fundamentals</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Quarks are the fundamental building blocks of protons and neutrons</li>
+              <li>Six quark flavors exist in three generations: (u,d), (c,s), (t,b)</li>
+              <li>Quarks have fractional electric charges: +2/3 or -1/3</li>
+              <li>Baryons are made of three quarks (qqq), mesons of quark-antiquark pairs (qq̄)</li>
+              <li>Proton = uud (charge +1), Neutron = udd (charge 0)</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-green-800 mb-3">Color Charge & Confinement</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Color charge is the quark property that responds to strong force</li>
+              <li>All observable particles must be color neutral (colorless)</li>
+              <li>Gluons carry color charge and mediate the strong force between quarks</li>
+              <li>Quark confinement: free quarks cannot exist due to constant strong force</li>
+              <li>Force remains constant as quarks separate (unlike other forces)</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-purple-800 mb-3">Nuclear Processes & Generations</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Neutron decay occurs at quark level: d → u + W⁻ → u + e⁻ + ν̄ₑ</li>
+              <li>Only first generation quarks (u,d) needed for ordinary matter</li>
+              <li>Higher generation quarks appear only in high-energy environments</li>
+              <li>W boson mediates weak force interactions between quarks</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-orange-800 mb-3">Standard Model & Unity</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Standard Model describes electromagnetic, weak, and strong forces</li>
+              <li>Electroweak force unifies electromagnetic and weak interactions</li>
+              <li>Everyday matter requires only: up quarks, down quarks, electrons, electron neutrinos</li>
+              <li>Three generations of particles exist, but only first generation needed for ordinary matter</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

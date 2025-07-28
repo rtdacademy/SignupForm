@@ -440,98 +440,6 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
         </p>
       </div>
 
-      {/* Slideshow Knowledge Check */}
-      <SlideshowKnowledgeCheck
-        courseId={courseId}
-        lessonPath="70-particle-physics"
-        course={course}
-        itemConfig={itemConfig}
-        questions={[
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question1',
-            title: 'Question 1: Bubble vs Cloud Chambers'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question2',
-            title: 'Question 2: Particle Visibility in Bubble Chambers'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question3',
-            title: 'Question 3: Magnetic Fields in Detection'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question4',
-            title: 'Question 4: Alpha vs Proton Tracks'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question5',
-            title: 'Question 5: Proton vs Electron Tracks'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question6',
-            title: 'Question 6: Psi Particle Mass Conversion'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question7',
-            title: 'Question 7: Neutrino Energy from Beta Decay'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question8',
-            title: 'Question 8: Beta Decay Electron Energy'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question9',
-            title: 'Question 9: Positron Emission Neutrino Energy'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question10',
-            title: 'Question 10: Neutron-Antineutron Pair Production'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question11',
-            title: 'Question 11: Electron-Positron Pair Production'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question12',
-            title: 'Question 12: Annihilation Photon Wavelength'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question13',
-            title: 'Question 13: Conservation Laws in Interactions'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question14',
-            title: 'Question 14: Proton-Proton Attraction'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question15',
-            title: 'Question 15: Fundamental Force Strengths'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_70_question16',
-            title: 'Question 16: Quantum Field Theory Forces'
-          }
-        ]}
-        title="⚛️ Particle Physics Knowledge Check"
-        subtitle="Test your understanding of particle detection, decay processes, and fundamental forces"
-      />
-
       {AIAccordion ? (
         <div className="my-8">
           <AIAccordion className="space-y-0">
@@ -797,6 +705,98 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Slideshow Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="70-particle-physics"
+        course={course}
+        itemConfig={itemConfig}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question1',
+            title: 'Question 1: Bubble vs Cloud Chambers'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question2',
+            title: 'Question 2: Particle Visibility in Bubble Chambers'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question3',
+            title: 'Question 3: Magnetic Fields in Detection'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question4',
+            title: 'Question 4: Alpha vs Proton Tracks'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question5',
+            title: 'Question 5: Proton vs Electron Tracks'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question6',
+            title: 'Question 6: Psi Particle Mass Conversion'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question7',
+            title: 'Question 7: Neutrino Energy from Beta Decay'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question8',
+            title: 'Question 8: Beta Decay Electron Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question9',
+            title: 'Question 9: Positron Emission Neutrino Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question10',
+            title: 'Question 10: Neutron-Antineutron Pair Production'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question11',
+            title: 'Question 11: Electron-Positron Pair Production'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question12',
+            title: 'Question 12: Annihilation Photon Wavelength'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question13',
+            title: 'Question 13: Conservation Laws in Interactions'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question14',
+            title: 'Question 14: Proton-Proton Attraction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question15',
+            title: 'Question 15: Fundamental Force Strengths'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_70_question16',
+            title: 'Question 16: Quantum Field Theory Forces'
+          }
+        ]}
+        title="⚛️ Particle Physics Knowledge Check"
+        subtitle="Test your understanding of particle detection, decay processes, and fundamental forces"
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
