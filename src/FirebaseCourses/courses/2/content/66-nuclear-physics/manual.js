@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 // Interactive Nuclear Notation Component
 const NuclearNotationComponent = () => {
@@ -981,6 +982,91 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
           </p>
         </div>
       )}
+
+      {/* Practice Questions Slideshow */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="66-nuclear-physics"
+        course={course}
+        onAIAccordionContent={onAIAccordionContent}
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question1',
+            title: 'Nuclear Transmutation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question2',
+            title: 'Artificial Transmutation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question3',
+            title: 'Velocity Selector'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question4',
+            title: 'Ion Mass Calculation'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question5',
+            title: 'Carbon Isotope Identification'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question6',
+            title: 'Mass Defect'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question7',
+            title: 'Isotope Abundance'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question8',
+            title: 'Binding Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question9',
+            title: 'Binding Energy per Nucleon'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question10',
+            title: 'Solar Mass Loss'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question11',
+            title: 'Fission Atom Count'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question12',
+            title: 'Mass-Energy Conversion'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question13',
+            title: 'Fission Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question14',
+            title: 'Fusion Energy'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_66_question15',
+            title: 'Nuclear Power Mass Change'
+          }
+        ]}
+      />
 
       {/* Key Takeaways Summary */}
       <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-300">
