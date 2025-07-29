@@ -117,6 +117,11 @@ class BuildManager {
     };
     
     copyRecursive('build', 'public-second');
+    
+    // Copy static assets from public folder to ensure images are available
+    console.log('Copying static assets from public folder...');
+    this.copyPublicAssets('public-second');
+    
     console.log('Files copied successfully to public-second directory');
   }
 
@@ -143,7 +148,42 @@ class BuildManager {
     };
     
     copyRecursive('build', 'public-rtdconnect');
+    
+    // Copy static assets from public folder to ensure images are available
+    console.log('Copying static assets from public folder...');
+    this.copyPublicAssets('public-rtdconnect');
+    
     console.log('Files copied successfully to public-rtdconnect directory');
+  }
+
+  copyPublicAssets(targetDir) {
+    const copyRecursive = (src, dest) => {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+      
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        // Skip index.html as it's already handled by the build process
+        if (entry.name === 'index.html') {
+          continue;
+        }
+        
+        if (entry.isDirectory()) {
+          copyRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+    
+    if (fs.existsSync('public')) {
+      copyRecursive('public', targetDir);
+    }
   }
 
   formatMemoryUsage(bytes) {

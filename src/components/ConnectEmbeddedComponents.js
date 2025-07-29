@@ -63,7 +63,7 @@ const getConnectInstance = async (familyId) => {
   }
 
   // Initialize once and cache the promise
-  const publishableKey = 'pk_live_51QE8svFQ2LFjAOXoVx91914CRXIw4QWkDfTzIfPtm4urCWpNcBbGLtEmXrTfB0z2kThcyNbkal5vRRKWT8N19IvU00qJNUiVoE';
+  const publishableKey = 'pk_live_51RpMYeF5jqKn4t02HARCa3BRr2ZWPKudKlHgoVNGE5WuHHGki3mAuQtx4IwoBMTfHX8UdM5myUXnRFNCkWMkywCg00KQCB2Njw';
   console.log('🔑 Using Stripe publishable key:', publishableKey);
   globalConnectPromise = loadConnectAndInitialize({
     publishableKey: publishableKey,

@@ -962,7 +962,7 @@ const FamilyCreationSheet = ({
                 <div className="space-y-4 mb-6">
                   {familyData.students.map((student, index) => (
                     <StudentCard
-                      key={student.asn}
+                      key={student.id || student.asn || `student-${index}`}
                       student={student}
                       index={index}
                       onEdit={() => handleEditStudent(index)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { User, Shield, AlertCircle, CheckCircle, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { User, Shield, AlertCircle, CheckCircle, RefreshCw, Plus, Trash2, Info, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 
@@ -29,12 +29,42 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
   };
 
   const ROLE_OPTIONS = [
-    { value: '', label: 'No Staff Role' },
-    { value: 'staff', label: 'Staff' },
-    { value: 'teacher', label: 'Teacher' },
-    { value: 'course_manager', label: 'Course Manager' },
-    { value: 'admin', label: 'Admin' },
-    { value: 'super_admin', label: 'Super Admin' }
+    { 
+      value: '', 
+      label: 'No Staff Role',
+      description: 'Remove all staff permissions',
+      permissions: []
+    },
+    { 
+      value: 'staff', 
+      label: 'Staff',
+      description: 'Basic staff member with platform access',
+      permissions: ['staff']
+    },
+    { 
+      value: 'teacher', 
+      label: 'Teacher',
+      description: 'Can manage courses and view student data',
+      permissions: ['staff', 'teacher']
+    },
+    { 
+      value: 'course_manager', 
+      label: 'Course Manager',
+      description: 'Can create/edit courses and manage teachers',
+      permissions: ['staff', 'teacher', 'course_manager']
+    },
+    { 
+      value: 'admin', 
+      label: 'Admin',
+      description: 'Can manage staff permissions and system settings',
+      permissions: ['staff', 'teacher', 'course_manager', 'admin']
+    },
+    { 
+      value: 'super_admin', 
+      label: 'Super Admin',
+      description: 'Full system access and can manage other admins',
+      permissions: ['staff', 'teacher', 'course_manager', 'admin', 'super_admin']
+    }
   ];
 
   // Initialize form with current user permissions
@@ -250,70 +280,204 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
           )}
 
           <div className="space-y-6">
-            {/* Permission Assignment Method */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Permission Assignment Method</h3>
-              <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    checked={useQuickRole}
-                    onChange={() => setUseQuickRole(true)}
-                    className="mr-2"
-                  />
-                  <span>Quick Role Assignment (with hierarchy)</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    checked={!useQuickRole}
-                    onChange={() => setUseQuickRole(false)}
-                    className="mr-2"
-                  />
-                  <span>Individual Permissions (fine-tune control)</span>
-                </label>
+            {/* Current Permissions Display */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center space-x-2 mb-3">
+                <Info className="h-4 w-4 text-blue-600" />
+                <h4 className="font-medium text-blue-900">Current Permissions</h4>
+              </div>
+              <div className="text-sm text-blue-800">
+                <div><strong>Role:</strong> {user.currentClaims?.staffRole || 'None'}</div>
+                <div><strong>Permissions:</strong> {user.currentClaims?.staffPermissions?.length > 0 ? user.currentClaims.staffPermissions.join(', ') : 'None'}</div>
               </div>
             </div>
 
-            {/* Quick Role Selection */}
+            {/* Permission Assignment Method */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">How do you want to set permissions?</h3>
+              <div className="space-y-4">
+                <div className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  useQuickRole ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                }`} onClick={() => setUseQuickRole(true)}>
+                  <label className="flex items-start cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={useQuickRole}
+                      onChange={() => setUseQuickRole(true)}
+                      className="mr-3 mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Role-Based Assignment</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Choose a role and automatically get all permissions for that level and below.
+                        <br />Example: "Teacher" role includes both "teacher" and "staff" permissions.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  !useQuickRole ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                }`} onClick={() => setUseQuickRole(false)}>
+                  <label className="flex items-start cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={!useQuickRole}
+                      onChange={() => setUseQuickRole(false)}
+                      className="mr-3 mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Custom Permission Selection</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Manually choose exactly which permissions to grant.
+                        <br />Use this for special cases where you need specific combinations.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Role-Based Assignment */}
             {useQuickRole && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Role Assignment</h3>
-                <select
-                  value={quickRole}
-                  onChange={(e) => setQuickRole(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Select a Role</h3>
+                <div className="space-y-3">
                   {ROLE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
+                    <div 
+                      key={option.value} 
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        quickRole === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setQuickRole(option.value)}
+                    >
+                      <label className="flex items-start cursor-pointer">
+                        <input
+                          type="radio"
+                          name="roleSelect"
+                          value={option.value}
+                          checked={quickRole === option.value}
+                          onChange={(e) => setQuickRole(e.target.value)}
+                          className="mr-3 mt-1"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-gray-900">{option.label}</div>
+                            {option.permissions.length > 0 && (
+                              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                <span>Includes:</span>
+                                <div className="flex space-x-1">
+                                  {option.permissions.map((perm, idx) => (
+                                    <span key={perm} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      {perm.replace('_', ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">{option.description}</div>
+                        </div>
+                      </label>
+                    </div>
                   ))}
-                </select>
-                {quickRole && PERMISSION_HIERARCHY[quickRole] && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    This will grant: {PERMISSION_HIERARCHY[quickRole].join(', ')}
-                  </p>
-                )}
+                </div>
               </div>
             )}
 
             {/* Individual Permissions */}
             {!useQuickRole && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Individual Permissions</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(individualPermissions).map(([permission, checked]) => (
-                    <label key={permission} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => handleIndividualPermissionChange(permission, e.target.checked)}
-                        className="mr-2"
-                      />
-                      <span className="capitalize">{permission.replace('_', ' ')}</span>
-                    </label>
-                  ))}
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Select Individual Permissions</h3>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm text-yellow-800 font-medium">Advanced Mode</span>
+                  </div>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    Only use this if you need a specific combination of permissions that doesn't match a standard role.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(individualPermissions).map(([permission, checked]) => {
+                    const permissionDescriptions = {
+                      'staff': 'Basic staff member access to the platform',
+                      'teacher': 'Can manage courses and view student data',
+                      'course_manager': 'Can create/edit courses and manage teachers',
+                      'admin': 'Can manage staff permissions and system settings',
+                      'super_admin': 'Full system access and can manage other admins'
+                    };
+                    
+                    return (
+                      <div key={permission} className={`border rounded-lg p-3 ${checked ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                        <label className="flex items-start cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => handleIndividualPermissionChange(permission, e.target.checked)}
+                            className="mr-3 mt-1"
+                          />
+                          <div>
+                            <div className="font-medium text-gray-900 capitalize">{permission.replace('_', ' ')}</div>
+                            <div className="text-sm text-gray-600 mt-1">{permissionDescriptions[permission]}</div>
+                          </div>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Permission Preview */}
+            {((useQuickRole && quickRole) || (!useQuickRole && Object.values(individualPermissions).some(p => p))) && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <ArrowRight className="h-4 w-4 text-gray-600" />
+                  <h4 className="font-medium text-gray-900">Permission Changes Preview</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="font-medium text-gray-700 mb-2">Current</div>
+                    <div className="space-y-1">
+                      <div><strong>Role:</strong> {user.currentClaims?.staffRole || 'None'}</div>
+                      <div><strong>Permissions:</strong></div>
+                      <div className="flex flex-wrap gap-1">
+                        {(user.currentClaims?.staffPermissions || []).map(perm => (
+                          <span key={perm} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {perm.replace('_', ' ')}
+                          </span>
+                        ))}
+                        {(!user.currentClaims?.staffPermissions || user.currentClaims?.staffPermissions.length === 0) && (
+                          <span className="text-gray-500">None</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-700 mb-2">Will Become</div>
+                    <div className="space-y-1">
+                      <div><strong>Role:</strong> {useQuickRole ? (quickRole || 'None') : (Object.entries(individualPermissions).filter(([_, checked]) => checked).map(([perm]) => perm).sort().reverse()[0] || 'None')}</div>
+                      <div><strong>Permissions:</strong></div>
+                      <div className="flex flex-wrap gap-1">
+                        {useQuickRole && quickRole && PERMISSION_HIERARCHY[quickRole] ? 
+                          PERMISSION_HIERARCHY[quickRole].map(perm => (
+                            <span key={perm} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {perm.replace('_', ' ')}
+                            </span>
+                          )) :
+                          !useQuickRole ? 
+                            Object.entries(individualPermissions)
+                              .filter(([_, checked]) => checked)
+                              .map(([perm]) => (
+                                <span key={perm} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  {perm.replace('_', ' ')}
+                                </span>
+                              )) :
+                            <span className="text-gray-500">None</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

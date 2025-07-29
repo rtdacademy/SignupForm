@@ -18,7 +18,8 @@ const createStripeConnectAccount = onCall({
   concurrency: 50,
   memory: '512MiB',
   timeoutSeconds: 60,
-  secrets: ["STRIPE_SECRET_KEY_LIVE"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   // Check if we're in emulator and secret is unavailable
   if (!process.env.STRIPE_SECRET_KEY_LIVE) {
@@ -283,7 +284,8 @@ const createAccountSession = onCall({
   concurrency: 50,
   memory: '512MiB',
   timeoutSeconds: 60,
-  secrets: ["STRIPE_SECRET_KEY_LIVE"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   // Check if we're in emulator and secret is unavailable
   if (!process.env.STRIPE_SECRET_KEY_LIVE) {
@@ -408,6 +410,20 @@ const createAccountSession = onCall({
     if (error.code === 'account_not_found') {
       throw new Error('Stripe account not found. Please recreate the account');
     }
+    if (error.code === 'resource_missing' && error.param === 'account') {
+      // This is the specific error we're seeing - Stripe account doesn't exist
+      console.error(`Stripe account ${stripeData.accountId} no longer exists. Cleaning up Firebase data.`);
+      
+      // Clean up the invalid Stripe data from Firebase
+      try {
+        await db.ref(`homeEducationFamilies/familyInformation/${familyId}/STRIPE_CONNECT`).remove();
+        console.log('Cleaned up invalid Stripe account data from Firebase');
+      } catch (cleanupError) {
+        console.error('Error cleaning up invalid Stripe data:', cleanupError);
+      }
+      
+      throw new Error('STRIPE_ACCOUNT_MISSING');
+    }
     
     throw new Error(`Failed to create account session: ${error.message}`);
   }
@@ -425,7 +441,8 @@ const debugStripeAccount = onCall({
   concurrency: 50,
   memory: '512MiB',
   timeoutSeconds: 60,
-  secrets: ["STRIPE_SECRET_KEY_LIVE"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   // Check if we're in emulator and secret is unavailable
   if (!process.env.STRIPE_SECRET_KEY_LIVE) {
@@ -613,7 +630,8 @@ const updateStripeAccount = onCall({
   concurrency: 50,
   memory: '512MiB',
   timeoutSeconds: 60,
-  secrets: ["STRIPE_SECRET_KEY_LIVE"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   // Check if we're in emulator and secret is unavailable
   if (!process.env.STRIPE_SECRET_KEY_LIVE) {
@@ -751,7 +769,8 @@ const deleteStripeAccount = onCall({
   concurrency: 50,
   memory: '512MiB',
   timeoutSeconds: 60,
-  secrets: ["STRIPE_SECRET_KEY_LIVE"]
+  secrets: ["STRIPE_SECRET_KEY_LIVE"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   // Check if we're in emulator and secret is unavailable
   if (!process.env.STRIPE_SECRET_KEY_LIVE) {

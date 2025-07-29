@@ -3,10 +3,10 @@
 
 export const FACILITATORS = [
   {
-    id: 'sarah-johnson',
-    name: 'Sarah Johnson',
+    id: 'golda-david',
+    name: 'Golda David',
     title: 'Senior Home Education Facilitator',
-    experience: '12+ years experience',
+    experience: '10+ years experience',
     description: 'Specializes in elementary and middle school curriculum planning, learning differences support, and helping families navigate SOLO compliance with confidence.',
     image: '/connectImages/FakeFacil2.png',
     specializations: [
@@ -15,12 +15,12 @@ export const FACILITATORS = [
       'SOLO Compliance & Assessment'
     ],
     stats: [
-      { icon: 'Star', value: '12+', label: 'Years Experience' },
-      { icon: 'Users', value: '150+', label: 'Families Supported' },
+      { icon: 'Star', value: '10+', label: 'Years Experience' },
+      { icon: 'Users', value: '120+', label: 'Families Supported' },
       { icon: 'Clock', value: '24hr', label: 'Response Time' }
     ],
     contact: {
-      email: 'sarah.johnson@rtdacademy.com',
+      email: 'golda@rtd-connect.com',
       phone: '(403) 555-0124'
     },
     gradients: {
@@ -34,8 +34,8 @@ export const FACILITATORS = [
     }
   },
   {
-    id: 'michael-chen',
-    name: 'Michael Chen',
+    id: 'marian-johnson',
+    name: 'Marian Johnson',
     title: 'High School & Transition Specialist',
     experience: '8+ years experience',
     description: 'Dedicated to helping teens succeed in high school home education, diploma exam preparation, and planning for post-secondary education and career success.',
@@ -51,7 +51,7 @@ export const FACILITATORS = [
       { icon: 'Clock', value: 'Same Day', label: 'Response Time' }
     ],
     contact: {
-      email: 'michael.chen@rtdacademy.com',
+      email: 'marian@rtd-connect.com',
       phone: '(403) 555-0125'
     },
     gradients: {
@@ -62,6 +62,37 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['9', '10', '11', '12'],
       secondary: ['8'] // Can handle some Grade 8
+    }
+  },
+  {
+    id: 'grace-anne-post',
+    name: 'Grace-Anne Post',
+    title: 'K-12 Education Specialist',
+    experience: '12+ years experience',
+    description: 'Passionate about supporting families throughout their entire home education journey, from kindergarten through graduation, with expertise in diverse learning styles and educational approaches.',
+    image: '/connectImages/FakeFacil2.png',
+    specializations: [
+      'K-12 Curriculum Development',
+      'Multi-Grade Family Support',
+      'Special Needs Education'
+    ],
+    stats: [
+      { icon: 'Star', value: '12+', label: 'Years Experience' },
+      { icon: 'Users', value: '200+', label: 'Families Supported' },
+      { icon: 'Clock', value: '24hr', label: 'Response Time' }
+    ],
+    contact: {
+      email: 'graceanne@rtdacademy.com',
+      phone: '(403) 555-0126'
+    },
+    gradients: {
+      card: 'from-green-500 to-teal-500',
+      border: 'border-green-100'
+    },
+    // Grade focus for assignment recommendations
+    gradeFocus: {
+      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      secondary: [] // Handles all grades equally well
     }
   }
 ];

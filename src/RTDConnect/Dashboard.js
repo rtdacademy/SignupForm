@@ -14,6 +14,9 @@ import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
 import ReimbursementSubmissionForm from './ReimbursementSubmissionForm';
+import ReceiptUploadForm from './ReceiptUploadForm';
+import StudentBudgetCard from './StudentBudgetCard';
+import FamilyBudgetOverview from './FamilyBudgetOverview';
 import Toast from '../components/Toast';
 import { 
   EmbeddedAccountManagement, 
@@ -29,8 +32,48 @@ import {
   isRegistrationOpen,
   getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears,
-  getRegistrationOpenDateForYear
+  getRegistrationOpenDateForYear,
+  getSeptemberCountForYear
 } from '../config/importantDates';
+import { FUNDING_RATES } from '../config/HomeEducation';
+
+// Helper function to calculate student budget based on grade
+const calculateStudentBudget = (grade) => {
+  // Convert grade to normalized format for comparison
+  const gradeStr = grade?.toString().toLowerCase().trim();
+  
+  // Check for kindergarten variations
+  if (gradeStr === 'k' || 
+      gradeStr === 'kindergarten' || 
+      gradeStr === '0' ||
+      gradeStr === 'kg') {
+    return FUNDING_RATES.KINDERGARTEN.amount; // $450.50
+  } else {
+    return FUNDING_RATES.GRADES_1_TO_12.amount; // $901.00
+  }
+};
+
+// Helper function to get funding type for display
+const getFundingType = (grade) => {
+  const gradeStr = grade?.toString().toLowerCase().trim();
+  
+  if (gradeStr === 'k' || 
+      gradeStr === 'kindergarten' || 
+      gradeStr === '0' ||
+      gradeStr === 'kg') {
+    return {
+      type: 'kindergarten',
+      label: 'Kindergarten',
+      formatted: FUNDING_RATES.KINDERGARTEN.formatted
+    };
+  } else {
+    return {
+      type: 'grades_1_12',
+      label: 'Grades 1-12',
+      formatted: FUNDING_RATES.GRADES_1_TO_12.formatted
+    };
+  }
+};
 
 // Helper function to determine the target school year for SOLO planning
 // Same logic as in SOLOEducationPlanForm.js
@@ -350,6 +393,12 @@ const RTDConnectDashboard = () => {
   const [stripeConnectError, setStripeConnectError] = useState(null);
   const [reimbursementError, setReimbursementError] = useState(null);
   
+  // Receipt upload form state
+  const [showReceiptUploadForm, setShowReceiptUploadForm] = useState(false);
+  
+  // Enhanced budget tracking state
+  const [studentBudgets, setStudentBudgets] = useState({});
+  
   // Embedded components state
   const [showAccountManagement, setShowAccountManagement] = useState(false);
   const [showPayoutsView, setShowPayoutsView] = useState(false);
@@ -387,10 +436,17 @@ const RTDConnectDashboard = () => {
     // Get SOLO target school year using the same logic as SOLO form
     const soloTargetYear = getTargetSchoolYear();
     
+    // Get the September count date for the active school year
+    const septemberCountDate = getSeptemberCountForYear(targetSchoolYear);
+    const septemberCountInfo = septemberCountDate ? {
+      date: septemberCountDate,
+      schoolYear: targetSchoolYear
+    } : null;
+    
     setCurrentSchoolYear(currentYear);
     setActiveSchoolYear(targetSchoolYear);
     setSoloTargetSchoolYear(soloTargetYear);
-    setNextSeptemberCount(activeSeptember);
+    setNextSeptemberCount(septemberCountInfo);
     
     console.log('School year tracking initialized:', {
       currentSchoolYear: currentYear,
@@ -699,36 +755,67 @@ const RTDConnectDashboard = () => {
     const createNotificationSession = async () => {
       const sessionKey = `${stripeConnectStatus?.accountId}-notification`;
       
+      // Check if we should attempt to create a session
       if (stripeConnectStatus?.accountId && 
           !accountSession && 
-          !sessionLoading && 
-          !sessionStates[sessionKey]?.created) {
+          !sessionLoading) {
+        
+        // Check if we've already attempted this session or if it failed
+        const sessionState = sessionStates[sessionKey];
+        if (sessionState?.created || sessionState?.error || sessionState?.attempted) {
+          return; // Don't retry if we've already tried or succeeded
+        }
+        
+        // Mark as attempted to prevent immediate retries
+        setSessionStates(prev => ({
+          ...prev,
+          [sessionKey]: { attempted: true, created: false, claimed: false, error: false }
+        }));
+        
         try {
           const session = await createAccountSession(['notification_banner'], 'notification');
           if (session) {
             setSessionStates(prev => ({
               ...prev,
-              [sessionKey]: { created: true, claimed: false }
+              [sessionKey]: { attempted: true, created: true, claimed: false, error: false }
             }));
           }
         } catch (error) {
           console.error('Failed to create notification session:', error);
-          // Mark as attempted to prevent retries
-          setSessionStates(prev => ({
-            ...prev,
-            [sessionKey]: { created: false, claimed: false, error: true }
-          }));
+          
+          // Handle specific Stripe account missing error
+          if (error.message?.includes('STRIPE_ACCOUNT_MISSING')) {
+            console.log('Stripe account no longer exists, clearing local data and showing setup option');
+            // Clear the invalid Stripe data locally
+            setStripeConnectStatus(null);
+            setToast({
+              message: 'Your banking account setup was outdated and has been reset. Please set up your banking account again.',
+              type: 'warning'
+            });
+            // Don't mark as error - let user try to create a new account
+            setSessionStates(prev => ({
+              ...prev,
+              [sessionKey]: { attempted: true, created: false, claimed: false, error: false, reset: true }
+            }));
+          } else {
+            // Mark as error to prevent retries for other errors
+            setSessionStates(prev => ({
+              ...prev,
+              [sessionKey]: { attempted: true, created: false, claimed: false, error: true }
+            }));
+          }
         }
       }
     };
 
     createNotificationSession();
-  }, [stripeConnectStatus?.accountId, accountSession, sessionLoading, sessionStates]);
+  }, [stripeConnectStatus?.accountId, accountSession, sessionLoading]); // Removed sessionStates from dependencies
 
-  // Effect to load reimbursement statuses
+  // Effect to load reimbursement statuses and budgets
   useEffect(() => {
     if (customClaims?.familyId && familyData?.students && activeSchoolYear) {
       loadReimbursementStatuses();
+      loadStudentBudgets();
     }
   }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
 
@@ -1357,6 +1444,52 @@ Check console for full details.
     }
   };
 
+  // Function to manually clean up invalid Stripe data
+  const handleCleanupStripeData = async () => {
+    if (!customClaims?.familyId) {
+      setToast({
+        message: 'No family ID found',
+        type: 'error'
+      });
+      return;
+    }
+
+    const confirmCleanup = window.confirm(
+      'This will clean up invalid banking account data. You will need to set up your banking account again. Continue?'
+    );
+    
+    if (!confirmCleanup) return;
+
+    try {
+      const db = getDatabase();
+      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STRIPE_CONNECT`);
+      
+      setToast({
+        message: 'Cleaning up invalid banking data...',
+        type: 'info'
+      });
+      
+      await set(stripeDataRef, null); // Remove the data
+      
+      // Reset local state
+      setStripeConnectStatus(null);
+      setStripeConnectError(null);
+      setAccountSession(null);
+      setSessionStates({});
+      
+      setToast({
+        message: 'Banking account data cleaned up successfully! You can now set up a new account.',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error cleaning up Stripe data:', error);
+      setToast({
+        message: `Error cleaning up data: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
   const handleSubmitReimbursement = async (reimbursementData) => {
     setIsSubmittingReimbursement(true);
     setReimbursementError(null);
@@ -1442,6 +1575,23 @@ Check console for full details.
     
     setSelectedStudentForReimbursement(student);
     setShowReimbursementForm(true);
+  };
+
+  // Handler for new receipt upload form
+  const handleOpenReceiptUploadForm = () => {
+    setShowReceiptUploadForm(true);
+  };
+
+
+  const handleClaimSubmitted = async (claimData) => {
+    setToast({
+      message: `Reimbursement claim submitted successfully! Claim ID: ${claimData.claimId}`,
+      type: 'success'
+    });
+    
+    // Reload reimbursement statuses and budgets to reflect the new claim
+    await loadReimbursementStatuses();
+    await loadStudentBudgets();
   };
 
   // Handlers for embedded components
@@ -1533,6 +1683,57 @@ Check console for full details.
     }
   };
 
+  const loadStudentBudgets = async () => {
+    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+      const budgets = {};
+      
+      // Load claims to calculate spent amounts
+      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
+      const claimsSnapshot = await get(claimsRef);
+      
+      for (const student of familyData.students) {
+        const studentBudgetLimit = calculateStudentBudget(student.grade);
+        const fundingInfo = getFundingType(student.grade);
+        
+        let spentAmount = 0;
+        if (claimsSnapshot.exists()) {
+          const allClaims = claimsSnapshot.val();
+          Object.values(allClaims).forEach(claim => {
+            if (claim.studentAllocations) {
+              claim.studentAllocations.forEach(allocation => {
+                if (allocation.studentId === student.id && 
+                    (claim.status === 'approved' || claim.status === 'paid')) {
+                  spentAmount += allocation.amount || 0;
+                }
+              });
+            }
+          });
+        }
+
+        const remaining = studentBudgetLimit - spentAmount;
+        budgets[student.id] = {
+          limit: studentBudgetLimit,
+          spent: spentAmount,
+          remaining: Math.max(0, remaining),
+          percentageUsed: (spentAmount / studentBudgetLimit) * 100,
+          gradeLevel: student.grade,
+          fundingType: fundingInfo.type,
+          fundingLabel: fundingInfo.label,
+          fundingFormatted: fundingInfo.formatted
+        };
+      }
+      
+      setStudentBudgets(budgets);
+    } catch (error) {
+      console.error('Error loading student budgets:', error);
+    }
+  };
+
   const loadReimbursementStatuses = async () => {
     if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
       return;
@@ -1542,39 +1743,64 @@ Check console for full details.
       const db = getDatabase();
       const statuses = {};
       
+      // Initialize statuses for all students
       for (const student of familyData.students) {
-        const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENTS/${activeSchoolYear.replace('/', '_')}/${student.id}`);
-        const snapshot = await get(reimbursementRef);
+        statuses[student.id] = {
+          total: 0,
+          pending: 0,
+          approved: 0,
+          paid: 0,
+          totalAmount: 0,
+          latestSubmission: null
+        };
+      }
+      
+      // Load claims from new REIMBURSEMENT_CLAIMS structure
+      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
+      const claimsSnapshot = await get(claimsRef);
+      
+      if (claimsSnapshot.exists()) {
+        const allClaims = claimsSnapshot.val();
+        const claimsList = Object.values(allClaims);
         
-        if (snapshot.exists()) {
-          const reimbursements = snapshot.val();
-          const reimbursementList = Object.values(reimbursements);
-          
-          // Find the most recent submission
-          const latestSubmission = reimbursementList.reduce((latest, current) => {
-            const currentDate = new Date(current.submittedAt);
-            const latestDate = latest ? new Date(latest.submittedAt) : null;
-            return !latest || currentDate > latestDate ? current : latest;
-          }, null);
-
-          statuses[student.id] = {
-            total: reimbursementList.length,
-            pending: reimbursementList.filter(r => r.status === 'pending_review').length,
-            approved: reimbursementList.filter(r => r.status === 'approved').length,
-            paid: reimbursementList.filter(r => r.payout_status === 'paid').length,
-            totalAmount: reimbursementList.reduce((sum, r) => sum + (r.amount || 0), 0),
-            latestSubmission: latestSubmission
-          };
-        } else {
-          statuses[student.id] = {
-            total: 0,
-            pending: 0,
-            approved: 0,
-            paid: 0,
-            totalAmount: 0,
-            latestSubmission: null
-          };
-        }
+        // Process each claim and its student allocations
+        claimsList.forEach(claim => {
+          if (claim.studentAllocations) {
+            claim.studentAllocations.forEach(allocation => {
+              const studentId = allocation.studentId;
+              
+              if (statuses[studentId]) {
+                // Count this allocation
+                statuses[studentId].total += 1;
+                
+                // Add to appropriate status counters
+                if (claim.status === 'pending_review') {
+                  statuses[studentId].pending += 1;
+                } else if (claim.status === 'approved') {
+                  statuses[studentId].approved += 1;
+                } else if (claim.status === 'paid') {
+                  statuses[studentId].paid += 1;
+                }
+                
+                // Add amount (only for approved or paid claims)
+                if (claim.status === 'approved' || claim.status === 'paid') {
+                  statuses[studentId].totalAmount += allocation.amount || 0;
+                }
+                
+                // Track latest submission per student
+                const currentSubmissionDate = new Date(claim.submittedAt);
+                const existingLatest = statuses[studentId].latestSubmission;
+                
+                if (!existingLatest || currentSubmissionDate > new Date(existingLatest.submittedAt)) {
+                  statuses[studentId].latestSubmission = {
+                    ...claim,
+                    studentAllocation: allocation
+                  };
+                }
+              }
+            });
+          }
+        });
       }
       
       setStudentReimbursementStatuses(statuses);
@@ -1670,20 +1896,25 @@ Check console for full details.
     } catch (error) {
       console.error(`Error creating ${sessionType} session:`, error);
       
-      // Handle session claiming errors more gracefully
-      if (error.message?.includes('already been claimed')) {
+      // Handle specific Stripe account missing error
+      if (error.message?.includes('STRIPE_ACCOUNT_MISSING')) {
+        console.log('Stripe account no longer exists, clearing local data');
+        // Clear the invalid Stripe data locally
+        setStripeConnectStatus(null);
+        setStripeConnectError('Your banking account setup was outdated and has been reset. Please set up your banking account again.');
+        setToast({
+          message: 'Banking account data was outdated and has been reset. You can now set up a new account.',
+          type: 'warning'
+        });
+      } else if (error.message?.includes('already been claimed')) {
         console.warn(`Account session already claimed for ${sessionType} - this may be expected`);
-        
-        // Mark the session as claimed in our tracking
-        setSessionStates(prev => ({
-          ...prev,
-          [sessionKey]: { created: true, claimed: true, error: false }
-        }));
+        // Don't update sessionStates here to avoid triggering useEffect loops
       } else {
         setStripeConnectError(error.message || `Failed to create ${sessionType} session`);
       }
       
-      return null;
+      // Re-throw error so calling code can handle it
+      throw error;
     } finally {
       setSessionLoading(false);
     }
@@ -2347,6 +2578,15 @@ Check console for full details.
                   )}
 
                   
+                  {/* Submit Expenses Button */}
+                  <button
+                    onClick={handleOpenReceiptUploadForm}
+                    className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span className="text-sm lg:text-base">Submit Expenses</span>
+                  </button>
+
                   {/* Payouts View Button - only if Stripe Connect is set up */}
                   {stripeConnectStatus?.accountId && (
                     <button
@@ -2358,6 +2598,7 @@ Check console for full details.
                       <span className="text-sm lg:text-base">View Payouts</span>
                     </button>
                   )}
+                  
                 </div>
               ) : (
                 <div className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
@@ -2465,6 +2706,15 @@ Check console for full details.
           <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Your Family Members</h2>
             
+            
+            {/* Family Budget Overview */}
+            {familyData.students && familyData.students.length > 0 && Object.keys(studentBudgets).length > 0 && (
+              <FamilyBudgetOverview 
+                students={familyData.students}
+                budgetData={studentBudgets}
+              />
+            )}
+            
             {/* Students Section */}
             {familyData.students && familyData.students.length > 0 && (
               <div className="mb-6">
@@ -2473,11 +2723,11 @@ Check console for full details.
                   Students ({familyData.students.length})
                 </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                  {familyData.students.map((student, index) => {
-                    const formStatus = studentFormStatuses[student.id]?.current || 'pending';
-                    const docStatus = studentDocumentStatuses[student.id] || { status: 'pending', documentCount: 0 };
-                    return (
-                      <div key={student.id || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
+                    {familyData.students.map((student, index) => {
+                      const formStatus = studentFormStatuses[student.id]?.current || 'pending';
+                      const docStatus = studentDocumentStatuses[student.id] || { status: 'pending', documentCount: 0 };
+                      return (
+                        <div key={student.id || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">
@@ -2653,83 +2903,96 @@ Check console for full details.
                               )}
                             </div>
 
-                            {/* Reimbursement Section */}
-                            <div className="mt-3 pt-3 border-t border-blue-300">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  <DollarSign className="w-4 h-4 text-emerald-500" />
-                                  <span className="text-sm font-medium text-gray-700">
-                                    Reimbursements
-                                  </span>
-                                  {studentReimbursementStatuses[student.id]?.pending > 0 ? (
-                                    <Clock className="w-4 h-4 text-orange-500" />
-                                  ) : studentReimbursementStatuses[student.id]?.paid > 0 ? (
-                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                  ) : (
-                                    <AlertCircle className="w-4 h-4 text-gray-500" />
-                                  )}
-                                </div>
-                                <div className="flex flex-col text-right">
-                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
-                                    studentReimbursementStatuses[student.id]?.pending > 0 ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                                    studentReimbursementStatuses[student.id]?.paid > 0 ? 'bg-green-100 text-green-700 border-green-300' :
-                                    'bg-gray-100 text-gray-700 border-gray-300'
-                                  }`}>
-                                    {studentReimbursementStatuses[student.id]?.total || 0} submitted
-                                  </span>
-                                  {studentReimbursementStatuses[student.id]?.totalAmount > 0 && (
-                                    <span className="text-xs text-gray-500 mt-1">
-                                      ${studentReimbursementStatuses[student.id].totalAmount.toFixed(2)} total
+                            {/* Budget Information Section */}
+                            {studentBudgets[student.id] && (
+                              <div className="mt-3 pt-3 border-t border-blue-300">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center space-x-2">
+                                    <DollarSign className="w-4 h-4 text-purple-500" />
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Budget Tracking
                                     </span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {/* Latest Reimbursement Info */}
-                              {studentReimbursementStatuses[student.id]?.latestSubmission && (
-                                <div className="mt-2 p-2 bg-emerald-50 rounded-md border border-emerald-200">
-                                  <div className="text-xs text-emerald-800">
-                                    <div className="flex justify-between items-start mb-1">
-                                      <span className="font-medium">Latest Submission:</span>
-                                      <span className="text-emerald-600">
-                                        ${studentReimbursementStatuses[student.id].latestSubmission.amount?.toFixed(2) || '0.00'}
-                                      </span>
+                                    {studentBudgets[student.id].percentageUsed > 95 ? (
+                                      <AlertTriangle className="w-4 h-4 text-red-500" />
+                                    ) : studentBudgets[student.id].percentageUsed > 80 ? (
+                                      <Clock className="w-4 h-4 text-yellow-500" />
+                                    ) : (
+                                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-bold text-gray-900">
+                                      {studentBudgets[student.id].fundingFormatted}
                                     </div>
-                                    <div className="flex justify-between items-center text-emerald-700">
-                                      <span>{studentReimbursementStatuses[student.id].latestSubmission.category || 'N/A'}</span>
-                                      <span>
-                                        {new Date(studentReimbursementStatuses[student.id].latestSubmission.submittedAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    <div className="mt-1 text-emerald-600 text-xs">
-                                      ID: {studentReimbursementStatuses[student.id].latestSubmission.id}
+                                    <div className="text-xs text-gray-500">
+                                      {studentBudgets[student.id].fundingLabel}
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                              
-                              {/* Stripe Connect Setup for Primary Guardians */}
-                              {customClaims?.familyRole === 'primary_guardian' ? (
-                                <div className="space-y-2">
-                                  {stripeConnectStatus?.status === 'completed' ? (
-                                    <button
-                                      onClick={() => handleOpenReimbursementForm(student)}
-                                      className="w-full px-3 py-2 text-sm rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md"
-                                    >
-                                      Submit Reimbursement
-                                    </button>
-                                  ) : (
-                                    <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
-                                      Use Account Management to set up banking
+                                
+                                {/* Budget Progress Bar */}
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium text-gray-600">
+                                      {studentBudgets[student.id].percentageUsed > 95 ? 'Budget nearly exhausted' :
+                                       studentBudgets[student.id].percentageUsed > 80 ? 'Budget running low' :
+                                       studentBudgets[student.id].percentageUsed > 60 ? 'Good progress' :
+                                       'Plenty of budget remaining'}
+                                    </span>
+                                    <span className="text-xs text-gray-600">
+                                      {studentBudgets[student.id].percentageUsed.toFixed(1)}% used
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`h-2 rounded-full transition-all duration-500 ${
+                                        studentBudgets[student.id].percentageUsed > 95 ? 'bg-red-500' :
+                                        studentBudgets[student.id].percentageUsed > 80 ? 'bg-yellow-500' :
+                                        studentBudgets[student.id].percentageUsed > 60 ? 'bg-blue-500' :
+                                        'bg-green-500'
+                                      }`}
+                                      style={{ width: `${Math.min(studentBudgets[student.id].percentageUsed, 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {/* Budget Breakdown */}
+                                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                  <div className="p-2 bg-green-50 rounded">
+                                    <div className="font-medium text-green-600">
+                                      ${studentBudgets[student.id].remaining.toFixed(2)}
                                     </div>
-                                  )}
+                                    <div className="text-gray-500">Remaining</div>
+                                  </div>
+                                  <div className="p-2 bg-blue-50 rounded">
+                                    <div className="font-medium text-blue-600">
+                                      ${studentBudgets[student.id].spent.toFixed(2)}
+                                    </div>
+                                    <div className="text-gray-500">Spent</div>
+                                  </div>
+                                  <div className="p-2 bg-purple-50 rounded">
+                                    <div className="font-medium text-purple-600">
+                                      {studentReimbursementStatuses[student.id]?.pending || 0}
+                                    </div>
+                                    <div className="text-gray-500">Pending</div>
+                                  </div>
                                 </div>
-                              ) : (
-                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
-                                  Contact Primary Guardian
-                                </div>
-                              )}
-                            </div>
+                                
+                                {/* Latest Activity */}
+                                {studentReimbursementStatuses[student.id]?.latestSubmission && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200">
+                                    <div className="text-xs text-gray-500">
+                                      Latest: {new Date(studentReimbursementStatuses[student.id].latestSubmission.submittedAt).toLocaleDateString()}
+                                      {studentReimbursementStatuses[student.id].latestSubmission.studentAllocation && (
+                                        <span className="ml-1">
+                                          (${studentReimbursementStatuses[student.id].latestSubmission.studentAllocation.amount.toFixed(2)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="ml-3">
                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -2739,7 +3002,7 @@ Check console for full details.
                         </div>
                       </div>
                     );
-                  })}
+                    })}
                 </div>
               </div>
             )}
@@ -2988,6 +3251,16 @@ Check console for full details.
         </SheetContent>
       </Sheet>
 
+      {/* Receipt Upload Form */}
+      <ReceiptUploadForm
+        isOpen={showReceiptUploadForm}
+        onOpenChange={setShowReceiptUploadForm}
+        familyData={familyData}
+        schoolYear={activeSchoolYear}
+        customClaims={customClaims}
+        onClaimSubmitted={handleClaimSubmitted}
+      />
+
       {/* Embedded Account Management Sheet */}
       <Sheet open={showAccountManagement} onOpenChange={setShowAccountManagement}>
         <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
@@ -3222,6 +3495,23 @@ Check console for full details.
                     {/* Tooltip */}
                     <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       Check Stripe account status & debug info
+                    </div>
+                  </div>
+                )}
+
+                {/* Clean Up Invalid Stripe Data */}
+                {stripeConnectStatus?.accountId && (
+                  <div className="relative group">
+                    <button
+                      onClick={handleCleanupStripeData}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left text-sm text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
+                    >
+                      <Settings className="w-4 h-4 text-orange-500" />
+                      <span>Clean Stripe Data</span>
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      Remove invalid banking account data
                     </div>
                   </div>
                 )}

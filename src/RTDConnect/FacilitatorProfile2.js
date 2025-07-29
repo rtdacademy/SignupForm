@@ -20,7 +20,7 @@ const FacilitatorProfile2 = () => {
   };
 
   const handleContactEmail = () => {
-    window.location.href = 'mailto:michael.chen@rtdacademy.com';
+    window.location.href = 'mailto:marian@rtd-connect.com';
   };
 
   const handleContactPhone = () => {
@@ -51,7 +51,7 @@ const FacilitatorProfile2 = () => {
             <div className="relative">
               <img 
                 src="/connectImages/FakeFacil1.png" 
-                alt="Michael Chen"
+                alt="Marian Johnson"
                 className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-lg"
               />
               <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
@@ -60,7 +60,7 @@ const FacilitatorProfile2 = () => {
             </div>
             
             <div className="text-center md:text-left">
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Michael Chen</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Marian Johnson</h1>
               <p className="text-xl text-blue-600 font-semibold mb-4">High School & Transition Specialist</p>
               <p className="text-lg text-gray-600 mb-6 max-w-2xl">
                 Dedicated to helping families navigate high school home education and prepare students for post-secondary success. 
@@ -73,14 +73,14 @@ const FacilitatorProfile2 = () => {
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 transition-colors"
                 >
                   <Mail className="w-5 h-5 mr-2" />
-                  Email Michael
+                  Email Marian
                 </button>
                 <button
                   onClick={handleContactPhone}
                   className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                 >
                   <Phone className="w-5 h-5 mr-2" />
-                  Call Michael
+                  Call Marian
                 </button>
               </div>
             </div>
@@ -151,7 +151,7 @@ const FacilitatorProfile2 = () => {
       {/* How Michael Can Help */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">How Michael Can Help Your Teen</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">How Marian Can Help Your Teen</h2>
           
           <div className="space-y-6">
             <div className="flex items-start space-x-4">
@@ -197,7 +197,7 @@ const FacilitatorProfile2 = () => {
           <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-xl p-8 text-center">
             <Heart className="w-12 h-12 text-blue-500 mx-auto mb-4" />
             <blockquote className="text-lg text-gray-700 mb-4">
-              "Michael's guidance was invaluable during our daughter's final high school years. His expertise in diploma exam prep helped her achieve excellent results, and his university admission guidance secured her a place in her dream program with scholarships."
+              "Marian's guidance was invaluable during our daughter's final high school years. Her expertise in diploma exam prep helped her achieve excellent results, and her university admission guidance secured her a place in her dream program with scholarships."
             </blockquote>
             <p className="text-blue-600 font-semibold">— Parent of University of Alberta Engineering Student</p>
           </div>
@@ -207,7 +207,7 @@ const FacilitatorProfile2 = () => {
       {/* Contact Section */}
       <section className="py-16 bg-gradient-to-br from-blue-500 to-green-500">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Connect with Michael?</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">Ready to Connect with Marian?</h2>
           <p className="text-xl text-blue-100 mb-8">
             Let's discuss your teen's high school journey and future goals
           </p>
@@ -218,7 +218,7 @@ const FacilitatorProfile2 = () => {
               className="inline-flex items-center px-8 py-4 border border-white text-lg font-medium rounded-lg text-blue-600 bg-white hover:bg-gray-50 transition-colors"
             >
               <Mail className="w-5 h-5 mr-2" />
-              michael.chen@rtdacademy.com
+              marian@rtd-connect.com
             </button>
             <button
               onClick={handleContactPhone}

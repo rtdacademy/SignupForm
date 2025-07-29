@@ -1,7 +1,7 @@
 // Import 2nd gen Firebase Functions
 const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { genkit } = require('genkit'); // Using stable genkit package
+const { genkit, z } = require('genkit'); // Using stable genkit package with Zod
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
@@ -205,7 +205,7 @@ const generateContent = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"]
 }, async (request) => {
   // Data is in request.data for V2 functions
   const data = request.data;
@@ -252,7 +252,7 @@ const startChatSession = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"],
 }, async (request) => {
   const data = request.data;
 
@@ -358,7 +358,7 @@ const sendChatMessage = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"],
 }, async (request, response) => {
   const data = request.data;
 
@@ -612,8 +612,227 @@ const sendChatMessage = onCall({
   }
 });
 
+/**
+ * Schema for receipt analysis results with validation
+ */
+const ReceiptAnalysisSchema = z.object({
+  // Core data fields
+  purchaseDate: z.string().nullable().describe('Purchase date in YYYY-MM-DD format, null if not found'),
+  totalAmount: z.number().nullable().describe('Total purchase amount as a number (no currency symbols), null if not found'),
+  subtotalAmount: z.number().nullable().describe('Subtotal amount before tax, null if not found'),
+  taxAmount: z.number().nullable().describe('Tax amount charged, null if not found'),
+  vendor: z.string().nullable().describe('Store/vendor name, null if not found'),
+  purchaseDescription: z.string().nullable().describe('Description of what was purchased based on items in receipt'),
+  
+  // Document classification
+  documentType: z.string().describe('Type of document detected: receipt, invoice, estimate, statement, other'),
+  
+  // Validation fields
+  isValid: z.boolean().describe('Whether this appears to be a valid purchase receipt (not invoice or estimate)'),
+  validationScore: z.number().describe('Quality score 0-100 for receipt readability and completeness'),
+  validationIssues: z.array(z.string()).describe('List of issues found with the receipt'),
+  requiresManualReview: z.boolean().describe('Whether this document requires manual review due to quality or type issues'),
+  reviewPriority: z.string().describe('Review priority level: high, medium, or low'),
+  
+  // Additional extracted data
+  items: z.array(z.string()).optional().describe('List of purchased items if clearly visible'),
+  confidence: z.object({
+    date: z.number().describe('Confidence 0-1 for date extraction'),
+    amount: z.number().describe('Confidence 0-1 for amount extraction'),
+    vendor: z.number().describe('Confidence 0-1 for vendor extraction'),
+    description: z.number().describe('Confidence 0-1 for purchase description'),
+    tax: z.number().describe('Confidence 0-1 for tax amount extraction')
+  }).describe('Confidence scores for each extracted field')
+});
+
+/**
+ * System prompt for receipt analysis
+ */
+const RECEIPT_ANALYSIS_PROMPT = `You are an expert document analyzer specializing in educational reimbursement validation. Your task is to extract information from receipt images and PDFs and determine if they are suitable for reimbursement claims.
+
+Key responsibilities:
+1. Extract purchase details: date, amounts (total, subtotal, tax), vendor name
+2. Classify the document type (receipt, invoice, estimate, statement, other)
+3. Assess validity for reimbursement purposes (receipts are preferred, invoices need review)
+4. Extract item details and create purchase descriptions
+5. Determine review priority and manual review requirements
+
+Document Type Classification:
+- RECEIPT: Proof of completed purchase transaction (good for reimbursement)
+- INVOICE: Bill/request for payment (requires manual review)
+- ESTIMATE: Quote/price estimate (not valid for reimbursement)
+- STATEMENT: Account statement or summary (not valid for reimbursement)
+- OTHER: Unidentifiable or different document type
+
+Amount Extraction Guidelines:
+- totalAmount: Final amount paid/charged
+- subtotalAmount: Amount before taxes/fees
+- taxAmount: Sales tax, GST, HST, or similar taxes
+- For amounts: Extract as numbers only (no currency symbols)
+
+Validation Scoring (0-100):
+- 90-100: Perfect receipt, all information clear, ready for approval
+- 70-89: Good receipt, minor issues, low priority review
+- 50-69: Acceptable with concerns, medium priority review  
+- 30-49: Poor quality or invoice, high priority manual review required
+- 0-29: Major issues, invalid document, or estimate - requires manual review
+
+Review Priority Assignment:
+- HIGH: Score 0-49, invoices, estimates, missing critical info, major quality issues
+- MEDIUM: Score 50-69, minor quality issues, handwritten receipts
+- LOW: Score 70-100, clear receipts with all information present
+
+Manual Review Requirements:
+- Document is invoice instead of receipt
+- Score below 50
+- Missing critical information (date, amount, or vendor)
+- Handwritten receipt without clear business information
+- Image quality too poor to verify details
+- Suspected fraud or manipulation
+
+Common Validation Issues:
+- "Not a receipt (invoice template)" - for invoices requiring payment
+- "Missing purchase date" - no clear transaction date
+- "Image too blurry or dark" - quality issues
+- "Partially cut off or incomplete" - missing parts
+- "Handwritten without business info" - informal receipts
+- "Amount not clear" - unclear pricing
+- "Not an educational expense" - inappropriate items
+
+Confidence Scoring (0-1):
+- 1.0 = Information clearly visible and unambiguous
+- 0.7-0.9 = Present but requires interpretation
+- 0.4-0.6 = Partially visible or unclear
+- 0.1-0.3 = Barely visible or highly uncertain  
+- 0.0 = Information not found
+
+Return null for any fields you cannot extract with reasonable confidence.`;
+
+/**
+ * Cloud function to analyze receipt images/PDFs using AI
+ */
+const analyzeReceipt = onCall({
+  concurrency: 10,
+  memory: '1GiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"]
+}, async (request) => {
+  const data = request.data;
+
+  try {
+    // Initialize AI instance
+    const ai = initializeAI();
+    
+    console.log("Analyzing receipt:", data.fileName || 'unnamed');
+    
+    const { fileUrl, fileName, mimeType } = data;
+
+    if (!fileUrl) {
+      throw new Error('File URL is required');
+    }
+
+    // For both images and PDFs, use the direct Firebase Storage URL
+    // The Gemini API should be able to access public Firebase Storage URLs
+    const prompt = [
+      {
+        media: {
+          url: fileUrl,
+          contentType: mimeType || getContentType(null, fileName)
+        }
+      },
+      {
+        text: `${RECEIPT_ANALYSIS_PROMPT}
+
+Analyze this receipt and extract all relevant information. Pay special attention to the date, total amount, vendor name, and create a description of what was purchased. Also assess the quality and validity of the receipt.`
+      }
+    ];
+    
+    console.log('Using direct URL for file:', {
+      fileName,
+      mimeType: mimeType || getContentType(null, fileName),
+      urlLength: fileUrl.length
+    });
+
+    // Generate structured output using the schema
+    const response = await ai.generate({
+      model: googleAI.model(AI_MODELS.GEMINI.FLASH), // Using FLASH model for faster analysis
+      prompt: prompt,
+      output: { schema: ReceiptAnalysisSchema },
+      config: {
+        temperature: 0.1, // Low temperature for consistent extraction
+        maxOutputTokens: 1000
+      }
+    });
+
+    console.log('Receipt analysis complete:', {
+      isValid: response.output?.isValid,
+      validationScore: response.output?.validationScore,
+      hasDate: !!response.output?.purchaseDate,
+      hasAmount: !!response.output?.totalAmount,
+      hasVendor: !!response.output?.vendor
+    });
+
+    // Return the structured output or a default if parsing failed
+    return {
+      success: true,
+      analysis: response.output || {
+        purchaseDate: null,
+        totalAmount: null,
+        subtotalAmount: null,
+        taxAmount: null,
+        vendor: null,
+        purchaseDescription: null,
+        documentType: 'other',
+        isValid: false,
+        validationScore: 0,
+        validationIssues: ['Failed to analyze receipt'],
+        requiresManualReview: true,
+        reviewPriority: 'high',
+        confidence: { date: 0, amount: 0, vendor: 0, description: 0, tax: 0 }
+      }
+    };
+  } catch (error) {
+    console.error('Error analyzing receipt:', error);
+    
+    // Check if this is likely an AI-generated image rejection
+    let errorMessage = error.message;
+    let validationIssues = ['Analysis failed: ' + error.message];
+    
+    if (error.message.includes('Provided image is not valid') || 
+        error.message.includes('Unable to process input image')) {
+      errorMessage = 'Image could not be processed. This may occur with AI-generated images or screenshots. Please upload a photo or scan of an actual receipt.';
+      validationIssues = [
+        'Image processing failed',
+        'Ensure the image is a photo or scan of a real receipt',
+        'AI-generated or synthetic images may be rejected'
+      ];
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      analysis: {
+        purchaseDate: null,
+        totalAmount: null,
+        subtotalAmount: null,
+        taxAmount: null,
+        vendor: null,
+        purchaseDescription: null,
+        documentType: 'other',
+        isValid: false,
+        validationScore: 0,
+        validationIssues: validationIssues,
+        requiresManualReview: true,
+        reviewPriority: 'high',
+        confidence: { date: 0, amount: 0, vendor: 0, description: 0, tax: 0 }
+      }
+    };
+  }
+});
+
 module.exports = {
   generateContent,
   startChatSession,
-  sendChatMessage
+  sendChatMessage,
+  analyzeReceipt
 };

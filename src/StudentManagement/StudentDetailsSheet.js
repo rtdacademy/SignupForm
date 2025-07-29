@@ -25,6 +25,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
   const [userClaims, setUserClaims] = useState(null);
+  const [courseEnrollmentData, setCourseEnrollmentData] = useState({});
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
   
   // Fetch user claims
@@ -74,6 +75,28 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     }
   }, [courseId]);
 
+  // Fetch course enrollment data directly from Firebase
+  useEffect(() => {
+    const fetchCourseEnrollmentData = async () => {
+      if (!studentKey || !courseId) return;
+      
+      const db = getDatabase();
+      try {
+        const enrollmentSnapshot = await get(ref(db, `students/${studentKey}/courses/${courseId}`));
+        if (enrollmentSnapshot.exists()) {
+          setCourseEnrollmentData(enrollmentSnapshot.val());
+        } else {
+          setCourseEnrollmentData({});
+        }
+      } catch (error) {
+        console.error("Error fetching course enrollment data:", error);
+        setCourseEnrollmentData({});
+      }
+    };
+
+    fetchCourseEnrollmentData();
+  }, [studentKey, courseId]);
+
   const handleFieldUpdate = async (field, value) => {
     const db = getDatabase();
     const updates = {};
@@ -90,6 +113,12 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
         timestamp: Date.now(),
         field: field
       };
+      
+      // Update local state immediately
+      setCourseEnrollmentData(prev => ({
+        ...prev,
+        [fieldName]: { ...prev[fieldName], Value: value }
+      }));
     } else if (field === 'ParentPermission_x003f_') {
       updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
       // Add profile-specific lastChange tracking
@@ -121,6 +150,14 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error("Error updating field:", error);
+      // Revert local state on error for course enrollment fields
+      if (isCourseEnrollmentField) {
+        // Re-fetch the data to ensure consistency
+        const enrollmentSnapshot = await get(ref(db, `students/${studentKey}/courses/${courseId}`));
+        if (enrollmentSnapshot.exists()) {
+          setCourseEnrollmentData(enrollmentSnapshot.val());
+        }
+      }
     }
   };
 
@@ -131,13 +168,13 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
 
     if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
       const fieldName = field.replace('_Value', '');
-      value = courseData[fieldName]?.Value || '';
+      value = courseEnrollmentData[fieldName]?.Value || '';
     } else if (field === 'ParentPermission_x003f_') {
       value = studentData.profile?.ParentPermission_x003f_?.Value || '';
     } else if (field === 'Parent_x002f_Guardian') {
       value = studentData.profile?.Parent_x002f_Guardian || '';
     } else {
-      value = studentData.profile?.[field] || courseData[field] || '';
+      value = studentData.profile?.[field] || courseEnrollmentData[field] || '';
       if (value && typeof value === 'object' && 'Value' in value) {
         value = value.Value;
       }
@@ -253,13 +290,13 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
               <CardContent className="p-4 space-y-4">
                 <p className="text-sm">
                   <span className="font-semibold">Last Week Status:</span>{' '}
-                  <span style={{ color: getStatusColor(courseData.StatusCompare) }}>
-                    {courseData.StatusCompare}
+                  <span style={{ color: getStatusColor(courseEnrollmentData.StatusCompare) }}>
+                    {courseEnrollmentData.StatusCompare}
                   </span>
                 </p>
                 <p className="text-sm">
                   <span className="font-semibold">Course:</span>{' '}
-                  {courseData.Course_Value}
+                  {courseEnrollmentData.Course_Value || courseTitle}
                 </p>
                 {renderEditableField("School Year", "School_x0020_Year_Value", schoolYearOptions)}
                 {renderEditableField("Student Type", "StudentType_Value", STUDENT_TYPE_OPTIONS)}
@@ -275,8 +312,8 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
             <PaymentInfo 
               studentKey={studentKey}
               courseId={courseId}
-              paymentStatus={studentData.courses?.[courseId]?.payment_status?.status}
-              paymentDetails={studentData.courses?.[courseId]?.paymentDetails}
+              paymentStatus={courseEnrollmentData.payment_status?.status}
+              paymentDetails={courseEnrollmentData.paymentDetails}
               readOnly={!isAdminUser}
             />
           </ScrollArea>

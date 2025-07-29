@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Search, Shield, AlertCircle, CheckCircle, RefreshCw, User, Mail, Users, Clock, Eye, Edit, Code, X } from 'lucide-react';
+import { Search, Shield, AlertCircle, RefreshCw, User, Mail, Users, Clock, Eye, Edit, Code, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import PermissionEditor from './PermissionEditor';
@@ -33,9 +33,9 @@ const StaffPermissionsManager = () => {
 
     try {
       const functions = getFunctions();
-      const getAllStaffPermissions = httpsCallable(functions, 'getAllStaffPermissions');
+      const getAllStaffPermissionsOptimized = httpsCallable(functions, 'getAllStaffPermissionsOptimized');
       
-      const result = await getAllStaffPermissions();
+      const result = await getAllStaffPermissionsOptimized();
       
       if (result.data.success) {
         setAllStaffData(result.data);
@@ -164,6 +164,7 @@ const StaffPermissionsManager = () => {
     }
   };
 
+
   const StaffSummaryCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center space-x-3">
@@ -233,8 +234,160 @@ const StaffPermissionsManager = () => {
 
  
 
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <span className="text-red-800 font-medium">Error</span>
+          </div>
+          <p className="text-red-700 mt-1">{error}</p>
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      {allStaffData && allStaffData.summary && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <StaffSummaryCard
+            title="Total Staff"
+            value={allStaffData.summary.totalStaff}
+            icon={Users}
+            color="bg-blue-500"
+          />
+          <StaffSummaryCard
+            title="Super Admins"
+            value={allStaffData.summary.superAdmins}
+            icon={Shield}
+            color="bg-purple-500"
+          />
+          <StaffSummaryCard
+            title="Admins"
+            value={allStaffData.summary.admins}
+            icon={Shield}
+            color="bg-blue-600"
+          />
+          <StaffSummaryCard
+            title="Auth Missing"
+            value={allStaffData.summary.authMissing}
+            icon={AlertCircle}
+            color="bg-red-500"
+          />
+        </div>
+      )}
+
+      {/* All Staff Table */}
+      {allStaffData && (
+        <div className="bg-white border border-gray-200 rounded-lg">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">All Staff Members</h2>
+            <p className="text-sm text-gray-600">
+              Last updated: {new Date(allStaffData.timestamp).toLocaleString()} • 
+              Source: {allStaffData.source === 'database_index' ? 'Database Index (Optimized)' : 'Firebase Auth (Legacy)'}
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Staff Member
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Sign In
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allStaffData.staffPermissions.map((staff, index) => (
+                  <tr key={staff.uid || staff.email} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <User className="h-4 w-4 text-gray-500" />
+                          </div>
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">{staff.email}</div>
+                          <div className="text-xs text-gray-500">
+                            {staff.displayName && <div>{staff.displayName}</div>}
+                            {staff.uid ? (
+                              <div className="font-mono">{staff.uid}</div>
+                            ) : (
+                              <div className="text-red-500">No Auth Account</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {staff.currentClaims?.staffRole ? getRoleBadge(staff.currentClaims.staffRole) : (
+                        <span className="text-xs text-gray-400">None</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {staff.lastSignInTime 
+                            ? new Date(staff.lastSignInTime).toLocaleDateString()
+                            : staff.lastLogin 
+                            ? new Date(staff.lastLogin).toLocaleDateString()
+                            : 'Never'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedUser(staff)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Eye className="h-3 w-3" />
+                          <span>View</span>
+                        </Button>
+                        {staff.uid && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleEditPermissions(staff)}
+                            className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            <Edit className="h-3 w-3" />
+                            <span>Edit</span>
+                          </Button>
+                        )}
+                        {staff.uid && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewRawClaims(staff)}
+                            className="flex items-center space-x-1 text-gray-600 hover:text-gray-800"
+                          >
+                            <Code className="h-3 w-3" />
+                            <span>Raw</span>
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* User Search Section */}
-      <div className="bg-white border border-gray-200 rounded-lg mb-6">
+      <div className="bg-white border border-gray-200 rounded-lg mt-6">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Search Any User</h2>
           <p className="text-sm text-gray-600">Search for any user on the platform by email or user ID</p>
@@ -266,113 +419,6 @@ const StaffPermissionsManager = () => {
           </div>
         </div>
       </div>
-
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <span className="text-red-800 font-medium">Error</span>
-          </div>
-          <p className="text-red-700 mt-1">{error}</p>
-        </div>
-      )}
-
-      {/* All Staff Table */}
-      {allStaffData && (
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">All Staff Members</h2>
-            <p className="text-sm text-gray-600">
-              Last updated: {new Date(allStaffData.timestamp).toLocaleString()}
-            </p>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Staff Member
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Sign In
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {allStaffData.staffPermissions.map((staff, index) => (
-                  <tr key={staff.uid} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                            <User className="h-4 w-4 text-gray-500" />
-                          </div>
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{staff.email}</div>
-                          <div className="text-xs text-gray-500 font-mono">{staff.uid}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getRoleBadge(staff.expectedClaims?.staffRole)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {staff.lastSignInTime 
-                            ? new Date(staff.lastSignInTime).toLocaleDateString()
-                            : 'Never'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedUser(staff)}
-                          className="flex items-center space-x-1"
-                        >
-                          <Eye className="h-3 w-3" />
-                          <span>View</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleEditPermissions(staff)}
-                          className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Edit className="h-3 w-3" />
-                          <span>Edit</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewRawClaims(staff)}
-                          className="flex items-center space-x-1 text-gray-600 hover:text-gray-800"
-                        >
-                          <Code className="h-3 w-3" />
-                          <span>Raw</span>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Selected User Details Sheet */}
       <Sheet open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
@@ -432,11 +478,23 @@ const StaffPermissionsManager = () => {
                             {selectedUser.currentClaims.staffRole || 'None'}
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-4 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
                           <div>
                             <span className="text-gray-600 text-sm">Is Staff:</span>
                             <div className="font-medium">
                               {selectedUser.currentClaims.isStaffUser ? 'Yes' : 'No'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600 text-sm">Is Teacher:</span>
+                            <div className="font-medium">
+                              {selectedUser.currentClaims.isTeacher ? 'Yes' : 'No'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600 text-sm">Is Course Manager:</span>
+                            <div className="font-medium">
+                              {selectedUser.currentClaims.isCourseManager ? 'Yes' : 'No'}
                             </div>
                           </div>
                           <div>
@@ -570,11 +628,23 @@ const StaffPermissionsManager = () => {
                       {searchResults.currentClaims.staffRole || 'None'}
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 mt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
                     <div>
                       <span className="text-gray-600 text-sm">Is Staff:</span>
                       <div className="font-medium">
                         {searchResults.currentClaims.isStaffUser ? 'Yes' : 'No'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">Is Teacher:</span>
+                      <div className="font-medium">
+                        {searchResults.currentClaims.isTeacher ? 'Yes' : 'No'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">Is Course Manager:</span>
+                      <div className="font-medium">
+                        {searchResults.currentClaims.isCourseManager ? 'Yes' : 'No'}
                       </div>
                     </div>
                     <div>
