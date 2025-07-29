@@ -27,6 +27,7 @@ import {
   CONTACT_INFO,
   PORTAL_STATS
 } from '../config/HomeEducation';
+import { getAllFacilitators } from '../config/facilitators';
 import { 
   getCurrentSchoolYear,
   getOpenRegistrationSchoolYear,
@@ -488,95 +489,46 @@ const RTDConnectLandingPage = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
-            {/* Sarah Johnson Card */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
-              <div className="p-6 sm:p-8">
-                <div className="flex items-center space-x-4 sm:space-x-6 mb-6">
-                  <img 
-                    src="/connectImages/FakeFacil2.png" 
-                    alt="Sarah Johnson"
-                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-purple-100"
-                  />
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Sarah Johnson</h3>
-                    <p className="text-base sm:text-lg text-purple-600 font-semibold">Senior Home Education Facilitator</p>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">12+ years experience</p>
+            {/* Facilitator Cards */}
+            {getAllFacilitators().slice(0, 2).map((facilitator) => (
+              <div key={facilitator.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
+                <div className="p-6 sm:p-8">
+                  <div className="flex items-center space-x-4 sm:space-x-6 mb-6">
+                    <img 
+                      src={facilitator.image} 
+                      alt={facilitator.name}
+                      className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 ${facilitator.gradients.border}`}
+                    />
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{facilitator.name}</h3>
+                      <p className="text-base sm:text-lg text-purple-600 font-semibold">{facilitator.title}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mt-1">{facilitator.experience}</p>
+                    </div>
                   </div>
+                  
+                  <p className="text-gray-600 mb-6">
+                    {facilitator.description}
+                  </p>
+                  
+                  <div className="space-y-3 mb-6">
+                    {facilitator.specializations.slice(0, 3).map((spec, index) => (
+                      <div key={index} className="flex items-center space-x-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <span className="text-gray-700 text-sm">{spec}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={() => navigate(`/facilitator/${facilitator.id}`)}
+                    className={`w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r ${facilitator.gradients.card} hover:from-purple-600 hover:to-blue-600 transition-colors`}
+                  >
+                    Learn More About {facilitator.name.split(' ')[0]}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </button>
                 </div>
-                
-                <p className="text-gray-600 mb-6">
-                  Specializes in elementary and middle school curriculum planning, learning differences support, and helping families navigate SOLO compliance with confidence.
-                </p>
-                
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">Elementary & Middle School Expert</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">Learning Differences Support</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">SOLO Compliance & Assessment</span>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => navigate('/facilitator/sarah-johnson')}
-                  className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 transition-colors"
-                >
-                  Learn More About Sarah
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </button>
               </div>
-            </div>
-
-            {/* Michael Chen Card */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
-              <div className="p-6 sm:p-8">
-                <div className="flex items-center space-x-4 sm:space-x-6 mb-6">
-                  <img 
-                    src="/connectImages/FakeFacil1.png" 
-                    alt="Michael Chen"
-                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-blue-100"
-                  />
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Michael Chen</h3>
-                    <p className="text-base sm:text-lg text-blue-600 font-semibold">High School & Transition Specialist</p>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">8+ years experience</p>
-                  </div>
-                </div>
-                
-                <p className="text-gray-600 mb-6">
-                  Dedicated to helping teens succeed in high school home education, diploma exam preparation, and planning for post-secondary education and career success.
-                </p>
-                
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">High School Course Planning</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">Diploma Exam Preparation</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-sm">University Admission Guidance</span>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => navigate('/facilitator/michael-chen')}
-                  className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-colors"
-                >
-                  Learn More About Michael
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
 
           <div className="text-center mt-8 sm:mt-12">

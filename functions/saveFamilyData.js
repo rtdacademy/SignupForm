@@ -18,7 +18,7 @@ if (!admin.apps.length) {
  */
 const saveFamilyData = onCall({
   concurrency: 50,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (request) => {
   // Verify authentication
   if (!request.auth) {

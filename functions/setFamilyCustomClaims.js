@@ -17,7 +17,8 @@ if (!admin.apps.length) {
  */
 const applyPendingPermissions = onCall({
   region: 'us-central1',
-  memory: '256MiB'
+  memory: '256MiB',
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000", "http://localhost:3001"]
 }, async (request) => {
   const { auth } = request;
   

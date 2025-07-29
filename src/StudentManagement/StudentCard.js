@@ -1204,6 +1204,19 @@ const handleStatusChange = useCallback(async (newStatus) => {
                         )}
                       </Badge>
                       
+                      {student.DiplomaMonthChoices_Value && (
+                        <Badge 
+                          className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
+                          style={{
+                            backgroundColor: '#9333EA15',
+                            color: '#9333EA'
+                          }}
+                        >
+                          <GraduationCap className="w-3 h-3 mr-1" />
+                          {student.DiplomaMonthChoices_Value}
+                        </Badge>
+                      )}
+                      
                       {student.pasiTerm && (
                         <Badge 
                           className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"

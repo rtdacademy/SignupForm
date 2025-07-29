@@ -177,6 +177,7 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 exports.generateContent = googleAIFunctions.generateContent;
 exports.startChatSession = googleAIFunctions.startChatSession;
 exports.sendChatMessage = googleAIFunctions.sendChatMessage;
+exports.analyzeReceipt = googleAIFunctions.analyzeReceipt;
 //exports.terminalChat = tempFunctions.terminalChat;
 
 // Notification functions
@@ -257,10 +258,12 @@ exports.saveFamilyData = saveFamilyDataFunction;
 
 // Staff custom claims functions
 const staffCustomClaimsFunctions = require('./setStaffCustomClaims');
+const optimizedStaffFunctions = require('./getAllStaffPermissionsOptimized');
 exports.setBasicStaffClaim = staffCustomClaimsFunctions.setBasicStaffClaim;
 exports.setStaffCustomClaims = staffCustomClaimsFunctions.setStaffCustomClaims;
 exports.getAnyStaffPermissions = staffCustomClaimsFunctions.getAnyStaffPermissions;
 exports.getAllStaffPermissions = staffCustomClaimsFunctions.getAllStaffPermissions;
+exports.getAllStaffPermissionsOptimized = optimizedStaffFunctions.getAllStaffPermissionsOptimized;
 exports.getAnyUserPermissions = staffCustomClaimsFunctions.getAnyUserPermissions;
 exports.updateStaffPermissions = staffCustomClaimsFunctions.updateStaffPermissions;
 exports.removeStaffPermissions = staffCustomClaimsFunctions.removeStaffPermissions;

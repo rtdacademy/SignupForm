@@ -19,7 +19,7 @@ const FacilitatorProfile1 = () => {
   };
 
   const handleContactEmail = () => {
-    window.location.href = 'mailto:sarah.johnson@rtdacademy.com';
+    window.location.href = 'mailto:golda@rtd-connect.com';
   };
 
   const handleContactPhone = () => {
@@ -50,7 +50,7 @@ const FacilitatorProfile1 = () => {
             <div className="relative">
               <img 
                 src="/connectImages/FakeFacil2.png" 
-                alt="Sarah Johnson"
+                alt="Golda David"
                 className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-lg"
               />
               <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center">
@@ -59,10 +59,10 @@ const FacilitatorProfile1 = () => {
             </div>
             
             <div className="text-center md:text-left">
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Sarah Johnson</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Golda David</h1>
               <p className="text-xl text-purple-600 font-semibold mb-4">Senior Home Education Facilitator</p>
               <p className="text-lg text-gray-600 mb-6 max-w-2xl">
-                Passionate educator with 12 years of experience helping Alberta families succeed in home education. 
+                Passionate educator with 10 years of experience helping Alberta families succeed in home education. 
                 Specializes in curriculum planning, learning assessment, and family support.
               </p>
               
@@ -72,14 +72,14 @@ const FacilitatorProfile1 = () => {
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 transition-colors"
                 >
                   <Mail className="w-5 h-5 mr-2" />
-                  Email Sarah
+                  Email Golda
                 </button>
                 <button
                   onClick={handleContactPhone}
                   className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                 >
                   <Phone className="w-5 h-5 mr-2" />
-                  Call Sarah
+                  Call Golda
                 </button>
               </div>
             </div>
@@ -126,14 +126,14 @@ const FacilitatorProfile1 = () => {
               <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Star className="w-8 h-8 text-white" />
               </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">12+</div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">10+</div>
               <div className="text-sm text-gray-600">Years Experience</div>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <BookOpen className="w-8 h-8 text-white" />
               </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">150+</div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">120+</div>
               <div className="text-sm text-gray-600">Families Supported</div>
             </div>
             <div className="text-center">
@@ -150,7 +150,7 @@ const FacilitatorProfile1 = () => {
       {/* How Sarah Can Help */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">How Sarah Can Help Your Family</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">How Golda Can Help Your Family</h2>
           
           <div className="space-y-6">
             <div className="flex items-start space-x-4">
@@ -191,7 +191,7 @@ const FacilitatorProfile1 = () => {
       {/* Contact Section */}
       <section className="py-16 bg-gradient-to-br from-purple-500 to-cyan-500">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Connect with Sarah?</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">Ready to Connect with Golda?</h2>
           <p className="text-xl text-purple-100 mb-8">
             Schedule a consultation to discuss your family's home education journey
           </p>
@@ -202,7 +202,7 @@ const FacilitatorProfile1 = () => {
               className="inline-flex items-center px-8 py-4 border border-white text-lg font-medium rounded-lg text-purple-600 bg-white hover:bg-gray-50 transition-colors"
             >
               <Mail className="w-5 h-5 mr-2" />
-              sarah.johnson@rtdacademy.com
+              golda@rtd-connect.com
             </button>
             <button
               onClick={handleContactPhone}

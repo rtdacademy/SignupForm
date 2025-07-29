@@ -48,6 +48,7 @@ import RTDConnectLandingPage from './RTDConnect/LandingPage';
 import FacilitatorsPage from './RTDConnect/FacilitatorsPage';
 import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
 import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
+import FacilitatorProfile3 from './RTDConnect/FacilitatorProfile3';
 import HomeEducationStaffDashboard from './HomeEducation/HomeEducationStaffDashboard';
 
 // EdBotz imports
@@ -343,8 +344,9 @@ function RTDConnectApp() {
         {/* Public routes - always accessible */}
         <Route path="/" element={<RTDConnectLandingPage />} />
         <Route path="/facilitators" element={<FacilitatorsPage />} />
-        <Route path="/facilitator/sarah-johnson" element={<FacilitatorProfile1 />} />
-        <Route path="/facilitator/michael-chen" element={<FacilitatorProfile2 />} />
+        <Route path="/facilitator/golda-david" element={<FacilitatorProfile1 />} />
+        <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
+        <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
         
         <Route path="/login" element={
           user && isHomeEducationParent ? <Navigate to="/dashboard" /> : <RTDConnectLogin />

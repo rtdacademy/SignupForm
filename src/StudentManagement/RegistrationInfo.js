@@ -4,7 +4,7 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Label } from "../components/ui/label";
-import { getDatabase, ref, get, update } from 'firebase/database';
+import { getDatabase, ref, get, update, onValue, off } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
@@ -33,34 +33,14 @@ import GuardianManager from './GuardianManager';
 
 const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
   const { user } = useAuth();
-  const [status, setStatus] = useState('');
-  const [pasi, setPasi] = useState('');
   const [courses, setCourses] = useState([]);
-  const [selectedCourseId, setSelectedCourseId] = useState(courseId ? courseId.toString() : '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
-
-  const [profileData, setProfileData] = useState({
-    asn: '',
-    firstName: '',
-    lastName: '',
-    age: '',
-    studentPhone: '',
-    parentGuardian: '',
-    parentPhone: '',
-    parentEmail: ''
-  });
-
-  const [courseData, setCourseData] = useState({
-    activeFutureArchived: '',
-    diplomaMonthChoices: '',
-    over18: '',
-    schoolYear: '',
-    studentType: '',
-    status: '',
-    section: ''
-  });
+  
+  // Real-time Firebase data
+  const [firebaseProfileData, setFirebaseProfileData] = useState({});
+  const [firebaseCourseData, setFirebaseCourseData] = useState({});
 
   const [showSchoolPicker, setShowSchoolPicker] = useState(false);
   const [schoolInfo, setSchoolInfo] = useState({
@@ -89,10 +69,16 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
   };
 
   useEffect(() => {
-    const fetchInitialData = async () => {
-      if (!studentData) return;
+    if (!studentData?.profile?.StudentEmail || !courseId) {
+      setLoading(false);
+      return;
+    }
 
-      const db = getDatabase();
+    const db = getDatabase();
+    const studentKey = sanitizeEmail(studentData.profile.StudentEmail);
+    
+    // Fetch courses list once
+    const fetchCourses = async () => {
       try {
         const coursesSnapshot = await get(ref(db, 'courses'));
         if (coursesSnapshot.exists()) {
@@ -107,64 +93,67 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           setCourses(coursesList);
         }
 
-        const isInternational = studentData.courses?.[courseId]?.StudentType?.Value === 'International Student';
-
-        setProfileData({
-          asn: studentData.profile?.asn || '',
-          firstName: studentData.profile?.firstName || '',
-          lastName: studentData.profile?.lastName || '',
-          age: studentData.profile?.age || '',
-          studentPhone: formatPhoneNumber(studentData.profile?.StudentPhone || '', isInternational),
-          parentGuardian: studentData.profile?.Parent_x002f_Guardian || '',
-          parentPhone: formatPhoneNumber(studentData.profile?.ParentPhone_x0023_ || '', isInternational),
-          parentEmail: studentData.profile?.ParentEmail || ''
-        });
-
-        if (courseId && studentData.courses && studentData.courses[courseId]) {
-          const course = studentData.courses[courseId];
-          setStatus(course.Status?.Value || '');
-          setPasi(course.PASI?.Value || '');
-          setSelectedCourseId(courseId.toString());
-          setCourseData({
-            activeFutureArchived: course.ActiveFutureArchived?.Value || '',
-            diplomaMonthChoices: course.DiplomaMonthChoices?.Value || '',
-            over18: course.Over18_x003f_?.Value || '',
-            schoolYear: course.School_x0020_Year?.Value || '',
-            studentType: course.StudentType?.Value || '',
-            status: course.Status?.Value || '',
-            section: course.section || ''
-          });
-
-          setSchoolInfo({
-            name: course.primarySchoolName || '',
-            placeId: course.primarySchoolPlaceId || '',
-            address: course.primarySchoolAddress || null
-          });
-        }
-
-        // Add this new check for diploma course
-        if (courseId) {
-          const diplomaCourseSnapshot = await get(ref(db, `courses/${courseId}/DiplomaCourse`));
-          setIsDiplomaCourse(diplomaCourseSnapshot.val() === 'Yes');
-        }
-
-        setLoading(false);
+        // Check if it's a diploma course
+        const diplomaCourseSnapshot = await get(ref(db, `courses/${courseId}/DiplomaCourse`));
+        setIsDiplomaCourse(diplomaCourseSnapshot.val() === 'Yes');
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load data');
-        setLoading(false);
+        console.error('Error fetching courses:', error);
+        setError('Failed to load courses');
       }
     };
 
-    fetchInitialData();
-  }, [studentData, courseId]);
+    fetchCourses();
+
+    // Set up real-time listeners for profile data
+    const profileRef = ref(db, `students/${studentKey}/profile`);
+    const profileUnsubscribe = onValue(profileRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setFirebaseProfileData(snapshot.val());
+      } else {
+        setFirebaseProfileData({});
+      }
+    }, (error) => {
+      console.error('Error listening to profile data:', error);
+      setError('Failed to load profile data');
+    });
+
+    // Set up real-time listeners for course data
+    const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
+    const courseUnsubscribe = onValue(courseRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const courseData = snapshot.val();
+        setFirebaseCourseData(courseData);
+        
+        // Update school info from course data
+        setSchoolInfo({
+          name: courseData.primarySchoolName || '',
+          placeId: courseData.primarySchoolPlaceId || '',
+          address: courseData.primarySchoolAddress || null
+        });
+      } else {
+        setFirebaseCourseData({});
+        setSchoolInfo({ name: '', placeId: '', address: null });
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error listening to course data:', error);
+      setError('Failed to load course data');
+      setLoading(false);
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      off(profileRef, 'value', profileUnsubscribe);
+      off(courseRef, 'value', courseUnsubscribe);
+    };
+  }, [studentData?.profile?.StudentEmail, courseId]);
 
   // Modify the phone update handler
   const handlePhoneUpdate = async (field, value) => {
     if (readOnly) return;
     setError(null);
 
-    const isInternational = courseData.studentType === 'International Student';
+    const isInternational = firebaseCourseData.StudentType?.Value === 'International Student';
     const formattedValue = formatPhoneNumber(value, isInternational);
 
     const db = getDatabase();
@@ -174,7 +163,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
       await update(ref(db), {
         [`students/${studentKey}/profile/${field}`]: formattedValue
       });
-      setProfileData(prev => ({ ...prev, [field]: formattedValue }));
+      // No need to update local state - Firebase listener will handle it
     } catch (error) {
       console.error(`Error updating ${field}:`, error);
       setError(`Failed to update ${field}`);
@@ -198,8 +187,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           field: 'Status_Value'
         }
       });
-      setStatus(newStatus);
-      setCourseData(prev => ({ ...prev, status: newStatus }));
+      // No need to update local state - Firebase listener will handle it
     } catch (error) {
       console.error('Error updating status:', error);
       setError('Failed to update status');
@@ -223,7 +211,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           field: 'PASI_Value'
         }
       });
-      setPasi(newPasi);
+      // No need to update local state - Firebase listener will handle it
     } catch (error) {
       console.error('Error updating PASI:', error);
       setError('Failed to update PASI status');
@@ -241,7 +229,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
       await update(ref(db), {
         [`students/${studentKey}/profile/${field}`]: value
       });
-      setProfileData(prev => ({ ...prev, [field]: value }));
+      // No need to update local state - Firebase listener will handle it
     } catch (error) {
       console.error(`Error updating ${field}:`, error);
       setError(`Failed to update ${field}`);
@@ -282,7 +270,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
       };
       
       await update(ref(db), updates);
-      setCourseData(prev => ({ ...prev, [field.replace('/Value', '')]: value }));
+      // No need to update local state - Firebase listener will handle it
     } catch (error) {
       console.error(`Error updating ${field}:`, error);
       setError(`Failed to update ${field}`);
@@ -339,7 +327,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
 
   const copyASN = async () => {
     try {
-      await navigator.clipboard.writeText(profileData.asn);
+      await navigator.clipboard.writeText(firebaseProfileData.asn || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -349,7 +337,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
 
   // Helper function to render PhoneInput
   const renderPhoneInput = (value, onChange, field) => {
-    const isInternational = courseData.studentType === 'International Student';
+    const isInternational = firebaseCourseData.StudentType?.Value === 'International Student';
     
     return (
       <PhoneInput
@@ -418,7 +406,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
             </CardHeader>
             <CardContent className="space-y-3">
               <Select
-                value={courseData.activeFutureArchived}
+                value={firebaseCourseData.ActiveFutureArchived?.Value || ''}
                 onValueChange={(value) => handleCourseFieldUpdate('ActiveFutureArchived/Value', value, true)}
                 disabled={readOnly}
               >
@@ -435,7 +423,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               </Select>
 
               <Select
-                value={courseData.studentType}
+                value={firebaseCourseData.StudentType?.Value || ''}
                 onValueChange={(value) => handleCourseFieldUpdate('StudentType/Value', value, true)}
                 disabled={readOnly}
               >
@@ -452,7 +440,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               </Select>
 
               <Select
-                value={courseData.schoolYear}
+                value={firebaseCourseData.School_x0020_Year?.Value || ''}
                 onValueChange={(value) => handleCourseFieldUpdate('School_x0020_Year/Value', value, true)}
                 disabled={readOnly}
               >
@@ -469,7 +457,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               </Select>
 
               <Select
-                value={courseData.status}
+                value={firebaseCourseData.Status?.Value || ''}
                 onValueChange={handleStatusChange}
                 disabled={readOnly}
               >
@@ -488,7 +476,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">PASI Status</Label>
                 <Select
-                  value={pasi}
+                  value={firebaseCourseData.PASI?.Value || ''}
                   onValueChange={handlePasiChange}
                   disabled={readOnly}
                 >
@@ -510,7 +498,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
                 <div className="space-y-1.5">
                   <Label className="text-xs">Diploma Month</Label>
                   <Select
-                    value={courseData.diplomaMonthChoices}
+                    value={firebaseCourseData.DiplomaMonthChoices?.Value || ''}
                     onValueChange={(value) => handleCourseFieldUpdate('DiplomaMonthChoices/Value', value, true)}
                     disabled={readOnly}
                   >
@@ -536,7 +524,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Over 18</Label>
                 <Input
-                  value={courseData.over18}
+                  value={firebaseCourseData.Over18_x003f_?.Value || ''}
                   placeholder="Over 18"
                   disabled={true}
                 />
@@ -546,7 +534,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Section</Label>
                 <SectionPicker
-                  value={courseData.section}
+                  value={firebaseCourseData.section || ''}
                   onChange={(value) => handleCourseFieldUpdate('section', value)}
                   disabled={readOnly}
                 />
@@ -563,7 +551,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="flex items-center space-x-2">
                 <Input
                   className="flex-1"
-                  value={profileData.asn}
+                  value={firebaseProfileData.asn || ''}
                   onChange={(e) => handleProfileUpdate('asn', e.target.value)}
                   placeholder="ASN"
                   disabled={readOnly}
@@ -577,13 +565,13 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
                 </Button>
               </div>
               <Input
-                value={profileData.firstName}
+                value={firebaseProfileData.firstName || ''}
                 onChange={(e) => handleProfileUpdate('firstName', e.target.value)}
                 placeholder="First Name"
                 disabled={readOnly}
               />
               <Input
-                value={profileData.lastName}
+                value={firebaseProfileData.lastName || ''}
                 onChange={(e) => handleProfileUpdate('lastName', e.target.value)}
                 placeholder="Last Name"
                 disabled={readOnly}
@@ -591,7 +579,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Age</Label>
                 <Input
-                  value={profileData.age}
+                  value={firebaseProfileData.age || ''}
                   placeholder="Age"
                   disabled={true}
                 />
@@ -599,7 +587,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Student Phone</Label>
                 {renderPhoneInput(
-                  profileData.studentPhone,
+                  firebaseProfileData.StudentPhone || '',
                   handlePhoneUpdate,
                   'StudentPhone'
                 )}
@@ -649,7 +637,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
-                value={profileData.parentGuardian}
+                value={firebaseProfileData.Parent_x002f_Guardian || ''}
                 onChange={(e) => handleProfileUpdate('Parent_x002f_Guardian', e.target.value)}
                 placeholder="Parent/Guardian Name"
                 disabled={readOnly}
@@ -657,13 +645,13 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Parent Phone</Label>
                 {renderPhoneInput(
-                  profileData.parentPhone,
+                  firebaseProfileData.ParentPhone_x0023_ || '',
                   handlePhoneUpdate,
                   'ParentPhone_x0023_'
                 )}
               </div>
               <Input
-                value={profileData.parentEmail}
+                value={firebaseProfileData.ParentEmail || ''}
                 onChange={(e) => handleProfileUpdate('ParentEmail', e.target.value)}
                 placeholder="Parent Email"
                 disabled={readOnly}

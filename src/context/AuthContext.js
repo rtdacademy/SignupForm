@@ -159,7 +159,7 @@ export function AuthProvider({ children }) {
   };
 
   const checkIsStaff = (user) => {
-    return user && user.email.endsWith("@rtdacademy.com");
+    return user && (user.email.endsWith("@rtdacademy.com") || user.email.endsWith("@rtd-connect.com"));
   };
 
   const checkIsParent = async (user, emailKey) => {

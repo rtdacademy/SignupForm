@@ -44,9 +44,20 @@ export const PORTAL_STATS = {
   }
 };
 
+// Reimbursement Settings
+export const REIMBURSEMENT_SETTINGS = {
+  RECEIPT_UPLOAD_DEADLINE: {
+    month: 5, // June (0-indexed, so 5 = June)
+    day: 30,
+    description: 'Deadline for submitting receipts for current school year',
+    formatted: 'June 30th'
+  }
+};
+
 export default {
   FUNDING_RATES,
   ACADEMIC_STATS,
   CONTACT_INFO,
-  PORTAL_STATS
+  PORTAL_STATS,
+  REIMBURSEMENT_SETTINGS
 };

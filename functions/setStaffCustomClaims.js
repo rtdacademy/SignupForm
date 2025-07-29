@@ -198,6 +198,8 @@ const setBasicStaffClaim = onCall({
       lastPermissionUpdate: Date.now(),
       permissionSource: 'domain',
       isStaffUser: true,
+      isTeacher: false,
+      isCourseManager: false,
       isAdminUser: false,
       isSuperAdminUser: false
     };
@@ -322,6 +324,8 @@ const setStaffCustomClaims = onCall({
       
       // Legacy compatibility (keeping existing fields if they exist)
       isStaffUser: true,
+      isTeacher: expandedPermissions.includes('teacher'),
+      isCourseManager: expandedPermissions.includes('course_manager'),
       isAdminUser: expandedPermissions.includes('admin'),
       isSuperAdminUser: basePermissions.includes('super_admin') || highestPermission === 'super_admin'
     };
@@ -449,6 +453,8 @@ const getAnyStaffPermissions = onCall({
         lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
         permissionSource: customClaims.permissionSource || null,
         isStaffUser: customClaims.isStaffUser || false,
+        isTeacher: customClaims.isTeacher || false,
+        isCourseManager: customClaims.isCourseManager || false,
         isAdminUser: customClaims.isAdminUser || false,
         isSuperAdminUser: customClaims.isSuperAdminUser || false
       },
@@ -559,6 +565,8 @@ const getAllStaffPermissions = onCall({
             lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
             permissionSource: customClaims.permissionSource || null,
             isStaffUser: customClaims.isStaffUser || false,
+            isTeacher: customClaims.isTeacher || false,
+            isCourseManager: customClaims.isCourseManager || false,
             isAdminUser: customClaims.isAdminUser || false,
             isSuperAdminUser: customClaims.isSuperAdminUser || false
           },
@@ -692,6 +700,8 @@ const getAnyUserPermissions = onCall({
           lastPermissionUpdate: customClaims.lastPermissionUpdate || null,
           permissionSource: customClaims.permissionSource || null,
           isStaffUser: customClaims.isStaffUser || false,
+          isTeacher: customClaims.isTeacher || false,
+          isCourseManager: customClaims.isCourseManager || false,
           isAdminUser: customClaims.isAdminUser || false,
           isSuperAdminUser: customClaims.isSuperAdminUser || false
         },
@@ -841,6 +851,8 @@ const updateStaffPermissions = onCall({
       
       // Staff boolean flags for compatibility
       isStaffUser: finalStaffPermissions.length > 0,
+      isTeacher: finalStaffPermissions.includes('teacher'),
+      isCourseManager: finalStaffPermissions.includes('course_manager'),
       isAdminUser: finalStaffPermissions.includes('admin'),
       isSuperAdminUser: finalStaffPermissions.includes('super_admin'),
       
@@ -853,6 +865,8 @@ const updateStaffPermissions = onCall({
       delete newCustomClaims.staffPermissions;
       delete newCustomClaims.staffRole;
       delete newCustomClaims.isStaffUser;
+      delete newCustomClaims.isTeacher;
+      delete newCustomClaims.isCourseManager;
       delete newCustomClaims.isAdminUser;
       delete newCustomClaims.isSuperAdminUser;
       delete newCustomClaims.permissionSource;
@@ -898,6 +912,8 @@ const updateStaffPermissions = onCall({
             staffPermissions: finalStaffPermissions,
             staffRole: finalStaffRole,
             isStaffUser: newCustomClaims.isStaffUser,
+            isTeacher: newCustomClaims.isTeacher,
+            isCourseManager: newCustomClaims.isCourseManager,
             isAdminUser: newCustomClaims.isAdminUser,
             isSuperAdminUser: newCustomClaims.isSuperAdminUser
           },
@@ -925,6 +941,8 @@ const updateStaffPermissions = onCall({
         staffPermissions: finalStaffPermissions,
         staffRole: finalStaffRole,
         isStaffUser: newCustomClaims.isStaffUser,
+        isTeacher: newCustomClaims.isTeacher,
+        isCourseManager: newCustomClaims.isCourseManager,
         isAdminUser: newCustomClaims.isAdminUser,
         isSuperAdminUser: newCustomClaims.isSuperAdminUser,
         additionalCustomClaims: additionalCustomClaims || {}
@@ -1000,6 +1018,8 @@ const removeStaffPermissions = onCall({
     delete newCustomClaims.staffPermissions;
     delete newCustomClaims.staffRole;
     delete newCustomClaims.isStaffUser;
+    delete newCustomClaims.isTeacher;
+    delete newCustomClaims.isCourseManager;
     delete newCustomClaims.isAdminUser;
     delete newCustomClaims.isSuperAdminUser;
     delete newCustomClaims.permissionSource;

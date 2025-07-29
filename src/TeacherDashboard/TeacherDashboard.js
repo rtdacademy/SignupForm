@@ -11,7 +11,6 @@ import { Button } from "../components/ui/button";
 import {
   Users,
   BookOpen,
-  BarChart2,
   MessageSquare,
   Settings,
   ChevronRight,
@@ -29,7 +28,8 @@ import {
   Grid,
   Database,
   FolderOpen,
-  Home
+  Home,
+  Activity
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -67,6 +67,7 @@ function TeacherDashboard() {
   const [activeSection, setActiveSection] = useState('react-dashboard');
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState(new Set());
   const [invoicesData, setInvoicesData] = useState({});
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -259,14 +260,13 @@ function TeacherDashboard() {
       { icon: Shield, label: 'Parent Management', key: 'parent-management' },
       { icon: Home, label: 'Home Education', key: 'home-education' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
-      { icon: Shield, label: 'Auth Activity', key: 'auth-activity' },
     ];
 
     // Only add admin items if user has admin access
     if (hasAdminAccess()) {
       const adminSubItems = [
-        { icon: BarChart2, label: 'Reports', key: 'reports' },
         { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
+        { icon: Activity, label: 'Auth Activity', key: 'auth-activity' },
       ];
 
       // Add super admin only items
@@ -289,7 +289,7 @@ function TeacherDashboard() {
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['reports', 'contractor-invoices', 'sso-testing']; 
+    const adminOnlySections = ['contractor-invoices', 'auth-activity', 'sso-testing']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
     }
@@ -345,7 +345,7 @@ function TeacherDashboard() {
   };
 
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['reports', 'contractor-invoices', 'sso-testing'];
+    const adminOnlySections = ['contractor-invoices', 'auth-activity', 'sso-testing'];
     const superAdminOnlySections = ['staff-permissions'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {
@@ -358,10 +358,41 @@ function TeacherDashboard() {
       return;
     }
 
+    // Handle section expansion/collapse for parent items with subItems
+    const item = navItems.find(item => item.key === key);
+    if (item && item.subItems) {
+      // Special handling for Admin section - expand sidebar if collapsed
+      if (key === 'admin' && !isSidebarExpanded) {
+        setIsSidebarExpanded(true);
+        // Also expand the admin section so user sees the options immediately
+        const newExpandedSections = new Set(expandedSections);
+        newExpandedSections.add(key);
+        setExpandedSections(newExpandedSections);
+        return;
+      }
+      
+      const newExpandedSections = new Set(expandedSections);
+      if (expandedSections.has(key)) {
+        newExpandedSections.delete(key);
+      } else {
+        newExpandedSections.add(key);
+      }
+      setExpandedSections(newExpandedSections);
+      return;
+    }
+
     // Handle navigation to external routes
     if (key === 'home-education') {
       navigate('/home-education-staff');
       return;
+    }
+
+    // When clicking a regular navigation item (not admin subitems), collapse admin section
+    const isAdminSubitem = adminOnlySections.includes(key) || superAdminOnlySections.includes(key);
+    if (!isAdminSubitem) {
+      const newExpandedSections = new Set(expandedSections);
+      newExpandedSections.delete('admin');
+      setExpandedSections(newExpandedSections);
     }
 
     setActiveSection(activeSection === key ? null : key);
@@ -379,18 +410,27 @@ function TeacherDashboard() {
 
   const navContent = (isExpanded = true, inSheet = false) => (
     <nav className={`space-y-${inSheet ? '4 py-4' : '2 p-2'}`}>
-      {navItems.map((item) => (
+      {navItems
+        .filter(item => {
+          // Hide admin section completely if user doesn't have admin access
+          if (item.key === 'admin' && !hasAdminAccess()) {
+            return false;
+          }
+          return true;
+        })
+        .map((item) => (
         <div key={item.key}>
           <NavItemWithIndicator
             item={item}
-            isActive={activeSection === item.key}
+            isActive={activeSection === item.key || (item.subItems && expandedSections.has(item.key))}
             isExpanded={isExpanded}
+            isAdminItem={item.key === 'admin'}
             onClick={() => {
               handleNavItemClick(item.key);
               if (inSheet) setIsSheetOpen(false);
             }}
           />
-          {item.subItems && isExpanded && (
+          {item.subItems && isExpanded && expandedSections.has(item.key) && (
             <div className="ml-6 mt-1 space-y-1">
               {item.subItems.map((subItem) => (
                 <NavItemWithIndicator
@@ -398,6 +438,7 @@ function TeacherDashboard() {
                   item={subItem}
                   isActive={activeSection === subItem.key}
                   isExpanded={isExpanded}
+                  isAdminItem={item.key === 'admin'}
                   onClick={() => {
                     handleNavItemClick(subItem.key);
                     if (inSheet) setIsSheetOpen(false);
