@@ -6,6 +6,7 @@ import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { getEdmontonTimestamp } from '../utils/timeZoneUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
+import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
 
 // Permission level indicators
 export const PERMISSION_INDICATORS = {
@@ -81,6 +82,9 @@ export function AuthProvider({ children }) {
   const [emulatedUser, setEmulatedUser] = useState(null);
   const [emulatedUserEmailKey, setEmulatedUserEmailKey] = useState(null);
   const [isEmulating, setIsEmulating] = useState(false);
+
+  // Temporary password state
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   // Token refresh ref for Firebase native token management
   const tokenRefreshTimeoutRef = useRef(null);
@@ -707,6 +711,43 @@ export function AuthProvider({ children }) {
     return null;
   };
 
+  // Check if user has temporary password requirement
+  const checkTempPasswordRequirement = async (user) => {
+    if (!user) return false;
+
+    try {
+      // Get current token claims
+      const tokenResult = await user.getIdTokenResult();
+      const currentClaims = tokenResult.claims;
+      
+      console.log('Checking temp password requirement:', {
+        tempPasswordRequired: currentClaims.tempPasswordRequired,
+        userEmail: user.email
+      });
+      
+      return currentClaims.tempPasswordRequired === true;
+    } catch (error) {
+      console.error('Error checking temp password requirement:', error);
+      return false;
+    }
+  };
+
+  // Handle password change completion
+  const handlePasswordChangeComplete = async () => {
+    console.log('Password change completed, refreshing auth state');
+    setRequiresPasswordChange(false);
+    
+    // Force token refresh to get updated claims
+    if (auth.currentUser) {
+      try {
+        await auth.currentUser.getIdToken(true);
+        // The auth state change listener will handle the rest
+      } catch (error) {
+        console.error('Error refreshing token after password change:', error);
+      }
+    }
+  };
+
   // Validate if staff member has basic staff claim
   const validateStaffClaims = async (user) => {
     if (!user || !checkIsStaff(user)) {
@@ -933,6 +974,15 @@ export function AuthProvider({ children }) {
               });
               setLoading(false);
             }
+            return;
+          }
+          
+          // Check if user has temporary password requirement
+          const needsPasswordChange = await checkTempPasswordRequirement(currentUser);
+          if (needsPasswordChange && isMounted) {
+            console.log('User requires password change, showing forced password change screen');
+            setRequiresPasswordChange(true);
+            setLoading(false);
             return;
           }
           
@@ -1168,6 +1218,7 @@ export function AuthProvider({ children }) {
             setIsEmulating(false);
             setAdminEmails([]);
             setTokenExpirationTime(null);
+            setRequiresPasswordChange(false);
   
             const currentPath = location.pathname;
             if (!isPublicRoute(currentPath)) {
@@ -1209,6 +1260,7 @@ export function AuthProvider({ children }) {
           setIsEmulating(false);
           setAdminEmails([]);
           setTokenExpirationTime(null);
+          setRequiresPasswordChange(false);
         }
       } finally {
         if (isMounted) {
@@ -1257,6 +1309,7 @@ export function AuthProvider({ children }) {
       setAdminEmails([]);
       setTokenExpirationTime(null);
       setCurrentSessionId(null);
+      setRequiresPasswordChange(false);
       
       // Clear activity tracking state
       activityBuffer.current = [];
@@ -1441,11 +1494,21 @@ export function AuthProvider({ children }) {
     // Pending permissions function
     checkAndApplyPendingPermissions: () => checkAndApplyPendingPermissions(user),
 
+    // Temporary password change
+    requiresPasswordChange,
+    handlePasswordChangeComplete,
+
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {!loading && (
+        requiresPasswordChange ? (
+          <ForcedPasswordChange onPasswordChanged={handlePasswordChangeComplete} />
+        ) : (
+          children
+        )
+      )}
     </AuthContext.Provider>
   );
 }

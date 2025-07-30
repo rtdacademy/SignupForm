@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
@@ -10,8 +12,9 @@ import {
 } from "firebase/auth";
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { auth, googleProvider, microsoftProvider } from "../firebase";
+import { auth, googleProvider, microsoftProvider, isDevelopment } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +53,38 @@ const RTDLogo = () => (
   </svg>
 );
 
+// Simple auth loading screen component
+const AuthLoadingScreen = ({ message }) => (
+  <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="flex items-end justify-center space-x-3 mb-8">
+        <RTDLogo />
+        <h1 className="text-3xl font-extrabold text-primary leading-none">RTD Academy</h1>
+      </div>
+      
+      <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="text-center space-y-6">
+          <div className="flex justify-center">
+            <svg className="animate-spin h-12 w-12 text-primary" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+          
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Signing you in...</h2>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+          
+          <div className="text-xs text-gray-500">
+            Please wait while we complete your authentication.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,6 +99,10 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [isResetingPassword, setIsResetingPassword] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+  const [showAuthLoading, setShowAuthLoading] = useState(false);
+  const [authLoadingMessage, setAuthLoadingMessage] = useState("Completing your sign-in...");
 
   const db = getDatabase();
 
@@ -90,6 +129,8 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
       'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
       'auth/operation-not-allowed': 'This sign-in method is not enabled. Please try another method.',
+      'auth/redirect-cancelled-by-user': 'Sign-in was cancelled. Please try again.',
+      'auth/web-storage-unsupported': 'Your browser does not support web storage. Please try a different browser or enable cookies.',
       
       // Password reset errors
       'auth/expired-action-code': 'The password reset link has expired. Please request a new one.',
@@ -199,6 +240,104 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   };
 
   useEffect(() => {
+    // Handle redirect result from social sign-in (only in production)
+    const handleRedirectResult = async () => {
+      if (isDevelopment) {
+        console.log('Skipping redirect result check in development');
+        setCheckingRedirect(false);
+        return;
+      }
+
+      try {
+        setCheckingRedirect(true);
+        console.log('Checking for redirect result in production...');
+        
+        // Check if we were expecting a redirect
+        const authInProgress = sessionStorage.getItem('dashboardAuthInProgress');
+        const authProvider = sessionStorage.getItem('dashboardAuthProvider');
+        
+        if (authInProgress) {
+          console.log(`Expecting redirect result from ${authProvider}`);
+        }
+        
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          console.log('Redirect sign-in successful for:', result.user.email);
+          
+          // Show loading screen immediately
+          setShowAuthLoading(true);
+          setAuthLoadingMessage("Completing your sign-in...");
+          
+          // Clear session storage flags
+          sessionStorage.removeItem('dashboardAuthInProgress');
+          sessionStorage.removeItem('dashboardAuthProvider');
+          
+          const user = result.user;
+          
+          if (!user.email) {
+            setShowAuthLoading(false);
+            setError("Unable to retrieve email from provider. Please try again.");
+            return;
+          }
+
+          if (isStaffEmail(user.email)) {
+            setShowAuthLoading(false);
+            await auth.signOut();
+            handleStaffAttempt();
+          } else {
+            setAuthLoadingMessage("Preparing your dashboard...");
+            const success = await ensureUserData(user);
+            if (success) {
+              setAuthLoadingMessage("Almost ready...");
+              // Add a small delay to show the final message, then navigate
+              setTimeout(() => {
+                setShowAuthLoading(false);
+                navigate("/dashboard");
+              }, 1000);
+            } else {
+              setShowAuthLoading(false);
+            }
+          }
+        } else if (authInProgress) {
+          // We were expecting a redirect but didn't get one - this might indicate an error
+          console.log('Expected redirect result but none found');
+          setShowAuthLoading(false);
+          
+          setError("Sign-in process was interrupted or cancelled. Please try again.");
+          
+          sessionStorage.removeItem('dashboardAuthInProgress');
+          sessionStorage.removeItem('dashboardAuthProvider');
+        }
+      } catch (error) {
+        console.error("Redirect sign-in error:", error);
+        setShowAuthLoading(false);
+        
+        // Handle specific mobile authentication errors
+        if (error.message && error.message.includes('missing initial state')) {
+          console.log('Detected missing initial state error - likely storage issue on mobile');
+          
+          // Clear any stale session data
+          sessionStorage.removeItem('dashboardAuthInProgress');
+          sessionStorage.removeItem('dashboardAuthProvider');
+          
+          // Provide helpful error message for mobile users
+          setError(
+            isMobileDevice() 
+              ? "Authentication failed due to browser storage restrictions. Please try clearing your browser data or using a different browser."
+              : "Authentication failed. Please try again or use email sign-in instead."
+          );
+        } else if (error.code !== 'auth/redirect-cancelled-by-user' && 
+                  error.code !== 'auth/popup-blocked' &&
+                  error.code !== 'auth/operation-not-allowed') {
+          // Only show error for actual failures, not expected states
+          setError(getFriendlyErrorMessage(error) || "Failed to complete sign-in. Please try again.");
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
     // Only check and handle verification flag once on initial mount
     const handleVerificationFlag = () => {
       const verificationFlag = localStorage.getItem('verificationEmailSent');
@@ -214,6 +353,8 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       }
     };
     
+    // Check for redirect result first
+    handleRedirectResult();
     handleVerificationFlag();
 
     // Check for navigation state message
@@ -225,12 +366,13 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     }
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      // Only process auth state changes if we're not currently handling a redirect
+      if (user && !checkingRedirect) {
         ensureUserData(user);
       }
     });
     return () => unsubscribe();
-  }, [location, navigate, emailInput]);
+  }, [location, navigate]);
 
   const handleEmailPasswordSubmit = async (e) => {
     e.preventDefault();
@@ -276,25 +418,49 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const handleProviderSignIn = async (provider) => {
     setError(null);
     setMessage(null);
+    setIsAuthenticating(true);
+    
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      if (isDevelopment) {
+        // Use popup in development
+        console.log('Using popup flow for development');
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
 
-      if (!user.email) {
-        setError("Unable to retrieve email from provider. Please try again.");
-        return;
-      }
+        if (!user.email) {
+          setError("Unable to retrieve email from provider. Please try again.");
+          return;
+        }
 
-      if (isStaffEmail(user.email)) {
-        await auth.signOut();
-        handleStaffAttempt();
+        if (isStaffEmail(user.email)) {
+          await auth.signOut();
+          handleStaffAttempt();
+        } else {
+          await ensureUserData(user);
+          navigate("/dashboard");
+        }
       } else {
-        await ensureUserData(user);
-        navigate("/dashboard");
+        // Use redirect in production
+        console.log('Using redirect flow for production');
+        
+        // Store a flag to indicate we're expecting a redirect
+        sessionStorage.setItem('dashboardAuthInProgress', 'true');
+        sessionStorage.setItem('dashboardAuthProvider', provider.providerId);
+        
+        await signInWithRedirect(auth, provider);
+        // User will be redirected away, so we won't reach here
       }
     } catch (error) {
       console.error("Sign-in error:", error);
-      setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+      
+      // Handle popup blocked error specifically for development
+      if (isDevelopment && error.code === 'auth/popup-blocked') {
+        setError("Popup was blocked. Please allow popups for this site and try again.");
+      } else {
+        setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+      }
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -440,6 +606,9 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
           <p className="mt-1 text-sm font-medium text-primary">
             Recommended: Use your school or personal account
           </p>
+          <p className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            {isDevelopment ? "A popup window will open for secure sign-in" : "You'll be redirected to sign in securely"}
+          </p>
         </div>
         
         {renderAlerts()}
@@ -447,26 +616,50 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
         <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => handleProviderSignIn(googleProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-              alt="Google logo"
-            />
-            <span>Continue with Google</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Google'}</span>
           </button>
 
           <button
             onClick={() => handleProviderSignIn(microsoftProvider)}
-            className="w-full flex items-center justify-center px-6 py-4 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            disabled={isAuthenticating || checkingRedirect}
+            className={`w-full flex items-center justify-center px-6 py-4 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+              isAuthenticating || checkingRedirect
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
+            }`}
           >
-            <img
-              className="h-6 w-6 mr-3"
-              src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-              alt="Microsoft logo"
-            />
-            <span>Continue with Microsoft</span>
+            {isAuthenticating || checkingRedirect ? (
+              <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <img
+                className="h-6 w-6 mr-3"
+                src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                alt="Microsoft logo"
+              />
+            )}
+            <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Microsoft'}</span>
           </button>
         </div>
       </div>
@@ -682,6 +875,11 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       </div>
     );
   };
+
+  // Show auth loading screen if we're processing authentication
+  if (showAuthLoading) {
+    return <AuthLoadingScreen message={authLoadingMessage} />;
+  }
 
   return (
     <>

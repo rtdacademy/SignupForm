@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
+import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, onChildAdded } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -680,49 +680,8 @@ export const useStudentData = (userEmailKey) => {
           courseDataAccumulator[courseId] = {};
         });
 
-        // Helper function to update course data and reprocess
-        const updateCourseData = async (courseId, path, value) => {
-          // Update the specific path in the accumulator
-          if (path === 'root') {
-            // For root level properties like Created, Course, etc.
-            courseDataAccumulator[courseId] = { ...courseDataAccumulator[courseId], ...value };
-          } else {
-            // For nested paths
-            courseDataAccumulator[courseId][path] = value;
-          }
-          
-          // Reconstruct the full courses data structure
-          const reconstructedCoursesData = { ...coursesData };
-          Object.entries(courseDataAccumulator).forEach(([id, data]) => {
-            reconstructedCoursesData[id] = { ...reconstructedCoursesData[id], ...data };
-          });
-          
-          // Process courses with the updated data
-          const processedCourses = await processCourses(reconstructedCoursesData);
-          
-          if (!isMounted) return;
-
-          setStudentData(prev => {
-            let updatedCourses = processedCourses;
-            
-            if (prev.profile && prev.allNotifications) {
-              updatedCourses = processNotificationsForCourses(
-                processedCourses,
-                prev.profile,
-                prev.allNotifications
-              );
-            }
-            
-            return {
-              ...prev,
-              courses: updatedCourses,
-              studentExists: true
-            };
-          });
-        };
-
-        // Set up individual listeners for each course and each specific path
-        for (const courseId of courseIds) {
+        // Helper function to set up listeners for a specific course
+        const setupCourseListeners = (courseId) => {
           // Define the specific paths we want to listen to (excluding Assessments)
           const pathsToListen = [
             'ActiveFutureArchived/Value',
@@ -770,6 +729,83 @@ export const useStudentData = (userEmailKey) => {
             
             courseUnsubscribers.push(propertyUnsubscribe);
           });
+        };
+
+        // Helper function to update course data and reprocess
+        const updateCourseData = async (courseId, path, value) => {
+          // Ensure courseId exists in accumulator
+          if (!courseDataAccumulator[courseId]) {
+            courseDataAccumulator[courseId] = {};
+          }
+          
+          // Update the specific path in the accumulator
+          if (path === 'root') {
+            // For root level properties like Created, Course, etc.
+            courseDataAccumulator[courseId] = { ...courseDataAccumulator[courseId], ...value };
+          } else {
+            // For nested paths
+            courseDataAccumulator[courseId][path] = value;
+          }
+          
+          // Reconstruct the full courses data structure
+          const reconstructedCoursesData = { ...coursesData };
+          Object.entries(courseDataAccumulator).forEach(([id, data]) => {
+            reconstructedCoursesData[id] = { ...reconstructedCoursesData[id], ...data };
+          });
+          
+          // Process courses with the updated data
+          const processedCourses = await processCourses(reconstructedCoursesData);
+          
+          if (!isMounted) return;
+
+          setStudentData(prev => {
+            let updatedCourses = processedCourses;
+            
+            if (prev.profile && prev.allNotifications) {
+              updatedCourses = processNotificationsForCourses(
+                processedCourses,
+                prev.profile,
+                prev.allNotifications
+              );
+            }
+            
+            return {
+              ...prev,
+              courses: updatedCourses,
+              studentExists: true
+            };
+          });
+        };
+
+        // Set up parent-level listener to detect new course additions
+        const parentCoursesRef = ref(db, `students/${userEmailKey}/courses`);
+        const parentUnsubscribe = onChildAdded(parentCoursesRef, async (snapshot) => {
+          if (!isMounted) return;
+          
+          const newCourseId = snapshot.key;
+          
+          // Skip non-course keys
+          if (newCourseId === 'sections' || newCourseId === 'normalizedSchedule') {
+            return;
+          }
+          
+          // Check if we already have listeners for this course (prevents refresh on initial load)
+          if (courseDataAccumulator[newCourseId] !== undefined) {
+            return; // Already being tracked
+          }
+          
+          console.log(`🎓 New course detected: ${newCourseId} - refreshing page to load full course data`);
+          
+          // Simple solution: refresh the page to ensure all complex course loading logic runs properly
+          // This ensures proper course details, payment info, notifications, and real-time listeners are set up
+          window.location.reload();
+        }, handleError);
+        
+        courseUnsubscribers.push(parentUnsubscribe);
+
+        // Set up individual listeners for existing courses
+        for (const courseId of courseIds) {
+          setupCourseListeners(courseId);
         }
 
         // Initial processing with existing data

@@ -29,7 +29,8 @@ import {
   Database,
   FolderOpen,
   Home,
-  Activity
+  Activity,
+  UserCog
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -50,6 +51,7 @@ import TeacherFileStorage from './TeacherFileStorage';
 import ParentStudentManagement from './ParentStudentManagement';
 import StaffPermissionsManager from './StaffPermissionsManager';
 import AuthActivityDashboard from './AuthActivityDashboard';
+import AdminUserManagement from './AdminUserManagement';
 
 
 function TeacherDashboard() {
@@ -265,6 +267,7 @@ function TeacherDashboard() {
     // Only add admin items if user has admin access
     if (hasAdminAccess()) {
       const adminSubItems = [
+        { icon: UserCog, label: 'User Management', key: 'user-management' },
         { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
         { icon: Activity, label: 'Auth Activity', key: 'auth-activity' },
       ];
@@ -289,7 +292,7 @@ function TeacherDashboard() {
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['contractor-invoices', 'auth-activity', 'sso-testing']; 
+    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
     }
@@ -319,6 +322,8 @@ function TeacherDashboard() {
         return <IcsUpload />;
       case 'notifications':
         return <Notifications />;
+      case 'user-management':
+        return <AdminUserManagement />;
       case 'contractor-invoices':
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
       case 'templates':
@@ -345,7 +350,7 @@ function TeacherDashboard() {
   };
 
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['contractor-invoices', 'auth-activity', 'sso-testing'];
+    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing'];
     const superAdminOnlySections = ['staff-permissions'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {

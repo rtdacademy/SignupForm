@@ -337,6 +337,8 @@ const YourWayScheduleMaker = ({
   const [diplomaDates, setDiplomaDates] = useState([]);
   const [selectedDiplomaDate, setSelectedDiplomaDate] = useState(null);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
+  const [hasExistingDiplomaDate, setHasExistingDiplomaDate] = useState(false);
+  const [existingDiplomaInfo, setExistingDiplomaInfo] = useState(null);
   const [minCompletionMonths, setMinCompletionMonths] = useState(null);
   const [recommendedCompletionMonths, setRecommendedCompletionMonths] = useState(null);
 
@@ -501,6 +503,50 @@ const YourWayScheduleMaker = ({
       setDiplomaDates(validDates);
     }
 
+    // Check if student already has a diploma date registered
+    if (isDiploma && course?.DiplomaMonthChoices?.Value) {
+      const diplomaChoice = course.DiplomaMonthChoices.Value;
+      
+      if (diplomaChoice === "Already Wrote") {
+        setAlreadyWroteDiploma(true);
+        setHasExistingDiplomaDate(false);
+        setExistingDiplomaInfo(null);
+      } else {
+        // Student has an existing diploma date - make it read-only
+        setHasExistingDiplomaDate(true);
+        setAlreadyWroteDiploma(false);
+        
+        // Try to find the matching diploma time info
+        let diplomaInfo = null;
+        if (courseData.diplomaTimes) {
+          const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
+            ? courseData.diplomaTimes
+            : Object.values(courseData.diplomaTimes);
+          
+          diplomaInfo = diplomaTimesArray.find(date => 
+            date.month === diplomaChoice || 
+            date.id === diplomaChoice ||
+            date.displayName === diplomaChoice
+          );
+        }
+        
+        setExistingDiplomaInfo({
+          choice: diplomaChoice,
+          displayInfo: diplomaInfo
+        });
+        
+        // Set the end date based on existing diploma date if we have the full info
+        if (diplomaInfo && diplomaInfo.displayDate) {
+          setEndDate(parseISO(diplomaInfo.displayDate));
+        }
+      }
+    } else if (isDiploma) {
+      // Diploma course but no existing choice - allow selection
+      setHasExistingDiplomaDate(false);
+      setExistingDiplomaInfo(null);
+      setAlreadyWroteDiploma(false);
+    }
+
     if (courseData.NumberOfHours) {
       setCourseHours(courseData.NumberOfHours);
     }
@@ -531,6 +577,8 @@ const YourWayScheduleMaker = ({
     setAlreadyWroteDiploma(false);
     setIsDiplomaCourse(false);
     setDiplomaDates([]);
+    setHasExistingDiplomaDate(false);
+    setExistingDiplomaInfo(null);
     setSelectedCourse(course);
     setHasExistingSchedule(false);
     setExistingSchedule(null);
@@ -747,11 +795,11 @@ const YourWayScheduleMaker = ({
     setEndDate(date);
   };
 
-  const canSelectDiplomaDate = selectedCourse && (!isDiplomaCourse || diplomaDates.length > 0);
+  const canSelectDiplomaDate = selectedCourse && (!isDiplomaCourse || (diplomaDates.length > 0 && !hasExistingDiplomaDate));
   const canSelectStartDate = selectedCourse && 
-    (!isDiplomaCourse || alreadyWroteDiploma || selectedDiplomaDate);
+    (!isDiplomaCourse || alreadyWroteDiploma || selectedDiplomaDate || hasExistingDiplomaDate);
   const canSelectEndDate = startDate && 
-    (!isDiplomaCourse || alreadyWroteDiploma);
+    (!isDiplomaCourse || alreadyWroteDiploma || !hasExistingDiplomaDate);
 
   const isDateExcluded = (date) => {
     if (excludeWeekends && isWeekend(date)) {
@@ -903,7 +951,7 @@ const YourWayScheduleMaker = ({
       return;
     }
 
-    if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
+    if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate && !hasExistingDiplomaDate) {
       toast.error("Please select a diploma exam date");
       return;
     }
@@ -976,6 +1024,10 @@ const YourWayScheduleMaker = ({
       } : alreadyWroteDiploma ? {
         month: "Already Wrote",
         alreadyWrote: true
+      } : hasExistingDiplomaDate ? {
+        month: existingDiplomaInfo?.choice || "Registered",
+        alreadyWrote: false,
+        existingRegistration: true
       } : null
     };
 
@@ -1064,50 +1116,91 @@ const YourWayScheduleMaker = ({
 
       <div className="space-y-2">
         <Label>Diploma Exam Date</Label>
-        <div className="relative">
-          <Select
-            defaultValue={selectedDiplomaDate?.id}
-            onValueChange={handleDiplomaDateSelect}
-          >
-            <SelectTrigger 
-              className={`w-full bg-background ${!canSelectDiplomaDate ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={!canSelectDiplomaDate}
+        
+        {hasExistingDiplomaDate ? (
+          // Read-only display for existing diploma date
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <div className="flex items-start gap-2">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">
+                    {existingDiplomaInfo?.displayInfo ? 
+                      formatDiplomaDate(existingDiplomaInfo.displayInfo) : 
+                      existingDiplomaInfo?.choice || 'Registered for diploma exam'
+                    }
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    Your diploma exam date is already registered
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <Alert className="bg-blue-50 border-blue-200">
+              <InfoIcon className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-700">
+                <div className="space-y-1">
+                  <p className="font-medium">Diploma Date Set</p>
+                  <p className="text-sm">
+                    Your diploma exam date is already registered and cannot be changed through the schedule builder. 
+                    If you need to change your diploma exam date, please contact your instructor.
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        ) : (
+          // Original selectable diploma date section
+          <div className="relative">
+            <Select
+              defaultValue={selectedDiplomaDate?.id}
+              onValueChange={handleDiplomaDateSelect}
             >
-              <SelectValue placeholder="Select diploma exam date" />
-            </SelectTrigger>
-            <SelectContent
-              ref={(ref) => {
-                if (ref) {
-                  ref.style.width = 'var(--radix-select-trigger-width)';
-                }
-              }}
-              className="overflow-y-auto"
-              align="start"
-            >
-              <SelectGroup>
-                <SelectLabel>Available Dates</SelectLabel>
-                {diplomaDates.map((date) => (
+              <SelectTrigger 
+                className={`w-full bg-background ${!canSelectDiplomaDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!canSelectDiplomaDate}
+              >
+                <SelectValue placeholder="Select diploma exam date" />
+              </SelectTrigger>
+              <SelectContent
+                ref={(ref) => {
+                  if (ref) {
+                    ref.style.width = 'var(--radix-select-trigger-width)';
+                  }
+                }}
+                className="overflow-y-auto"
+                align="start"
+              >
+                <SelectGroup>
+                  <SelectLabel>Available Dates</SelectLabel>
+                  {diplomaDates.map((date) => (
+                    <SelectItem 
+                      key={date.id} 
+                      value={date.id}
+                      className="cursor-pointer"
+                    >
+                      {formatDiplomaDate(date)}
+                    </SelectItem>
+                  ))}
+                  <SelectSeparator />
                   <SelectItem 
-                    key={date.id} 
-                    value={date.id}
+                    value="already-wrote"
                     className="cursor-pointer"
                   >
-                    {formatDiplomaDate(date)}
+                    I already wrote the diploma exam
                   </SelectItem>
-                ))}
-                <SelectSeparator />
-                <SelectItem 
-                  value="already-wrote"
-                  className="cursor-pointer"
-                >
-                  I already wrote the diploma exam
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-        {selectedDiplomaDate && !selectedDiplomaDate.confirmed && (
+        {selectedDiplomaDate && !selectedDiplomaDate.confirmed && !hasExistingDiplomaDate && (
           <div className="flex items-center gap-2 mt-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             <p className="text-sm text-amber-600">
@@ -1402,10 +1495,22 @@ const YourWayScheduleMaker = ({
             <div>
               <Label>
                 End Date
-                {registrationSettings?.completionBegins && registrationSettings?.completionEnds && (
+                {!isDiplomaCourse || alreadyWroteDiploma ? (
+                  registrationSettings?.completionBegins && registrationSettings?.completionEnds && (
+                    <span className="text-xs text-gray-600 ml-2 font-normal">
+                      Must be between {format(parseISO(registrationSettings.completionBegins), 'MMM d, yyyy')} and {format(parseISO(registrationSettings.completionEnds), 'MMM d, yyyy')}
+                    </span>
+                  )
+                ) : hasExistingDiplomaDate ? (
                   <span className="text-xs text-gray-600 ml-2 font-normal">
-                    Must be between {format(parseISO(registrationSettings.completionBegins), 'MMM d, yyyy')} and {format(parseISO(registrationSettings.completionEnds), 'MMM d, yyyy')}
+                    Set by your registered diploma exam date
                   </span>
+                ) : (
+                  selectedDiplomaDate && (
+                    <span className="text-xs text-gray-600 ml-2 font-normal">
+                      Set by your selected diploma exam date
+                    </span>
+                  )
                 )}
               </Label>
               <DatePicker
@@ -1413,17 +1518,21 @@ const YourWayScheduleMaker = ({
   onChange={handleEndDateChange}
   dateFormat="MMM dd, yyyy"
   placeholderText="Select end date"
-  className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectEndDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+  className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectEndDate || (isDiplomaCourse && hasExistingDiplomaDate) ? 'opacity-50 cursor-not-allowed' : ''}`}
   minDate={startDate ? getMinEndDate(startDate) : getMinEndDate(null)}
   maxDate={maxEndDate || (startDate ? addYears(startDate, 1) : null)}
-  disabled={!canSelectEndDate || (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate)}
+  disabled={!canSelectEndDate || (isDiplomaCourse && !alreadyWroteDiploma && (selectedDiplomaDate || hasExistingDiplomaDate))}
   calendarStartDay={1}
   withPortal
   monthsShown={1}
   openToDate={startDate ? getDefaultEndDate(startDate) : null}
   preventOpenOnFocus={true}
 />
-              {isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate ? (
+              {isDiplomaCourse && hasExistingDiplomaDate && endDate ? (
+                <p className="text-sm text-gray-600 mt-1">
+                  End date is set by your registered diploma exam date: {format(endDate, 'MMM dd, yyyy')}. Contact your instructor to change your diploma date.
+                </p>
+              ) : isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate ? (
                 <p className="text-sm text-gray-600 mt-1">
                   End date is fixed to your selected diploma date: {format(parseISO(selectedDiplomaDate.displayDate), 'MMM dd, yyyy')}
                 </p>
@@ -1506,7 +1615,7 @@ const YourWayScheduleMaker = ({
           <Button
             onClick={handleCreateSchedule}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-colors"
-            disabled={!selectedCourse || !startDate || !endDate || (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate)}
+            disabled={!selectedCourse || !startDate || !endDate || (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate && !hasExistingDiplomaDate)}
           >
             Create Schedule
           </Button>

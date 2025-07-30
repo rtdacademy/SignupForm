@@ -48,6 +48,7 @@ const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
 const updateStudentProfileFunctions = require('./updateStudentProfile');
+const adminUserManagementFunctions = require('./adminUserManagement');
 
 // PASI data management
 const pasiDataFunctions = require('./uploadPasiData');
@@ -267,6 +268,16 @@ exports.getAllStaffPermissionsOptimized = optimizedStaffFunctions.getAllStaffPer
 exports.getAnyUserPermissions = staffCustomClaimsFunctions.getAnyUserPermissions;
 exports.updateStaffPermissions = staffCustomClaimsFunctions.updateStaffPermissions;
 exports.removeStaffPermissions = staffCustomClaimsFunctions.removeStaffPermissions;
+
+// Admin user management functions
+exports.setTemporaryPassword = adminUserManagementFunctions.setTemporaryPassword;
+exports.deleteFirebaseAuthUser = adminUserManagementFunctions.deleteFirebaseAuthUser;
+exports.toggleUserAccountStatus = adminUserManagementFunctions.toggleUserAccountStatus;
+exports.getUserSignInMethods = adminUserManagementFunctions.getUserSignInMethods;
+exports.getAdminAuditLog = adminUserManagementFunctions.getAdminAuditLog;
+exports.sendTempPasswordEmail = adminUserManagementFunctions.sendTempPasswordEmail;
+exports.createUserWithTempPassword = adminUserManagementFunctions.createUserWithTempPassword;
+exports.removeTempPasswordClaim = adminUserManagementFunctions.removeTempPasswordClaim;
 
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;

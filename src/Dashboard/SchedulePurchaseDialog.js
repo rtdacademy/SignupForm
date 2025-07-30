@@ -14,8 +14,10 @@ const SchedulePurchaseDialog = ({
   isOpen, 
   onOpenChange, 
   onProceedToCreation,
-  hasSchedule = false  // Add this prop
+  hasSchedule = false,  // Add this prop
+  gracePeriodInfo = {}
 }) => {
+  const { isInGracePeriod, daysRemaining, gracePeriodEndDate } = gracePeriodInfo;
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -42,13 +44,42 @@ const SchedulePurchaseDialog = ({
             </div>
           </div>
 
+          {isInGracePeriod && hasSchedule && (
+            <Alert className="bg-green-50 border-green-200 mb-3">
+              <div className="text-xl mb-1">✨</div>
+              <AlertDescription className="text-green-700">
+                <p className="font-medium mb-1">Grace Period Active</p>
+                <p className="text-sm">
+                  You can continue to adjust your schedule for {daysRemaining} more day{daysRemaining !== 1 ? 's' : ''}.
+                </p>
+                {daysRemaining <= 3 && (
+                  <p className="text-sm mt-2 text-amber-600 font-medium">
+                    ⚠️ Your grace period is ending soon! After {gracePeriodEndDate?.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}, your schedule will be locked.
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Alert className="bg-blue-50 border-blue-200">
             <AlertDescription className="text-blue-700">
               {hasSchedule ? (
                 <>
-                  Creating a new schedule will give you a fresh start with updated target dates. 
-                  Your course progress will be preserved, and you can continue working at a pace 
-                  that better suits your needs.
+                  {isInGracePeriod ? (
+                    <>
+                      Feel free to experiment with different schedules during your grace period. 
+                      Your course progress is always preserved, and you can adjust your pace as needed.
+                    </>
+                  ) : (
+                    <>
+                      Creating a new schedule will give you a fresh start with updated target dates. 
+                      Your course progress will be preserved, and you can continue working at a pace 
+                      that better suits your needs.
+                    </>
+                  )}
                 </>
               ) : (
                 <>

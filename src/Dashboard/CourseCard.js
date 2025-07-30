@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "../components/ui/dialog";
 import {
   Tooltip,
@@ -30,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../components/ui/tooltip";
+import { toEdmontonDate } from '../utils/timeZoneUtils';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import CourseDetailsDialog from './CourseDetailsDialog';
 import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
@@ -83,7 +85,9 @@ const getBorderColor = (status, isRequired = false) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Not set';
-  return new Date(dateString).toLocaleDateString('en-US', {
+  const edmontonDate = toEdmontonDate(dateString);
+  if (!edmontonDate) return 'Not set';
+  return edmontonDate.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
@@ -106,8 +110,8 @@ const CourseCard = ({
   
   // New states for schedule management
   const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
-  const [remainingSchedules, setRemainingSchedules] = useState(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [showInstructorContactAlert, setShowInstructorContactAlert] = useState(false);
   
   // Cache course details to prevent button disappearing
   const [cachedCourseDetails, setCachedCourseDetails] = useState(null);
@@ -214,15 +218,49 @@ const CourseCard = ({
     );
   };
 
-  const checkRemainingSchedules = () => {
-    // Only assume a default of 2 if remainingSchedules is not defined.
-    const remaining =
-      course?.ScheduleJSON?.remainingSchedules === undefined ||
-      course?.ScheduleJSON?.remainingSchedules === null
-        ? 2
-        : course.ScheduleJSON.remainingSchedules;
-    setRemainingSchedules(remaining);
-    setShowScheduleConfirmDialog(true);
+  // Calculate grace period status - only relevant if a schedule already exists
+  const calculateGracePeriod = () => {
+    // If no schedule exists yet, no grace period applies
+    if (!hasSchedule) return { isInGracePeriod: false, daysRemaining: 0, gracePeriodEndDate: null, noScheduleYet: true };
+    
+    // Always use course start date as the reference for grace period
+    const courseStartDate = course.ScheduleStartDate ? new Date(course.ScheduleStartDate) : null;
+    
+    if (!courseStartDate) return { isInGracePeriod: false, daysRemaining: 0, gracePeriodEndDate: null };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    
+    const courseStartDateStart = new Date(courseStartDate);
+    courseStartDateStart.setHours(0, 0, 0, 0); // Reset to start of day
+    
+    const gracePeriodEnd = new Date(courseStartDateStart);
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 14); // 2 weeks grace period from course start
+    gracePeriodEnd.setHours(23, 59, 59, 999); // End of day
+    
+    const daysRemaining = Math.ceil((gracePeriodEnd - today) / (1000 * 60 * 60 * 24));
+    const isInGracePeriod = today <= gracePeriodEnd;
+    
+    return {
+      isInGracePeriod,
+      daysRemaining: Math.max(0, daysRemaining),
+      gracePeriodEndDate: gracePeriodEnd,
+      hasStarted: true // Always true if schedule exists
+    };
+  };
+  
+  const gracePeriodInfo = calculateGracePeriod();
+  
+  const handleScheduleCreation = () => {
+    // Always allow creation if no schedule exists
+    if (!hasSchedule) {
+      setShowCreateScheduleDialog(true);
+    } else if (gracePeriodInfo.isInGracePeriod) {
+      setShowCreateScheduleDialog(true);
+    } else {
+      // Grace period has expired
+      setShowInstructorContactAlert(true);
+    }
   };
     // Simplify handleGoToCourse to just check schedule and status
   const handleGoToCourse = async () => {
@@ -490,6 +528,31 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     );
   };
 
+  // Function to render subtle grace period info
+  const renderGracePeriodInfo = () => {
+    if (!hasSchedule || !gracePeriodInfo || gracePeriodInfo.noScheduleYet) {
+      return null;
+    }
+
+    const { isInGracePeriod, daysRemaining, gracePeriodEndDate } = gracePeriodInfo;
+    
+    if (isInGracePeriod) {
+      const isEndingSoon = daysRemaining <= 3;
+      return (
+        <div className={`text-xs ${isEndingSoon ? 'text-amber-600' : 'text-gray-500'} text-center mt-2`}>
+          {isEndingSoon && '⚠️ '}
+          You can modify your schedule for {daysRemaining} more day{daysRemaining !== 1 ? 's' : ''}
+        </div>
+      );
+    } else {
+      return (
+        <div className="text-xs text-gray-500 text-center mt-2">
+          Schedule locked • Contact instructor for changes
+        </div>
+      );
+    }
+  };
+
   // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
     // Don't render schedule buttons if courseDetails.units doesn't exist
@@ -530,11 +593,16 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     // Standard schedule buttons for regular courses
     return (
       <>
-        <CreateScheduleButton
-          onClick={checkRemainingSchedules}
-          hasSchedule={hasSchedule}
-          remainingSchedules={course?.ScheduleJSON?.remainingSchedules ?? 2}
-        />
+        <div className="w-full">
+          <CreateScheduleButton
+            onClick={handleScheduleCreation}
+            hasSchedule={hasSchedule}
+            gracePeriodInfo={gracePeriodInfo}
+            courseName={courseName}
+            teacherEmail={effectiveCourseDetails?.teachers?.['rory@rtdacademy,com']?.email || 'your instructor'}
+          />
+          {renderGracePeriodInfo()}
+        </div>
 
         <SchedulePurchaseDialog
           isOpen={showScheduleConfirmDialog}
@@ -544,6 +612,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             setShowCreateScheduleDialog(true);
           }}
           hasSchedule={hasSchedule}
+          gracePeriodInfo={gracePeriodInfo}
         />
 
         <Sheet
@@ -1132,6 +1201,43 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           toast.success("Document ready for printing");
         }}
       />
+
+      <Dialog open={showInstructorContactAlert} onOpenChange={setShowInstructorContactAlert}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Modification Period Ended</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Alert className="bg-gray-50 border-gray-200">
+              <AlertCircle className="h-4 w-4 text-gray-500" />
+              <AlertDescription className="text-gray-700">
+                <p className="mb-2">
+                  Your initial 2-week grace period for schedule changes has ended. 
+                  Your current schedule is now set for the course.
+                </p>
+                <p>
+                  If you have exceptional circumstances requiring a schedule adjustment, 
+                  please contact your instructor at{' '}
+                  <a 
+                    href={`mailto:${effectiveCourseDetails?.teachers?.['rory@rtdacademy,com']?.email || 'info@rtdacademy.com'}`}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    {effectiveCourseDetails?.teachers?.['rory@rtdacademy,com']?.email || 'info@rtdacademy.com'}
+                  </a>
+                </p>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowInstructorContactAlert(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

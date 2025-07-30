@@ -49,6 +49,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
   
   // Check if user has admin permissions
   const isAdminUser = userClaims?.isAdminUser === true;
+  const isTeacher = userClaims?.isTeacher === true;
 
   const GENDER_OPTIONS = [
     { value: 'male', label: 'Male' },
@@ -162,8 +163,9 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
   };
 
   const renderEditableField = (label, field, options, readOnly = false) => {
-    // Make field read-only if user is not admin
-    const isFieldReadOnly = readOnly || !isAdminUser;
+    // Make field read-only if user is not admin (with exception for teachers editing diploma month)
+    const isDiplomaMonthField = field === 'DiplomaMonthChoices_Value';
+    const isFieldReadOnly = readOnly || (!isAdminUser && !(isTeacher && isDiplomaMonthField));
     let value;
 
     if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
