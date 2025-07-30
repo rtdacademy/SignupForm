@@ -632,6 +632,7 @@ export const useStudentData = (userEmailKey) => {
         equalTo(true)
       );
 
+
       // Listen for profile changes
       const profileUnsubscribe = onValue(profileRef, async (profileSnapshot) => {
         if (!isMounted) return;
@@ -661,7 +662,28 @@ export const useStudentData = (userEmailKey) => {
           }));
           coursesReceived = true;
           checkLoadingComplete();
-          return () => {}; // Return empty cleanup function
+          
+          // Even if no courses exist, set up listener for when the first course gets added
+          const parentCoursesRef = ref(db, `students/${userEmailKey}/courses`);
+          const parentUnsubscribe = onChildAdded(parentCoursesRef, async (snapshot) => {
+            if (!isMounted) return;
+            
+            const newCourseId = snapshot.key;
+            
+            // Skip non-course keys
+            if (newCourseId === 'sections' || newCourseId === 'normalizedSchedule') {
+              return;
+            }
+            
+            console.log(`🎓 First course detected for new student: ${newCourseId} - refreshing page to load full course data`);
+            
+            // Simple solution: refresh the page to ensure all complex course loading logic runs properly
+            window.location.reload();
+          }, handleError);
+          
+          return () => {
+            parentUnsubscribe();
+          };
         }
 
         const coursesData = coursesListSnapshot.val();

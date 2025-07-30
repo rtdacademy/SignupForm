@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, CheckCircle, XCircle, Clock, Award, RotateCcw, Eye, ChevronLeft, FileText, Save, Edit3 } from 'lucide-react';
-import { getDatabase, ref, set, get, onValue } from 'firebase/database';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, CheckCircle, XCircle, Clock, Award, RotateCcw, Eye, ChevronLeft, FileText, Save, Edit3, Shield } from 'lucide-react';
+import { getDatabase, ref, set, update, onValue } from 'firebase/database';
 import { useAuth } from '../../../context/AuthContext';
 import { formatScore } from '../../utils/gradeUtils';
 import { Button } from '../../../components/ui/button';
@@ -253,7 +253,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
               </SheetTitle>
               <SheetDescription>
                 {selectedSession 
-                  ? `Attempt ${lesson.sessionData.sessions.findIndex(s => s.sessionId === selectedSessionId) + 1} • ${new Date(selectedSession.finalResults?.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                  ? `Attempt ${lesson.sessionData.sessions.findIndex(s => s.sessionId === selectedSessionId) + 1} • ${selectedSession.finalResults?.completedAt ? new Date(selectedSession.finalResults.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'No completion date'}`
                   : `${lesson.lessonId} • ${lesson.activityType}`
                 }
               </SheetDescription>
@@ -279,7 +279,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
            
 
               {/* Session Information for Assignments/Exams/Quizzes */}
-              {lesson.sessionData && ['assignment', 'exam', 'quiz'].includes(lesson.activityType) && (
+              {lesson.sessionData && lesson.sessionData.sessions && lesson.sessionData.sessions.length > 0 && ['assignment', 'exam', 'quiz'].includes(lesson.activityType) && (
                 <div className="px-6 py-4 border-b bg-blue-50">
                   <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
                     <Award className="h-5 w-5 text-blue-600" />
@@ -313,20 +313,45 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{lesson.sessionData.sessionCount}</div>
-                      <div className="text-sm text-gray-600">Total Attempts</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {lesson.sessionData.sessions.filter(s => !s.isTeacherCreated).length}
+                      </div>
+                      <div className="text-sm text-gray-600">Student Attempts</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {formatScore(lesson.sessionData.latestSession.finalResults.percentage)}%
+                        {(() => {
+                          const latestStudentSession = lesson.sessionData.sessions
+                            .filter(s => !s.isTeacherCreated && s.finalResults?.percentage)
+                            .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))[0];
+                          return latestStudentSession?.finalResults?.percentage ? 
+                            formatScore(latestStudentSession.finalResults.percentage) + '%' : 
+                            'N/A';
+                        })()}
                       </div>
-                      <div className="text-sm text-gray-600">Latest Score</div>
+                      <div className="text-sm text-gray-600">Latest Student Score</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {formatScore(Math.max(...lesson.sessionData.sessions.map(s => s.finalResults.percentage)))}%
+                        {(() => {
+                          // Check for teacher manual grade first
+                          const teacherGrade = lesson.sessionData.sessions
+                            .find(s => s.isTeacherCreated && s.useAsManualGrade && s.finalResults?.percentage);
+                          if (teacherGrade) {
+                            return formatScore(teacherGrade.finalResults.percentage) + '%';
+                          }
+                          
+                          // Otherwise show best student score
+                          const studentSessions = lesson.sessionData.sessions
+                            .filter(s => !s.isTeacherCreated && s.finalResults?.percentage);
+                          if (studentSessions.length > 0) {
+                            return formatScore(Math.max(...studentSessions.map(s => s.finalResults.percentage))) + '%';
+                          }
+                          
+                          return 'N/A';
+                        })()}
                       </div>
-                      <div className="text-sm text-gray-600">Best Score</div>
+                      <div className="text-sm text-gray-600">Final Grade</div>
                     </div>
                   </div>
 
@@ -334,27 +359,44 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                   <div className="space-y-3">
                     <h4 className="text-md font-medium text-gray-700">All Sessions</h4>
                     {lesson.sessionData.sessions.map((session, index) => {
+                      // Check if this is a teacher-created manual grade session
+                      const isTeacherManualGrade = session.isTeacherCreated && session.useAsManualGrade;
+                      
                       // Determine if this session is used for final grade
                       const sessionScoring = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[lesson.lessonId]?.assessmentSettings?.sessionScoring || 'takeHighest';
                       let isUsedForGrade = false;
                       
-                      if (sessionScoring === 'takeHighest') {
-                        const highestSession = lesson.sessionData.sessions.reduce((highest, current) => 
-                          (current.finalResults?.percentage || 0) > (highest.finalResults?.percentage || 0) ? current : highest
-                        );
-                        isUsedForGrade = session.sessionId === highestSession.sessionId;
-                      } else if (sessionScoring === 'latest') {
-                        const latestSession = lesson.sessionData.sessions[lesson.sessionData.sessions.length - 1];
-                        isUsedForGrade = session.sessionId === latestSession.sessionId;
-                      } else if (sessionScoring === 'average') {
-                        isUsedForGrade = true; // All sessions contribute
+                      // Teacher manual grades always take precedence
+                      if (isTeacherManualGrade && session.status === 'completed') {
+                        isUsedForGrade = true;
+                      } else if (!lesson.sessionData.sessions.some(s => s.isTeacherCreated && s.useAsManualGrade && s.status === 'completed')) {
+                        // Only apply normal scoring if no teacher manual grade exists
+                        const studentSessions = lesson.sessionData.sessions.filter(s => !s.isTeacherCreated);
+                        
+                        if (sessionScoring === 'takeHighest') {
+                          const highestSession = studentSessions.reduce((highest, current) => 
+                            (current.finalResults?.percentage || 0) > (highest.finalResults?.percentage || 0) ? current : highest
+                          );
+                          isUsedForGrade = session.sessionId === highestSession.sessionId;
+                        } else if (sessionScoring === 'latest') {
+                          const latestSession = studentSessions[studentSessions.length - 1];
+                          isUsedForGrade = session.sessionId === latestSession?.sessionId;
+                        } else if (sessionScoring === 'average') {
+                          isUsedForGrade = !session.isTeacherCreated; // All student sessions contribute
+                        }
                       }
 
                       return (
                         <SessionCard 
                           key={session.sessionId || index} 
                           session={session} 
-                          attemptNumber={index + 1}
+                          attemptNumber={
+                            session.isTeacherCreated 
+                              ? 0 // Teacher sessions don't have attempt numbers
+                              : lesson.sessionData.sessions
+                                  .filter(s => !s.isTeacherCreated && lesson.sessionData.sessions.indexOf(s) <= index)
+                                  .length
+                          }
                           onViewDetails={() => setSelectedSessionId(session.sessionId)}
                           showViewButton={true}
                           isUsedForGrade={isUsedForGrade}
@@ -453,8 +495,22 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
     studentKey: course?.studentKey,
     CourseID: course?.CourseID,
     isStaffView,
+    isTeacherCreated: session?.isTeacherCreated,
     timestamp: new Date().toLocaleTimeString()
   });
+  
+  // If this is a teacher-created session, show simplified view
+  if (session?.isTeacherCreated) {
+    return (
+      <TeacherSessionView 
+        session={session}
+        lesson={lesson}
+        course={course}
+        attemptNumber={attemptNumber}
+        isStaffView={isStaffView}
+      />
+    );
+  }
   
   // Memoize stable course properties to prevent unnecessary effect re-runs
   const stableCourseProps = useMemo(() => ({
@@ -468,12 +524,6 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
   // Real-time listeners for session score and percentage
   const [realtimeScore, setRealtimeScore] = useState(session.finalResults?.score || 0);
   const [realtimePercentage, setRealtimePercentage] = useState(session.finalResults?.percentage || 0);
-  
-  // Manual score override state
-  const [isManualOverrideMode, setIsManualOverrideMode] = useState(false);
-  const [manualScore, setManualScore] = useState('');
-  const [isEditingManualScore, setIsEditingManualScore] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'success', 'error'
   
   // Component mount/unmount tracking
   useEffect(() => {
@@ -509,157 +559,16 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
       }
     });
 
-    // Listen to manual override mode state
-    const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
-    const overrideModeUnsubscribe = onValue(overrideModeRef, (snapshot) => {
-      const overrideMode = snapshot.val();
-      if (overrideMode !== null && overrideMode !== undefined) {
-        setIsManualOverrideMode(overrideMode);
-        if (overrideMode) {
-          setManualScore(realtimeScore.toString());
-        }
-      }
-    });
-
     // Cleanup listeners on unmount
     return () => {
       scoreUnsubscribe();
       percentageUnsubscribe();
-      overrideModeUnsubscribe();
     };
-  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, realtimeScore]);
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId]);
 
-  // Load initial toggle state from Firebase on component mount
-  useEffect(() => {
-    const loadInitialToggleState = async () => {
-      if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId) {
-        return;
-      }
 
-      try {
-        const db = getDatabase();
-        const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
-        const snapshot = await get(overrideModeRef);
-        
-        if (snapshot.exists()) {
-          const savedOverrideMode = snapshot.val();
-          setIsManualOverrideMode(savedOverrideMode);
-          if (savedOverrideMode) {
-            setManualScore(realtimeScore.toString());
-          }
-        }
-        // If no saved state exists, default to false (individual mode)
-      } catch (error) {
-        console.error('Error loading initial toggle state:', error);
-        // Default to individual mode on error
-        setIsManualOverrideMode(false);
-      }
-    };
 
-    loadInitialToggleState();
-  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, realtimeScore]);
 
-  // Handle manual score override toggle - use useCallback to prevent recreation
-  const handleToggleOverrideMode = useCallback(async () => {
-    console.log('🔄 handleToggleOverrideMode called', {
-      stableCourseProps,
-      stableSessionId,
-      isStaffView,
-      currentMode: isManualOverrideMode
-    });
-    
-    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId || !isStaffView) {
-      console.log('❌ handleToggleOverrideMode early return - missing data');
-      return;
-    }
-
-    const newOverrideMode = !isManualOverrideMode;
-    
-    try {
-      const db = getDatabase();
-      const overrideModeRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/isManualOverrideMode`);
-      
-      // Save the toggle state to Firebase
-      await set(overrideModeRef, newOverrideMode);
-      
-      // Update local state
-      setIsManualOverrideMode(newOverrideMode);
-      
-      if (newOverrideMode) {
-        // Switching to manual override mode
-        setManualScore(realtimeScore.toString());
-      } else {
-        // Switching back to individual mode
-        setIsEditingManualScore(false);
-        setManualScore('');
-        setSaveStatus(null);
-      }
-    } catch (error) {
-      console.error('Error saving override mode state:', error);
-      // Could optionally show an error message to the user
-    }
-  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, isStaffView, isManualOverrideMode]);
-
-  // Handle manual score save - use useCallback to prevent recreation
-  const handleSaveManualScore = useCallback(async () => {
-    console.log('💾 handleSaveManualScore called', {
-      stableCourseProps,
-      stableSessionId,
-      isStaffView,
-      manualScore,
-      saveStatus
-    });
-    
-    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId || !isStaffView) {
-      console.log('❌ handleSaveManualScore early return - missing data');
-      return;
-    }
-
-    const scoreValue = parseFloat(manualScore);
-    if (isNaN(scoreValue) || scoreValue < 0) {
-      console.log('❌ handleSaveManualScore - invalid score value');
-      setSaveStatus('error');
-      return;
-    }
-
-    const maxScore = session.finalResults?.maxScore || 0;
-    if (scoreValue > maxScore) {
-      console.log('❌ handleSaveManualScore - score exceeds max');
-      setSaveStatus('error');
-      return;
-    }
-
-    console.log('💾 Starting save process...');
-    setSaveStatus('saving');
-
-    try {
-      const db = getDatabase();
-      const scoreRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/score`);
-      
-      await set(scoreRef, scoreValue);
-      
-      // Also calculate and update percentage
-      const percentage = maxScore > 0 ? (scoreValue / maxScore) * 100 : 0;
-      const percentageRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/percentage`);
-      await set(percentageRef, percentage);
-
-      setSaveStatus('success');
-      setIsEditingManualScore(false);
-      
-      // Clear success status after 2 seconds
-      setTimeout(() => setSaveStatus(null), 2000);
-    } catch (error) {
-      console.error('Error saving manual score:', error);
-      setSaveStatus('error');
-    }
-  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId, isStaffView, manualScore, session.finalResults?.maxScore]);
-
-  // Handle manual score cancel - use useCallback to prevent recreation
-  const handleCancelManualScore = useCallback(() => {
-    setManualScore(realtimeScore.toString());
-    setIsEditingManualScore(false);
-    setSaveStatus(null);
-  }, [realtimeScore]);
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Unknown';
@@ -798,133 +707,14 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
           </div>
         )}
         
-        {/* Score Editing Mode Toggle - Staff Only */}
-        {isStaffView && (
-          <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-purple-800">Score Editing Mode:</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleToggleOverrideMode}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                      isManualOverrideMode ? 'bg-purple-600' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        isManualOverrideMode ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-purple-700">
-                    {isManualOverrideMode ? 'Manual Total Score' : 'Individual Questions'}
-                  </span>
-                </div>
-              </div>
-              
-              {isManualOverrideMode && (
-                <div className="flex items-center gap-2 text-xs text-purple-600">
-                  <Award className="h-4 w-4" />
-                  <span>Override Mode Active</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Mode Description */}
-            <div className="mt-2 text-xs text-purple-600">
-              {isManualOverrideMode ? (
-                <span>✓ You can manually set the total session score. Individual question editing is disabled.</span>
-              ) : (
-                <span>✓ You can edit individual question scores. Total score is calculated automatically.</span>
-              )}
-            </div>
-          </div>
-        )}
-        
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div className="text-center">
-            {isManualOverrideMode && isStaffView ? (
-              <div className="space-y-2">
-                {/* Manual Score Editor */}
-                {isEditingManualScore ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={manualScore}
-                        onChange={(e) => setManualScore(e.target.value)}
-                        min="0"
-                        max={maxScore}
-                        step="0.5"
-                        className="w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
-                      <span className="font-medium">/ {maxScore}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={handleSaveManualScore}
-                        disabled={saveStatus === 'saving'}
-                        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {saveStatus === 'saving' ? (
-                          <>
-                            <Clock className="h-3 w-3 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-3 w-3" />
-                            Save
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={handleCancelManualScore}
-                        className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    
-                    {saveStatus === 'error' && (
-                      <div className="text-xs text-red-600">
-                        Invalid score. Must be between 0 and {maxScore}.
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className={`text-2xl font-bold px-3 py-1 rounded border ${getScoreColor(percentage)} cursor-pointer hover:bg-opacity-80`}
-                         onClick={() => setIsEditingManualScore(true)}>
-                      {formatScore(score)} / {maxScore}
-                    </div>
-                    <button
-                      onClick={() => setIsEditingManualScore(true)}
-                      className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 mx-auto"
-                    >
-                      <Edit3 className="h-3 w-3" />
-                      Edit Score
-                    </button>
-                  </div>
-                )}
-                
-                {saveStatus === 'success' && (
-                  <div className="text-xs text-green-600 flex items-center gap-1 justify-center">
-                    <CheckCircle className="h-3 w-3" />
-                    Score updated!
-                  </div>
-                )}
+            <div>
+              <div className={`text-2xl font-bold px-3 py-1 rounded border ${getScoreColor(percentage)}`}>
+                {formatScore(score)} / {maxScore}
               </div>
-            ) : (
-              <div>
-                <div className={`text-2xl font-bold px-3 py-1 rounded border ${getScoreColor(percentage)}`}>
-                  {formatScore(score)} / {maxScore}
-                </div>
-                <div className="text-sm text-gray-600 mt-1">{formatScore(percentage)}%</div>
-              </div>
-            )}
+              <div className="text-sm text-gray-600 mt-1">{formatScore(percentage)}%</div>
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{session.finalResults?.totalQuestions || 0}</div>
@@ -933,7 +723,7 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
               {session.createdAt && session.finalResults?.completedAt 
-                ? formatDuration(session.finalResults.completedAt - session.createdAt)
+                ? formatDuration(session.finalResults?.completedAt - session.createdAt)
                 : 'N/A'}
             </div>
             <div className="text-sm text-gray-600">Duration</div>
@@ -955,12 +745,6 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
       <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Questions in This Session</h3>
-          {isManualOverrideMode && isStaffView && (
-            <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-              <Award className="h-4 w-4" />
-              <span>Individual editing disabled</span>
-            </div>
-          )}
         </div>
         
         {session.finalResults?.questionResults?.length === 0 ? (
@@ -979,7 +763,6 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
                 isStaffView={isStaffView}
                 course={course}
                 session={session}
-                isManualOverrideMode={isManualOverrideMode}
               />
             ))}
           </div>
@@ -989,8 +772,214 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
   );
 };
 
+// Simplified Teacher Session View Component - Shows minimal info for manual grade sessions
+const TeacherSessionView = ({ session, lesson, course, attemptNumber, isStaffView = false }) => {
+  // Real-time listeners for session score and percentage
+  const [realtimeScore, setRealtimeScore] = useState(session.finalResults?.score || 0);
+  const [realtimePercentage, setRealtimePercentage] = useState(session.finalResults?.percentage || 0);
+  
+  // Memoize stable course properties
+  const stableCourseProps = useMemo(() => ({
+    studentKey: course?.studentKey,
+    CourseID: course?.CourseID
+  }), [course?.studentKey, course?.CourseID]);
+  
+  const stableSessionId = useMemo(() => session?.sessionId, [session?.sessionId]);
+  
+  // Set up real-time listeners for session finalResults
+  useEffect(() => {
+    if (!stableCourseProps.studentKey || !stableCourseProps.CourseID || !stableSessionId) {
+      return;
+    }
+
+    const db = getDatabase();
+    
+    // Listen to score changes
+    const scoreRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/score`);
+    const scoreUnsubscribe = onValue(scoreRef, (snapshot) => {
+      const score = snapshot.val();
+      if (score !== null && score !== undefined) {
+        setRealtimeScore(score);
+      }
+    });
+
+    // Listen to percentage changes
+    const percentageRef = ref(db, `students/${stableCourseProps.studentKey}/courses/${stableCourseProps.CourseID}/ExamSessions/${stableSessionId}/finalResults/percentage`);
+    const percentageUnsubscribe = onValue(percentageRef, (snapshot) => {
+      const percentage = snapshot.val();
+      if (percentage !== null && percentage !== undefined) {
+        setRealtimePercentage(percentage);
+      }
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      scoreUnsubscribe();
+      percentageUnsubscribe();
+    };
+  }, [stableCourseProps.studentKey, stableCourseProps.CourseID, stableSessionId]);
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const getScoreColor = (percentage) => {
+    if (percentage >= 90) return 'text-green-700 bg-green-50 border-green-200';
+    if (percentage >= 80) return 'text-blue-700 bg-blue-50 border-blue-200';
+    if (percentage >= 70) return 'text-yellow-700 bg-yellow-50 border-yellow-200';
+    if (percentage >= 60) return 'text-orange-700 bg-orange-50 border-orange-200';
+    return 'text-red-700 bg-red-50 border-red-200';
+  };
+
+  const percentage = realtimePercentage;
+  const score = realtimeScore;
+  const maxScore = session.finalResults?.maxScore || 0;
+
+  return (
+    <>
+      {/* Teacher Override Banner */}
+      <div className="px-6 py-4 border-b bg-orange-50">
+        <div className="flex items-center gap-3 mb-4">
+          <Shield className="h-6 w-6 text-orange-600" />
+          <div>
+            <h3 className="text-lg font-medium text-orange-900">Teacher Manual Grade</h3>
+            <p className="text-sm text-orange-700">This score was manually set by an instructor</p>
+          </div>
+        </div>
+        
+        {/* Score Display */}
+        <div className="flex items-center justify-center">
+          <div className="text-center">
+            <div className={`text-4xl font-bold px-4 py-2 rounded-lg border-2 ${getScoreColor(percentage)} border-orange-300`}>
+              {formatScore(score)} / {maxScore}
+            </div>
+            <div className="text-2xl text-orange-700 font-semibold mt-2">{formatScore(percentage)}%</div>
+          </div>
+        </div>
+
+        {/* Session Metadata */}
+        <div className="mt-6 text-sm text-orange-800 space-y-1 text-center">
+          <div><strong>Created:</strong> {formatDate(session.createdAt)}</div>
+          <div><strong>Last Updated:</strong> {formatDate(session.finalResults?.manuallyGradedAt || session.createdAt)}</div>
+          {session.finalResults?.status && (
+            <div><strong>Status:</strong> {session.finalResults.status.replace(/_/g, ' ').toUpperCase()}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Simple Score Editor for Staff */}
+      {isStaffView && (
+        <div className="px-6 py-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-orange-900 mb-3 flex items-center gap-2">
+              <Edit3 className="h-4 w-4" />
+              Update Manual Grade
+            </h4>
+            <TeacherSessionScoreEditor
+              session={session}
+              course={course}
+              onScoreUpdate={() => {
+                console.log('Teacher session score updated');
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Info Note */}
+      <div className="px-6 py-4 bg-gray-50 text-center">
+        <p className="text-sm text-gray-600">
+          This is a simplified view for teacher-created manual grades. 
+          No question details are shown as this session was created for manual scoring only.
+        </p>
+      </div>
+    </>
+  );
+};
+
+// Simple Score Editor for Teacher Sessions
+const TeacherSessionScoreEditor = ({ session, course, onScoreUpdate }) => {
+  const [score, setScore] = useState((session.finalResults?.score || 0).toString());
+  const [isSaving, setIsSaving] = useState(false);
+  const { currentUser } = useAuth();
+  
+  const maxScore = session.finalResults?.maxScore || 0;
+  
+  const handleSave = async () => {
+    if (!currentUser) return;
+    
+    const newScore = parseFloat(score);
+    if (isNaN(newScore) || newScore < 0 || newScore > maxScore) {
+      alert(`Score must be between 0 and ${maxScore}`);
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const db = getDatabase();
+      const courseId = course?.courseDetails?.courseId || course?.id;
+      const studentEmail = session.studentEmail;
+      const studentKey = studentEmail.replace(/[.@]/g, ',');
+      
+      const percentage = maxScore > 0 ? (newScore / maxScore) * 100 : 0;
+      
+      const updates = {
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${session.sessionId}/finalResults/score`]: newScore,
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${session.sessionId}/finalResults/percentage`]: percentage,
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${session.sessionId}/finalResults/manuallyGradedAt`]: Date.now(),
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${session.sessionId}/finalResults/status`]: 'manually_graded'
+      };
+      
+      await update(ref(db), updates);
+      
+      if (onScoreUpdate) {
+        onScoreUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating teacher session score:', error);
+      alert('Failed to update score. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    }
+  };
+  
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        type="number"
+        value={score}
+        onChange={(e) => setScore(e.target.value)}
+        onKeyDown={handleKeyDown}
+        min="0"
+        max={maxScore}
+        step="0.5"
+        className="w-20 px-2 py-1 text-sm text-center border-2 border-orange-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+        disabled={isSaving}
+      />
+      <span className="text-sm text-orange-700">/ {maxScore}</span>
+      {isSaving && <div className="text-sm text-orange-600">Saving...</div>}
+    </div>
+  );
+};
+
 // Session-specific Question Card (limited info for security)
-const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, activityType, isStaffView = false, course, session, isManualOverrideMode = false }) => {
+const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, activityType, isStaffView = false, course, session }) => {
   const getScoreColor = (score, maxScore) => {
     const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
     if (pct >= 90) return 'text-green-700 bg-green-50 border-green-200';
@@ -1190,33 +1179,17 @@ const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, a
 
       {/* Session Grade Editor for Session Questions */}
       <div className="mt-3">
-        {isManualOverrideMode ? (
-          /* Manual Override Mode - Individual editing disabled */
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-center gap-2 text-gray-500">
-              <Award className="h-4 w-4" />
-              <span className="text-sm">Individual question editing is disabled while manual score override is active</span>
-            </div>
-            <div className="text-center mt-2">
-              <span className="text-sm font-medium text-gray-600">
-                Points: {formatScore(questionResult.points || 0)} / {questionResult.maxPoints || 1}
-              </span>
-            </div>
-          </div>
-        ) : (
-          /* Normal Mode - Individual editing enabled */
-          <SessionGradeEditor
-            questionResult={questionResult}
-            questionIndex={questionNumber - 1} // Convert to 0-based index
-            sessionId={session?.sessionId}
-            course={course}
-            isStaffView={isStaffView}
-            onGradeUpdate={(questionIndex, grade, updatedResults) => {
-              // Grade update will be reflected in parent component on next data refresh
-              console.log(`Session question ${questionIndex} grade updated: ${grade}`, updatedResults);
-            }}
-          />
-        )}
+        <SessionGradeEditor
+          questionResult={questionResult}
+          questionIndex={questionNumber - 1} // Convert to 0-based index
+          sessionId={session?.sessionId}
+          course={course}
+          isStaffView={isStaffView}
+          onGradeUpdate={(questionIndex, grade, updatedResults) => {
+            // Grade update will be reflected in parent component on next data refresh
+            console.log(`Session question ${questionIndex} grade updated: ${grade}`, updatedResults);
+          }}
+        />
       </div>
     </div>
   );
@@ -1263,19 +1236,31 @@ const SessionCard = ({ session, attemptNumber, onViewDetails, showViewButton = f
   const score = session.finalResults?.score || 0;
   const maxScore = session.finalResults?.maxScore || 0;
 
-  // Get styling based on whether this session is used for final grade
+  // Get styling based on session type and grade usage
   const getCardStyling = () => {
+    // Special styling for teacher sessions
+    if (session.isTeacherCreated) {
+      return {
+        cardClass: "border-2 border-orange-300 rounded-lg p-3 bg-orange-50 hover:bg-orange-100 shadow-sm",
+        badgeClass: "bg-orange-100 text-orange-800 border-orange-300",
+        isTeacherSession: true
+      };
+    }
+    
+    // Regular student session styling
     if (!isUsedForGrade || gradingMethod === 'average') {
       return {
         cardClass: "border rounded-lg p-4 bg-white hover:bg-gray-50",
-        badgeClass: ""
+        badgeClass: "",
+        isTeacherSession: false
       };
     }
     
     // Highlight the session used for final grade
     return {
       cardClass: "border-2 border-green-300 rounded-lg p-4 bg-green-25 hover:bg-green-50 shadow-sm",
-      badgeClass: "bg-green-100 text-green-800 border-green-300"
+      badgeClass: "bg-green-100 text-green-800 border-green-300",
+      isTeacherSession: false
     };
   };
 
@@ -1286,13 +1271,25 @@ const SessionCard = ({ session, attemptNumber, onViewDetails, showViewButton = f
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-gray-500">Attempt {attemptNumber}</span>
+            <span className="text-sm font-medium text-gray-500">
+              {session.isTeacherCreated ? 'Teacher Grade' : `Attempt ${attemptNumber}`}
+            </span>
             <Badge variant="outline" className="text-xs">
               {session.status === 'completed' ? 'Completed' : session.status}
             </Badge>
-            {isUsedForGrade && gradingMethod !== 'average' && (
+            {session.isTeacherCreated && (
+              <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                Manual Grade
+              </Badge>
+            )}
+            {isUsedForGrade && gradingMethod !== 'average' && !session.isTeacherCreated && (
               <Badge className={`text-xs ${styling.badgeClass}`}>
                 Used for Grade
+              </Badge>
+            )}
+            {session.isTeacherCreated && session.useAsManualGrade && (
+              <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
+                Final Grade
               </Badge>
             )}
           </div>
@@ -1314,36 +1311,38 @@ const SessionCard = ({ session, attemptNumber, onViewDetails, showViewButton = f
         </div>
       </div>
 
-      {/* Session Details Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <div>
-          <span className="font-medium text-gray-700">Questions:</span>
-          <div className="text-gray-600">{session.finalResults?.totalQuestions || 0}</div>
-        </div>
-        <div>
-          <span className="font-medium text-gray-700">Duration:</span>
-          <div className="text-gray-600">
-            {session.createdAt && session.finalResults?.completedAt 
-              ? formatDuration(session.finalResults.completedAt - session.createdAt)
-              : 'N/A'}
+      {/* Session Details Grid - Only show for student sessions */}
+      {!styling.isTeacherSession && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="font-medium text-gray-700">Questions:</span>
+            <div className="text-gray-600">{session.finalResults?.totalQuestions || 0}</div>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Duration:</span>
+            <div className="text-gray-600">
+              {session.createdAt && session.finalResults?.completedAt 
+                ? formatDuration(session.finalResults?.completedAt - session.createdAt)
+                : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Session ID:</span>
+            <div className="text-gray-600 text-xs break-all">
+              {session.sessionId ? session.sessionId.slice(-8) : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Item ID:</span>
+            <div className="text-gray-600 text-xs">
+              {session.examItemId || 'N/A'}
+            </div>
           </div>
         </div>
-        <div>
-          <span className="font-medium text-gray-700">Session ID:</span>
-          <div className="text-gray-600 text-xs break-all">
-            {session.sessionId ? session.sessionId.slice(-8) : 'N/A'}
-          </div>
-        </div>
-        <div>
-          <span className="font-medium text-gray-700">Item ID:</span>
-          <div className="text-gray-600 text-xs">
-            {session.examItemId || 'N/A'}
-          </div>
-        </div>
-      </div>
+      )}
 
-      {/* View Details Button */}
-      {showViewButton && onViewDetails && (
+      {/* View Details Button - Only show for student sessions */}
+      {showViewButton && onViewDetails && !styling.isTeacherSession && (
         <div className="mt-3 pt-3 border-t">
           <Button
             onClick={onViewDetails}

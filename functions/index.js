@@ -314,6 +314,8 @@ exports.submitExamSession = examSessionFunctions.submitExamSession;
 exports.getExamSession = examSessionFunctions.getExamSession;
 exports.detectActiveExamSession = examSessionFunctions.detectActiveExamSession;
 exports.exitExamSession = examSessionFunctions.exitExamSession;
+exports.createTeacherSession = examSessionFunctions.createTeacherSession;
+exports.deleteTeacherSession = examSessionFunctions.deleteTeacherSession;
 
 //==============================================================================
 // Core functions only (course-specific functions moved to separate codebases)

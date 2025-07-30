@@ -1,6 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { formatScore } from '../../utils/gradeUtils';
+import { functions } from '../../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, update } from 'firebase/database';
+import { sanitizeEmail } from '../../../utils/sanitizeEmail';
 
 // Helper function to format timestamps in a friendly format
 const formatFriendlyDate = (timestamp) => {
@@ -53,7 +57,17 @@ import {
   XCircle,
   Clock,
   RotateCcw,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Loader2,
+  Edit3,
+  Trash2,
+  UserCheck,
+  PenTool,
+  X,
+  Check,
+  AlertCircle,
+  Shield
 } from 'lucide-react';
 import { 
   validateGradeDataStructures, 
@@ -97,6 +111,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   // Determine if this is a staff view (teacher looking at student data)
   const isStaffView = currentUser?.email && studentEmail && 
                       currentUser.email !== studentEmail;
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -104,6 +119,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [creatingSessionFor, setCreatingSessionFor] = useState(null);
 
   // Use allCourseItems for consistent data with other components
   const groupedLessons = useMemo(() => {
@@ -127,6 +143,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
       const isSessionBased = lessonScore.source === 'session';
       const sessionCount = lessonScore.sessionsCount || 0;
       const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
+      
       
       // Calculate completion rate and status
       const completionRate = lessonScore.totalQuestions > 0 ? 
@@ -282,6 +299,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         sessionStatus: lessonScore.sessionStatus || null
       };
       
+      
       lessons.push(lesson);
     });
     
@@ -392,6 +410,66 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
     setSelectedLesson(null);
   };
 
+  const handleCreateSession = async (lesson) => {
+    if (!isStaffView || !studentEmail) {
+      console.error('Cannot create session: not in staff view or no student email');
+      return;
+    }
+
+    setCreatingSessionFor(lesson.lessonId);
+
+    try {
+      // Get lesson configuration from itemStructure
+      const normalizedLessonId = lesson.lessonId.replace(/-/g, '_');
+      const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
+      const lessonConfig = itemStructure[normalizedLessonId] || itemStructure[lesson.lessonId];
+      
+      if (!lessonConfig || !lessonConfig.questions) {
+        throw new Error(`No lesson configuration found for ${lesson.lessonId}`);
+      }
+
+      // Extract course ID from the current course context
+      const courseId = course?.courseDetails?.courseId || course?.id;
+      if (!courseId) {
+        throw new Error('Course ID not found');
+      }
+
+      console.log('Creating optimized teacher session for:', {
+        lessonId: lesson.lessonId,
+        studentEmail,
+        courseId,
+        questionsCount: lessonConfig.questions.length,
+        maxScore: lesson.maxScore
+      });
+
+      // Use the optimized teacher session cloud function
+      const createTeacherSessionFunction = httpsCallable(functions, 'createTeacherSession');
+      
+      const sessionResult = await createTeacherSessionFunction({
+        courseId: courseId,
+        assessmentItemId: lesson.lessonId,
+        studentEmail: studentEmail,
+        questionsCount: lessonConfig.questions.length, // Just count, not full question data
+        maxScore: lesson.maxScore, // Pass max score directly
+        initialScore: 0 // Start with 0 score - teacher can set it manually
+      });
+
+      console.log('Teacher session created:', sessionResult.data);
+      
+      // Brief delay to show completion and allow real-time listener to update
+      setTimeout(() => {
+        setCreatingSessionFor(null);
+        // Force a small state update to trigger re-render if needed
+        // The real-time listener should handle the data update automatically
+      }, 1000); // Slightly longer delay to ensure data propagation
+      
+    } catch (error) {
+      console.error('Error creating teacher session:', error);
+      alert(`Failed to create teacher session: ${error.message}`);
+      setCreatingSessionFor(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
@@ -454,7 +532,7 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="w-48 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('score')}
                 >
                   <div className="flex items-center justify-center gap-1">
@@ -483,6 +561,9 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                   lesson={lesson}
                   course={course}
                   onViewDetails={() => handleViewDetails(lesson)}
+                  isStaffView={isStaffView}
+                  onCreateSession={handleCreateSession}
+                  creatingSessionFor={creatingSessionFor}
                 />
               ))}
             </tbody>
@@ -514,6 +595,15 @@ const getProgressColor = (rate) => {
   if (rate >= 50) return 'bg-yellow-500';
   if (rate > 0) return 'bg-blue-500';
   return 'bg-gray-300';
+};
+
+// Helper function for score color
+const getScoreColor = (pct) => {
+  if (pct >= 90) return 'text-green-700 bg-green-50';
+  if (pct >= 80) return 'text-blue-700 bg-blue-50';
+  if (pct >= 70) return 'text-yellow-700 bg-yellow-50';
+  if (pct >= 60) return 'text-orange-700 bg-orange-50';
+  return 'text-red-700 bg-red-50';
 };
 
 // Helper function to get status badge for session-based items and labs
@@ -566,23 +656,20 @@ const getStatusBadge = (lesson) => {
 };
 
 // Lesson Row Component
-const LessonRow = ({ lesson, course, onViewDetails }) => {
+const LessonRow = ({ lesson, course, onViewDetails, isStaffView, onCreateSession, creatingSessionFor }) => {
   // Handle row click to open details modal
   const handleRowClick = () => {
+    // Prevent clicking if session is being created for this lesson
+    if (creatingSessionFor === lesson.lessonId) {
+      return;
+    }
     if (lesson.isConfigured && lesson.questions.length > 0) {
       onViewDetails();
     }
   };
 
   // Determine if row should be clickable
-  const isClickable = lesson.isConfigured && lesson.questions.length > 0;
-  const getScoreColor = (pct) => {
-    if (pct >= 90) return 'text-green-700 bg-green-50';
-    if (pct >= 80) return 'text-blue-700 bg-blue-50';
-    if (pct >= 70) return 'text-yellow-700 bg-yellow-50';
-    if (pct >= 60) return 'text-orange-700 bg-orange-50';
-    return 'text-red-700 bg-red-50';
-  };
+  const isClickable = lesson.isConfigured && lesson.questions.length > 0 && creatingSessionFor !== lesson.lessonId;
 
   const getTypeColor = (type) => {
     const colors = {
@@ -598,12 +685,20 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
   return (
     <tr 
       className={`${
-        isClickable
-          ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group' 
-          : 'hover:bg-gray-50'
+        creatingSessionFor === lesson.lessonId
+          ? 'bg-blue-50 opacity-75 cursor-wait' 
+          : isClickable
+            ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group' 
+            : 'hover:bg-gray-50'
       }`}
       onClick={handleRowClick}
-      title={isClickable ? 'Click to view details' : undefined}
+      title={
+        creatingSessionFor === lesson.lessonId 
+          ? 'Creating session...' 
+          : isClickable 
+            ? 'Click to view details' 
+            : undefined
+      }
     >
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
@@ -615,9 +710,9 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
               <div className="text-sm font-medium text-gray-900">
                 {lesson.lessonTitle}
               </div>
-              {isClickable && (
-                <Eye className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-150" 
-                     title="Click to view details" />
+              {creatingSessionFor === lesson.lessonId && (
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin" 
+                     title="Creating session..." />
               )}
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -632,20 +727,16 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
         {lesson.isConfigured ? (
           <>
             {lesson.shouldBeSessionBased ? (
-              // Session-based assessment display
-              lesson.hasNoSessions ? (
-                <span className="text-sm text-gray-400">-</span>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
-                    {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
-                  {lesson.sessionCount > 1 && (
-                    <div className="text-xs text-purple-600 font-medium">{lesson.sessionCount} attempts</div>
-                  )}
-                </div>
-              )
+              <SessionScoreDisplay 
+                lesson={lesson}
+                course={course}
+                isStaffView={isStaffView}
+                onCreateSession={onCreateSession}
+                creatingSessionFor={creatingSessionFor}
+                onScoreUpdate={() => {
+                  console.log('Score updated for', lesson.lessonId);
+                }}
+              />
             ) : (
               // Individual question-based display
               lesson.totalAttempts > 0 || (lesson.activityType === 'lab' && lesson.status === 'completed') ? (
@@ -813,9 +904,6 @@ const LessonRow = ({ lesson, course, onViewDetails }) => {
               <span className="text-xs text-gray-400 italic">Coming soon</span>
             )}
           </div>
-          {isClickable && (
-            <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-blue-500 transition-colors duration-150 ml-1" />
-          )}
         </div>
       </td>
     </tr>
@@ -832,5 +920,324 @@ const SortIcon = ({ field, currentSort, sortOrder }) => {
     : <ChevronDown className="h-3 w-3 text-gray-700" />;
 };
 
+// Enhanced Session Score Display Component
+const SessionScoreDisplay = ({ lesson, course, isStaffView, onCreateSession, creatingSessionFor, onScoreUpdate }) => {
+  const hasTeacherSession = lesson.sessionData?.sessions?.some(s => s.isTeacherCreated && s.useAsManualGrade);
+  const hasStudentScore = !lesson.hasNoSessions && !hasTeacherSession;
+  const hasNoSessions = lesson.hasNoSessions;
+  
+  if (hasTeacherSession) {
+    return (
+      <ManualScoreEditor 
+        lesson={lesson}
+        course={course}
+        onScoreUpdate={onScoreUpdate}
+      />
+    );
+  }
+  
+  if (hasStudentScore) {
+    return (
+      <StudentScoreDisplay 
+        lesson={lesson}
+        isStaffView={isStaffView}
+        onCreateSession={onCreateSession}
+        creatingSessionFor={creatingSessionFor}
+      />
+    );
+  }
+  
+  return (
+    <NoScoreDisplay 
+      lesson={lesson}
+      isStaffView={isStaffView}
+      onCreateSession={onCreateSession}
+      creatingSessionFor={creatingSessionFor}
+    />
+  );
+};
+
+// Student Score Display (Original Work)
+const StudentScoreDisplay = ({ lesson, isStaffView, onCreateSession, creatingSessionFor }) => {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center gap-2">
+        <div className={`text-xs font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+          {formatScore(lesson.totalScore)} / {lesson.maxScore}
+        </div>
+        {isStaffView && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateSession(lesson);
+            }}
+            disabled={creatingSessionFor === lesson.lessonId}
+            className="h-5 w-5 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 disabled:opacity-50"
+            title="Override with manual score"
+          >
+            {creatingSessionFor === lesson.lessonId ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <PenTool className="h-3 w-3" />
+            )}
+          </button>
+        )}
+      </div>
+      {lesson.sessionCount > 1 && (
+        <div className="text-xs text-gray-500">{lesson.sessionCount} attempts</div>
+      )}
+    </div>
+  );
+};
+
+// No Score Display
+const NoScoreDisplay = ({ lesson, isStaffView, onCreateSession, creatingSessionFor }) => {
+  return isStaffView ? (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onCreateSession(lesson);
+      }}
+      disabled={creatingSessionFor === lesson.lessonId}
+      className="text-gray-400 hover:text-orange-500 transition-all duration-200 disabled:opacity-50"
+      title="Set manual score"
+    >
+      {creatingSessionFor === lesson.lessonId ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <PenTool className="h-4 w-4" />
+      )}
+    </button>
+  ) : (
+    <div className="flex flex-col items-center">
+      <span className="text-sm text-gray-400">-</span>
+      <div className="text-xs text-gray-400">Not Started</div>
+    </div>
+  );
+};
+
+// Manual Score Editor Component (Teacher Override)
+const ManualScoreEditor = ({ lesson, course, onScoreUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [score, setScore] = useState('0');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isStaffUser, setIsStaffUser] = useState(false);
+  const { currentUser } = useAuth();
+  
+  // Check if user has staff permissions
+  useEffect(() => {
+    const checkStaffStatus = async () => {
+      if (!currentUser) {
+        setIsStaffUser(false);
+        return;
+      }
+      
+      try {
+        // Get the ID token result which includes custom claims
+        const tokenResult = await currentUser.getIdTokenResult();
+        const claims = tokenResult.claims;
+        
+        // Check for isStaffUser claim
+        setIsStaffUser(claims.isStaffUser === true);
+      } catch (error) {
+        console.error('Error checking staff status:', error);
+        setIsStaffUser(false);
+      }
+    };
+    
+    checkStaffStatus();
+  }, [currentUser]);
+  
+  // Find the teacher session
+  const teacherSession = lesson.sessionData?.sessions?.find(s => 
+    s.isTeacherCreated && s.useAsManualGrade
+  );
+  
+  if (!teacherSession || !isStaffUser) return null;
+  
+  const maxScore = teacherSession.finalResults?.maxScore || lesson.maxScore;
+  const currentScore = teacherSession.finalResults?.score || 0;
+  
+  const handleStartEdit = (e) => {
+    e.stopPropagation();
+    setScore(currentScore.toString());
+    setIsEditing(true);
+  };
+  
+  const handleSave = async (e) => {
+    e.stopPropagation();
+    
+    // Double-check staff status before saving
+    if (!currentUser) {
+      alert('You must be logged in to update scores');
+      return;
+    }
+    
+    try {
+      const tokenResult = await currentUser.getIdTokenResult();
+      if (!tokenResult.claims.isStaffUser) {
+        alert('You do not have permission to update scores');
+        return;
+      }
+    } catch (error) {
+      console.error('Error verifying staff status:', error);
+      alert('Failed to verify permissions');
+      return;
+    }
+    
+    const newScore = parseFloat(score);
+    if (isNaN(newScore) || newScore < 0 || newScore > maxScore) {
+      alert(`Score must be between 0 and ${maxScore}`);
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const db = getDatabase();
+      const courseId = course?.courseDetails?.courseId || course?.id;
+      const studentEmail = teacherSession.studentEmail;
+      const studentKey = sanitizeEmail(studentEmail);
+      
+      // Update the score and percentage
+      const percentage = maxScore > 0 ? (newScore / maxScore) * 100 : 0;
+      
+      const updates = {
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${teacherSession.sessionId}/finalResults/score`]: newScore,
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${teacherSession.sessionId}/finalResults/percentage`]: percentage,
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${teacherSession.sessionId}/finalResults/manuallyGradedAt`]: Date.now(),
+        [`students/${studentKey}/courses/${courseId}/ExamSessions/${teacherSession.sessionId}/finalResults/status`]: 'manually_graded'
+      };
+      
+      await update(ref(db), updates);
+      
+      setIsEditing(false);
+      if (onScoreUpdate) {
+        onScoreUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating score:', error);
+      alert('Failed to update score. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    setIsEditing(false);
+    setScore(currentScore.toString());
+  };
+  
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    
+    if (!currentUser || !teacherSession) {
+      alert('Unable to delete session');
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      // Double-check staff status before deleting
+      const tokenResult = await currentUser.getIdTokenResult();
+      if (!tokenResult.claims.isStaffUser) {
+        alert('You do not have permission to delete sessions');
+        return;
+      }
+      
+      const deleteTeacherSession = httpsCallable(functions, 'deleteTeacherSession');
+      const courseId = course?.courseDetails?.courseId || course?.id;
+      
+      await deleteTeacherSession({
+        sessionId: teacherSession.sessionId,
+        courseId: courseId,
+        studentEmail: teacherSession.studentEmail
+      });
+      
+      if (onScoreUpdate) {
+        onScoreUpdate();
+      }
+    } catch (error) {
+      console.error('Error deleting teacher session:', error);
+      alert('Failed to delete session. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave(e);
+    } else if (e.key === 'Escape') {
+      handleCancel(e);
+    }
+  };
+  
+  if (isEditing) {
+    const inputPercentage = maxScore > 0 ? (parseFloat(score || 0) / maxScore) * 100 : 0;
+    
+    return (
+      <div className="flex flex-col items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1">
+          <Shield className="h-3 w-3 text-orange-500" title="Teacher Override" />
+          <input
+            type="number"
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            onKeyDown={handleKeyDown}
+            min="0"
+            max={maxScore}
+            step="0.5"
+            className="w-14 px-1 py-0.5 text-xs text-center border-2 border-orange-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-400 bg-orange-50"
+            autoFocus
+            disabled={isSaving || isDeleting}
+          />
+          <span className="text-xs text-gray-600">/ {maxScore}</span>
+          {(isSaving || isDeleting) && <Loader2 className="h-3 w-3 animate-spin text-orange-500" />}
+        </div>
+        <div className="text-xs text-orange-600 font-medium">{formatScore(inputPercentage)}%</div>
+      </div>
+    );
+  }
+  
+  const percentage = maxScore > 0 ? (currentScore / maxScore) * 100 : 0;
+  
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <Shield className="h-3 w-3 text-orange-500" title="Teacher Override" />
+          </div>
+          <div 
+            className={`text-xs font-medium px-2 py-1 rounded border border-orange-300 bg-orange-50 text-orange-800 ${isStaffUser ? 'cursor-pointer hover:bg-orange-100' : ''}`}
+            onClick={isStaffUser ? handleStartEdit : undefined}
+            title={isStaffUser ? "Teacher Override - Click to edit" : "Teacher Override"}
+          >
+            {formatScore(currentScore)} / {maxScore}
+          </div>
+        </div>
+        {isStaffUser && (
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting || isSaving}
+            className="h-4 w-4 p-0.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 disabled:opacity-50"
+            title="Remove override"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            ) : (
+              <X className="h-2.5 w-2.5" />
+            )}
+          </button>
+        )}
+      </div>
+      <div className="text-xs text-orange-600 font-medium">{formatScore(percentage)}%</div>
+    </div>
+  );
+};
 
 export default AssessmentGrid;

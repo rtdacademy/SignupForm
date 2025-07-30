@@ -750,6 +750,198 @@ exports.detectActiveExamSession = onCall({
 });
 
 /**
+ * Create a lightweight teacher-created session for manual grading
+ * Optimized to create minimal structure without detailed question data
+ */
+exports.createTeacherSession = onCall({
+  region: 'us-central1',
+  memory: '128MiB', // Reduced memory requirement
+  timeoutSeconds: 30, // Reduced timeout
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  try {
+    console.log('🎯 Creating optimized teacher session:', request.data);
+    
+    const {
+      courseId,
+      assessmentItemId,
+      studentEmail,
+      questionsCount = 1, // Just need count, not detailed questions
+      maxScore = 1, // Just need max score
+      initialScore = 0
+    } = request.data;
+
+    // Access authentication from request.auth (v2 style)
+    const auth = request.auth;
+    const authToken = auth ? auth.token : null;
+    
+    if (!auth || !auth.uid) {
+      throw new Error('Authentication required');
+    }
+
+    // Verify teacher has staff permissions
+    if (!authToken || !authToken.isStaffUser) {
+      throw new Error('Only staff users can create teacher sessions');
+    }
+
+    if (!studentEmail || !courseId || !assessmentItemId) {
+      throw new Error('Missing required parameters: studentEmail, courseId, or assessmentItemId');
+    }
+
+    // Use authenticated email
+    const teacherEmail = authToken.email || `staff-user-${auth.uid}`;
+
+    // Sanitize student email for database key
+    const studentKey = sanitizeEmail(studentEmail);
+    
+    // Generate unique session ID using same convention as regular exam sessions
+    const sessionId = `exam_${assessmentItemId}_${studentKey}_${Date.now()}`;
+    
+    // Validate initial score
+    const validatedInitialScore = Math.max(0, Math.min(initialScore || 0, maxScore));
+    const initialPercentage = maxScore > 0 ? (validatedInitialScore / maxScore) * 100 : 0;
+    
+    // Create minimal session data - only what's needed for grading
+    const sessionData = {
+      // Essential identifiers
+      sessionId: sessionId,
+      examItemId: assessmentItemId,
+      courseId: parseInt(courseId) || courseId,
+      studentEmail: studentEmail,
+      
+      // Basic session info
+      status: 'completed',
+      createdAt: getServerTimestamp(),
+      completedAt: getServerTimestamp(),
+      
+      // Teacher-specific flags
+      isTeacherCreated: true,
+      useAsManualGrade: true,
+      countsTowardAttempts: false,
+      teacherEmail: teacherEmail,
+      
+      // Minimal final results - just what's needed for scoring
+      finalResults: {
+        score: validatedInitialScore,
+        maxScore: maxScore,
+        percentage: initialPercentage,
+        totalQuestions: questionsCount,
+        completedAt: getServerTimestamp(),
+        status: 'manually_graded',
+        // Empty questionResults array - not needed for teacher sessions
+        questionResults: []
+      }
+    };
+
+    // Save session to database
+    const sessionPath = `students/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`;
+    await admin.database().ref(sessionPath).set(sessionData);
+    
+    console.log(`✅ Optimized teacher session created: ${sessionId} (${questionsCount} questions, score: ${validatedInitialScore}/${maxScore})`);
+    
+    return {
+      success: true,
+      sessionId: sessionId,
+      session: sessionData
+    };
+    
+  } catch (error) {
+    console.error('❌ Error creating teacher session:', error);
+    throw new Error(`Failed to create teacher session: ${error.message}`);
+  }
+});
+
+/**
+ * Delete a teacher-created session
+ */
+exports.deleteTeacherSession = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  try {
+    console.log('🗑️ Deleting teacher session - Request data:', request.data);
+    
+    // Extract parameters from request.data
+    const {
+      courseId,
+      sessionId,
+      studentEmail,
+      teacherEmail: dataTeacherEmail,
+      userId: dataUserId
+    } = request.data;
+
+    // Access authentication from request.auth (v2 style)
+    const auth = request.auth;
+    const authToken = auth ? auth.token : null;
+    
+    console.log('🔍 Auth check:', {
+      hasAuth: !!auth,
+      hasToken: !!authToken,
+      uid: auth?.uid,
+      email: authToken?.email,
+      isStaffUser: authToken?.isStaffUser
+    });
+    
+    if (!auth || !auth.uid) {
+      throw new Error('Authentication required');
+    }
+
+    // Verify teacher has staff permissions using custom claims
+    if (!authToken || !authToken.isStaffUser) {
+      throw new Error('Only staff users can delete teacher sessions');
+    }
+    
+    // Use email from token
+    const authenticatedEmail = authToken.email || `staff-user-${auth.uid}`;
+
+    if (!studentEmail || !courseId || !sessionId) {
+      throw new Error('Missing required parameters: studentEmail, courseId, or sessionId');
+    }
+
+    // Sanitize student email for database key
+    const studentKey = sanitizeEmail(studentEmail);
+    
+    // Get the session first to verify it exists and is teacher-created
+    const sessionPath = `students/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`;
+    const sessionRef = admin.database().ref(sessionPath);
+    const sessionSnapshot = await sessionRef.once('value');
+    const sessionData = sessionSnapshot.val();
+
+    if (!sessionData) {
+      throw new Error('Session not found');
+    }
+
+    // Verify this is a teacher-created session
+    if (!sessionData.isTeacherCreated) {
+      throw new Error('Can only delete teacher-created sessions');
+    }
+
+    // Verify the requesting teacher has permission (either the original creator or any staff)
+    if (sessionData.teacherEmail && sessionData.teacherEmail !== authenticatedEmail) {
+      console.log(`⚠️ Different teacher deleting session. Original: ${sessionData.teacherEmail}, Deleting: ${authenticatedEmail}`);
+      // Allow any staff to delete teacher sessions for administrative purposes
+    }
+
+    // Delete the session
+    await sessionRef.remove();
+    
+    console.log(`✅ Teacher session deleted: ${sessionId} by ${authenticatedEmail}`);
+    
+    return {
+      success: true,
+      sessionId: sessionId,
+      message: 'Teacher session deleted successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Error deleting teacher session:', error);
+    throw new Error(`Failed to delete teacher session: ${error.message}`);
+  }
+});
+
+/**
  * Get exam session data
  */
 exports.getExamSession = onCall({

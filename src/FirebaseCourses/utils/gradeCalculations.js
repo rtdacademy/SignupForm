@@ -610,25 +610,74 @@ export const calculateSessionBasedScore = (assessmentId, course, studentEmail) =
   
   const strategy = getSessionScoringStrategy(assessmentId, course);
   
-  // Filter completed sessions for scoring strategy
-  const completedSessions = sessions.filter(session => session.status === 'completed' && session.finalResults);
+  // Check for teacher-created manual grade sessions first
+  const teacherManualSessions = sessions.filter(session => 
+    session.isTeacherCreated && 
+    session.useAsManualGrade && 
+    session.status === 'completed' && 
+    session.finalResults
+  );
   
-  if (completedSessions.length === 0) {
-    // No completed sessions, but sessions exist - return progress info
-    const latestSession = sessions[0]; // Most recent session
+  // If there's a teacher-created manual grade session, use it
+  if (teacherManualSessions.length > 0) {
+    const teacherSession = teacherManualSessions[0]; // Use the first (most recent) teacher session
     return {
-      score: 0,
-      total: latestSession.totalQuestions || 0,
-      percentage: 0,
-      attempted: latestSession.answeredQuestions || 0,
-      totalQuestions: latestSession.totalQuestions || 0,
+      score: teacherSession.finalResults.score,
+      total: teacherSession.finalResults.maxScore,
+      percentage: teacherSession.finalResults.percentage,
+      attempted: sessions.filter(s => !s.isTeacherCreated).length, // Only count student attempts
+      totalQuestions: teacherSession.finalResults.totalQuestions,
       valid: true,
       source: 'session',
-      strategy: strategy,
-      sessionsCount: sessions.length,
-      sessionStatus: latestSession.status,
-      sessionProgress: latestSession.sessionProgress || 0
+      strategy: 'teacher_manual',
+      sessionsCount: sessions.length, // Include teacher session in count so UI knows sessions exist
+      completedSessionsCount: sessions.filter(s => s.status === 'completed').length,
+      sessionStatus: 'completed',
+      sessionProgress: 100,
+      isTeacherGraded: true,
+      studentSessionsCount: sessions.filter(s => !s.isTeacherCreated).length // Separate count for student sessions
     };
+  }
+  
+  // Filter completed sessions for normal scoring strategy (exclude teacher sessions)
+  const studentSessions = sessions.filter(session => !session.isTeacherCreated);
+  const completedSessions = studentSessions.filter(session => session.status === 'completed' && session.finalResults);
+  
+  if (completedSessions.length === 0) {
+    // No completed student sessions, but sessions exist - return progress info
+    const latestStudentSession = studentSessions[0]; // Most recent student session
+    if (latestStudentSession) {
+      return {
+        score: 0,
+        total: latestStudentSession.totalQuestions || 0,
+        percentage: 0,
+        attempted: latestStudentSession.answeredQuestions || 0,
+        totalQuestions: latestStudentSession.totalQuestions || 0,
+        valid: true,
+        source: 'session',
+        strategy: strategy,
+        sessionsCount: sessions.length,
+        sessionStatus: latestStudentSession.status,
+        sessionProgress: latestStudentSession.sessionProgress || 0,
+        studentSessionsCount: studentSessions.length
+      };
+    } else {
+      // Only teacher sessions exist, but none are completed - return zero
+      return {
+        score: 0,
+        total: 0,
+        percentage: 0,
+        attempted: 0,
+        totalQuestions: 0,
+        valid: true,
+        source: 'session',
+        strategy: strategy,
+        sessionsCount: sessions.length, // Include teacher sessions in count
+        sessionStatus: 'not_started',
+        sessionProgress: 0,
+        studentSessionsCount: 0
+      };
+    }
   }
   
   // Use completed sessions for scoring
@@ -638,14 +687,15 @@ export const calculateSessionBasedScore = (assessmentId, course, studentEmail) =
     score: selectedSession.finalResults.score,
     total: selectedSession.finalResults.maxScore,
     percentage: selectedSession.finalResults.percentage,
-    attempted: sessions.length, // Total number of attempts (including incomplete)
+    attempted: studentSessions.length, // Total number of student attempts (including incomplete)
     totalQuestions: selectedSession.finalResults.totalQuestions,
     valid: true,
     source: 'session',
     strategy: strategy,
-    sessionsCount: sessions.length,
-    completedSessionsCount: completedSessions.length,
-    sessionStatus: sessions[0].status, // Status of most recent session
-    sessionProgress: sessions[0].sessionProgress || 0
+    sessionsCount: sessions.length, // Total sessions including teacher sessions
+    completedSessionsCount: completedSessions.length + teacherManualSessions.length,
+    sessionStatus: studentSessions[0]?.status || 'not_started', // Status of most recent student session
+    sessionProgress: studentSessions[0]?.sessionProgress || 0,
+    studentSessionsCount: studentSessions.length // Separate count for student sessions
   };
 };

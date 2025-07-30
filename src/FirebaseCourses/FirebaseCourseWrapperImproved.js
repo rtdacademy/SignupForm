@@ -1357,7 +1357,16 @@ const FirebaseCourseWrapperContent = ({
           )}
           
           {(activeTab === 'progress' || activeTab === 'grades') && (
-            <GradebookDashboard course={course} allCourseItems={allCourseItems} profile={profile} lessonAccessibility={lessonAccessibility} />
+            <GradebookDashboard 
+              course={{
+                ...course,
+                ExamSessions: realtimeExamSessions || course?.ExamSessions || {},
+                Grades: realtimeGrades || course?.Grades || {}
+              }} 
+              allCourseItems={allCourseItems} 
+              profile={profile} 
+              lessonAccessibility={lessonAccessibility} 
+            />
           )}
           
           {/* Debug tab - only accessible by authorized users when developer mode is active */}
