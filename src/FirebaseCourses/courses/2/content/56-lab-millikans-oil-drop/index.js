@@ -247,6 +247,25 @@ const LabPhotoelectricEffect = ({ courseId = '2', course, isStaffView = false })
     return () => unsubscribe();
   }, [currentUser?.uid, labDataRef, isSubmitted, course?.Assessments, questionId]);
 
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    if (!labStarted || !hasSavedProgress || isSubmitted) return;
+    
+    const interval = setInterval(() => {
+      saveToFirebase({
+        sectionStatus,
+        sectionContent,
+        observationData,
+        analysisData,
+        errorAnalysisData,
+        currentSection,
+        labStarted
+      });
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [labStarted, hasSavedProgress, sectionStatus, sectionContent, observationData, analysisData, errorAnalysisData, currentSection, saveToFirebase, isSubmitted]);
+
   // Auto-start lab for staff view
   useEffect(() => {
     if (isStaffView && !labStarted) {
@@ -472,8 +491,52 @@ const LabPhotoelectricEffect = ({ courseId = '2', course, isStaffView = false })
 
   // Handle simulation data export
   const handleSimulationDataExport = (data) => {
-    toast.success(`Data exported: ${data.metal} at ${data.wavelength}nm`);
-    console.log('Simulation data:', data);
+    console.log('Exporting simulation data:', data);
+    
+    // Determine which metal slot to use (metal1 or metal2)
+    let targetMetal = null;
+    if (!observationData.metal1.metalName || observationData.metal1.metalName === data.metal) {
+      targetMetal = 'metal1';
+    } else if (!observationData.metal2.metalName || observationData.metal2.metalName === data.metal) {
+      targetMetal = 'metal2';
+    } else {
+      toast.error('Both metal slots are filled with different metals. Clear one to add new data.');
+      return;
+    }
+    
+    // Find the first empty measurement slot for the target metal
+    const measurements = [...observationData[targetMetal].measurements];
+    const emptyIndex = measurements.findIndex(m => !m.wavelength || m.wavelength === '');
+    
+    if (emptyIndex === -1) {
+      toast.error(`All measurement slots for ${data.metal} are filled.`);
+      return;
+    }
+    
+    // Update the measurement
+    measurements[emptyIndex] = {
+      wavelength: data.wavelength ? data.wavelength.toString() : '',
+      frequency: data.frequency && typeof data.frequency === 'number' ? data.frequency.toExponential(3) : (data.frequency || ''),
+      stopVoltage: data.stoppingVoltage && typeof data.stoppingVoltage === 'number' ? data.stoppingVoltage.toFixed(3) : (data.stoppingVoltage || ''),
+      kineticEnergy: data.kineticEnergy && typeof data.kineticEnergy === 'number' ? data.kineticEnergy.toExponential(3) : (data.kineticEnergy || '')
+    };
+    
+    // Update observation data
+    const newObservationData = {
+      ...observationData,
+      [targetMetal]: {
+        ...observationData[targetMetal],
+        metalName: data.metal,
+        thresholdWavelength: data.thresholdWavelength ? data.thresholdWavelength.toString() : observationData[targetMetal].thresholdWavelength,
+        thresholdFrequency: data.thresholdFrequency && typeof data.thresholdFrequency === 'number' ? data.thresholdFrequency.toExponential(3) : (data.thresholdFrequency || observationData[targetMetal].thresholdFrequency),
+        measurements: measurements
+      }
+    };
+    
+    setObservationData(newObservationData);
+    saveToFirebase({ observationData: newObservationData });
+    
+    toast.success(`Data exported: ${data.metal} at ${data.wavelength}nm → ${targetMetal} row ${emptyIndex + 1}`);
   };
 
   // Count completed sections

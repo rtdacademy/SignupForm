@@ -137,9 +137,19 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
   
-  // Auto-save timer
-  const autoSaveTimer = useRef(null);
+  // Initial load flag
   const isInitialLoad = useRef(true);
+  
+  // Debounce timer for section status updates
+  const statusUpdateTimer = useRef(null);
+  
+  // Helper function to check if SimpleQuillEditor content has actual text
+  const hasQuillContent = (htmlContent) => {
+    if (!htmlContent || typeof htmlContent !== 'string') return false;
+    // Remove HTML tags and check if there's actual text
+    const textContent = htmlContent.replace(/<[^>]*>/g, '').trim();
+    return textContent.length > 10;
+  };
   
   // Scroll to section function
   const scrollToSection = (sectionId) => {
@@ -231,28 +241,27 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
     try {
       await update(labDataRef, dataToSave);
       console.log('💾 Lab data auto-saved');
+      toast.success('Progress saved', {
+        duration: 2000,
+        icon: '💾'
+      });
     } catch (error) {
       console.error('❌ Error saving lab data:', error);
+      toast.error('Failed to save progress');
     }
   }, [labDataRef, sectionStatus, sectionContent, observationData, analysisData, conclusionData, isSubmitted, submissionTime, labStarted, currentSection, courseId, questionId]);
   
-  // Auto-save on data changes
+  // Auto-save every 30 seconds
   useEffect(() => {
-    if (!isInitialLoad.current && !isSubmitted) {
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current);
-      }
-      autoSaveTimer.current = setTimeout(() => {
-        saveData();
-      }, 2000); // Save after 2 seconds of inactivity
-    }
+    if (!labStarted || !labDataRef || isSubmitted) return;
     
-    return () => {
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current);
-      }
-    };
-  }, [sectionStatus, sectionContent, observationData, analysisData, conclusionData, saveData, isSubmitted]);
+    const interval = setInterval(() => {
+      saveData();
+    }, 30000); // Save every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [labStarted, labDataRef, saveData, isSubmitted]);
+  
   
   // Start lab function
   const startLab = () => {
@@ -275,9 +284,19 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
     }
   };
   
-  // Update section status
+  // Update section status (immediate)
   const updateSectionStatus = (section, status) => {
     setSectionStatus(prev => ({ ...prev, [section]: status }));
+  };
+  
+  // Debounced section status update function
+  const debouncedStatusUpdate = (checkFunction) => {
+    if (statusUpdateTimer.current) {
+      clearTimeout(statusUpdateTimer.current);
+    }
+    statusUpdateTimer.current = setTimeout(() => {
+      checkFunction();
+    }, 1000); // Wait 1 second after user stops typing
   };
   
   // Handle lab submission
@@ -600,23 +619,34 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                   {index + 1}. {question}
                 </label>
                 <SimpleQuillEditor
-                  value={sectionContent.prelabAnswers[index] || ''}
-                  onChange={(value) => {
+                  courseId="2"
+                  unitId="lab-half-life"
+                  itemId={`prelab-question-${index}`}
+                  initialContent={sectionContent.prelabAnswers[index] || ''}
+                  onSave={(value) => {
+                    // Save is handled by onContentChange
+                  }}
+                  onContentChange={(value) => {
                     setSectionContent(prev => ({
                       ...prev,
                       prelabAnswers: prev.prelabAnswers.map((answer, i) => i === index ? value : answer)
                     }));
                     
-                    // Update section status
-                    const completedAnswers = sectionContent.prelabAnswers.filter(answer => answer.trim().length > 10).length;
-                    if (completedAnswers === 4) {
-                      updateSectionStatus('prelab', 'completed');
-                    } else if (completedAnswers > 0) {
-                      updateSectionStatus('prelab', 'in-progress');
-                    }
+                    // Debounced section status update
+                    debouncedStatusUpdate(() => {
+                      const updatedAnswers = sectionContent.prelabAnswers.map((answer, i) => i === index ? value : answer);
+                      const completedAnswers = updatedAnswers.filter(answer => hasQuillContent(answer)).length;
+                      if (completedAnswers === 4) {
+                        updateSectionStatus('prelab', 'completed');
+                      } else if (completedAnswers > 0) {
+                        updateSectionStatus('prelab', 'in-progress');
+                      }
+                    });
                   }}
                   placeholder="Enter your answer here..."
                   className="min-h-[100px]"
+                  disabled={isSubmitted && !isStaffView}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
                 />
               </div>
             ))}
@@ -646,19 +676,29 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 Describe your investigation plan (include measurement strategy, time intervals, data collection approach):
               </label>
               <SimpleQuillEditor
-                value={sectionContent.investigationPlan}
-                onChange={(value) => {
+                courseId="2"
+                unitId="lab-half-life"
+                itemId="investigation-plan"
+                initialContent={sectionContent.investigationPlan}
+                onSave={(value) => {
+                  // Save is handled by onContentChange
+                }}
+                onContentChange={(value) => {
                   setSectionContent(prev => ({ ...prev, investigationPlan: value }));
                   
-                  // Update section status
-                  if (sectionContent.investigationPlan.trim().length > 50 && sectionContent.procedureNotes.trim().length > 50) {
-                    updateSectionStatus('investigation', 'completed');
-                  } else if (sectionContent.investigationPlan.trim().length > 0 || sectionContent.procedureNotes.trim().length > 0) {
-                    updateSectionStatus('investigation', 'in-progress');
-                  }
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    if (hasQuillContent(value) && hasQuillContent(sectionContent.procedureNotes)) {
+                      updateSectionStatus('investigation', 'completed');
+                    } else if (hasQuillContent(value) || hasQuillContent(sectionContent.procedureNotes)) {
+                      updateSectionStatus('investigation', 'in-progress');
+                    }
+                  });
                 }}
                 placeholder="Outline your approach for collecting and analyzing decay data..."
                 className="min-h-[150px]"
+                disabled={isSubmitted && !isStaffView}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
               />
             </div>
             
@@ -669,19 +709,29 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 Document your procedure as you work (include settings, observations, challenges):
               </label>
               <SimpleQuillEditor
-                value={sectionContent.procedureNotes}
-                onChange={(value) => {
+                courseId="2"
+                unitId="lab-half-life"
+                itemId="procedure-notes"
+                initialContent={sectionContent.procedureNotes}
+                onSave={(value) => {
+                  // Save is handled by onContentChange
+                }}
+                onContentChange={(value) => {
                   setSectionContent(prev => ({ ...prev, procedureNotes: value }));
                   
-                  // Update section status
-                  if (sectionContent.investigationPlan.trim().length > 50 && value.trim().length > 50) {
-                    updateSectionStatus('investigation', 'completed');
-                  } else if (sectionContent.investigationPlan.trim().length > 0 || value.trim().length > 0) {
-                    updateSectionStatus('investigation', 'in-progress');
-                  }
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    if (hasQuillContent(sectionContent.investigationPlan) && hasQuillContent(value)) {
+                      updateSectionStatus('investigation', 'completed');
+                    } else if (hasQuillContent(sectionContent.investigationPlan) || hasQuillContent(value)) {
+                      updateSectionStatus('investigation', 'in-progress');
+                    }
+                  });
                 }}
                 placeholder="Record your procedure notes here as you conduct the investigation..."
                 className="min-h-[150px]"
+                disabled={isSubmitted && !isStaffView}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
               />
             </div>
           </div>
@@ -795,19 +845,20 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                   onChange={(e) => {
                     setAnalysisData(prev => ({ ...prev, manualSlope: e.target.value }));
                     
-                    // Update section status
-                    const completedFields = [
-                      e.target.value,
-                      analysisData.decayConstant,
-                      analysisData.calculatedHalfLife,
-                      analysisData.graphAnalysis
-                    ].filter(field => field.trim().length > 0).length;
-                    
-                    if (completedFields >= 4) {
-                      updateSectionStatus('analysis', 'completed');
-                    } else if (completedFields > 0) {
-                      updateSectionStatus('analysis', 'in-progress');
-                    }
+                    // Debounced section status update
+                    debouncedStatusUpdate(() => {
+                      const completedFields = [
+                        e.target.value,
+                        analysisData.decayConstant,
+                        analysisData.calculatedHalfLife
+                      ].filter(field => field && field.trim().length > 0).length + (hasQuillContent(analysisData.graphAnalysis) ? 1 : 0);
+                      
+                      if (completedFields >= 4) {
+                        updateSectionStatus('analysis', 'completed');
+                      } else if (completedFields > 0) {
+                        updateSectionStatus('analysis', 'in-progress');
+                      }
+                    });
                   }}
                   placeholder="Calculate slope from your graph..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -821,7 +872,24 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 <input
                   type="text"
                   value={analysisData.decayConstant}
-                  onChange={(e) => setAnalysisData(prev => ({ ...prev, decayConstant: e.target.value }))}
+                  onChange={(e) => {
+                    setAnalysisData(prev => ({ ...prev, decayConstant: e.target.value }));
+                    
+                    // Debounced section status update
+                    debouncedStatusUpdate(() => {
+                      const completedFields = [
+                        analysisData.manualSlope,
+                        e.target.value,
+                        analysisData.calculatedHalfLife
+                      ].filter(field => field && field.trim().length > 0).length + (hasQuillContent(analysisData.graphAnalysis) ? 1 : 0);
+                      
+                      if (completedFields >= 4) {
+                        updateSectionStatus('analysis', 'completed');
+                      } else if (completedFields > 0) {
+                        updateSectionStatus('analysis', 'in-progress');
+                      }
+                    });
+                  }}
                   placeholder="λ = -slope..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -835,7 +903,24 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
               <input
                 type="text"
                 value={analysisData.calculatedHalfLife}
-                onChange={(e) => setAnalysisData(prev => ({ ...prev, calculatedHalfLife: e.target.value }))}
+                onChange={(e) => {
+                  setAnalysisData(prev => ({ ...prev, calculatedHalfLife: e.target.value }));
+                  
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    const completedFields = [
+                      analysisData.manualSlope,
+                      analysisData.decayConstant,
+                      e.target.value
+                    ].filter(field => field && field.trim().length > 0).length + (hasQuillContent(analysisData.graphAnalysis) ? 1 : 0);
+                    
+                    if (completedFields >= 4) {
+                      updateSectionStatus('analysis', 'completed');
+                    } else if (completedFields > 0) {
+                      updateSectionStatus('analysis', 'in-progress');
+                    }
+                  });
+                }}
                 placeholder="t₁/₂ = 0.693/λ..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
@@ -847,10 +932,35 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 Graph Analysis (describe your linearized plot, quality of fit, correlation):
               </label>
               <SimpleQuillEditor
-                value={analysisData.graphAnalysis}
-                onChange={(value) => setAnalysisData(prev => ({ ...prev, graphAnalysis: value }))}
+                courseId="2"
+                unitId="lab-half-life"
+                itemId="graph-analysis"
+                initialContent={analysisData.graphAnalysis}
+                onSave={(value) => {
+                  // Save is handled by onContentChange
+                }}
+                onContentChange={(value) => {
+                  setAnalysisData(prev => ({ ...prev, graphAnalysis: value }));
+                  
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    const completedFields = [
+                      analysisData.manualSlope,
+                      analysisData.decayConstant,
+                      analysisData.calculatedHalfLife
+                    ].filter(field => field && field.trim().length > 0).length + (hasQuillContent(value) ? 1 : 0);
+                    
+                    if (completedFields >= 4) {
+                      updateSectionStatus('analysis', 'completed');
+                    } else if (completedFields > 0) {
+                      updateSectionStatus('analysis', 'in-progress');
+                    }
+                  });
+                }}
                 placeholder="Describe your ln(Activity) vs Time graph, linearity, and correlation..."
                 className="min-h-[120px]"
+                disabled={isSubmitted && !isStaffView}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
               />
             </div>
           </div>
@@ -877,12 +987,9 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                     setConclusionData(prev => ({ ...prev, identifiedIsotope: e.target.value }));
                     
                     // Update section status
-                    const completedFields = [
-                      e.target.value,
-                      conclusionData.justification,
-                      conclusionData.sourcesOfError,
-                      conclusionData.improvements
-                    ].filter(field => field.trim().length > 10).length;
+                    const completedFields = (e.target.value ? 1 : 0) + 
+                      [conclusionData.justification, conclusionData.sourcesOfError, conclusionData.improvements]
+                        .filter(field => hasQuillContent(field)).length;
                     
                     if (completedFields >= 3) {
                       updateSectionStatus('conclusions', 'completed');
@@ -906,10 +1013,33 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                   Justification for your identification (compare calculated vs. known half-life):
                 </label>
                 <SimpleQuillEditor
-                  value={conclusionData.justification}
-                  onChange={(value) => setConclusionData(prev => ({ ...prev, justification: value }))}
+                  courseId="2"
+                  unitId="lab-half-life"
+                  itemId="justification"
+                  initialContent={conclusionData.justification}
+                  onSave={(value) => {
+                    // Save is handled by onContentChange
+                  }}
+                  onContentChange={(value) => {
+                    setConclusionData(prev => ({ ...prev, justification: value }));
+                    
+                    // Debounced section status update
+                    debouncedStatusUpdate(() => {
+                      const completedFields = (conclusionData.identifiedIsotope ? 1 : 0) + 
+                        [value, conclusionData.sourcesOfError, conclusionData.improvements]
+                          .filter(field => hasQuillContent(field)).length;
+                      
+                      if (completedFields >= 3) {
+                        updateSectionStatus('conclusions', 'completed');
+                      } else if (completedFields > 0) {
+                        updateSectionStatus('conclusions', 'in-progress');
+                      }
+                    });
+                  }}
                   placeholder="Justify your isotope identification with numerical comparisons..."
                   className="min-h-[120px]"
+                  disabled={isSubmitted && !isStaffView}
+                  onError={(error) => console.error('SimpleQuillEditor error:', error)}
                 />
               </div>
             </div>
@@ -920,10 +1050,33 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 Sources of Error (systematic and random errors in your experiment):
               </label>
               <SimpleQuillEditor
-                value={conclusionData.sourcesOfError}
-                onChange={(value) => setConclusionData(prev => ({ ...prev, sourcesOfError: value }))}
+                courseId="2"
+                unitId="lab-half-life"
+                itemId="sources-of-error"
+                initialContent={conclusionData.sourcesOfError}
+                onSave={(value) => {
+                  // Save is handled by onContentChange
+                }}
+                onContentChange={(value) => {
+                  setConclusionData(prev => ({ ...prev, sourcesOfError: value }));
+                  
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    const completedFields = (conclusionData.identifiedIsotope ? 1 : 0) + 
+                      [conclusionData.justification, value, conclusionData.improvements]
+                        .filter(field => hasQuillContent(field)).length;
+                    
+                    if (completedFields >= 3) {
+                      updateSectionStatus('conclusions', 'completed');
+                    } else if (completedFields > 0) {
+                      updateSectionStatus('conclusions', 'in-progress');
+                    }
+                  });
+                }}
                 placeholder="Identify and discuss potential sources of error in your measurements..."
                 className="min-h-[120px]"
+                disabled={isSubmitted && !isStaffView}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
               />
             </div>
             
@@ -933,10 +1086,32 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 Suggested Improvements (how to improve accuracy and precision):
               </label>
               <SimpleQuillEditor
-                value={conclusionData.improvements}
-                onChange={(value) => setConclusionData(prev => ({ ...prev, improvements: value }))}
+                courseId="2"
+                unitId="lab-half-life"
+                itemId="improvements"
+                initialContent={conclusionData.improvements}
+                onSave={(value) => {
+                  // Save is handled by onContentChange
+                }}
+                onContentChange={(value) => {
+                  setConclusionData(prev => ({ ...prev, improvements: value }));
+                  
+                  // Debounced section status update
+                  debouncedStatusUpdate(() => {
+                    const completedFields = (conclusionData.identifiedIsotope ? 1 : 0) + 
+                      [conclusionData.justification, conclusionData.sourcesOfError, value]
+                        .filter(field => hasQuillContent(field)).length;
+                    
+                    if (completedFields >= 3) {
+                      updateSectionStatus('conclusions', 'completed');
+                    } else if (completedFields > 0) {
+                      updateSectionStatus('conclusions', 'in-progress');
+                    }
+                  });
+                }}
                 placeholder="Suggest improvements to the experimental procedure and data collection..."
                 className="min-h-[120px]"
+                disabled={isSubmitted && !isStaffView}
               />
             </div>
             

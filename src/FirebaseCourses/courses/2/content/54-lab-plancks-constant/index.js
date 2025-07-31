@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getDatabase, ref, set, get } from 'firebase/database';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { getDatabase, ref, set, get, update, onValue, serverTimestamp } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useAuth } from '../../../../../context/AuthContext';
 import SimpleQuillEditor from '../../../../../components/SimpleQuillEditor';
 import PostSubmissionOverlay from '../../../../components/PostSubmissionOverlay';
 import LEDCircuitSimulation from './LEDCircuitSimulation';
@@ -8,8 +9,55 @@ import AxisSelection from './AxisSelection';
 import InteractiveGraph from './InteractiveGraph';
 import SlopeCalculation from './SlopeCalculation';
 import PlancksConstantCalculation from './PlancksConstantCalculation';
+import { toast } from 'sonner';
+import { Save, FileText } from 'lucide-react';
 
-const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constant", userId, userEmail, isStaff = false }) => {
+// Add CSS styles for disabled lab inputs
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    /* Disable inputs for submitted labs (student view only) */
+    .lab-input-disabled input,
+    .lab-input-disabled textarea,
+    .lab-input-disabled button:not(.staff-only):not(.print-button),
+    .lab-input-disabled select {
+      pointer-events: none !important;
+      opacity: 0.7 !important;
+      cursor: not-allowed !important;
+      background-color: #f9fafb !important;
+    }
+
+    /* Keep certain elements interactive for staff and print button */
+    .lab-input-disabled .staff-only,
+    .lab-input-disabled .print-button {
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
+
+const LabPlancksConstant = ({ courseId = "2", course, isStaffView = false }) => {
+  const { currentUser } = useAuth();
+  const database = getDatabase();
+  
+  // Get questionId from course assessment data
+  const itemId = 'lab_plancks_constant';
+  const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[itemId]?.questions?.[0]?.questionId || 'course2_lab_plancks_constant';
+  console.log('📋 Lab questionId:', questionId);
+  
+  // Create memoized database reference
+  const labDataRef = React.useMemo(() => {
+    return currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
+  }, [currentUser?.uid, database, courseId, questionId]);
+  
+  // Check if lab is submitted from course data
+  const isSubmitted = course?.Assessments?.[questionId] !== undefined;
+  
+  // Define section order
+  const SECTION_ORDER = ['hypothesis', 'observations', 'analysis', 'error'];
+  
   // Section status tracking
   const [sectionStatus, setSectionStatus] = useState({
     hypothesis: 'not-started',
@@ -50,92 +98,159 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   // UI state
   const [currentSection, setCurrentSection] = useState('hypothesis');
   const [labStarted, setLabStarted] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
-  const autoSaveIntervalRef = useRef(null);
-  
-  // Firebase functions
-  const functions = getFunctions();
-  const submitLab = httpsCallable(functions, 'course2_lab_submit');
+  const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   
   // Auto-save functionality
   useEffect(() => {
-    if (userId && !isSubmitted && labStarted) {
-      autoSaveIntervalRef.current = setInterval(handleAutoSave, 30000); // Auto-save every 30 seconds
-      return () => {
-        if (autoSaveIntervalRef.current) {
-          clearInterval(autoSaveIntervalRef.current);
-        }
-      };
+    if (currentUser?.uid && !isSubmitted && labStarted && hasSavedProgress) {
+      const interval = setInterval(() => {
+        saveToFirebase({
+          sectionStatus,
+          sectionContent,
+          observationData,
+          analysisData,
+          currentSection,
+          labStarted
+        });
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
-  }, [userId, sectionContent, observationData, analysisData, sectionStatus, isSubmitted, labStarted]);
+  }, [currentUser?.uid, sectionContent, observationData, analysisData, sectionStatus, isSubmitted, labStarted, hasSavedProgress]);
   
   // Load existing data on component mount
   useEffect(() => {
-    if (userId) {
-      loadLabData();
+    if (!currentUser?.uid || !labDataRef) return;
+    
+    // If lab is submitted, use data from course.Assessments
+    if (isSubmitted && course?.Assessments?.[questionId]) {
+      console.log('📋 Lab is submitted, loading from course.Assessments');
+      const submittedData = course.Assessments[questionId];
+      
+      // Restore saved state
+      if (submittedData.sectionStatus) setSectionStatus(submittedData.sectionStatus);
+      if (submittedData.sectionContent) setSectionContent(submittedData.sectionContent);
+      if (submittedData.observationData) {
+        setObservationData(prev => {
+          // Merge measurements array carefully to preserve frequency data
+          const mergedMeasurements = prev.measurements.map((defaultMeasurement, index) => {
+            const savedMeasurement = submittedData.observationData.measurements?.[index];
+            return savedMeasurement ? {
+              ...defaultMeasurement,
+              ...savedMeasurement,
+              frequency: savedMeasurement.frequency || defaultMeasurement.frequency
+            } : defaultMeasurement;
+          });
+          
+          return {
+            ...prev,
+            ...submittedData.observationData,
+            measurements: mergedMeasurements
+          };
+        });
+      }
+      if (submittedData.analysisData) {
+        setAnalysisData(prev => ({
+          ...prev,
+          ...submittedData.analysisData
+        }));
+      }
+      if (submittedData.currentSection) setCurrentSection(submittedData.currentSection);
+      if (submittedData.labStarted !== undefined) setLabStarted(submittedData.labStarted);
+      
+      setLabStarted(true);
+      setHasSavedProgress(true);
+      return;
     }
-  }, [userId]);
+
+    // For non-submitted labs, set up real-time listener
+    const unsubscribe = onValue(labDataRef, (snapshot) => {
+      const savedData = snapshot.val();
+      
+      if (savedData) {
+        console.log('✅ Lab data loaded:', Object.keys(savedData));
+        
+        // Only update state if values have actually changed to prevent unnecessary re-renders
+        setSectionStatus(prev => savedData.sectionStatus || prev);
+        setSectionContent(prev => savedData.sectionContent || prev);
+        
+        if (savedData.observationData) {
+          setObservationData(prev => {
+            // Merge measurements array carefully to preserve frequency data
+            const mergedMeasurements = prev.measurements.map((defaultMeasurement, index) => {
+              const savedMeasurement = savedData.observationData.measurements?.[index];
+              return savedMeasurement ? {
+                ...defaultMeasurement,
+                ...savedMeasurement,
+                frequency: savedMeasurement.frequency || defaultMeasurement.frequency
+              } : defaultMeasurement;
+            });
+            
+            return {
+              ...prev,
+              ...savedData.observationData,
+              measurements: mergedMeasurements
+            };
+          });
+        }
+        
+        if (savedData.analysisData) {
+          setAnalysisData(prev => ({
+            ...prev,
+            ...savedData.analysisData
+          }));
+        }
+        
+        // Only update current section if we don't have one set
+        if (savedData.currentSection && !labStarted) {
+          setCurrentSection(savedData.currentSection);
+        }
+        
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [currentUser?.uid, labDataRef, isSubmitted, course?.Assessments, questionId, labStarted]);
   
   // Update section completion status
   useEffect(() => {
     updateSectionStatus();
   }, [sectionContent, observationData, analysisData]);
   
-  const loadLabData = async () => {
-    try {
-      const db = getDatabase();
-      const labRef = ref(db, `users/${userId}/FirebaseCourses/${courseId}/course2_lab_plancks_constant`);
-      const snapshot = await get(labRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        if (data.sectionContent) setSectionContent(data.sectionContent);
-        if (data.observationData) setObservationData(data.observationData);
-        if (data.analysisData) setAnalysisData(data.analysisData);
-        if (data.sectionStatus) setSectionStatus(data.sectionStatus);
-        if (data.isSubmitted) setIsSubmitted(data.isSubmitted);
-        if (data.labStarted !== undefined) setLabStarted(data.labStarted);
-        if (data.currentSection) setCurrentSection(data.currentSection);
-        if (data.lastSaved) setLastSaved(new Date(data.lastSaved));
-        setHasSavedProgress(true);
-        console.log('Lab data loaded successfully');
-      }
-    } catch (error) {
-      console.error('Error loading lab data:', error);
-    }
-  };
   
-  const handleAutoSave = async () => {
-    if (!userId || isSubmitted) return;
+  // Save to Firebase
+  const saveToFirebase = useCallback(async (dataToUpdate) => {
+    if (!currentUser?.uid || !labDataRef || isSubmitted) {
+      console.log('🚫 Save blocked: no user, no ref, or already submitted');
+      return;
+    }
     
     try {
-      setIsSaving(true);
-      const db = getDatabase();
-      const labRef = ref(db, `users/${userId}/FirebaseCourses/${courseId}/course2_lab_plancks_constant`);
+      console.log('💾 Saving to Firebase:', dataToUpdate);
       
-      const saveData = {
-        sectionContent,
-        observationData,
-        analysisData,
-        sectionStatus,
-        isSubmitted,
-        labStarted,
-        currentSection,
-        lastSaved: Date.now(),
-        autoSave: true
+      const dataToSave = {
+        ...dataToUpdate,
+        lastModified: serverTimestamp(),
+        courseId: courseId,
+        labId: 'lab-plancks-constant'
       };
       
-      await set(labRef, saveData);
+      await update(labDataRef, dataToSave);
+      console.log('✅ Save successful!');
+      setHasSavedProgress(true);
       setLastSaved(new Date());
+      
     } catch (error) {
-      console.error('Auto-save failed:', error);
-    } finally {
-      setIsSaving(false);
+      console.error('❌ Save failed:', error);
+      toast.error('Failed to save data. Please try again.');
     }
-  };
+  }, [currentUser?.uid, labDataRef, courseId, isSubmitted]);
   
   const updateSectionStatus = () => {
     const newStatus = { ...sectionStatus };
@@ -174,28 +289,40 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   };
   
   const handleSectionContentChange = (section, content) => {
-    setSectionContent(prev => ({
-      ...prev,
+    const newSectionContent = {
+      ...sectionContent,
       [section]: content
-    }));
+    };
+    setSectionContent(newSectionContent);
+    
+    // Save to Firebase
+    saveToFirebase({
+      sectionContent: newSectionContent
+    });
   };
   
   const handleLEDMeasurement = (voltage) => {
     const currentMeasurement = observationData.measurements[observationData.currentLED];
     
-    setObservationData(prev => {
-      const newMeasurements = [...prev.measurements];
-      newMeasurements[prev.currentLED] = {
-        ...currentMeasurement,
-        voltage: voltage,
-        measured: true
-      };
-      
-      return {
-        ...prev,
-        measurements: newMeasurements,
-        completedMeasurements: newMeasurements.filter(m => m.measured).length
-      };
+    const newObservationData = {
+      ...observationData,
+      measurements: observationData.measurements.map((m, i) => 
+        i === observationData.currentLED 
+          ? { ...m, voltage: voltage, measured: true }
+          : m
+      ),
+      completedMeasurements: observationData.measurements.filter(m => m.measured).length + 1
+    };
+    
+    setObservationData(newObservationData);
+    
+    // Save to Firebase
+    saveToFirebase({
+      observationData: newObservationData,
+      sectionStatus: {
+        ...sectionStatus,
+        observations: newObservationData.completedMeasurements === 5 ? 'completed' : 'in-progress'
+      }
     });
   };
   
@@ -238,32 +365,39 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   };
   
   const handleSubmission = async () => {
-    if (isSubmitted) return;
-    
     try {
-      const labData = {
+      setIsSaving(true);
+      
+      // Save current state
+      await saveToFirebase({
+        sectionStatus,
         sectionContent,
         observationData,
         analysisData,
-        sectionStatus,
-        submittedAt: Date.now()
-      };
+        currentSection,
+        labStarted
+      });
       
-      const result = await submitLab({
-        courseId,
-        questionId: 'course2_lab_plancks_constant',
-        studentEmail: userEmail,
-        userId,
-        isStaff
+      const functions = getFunctions();
+      const submitFunction = httpsCallable(functions, 'course2_lab_submit');
+      
+      const result = await submitFunction({
+        questionId: questionId,
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        courseId: courseId,
+        isStaff: isStaffView
       });
       
       if (result.data.success) {
-        setIsSubmitted(true);
-        console.log('Lab submitted successfully');
+        setShowSubmissionOverlay(true);
+        toast.success('Lab submitted successfully!');
       }
     } catch (error) {
-      console.error('Submission failed:', error);
-      alert('Submission failed. Please try again.');
+      console.error('❌ Lab submission failed:', error);
+      toast.error(`Failed to submit lab: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -289,37 +423,22 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
   };
   
   // Start lab function
-  const startLab = async () => {
+  const startLab = () => {
     setLabStarted(true);
     setCurrentSection('hypothesis');
+    setSectionStatus(prev => ({
+      ...prev,
+      hypothesis: 'not-started'
+    }));
     
-    const newSectionStatus = {
-      hypothesis: 'not-started',
-      observations: 'not-started',
-      analysis: 'not-started',
-      error: 'not-started'
-    };
-    setSectionStatus(newSectionStatus);
-    
-    // Save lab start to Firebase
-    try {
-      const db = getDatabase();
-      const labRef = ref(db, `users/${userId}/FirebaseCourses/${courseId}/course2_lab_plancks_constant`);
-      
-      const saveData = {
-        labStarted: true,
-        currentSection: 'hypothesis',
-        sectionStatus: newSectionStatus,
-        lastSaved: Date.now()
-      };
-      
-      await set(labRef, saveData);
-      setLastSaved(new Date());
-    } catch (error) {
-      console.error('Error starting lab:', error);
-    }
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    saveToFirebase({
+      labStarted: true,
+      currentSection: 'hypothesis',
+      sectionStatus: {
+        ...sectionStatus,
+        hypothesis: 'not-started'
+      }
+    });
   };
   
   const renderCurrentSection = () => {
@@ -355,11 +474,14 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                 Write your hypothesis about the relationship between LED threshold voltage and light frequency:
               </label>
               <SimpleQuillEditor
-                value={sectionContent.hypothesis}
-                onChange={(content) => handleSectionContentChange('hypothesis', content)}
-                placeholder="Based on Einstein's photoelectric equation, I predict that..."
-                className={isSubmitted ? 'lab-input-disabled' : ''}
-                readOnly={isSubmitted}
+                courseId={courseId}
+                unitId="lab-plancks-constant"
+                itemId="hypothesis"
+                initialContent={sectionContent.hypothesis || ''}
+                onSave={(content) => handleSectionContentChange('hypothesis', content)}
+                onContentChange={(content) => handleSectionContentChange('hypothesis', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
               <p className="text-xs text-gray-600 mt-1">
                 Minimum 50 words. Consider the physics relationship between photon energy, frequency, and voltage.
@@ -396,7 +518,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-3">LED Selection</h3>
               <div className="flex flex-wrap gap-2 mb-4">
-                {observationData.measurements.map((measurement, index) => (
+                {observationData.measurements && observationData.measurements.map((measurement, index) => (
                   <button
                     key={index}
                     onClick={() => selectLED(index)}
@@ -420,7 +542,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                 selectedLED={observationData.measurements[observationData.currentLED]?.color.toLowerCase()}
                 onVoltageChange={() => {}} // We only care about threshold detection
                 onThresholdDetected={handleLEDMeasurement}
-                isExperimentMode={!isSubmitted}
+                isExperimentMode={!isSubmitted || isStaffView}
               />
             </div>
             
@@ -437,13 +559,13 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                     </tr>
                   </thead>
                   <tbody>
-                    {observationData.measurements.map((measurement, index) => (
+                    {observationData.measurements && observationData.measurements.map((measurement, index) => (
                       <tr key={index} className={observationData.currentLED === index ? 'bg-blue-50' : ''}>
                         <td className="border border-gray-300 px-4 py-2 font-medium">
                           {measurement.color}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
-                          {(measurement.frequency / 1e14).toFixed(2)}
+                          {measurement.frequency ? (measurement.frequency / 1e14).toFixed(2) : '—'}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
                           {measurement.voltage !== null ? measurement.voltage.toFixed(2) : '—'}
@@ -468,7 +590,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                 )}
               </div>
               
-              {observationData.completedMeasurements > 0 && observationData.currentLED < 4 && !isSubmitted && (
+              {observationData.completedMeasurements > 0 && observationData.currentLED < 4 && (!isSubmitted || isStaffView) && (
                 <button
                   onClick={selectNextLED}
                   className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -563,7 +685,7 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                     <strong>Theoretical value:</strong> 6.626 × 10⁻³⁴ J⋅s
                   </p>
                   <p className="text-green-800">
-                    <strong>Your percent error:</strong> {parseFloat(analysisData.studentPercentError).toFixed(1)}%
+                    <strong>Your percent error:</strong> {analysisData.studentPercentError ? parseFloat(analysisData.studentPercentError).toFixed(1) : '0.0'}%
                   </p>
                 </div>
               ) : (
@@ -594,11 +716,14 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                 Analyze your experimental results and sources of error:
               </label>
               <SimpleQuillEditor
-                value={sectionContent.error}
-                onChange={(content) => handleSectionContentChange('error', content)}
-                placeholder="Discuss the accuracy of your results, major sources of error, and how the experiment could be improved..."
-                className={isSubmitted ? 'lab-input-disabled' : ''}
-                readOnly={isSubmitted}
+                courseId={courseId}
+                unitId="lab-plancks-constant"
+                itemId="error"
+                initialContent={sectionContent.error || ''}
+                onSave={(content) => handleSectionContentChange('error', content)}
+                onContentChange={(content) => handleSectionContentChange('error', content)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
+                disabled={isSubmitted && !isStaffView}
               />
               <p className="text-xs text-gray-600 mt-1">
                 Minimum 100 words. Discuss percent error, sources of uncertainty, and potential improvements.
@@ -611,6 +736,18 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
         return <div>Section not found</div>;
     }
   };
+  
+  // Auto-start for staff view
+  useEffect(() => {
+    if (isStaffView && !labStarted) {
+      setLabStarted(true);
+      setCurrentSection('hypothesis');
+      setSectionStatus(prev => ({
+        ...prev,
+        hypothesis: 'not-started'
+      }));
+    }
+  }, [isStaffView, labStarted]);
   
   // If lab hasn't been started, show welcome screen
   if (!labStarted) {
@@ -684,15 +821,15 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Your Progress:</h3>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {Object.entries(sectionStatus).map(([section, status]) => (
+                    {SECTION_ORDER.map(section => (
                       <div key={section} className="flex items-center gap-1">
                         <span className={`text-xs ${
-                          status === 'completed' ? 'text-green-600' : 
-                          status === 'in-progress' ? 'text-yellow-600' : 
+                          sectionStatus[section] === 'completed' ? 'text-green-600' : 
+                          sectionStatus[section] === 'in-progress' ? 'text-yellow-600' : 
                           'text-gray-400'
                         }`}>
-                          {status === 'completed' ? '✓' : 
-                           status === 'in-progress' ? '◐' : '○'}
+                          {sectionStatus[section] === 'completed' ? '✓' : 
+                           sectionStatus[section] === 'in-progress' ? '◐' : '○'}
                         </span>
                         <span className="text-xs text-gray-600 capitalize">
                           {section}
@@ -718,49 +855,46 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
       </div>
     );
   }
-
-  if (isSubmitted) {
-    return (
-      <PostSubmissionOverlay
-        title="Lab 7 - Planck's Constant"
-        message="Your lab has been submitted successfully!"
-        submissionTime={new Date()}
-        courseId={courseId}
-        lessonId={lessonId}
-      />
-    );
-  }
   
   return (
-    <div className="lab-plancks-constant max-w-6xl mx-auto p-6">
+    <div className={`lab-plancks-constant max-w-6xl mx-auto p-6 ${isSubmitted && !isStaffView ? 'lab-input-disabled' : ''}`}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Lab 7 - Planck's Constant</h1>
         <p className="text-gray-600">
           Determine Planck's constant using LED threshold voltages and the photoelectric effect
         </p>
-        {lastSaved && (
-          <p className="text-sm text-gray-500 mt-2">
-            Last saved: {lastSaved.toLocaleTimeString()}
-            {isSaving && <span className="ml-2 text-blue-600">Saving...</span>}
-          </p>
+        {isSubmitted && !isStaffView && (
+          <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+            ✓ Lab Submitted - Read Only
+          </div>
+        )}
+        {!isSubmitted && hasSavedProgress && (
+          <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded mt-2 inline-flex">
+            <Save size={12} />
+            <span>Auto-saving</span>
+          </div>
         )}
       </div>
       
       {/* Section Navigation */}
       <div className="section-navigation mb-6 sticky top-0 bg-white z-10 border-b pb-4">
         <div className="flex flex-wrap gap-2">
-          {Object.entries(sectionStatus).map(([section, status]) => (
+          {SECTION_ORDER.map(section => (
             <button
               key={section}
-              onClick={() => setCurrentSection(section)}
+              onClick={() => {
+                setCurrentSection(section);
+                // Save current section to Firebase
+                saveToFirebase({ currentSection: section });
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 currentSection === section
                   ? 'bg-blue-600 text-white'
-                  : `${getStatusColor(status)} hover:opacity-80`
+                  : `${getStatusColor(sectionStatus[section])} hover:opacity-80`
               }`}
             >
-              <span className="mr-2">{getStatusIcon(status)}</span>
+              <span className="mr-2">{getStatusIcon(sectionStatus[section])}</span>
               {section.charAt(0).toUpperCase() + section.slice(1)}
             </button>
           ))}
@@ -786,6 +920,23 @@ const LabPlancksConstant = ({ courseId = "2", lessonId = "54-lab-plancks-constan
       <div className="section-content">
         {renderCurrentSection()}
       </div>
+
+      {/* PostSubmissionOverlay */}
+      <PostSubmissionOverlay
+        isVisible={showSubmissionOverlay || isSubmitted}
+        isStaffView={isStaffView}
+        course={course}
+        questionId={questionId}
+        submissionData={{
+          labTitle: 'Plancks Constant Lab',
+          completionPercentage: (Object.values(sectionStatus).filter(s => s === 'completed').length * 100) / Object.keys(sectionStatus).length,
+          status: isSubmitted ? 'completed' : 'in-progress',
+          timestamp: course?.Assessments?.[questionId]?.timestamp || new Date().toISOString()
+        }}
+        onContinue={() => {}}
+        onViewGradebook={() => {}}
+        onClose={() => setShowSubmissionOverlay(false)}
+      />
     </div>
   );
 };
