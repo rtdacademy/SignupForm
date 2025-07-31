@@ -309,6 +309,22 @@ const CollapsibleNavigation = ({
   };
 
   const renderItem = (item, unitIndex, itemIndex) => {
+    // Look up the scheduled date from course.ScheduleJSON
+    let scheduledDate = null;
+    
+    if (course?.ScheduleJSON?.units) {
+      // Search through all units and items to find matching itemId
+      for (const unit of course.ScheduleJSON.units) {
+        if (unit.items) {
+          const matchingItem = unit.items.find(scheduleItem => scheduleItem.itemId === item.itemId);
+          if (matchingItem && matchingItem.date) {
+            scheduledDate = matchingItem.date;
+            break;
+          }
+        }
+      }
+    }
+    
     // Use the same reliable calculation as the progress bars at the top
     const gradebook = course?.Gradebook;
     const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
@@ -470,6 +486,28 @@ const CollapsibleNavigation = ({
                 }`}>
                   {item.title}
                 </span>
+                {/* Show overdue indicator dot */}
+                {scheduledDate && !isCompleted && (() => {
+                  const dueDate = new Date(scheduledDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  dueDate.setHours(0, 0, 0, 0);
+                  const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays < 0) {
+                    return (
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" 
+                           title="Overdue" />
+                    );
+                  }
+                  if (diffDays === 0) {
+                    return (
+                      <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" 
+                           title="Due today" />
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex items-center gap-2 ml-2">
                 {/* Visibility override indicators */}
@@ -528,6 +566,44 @@ const CollapsibleNavigation = ({
         <TooltipContent side="right" className="max-w-xs">
           <div className="space-y-1">
             <p className="font-medium">{item.title}</p>
+            {/* Show scheduled due date */}
+            {scheduledDate && (
+              <div className="text-sm">
+                <span className="font-medium">Due: </span>
+                <span className={(() => {
+                  const dueDate = new Date(scheduledDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  dueDate.setHours(0, 0, 0, 0);
+                  const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays < 0 && !isCompleted) return "text-red-600 font-medium";
+                  if (diffDays === 0) return "text-orange-600 font-medium";
+                  if (diffDays === 1) return "text-amber-600";
+                  return "text-gray-600";
+                })()}>
+                  {new Date(scheduledDate).toLocaleDateString(undefined, { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                  {(() => {
+                    const dueDate = new Date(scheduledDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    dueDate.setHours(0, 0, 0, 0);
+                    const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) return " (Due today)";
+                    if (diffDays === 1) return " (Due tomorrow)";
+                    if (diffDays === -1) return " (Due yesterday)";
+                    if (diffDays < 0 && !isCompleted) return ` (${Math.abs(diffDays)} days overdue)`;
+                    if (diffDays > 0 && diffDays <= 7) return ` (Due in ${diffDays} days)`;
+                    return "";
+                  })()}
+                </span>
+              </div>
+            )}
             {/* Show calculation error first */}
             {hasCalculationError && (
               <p className="text-sm text-red-600 font-medium">❌ Grade calculation error - missing required data</p>

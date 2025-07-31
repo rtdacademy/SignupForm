@@ -28,6 +28,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow as syntaxTheme } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import mermaid from 'mermaid';
 import 'katex/dist/katex.min.css';
+import JSXGraphVisualization, { useJSXGraph } from '../../components/JSXGraphVisualization';
 
 // Initialize mermaid
 mermaid.initialize({
@@ -834,7 +835,9 @@ const MessageBubble = ({
   isProcessing = false,
   processingMedia = null,
   userName = 'You', 
-  assistantName = 'Google AI Assistant'
+  assistantName = 'Google AI Assistant',
+  jsxGraphLoaded = false,
+  jsxGraphError = null
 }) => {
   const isUser = message.sender === 'user';
   
@@ -905,6 +908,77 @@ const MessageBubble = ({
       return getProcessingAnimation(processingMedia);
     }
   };
+  
+  // Helper function to detect and render visualizations from tool calls
+  const renderVisualizations = () => {
+    console.log('🎨 renderVisualizations called for message:', message.id);
+    console.log('🎨 Message visualizations:', message.visualizations);
+    console.log('🎨 JSXGraph loaded:', jsxGraphLoaded);
+    console.log('🎨 JSXGraph error:', jsxGraphError);
+    console.log('🎨 Is streaming:', isStreaming);
+    console.log('🎨 Message sender:', message.sender);
+    console.log('🎨 Visualization array check:', {
+      hasVisualizations: !!message.visualizations,
+      isArray: Array.isArray(message.visualizations),
+      visualizationCount: message.visualizations?.length || 0
+    });
+    
+    // Don't render visualizations during streaming to avoid parsing incomplete data
+    if (isStreaming) {
+      console.log('🎨 Skipping visualization rendering during streaming');
+      return null;
+    }
+    
+    if (!message.visualizations || !Array.isArray(message.visualizations)) {
+      console.log('🎨 No visualizations found or not array');
+      return null;
+    }
+    
+    console.log('🎨 About to render', message.visualizations.length, 'visualizations');
+    
+    return (
+      <div className="space-y-3 mt-3">
+        {message.visualizations.map((viz, index) => {
+          console.log('🎨 Rendering visualization', index, ':', viz.title);
+          console.log('🎨 Visualization data:', viz);
+          return (
+            <div key={index} className="w-full">
+              {jsxGraphLoaded ? (
+                <JSXGraphVisualization 
+                  visualization={viz}
+                  width="100%" 
+                  height={300}
+                  showTitle={true}
+                  showDescription={true}
+                  showControls={true}
+                  className="border border-gray-200 rounded-lg"
+                />
+              ) : jsxGraphError ? (
+                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                  <div className="flex items-center justify-center h-48 text-red-500">
+                    <div className="text-center">
+                      <div className="text-red-600 mb-2">JSXGraph Loading Error</div>
+                      <div className="text-sm text-red-500">{jsxGraphError}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-center h-48 text-gray-500">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-2"></div>
+                      Loading JSXGraph library...
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   
   // Render the message content
   const renderMessageContent = () => {
@@ -1275,6 +1349,12 @@ const MessageBubble = ({
           
           {/* Render message content */}
           {renderMessageContent()}
+          
+          {/* Render visualizations if present */}
+          {!isUser && (() => {
+            console.log('🎨 About to call renderVisualizations for message:', message.id, 'isUser:', isUser);
+            return renderVisualizations();
+          })()}
         </div>
         
         <div className="text-xs text-gray-400 mt-1">
@@ -1283,6 +1363,128 @@ const MessageBubble = ({
       </div>
     </div>
   );
+};
+
+// Helper function to extract visualizations from text (tool call results)
+const extractVisualizationsFromText = (text) => {
+  console.log('🔍 extractVisualizationsFromText called with text length:', text?.length || 0);
+  console.log('🔍 Text preview (first 500 chars):', text?.substring(0, 500) || 'no text');
+  console.log('🔍 Text preview (last 500 chars):', text?.substring(Math.max(0, text.length - 500)) || 'no text');
+  console.log('🔍 Full text for debugging:', text);
+  
+  if (!text) return { cleanText: text, visualizations: [] };
+  
+  const visualizations = [];
+  let cleanText = text;
+  
+  // Pattern 1: ```visualization markdown blocks
+  const vizPattern1 = /```visualization\n([\s\S]*?)\n```/g;
+  let match;
+  while ((match = vizPattern1.exec(text)) !== null) {
+    try {
+      console.log('🔍 Found visualization markdown block, content preview:', match[1].substring(0, 500));
+      console.log('🔍 Full JSON length:', match[1].length);
+      const vizData = JSON.parse(match[1]);
+      console.log('🎨 Parsed visualization data successfully:', vizData);
+      
+      if (vizData.visualization) {
+        console.log('🎨 Adding visualization to list:', vizData.visualization.title);
+        visualizations.push(vizData.visualization);
+        cleanText = cleanText.replace(match[0], '');
+      } else {
+        console.warn('🎨 Visualization data missing "visualization" property:', Object.keys(vizData));
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse visualization JSON from markdown block:', parseError);
+      console.warn('Raw JSON that failed (first 500 chars):', match[1].substring(0, 500));
+      console.warn('Raw JSON that failed (last 200 chars):', match[1].substring(Math.max(0, match[1].length - 200)));
+    }
+  }
+  
+  // Pattern 2: Look for actual tool call results in JSON format
+  // The backend should return tool results in a structured format
+  try {
+    // Try to parse the entire response as JSON (for tool call results)
+    if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
+      console.log('🔍 Attempting to parse response as JSON tool result');
+      const jsonResult = JSON.parse(text);
+      
+      if (jsonResult.success && jsonResult.visualization && jsonResult.generatedBy === 'jsxGraphAgent') {
+        console.log('🎨 Found JSXGraph tool result:', jsonResult);
+        visualizations.push(jsonResult.visualization);
+      }
+    }
+  } catch (jsonParseError) {
+    // Not a JSON response, continue with other patterns
+    console.log('🔍 Response is not JSON format, continuing with other patterns');
+  }
+  
+  // Pattern 3: Tool call result blocks (if Genkit formats them specially)
+  const toolPattern = /\[Tool Result: createVisualization\]([\s\S]*?)\[\/Tool Result\]/g;
+  while ((match = toolPattern.exec(cleanText)) !== null) {
+    try {
+      const vizData = JSON.parse(match[1].trim());
+      if (vizData.visualization) {
+        visualizations.push(vizData.visualization);
+        cleanText = cleanText.replace(match[0], '');
+        console.log('🎨 Found visualization in tool result format');
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse visualization JSON from tool result:', parseError);
+    }
+  }
+  
+  // Pattern 4: Look for visualization data embedded at the end of response (common with cloud functions)
+  const endPattern = /\n\n```visualization\n([\s\S]*?)\n```\s*$/;
+  match = endPattern.exec(cleanText);
+  if (match) {
+    try {
+      console.log('🔍 Found visualization at end of response, content preview:', match[1].substring(0, 500));
+      const vizData = JSON.parse(match[1]);
+      console.log('🎨 Parsed end visualization data successfully:', vizData);
+      
+      if (vizData.visualization) {
+        console.log('🎨 Adding end visualization to list:', vizData.visualization.title);
+        visualizations.push(vizData.visualization);
+        cleanText = cleanText.replace(match[0], '');
+      } else if (vizData.success && vizData.visualization) {
+        console.log('🎨 Adding end visualization (success format) to list:', vizData.visualization.title);
+        visualizations.push(vizData.visualization);
+        cleanText = cleanText.replace(match[0], '');
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse visualization JSON from end pattern:', parseError);
+    }
+  }
+  
+  // Pattern 5: Look for JSON blocks that might contain visualization data
+  const jsonBlockPattern = /```json\n([\s\S]*?)\n```/g;
+  while ((match = jsonBlockPattern.exec(text)) !== null) {
+    try {
+      console.log('🔍 Found JSON block, checking for visualization data');
+      const jsonData = JSON.parse(match[1]);
+      if (jsonData.title && jsonData.boardConfig && jsonData.elements) {
+        // This looks like a direct visualization object
+        console.log('🎨 Found direct visualization in JSON block:', jsonData.title);
+        visualizations.push(jsonData);
+        cleanText = cleanText.replace(match[0], '');
+      } else if (jsonData.visualization && jsonData.visualization.title) {
+        // This is wrapped in a result object
+        console.log('🎨 Found wrapped visualization in JSON block:', jsonData.visualization.title);
+        visualizations.push(jsonData.visualization);
+        cleanText = cleanText.replace(match[0], '');
+      }
+    } catch (parseError) {
+      console.log('🔍 JSON block was not visualization data, skipping');
+    }
+  }
+  
+  // Debug logging
+  if (visualizations.length > 0) {
+    console.log(`🎨 Extracted ${visualizations.length} visualization(s) from response`);
+  }
+  
+  return { cleanText: cleanText.trim(), visualizations };
 };
 
 // Local storage keys - these will be updated to use sessionIdentifier inside the component
@@ -1481,6 +1683,15 @@ const GoogleAIChatApp = ({
   // Content context for AI accordion integration
   const [contentContext, setContentContext] = useState(null);
   const [showContentPreview, setShowContentPreview] = useState(false);
+  // JSXGraph library loading state
+  const { isLoaded: jsxGraphLoaded, error: jsxGraphError } = useJSXGraph();
+  
+  // Debug JSXGraph loading state
+  useEffect(() => {
+    console.log('🔧 JSXGraph loading state changed:', { jsxGraphLoaded, jsxGraphError });
+    console.log('🔧 Window.JXG available:', !!window.JXG);
+    console.log('🔧 Window.JXG.JSXGraph available:', !!(window.JXG && window.JXG.JSXGraph));
+  }, [jsxGraphLoaded, jsxGraphError]);
   // Removed sessionId state since we're using stateless generate() approach
   const scrollAreaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -2062,8 +2273,8 @@ const GoogleAIChatApp = ({
     // setProcessingMedia(null);
   };
   
- // Send message to Google AI
-const handleSendMessage = async () => {
+  // Send message to Google AI
+  const handleSendMessage = async () => {
   if (!inputMessage.trim() && uploadedFiles.length === 0 && youtubeURLs.length === 0) return;
   setError(null);
   
@@ -2167,64 +2378,155 @@ const handleSendMessage = async () => {
       console.groupEnd();
     }
     
-    // Try streaming first, fallback to regular call if not supported
+    // Extract visualizations from the response and process the message
+    const processMessageResponse = (response) => {
+      console.log('🔧 processMessageResponse called with response length:', response?.length || 0);
+      console.log('🔧 processMessageResponse - First 200 chars:', response?.substring(0, 200));
+      console.log('🔧 processMessageResponse - Last 200 chars:', response?.substring(Math.max(0, response.length - 200)));
+      const { cleanText, visualizations } = extractVisualizationsFromText(response);
+      
+      const messageUpdate = {
+        text: cleanText,
+        visualizations: visualizations.length > 0 ? visualizations : undefined
+      };
+      
+      if (visualizations.length > 0) {
+        console.log(`🎨 Found ${visualizations.length} visualization(s) in response`);
+        console.log('🎨 Visualization titles:', visualizations.map(v => v.title));
+      } else {
+        console.log('🎨 No visualizations found in final response');
+      }
+      
+      console.log('🔧 processMessageResponse returning:', {
+        textLength: messageUpdate.text?.length,
+        hasVisualizations: !!messageUpdate.visualizations,
+        visualizationCount: messageUpdate.visualizations?.length || 0
+      });
+      
+      return messageUpdate;
+    };
+
+    // Use Firebase Functions v2 streaming with correct .stream() API
     let modelResponse = '';
     let fallbackUsed = false;
     
     try {
-      // Check if streaming is available
-      if (typeof sendChatMessage.stream === 'function') {
-        // Use the streaming method if available
-        const streamingCall = sendChatMessage.stream({
-          message: messageToSend,
-          systemInstruction: systemMessage,
-          streaming: true,
-          messages: conversationHistory,
-        });
-        
-        // Handle streaming responses
-        for await (const chunk of streamingCall) {
-          if (chunk.message) {
-            // This is a streaming chunk
-            const chunkData = chunk.message;
-            if (chunkData.text && !chunkData.isComplete) {
-              modelResponse += chunkData.text;
+      console.log('🚀 Attempting Firebase v2 streaming...');
+      
+      // Try using the correct Firebase streaming API
+      let streamingSupported = false;
+      
+      try {
+        // Check if streaming is available in the Firebase SDK
+        if (typeof sendChatMessage.stream === 'function') {
+          streamingSupported = true;
+          console.log('✅ Firebase v2 streaming API detected');
+          
+          // Use the correct Firebase streaming API pattern
+          const { stream, data } = await sendChatMessage.stream({
+            message: messageToSend,
+            systemInstruction: systemMessage,
+            streaming: true, // Request streaming
+            messages: conversationHistory,
+            aiModel: aiModel,
+            aiTemperature: aiTemperature,
+            aiMaxTokens: aiMaxTokens
+          });
+          
+          console.log('📡 Starting to consume streaming chunks...');
+          
+          // Handle streaming chunks using async iterator
+          for await (const chunk of stream) {
+            console.log('📦 Received streaming chunk:', chunk);
+            
+            if (chunk.text && !chunk.isComplete) {
+              modelResponse += chunk.text;
               
-              // Update the message in real-time
+              // Update the message in real-time with RAW text (no visualization extraction during streaming)
               setMessages(prev =>
                 prev.map(msg =>
                   msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
                 )
               );
-            } else if (chunkData.isComplete) {
-              // Final chunk - we're done
-              console.log(`Streaming completed with ${chunkData.totalChunks} chunks`);
+            } else if (chunk.isComplete) {
+              console.log(`🎉 Streaming completed with ${chunk.totalChunks} chunks`);
               break;
             }
-          } else if (chunk.result) {
-            // This is the final result (fallback for non-streaming clients)
-            modelResponse = chunk.result.text;
-            fallbackUsed = true;
-            break;
           }
+          
+          // Get the complete response (with injected tool results)
+          const completeResponse = await data;
+          console.log('📋 Complete response received:', completeResponse);
+          console.log('📋 Complete response structure:', Object.keys(completeResponse || {}));
+          console.log('📋 Streamed response length:', modelResponse.length);
+          console.log('📋 FULL STREAMED RESPONSE TEXT:', modelResponse);
+          
+          // The backend injects tool results AFTER streaming, so we need the complete response
+          if (completeResponse && completeResponse.data && completeResponse.data.text) {
+            console.log('📝 Using enhanced text from complete response (data.text)');
+            console.log('📝 Enhanced response length:', completeResponse.data.text.length);
+            console.log('📝 FULL ENHANCED RESPONSE:', completeResponse.data.text);
+            modelResponse = completeResponse.data.text;
+          } else if (completeResponse && completeResponse.text) {
+            console.log('📝 Using enhanced text from complete response (root.text)');
+            console.log('📝 Enhanced response length:', completeResponse.text.length);
+            console.log('📝 FULL ENHANCED RESPONSE:', completeResponse.text);
+            modelResponse = completeResponse.text;
+          } else {
+            console.log('📝 No enhanced response available, using streamed chunks only');
+            console.log('⚠️ This means visualizations will not be included!');
+            // modelResponse is already assembled from chunks, so keep using it
+          }
+
+          // Process the final response for visualizations after streaming is complete
+          console.log('🎨 Streaming complete, now processing visualizations from final response');
+          console.log('🎨 Final response length:', modelResponse.length);
+          console.log('🎨 Model response preview (last 500 chars):', modelResponse.substring(Math.max(0, modelResponse.length - 500)));
+          
+          const finalMessageUpdate = processMessageResponse(modelResponse);
+          console.log('🎨 Final message update:', finalMessageUpdate);
+          console.log('🎨 Visualizations found:', finalMessageUpdate.visualizations);
+          
+          setMessages(prev => {
+            const updated = prev.map(msg =>
+              msg.id === modelMessageId ? { ...msg, ...finalMessageUpdate } : msg
+            );
+            console.log('🎨 Updated message:', updated.find(m => m.id === modelMessageId));
+            return updated;
+          });
+          
+        } else {
+          throw new Error('Streaming API not available');
         }
-      } else {
-        // Streaming not available, use regular call
-        throw new Error('Streaming method not available');
+        
+      } catch (streamingError) {
+        console.warn('⚠️ Streaming failed or not supported:', streamingError.message);
+        streamingSupported = false;
       }
-    } catch (streamError) {
-      console.warn('Streaming failed or not available, falling back to regular call:', streamError);
       
-      // Fallback to regular function call
-      const result = await sendChatMessage({
-        message: messageToSend,
-        systemInstruction: systemMessage,
-        streaming: false,
-        messages: conversationHistory,
-      });
+      // If streaming wasn't supported or failed, use regular callable
+      if (!streamingSupported) {
+        console.log('📞 Using regular callable function (no streaming)');
+        
+        const result = await sendChatMessage({
+          message: messageToSend,
+          systemInstruction: systemMessage,
+          streaming: false, // Don't request streaming for fallback
+          messages: conversationHistory,
+          aiModel: aiModel,
+          aiTemperature: aiTemperature,
+          aiMaxTokens: aiMaxTokens
+        });
+        
+        modelResponse = result.data.text;
+        fallbackUsed = true;
+        
+        console.log('✅ Fallback call completed successfully');
+      }
       
-      modelResponse = result.data.text;
-      fallbackUsed = true;
+    } catch (error) {
+      console.error('❌ Firebase function call failed:', error);
+      throw error; // Re-throw to be caught by outer try/catch
     }
     
     // Now that we have a response, stop the processing animations
@@ -2236,33 +2538,27 @@ const handleSendMessage = async () => {
       console.log('⚠️ Streaming failed, using fallback complete response');
     }
     
-    // Ensure final message is set (for fallback cases)
+    // Process final message ONLY for fallback (streaming already processed above)
     if (fallbackUsed) {
+      const messageUpdate = processMessageResponse(modelResponse);
       setMessages(prev =>
         prev.map(msg =>
-          msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
+          msg.id === modelMessageId ? { ...msg, ...messageUpdate } : msg
         )
       );
-    } else {
-      // Debug table formatting
-      if (modelResponse.includes('|')) {
-        console.log('=== TABLE DEBUGGING INFO ===');
-        console.log('Raw table content:');
-        const tableLines = modelResponse.split('\n').filter(line => line.includes('|'));
-        console.log(tableLines.join('\n'));
-        
-        console.log('\nFormatted table content:');
-        const formattedText = formatMarkdownTables(modelResponse);
-        const formattedTableLines = formattedText.split('\n').filter(line => line.includes('|'));
-        console.log(formattedTableLines.join('\n'));
-      }
+    }
+    
+    // Debug table formatting (for logging only, don't update message again)
+    if (modelResponse.includes('|')) {
+      console.log('=== TABLE DEBUGGING INFO ===');
+      console.log('Raw table content:');
+      const tableLines = modelResponse.split('\n').filter(line => line.includes('|'));
+      console.log(tableLines.join('\n'));
       
-      // Regular non-streaming update
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === modelMessageId ? { ...msg, text: modelResponse } : msg
-        )
-      );
+      console.log('\nFormatted table content:');
+      const formattedText = formatMarkdownTables(modelResponse);
+      const formattedTableLines = formattedText.split('\n').filter(line => line.includes('|'));
+      console.log(formattedTableLines.join('\n'));
     }
     
   } catch (err) {
@@ -2628,6 +2924,8 @@ const handleSendMessage = async () => {
                   isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'model'}
                   isProcessing={isProcessing && message === messages[messages.length - 1] && message.sender === 'model'}
                   processingMedia={processingMedia}
+                  jsxGraphLoaded={jsxGraphLoaded}
+                  jsxGraphError={jsxGraphError}
                 />
               ))}
             </div>

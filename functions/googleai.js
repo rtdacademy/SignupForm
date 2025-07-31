@@ -5,6 +5,7 @@ const { genkit, z } = require('genkit'); // Using stable genkit package with Zod
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
+const { createJSXGraphVisualization } = require('./jsxgraphAgent');
 
 /**
  * Resolve AI settings from keys to actual values
@@ -68,15 +69,114 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
+// Define JSXGraph visualization tool
+const jsxGraphTool = {
+  name: 'createVisualization',
+  description: 'Creates interactive visualizations using JSXGraph for mathematical concepts, physics diagrams, geometric shapes, and educational illustrations',
+  inputSchema: z.object({
+    description: z.string().describe('Clear description of what to visualize (e.g., "sine wave", "electric field", "triangle with angles")'),
+    context: z.string().optional().describe('Additional context about the educational topic or lesson'),
+    subject: z.string().optional().describe('Subject area (physics, math, geometry, etc.)')
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    visualization: z.object({
+      title: z.string(),
+      description: z.string(),
+      boardConfig: z.object({}).passthrough(),
+      elements: z.array(z.object({}).passthrough()),
+      jsxCode: z.string()
+    }),
+    generatedBy: z.string()
+  })
+};
+
 // Lazy initialization of AI instance to avoid timeouts during deployment
 let aiInstance = null;
 
 function initializeAI() {
   if (!aiInstance) {
-    aiInstance = genkit({
+    const ai = genkit({
       plugins: [googleAI()], // No need to pass API key - Genkit reads from environment
       model: googleAI.model('gemini-2.5-flash'), // Use stable model
     });
+
+    // Define the JSXGraph tool implementation
+    ai.defineTool(jsxGraphTool, async (input) => {
+      try {
+        console.log('🎨 ===== JSXGRAPH TOOL CALLED =====');
+        console.log('🎨 Tool input received:', safeStringify(input));
+        console.log('🎨 Description:', input.description);
+        console.log('🎨 Context:', input.context || 'none');
+        console.log('🎨 Subject:', input.subject || 'general');
+        
+        // Call the JSXGraph agent helper function directly
+        console.log('🎨 Calling createJSXGraphVisualization...');
+        const result = await createJSXGraphVisualization({
+          description: input.description,
+          context: input.context || '',
+          subject: input.subject || 'general'
+        });
+
+        console.log('🎨 Visualization tool result:', result.success ? 'SUCCESS' : 'FAILED');
+        console.log('🎨 Result structure:', {
+          hasSuccess: result.hasOwnProperty('success'),
+          hasVisualization: result.hasOwnProperty('visualization'),
+          hasGeneratedBy: result.hasOwnProperty('generatedBy'),
+          hasError: result.hasOwnProperty('error')
+        });
+        
+        if (!result.success) {
+          console.error('❌ JSXGraph agent returned failure:', result.error);
+          console.error('📝 Raw response was:', result.rawResponse);
+          
+          // Store failed tool result too (with error info)
+          currentToolResults.push(result);
+          console.log(`🎨 Stored failed tool result. Total results: ${currentToolResults.length}`);
+          
+          // Return the result as-is since it now conforms to the expected schema
+          return result;
+        }
+        
+        console.log('✅ Visualization created successfully');
+        console.log('🎨 Full result object:', safeStringify(result));
+        
+        // Store successful tool result for injection into response
+        currentToolResults.push(result);
+        console.log(`🎨 Stored tool result. Total results: ${currentToolResults.length}`);
+        
+        console.log('🎨 ===== TOOL CALL COMPLETE =====');
+        return result;
+      } catch (error) {
+        console.error('❌ Visualization tool failed:', error);
+        
+        const errorResult = {
+          success: false,
+          visualization: {
+            title: "Visualization Error",
+            description: `Failed to create visualization: ${error.message}`,
+            boardConfig: {
+              boundingBox: [-5, 5, 5, -5],
+              axis: true,
+              grid: false,
+              showCopyright: false
+            },
+            elements: [],
+            jsxCode: "// Error creating visualization"
+          },
+          generatedBy: 'jsxGraphAgent',
+          error: `Failed to create visualization: ${error.message}`
+        };
+        
+        // Store error result too
+        currentToolResults.push(errorResult);
+        console.log(`🎨 Stored error tool result. Total results: ${currentToolResults.length}`);
+        
+        return errorResult;
+      }
+    });
+
+    aiInstance = ai;
   }
   return aiInstance;
 }
@@ -90,8 +190,44 @@ const DEFAULT_SYSTEM_INSTRUCTION = `You are a helpful AI assistant specialized i
 - Provide clear explanations using appropriate terminology
 - Be patient, supportive, and encouraging
 - Adapt your explanations to the student's level of understanding
+- Create interactive visualizations when they would enhance understanding
 
-Always focus on helping students learn rather than just providing answers.`;
+## Visualization Capabilities
+
+You have access to a powerful visualization tool that can create interactive diagrams using JSXGraph. Use this tool when visual representations would help explain concepts:
+
+**When to create visualizations:**
+- Mathematical functions and graphs (sine waves, parabolas, exponentials)
+- Geometric shapes and constructions (triangles, circles, polygons)
+- Physics concepts (force vectors, electric fields, wave motion)
+- Data relationships and plots
+- Step-by-step geometric constructions
+- Interactive demonstrations
+
+**How to use visualizations:**
+- Call the createVisualization tool with a clear description
+- The tool will generate an interactive JSXGraph diagram
+- When you receive the tool result, format it as a markdown code block using the exact format below
+- Students can interact with draggable points and sliders
+
+**IMPORTANT: Visualization Formatting**
+When you use the createVisualization tool and it succeeds, you MUST include the tool result in your response using this exact format:
+
+\`\`\`visualization
+{insert_the_complete_tool_result_json_here}
+\`\`\`
+
+For example, if the tool returns:
+{"success": true, "visualization": {"title": "Sine Wave", "description": "...", "boardConfig": {...}, "elements": [...], "jsxCode": "..."}, "generatedBy": "jsxGraphAgent"}
+
+Include this COMPLETE JSON in a visualization code block in your response. This allows the frontend to extract and render the interactive visualization.
+
+**Examples:**
+- "Show me a sine wave" → Creates interactive sine function
+- "Draw a triangle with labeled angles" → Creates geometric diagram
+- "Visualize electric field lines" → Creates physics diagram
+
+Always focus on helping students learn rather than just providing answers. Use visualizations to make abstract concepts concrete and engaging.`;
 
 // Removed session management - keeping it simple
 
@@ -107,6 +243,34 @@ const safeStringify = (obj) => {
     }
     return value;
   });
+};
+
+// Global variable to track tool results for the current request
+let currentToolResults = [];
+
+// Helper function to inject tool results into AI response text
+const injectToolResults = (responseText) => {
+  if (!currentToolResults || currentToolResults.length === 0) {
+    console.log('🔧 No tool results to inject');
+    return responseText;
+  }
+
+  console.log(`🎨 Injecting ${currentToolResults.length} tool result(s) into response`);
+  
+  let enhancedText = responseText;
+  
+  // Add each tool result as a visualization markdown block
+  for (const toolResult of currentToolResults) {
+    if (toolResult.success && toolResult.visualization) {
+      console.log(`🎨 Adding visualization: ${toolResult.visualization.title}`);
+      
+      const visualizationBlock = `\n\n\`\`\`visualization\n${JSON.stringify(toolResult, null, 2)}\n\`\`\``;
+      enhancedText += visualizationBlock;
+    }
+  }
+  
+  console.log(`🎨 Enhanced response length: ${enhancedText.length} (was ${responseText.length})`);
+  return enhancedText;
 };
 
 /**
@@ -352,19 +516,23 @@ const processMultimodalContent = async (message, mediaItems = []) => {
 };
 
 /**
- * Chat message function using stable ai.generate() with multi-turn conversations
+ * Chat message function using Genkit streaming with Firebase Functions v2 streaming
  */
 const sendChatMessage = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
   cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"],
-}, async (request, response) => {
+}, async (request, firebaseResponse) => {
   const data = request.data;
 
   try {
     // Initialize AI instance
     const ai = initializeAI();
+    
+    // Clear tool results from any previous request
+    currentToolResults = [];
+    console.log('🔧 Cleared tool results for new request');
     
     console.log("Received chat message:", data.message);
     
@@ -398,8 +566,8 @@ const sendChatMessage = onCall({
     console.log('Previous messages count:', messages.length);
     
     if (streaming) {
-      // Use streaming for real-time response
-      console.log('Using streaming mode...');
+      // Use Genkit streaming with Firebase Functions v2 streaming
+      console.log('🚀 Using Genkit streaming with Firebase v2 integration...');
       
       let generateParams;
       
@@ -412,6 +580,7 @@ const sendChatMessage = onCall({
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
           prompt: message,
+          tools: ['createVisualization'], // Enable visualization tool
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -420,7 +589,7 @@ const sendChatMessage = onCall({
       } else {
         // Subsequent messages - use messages array approach
         console.log('📚 STREAMING: Subsequent message - Using conversation history');
-        console.log('⚠️ STREAMING: System instruction NOT being applied to this message');
+        console.log('⚠️ STREAMING: System instruction NOT being applied to this message, but tools still available');
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
@@ -428,8 +597,26 @@ const sendChatMessage = onCall({
           content: [{ text: msg.content }] // Convert string to array format
         }));
         
-        // Add current user message
-        conversationMessages.push({ role: 'user', content: [{ text: message }] });
+        // Add tool usage reminder before current message since system instruction isn't applied
+        const toolReminderMessage = {
+          role: 'model',
+          content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
+        };
+        
+        // Add current user message with enhanced context for visualization requests
+        let enhancedMessage = message;
+        if (message.toLowerCase().includes('draw') || 
+            message.toLowerCase().includes('visualize') || 
+            message.toLowerCase().includes('show') || 
+            message.toLowerCase().includes('graph') ||
+            message.toLowerCase().includes('sine') ||
+            message.toLowerCase().includes('wave') ||
+            message.toLowerCase().includes('plot')) {
+          enhancedMessage = `${message}\n\n[Note: If this is a request for a visualization, diagram, or graph, please use the createVisualization tool to create an interactive JSXGraph visualization.]`;
+        }
+        
+        conversationMessages.push(toolReminderMessage);
+        conversationMessages.push({ role: 'user', content: [{ text: enhancedMessage }] });
         
         // Ensure first message is from user - if not, we need to restructure
         if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
@@ -445,6 +632,7 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           messages: conversationMessages,
+          tools: ['createVisualization'], // Enable visualization tool
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -453,95 +641,170 @@ const sendChatMessage = onCall({
       }
       
       console.log('Generate params:', JSON.stringify(generateParams, null, 2));
+      console.log('🔧 Tools enabled in streaming mode:', generateParams.tools);
       
-      const { stream, response } = ai.generateStream(generateParams);
+      // Use Genkit's generateStream - following the official documentation
+      console.log('🎯 About to call ai.generateStream with tools...');
+      const { stream, response: genkitResponse } = ai.generateStream(generateParams);
+      
+      console.log('🎯 Stream and response objects created successfully');
       
       let fullText = '';
-      let streamingFailed = false;
+      let streamingSuccessful = true;
       let chunkCount = 0;
       
       try {
-        // Try to stream the response
+        // Stream the response using Genkit's stream iterator
+        console.log('📡 Starting to stream chunks from Genkit...');
+        
         for await (const chunk of stream) {
+          console.log('📦 Raw chunk received:', {
+            hasText: !!chunk.text,
+            hasToolCalls: !!chunk.toolCalls,
+            hasToolResponses: !!chunk.toolResponses,
+            chunkKeys: Object.keys(chunk),
+            chunkType: typeof chunk
+          });
+          
+          if (chunk.toolCalls && chunk.toolCalls.length > 0) {
+            console.log('🔧 TOOL CALLS DETECTED IN CHUNK:', chunk.toolCalls);
+          }
+          
+          if (chunk.toolResponses && chunk.toolResponses.length > 0) {
+            console.log('🎨 TOOL RESPONSES DETECTED IN CHUNK:', chunk.toolResponses);
+          }
+          
           if (chunk.text) {
             fullText += chunk.text;
             chunkCount++;
             
-            // Send chunk immediately to clients that support streaming
-            // Check if sendChunk is available (production feature, not always in emulator)
-            if (request.acceptsStreaming && typeof response.sendChunk === 'function' && process.env.FUNCTIONS_EMULATOR !== 'true') {
+            console.log(`📦 Chunk ${chunkCount}: "${chunk.text}" (${chunk.text.length} chars)`);
+            
+            // Use Firebase v2 streaming - send each chunk if client accepts streaming
+            if (request.acceptsStreaming && typeof firebaseResponse.sendChunk === 'function') {
               try {
-                response.sendChunk({
+                firebaseResponse.sendChunk({
                   text: chunk.text,
                   isComplete: false,
-                  chunkIndex: chunkCount
+                  chunkIndex: chunkCount,
+                  timestamp: Date.now()
                 });
+                console.log(`✅ Successfully sent chunk ${chunkCount} to client`);
               } catch (chunkError) {
-                console.warn('Failed to send chunk:', chunkError.message);
-                // Continue collecting for fallback
+                console.error('❌ Failed to send chunk:', chunkError.message);
+                streamingSuccessful = false;
+                // Continue processing but mark streaming as failed
+              }
+            } else {
+              if (!request.acceptsStreaming) {
+                console.log('ℹ️ Client does not accept streaming - collecting for complete response');
+                streamingSuccessful = false;
+              } else {
+                console.warn('⚠️ firebaseResponse.sendChunk not available - streaming not supported');
+                streamingSuccessful = false;
               }
             }
           }
         }
-        console.log(`Streaming completed successfully. Chunks: ${chunkCount}, Length: ${fullText.length}`);
+        
+        console.log(`🎉 Genkit streaming completed! Total chunks: ${chunkCount}, Total text length: ${fullText.length}`);
         
         // Check if response might have been truncated due to token limits
         const estimatedTokens = Math.ceil(fullText.length / 4); // Rough estimate: 1 token ≈ 4 characters
         const tokenLimit = resolvedSettings.maxTokens;
         
         if (estimatedTokens >= tokenLimit * 0.95) { // If we're within 95% of the limit
-          console.warn(`Response may have been truncated. Estimated tokens: ${estimatedTokens}/${tokenLimit}`);
+          console.warn(`⚠️ Response may have been truncated. Estimated tokens: ${estimatedTokens}/${tokenLimit}`);
         }
+        
       } catch (streamErr) {
-        console.warn('Streaming failed, falling back to complete response:', streamErr.message);
-        streamingFailed = true;
-        // Clear any partial text since we'll get the full response
-        fullText = '';
-      }
-      
-      // If streaming failed or we got no text, wait for the complete response
-      if (streamingFailed || !fullText) {
+        console.error('❌ Genkit streaming failed:', streamErr.message);
+        streamingSuccessful = false;
+        
+        // Try to get the complete response as fallback using Genkit's response object
         try {
-          console.log('Waiting for complete response...');
-          const finalResponse = await response;
+          console.log('🔄 Falling back to complete Genkit response...');
+          const finalResponse = await genkitResponse;
+          
+          console.log('🔧 Final response structure:', {
+            hasText: !!finalResponse?.text,
+            hasToolCalls: !!finalResponse?.toolCalls,
+            hasToolResponses: !!finalResponse?.toolResponses,
+            responseKeys: finalResponse ? Object.keys(finalResponse) : 'no response'
+          });
+          
+          if (finalResponse?.toolCalls) {
+            console.log('🔧 TOOL CALLS IN FINAL RESPONSE:', finalResponse.toolCalls);
+          }
+          
+          if (finalResponse?.toolResponses) {
+            console.log('🎨 TOOL RESPONSES IN FINAL RESPONSE:', finalResponse.toolResponses);
+          }
           
           if (finalResponse && finalResponse.text) {
             fullText = finalResponse.text;
-            console.log(`Got complete response. Length: ${fullText.length}`);
+            console.log(`📝 Got complete response from Genkit. Length: ${fullText.length}`);
           } else {
-            throw new Error('No text in final response');
+            throw new Error('No text in final Genkit response');
           }
         } catch (responseErr) {
-          console.error('Failed to get complete response:', responseErr);
-          throw new Error(`AI response failed: ${responseErr.message}`);
+          console.error('❌ Failed to get complete response from Genkit:', responseErr);
+          throw new Error(`Genkit AI response failed: ${responseErr.message}`);
         }
       }
       
       // Validate we got something
       if (!fullText || fullText.trim().length === 0) {
-        throw new Error('Empty response received from AI model');
+        throw new Error('Empty response received from Genkit AI model');
       }
       
-      // Send final completion marker for streaming clients
-      if (request.acceptsStreaming && typeof response.sendChunk === 'function' && process.env.FUNCTIONS_EMULATOR !== 'true') {
+      // Send final completion marker using Firebase streaming
+      if (request.acceptsStreaming && typeof firebaseResponse.sendChunk === 'function' && streamingSuccessful) {
         try {
-          response.sendChunk({
+          firebaseResponse.sendChunk({
             text: '',
             isComplete: true,
             totalChunks: chunkCount,
-            fullText: fullText
+            fullText: fullText,
+            timestamp: Date.now()
           });
+          console.log('📋 Sent streaming completion marker to client');
         } catch (chunkError) {
-          console.warn('Failed to send completion chunk:', chunkError.message);
+          console.warn('⚠️ Failed to send completion chunk:', chunkError.message);
         }
       }
       
+      // Check for tool results in the successful streaming case too
+      if (streamingSuccessful) {
+        console.log('🔧 Checking for tool results in successful streaming...');
+        try {
+          const finalResponse = await genkitResponse;
+          console.log('🔧 Successful stream final response structure:', {
+            hasText: !!finalResponse?.text,
+            hasToolCalls: !!finalResponse?.toolCalls,  
+            hasToolResponses: !!finalResponse?.toolResponses,
+            responseKeys: finalResponse ? Object.keys(finalResponse) : 'no response'
+          });
+          
+          if (finalResponse?.toolResponses) {
+            console.log('🎨 TOOL RESPONSES IN SUCCESSFUL STREAM:', finalResponse.toolResponses);
+            // TODO: We may need to process tool responses here
+          }
+        } catch (err) {
+          console.warn('⚠️ Could not check final response for tool results:', err.message);
+        }
+      }
+      
+      // Inject tool results into the response text
+      const enhancedText = injectToolResults(fullText);
+      
       return {
-        text: fullText,
+        text: enhancedText,
         success: true,
-        streaming: !streamingFailed, // Let frontend know if streaming actually worked
-        fallbackUsed: streamingFailed,
-        chunkCount: chunkCount
+        streaming: streamingSuccessful, // Let frontend know if streaming actually worked
+        fallbackUsed: !streamingSuccessful,
+        chunkCount: chunkCount,
+        streamingMethod: 'genkit_firebase_v2'
       };
     } else {
       // Use regular generate for non-streaming
@@ -556,6 +819,7 @@ const sendChatMessage = onCall({
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
           prompt: message,
+          tools: ['createVisualization'], // Enable visualization tool
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -564,7 +828,7 @@ const sendChatMessage = onCall({
       } else {
         // Subsequent messages - use messages array approach
         console.log('📚 NON-STREAMING: Subsequent message - Using conversation history');
-        console.log('⚠️ NON-STREAMING: System instruction NOT being applied to this message');
+        console.log('⚠️ NON-STREAMING: System instruction NOT being applied to this message, but tools still available');
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
@@ -572,8 +836,26 @@ const sendChatMessage = onCall({
           content: [{ text: msg.content }] // Convert string to array format
         }));
         
-        // Add current user message
-        conversationMessages.push({ role: 'user', content: [{ text: message }] });
+        // Add tool usage reminder before current message since system instruction isn't applied
+        const toolReminderMessage = {
+          role: 'model',
+          content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
+        };
+        
+        // Add current user message with enhanced context for visualization requests
+        let enhancedMessage = message;
+        if (message.toLowerCase().includes('draw') || 
+            message.toLowerCase().includes('visualize') || 
+            message.toLowerCase().includes('show') || 
+            message.toLowerCase().includes('graph') ||
+            message.toLowerCase().includes('sine') ||
+            message.toLowerCase().includes('wave') ||
+            message.toLowerCase().includes('plot')) {
+          enhancedMessage = `${message}\n\n[Note: If this is a request for a visualization, diagram, or graph, please use the createVisualization tool to create an interactive JSXGraph visualization.]`;
+        }
+        
+        conversationMessages.push(toolReminderMessage);
+        conversationMessages.push({ role: 'user', content: [{ text: enhancedMessage }] });
         
         // Ensure first message is from user - if not, we need to restructure
         if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
@@ -589,6 +871,7 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           messages: conversationMessages,
+          tools: ['createVisualization'], // Enable visualization tool
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -600,8 +883,11 @@ const sendChatMessage = onCall({
       
       console.log('Got response:', response.text);
       
+      // Inject tool results into the response text
+      const enhancedText = injectToolResults(response.text);
+      
       return {
-        text: response.text,
+        text: enhancedText,
         success: true,
         streaming: false
       };

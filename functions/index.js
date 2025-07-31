@@ -297,7 +297,9 @@ exports.updateStudentProfile = studentProfileFunctions.updateStudentProfile;
 
 // Student Schedule functions
 const studentScheduleFunctions = require('./saveStudentSchedule');
+const studentScheduleV2Functions = require('./saveStudentScheduleV2');
 exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
+exports.saveStudentScheduleV2 = studentScheduleV2Functions.saveStudentScheduleV2;
 
 // Legacy reimbursement functions removed - replaced with Stripe Connect
 

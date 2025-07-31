@@ -38,6 +38,7 @@ import ParentDashboard from './ParentPortal/ParentDashboard';
 import ParentEmailVerification from './ParentPortal/ParentEmailVerification';
 import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
 import TeacherFirebaseCourseView from './StudentManagement/TeacherFirebaseCourseView';
+import JSXGraphTest from './components/JSXGraphTest';
 import RTDLearningLogin from './rtdLearning/Login';
 import RTDLearningDashboard from './rtdLearning/Dashboard';
 import RTDLearningAdminLogin from './rtdLearning/AdminLogin';
@@ -265,6 +266,7 @@ function MainApp() {
           ) : <Navigate to="/login" />
         } />
         <Route path="/google-ai-chat" element={<GoogleAIChatPage />} />
+        <Route path="/jsxgraph-test" element={<JSXGraphTest />} />
       </Routes>
     </div>
   );

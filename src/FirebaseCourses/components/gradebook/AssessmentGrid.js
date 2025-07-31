@@ -102,7 +102,8 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   
   // Extract data from the new reliable sources
   const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
-  const actualGrades = course?.Grades?.assessments || {};
+  // Check multiple possible locations for grades
+  const actualGrades = course?.Grades?.assessments || course?.Grades || {};
   const assessments = course?.Assessments || {};
   
   // Get student email for session-based scoring
@@ -111,6 +112,8 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
   // Determine if this is a staff view (teacher looking at student data)
   const isStaffView = currentUser?.email && studentEmail && 
                       currentUser.email !== studentEmail;
+  
+  // Grade data now uses fallback logic to check both locations
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -214,6 +217,8 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
       
       // If lesson is configured, get detailed question data
       if (lessonConfig && lessonConfig.questions) {
+        // Debug logging removed - scores should now work correctly
+        
         lessonConfig.questions.forEach(questionConfig => {
           const questionId = questionConfig.questionId;
           const actualGrade = actualGrades[questionId] || 0;
@@ -273,6 +278,22 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         });
       }
       
+      // Look up the scheduled date from course.ScheduleJSON
+      let scheduledDate = null;
+      if (course?.ScheduleJSON?.units) {
+        for (const unit of course.ScheduleJSON.units) {
+          if (unit.items) {
+            const matchingItem = unit.items.find(scheduleItem => 
+              scheduleItem.itemId === courseItem.itemId
+            );
+            if (matchingItem && matchingItem.date) {
+              scheduledDate = matchingItem.date;
+              break;
+            }
+          }
+        }
+      }
+      
       const lesson = {
         lessonId: courseItem.itemId,
         lessonNumber: lessonNumber,
@@ -296,7 +317,9 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
         sessionCount: sessionCount,
         hasNoSessions: hasNoSessions,
         scoringStrategy: lessonScore.strategy || null,
-        sessionStatus: lessonScore.sessionStatus || null
+        sessionStatus: lessonScore.sessionStatus || null,
+        // Add scheduled date if available (looked up from ScheduleJSON)
+        scheduledDate: scheduledDate
       };
       
       
@@ -543,6 +566,9 @@ const AssessmentGrid = ({ onReviewAssessment, course, allCourseItems = [], profi
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Progress
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Due Date
+                </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('date')}
@@ -714,6 +740,23 @@ const LessonRow = ({ lesson, course, onViewDetails, isStaffView, onCreateSession
                 <Loader2 className="h-4 w-4 text-blue-500 animate-spin" 
                      title="Creating session..." />
               )}
+              {/* Show overdue indicator */}
+              {lesson.scheduledDate && (() => {
+                const dueDate = new Date(lesson.scheduledDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0);
+                const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                
+                if (diffDays < 0 && lesson.status !== 'completed') {
+                  return (
+                    <Badge className="bg-red-100 text-red-700 text-xs px-1.5 py-0">
+                      Overdue
+                    </Badge>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
@@ -890,6 +933,49 @@ const LessonRow = ({ lesson, course, onViewDetails, isStaffView, onCreateSession
         ) : (
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm">
+          {lesson.scheduledDate ? (
+            <div>
+              <div className="font-medium text-gray-900">
+                {new Date(lesson.scheduledDate).toLocaleDateString(undefined, { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </div>
+              <div className={(() => {
+                const dueDate = new Date(lesson.scheduledDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0);
+                const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                
+                if (diffDays < 0) return "text-xs text-red-600 font-medium"; // Overdue
+                if (diffDays === 0) return "text-xs text-orange-600 font-medium"; // Due today
+                if (diffDays === 1) return "text-xs text-amber-600"; // Due tomorrow
+                return "text-xs text-gray-500"; // Future dates
+              })()}>
+                {(() => {
+                  const dueDate = new Date(lesson.scheduledDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  dueDate.setHours(0, 0, 0, 0);
+                  const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays === 0) return "Due today";
+                  if (diffDays === 1) return "Due tomorrow";
+                  if (diffDays === -1) return "Due yesterday";
+                  if (diffDays > 0) return `Due in ${diffDays} days`;
+                  return `${Math.abs(diffDays)} days overdue`;
+                })()}
+              </div>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400">No date set</span>
+          )}
+        </div>
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center justify-between">

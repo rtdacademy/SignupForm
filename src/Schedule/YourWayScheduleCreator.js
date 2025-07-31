@@ -50,7 +50,7 @@ const YourWayScheduleCreator = ({
       const loadingToast = toast.loading(`Saving your schedule...`);
       
       const functions = getFunctions();
-      const saveSchedule = httpsCallable(functions, 'saveStudentSchedule');
+      const saveSchedule = httpsCallable(functions, 'saveStudentScheduleV2');
       
       const result = await saveSchedule({
         scheduleData: schedule,
@@ -63,10 +63,15 @@ const YourWayScheduleCreator = ({
       toast.dismiss(loadingToast);
       
       if (result.data.success) {
-        toast.success(`Your schedule has been ${isScheduleUpdate ? 'updated' : 'saved'} successfully!`);
+        const formatMessage = result.data.formatUsed === 'enhanced' ? ' (Enhanced Format)' : '';
+        toast.success(`Your schedule has been ${isScheduleUpdate ? 'updated' : 'saved'} successfully!${formatMessage}`);
         if (onScheduleSaved) {
           onScheduleSaved(result.data.scheduleData);
         }
+        // Refresh the page after successful save
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500); // Wait 1.5 seconds to let user see the success message
       } else {
         toast.error(result.data.message || `Failed to ${isScheduleUpdate ? 'update' : 'save'} schedule`);
       }

@@ -140,8 +140,9 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     };
   }
 
-  // Handle case where assessments don't exist yet (new student)
-  const grades = course.Grades?.assessments || {};
+  // Handle case where assessments don't exist yet (new student) 
+  // Check multiple possible locations for grades
+  const grades = course.Grades?.assessments || course.Grades || {};
   const submissions = course.Assessments || {};
   let totalScore = 0;
   let totalPossible = 0;
