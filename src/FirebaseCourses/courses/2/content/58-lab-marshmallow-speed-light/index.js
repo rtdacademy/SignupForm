@@ -122,11 +122,14 @@ const LabMarshmallowSpeedLight = ({ courseId = '2', course, isStaffView = false 
   const [isSaving, setIsSaving] = useState(false);
   const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   
+  // Debounce timer for saving
+  const saveTimer = React.useRef(null);
+  
   // Check if lab is submitted
   const isSubmitted = course?.Assessments?.[questionId] !== undefined;
 
   // Save to Firebase with direct database integration
-  const saveToFirebase = useCallback(async (dataToUpdate) => {
+  const saveToFirebase = useCallback(async (dataToUpdate, showToast = false) => {
     if (!currentUser?.uid || !labDataRef || isSubmitted) {
       console.log('🚫 Save blocked: no user, no ref, or already submitted');
       return;
@@ -146,11 +149,28 @@ const LabMarshmallowSpeedLight = ({ courseId = '2', course, isStaffView = false 
       console.log('✅ Save successful!');
       setHasSavedProgress(true);
       
+      if (showToast) {
+        toast.success('Progress saved', {
+          duration: 2000,
+          icon: '💾'
+        });
+      }
+      
     } catch (error) {
       console.error('❌ Save failed:', error);
       toast.error('Failed to save data. Please try again.');
     }
   }, [currentUser?.uid, labDataRef, courseId, isSubmitted]);
+
+  // Debounced save function
+  const debouncedSave = useCallback((dataToUpdate) => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+    }
+    saveTimer.current = setTimeout(() => {
+      saveToFirebase(dataToUpdate);
+    }, 1000); // Wait 1 second after user stops typing
+  }, [saveToFirebase]);
 
   // Load saved data from Firebase
   useEffect(() => {
@@ -225,6 +245,24 @@ const LabMarshmallowSpeedLight = ({ courseId = '2', course, isStaffView = false 
       }));
     }
   }, [isStaffView, labStarted]);
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    if (!labStarted || !labDataRef || isSubmitted) return;
+    
+    const interval = setInterval(() => {
+      saveToFirebase({
+        sectionStatus,
+        sectionContent,
+        observationData,
+        calculationData,
+        currentSection,
+        labStarted
+      }, true); // Show toast for auto-save
+    }, 30000); // Save every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [labStarted, labDataRef, isSubmitted, saveToFirebase, sectionStatus, sectionContent, observationData, calculationData, currentSection]);
 
   // Start lab function
   const startLab = () => {

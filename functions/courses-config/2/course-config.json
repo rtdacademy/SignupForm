@@ -521,7 +521,133 @@
             "ring": "ring-red-200"
           }
         },
-        "questions": []
+        "questions": [
+          {
+            "questionId": "course2_76_section3_exam_q1",
+            "title": "Isotope Definition",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q2",
+            "title": "Nuclear Binding Energy",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q3",
+            "title": "Beta Decay Process",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q4",
+            "title": "Half-Life Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q5",
+            "title": "Nuclear Fission",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q6",
+            "title": "Atomic Models",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q7",
+            "title": "Alpha Radiation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q8",
+            "title": "Radioactive Decay",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q9",
+            "title": "Nuclear Reactions",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q10",
+            "title": "Mass-Energy Equivalence",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q11",
+            "title": "Electron Configuration",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q12",
+            "title": "Quantum Numbers",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q13",
+            "title": "Photoelectric Effect",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q14",
+            "title": "Nuclear Stability Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q15",
+            "title": "Radiation Detection",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q16",
+            "title": "Nuclear Chart Analysis",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q17",
+            "title": "Energy Level Diagram",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q18",
+            "title": "Isotope Applications",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q19",
+            "title": "Nuclear Decay Series",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q20",
+            "title": "Nuclear Medicine",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q21",
+            "title": "Nuclear Power",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q22",
+            "title": "Atomic Structure",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q23",
+            "title": "Nuclear Physics Principles",
+            "points": 1
+          },
+          {
+            "questionId": "course2_76_section3_exam_q24",
+            "title": "Decay Analysis Problem",
+            "points": 5
+          },
+          {
+            "questionId": "course2_76_section3_exam_q25",
+            "title": "Nuclear Physics Application",
+            "points": 4
+          }
+        ]
       },
       "assignment_l1_3": {
         "title": "Assignment L1-3 - Momentum Fundamentals",

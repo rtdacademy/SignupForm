@@ -31,9 +31,8 @@ const AxisSelection = ({ onAxisChange, measurements }) => {
   };
   
   const handleGenerateGraph = () => {
-    if (isCorrectChoice) {
-      onAxisChange(xAxis, yAxis);
-    }
+    // Allow all combinations to be tried - let students explore
+    onAxisChange(xAxis, yAxis);
   };
   
   const showHint = () => {
