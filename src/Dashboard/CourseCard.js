@@ -555,43 +555,130 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
   // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
-    // Don't render schedule buttons if courseDetails.units doesn't exist
-    if (!effectiveCourseDetails?.units) {
+    // Debug logging for course details
+    console.log('📋 Course Details Debug:', {
+      courseName: courseName,
+      courseId: courseId,
+      effectiveCourseDetails: effectiveCourseDetails,
+      cachedCourseDetails: cachedCourseDetails,
+      courseDetailsFromCourse: course.courseDetails,
+      doesNotRequireSchedule: effectiveCourseDetails?.doesNotRequireSchedule,
+      isFirebaseCourse: effectiveCourseDetails?.firebaseCourse
+    });
+
+    // Don't render schedule buttons if course explicitly doesn't require a schedule
+    // Only check this if effectiveCourseDetails exists
+    if (effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) {
       return null;
     }
 
-    // Don't render schedule buttons if course doesn't require a schedule
-    if (effectiveCourseDetails?.doesNotRequireSchedule) {
-      return null;
-    }
-
-    // Don't render schedule buttons for Firebase courses
-    if (effectiveCourseDetails?.firebaseCourse) {
+    // Check if ANY course (Firebase or not) has the enhanced course structure
+    // Look in multiple possible locations for the course structure
+    const hasEnhancedCourseStructure = !!(
+      course.Gradebook?.courseStructure?.units ||  // Student-specific location
+      effectiveCourseDetails?.courseStructure?.units ||  // Direct location
+      effectiveCourseDetails?.["course-config"]?.courseStructure?.units  // Course config location
+    );
+    
+    // Debug logging to help troubleshoot
+    console.log('🔍 Enhanced Course Schedule Detection:', {
+      courseName: courseName,
+      courseId: courseId,
+      isFirebaseCourse: effectiveCourseDetails?.firebaseCourse,
+      hasGradebook: !!course.Gradebook,
+      hasCourseStructure: !!course.Gradebook?.courseStructure,
+      hasUnits: !!course.Gradebook?.courseStructure?.units,
+      hasCourseConfigStructure: !!effectiveCourseDetails?.["course-config"]?.courseStructure?.units,
+      hasDirectCourseStructure: !!effectiveCourseDetails?.courseStructure?.units,
+      hasEnhancedCourseStructure,
+      courseConfigKeys: effectiveCourseDetails?.["course-config"] ? Object.keys(effectiveCourseDetails?.["course-config"]) : 'none'
+    });
+    
+    if (hasEnhancedCourseStructure) {
+      // Course with enhanced structure - allow schedule creation
       return (
-        <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
-          <DialogTrigger asChild>
-            <Button
-              className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200 flex items-center justify-center"
-            >
-              <BarChart className="mr-2 h-4 w-4" />
-              Course Progress
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle>Course Progress</DialogTitle>
-            </DialogHeader>
-            <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">Course progress for Firebase courses</h3>
-              <p className="text-gray-600">Progress tracking for this course is handled within the course itself.</p>
+          <>
+            <div className="w-full">
+              <CreateScheduleButton
+                onClick={handleScheduleCreation}
+                hasSchedule={hasSchedule}
+                gracePeriodInfo={gracePeriodInfo}
+                courseName={courseName}
+                teacherEmail={effectiveCourseDetails?.teachers?.['rory@rtdacademy,com']?.email || 'your instructor'}
+              />
+              {renderGracePeriodInfo()}
             </div>
-          </DialogContent>
-        </Dialog>
-      );
+
+            <SchedulePurchaseDialog
+              isOpen={showScheduleConfirmDialog}
+              onOpenChange={setShowScheduleConfirmDialog}
+              onProceedToCreation={() => {
+                setShowScheduleConfirmDialog(false);
+                setShowCreateScheduleDialog(true);
+              }}
+              hasSchedule={hasSchedule}
+              gracePeriodInfo={gracePeriodInfo}
+            />
+
+            <Sheet
+              open={showCreateScheduleDialog}
+              onOpenChange={setShowCreateScheduleDialog}
+              side="right"
+            >
+              <SheetContent className="w-full sm:max-w-[90%] h-full">
+                <SheetHeader>
+                  <SheetTitle>Create Your Course Schedule</SheetTitle>
+                  <div className="mt-2">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      ✨ Enhanced Firebase Course
+                    </span>
+                  </div>
+                </SheetHeader>
+                <YourWayScheduleCreator
+                  course={course}
+                  onScheduleSaved={() => {
+                    setShowCreateScheduleDialog(false);
+                  }}
+                />
+              </SheetContent>
+            </Sheet>
+
+            {/* Progress button for Firebase courses with enhanced structure */}
+            <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+              <DialogTrigger asChild>
+                <Button
+                  className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200 flex items-center justify-center"
+                >
+                  <BarChart className="mr-2 h-4 w-4" />
+                  Course Progress
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+                <DialogHeader>
+                  <DialogTitle>Course Progress</DialogTitle>
+                </DialogHeader>
+                {hasSchedule && (
+                  <YourWayProgress
+                    course={course}
+                    schedule={course.ScheduleJSON}
+                  />
+                )}
+                {!hasSchedule && (
+                  <div className="p-6">
+                    <h3 className="text-lg font-medium mb-4">Create a schedule first</h3>
+                    <p className="text-gray-600">Please create your course schedule to view detailed progress tracking.</p>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        );
     }
 
-    // Standard schedule buttons for regular courses
-    return (
+    // Check if this is a regular course with units
+    if (effectiveCourseDetails?.units) {
+      // Standard schedule buttons for regular courses
+      return (
       <>
         <div className="w-full">
           <CreateScheduleButton
@@ -656,6 +743,10 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
         )}
       </>
     );
+    }
+
+    // Fallback for courses without schedule capability
+    return null;
   };
 
   const renderRegistrationMessage = () => {
@@ -1128,7 +1219,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             <div className="space-y-4">
-              <div className={`grid ${effectiveCourseDetails?.units && !effectiveCourseDetails?.doesNotRequireSchedule ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+              <div className={`grid ${(effectiveCourseDetails?.units || course.Gradebook?.courseStructure?.units) && !(effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
                 {/* Show button in disabled state while loading or if course access is restricted and user is not developer */}

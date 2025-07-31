@@ -30,6 +30,90 @@ When reading the lesson file, look for:
 
 Create file at: `src/FirebaseCourses/courses/2/content/[LESSON-FOLDER]/ai-prompt.js`
 
+## Parallel Processing Approach (Recommended)
+
+When creating prompts for multiple lessons, use parallel processing to save time:
+
+### Benefits:
+- **3-5x faster** than sequential processing
+- **Consistent quality** across all prompts
+- **Efficient context usage**
+
+### How to Use Parallel Processing:
+
+1. **Identify Multiple Lessons**
+```bash
+# List lessons that need AI prompts
+ls src/FirebaseCourses/courses/2/content/*/index.js | grep -v ai-prompt
+```
+
+2. **Read Multiple Files Simultaneously**
+```bash
+# Read 3-4 lesson files at once
+@src/FirebaseCourses/courses/2/content/30-electric-potential/index.js
+@src/FirebaseCourses/courses/2/content/31-parallel-plates/index.js
+@src/FirebaseCourses/courses/2/content/32-electric-current/index.js
+```
+
+3. **Create Multiple Prompts in One Operation**
+- Analyze all lessons together
+- Write all ai-prompt.js files simultaneously
+- Maintain consistency across related topics
+
+### Example Workflow:
+```
+1. Group related lessons (e.g., electricity topics)
+2. Read 3-4 lesson files in parallel
+3. Create all AI prompts simultaneously
+4. Verify all files were created successfully
+```
+
+### Tips for Parallel Processing:
+- Group lessons by topic for better context
+- Process 3-4 lessons per batch (optimal)
+- Use consistent formatting across all prompts
+- Track progress with a todo list
+
+## Template Structure
+
+### Improved Formatting for Long Text
+
+For better readability of long conversation text, use this clean formatting approach:
+
+```javascript
+// RECOMMENDED: Clean template literal formatting
+conversationHistory: (studentName = '') => {
+  const firstName = studentName || 'there';
+  return [
+    {
+      sender: 'user',
+      text: 'Hi! I just started the momentum in two dimensions lesson.',
+      timestamp: Date.now() - 1000
+    },
+    {
+      sender: 'model',
+      text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! Welcome to momentum in two dimensions. This lesson builds on what you learned about 1D momentum by adding the complexity of vector analysis.
+
+${firstName !== 'there' ? `I see you're ${firstName} - I'll make sure to address you by name throughout our discussion. ` : ''}The key insight is that momentum conservation applies independently to each direction - what happens in the x-direction is separate from the y-direction.
+
+This lesson covers two main approaches:
+- **Component Method**: Breaking vectors into x and y parts
+- **Vector Addition Method**: Using geometry and trigonometry
+
+We have 5 detailed examples showing different scenarios - explosions, collisions, and multi-body systems. Which aspect would you like to explore first?`,
+      timestamp: Date.now()
+    }
+  ];
+},
+```
+
+**Key formatting principles:**
+- Use natural paragraph breaks with blank lines
+- Use **bold** for important concepts or lists
+- Keep sentences flowing naturally
+- Use bullet points or numbered lists for clarity
+- Maintain conversational tone throughout
+
 ## Template Structure
 
 ```javascript

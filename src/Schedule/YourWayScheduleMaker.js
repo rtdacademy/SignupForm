@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { getDatabase, ref, get, set } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
+import { adaptCourseData, enhanceScheduleForFormat, supportsEnhancedFeatures } from '../utils/CourseDataAdapter';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
@@ -395,19 +396,54 @@ const YourWayScheduleMaker = ({
     if (course) {
       const fetchCourseById = async (id) => {
         const db = getDatabase();
-        const courseRef = ref(db, `courses/${id}`);
+        
+        // First, try to fetch the new course structure format
+        const newFormatRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${id}/Gradebook/courseStructure`);
+        
         try {
-          const snapshot = await get(courseRef);
-          if (snapshot.exists()) {
-            const courseData = snapshot.val();
-            setSelectedCourse({
-              id,
-              ...courseData,
-            });
-            handleCourseData(courseData, id);
+          console.log('Checking for new course format...');
+          const newFormatSnapshot = await get(newFormatRef);
+          
+          if (newFormatSnapshot.exists()) {
+            console.log('New course format detected, adapting for YourWay compatibility');
+            const newFormatData = newFormatSnapshot.val();
+            
+            // Get additional course data from the student's course record
+            const studentCourseRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${id}`);
+            const studentCourseSnapshot = await get(studentCourseRef);
+            
+            const combinedCourseData = {
+              courseStructure: newFormatData,
+              // Merge in student course data if available
+              ...(studentCourseSnapshot.exists() ? studentCourseSnapshot.val() : {})
+            };
+            
+            // Adapt the new format to work with existing YourWay components
+            const adaptedCourse = adaptCourseData(combinedCourseData, id);
+            
+            if (adaptedCourse) {
+              setSelectedCourse(adaptedCourse);
+              handleCourseData(adaptedCourse, id);
+              console.log('Successfully adapted new course format:', adaptedCourse);
+            } else {
+              throw new Error('Failed to adapt new course format');
+            }
           } else {
-            console.error("Course not found");
-            toast.error("Course not found");
+            console.log('New format not found, falling back to traditional course format');
+            // Fall back to traditional course format
+            const courseRef = ref(db, `courses/${id}`);
+            const snapshot = await get(courseRef);
+            
+            if (snapshot.exists()) {
+              const courseData = snapshot.val();
+              const adaptedCourse = adaptCourseData(courseData, id);
+              setSelectedCourse(adaptedCourse);
+              handleCourseData(adaptedCourse, id);
+              console.log('Using traditional course format:', adaptedCourse);
+            } else {
+              console.error("Course not found in either format");
+              toast.error("Course not found");
+            }
           }
         } catch (error) {
           console.error("Error fetching course:", error);
@@ -416,7 +452,14 @@ const YourWayScheduleMaker = ({
           setLoading(false);
         }
       };
-      fetchCourseById(course.CourseID);
+      
+      // Only fetch if we have user authentication
+      if (user_email_key) {
+        fetchCourseById(course.CourseID);
+      } else {
+        console.warn('No user email key available for new format detection');
+        setLoading(false);
+      }
       
       // Fetch registration settings if available
       if (course.registrationSettingsPath) {
@@ -1031,7 +1074,10 @@ const YourWayScheduleMaker = ({
       } : null
     };
 
-    setScheduleData(schedule);
+    // Enhance schedule data with format-specific information
+    const enhancedSchedule = enhanceScheduleForFormat(schedule, selectedCourse._originalCourseStructure || selectedCourse);
+    
+    setScheduleData(enhancedSchedule);
     setScheduleCreated(true);
     scrollToSchedule();
   };
@@ -1058,7 +1104,7 @@ const YourWayScheduleMaker = ({
     try {
       setSaving(true);
       const functions = getFunctions();
-      const saveSchedule = httpsCallable(functions, 'saveStudentSchedule');
+      const saveSchedule = httpsCallable(functions, 'saveStudentScheduleV2');
       
       const result = await saveSchedule({
         scheduleData,
@@ -1072,7 +1118,8 @@ const YourWayScheduleMaker = ({
       });
       
       if (result.data.success) {
-        toast.success("Schedule saved successfully!");
+        const formatMessage = result.data.formatUsed === 'enhanced' ? ' (Enhanced Format)' : '';
+        toast.success(`Schedule saved successfully!${formatMessage}`);
         onScheduleSaved(result.data.scheduleData);
       } else {
         toast.error(result.data.message || "Failed to save schedule");
@@ -1404,6 +1451,13 @@ const YourWayScheduleMaker = ({
               <p className="text-lg font-semibold">
                 {selectedCourse ? selectedCourse.Title : "Loading..."}
               </p>
+              {selectedCourse && supportsEnhancedFeatures(selectedCourse) && (
+                <div className="mt-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ✨ Enhanced Course Format
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div>
