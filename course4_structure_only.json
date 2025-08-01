@@ -1,0 +1,287 @@
+{
+  "units": [
+    {
+      "unitId": "unit_1_course_complete",
+      "name": "Course Complete",
+      "order": 1,
+      "items": [
+        {
+          "itemId": "01_physics_30_welcome_rtd_academy",
+          "type": "lesson",
+          "title": "Welcome to RTD Academy",
+          "estimatedTime": 30,
+          "order": 1,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_01_welcome_question1",
+              "title": "RTD Academy Knowledge Check - Question 1"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_01_welcome_question2",
+              "title": "RTD Academy Knowledge Check - Question 2"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_01_welcome_question3",
+              "title": "RTD Academy Knowledge Check - Question 3"
+            }
+          ]
+        },
+        {
+          "itemId": "02_physics_30_learning_plans_completion_policies",
+          "type": "lesson",
+          "title": "Learning Plans, Course Completion & Diploma Exam Policies",
+          "estimatedTime": 45,
+          "order": 2,
+          "questions": [
+            {
+              "points": 2,
+              "questionId": "course4_02_learning_plans_aiQuestion",
+              "title": "Learning Plans & Completion Policies"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question1",
+              "title": "Withdrawal Policies and PASI Reporting"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question2",
+              "title": "MyPass Registration Requirements"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question3",
+              "title": "Student Inactivity Response"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question4",
+              "title": "Course Completion Timeline"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question5",
+              "title": "Section 1 Withdrawal Policy"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question6",
+              "title": "Diploma Exam Registration"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question7",
+              "title": "Course Access Lock Policy"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_02_learning_plans_question8",
+              "title": "Inactivity Consequences"
+            }
+          ]
+        },
+        {
+          "itemId": "03_physics_30_time_management_staying_active",
+          "type": "lesson",
+          "title": "Time Management & Staying Active",
+          "estimatedTime": 40,
+          "order": 3,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question1",
+              "title": "Weekly Login Requirements"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question2",
+              "title": "Two-Lesson Rule"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question3",
+              "title": "Inactivity Timeline"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question4",
+              "title": "Response Time After Lockout"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question5",
+              "title": "Total Withdrawal Timeline"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question6",
+              "title": "Emergency Response Scenario"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question7",
+              "title": "Prevention Strategy Scenario"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_03_time_management_question8",
+              "title": "Proactive Communication Scenario"
+            }
+          ]
+        },
+        {
+          "itemId": "04_physics_30_conduct_expectations_responsibilities",
+          "type": "lesson",
+          "title": "Online Conduct, Expectations & Student Responsibilities",
+          "estimatedTime": 35,
+          "order": 4,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_04_conduct_expectations_question1",
+              "title": "Professional Email Communication"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_04_conduct_expectations_question2",
+              "title": "Academic Integrity Requirements"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_04_conduct_expectations_question3",
+              "title": "Digital Citizenship Standards"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_04_conduct_expectations_question4",
+              "title": "Student Responsibility Expectations"
+            }
+          ]
+        },
+        {
+          "itemId": "05_physics_30_digital_citizenship_online_safety",
+          "type": "lesson",
+          "title": "Digital Citizenship & Online Safety",
+          "estimatedTime": 30,
+          "order": 5,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_05_digital_citizenship_question1",
+              "title": "Online Safety Practices"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_05_digital_citizenship_question2",
+              "title": "Digital Footprint Awareness"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_05_digital_citizenship_question3",
+              "title": "Cyberbullying Prevention"
+            }
+          ]
+        },
+        {
+          "itemId": "07_physics_30_technology_readiness_assistive_tools",
+          "type": "lesson",
+          "title": "Technology Readiness & Assistive Tools",
+          "estimatedTime": 35,
+          "order": 6,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_07_technology_readiness_question1",
+              "title": "Technology Requirements"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_07_technology_readiness_question2",
+              "title": "Assistive Technology Tools"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_07_technology_readiness_question3",
+              "title": "Technical Support Resources"
+            }
+          ]
+        },
+        {
+          "itemId": "08_physics_30_cell_phone_policy_exam_proctoring",
+          "type": "lesson",
+          "title": "Cell Phone Policy & Exam Proctoring",
+          "estimatedTime": 30,
+          "order": 7,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_08_cell_phone_policy_question1",
+              "title": "Cell Phone Usage Policy"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_08_cell_phone_policy_question2",
+              "title": "Exam Proctoring Requirements"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_08_cell_phone_policy_question3",
+              "title": "Proctorio Setup and Usage"
+            }
+          ]
+        },
+        {
+          "itemId": "09_physics_30_academic_integrity_violation_consequences",
+          "type": "lesson",
+          "title": "Academic Integrity, Violation & Consequences",
+          "estimatedTime": 35,
+          "order": 8,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_09_academic_integrity_question1",
+              "title": "Academic Integrity Standards"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_09_academic_integrity_question2",
+              "title": "Violation Consequences"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_09_academic_integrity_question3",
+              "title": "Plagiarism Prevention"
+            }
+          ]
+        },
+        {
+          "itemId": "10_physics_30_exams_rewrites_student_support",
+          "type": "lesson",
+          "title": "Exams, Rewrites & Student Support",
+          "estimatedTime": 30,
+          "order": 9,
+          "questions": [
+            {
+              "points": 1,
+              "questionId": "course4_10_exams_rewrites_question1",
+              "title": "Exam Policies and Procedures"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_10_exams_rewrites_question2",
+              "title": "Rewrite Policies"
+            },
+            {
+              "points": 1,
+              "questionId": "course4_10_exams_rewrites_question3",
+              "title": "Student Support Services"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -6,16 +6,11 @@
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('../utils/utils');
 
-// Helper function to get category weights
+// Helper function to get category weights from course config
+// This is now deprecated - weights should come from course config
 const getCategoryWeight = (type) => {
-  const weights = {
-    lesson: 15,
-    assignment: 35,
-    exam: 35,
-    project: 15,
-    lab: 0
-  };
-  return weights[type] || 15;
+  console.warn('getCategoryWeight() is deprecated - use weights from course config instead');
+  return 0; // Return 0 to avoid calculation errors
 };
 
 /**
@@ -237,42 +232,9 @@ const GRADEBOOK_PATHS = {
   ...DATABASE_PATHS
 };
 
-/**
- * Track when a student accesses a lesson (disabled)
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- * @param {string} lessonId - Lesson ID
- * @param {Object} lessonInfo - Additional lesson information
- */
-async function trackLessonAccess(studentKey, courseId, lessonId, lessonInfo = {}) {
-  try {
-    console.log(`📚 Lesson access tracking skipped (progress tracking disabled): ${lessonId} for ${studentKey}`);
-    return { disabled: true };
-    
-  } catch (error) {
-    console.error('Error in lesson access tracking:', error);
-    throw error;
-  }
-}
+// trackLessonAccess function removed - was disabled
 
-/**
- * Track assessment progress within a lesson (disabled)
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- * @param {string} lessonId - Lesson ID
- * @param {string} assessmentId - Assessment ID
- * @param {string} status - Status ('viewed', 'started', 'completed')
- */
-async function trackAssessmentProgress(studentKey, courseId, lessonId, assessmentId, status) {
-  try {
-    console.log(`📊 Assessment progress tracking skipped (progress tracking disabled): ${assessmentId} (${status}) in lesson ${lessonId}`);
-    return { disabled: true };
-    
-  } catch (error) {
-    console.error('Error in assessment progress tracking:', error);
-    throw error;
-  }
-}
+// trackAssessmentProgress function removed - was disabled
 
 /**
  * Update gradebook when an assessment is completed
@@ -306,28 +268,13 @@ async function updateGradebookItem(studentKey, courseId, itemId, score, itemConf
 }
 
 
-/**
- * Update the gradebook summary (disabled - no longer storing summaries)
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- */
-async function updateGradebookSummary(studentKey, courseId) {
-  try {
-    console.log(`📈 Gradebook summary update skipped (summary tracking disabled)`);
-    return { disabled: true };
-    
-  } catch (error) {
-    console.error('Error in gradebook summary update:', error);
-    throw error;
-  }
-}
+// updateGradebookSummary function removed - was disabled
 
 /**
- * Get course configuration (database first, then file fallback)
+ * Get course configuration from database only
  */
 async function getCourseConfig(courseId) {
   try {
-    // NEW: First try to get config from database
     const db = admin.database();
     const courseConfigRef = db.ref(`courses/${courseId}/course-config`);
     const configSnapshot = await courseConfigRef.once('value');
@@ -337,14 +284,11 @@ async function getCourseConfig(courseId) {
       return configSnapshot.val();
     }
     
-    // Fallback: Load from local file if database doesn't have config
-    console.log(`⚠️ Course config not found in database for ${courseId}, trying local file...`);
-    const config = require(`../../courses-config/${courseId}/course-config.json`);
-    console.log(`✅ Using course config from local file for course ${courseId}`);
-    return config;
+    console.warn(`⚠️ Course config not found in database for ${courseId}`);
+    return null;
   } catch (error) {
-    console.warn(`Course config not found in database or file for ${courseId}, returning null`);
-    return null; // Return null instead of defaults - let calling code handle gracefully
+    console.warn(`Error loading course config for ${courseId}:`, error);
+    return null;
   }
 }
 
@@ -455,13 +399,12 @@ async function initializeGradebook(studentKey, courseId) {
 }
 
 /**
- * Load course structure from the course structure file
+ * Load course structure from database course config
  * @param {string} courseId - Course ID
  * @returns {Promise<Object>} Course structure
  */
 async function getCourseStructure(courseId) {
   try {
-    // NEW APPROACH: Use courseStructure from course-config.json
     const courseConfig = await getCourseConfig(courseId);
     
     if (courseConfig?.courseStructure) {
@@ -469,24 +412,12 @@ async function getCourseStructure(courseId) {
       return courseConfig.courseStructure;
     }
     
-    // Fallback: Try to load from frontend course structure files (legacy)
-    const frontendPath = `../../../src/FirebaseCourses/courses/${courseId}/course-structure.json`;
-    try {
-      const courseStructure = require(frontendPath);
-      console.log(`⚠️ Using legacy frontend courseStructure for course ${courseId}`);
-      return courseStructure.courseStructure || courseStructure;
-    } catch (frontendError) {
-      console.log(`Frontend course structure not found for ${courseId}, trying backend...`);
-    }
-    
-    // Try backend course structure (legacy)
-    const backendPath = `../../courses/${courseId}/structure.json`;
-    const courseStructure = require(backendPath);
-    console.log(`⚠️ Using legacy backend courseStructure for course ${courseId}`);
-    return courseStructure.courseStructure || courseStructure;
-    
+    console.warn(`Course structure not found for course ${courseId}`);
+    return {
+      units: []
+    };
   } catch (error) {
-    console.warn(`Course structure not found for course ${courseId}:`, error.message);
+    console.warn(`Error loading course structure for ${courseId}:`, error.message);
     return {
       units: []
     };
@@ -655,59 +586,11 @@ async function findCourseStructureItem(courseId, assessmentId) {
   }
 }
 
-/**
- * Clean up legacy assessment entries from gradebook
- * Removes duplicate legacy assessment IDs when corresponding new IDs exist
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- * @param {boolean} isStaff - Whether this is a staff member
- */
-async function cleanupLegacyAssessments(studentKey, courseId) {
-  try {
-    console.log(`🧹 Legacy assessment cleanup skipped (items tracking disabled)`);
-    return { removed: 0, legacyIds: [], disabled: true };
-    
-  } catch (error) {
-    console.error('Error in legacy assessment cleanup:', error);
-    throw error;
-  }
-}
+// cleanupLegacyAssessments function removed - was disabled
 
-/**
- * Update course structure item summary (aggregates multiple assessments within a lesson/assignment)
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- * @param {string} courseStructureItemId - Course structure item ID
- * @param {boolean} isStaff - Whether this is a staff member
- */
-async function updateCourseStructureItemSummary(studentKey, courseId, courseStructureItemId) {
-  try {
-    console.log(`📊 Course structure item summary update skipped (courseStructureItems tracking disabled)`);
-    return { disabled: true };
-    
-  } catch (error) {
-    console.error('Error in course structure item summary update:', error);
-    return null;
-  }
-}
+// updateCourseStructureItemSummary function removed - was disabled
 
-/**
- * Track time spent on an assessment or lesson (disabled)
- * @param {string} studentKey - Sanitized student email
- * @param {string} courseId - Course ID
- * @param {string} itemId - Item ID (assessment or lesson)
- * @param {number} timeSpent - Time spent in seconds
- */
-async function trackTimeSpent(studentKey, courseId, itemId, timeSpent) {
-  try {
-    console.log(`⏱️ Time tracking skipped (time tracking disabled) for ${itemId}: ${timeSpent}s`);
-    return { disabled: true };
-    
-  } catch (error) {
-    console.error('Error in time tracking:', error);
-    throw error;
-  }
-}
+// trackTimeSpent function removed - was disabled
 
 /**
  * Compare course configurations to detect changes
@@ -983,19 +866,14 @@ module.exports = {
   DATABASE_PATHS,
   GRADEBOOK_PATHS,
   getDatabaseRef,
-  trackLessonAccess, // DISABLED: Returns { disabled: true }
-  trackAssessmentProgress, // DISABLED: Returns { disabled: true }
   updateGradebookItem,
-  updateGradebookSummary, // DISABLED: Returns { disabled: true }
   initializeGradebook,
   getCourseConfig,
   getCourseStructure,
   findCourseStructureItem,
-  findQuestionInCourseConfig, // NEW: Course config based question lookup
-  cleanupLegacyAssessments, // DISABLED: Returns { disabled: true }
-  updateCourseStructureItemSummary, // DISABLED: Returns { disabled: true }
-  trackTimeSpent, // DISABLED: Returns { disabled: true }
-  validateGradebookStructure, // DISABLED: Returns { disabled: true }
-  compareCourseConfigs, // NEW: Compare course configurations
-  syncCourseConfig, // NEW: Sync course config changes
+  findQuestionInCourseConfig,
+  validateGradebookStructure,
+  compareCourseConfigs,
+  syncCourseConfig,
+  getCategoryWeight // Deprecated but kept for backward compatibility
 };

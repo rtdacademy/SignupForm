@@ -48,6 +48,7 @@ import DeleteCourseDialog from './DeleteCourseDialog';
 import CourseWeightingDialog from './CourseWeightingDialog';
 import ImprovedEmailManager from './ImprovedEmailManager';
 import JsonDisplay from '../components/JsonDisplay';
+import FirebaseCourseConfigEditor from './FirebaseCourseConfigEditor';
 
 // Import UI kit Select components for single–value selects
 import {
@@ -2900,8 +2901,11 @@ function Courses({
                   // Firebase Course - Show database configuration with sync controls
                   <div className="space-y-8">
                     <div>
-                      <h3 className="text-lg font-semibold mb-4">Firebase Course Configuration</h3>
-                      <DatabaseCourseConfig courseId={selectedCourseId} isEditing={courseIsEditing} />
+                      <FirebaseCourseConfigEditor 
+                        courseId={selectedCourseId} 
+                        courseData={courseData}
+                        isEditing={courseIsEditing} 
+                      />
                     </div>
                     
                     <div>

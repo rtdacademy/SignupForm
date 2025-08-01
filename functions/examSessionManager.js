@@ -755,8 +755,8 @@ exports.detectActiveExamSession = onCall({
  */
 exports.createTeacherSession = onCall({
   region: 'us-central1',
-  memory: '128MiB', // Reduced memory requirement
-  timeoutSeconds: 30, // Reduced timeout
+  memory: '256MiB', // Increased memory for reliable startup
+  timeoutSeconds: 60, // Increased timeout for startup
   cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
 }, async (request) => {
   try {
