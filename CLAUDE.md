@@ -60,6 +60,10 @@ When helping with development tasks:
 4. **Test Thoroughly**: Suggest testing strategies for new features
 5. **Think About User Experience**: Consider accessibility and usability
 
+## Code Guidelines
+
+- Let's not use any legacy code. I always want to remove legacy code for clarity and consistency 
+
 ## Task Management with Todo Lists
 
 For any complex or multi-step tasks, create a todo list to track progress:

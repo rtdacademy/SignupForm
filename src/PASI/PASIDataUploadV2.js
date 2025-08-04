@@ -36,22 +36,20 @@ const PASIDataUploadV2 = () => {
   const [error, setError] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
   const [lastSystemUpload, setLastSystemUpload] = useState(null);
-  const [selectedYear, setSelectedYear] = useState('');
   const [showBlacklistSheet, setShowBlacklistSheet] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [analyticsRecords, setAnalyticsRecords] = useState([]);
   const { preferences } = useUserPreferences();
-  const { refreshStudentSummaries } = useSchoolYear();
+  const { 
+    refreshStudentSummaries, 
+    currentSchoolYear, 
+    includeNextYear, 
+    includePreviousYear,
+    getNextSchoolYear,
+    getPreviousSchoolYear
+  } = useSchoolYear();
 
-  // School years from preferences
-  const schoolYears = preferences?.schoolYears || ['2024-2025', '2023-2024'];
 
-  useEffect(() => {
-    // Set default school year
-    if (schoolYears.length > 0 && !selectedYear) {
-      setSelectedYear(schoolYears[0]);
-    }
-  }, [schoolYears, selectedYear]);
 
   useEffect(() => {
     // Load upload history and system-wide last upload
@@ -103,8 +101,8 @@ const PASIDataUploadV2 = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedYear) {
-      setError('Please select both a file and school year');
+    if (!selectedFile || !currentSchoolYear) {
+      setError('Please select a file and ensure a school year is selected in the header');
       return;
     }
 
@@ -134,7 +132,7 @@ const PASIDataUploadV2 = () => {
           
           const result = await uploadPasiCsvV2({
             csvContent: base64Content,
-            schoolYear: selectedYear
+            schoolYear: currentSchoolYear
           });
           
           clearInterval(progressInterval);
@@ -204,6 +202,7 @@ const PASIDataUploadV2 = () => {
     setShowAnalytics(true);
   };
 
+
   return (
     <div className="space-y-6">
       {/* Last Upload Summary */}
@@ -241,7 +240,14 @@ const PASIDataUploadV2 = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Database className="h-5 w-5 text-blue-600" />
-              <span>PASI Data Upload</span>
+              <div className="flex flex-col">
+                <span>PASI Data Upload</span>
+                {currentSchoolYear && (
+                  <span className="text-sm font-normal text-gray-600">
+                    Uploading to: <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium">{currentSchoolYear}</span>
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <Button
@@ -271,63 +277,43 @@ const PASIDataUploadV2 = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* School Year Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                School Year
-              </label>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full p-2.5 border rounded-md bg-white hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+          {/* File Selection */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              CSV File
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileSelect}
+                className="sr-only"
+                id="file-upload"
                 disabled={uploading}
+              />
+              <label
+                htmlFor="file-upload"
+                className={`
+                  w-full p-2.5 border rounded-md flex items-center justify-center gap-2 cursor-pointer
+                  ${uploading ? 'bg-gray-100 cursor-not-allowed' : 'bg-white hover:bg-gray-50 hover:border-gray-400'}
+                  transition-all duration-200
+                `}
               >
-                <option value="">Select school year</option>
-                {schoolYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* File Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                CSV File
+                <FileSpreadsheet className="h-4 w-4 text-gray-500" />
+                <span className="text-sm">
+                  {selectedFile ? selectedFile.name : 'Choose CSV file...'}
+                </span>
               </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileSelect}
-                  className="sr-only"
-                  id="file-upload"
-                  disabled={uploading}
-                />
-                <label
-                  htmlFor="file-upload"
-                  className={`
-                    w-full p-2.5 border rounded-md flex items-center justify-center gap-2 cursor-pointer
-                    ${uploading ? 'bg-gray-100 cursor-not-allowed' : 'bg-white hover:bg-gray-50 hover:border-gray-400'}
-                    transition-all duration-200
-                  `}
-                >
-                  <FileSpreadsheet className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm">
-                    {selectedFile ? selectedFile.name : 'Choose CSV file...'}
-                  </span>
-                </label>
-              </div>
             </div>
           </div>
 
           {/* Upload Button */}
           <Button
             onClick={handleUpload}
-            disabled={!selectedFile || !selectedYear || uploading}
+            disabled={!selectedFile || !currentSchoolYear || uploading}
             className={`
               w-full h-12 text-base font-medium transition-all duration-200
-              ${!selectedFile || !selectedYear || uploading 
+              ${!selectedFile || !currentSchoolYear || uploading 
                 ? 'opacity-50 cursor-not-allowed' 
                 : 'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
               }
@@ -385,6 +371,7 @@ const PASIDataUploadV2 = () => {
         </CardContent>
       </Card>
 
+    
       {/* PASI Records Table */}
       <PasiRecordsSimplified onShowAnalytics={handleShowAnalytics} />
 
@@ -399,7 +386,7 @@ const PASIDataUploadV2 = () => {
         records={analyticsRecords}
         isOpen={showAnalytics}
         onClose={() => setShowAnalytics(false)}
-        selectedSchoolYear={selectedYear || schoolYears[0] || '2024-2025'}
+        selectedSchoolYear={currentSchoolYear || '24/25'}
       />
     </div>
   );

@@ -208,13 +208,13 @@ const SlideshowKnowledgeCheck = ({
 
   // Helper function to check if student has full score for a question using reliable data
   const hasFullScore = (questionId) => {
-    if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure || !course?.Grades?.assessments) {
+    if (!course?.courseDetails?.['course-config']?.gradebook?.itemStructure || !course?.Grades?.assessments) {
       return false;
     }
 
     // Find the question in the course config to get the points
     let questionPoints = null;
-    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+    const itemStructure = course.courseDetails['course-config'].gradebook.itemStructure;
     
     for (const itemKey in itemStructure) {
       const item = itemStructure[itemKey];
@@ -240,7 +240,7 @@ const SlideshowKnowledgeCheck = ({
 
   // Helper function to determine question attempt status using reliable data sources
   const getQuestionStatus = (questionId) => {
-    if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure || !course?.Grades?.assessments) {
+    if (!course?.courseDetails?.['course-config']?.gradebook?.itemStructure || !course?.Grades?.assessments) {
       return { 
         attempted: false, 
         correct: null, 
@@ -253,7 +253,7 @@ const SlideshowKnowledgeCheck = ({
 
     // Get question points from course config
     let questionPoints = null;
-    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+    const itemStructure = course.courseDetails['course-config'].gradebook.itemStructure;
     
     for (const itemKey in itemStructure) {
       const item = itemStructure[itemKey];

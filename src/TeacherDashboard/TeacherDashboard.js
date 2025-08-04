@@ -44,7 +44,6 @@ import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
  
-import PASIDataUpload from '../PASI/PASIDataUpload';
 import DataRectification from './DataRectification';
 import PASIDataUploadV2 from '../PASI/PASIDataUploadV2';
 import TeacherFileStorage from './TeacherFileStorage';
@@ -331,9 +330,9 @@ function TeacherDashboard() {
       case 'org-chart':
         return <OrgChart />;
       case 'pasi-data-upload':
-        return <PASIDataUpload />;
+        return <PASIDataUploadV2 />;
       case 'pasi-records':
-        return <PASIDataUpload />;
+        return <PASIDataUploadV2 />;
       case 'data-rectification':
         return <PASIDataUploadV2 />;
       case 'file-storage':

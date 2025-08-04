@@ -366,14 +366,16 @@ async function initializeGradebook(studentKey, courseId) {
       const gradebookData = {
         initialized: true,
         createdAt: getServerTimestamp(),
-        // Include course config weights so frontend can access them
-        courseConfig: {
-          weights: courseConfig.weights || {},
-          globalSettings: courseConfig.globalSettings || {},
-          gradebook: courseConfig.gradebook || {},
-          progressionRequirements: courseConfig.progressionRequirements || {}
+        // Just initialize basic structure - recalculateFullGradebook will populate everything else
+        items: {},
+        categories: {},
+        overall: {
+          percentage: 0
         },
-        courseStructure: courseStructure // Add course structure for navigation
+        metadata: {
+          lastCalculated: null,
+          calculationVersion: '1.0'
+        }
       };
       
       await gradebookRef.set(gradebookData);
@@ -859,6 +861,252 @@ async function validateGradebookStructure(studentKey, courseId) {
   }
 }
 
+/**
+ * Recalculate entire gradebook for a student in a course
+ * This replaces complex client-side calculations with server-side pre-calculation
+ * @param {string} studentKey - Sanitized student email
+ * @param {string} courseId - Course ID
+ */
+async function recalculateFullGradebook(studentKey, courseId) {
+  try {
+    console.log(`🔄 Starting full gradebook recalculation for ${studentKey}/${courseId}`);
+    
+    const db = admin.database();
+    const basePath = `students/${studentKey}/courses/${courseId}`;
+    
+    // Get course configuration
+    const courseConfig = await getCourseConfig(courseId);
+    if (!courseConfig || !courseConfig.gradebook?.itemStructure) {
+      console.warn(`No course config found for ${courseId}, skipping calculation`);
+      return;
+    }
+    
+    const { itemStructure, weights } = courseConfig.gradebook;
+    const courseWeights = weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
+    
+    // Calculate total possible points per category from course config
+    const categoryMaxPoints = {};
+    Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
+      const { type, questions } = itemConfig;
+      
+      if (!categoryMaxPoints[type]) {
+        categoryMaxPoints[type] = 0;
+      }
+      
+      if (questions && Array.isArray(questions)) {
+        // Sum up points from individual questions
+        const itemMaxPoints = questions.reduce((sum, question) => sum + (question.points || 1), 0);
+        categoryMaxPoints[type] += itemMaxPoints;
+      }
+    });
+    
+    // Get all student assessment data
+    const [gradesSnapshot, sessionsSnapshot] = await Promise.all([
+      db.ref(`${basePath}/Grades/assessments`).once('value'),
+      db.ref(`${basePath}/ExamSessions`).once('value')
+    ]);
+    
+    const grades = gradesSnapshot.val() || {};
+    const sessions = sessionsSnapshot.val() || {};
+    
+    // Calculate scores for each item
+    const itemScores = {};
+    const categoryTotals = {};
+    
+    // Process each item in the course structure
+    for (const [itemId, itemConfig] of Object.entries(itemStructure)) {
+      const { type, questions } = itemConfig;
+      
+      // Initialize category if not exists
+      if (!categoryTotals[type]) {
+        categoryTotals[type] = {
+          score: 0,
+          total: 0,
+          percentage: 0,
+          itemCount: 0,
+          completedCount: 0,
+          attemptedScore: 0,
+          attemptedTotal: 0
+        };
+      }
+      
+      let itemScore = { score: 0, total: 0, percentage: 0, attempted: 0, completed: false };
+      
+      // Check if this item should use session-based scoring
+      const shouldUseSession = type === 'assignment' || type === 'exam' || type === 'quiz';
+      
+      if (shouldUseSession) {
+        // Find sessions for this item
+        const itemSessions = Object.entries(sessions).filter(([sessionId, sessionData]) => 
+          sessionData.examItemId === itemId && sessionId.includes(studentKey)
+        );
+        
+        if (itemSessions.length > 0) {
+          // Use session-based scoring
+          const completedSessions = itemSessions
+            .map(([sessionId, sessionData]) => ({ ...sessionData, sessionId })) // Include sessionId in session data
+            .filter(session => session.status === 'completed' && session.finalResults);
+          
+          if (completedSessions.length > 0) {
+            // First check for teacher-created manual grade sessions (highest priority)
+            const teacherManualSessions = completedSessions.filter(session => 
+              session.isTeacherCreated && 
+              session.useAsManualGrade && 
+              session.status === 'completed' && 
+              session.finalResults
+            );
+            
+            let selectedSession;
+            let strategy;
+            
+            if (teacherManualSessions.length > 0) {
+              // Use teacher-created session (highest priority)
+              selectedSession = teacherManualSessions[0]; // Use first teacher session
+              strategy = 'teacher_manual';
+              console.log(`📝 Using teacher manual grade for ${itemId}: ${selectedSession.finalResults.score}/${selectedSession.finalResults.maxScore}`);
+            } else {
+              // No teacher session - hardcode to 'takeHighest' for student sessions
+              selectedSession = completedSessions.reduce((best, current) => 
+                current.finalResults.percentage > best.finalResults.percentage ? current : best
+              );
+              strategy = 'takeHighest';
+              console.log(`🏆 Using highest student session for ${itemId}: ${selectedSession.finalResults.score}/${selectedSession.finalResults.maxScore} (${selectedSession.finalResults.percentage}%)`);
+            }
+            
+            itemScore = {
+              score: selectedSession.finalResults.score,
+              total: selectedSession.finalResults.maxScore,
+              percentage: selectedSession.finalResults.percentage,
+              attempted: completedSessions.filter(s => !s.isTeacherCreated).length, // Only count student attempts
+              completed: true,
+              source: 'session',
+              strategy: strategy,
+              sessionId: selectedSession.sessionId, // Include the session ID used
+              examItemId: selectedSession.examItemId // Include the exam item ID
+            };
+          }
+        }
+      } else if (questions) {
+        // Use individual question scoring
+        let totalScore = 0;
+        let totalPossible = 0;
+        let attemptedQuestions = 0;
+        
+        questions.forEach(question => {
+          const questionId = question.questionId;
+          const maxPoints = question.points || 1;
+          const actualGrade = grades[questionId] || 0;
+          
+          totalPossible += maxPoints;
+          totalScore += actualGrade;
+          
+          if (grades.hasOwnProperty(questionId)) {
+            attemptedQuestions++;
+          }
+        });
+        
+        const percentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
+        
+        itemScore = {
+          score: totalScore,
+          total: totalPossible,
+          percentage,
+          attempted: attemptedQuestions,
+          source: 'individual'
+        };
+      }
+      
+      // Store item score
+      itemScores[itemId] = itemScore;
+      
+      // Add to category totals
+      if (itemScore.total > 0) { // Only count items with actual points
+        categoryTotals[type].score += itemScore.score;
+        categoryTotals[type].total += itemScore.total;
+        categoryTotals[type].itemCount++;
+        
+        // Track attempted work separately (for current performance calculation)
+        // Match client-side logic: attempted > 0 OR (session-based item that was attempted)
+        const hasBeenAttempted = itemScore.attempted > 0 || 
+                                 (itemScore.source === 'session' && itemScore.total > 0);
+        
+        if (hasBeenAttempted) {
+          categoryTotals[type].attemptedScore += itemScore.score;
+          categoryTotals[type].attemptedTotal += itemScore.total;
+        }
+        
+        // Only count session-based items as completed (they have definitive completion)
+        if (itemScore.completed) {
+          categoryTotals[type].completedCount++;
+        }
+      }
+    }
+    
+    // Calculate category percentages
+    Object.values(categoryTotals).forEach(category => {
+      category.percentage = category.total > 0 ? (category.score / category.total) * 100 : 0;
+    });
+    
+    // Calculate two types of weighted grades
+    let currentPerformanceWeighted = 0;  // Based on attempted work only
+    let projectedFinalWeighted = 0;      // If remaining work scores 0%
+    let totalWeightUsed = 0;
+    let attemptedWeightUsed = 0;
+    
+    Object.entries(categoryTotals).forEach(([type, category]) => {
+      const weight = courseWeights[type] || 0;
+      
+      // Only include categories with weight > 0
+      if (weight > 0) {
+        totalWeightUsed += weight;
+        
+        // 1. Projected Final Grade (using actual earned vs total possible from config)
+        const maxPossiblePoints = categoryMaxPoints[type] || category.total;
+        const projectedCategoryPercentage = maxPossiblePoints > 0 ? (category.score / maxPossiblePoints) * 100 : 0;
+        projectedFinalWeighted += projectedCategoryPercentage * weight;
+        
+        // 2. Current Performance Grade (only on attempted work)
+        if (category.attemptedTotal > 0) {
+          attemptedWeightUsed += weight;
+          const attemptedCategoryPercentage = (category.attemptedScore / category.attemptedTotal) * 100;
+          currentPerformanceWeighted += attemptedCategoryPercentage * weight;
+        }
+      }
+    });
+    
+    // Normalize the grades
+    const projectedFinalGrade = totalWeightUsed > 0 ? projectedFinalWeighted / totalWeightUsed : 0;
+    const currentPerformanceGrade = attemptedWeightUsed > 0 ? currentPerformanceWeighted / attemptedWeightUsed : 0;
+    
+    // Save pre-calculated results to database
+    const gradebookData = {
+      items: itemScores,
+      categories: categoryTotals,
+      overall: {
+        currentPerformance: currentPerformanceGrade,
+        projectedFinal: projectedFinalGrade,
+        percentage: projectedFinalGrade, // Default to projected for compatibility
+        totalWeightUsed: totalWeightUsed,
+        attemptedWeightUsed: attemptedWeightUsed,
+        isWeighted: true
+      },
+      metadata: {
+        lastCalculated: getServerTimestamp(),
+        calculationVersion: '1.0'
+      }
+    };
+    
+    await db.ref(`${basePath}/Gradebook`).update(gradebookData);
+    
+    console.log(`✅ Gradebook recalculation completed for ${studentKey}/${courseId}: Current=${currentPerformanceGrade.toFixed(1)}%, Projected=${projectedFinalGrade.toFixed(1)}%`);
+    
+  } catch (error) {
+    console.error('Error in recalculateFullGradebook:', error);
+    throw error;
+  }
+}
+
+
 module.exports = {
   getServerTimestamp,
   extractParameters,
@@ -875,5 +1123,6 @@ module.exports = {
   validateGradebookStructure,
   compareCourseConfigs,
   syncCourseConfig,
+  recalculateFullGradebook,
   getCategoryWeight // Deprecated but kept for backward compatibility
 };

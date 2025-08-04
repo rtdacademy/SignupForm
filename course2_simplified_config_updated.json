@@ -1,0 +1,4633 @@
+{
+  "units": [
+    {
+      "unitId": "unit_1_momentum_optics",
+      "name": "Section 1: Momentum and Optics",
+      "description": "Momentum conservation, collisions, and light phenomena",
+      "order": 1,
+      "items": [
+        {
+          "itemId": "01_physics_20_review",
+          "title": "Physics 20 Review",
+          "type": "lesson",
+          "contentPath": "01-physics-20-review",
+          "description": "Review of essential Physics 20 concepts",
+          "order": 1,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_01_physics_20_review_question1",
+              "title": "Physics 20 Review Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question2",
+              "title": "Physics 20 Review Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question3",
+              "title": "Physics 20 Review Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question4",
+              "title": "Physics 20 Review Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question5",
+              "title": "Physics 20 Review Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question6",
+              "title": "Physics 20 Review Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question7",
+              "title": "Physics 20 Review Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question8",
+              "title": "Physics 20 Review Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question9",
+              "title": "Physics 20 Review Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question10",
+              "title": "Physics 20 Review Question10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question11",
+              "title": "Physics 20 Review Question11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_question12",
+              "title": "Physics 20 Review Question12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_vector_q1",
+              "title": "Physics 20 Review Vector Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_vector_q2",
+              "title": "Physics 20 Review Vector Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_circular_q1",
+              "title": "Physics 20 Review Circular Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_circular_q2",
+              "title": "Physics 20 Review Circular Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_circular_q3",
+              "title": "Physics 20 Review Circular Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_dynamics_q1a",
+              "title": "Physics 20 Review Dynamics Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_01_physics_20_review_dynamics_q2",
+              "title": "Physics 20 Review Dynamics Q2",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "02_momentum_one_dimension",
+          "title": "Momentum in One Dimension",
+          "type": "lesson",
+          "contentPath": "02-momentum-one-dimension",
+          "description": "Linear momentum and conservation principles",
+          "order": 2,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q1",
+              "title": "Momentum One Dimension Kc Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q2",
+              "title": "Momentum One Dimension Kc Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q3",
+              "title": "Momentum One Dimension Kc Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q4",
+              "title": "Momentum One Dimension Kc Q4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q5",
+              "title": "Momentum One Dimension Kc Q5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q6",
+              "title": "Momentum One Dimension Kc Q6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q7",
+              "title": "Momentum One Dimension Kc Q7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q8",
+              "title": "Momentum One Dimension Kc Q8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q9",
+              "title": "Momentum One Dimension Kc Q9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q10",
+              "title": "Momentum One Dimension Kc Q10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q11",
+              "title": "Momentum One Dimension Kc Q11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q12",
+              "title": "Momentum One Dimension Kc Q12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q13",
+              "title": "Momentum One Dimension Kc Q13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q14",
+              "title": "Momentum One Dimension Kc Q14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q15",
+              "title": "Momentum One Dimension Kc Q15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q16",
+              "title": "Momentum One Dimension Kc Q16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q17",
+              "title": "Momentum One Dimension Kc Q17",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q18",
+              "title": "Momentum One Dimension Kc Q18",
+              "points": 1
+            },
+            {
+              "questionId": "course2_02_momentum_one_dimension_kc_q19",
+              "title": "Momentum One Dimension Kc Q19",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "03_momentum_two_dimensions",
+          "title": "Momentum in Two Dimensions",
+          "type": "lesson",
+          "contentPath": "03-momentum-two-dimensions",
+          "description": "Vector momentum and collision analysis",
+          "order": 3,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_03_car_truck_2d_collision",
+              "title": "Car Truck 2d Collision",
+              "points": 3
+            },
+            {
+              "questionId": "course2_03_nuclear_decay_2d",
+              "title": "Nuclear Decay 2d",
+              "points": 3
+            },
+            {
+              "questionId": "course2_03_glancing_collision_2d",
+              "title": "Glancing Collision 2d",
+              "points": 3
+            },
+            {
+              "questionId": "course2_03_space_capsule_projectile",
+              "title": "Space Capsule Projectile",
+              "points": 3
+            },
+            {
+              "questionId": "course2_03_steel_ball_deflection",
+              "title": "Steel Ball Deflection",
+              "points": 4
+            },
+            {
+              "questionId": "course2_03_mass_explosion",
+              "title": "Mass Explosion",
+              "points": 4
+            },
+            {
+              "questionId": "course2_03_elastic_collision_90",
+              "title": "Elastic Collision 90",
+              "points": 4
+            },
+            {
+              "questionId": "course2_03_plasticene_collision",
+              "title": "Plasticene Collision",
+              "points": 4
+            }
+          ]
+        },
+        {
+          "itemId": "04_impulse_momentum_change",
+          "title": "Impulse and Momentum Change",
+          "type": "lesson",
+          "contentPath": "04-impulse-momentum-change",
+          "description": "Impulse-momentum theorem and applications",
+          "order": 4,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_04_basic_impulse",
+              "title": "Basic Impulse",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_person_falling",
+              "title": "Person Falling",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_impulse_quantities",
+              "title": "Impulse Quantities",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_karate_board",
+              "title": "Karate Board",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_safety_features",
+              "title": "Safety Features",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_golf_ball_driver",
+              "title": "Golf Ball Driver",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_child_ball",
+              "title": "Child Ball",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_ball_bat",
+              "title": "Ball Bat",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_bullet_wood",
+              "title": "Bullet Wood",
+              "points": 1
+            },
+            {
+              "questionId": "course2_04_water_turbine",
+              "title": "Water Turbine",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l1_3",
+          "title": "Assignment L1-3 - Momentum Fundamentals",
+          "type": "assignment",
+          "contentPath": "05-l1-3-assignment",
+          "description": "Practice problems on momentum calculations",
+          "order": 5,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_05_l13_question1",
+              "title": "L13 Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question2",
+              "title": "L13 Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question3",
+              "title": "L13 Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question4",
+              "title": "L13 Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question5",
+              "title": "L13 Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question6",
+              "title": "L13 Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question7",
+              "title": "L13 Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question8",
+              "title": "L13 Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question9",
+              "title": "L13 Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question10",
+              "title": "L13 Question10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question11",
+              "title": "L13 Question11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_05_l13_question12",
+              "title": "L13 Question12",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "06_graphing_techniques",
+          "title": "Graphing Techniques",
+          "type": "lesson",
+          "contentPath": "06-graphing-techniques",
+          "description": "Data analysis and graphing methods",
+          "order": 6,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_06_graphing_techniques_question1",
+              "title": "Graphing Techniques Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_06_graphing_techniques_question2",
+              "title": "Graphing Techniques Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_06_graphing_techniques_question3",
+              "title": "Graphing Techniques Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_06_graphing_techniques_question4",
+              "title": "Graphing Techniques Question4",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_momentum_conservation",
+          "title": "Lab - Momentum Conservation",
+          "type": "lab",
+          "contentPath": "07-lab-momentum-conservation",
+          "description": "Experimental verification of momentum conservation",
+          "order": 7,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_momentum_conservation",
+              "title": "Lab - Momentum Conservation",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l1_4",
+          "title": "Assignment L1-4 - Momentum Cumulative",
+          "type": "assignment",
+          "contentPath": "08-l1-4-cumulative-assignment",
+          "description": "Comprehensive momentum and graphing problems",
+          "order": 8,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_08_l14_question1",
+              "title": "L14 Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question2",
+              "title": "L14 Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question3",
+              "title": "L14 Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question4",
+              "title": "L14 Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question5",
+              "title": "L14 Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question6",
+              "title": "L14 Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question7",
+              "title": "L14 Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question8",
+              "title": "L14 Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question9",
+              "title": "L14 Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_08_l14_question10",
+              "title": "L14 Question10",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "09_introduction_to_light",
+          "title": "Introduction to Light",
+          "type": "lesson",
+          "contentPath": "09-introduction-to-light",
+          "description": "Nature and properties of light",
+          "order": 9,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_09_pinhole_distance_calculation",
+              "title": "Pinhole Distance Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_building_height_calculation",
+              "title": "Building Height Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_shadow_size_calculation",
+              "title": "Shadow Size Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_shadow_area_calculation",
+              "title": "Shadow Area Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_fence_shadow_calculation",
+              "title": "Fence Shadow Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_michelson_six_sided_calculation",
+              "title": "Michelson Six-Sided Mirror Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_michelson_eight_sided_frequency",
+              "title": "Michelson Eight-Sided Frequency",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_michelson_pentagonal_frequency",
+              "title": "Michelson Pentagonal Frequency",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_michelson_twelve_sided_distance",
+              "title": "Michelson Twelve-Sided Distance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_space_station_radio_signal",
+              "title": "Space Station Radio Signal",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_light_travel_three_years",
+              "title": "Light Travel Three Years",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_star_explosion_observation",
+              "title": "Star Explosion Observation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_proxima_centauri_distance",
+              "title": "Proxima Centauri Distance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_spacecraft_travel_time",
+              "title": "Spacecraft Travel Time",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_sunlight_travel_time",
+              "title": "Sunlight Travel Time",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_galileo_light_travel",
+              "title": "Galileo Light Travel",
+              "points": 1
+            },
+            {
+              "questionId": "course2_09_earth_jupiter_speed_calculation",
+              "title": "Earth Jupiter Speed Calculation",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "10_reflection_of_light",
+          "title": "Reflection of Light",
+          "type": "lesson",
+          "contentPath": "10-reflection-of-light",
+          "description": "Laws of reflection and mirror optics",
+          "order": 10,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_10_reflection_of_light_question1",
+              "title": "Reflection of Light Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question2",
+              "title": "Reflection of Light Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question3",
+              "title": "Reflection of Light Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question4",
+              "title": "Reflection of Light Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question5",
+              "title": "Reflection of Light Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question6",
+              "title": "Reflection of Light Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_10_reflection_of_light_question7",
+              "title": "Reflection of Light Question7",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "11_curved_mirrors",
+          "title": "Curved Mirrors",
+          "type": "lesson",
+          "contentPath": "11-curved-mirrors",
+          "description": "Concave and convex mirror analysis",
+          "order": 11,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_11_curved_mirrors_question1",
+              "title": "Curved Mirrors Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question2",
+              "title": "Curved Mirrors Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question3",
+              "title": "Curved Mirrors Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question4",
+              "title": "Curved Mirrors Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question5",
+              "title": "Curved Mirrors Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question6",
+              "title": "Curved Mirrors Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question7",
+              "title": "Curved Mirrors Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question8",
+              "title": "Curved Mirrors Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question9",
+              "title": "Curved Mirrors Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question10",
+              "title": "Curved Mirrors Question10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question11",
+              "title": "Curved Mirrors Question11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question12",
+              "title": "Curved Mirrors Question12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question13",
+              "title": "Curved Mirrors Question13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question14",
+              "title": "Curved Mirrors Question14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question15",
+              "title": "Curved Mirrors Question15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question16",
+              "title": "Curved Mirrors Question16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_11_curved_mirrors_question17",
+              "title": "Curved Mirrors Question17",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l5_7",
+          "title": "Assignment L5-7 - Optics Fundamentals",
+          "type": "assignment",
+          "contentPath": "12-l5-7-assignment",
+          "description": "Reflection and refraction problems",
+          "order": 12,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_12_l57_question1",
+              "title": "L57 Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question2",
+              "title": "L57 Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question3",
+              "title": "L57 Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question4",
+              "title": "L57 Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question5",
+              "title": "L57 Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question6",
+              "title": "L57 Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question7",
+              "title": "L57 Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question8",
+              "title": "L57 Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question9",
+              "title": "L57 Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_12_l57_question10",
+              "title": "L57 Question10",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "13_refraction_of_light",
+          "title": "Refraction of Light",
+          "type": "lesson",
+          "contentPath": "13-refraction-of-light",
+          "description": "Snell's law and light bending",
+          "order": 13,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_13_refraction_kc_q1",
+              "title": "Refraction Kc Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q2",
+              "title": "Refraction Kc Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q3",
+              "title": "Refraction Kc Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q4",
+              "title": "Refraction Kc Q4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q5",
+              "title": "Refraction Kc Q5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q6",
+              "title": "Refraction Kc Q6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_refraction_kc_q7",
+              "title": "Refraction Kc Q7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_slideshow_q1",
+              "title": "Slideshow Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_slideshow_q2",
+              "title": "Slideshow Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_critical_q1",
+              "title": "Critical Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_critical_q2",
+              "title": "Critical Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_13_critical_q3",
+              "title": "Critical Q3",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "14_optics_lenses",
+          "title": "Optics and Lenses",
+          "type": "lesson",
+          "contentPath": "14-optics-lenses",
+          "description": "Thin lens equations and applications",
+          "order": 14,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_14_optics_lenses_question1",
+              "title": "Optics and Lenses Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question2",
+              "title": "Optics and Lenses Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question3",
+              "title": "Optics and Lenses Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question4",
+              "title": "Optics and Lenses Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question5",
+              "title": "Optics and Lenses Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question6",
+              "title": "Optics and Lenses Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question7",
+              "title": "Optics and Lenses Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question8",
+              "title": "Optics and Lenses Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question9",
+              "title": "Optics and Lenses Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question10",
+              "title": "Optics and Lenses Question10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question11",
+              "title": "Optics and Lenses Question11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question12",
+              "title": "Optics and Lenses Question12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question13",
+              "title": "Optics and Lenses Question13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question14",
+              "title": "Optics and Lenses Question14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_14_optics_lenses_question15",
+              "title": "Optics and Lenses Question15",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_mirrors_lenses",
+          "title": "Lab - Mirrors and Lenses",
+          "type": "lab",
+          "contentPath": "15-lab-mirrors-lenses",
+          "description": "Experimental optics with focal lengths",
+          "order": 15,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_mirrors_lenses",
+              "title": "Lab - Mirrors and Lenses",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l8_9",
+          "title": "Assignment L8-9 - Advanced Optics",
+          "type": "assignment",
+          "contentPath": "16-l8-9-assignment",
+          "description": "Lenses and mirrors calculations",
+          "order": 16,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_16_l89_question1",
+              "title": "L89 Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question2",
+              "title": "L89 Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question3",
+              "title": "L89 Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question4",
+              "title": "L89 Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question5",
+              "title": "L89 Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question6",
+              "title": "L89 Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question7",
+              "title": "L89 Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_16_l89_question8",
+              "title": "L89 Question8",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "17_dispersion_scattering",
+          "title": "Dispersion and Scattering",
+          "type": "lesson",
+          "contentPath": "17-dispersion-scattering",
+          "description": "Color separation and light scattering",
+          "order": 17,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_17_dispersion_air_speeds",
+              "title": "Dispersion Air Speeds",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_diamond_dispersion",
+              "title": "Diamond Dispersion",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_microscopy_scattering",
+              "title": "Microscopy Scattering",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_clothing_color_heat",
+              "title": "Clothing Color Heat",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_red_orange_difference",
+              "title": "Red Orange Difference",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_stage_lighting_color",
+              "title": "Stage Lighting Color",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_window_glass_dispersion",
+              "title": "Window Glass Dispersion",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_green_object_lighting",
+              "title": "Green Object Lighting",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_cat_color_vision",
+              "title": "Cat Color Vision",
+              "points": 1
+            },
+            {
+              "questionId": "course2_17_moonlight_colorless",
+              "title": "Moonlight Colorless",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "18_interference_of_light",
+          "title": "Interference of Light",
+          "type": "lesson",
+          "contentPath": "18-interference-of-light",
+          "description": "Wave interference patterns",
+          "order": 18,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_18_constructive_amplitude",
+              "title": "Constructive Amplitude",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_destructive_amplitude",
+              "title": "Destructive Amplitude",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_dark_fringes_cause",
+              "title": "Dark Fringes Cause",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_wavelength_fringe_spacing",
+              "title": "Wavelength Fringe Spacing",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_path_difference_interference",
+              "title": "Path Difference Interference",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_coherence_requirement",
+              "title": "Coherence Requirement",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_single_slit_blocking",
+              "title": "Single Slit Blocking",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_lightbulb_incoherence",
+              "title": "Lightbulb Incoherence",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_fringe_count_factors",
+              "title": "Fringe Count Factors",
+              "points": 1
+            },
+            {
+              "questionId": "course2_18_sound_dead_spots",
+              "title": "Sound Dead Spots",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "19_diffraction_gratings",
+          "title": "Diffraction Gratings",
+          "type": "lesson",
+          "contentPath": "19-diffraction-gratings",
+          "description": "Multiple slit interference",
+          "order": 19,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_19_green_light_grating",
+              "title": "Green Light Grating",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_second_order_minimum",
+              "title": "Second Order Minimum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_yellow_light_spacing",
+              "title": "Yellow Light Spacing",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_frequency_third_order",
+              "title": "Frequency Third Order",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_spectral_orders_red",
+              "title": "Spectral Orders Red",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_water_trough_fringes",
+              "title": "Water Trough Fringes",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_cd_player_laser",
+              "title": "Cd Player Laser",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_bright_dark_bands",
+              "title": "Bright Dark Bands",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_frequency_measurement",
+              "title": "Frequency Measurement",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_grating_change",
+              "title": "Grating Change",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_distance_change",
+              "title": "Distance Change",
+              "points": 1
+            },
+            {
+              "questionId": "course2_19_frequency_change",
+              "title": "Frequency Change",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_laser_wavelength",
+          "title": "Lab - Laser Wavelength",
+          "type": "lab",
+          "contentPath": "20-lab-laser-wavelength",
+          "description": "Measuring wavelength using diffraction",
+          "order": 20,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_laser_wavelength",
+              "title": "Lab - Laser Wavelength",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l1_12",
+          "title": "Assignment L1-12 - Unit 1 Cumulative",
+          "type": "assignment",
+          "contentPath": "21-l1-12-cumulative-assignment",
+          "description": "Comprehensive momentum and optics review",
+          "order": 21,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_21_l112_question1",
+              "title": "L112 Question1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question2",
+              "title": "L112 Question2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question3",
+              "title": "L112 Question3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question4",
+              "title": "L112 Question4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question5",
+              "title": "L112 Question5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question6",
+              "title": "L112 Question6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question7",
+              "title": "L112 Question7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question8",
+              "title": "L112 Question8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question9",
+              "title": "L112 Question9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_21_l112_question10",
+              "title": "L112 Question10",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "22_unit_1_review",
+          "title": "Unit 1 Review",
+          "type": "lesson",
+          "contentPath": "22-unit-1-review",
+          "description": "Review of momentum and optics",
+          "order": 22,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_22_unit1_q1a",
+              "title": "Unit1 Q1a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q1b",
+              "title": "Unit1 Q1b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q2",
+              "title": "Unit1 Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q3a",
+              "title": "Unit1 Q3a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q3b",
+              "title": "Unit1 Q3b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q4a",
+              "title": "Unit1 Q4a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q4b",
+              "title": "Unit1 Q4b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q5",
+              "title": "Unit1 Q5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q6",
+              "title": "Unit1 Q6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q7",
+              "title": "Unit1 Q7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q8",
+              "title": "Unit1 Q8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q9a",
+              "title": "Unit1 Q9a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q9b",
+              "title": "Unit1 Q9b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q10",
+              "title": "Unit1 Q10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q11",
+              "title": "Unit1 Q11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q12",
+              "title": "Unit1 Q12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q13a",
+              "title": "Unit1 Q13a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q13b",
+              "title": "Unit1 Q13b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q14",
+              "title": "Unit1 Q14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q15",
+              "title": "Unit1 Q15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q16",
+              "title": "Unit1 Q16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_22_unit1_q17",
+              "title": "Unit1 Q17",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "23_unit_2_review",
+          "title": "Unit 2 Review",
+          "type": "lesson",
+          "contentPath": "23-unit-2-review",
+          "description": "Preview and review concepts",
+          "order": 23,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_23_unit2_q1",
+              "title": "Unit2 Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q2",
+              "title": "Unit2 Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q3",
+              "title": "Unit2 Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q4",
+              "title": "Unit2 Q4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q5a",
+              "title": "Unit2 Q5a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q5b",
+              "title": "Unit2 Q5b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q6a",
+              "title": "Unit2 Q6a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q6b",
+              "title": "Unit2 Q6b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q7a",
+              "title": "Unit2 Q7a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q7b",
+              "title": "Unit2 Q7b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q8a",
+              "title": "Unit2 Q8a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q8b",
+              "title": "Unit2 Q8b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q9",
+              "title": "Unit2 Q9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q10",
+              "title": "Unit2 Q10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q11a",
+              "title": "Unit2 Q11a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q11b",
+              "title": "Unit2 Q11b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q12a",
+              "title": "Unit2 Q12a",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q12b",
+              "title": "Unit2 Q12b",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q13",
+              "title": "Unit2 Q13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q14",
+              "title": "Unit2 Q14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q15",
+              "title": "Unit2 Q15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q16",
+              "title": "Unit2 Q16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q17",
+              "title": "Unit2 Q17",
+              "points": 1
+            },
+            {
+              "questionId": "course2_23_unit2_q18",
+              "title": "Unit2 Q18",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "exam_section_1",
+          "title": "Section 1 Exam - Momentum and Optics",
+          "type": "exam",
+          "contentPath": "24-section-1-exam",
+          "description": "Comprehensive exam covering momentum and optics topics",
+          "order": 24,
+          "required": true,
+          "estimatedTime": 180,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_24_section1_exam_q1",
+              "title": "Section1 Exam Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q2",
+              "title": "Section1 Exam Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q3",
+              "title": "Section1 Exam Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q4",
+              "title": "Section1 Exam Q4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q5",
+              "title": "Section1 Exam Q5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q6",
+              "title": "Section1 Exam Q6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q7",
+              "title": "Section1 Exam Q7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q8",
+              "title": "Section1 Exam Q8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q9",
+              "title": "Section1 Exam Q9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q10",
+              "title": "Section1 Exam Q10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q11",
+              "title": "Section1 Exam Q11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q12",
+              "title": "Section1 Exam Q12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q13",
+              "title": "Section1 Exam Q13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q14",
+              "title": "Section1 Exam Q14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q15",
+              "title": "Section1 Exam Q15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q16",
+              "title": "Section1 Exam Q16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q17",
+              "title": "Section1 Exam Q17",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q18",
+              "title": "Section1 Exam Q18",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q19",
+              "title": "Section1 Exam Q19",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q20",
+              "title": "Section1 Exam Q20",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q21",
+              "title": "Section1 Exam Q21",
+              "points": 1
+            },
+            {
+              "questionId": "course2_24_section1_exam_q22",
+              "title": "Section1 Exam Q22",
+              "points": 4
+            },
+            {
+              "questionId": "course2_24_section1_exam_q23",
+              "title": "Section1 Exam Q23",
+              "points": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unitId": "unit_2_electricity_magnetism",
+      "name": "Section 2: Electricity and Magnetism",
+      "description": "Electric fields, circuits, and magnetic phenomena",
+      "order": 2,
+      "items": [
+        {
+          "itemId": "25_electrostatics",
+          "title": "Electrostatics",
+          "type": "lesson",
+          "contentPath": "25-electrostatics",
+          "description": "Electric charge and static electricity",
+          "order": 1,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_25_conservation_of_charge",
+              "title": "Conservation of Charge",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_charge_movement_in_solids",
+              "title": "Charge Movement in Solids",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_conductor_vs_insulator",
+              "title": "Conductor vs Insulator",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_electrostatic_series",
+              "title": "Electrostatic Series",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_electron_charge",
+              "title": "Adding/Removing Electrons",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_induced_charge",
+              "title": "Induced Charge vs Separation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_conduction_charging",
+              "title": "Conduction Charging Procedure",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_induction_charging",
+              "title": "Induction Charging Procedure",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_conduction_result",
+              "title": "Conduction Charging Result",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_induction_result",
+              "title": "Induction Charging Result",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_spheres_charge",
+              "title": "Identical Spheres Charge Distribution",
+              "points": 1
+            },
+            {
+              "questionId": "course2_25_different_spheres",
+              "title": "Different Size Spheres",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "26_coulombs_law",
+          "title": "Coulomb's Law",
+          "type": "lesson",
+          "contentPath": "26-coulombs-law",
+          "description": "Force between electric charges",
+          "order": 2,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_26_basic_force",
+              "title": "Basic Force Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_force_scaling",
+              "title": "Force Scaling with Changes",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_unknown_charge",
+              "title": "Unknown Charge Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_spheres_contact",
+              "title": "Spheres in Contact",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_force_changes",
+              "title": "Force Changes Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_third_charge",
+              "title": "Third Charge Effects",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_larger_charge",
+              "title": "Larger Charge Comparisons",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_triangle_forces",
+              "title": "Triangle Configuration Forces",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_vector_forces",
+              "title": "Vector Force Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_minimum_charge",
+              "title": "Minimum Charge Requirements",
+              "points": 1
+            },
+            {
+              "questionId": "course2_26_equilibrium_position",
+              "title": "Equilibrium Position Analysis",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_electrostatic",
+          "title": "Lab - Electrostatic Forces",
+          "type": "lab",
+          "contentPath": "27-lab-electrostatic",
+          "description": "Experimental verification of Coulomb's law",
+          "order": 3,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_electrostatic",
+              "title": "Lab - Electrostatic Forces",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l13_14",
+          "title": "Assignment L13-14 - Electrostatics",
+          "type": "assignment",
+          "contentPath": "28-l13-14-assignment",
+          "description": "Electric forces and fields problems",
+          "order": 4,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "29_electric_fields",
+          "title": "Electric Fields",
+          "type": "lesson",
+          "contentPath": "29-electric-fields",
+          "description": "Electric field concepts and calculations",
+          "order": 5,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_29_question1",
+              "title": "Test Charge Electric Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question2",
+              "title": "Metal Sphere Electric Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question3",
+              "title": "Test Charge Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question4",
+              "title": "Force on Different Charge",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question5",
+              "title": "Point Charge Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question6",
+              "title": "Two Charges Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question7",
+              "title": "Electron Acceleration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question8",
+              "title": "Square Configuration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question9",
+              "title": "Hollow Sphere",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question10",
+              "title": "Alpha Particle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_29_question11",
+              "title": "Earth's Charge",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "30_electric_potential",
+          "title": "Electric Potential",
+          "type": "lesson",
+          "contentPath": "30-electric-potential",
+          "description": "Voltage and electric potential energy",
+          "order": 6,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_30_question1",
+              "title": "Spark Gap Potential",
+              "points": 1
+            },
+            {
+              "questionId": "course2_30_question2",
+              "title": "Alpha Particle Speed",
+              "points": 1
+            },
+            {
+              "questionId": "course2_30_question3",
+              "title": "Fluorine Nucleus Kinetic Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_30_question4",
+              "title": "Alpha Particle to 1/10 Speed of Light",
+              "points": 1
+            },
+            {
+              "questionId": "course2_30_question5",
+              "title": "Proton Momentum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_30_question6",
+              "title": "Electron Collision Speed",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "31_parallel_plates",
+          "title": "Parallel Plates",
+          "type": "lesson",
+          "contentPath": "31-parallel-plates",
+          "description": "Uniform electric fields and capacitors",
+          "order": 7,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_31_question1",
+              "title": "Electric Field Intensity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question2",
+              "title": "Electron Motion Between Plates",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question3",
+              "title": "Proton Acceleration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question4",
+              "title": "Electric Field from Voltage",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question5",
+              "title": "Charge Acceleration Time",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question6",
+              "title": "Plate Separation and Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question7",
+              "title": "Ion Velocity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question8",
+              "title": "Capacitor Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question9",
+              "title": "Field Strength Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_31_question10",
+              "title": "Parallel Plate Applications",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "32_electric_current",
+          "title": "Electric Current",
+          "type": "lesson",
+          "contentPath": "32-electric-current",
+          "description": "Current, resistance, and Ohm's law",
+          "order": 8,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_32_question1",
+              "title": "Toaster Current Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question2",
+              "title": "Lightning Bolt Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question3",
+              "title": "Battery Charge Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question4",
+              "title": "Resistance and Ohm's Law",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question5",
+              "title": "Current Density",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question6",
+              "title": "Power Consumption",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question7",
+              "title": "Wire Resistance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question8",
+              "title": "Voltage Drop",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question9",
+              "title": "Current Through Circuit",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question10",
+              "title": "Electrical Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_32_question11",
+              "title": "Circuit Analysis",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_electric_fields",
+          "title": "Lab - Electric Fields",
+          "type": "lab",
+          "contentPath": "33-lab-electric-fields",
+          "description": "Mapping electric field patterns",
+          "order": 9,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_electric_fields",
+              "title": "Lab - Electric Fields",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l15_18",
+          "title": "Assignment L15-18 - Electric Circuits",
+          "type": "assignment",
+          "contentPath": "34-l15-18-assignment",
+          "description": "Current and potential calculations",
+          "order": 10,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "assignment_l1_18",
+          "title": "Assignment L1-18 - Unit 2 Cumulative",
+          "type": "assignment",
+          "contentPath": "35-l1-18-cumulative-assignment",
+          "description": "Comprehensive electricity review",
+          "order": 11,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_35_l118_question1",
+              "title": "Question 1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question2",
+              "title": "Question 2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question3",
+              "title": "Question 3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question4",
+              "title": "Question 4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question5",
+              "title": "Question 5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question6",
+              "title": "Question 6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question7",
+              "title": "Question 7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question8",
+              "title": "Question 8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question9",
+              "title": "Question 9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question10",
+              "title": "Question 10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question11",
+              "title": "Question 11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question12",
+              "title": "Question 12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question13",
+              "title": "Question 13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question14",
+              "title": "Question 14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_35_l118_question15",
+              "title": "Question 15",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "36_magnetic_fields",
+          "title": "Magnetic Fields",
+          "type": "lesson",
+          "contentPath": "36-magnetic-fields",
+          "description": "Magnetic field concepts and sources",
+          "order": 12,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_36_question1",
+              "title": "Right Hand Rule - Compass Under Wire",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question2",
+              "title": "Left Hand Rule - Electron Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question3",
+              "title": "Current Direction from Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question4",
+              "title": "Cross-Section Current Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question5",
+              "title": "Solenoid North Pole - Electrons",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question6",
+              "title": "Solenoid South Pole - Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question7",
+              "title": "Current Direction from Poles",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question8",
+              "title": "Compass Deflection - Electron N-S",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question9",
+              "title": "Wire Over Compass - Electrons N-S",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question10",
+              "title": "Compass Deflection - Electron S-N",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question11",
+              "title": "Wire Over Compass - Electrons S-N",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question12",
+              "title": "Negative Charge Field Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question13",
+              "title": "Positive Charge Field Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question14",
+              "title": "Coil Magnetic Pole Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_36_question15",
+              "title": "Spinning Disk Magnetic Field",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "37_magnetic_forces_particles",
+          "title": "Magnetic Forces on Particles",
+          "type": "lesson",
+          "contentPath": "37-magnetic-forces-particles",
+          "description": "Lorentz force and particle motion",
+          "order": 13,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_37_question1",
+              "title": "Permanent vs Electromagnets",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question2",
+              "title": "Horseshoe Magnet Force Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question3",
+              "title": "Particle Charge Identification",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question4",
+              "title": "Radius-Velocity Relationship",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question5",
+              "title": "Force Calculation at Angle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question6",
+              "title": "Parallel Motion in Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question7",
+              "title": "Alpha Particle Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question8",
+              "title": "Magnesium Ion Radius",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question9",
+              "title": "Alpha Force Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question10",
+              "title": "Solar Wind Electron",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question11",
+              "title": "Solar Wind Proton",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question12",
+              "title": "Alpha Charge Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question13",
+              "title": "Deuteron Acceleration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_37_question14",
+              "title": "Helical Motion Pitch",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "38_motor_effect",
+          "title": "Motor Effect",
+          "type": "lesson",
+          "contentPath": "38-motor-effect",
+          "description": "Force on current-carrying conductors",
+          "order": 14,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_38_question1",
+              "title": "Alpha Particle Force Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question2",
+              "title": "Magnetic Flux Density Units",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question3",
+              "title": "Transmission Line Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question4",
+              "title": "Conductor Gravity Balance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question5",
+              "title": "Conductor Upward Acceleration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question6",
+              "title": "Current Direction from Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question7",
+              "title": "Solenoid Field Strength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question8",
+              "title": "Coil Current Balance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question9",
+              "title": "Force Ratio Comparison",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question10",
+              "title": "Current for Motor Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_38_question11",
+              "title": "Alpha Particle Graph Analysis",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l19_21",
+          "title": "Assignment L19-21 - Magnetism",
+          "type": "assignment",
+          "contentPath": "39-l19-21-assignment",
+          "description": "Magnetic forces and fields problems",
+          "order": 15,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_39_l1921_question1",
+              "title": "Compass and Magnetic Field - Electron Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question2",
+              "title": "Moving Charge - Magnetic Field Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question3",
+              "title": "Coil Magnetic Field - Electron Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question4",
+              "title": "Proton Deflection in Magnetic Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question5",
+              "title": "Magnetic Field Strength Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question6",
+              "title": "Conductor Movement - Current Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question7",
+              "title": "Current Direction from Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question8",
+              "title": "Conductor Force Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_39_l1921_question9",
+              "title": "Conductor Force with Angle Calculation",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "40_generator_effect",
+          "title": "Generator Effect",
+          "type": "lesson",
+          "contentPath": "40-generator-effect",
+          "description": "Electromagnetic induction principles",
+          "order": 16,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_40_question1",
+              "title": "N-S Poles Left to Right",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question2",
+              "title": "S-N Poles Left to Right",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question3",
+              "title": "S-N Poles Right to Left",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question4",
+              "title": "N-S Poles Right to Left",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question5",
+              "title": "Terminal A-B Electron Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question6",
+              "title": "Parallel Motion No Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question7",
+              "title": "Hand Rules",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question8",
+              "title": "Coil Turns EMF Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question9",
+              "title": "Magnet Speed EMF Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question10",
+              "title": "Multiple Magnets EMF",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question11",
+              "title": "Generator Energy Conversion",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question12",
+              "title": "Charged Sphere Experiment",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question13",
+              "title": "Magnet Pole Determination",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question14",
+              "title": "Airplane EMF Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question15",
+              "title": "Conductor Angle Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question16",
+              "title": "45 Degree EMF Ratio",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question17",
+              "title": "Rod Current Direction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question18",
+              "title": "Magnetic Field from Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question19",
+              "title": "Constant Speed Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question20",
+              "title": "Rectangular Loop Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question21",
+              "title": "Peak Current in AC Circuit",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question22",
+              "title": "RMS and Peak Current Values",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question23",
+              "title": "Light Bulb Resistance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question24",
+              "title": "Peak Voltage Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question25",
+              "title": "Maximum Instantaneous Power",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question26",
+              "title": "Heater Coil Power Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question27",
+              "title": "Current Reversals per Day",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question28",
+              "title": "RMS Current Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question29",
+              "title": "CD Player Charger Voltage",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question30",
+              "title": "Insect Zapper Turns Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question31",
+              "title": "Doorbell Transformer Type",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question32",
+              "title": "Electric Train Current",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question33",
+              "title": "Transformer Power Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_40_question34",
+              "title": "Air Filter Power Consumption",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "41_activities",
+          "title": "Activities",
+          "type": "lesson",
+          "contentPath": "41-activities",
+          "description": "Practice activities and applications",
+          "order": 17,
+          "required": false,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_41_station1_q1",
+              "title": "Station 1 Q1: Motor Effect Observation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station1_q2",
+              "title": "Station 1 Q2: Fleming's Left-Hand Rule",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station1_q3",
+              "title": "Station 1 Q3: Current Direction Reversal",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station1_q4",
+              "title": "Station 1 Q4: Magnetic Field Strength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station1_q5",
+              "title": "Station 1 Q5: Motor Effect Applications",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station2_q1",
+              "title": "Station 2 Q1: Galvanometer Function",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station2_q2",
+              "title": "Station 2 Q2: Magnet Insertion Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station2_q3",
+              "title": "Station 2 Q3: Magnet Removal Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station2_q4",
+              "title": "Station 2 Q4: Faraday's Law",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station2_q5",
+              "title": "Station 2 Q5: Stationary Magnet",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station3_q1",
+              "title": "Station 3 Q1: Aluminum Magnetic Properties",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station3_q2",
+              "title": "Station 3 Q2: Solid Paddle Behavior",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station3_q3",
+              "title": "Station 3 Q3: Faraday's and Lenz's Laws",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station3_q4",
+              "title": "Station 3 Q4: Comb Paddle Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station3_q5",
+              "title": "Station 3 Q5: Non-conductive Material",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station4_q1",
+              "title": "Station 4 Q1: Magnet Descent Observation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station4_q2",
+              "title": "Station 4 Q2: Law of Electromagnetic Induction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station4_q3",
+              "title": "Station 4 Q3: Lenz's Law Application",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station4_q4",
+              "title": "Station 4 Q4: Non-magnetic Object Comparison",
+              "points": 1
+            },
+            {
+              "questionId": "course2_41_station4_q5",
+              "title": "Station 4 Q5: Real-world Applications",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "42_electromagnetic_radiation",
+          "title": "Electromagnetic Radiation",
+          "type": "lesson",
+          "contentPath": "42-electromagnetic-radiation",
+          "description": "EM waves and the electromagnetic spectrum",
+          "order": 18,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_42_question1",
+              "title": "Fundamental Origin of EMR",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question2",
+              "title": "Harmonic Oscillation Frequency",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question3",
+              "title": "Speed of EMR in Vacuum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question4",
+              "title": "Definition of Electromagnetic Radiation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question5",
+              "title": "Inner Electron Transitions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question6",
+              "title": "Frequency vs Wavelength Relationship",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question7",
+              "title": "Penetration Through Human Body",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question8",
+              "title": "How Microwaves Cook Food",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question9",
+              "title": "Night Vision Cameras",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question10",
+              "title": "Honey Bee Vision",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question11",
+              "title": "Microwave Frequency Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question12",
+              "title": "Radar Wavelength Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question13",
+              "title": "Power Line Frequency Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question14",
+              "title": "Red Light Frequency",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question15",
+              "title": "Satellite vs Direct Transmission Delay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question16",
+              "title": "Wavelength from Period",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question17",
+              "title": "UV Light in Glass",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question18",
+              "title": "Period in Lucite",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question19",
+              "title": "Double-slit Microwave Experiment",
+              "points": 1
+            },
+            {
+              "questionId": "course2_42_question20",
+              "title": "Hydrogen Space Emissions",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_electromagnet",
+          "title": "Lab - Electromagnet",
+          "type": "lab",
+          "contentPath": "43-lab-electromagnet",
+          "description": "Building and testing electromagnets",
+          "order": 19,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_electromagnet",
+              "title": "Lab - Electromagnet",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l22_24",
+          "title": "Assignment L22-24 - Electromagnetic Induction",
+          "type": "assignment",
+          "contentPath": "44-l22-24-assignment",
+          "description": "Generators and motors problems",
+          "order": 20,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_44_l2224_question1",
+              "title": "Induced Current Direction - Coil",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question2",
+              "title": "Conductor Polarity - Current Flow",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question3",
+              "title": "Conductor End Polarity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question4",
+              "title": "Motional EMF and Current Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question5",
+              "title": "AC Generator Power Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question6",
+              "title": "Electromagnetic Radiation Nature",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question7",
+              "title": "Wavelength in Different Media",
+              "points": 1
+            },
+            {
+              "questionId": "course2_44_l2224_question8",
+              "title": "Microwave Interference Pattern",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l1_24",
+          "title": "Assignment L1-24 - Unit 3-4 Cumulative",
+          "type": "assignment",
+          "contentPath": "45-l1-24-cumulative-assignment",
+          "description": "Comprehensive electricity and magnetism review",
+          "order": 21,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_45_l124_question1",
+              "title": "Car Collision Force Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question2",
+              "title": "Ball Wall Collision Impulse",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question3",
+              "title": "Inelastic Collision Velocity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question4",
+              "title": "Critical Angle and Refractive Index",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question5",
+              "title": "Light Through Prism",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question6",
+              "title": "Lens Focal Length and Type",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question7",
+              "title": "Diffraction Grating Lines per Meter",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question8",
+              "title": "Alpha Particle Acceleration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question9",
+              "title": "Electric Field Distance Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question10",
+              "title": "Alpha Particle Potential Difference",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question11",
+              "title": "Millikan Oil Drop Charge",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question12",
+              "title": "Proton Magnetic Field Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question13",
+              "title": "Conductor Magnetic Force",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question14",
+              "title": "Mass Spectrometer Ion Mass",
+              "points": 1
+            },
+            {
+              "questionId": "course2_45_l124_question15",
+              "title": "Carbon-14 Path Radius",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "46_unit_3_review",
+          "title": "Unit 3 Review",
+          "type": "lesson",
+          "contentPath": "46-unit-3-review",
+          "description": "Review of electric fields and circuits",
+          "order": 22,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_46_unit3_q1",
+              "title": "Charging Methods",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q2",
+              "title": "Glass Rod and Silk",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q3",
+              "title": "Coulomb's Law Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q4",
+              "title": "Inverse Square Law",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q5",
+              "title": "Electric Field Strength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q6",
+              "title": "Electric Field Lines",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q7",
+              "title": "Electric Potential Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q8",
+              "title": "Work and Potential Difference",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q9",
+              "title": "Parallel Plate Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q10",
+              "title": "Capacitor Charge Storage",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q11",
+              "title": "Electric Current Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q12",
+              "title": "Ohm's Law Application",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q13",
+              "title": "Scalar vs Vector Quantities",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q14",
+              "title": "Electron Motion in Electric Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_46_unit3_q15",
+              "title": "Capacitance and Plate Separation",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "47_unit_4_review",
+          "title": "Unit 4 Review",
+          "type": "lesson",
+          "contentPath": "47-unit-4-review",
+          "description": "Review of magnetism and induction",
+          "order": 23,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_47_unit4_q1",
+              "title": "Magnetic Field Properties",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q2",
+              "title": "Right-Hand Rules",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q3",
+              "title": "Force on Moving Charge",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q4",
+              "title": "Circular Motion in Magnetic Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q5",
+              "title": "Force on Current-Carrying Wire",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q6",
+              "title": "Motor Principle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q7",
+              "title": "Faraday's Law",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q8",
+              "title": "Lenz's Law",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q9",
+              "title": "Motional EMF",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q10",
+              "title": "Transformers",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q11",
+              "title": "EM Wave Properties",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q12",
+              "title": "EM Spectrum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q13",
+              "title": "Wave-Particle Duality",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q14",
+              "title": "Practical Applications",
+              "points": 1
+            },
+            {
+              "questionId": "course2_47_unit4_q15",
+              "title": "Conceptual Integration",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "exam_section_2",
+          "title": "Section 2 Exam - Electricity and Magnetism",
+          "type": "exam",
+          "contentPath": "48-section-2-exam",
+          "description": "Comprehensive exam covering electricity and magnetism",
+          "order": 24,
+          "required": true,
+          "estimatedTime": 180,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_48_section2_exam_q1",
+              "title": "Section2 Exam Q1",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q2",
+              "title": "Section2 Exam Q2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q3",
+              "title": "Section2 Exam Q3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q4",
+              "title": "Section2 Exam Q4",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q5",
+              "title": "Section2 Exam Q5",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q6",
+              "title": "Section2 Exam Q6",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q7",
+              "title": "Section2 Exam Q7",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q8",
+              "title": "Section2 Exam Q8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q9",
+              "title": "Section2 Exam Q9",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q10",
+              "title": "Section2 Exam Q10",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q11",
+              "title": "Section2 Exam Q11",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q12",
+              "title": "Section2 Exam Q12",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q13",
+              "title": "Section2 Exam Q13",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q14",
+              "title": "Section2 Exam Q14",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q15",
+              "title": "Section2 Exam Q15",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q16",
+              "title": "Section2 Exam Q16",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q17",
+              "title": "Section2 Exam Q17",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q18",
+              "title": "Section2 Exam Q18",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q19",
+              "title": "Section2 Exam Q19",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q20",
+              "title": "Section2 Exam Q20",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q21",
+              "title": "Section2 Exam Q21",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q22",
+              "title": "Section2 Exam Q22",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q23",
+              "title": "Section2 Exam Q23",
+              "points": 1
+            },
+            {
+              "questionId": "course2_48_section2_exam_q24",
+              "title": "Section2 Exam Q24 (WR1)",
+              "points": 4
+            },
+            {
+              "questionId": "course2_48_section2_exam_q25",
+              "title": "Section2 Exam Q25 (WR2)",
+              "points": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unitId": "unit_3_quantum_nuclear",
+      "name": "Section 3: Atomic Physics and Nuclear",
+      "description": "Atomic models, quantum mechanics, and nuclear physics",
+      "order": 3,
+      "items": [
+        {
+          "itemId": "49_early_atomic_models",
+          "title": "Early Atomic Models",
+          "type": "lesson",
+          "contentPath": "49-early-atomic-models",
+          "description": "Historical development of atomic theory",
+          "order": 1,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_49_question1",
+              "title": "Question 1: Classical Elements",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question2",
+              "title": "Question 2: Philosopher's Stone",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question3",
+              "title": "Question 3: Father of Chemistry",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question4",
+              "title": "Question 4: Dalton's Atomic Theory",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question5",
+              "title": "Question 5: Meyer's Discovery",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question6",
+              "title": "Question 6: Mendeleev's Contribution",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question7",
+              "title": "Question 7: Mendeleev's Table Error",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question8",
+              "title": "Question 8: Moseley's Improvement",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question9",
+              "title": "Question 9: Atomic Number Definition",
+              "points": 1
+            },
+            {
+              "questionId": "course2_49_question10",
+              "title": "Question 10: Modern Periodic Table",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "50_cathode_rays",
+          "title": "Cathode Rays",
+          "type": "lesson",
+          "contentPath": "50-cathode-rays",
+          "description": "Discovery of the electron",
+          "order": 2,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_50_question1",
+              "title": "Question 1: Cathode Ray Discovery",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question2",
+              "title": "Question 2: Fluorescent Screen",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question3",
+              "title": "Question 3: Magnetic Field Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question4",
+              "title": "Question 4: Electric Field Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question5",
+              "title": "Question 5: Particle Properties",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question6",
+              "title": "Question 6: Charge-to-Mass Ratio",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question7",
+              "title": "Question 7: Thomson's Method",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question8",
+              "title": "Question 8: Velocity Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question9",
+              "title": "Question 9: Final Velocity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question10",
+              "title": "Question 10: e/m Ratio",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question11",
+              "title": "Question 11: Electron Mass",
+              "points": 1
+            },
+            {
+              "questionId": "course2_50_question12",
+              "title": "Question 12: Thomson's Discovery",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "51_rutherford_atom",
+          "title": "Rutherford Atom",
+          "type": "lesson",
+          "contentPath": "51-rutherford-atom",
+          "description": "Nuclear model of the atom",
+          "order": 3,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_51_question1",
+              "title": "Question 1: Thomson's Model",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question2",
+              "title": "Question 2: Alpha Particles",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question3",
+              "title": "Question 3: Gold Foil Choice",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question4",
+              "title": "Question 4: Expected Results",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question5",
+              "title": "Question 5: Actual Observations",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question6",
+              "title": "Question 6: Scattering Angle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question7",
+              "title": "Question 7: Nuclear Model",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question8",
+              "title": "Question 8: Nuclear Size",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question9",
+              "title": "Question 9: Energy Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_51_question10",
+              "title": "Question 10: Model Problems",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l25_27",
+          "title": "L25-27 Assignment - Cathode Rays and Rutherford Model",
+          "type": "assignment",
+          "contentPath": "52-l25-27-assignment",
+          "description": "Problems on atomic structure discoveries",
+          "order": 4,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_52_l2527_question1",
+              "title": "Cathode Ray Theory",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question2",
+              "title": "Cathode Ray Velocity",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question3",
+              "title": "Charge-to-Mass Ratio",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question4",
+              "title": "Particle Charge Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question5",
+              "title": "Alpha Particle Electric Field",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question6",
+              "title": "Rutherford Model Explanation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question7",
+              "title": "Maxwell Theory and Electrons",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question8",
+              "title": "Atomic Structure Dimensions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_52_l2527_question9",
+              "title": "Rutherford Experiment Analysis",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "53_quantum_effects",
+          "title": "Quantum Effects",
+          "type": "lesson",
+          "contentPath": "53-quantum-effects",
+          "description": "Photoelectric effect and quantum theory",
+          "order": 5,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "54_early_spectroscopy",
+          "title": "Early Spectroscopy",
+          "type": "lesson",
+          "contentPath": "54-early-spectroscopy",
+          "description": "Atomic spectra and line emissions",
+          "order": 6,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "55_lab_flame_test",
+          "title": "Lab - Flame Test",
+          "type": "lab",
+          "contentPath": "55-lab-flame-test",
+          "description": "Identifying elements by emission spectra",
+          "order": 7,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_plancks_constant",
+              "title": "Lab - Planck's Constant",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "56_planck_constant",
+          "title": "Planck Constant",
+          "type": "lesson",
+          "contentPath": "56-planck-constant",
+          "description": "Energy quantization and Planck's constant",
+          "order": 8,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "57_photoelectric_effect",
+          "title": "Photoelectric Effect",
+          "type": "lesson",
+          "contentPath": "57-photoelectric-effect",
+          "description": "Einstein's explanation of photoelectric effect",
+          "order": 9,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "58_lab_photoelectric",
+          "title": "Lab - Photoelectric Effect",
+          "type": "lab",
+          "contentPath": "58-lab-photoelectric",
+          "description": "Measuring Planck's constant experimentally",
+          "order": 10,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_photoelectric_effect",
+              "title": "Lab - Millikan's Photoelectric Experiment",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l28_30",
+          "title": "Assignment L28-30 - Quantum Effects",
+          "type": "assignment",
+          "contentPath": "59-l28-30-assignment",
+          "description": "Photoelectric effect and quantum calculations",
+          "order": 11,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_59_l2830_question1",
+              "title": "Quantum Energy Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question2",
+              "title": "Photon Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question3",
+              "title": "Work Function Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question4",
+              "title": "Photoelectron Speed",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question5",
+              "title": "Stopping Voltage",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question6",
+              "title": "Energy Level Transitions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question7",
+              "title": "Absorption Wavelengths",
+              "points": 1
+            },
+            {
+              "questionId": "course2_59_l2830_question8",
+              "title": "Emission Spectral Lines",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "60_bohr_model",
+          "title": "Bohr Model",
+          "type": "lesson",
+          "contentPath": "60-bohr-model",
+          "description": "Bohr's atomic model and energy levels",
+          "order": 12,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_60_question1",
+              "title": "Question 1: Rutherford Model Problem",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question2",
+              "title": "Question 2: Photon Emission Process",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question3",
+              "title": "Question 3: Bohr Model Spectral Explanation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question4",
+              "title": "Question 4: Bohr Model Strengths",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question5",
+              "title": "Question 5: Bohr Model Weaknesses",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question6",
+              "title": "Question 6: Energy Level Calculations",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question7",
+              "title": "Question 7: Energy Conservation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question8",
+              "title": "Question 8: Photon Color and Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question9",
+              "title": "Question 9: Ionization Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question10",
+              "title": "Question 10: Wavelength Calculations",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question11",
+              "title": "Question 11: Hydrogen Gas Excitation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question12",
+              "title": "Question 12: Photon Wavelength from n=6→n=2",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question13",
+              "title": "Question 13: Photon Frequency from n=7→n=3",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question14",
+              "title": "Question 14: Energy Absorption n=1→n=8",
+              "points": 1
+            },
+            {
+              "questionId": "course2_60_question15",
+              "title": "Question 15: Ionization Energy from Diagram",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "61_compton_effect",
+          "title": "Compton Effect",
+          "type": "lesson",
+          "contentPath": "61-compton-effect",
+          "description": "Photon momentum and Compton scattering",
+          "order": 13,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_61_question1",
+              "title": "Question 1: Minimum X-ray Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question2",
+              "title": "Question 2: X-ray Tube Voltage",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question3",
+              "title": "Question 3: Electron Collision Frequency",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question4",
+              "title": "Question 4: CRT Radiation Safety",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question5",
+              "title": "Question 5: Alpha Particle Radiation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question6",
+              "title": "Question 6: Electron Beam Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question7",
+              "title": "Question 7: Elastic Collision Conservation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question8",
+              "title": "Question 8: Photon Momentum Theory",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question9",
+              "title": "Question 9: Photon Mass Properties",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question10",
+              "title": "Question 10: Quantum Measurement Problem",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question11",
+              "title": "Question 11: Photon Momentum Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question12",
+              "title": "Question 12: High Energy Photon Momentum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question13",
+              "title": "Question 13: Compton Scattering Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question14",
+              "title": "Question 14: Electron Recoil Speed",
+              "points": 1
+            },
+            {
+              "questionId": "course2_61_question15",
+              "title": "Question 15: Wavelength Shift Formula",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "62_wave_particle_nature",
+          "title": "Wave-Particle Nature",
+          "type": "lesson",
+          "contentPath": "62-wave-particle-nature",
+          "description": "de Broglie waves and wave-particle duality",
+          "order": 14,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_62_question1",
+              "title": "Question 1: de Broglie Wavelength Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question2",
+              "title": "Question 2: Wavelength from Kinetic Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question3",
+              "title": "Question 3: Smallest Orbital Radius",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question4",
+              "title": "Question 4: Ionization Energy and Radius",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question5",
+              "title": "Question 5: Macroscopic Object Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question6",
+              "title": "Question 6: Accelerated Electron Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question7",
+              "title": "Question 7: Bohr Orbit Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question8",
+              "title": "Question 8: Wavelength vs Orbit Comparison",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question9",
+              "title": "Question 9: Double-Slit Electron Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question10",
+              "title": "Question 10: Electron Momentum from Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question11",
+              "title": "Question 11: Electron Kinetic Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question12",
+              "title": "Question 12: Light Wave-Particle Nature",
+              "points": 1
+            },
+            {
+              "questionId": "course2_62_question13",
+              "title": "Question 13: Universal Wave-Particle Duality",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "assignment_l31_33",
+          "title": "Assignment L31-33 - Wave-Particle Duality",
+          "type": "assignment",
+          "contentPath": "63-l31-33-assignment",
+          "description": "Problems on quantum mechanics principles",
+          "order": 15,
+          "required": true,
+          "estimatedTime": 60,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_63_l3133_question1",
+              "title": "de Broglie Wavelength Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question2",
+              "title": "Photoelectric Frequency Effects",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question3",
+              "title": "Electron Wave Evidence",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question4",
+              "title": "Hydrogen Energy Transitions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question5",
+              "title": "Ionization Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question6",
+              "title": "X-ray Photon Momentum",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question7",
+              "title": "Double-Slit with Electrons",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question8",
+              "title": "de Broglie Particle Wavelength",
+              "points": 1
+            },
+            {
+              "questionId": "course2_63_l3133_question9",
+              "title": "Uncertainty Principle",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "64_quantum_mechanics",
+          "title": "Quantum Mechanics",
+          "type": "lesson",
+          "contentPath": "64-quantum-mechanics",
+          "description": "Fundamental principles of quantum mechanics",
+          "order": 16,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_64_question1",
+              "title": "Question 1: Standing Wave Conditions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_64_question2",
+              "title": "Question 2: Classical vs Quantum Mechanics",
+              "points": 1
+            },
+            {
+              "questionId": "course2_64_question3",
+              "title": "Question 3: Uncertainty Principle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_64_question4",
+              "title": "Question 4: Wave-Particle Duality",
+              "points": 1
+            },
+            {
+              "questionId": "course2_64_question5",
+              "title": "Question 5: Quantum Orbitals",
+              "points": 1
+            },
+            {
+              "questionId": "course2_64_question6",
+              "title": "Question 6: Quantized Energy Levels",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "65_lab_spectrum_tube",
+          "title": "Lab - Spectrum Tube",
+          "type": "lab",
+          "contentPath": "65-lab-spectrum-tube",
+          "description": "Analyzing atomic emission spectra",
+          "order": 17,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_marshmallow_speed_light",
+              "title": "Lab - Speed of Light with Marshmallows",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "66_nuclear_physics",
+          "title": "Nuclear Physics",
+          "type": "lesson",
+          "contentPath": "66-nuclear-physics",
+          "description": "Nuclear structure and mass-energy equivalence",
+          "order": 18,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_66_question1",
+              "title": "Question 1: Nuclear Transmutation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question2",
+              "title": "Question 2: Artificial Transmutation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question3",
+              "title": "Question 3: Velocity Selector",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question4",
+              "title": "Question 4: Ion Mass Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question5",
+              "title": "Question 5: Carbon Isotope Identification",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question6",
+              "title": "Question 6: Mass Defect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question7",
+              "title": "Question 7: Isotope Abundance",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question8",
+              "title": "Question 8: Binding Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question9",
+              "title": "Question 9: Binding Energy per Nucleon",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question10",
+              "title": "Question 10: Solar Mass Loss",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question11",
+              "title": "Question 11: Fission Atom Count",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question12",
+              "title": "Question 12: Mass-Energy Conversion",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question13",
+              "title": "Question 13: Fission Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question14",
+              "title": "Question 14: Fusion Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_66_question15",
+              "title": "Question 15: Nuclear Power Mass Change",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "67_radioactivity",
+          "title": "Radioactivity",
+          "type": "lesson",
+          "contentPath": "67-radioactivity",
+          "description": "Radioactive decay and nuclear reactions",
+          "order": 19,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_67_question1",
+              "title": "Question 1: Oxygen-16 Composition",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question2",
+              "title": "Question 2: Tin-120 Composition",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question3",
+              "title": "Question 3: Beta-Minus Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question4",
+              "title": "Question 4: Radon Decay Particle",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question5",
+              "title": "Question 5: Uranium-238 Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question6",
+              "title": "Question 6: Chlorine-35 Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question7",
+              "title": "Question 7: Radium-226 Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question8",
+              "title": "Question 8: Decay Series Step",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question9",
+              "title": "Question 9: Half-Life Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question10",
+              "title": "Question 10: Strontium-82 Decay Time",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question11",
+              "title": "Question 11: Radon Activity Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question12",
+              "title": "Question 12: Half-Life from Fraction",
+              "points": 1
+            },
+            {
+              "questionId": "course2_67_question13",
+              "title": "Question 13: Uranium Fission Products",
+              "points": 1
+            }
+          ]
+        },
+        {
+          "itemId": "lab_half_life",
+          "title": "Lab - Half Life",
+          "type": "lab",
+          "contentPath": "68-lab-half-life",
+          "description": "Measuring radioactive decay and half-life",
+          "order": 20,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_lab_half_life",
+              "title": "Lab - Radioactive Half-Life",
+              "points": 15
+            }
+          ]
+        },
+        {
+          "itemId": "69_nuclear_reactions",
+          "title": "Nuclear Reactions",
+          "type": "lesson",
+          "contentPath": "69-nuclear-reactions",
+          "description": "Fission, fusion, and nuclear applications",
+          "order": 21,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "70_medical_applications",
+          "title": "Medical Applications",
+          "type": "lesson",
+          "contentPath": "70-medical-applications",
+          "description": "Nuclear medicine and medical imaging",
+          "order": 22,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "71_nuclear_energy",
+          "title": "Nuclear Energy",
+          "type": "lesson",
+          "contentPath": "71-nuclear-energy",
+          "description": "Nuclear power and energy applications",
+          "order": 23,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "72_lab_radiation_detection",
+          "title": "Lab - Radiation Detection",
+          "type": "lab",
+          "contentPath": "72-lab-radiation-detection",
+          "description": "Using Geiger counters and radiation safety",
+          "order": 24,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "73_unit_5_review",
+          "title": "Unit 5 Review",
+          "type": "lesson",
+          "contentPath": "73-unit-5-review",
+          "description": "Review of atomic physics",
+          "order": 25,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "74_unit_6_review",
+          "title": "Unit 6 Review",
+          "type": "lesson",
+          "contentPath": "74-unit-6-review",
+          "description": "Review of nuclear physics",
+          "order": 26,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "75_final_review",
+          "title": "Final Review",
+          "type": "lesson",
+          "contentPath": "75-final-review",
+          "description": "Comprehensive course review",
+          "order": 27,
+          "required": true,
+          "estimatedTime": 120,
+          "hasCloudFunctions": true,
+          "questions": []
+        },
+        {
+          "itemId": "exam_section_3",
+          "title": "Section 3 Exam - Atomic Physics and Nuclear",
+          "type": "exam",
+          "contentPath": "76-section-3-exam",
+          "description": "Final comprehensive exam",
+          "order": 28,
+          "required": true,
+          "estimatedTime": 180,
+          "hasCloudFunctions": true,
+          "questions": [
+            {
+              "questionId": "course2_76_section3_exam_q1",
+              "title": "Isotope Definition",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q2",
+              "title": "Nuclear Binding Energy",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q3",
+              "title": "Beta Decay Process",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q4",
+              "title": "Half-Life Calculation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q5",
+              "title": "Nuclear Fission",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q6",
+              "title": "Atomic Models",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q7",
+              "title": "Alpha Radiation",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q8",
+              "title": "Radioactive Decay",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q9",
+              "title": "Nuclear Reactions",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q10",
+              "title": "Mass-Energy Equivalence",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q11",
+              "title": "Electron Configuration",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q12",
+              "title": "Quantum Numbers",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q13",
+              "title": "Photoelectric Effect",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q14",
+              "title": "Nuclear Stability Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q15",
+              "title": "Radiation Detection",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q16",
+              "title": "Nuclear Chart Analysis",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q17",
+              "title": "Energy Level Diagram",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q18",
+              "title": "Isotope Applications",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q19",
+              "title": "Nuclear Decay Series",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q20",
+              "title": "Nuclear Medicine",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q21",
+              "title": "Nuclear Power",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q22",
+              "title": "Atomic Structure",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q23",
+              "title": "Nuclear Physics Principles",
+              "points": 1
+            },
+            {
+              "questionId": "course2_76_section3_exam_q24",
+              "title": "Decay Analysis Problem",
+              "points": 5
+            },
+            {
+              "questionId": "course2_76_section3_exam_q25",
+              "title": "Nuclear Physics Application",
+              "points": 4
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

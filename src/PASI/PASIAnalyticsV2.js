@@ -74,6 +74,30 @@ const formatDate = (dateString) => {
   }
 };
 
+// Helper function to normalize school year format
+const normalizeSchoolYear = (schoolYear) => {
+  // Handle null, undefined, or non-string values
+  if (!schoolYear || typeof schoolYear !== 'string') {
+    console.warn('Invalid schoolYear provided to normalizeSchoolYear:', schoolYear);
+    return { startYear: 2024, endYear: 2025 };
+  }
+  
+  // Handle both formats: "24/25" and "2024-2025"
+  if (schoolYear.includes('/')) {
+    const [start, end] = schoolYear.split('/');
+    const startYear = 2000 + parseInt(start);
+    const endYear = 2000 + parseInt(end);
+    return { startYear, endYear };
+  } else if (schoolYear.includes('-')) {
+    const [startYear, endYear] = schoolYear.split('-').map(y => parseInt(y));
+    return { startYear, endYear };
+  }
+  
+  // Fallback for unexpected formats
+  console.warn('Unexpected schoolYear format:', schoolYear);
+  return { startYear: 2024, endYear: 2025 };
+};
+
 // Helper function to get school year month from ISO timestamp
 const getSchoolYearMonth = (dateString, schoolYear) => {
   if (!dateString || dateString === 'N/A') return null;
@@ -87,7 +111,7 @@ const getSchoolYearMonth = (dateString, schoolYear) => {
     const year = date.getFullYear();
     
     // Extract school year start and end years
-    const [startYear, endYear] = schoolYear.split('-').map(y => parseInt(y));
+    const { startYear, endYear } = normalizeSchoolYear(schoolYear);
     
     // School year months: Sep, Oct, Nov, Dec (startYear), Jan, Feb, Mar, Apr, May, Jun, Jul, Aug (endYear)
     if (month >= 8) { // Sep-Dec (months 8-11: September=8, October=9, November=10, December=11)
@@ -109,7 +133,7 @@ const getSchoolYearMonth = (dateString, schoolYear) => {
 
 // Helper function to generate all school year months for x-axis display
 const generateAllSchoolYearMonths = (schoolYear) => {
-  const [startYear, endYear] = schoolYear.split('-').map(y => parseInt(y));
+  const { startYear, endYear } = normalizeSchoolYear(schoolYear);
   
   return [
     { label: `Sep ${startYear}`, order: 1, month: 8, year: startYear },
@@ -129,7 +153,7 @@ const generateAllSchoolYearMonths = (schoolYear) => {
 
 // Helper function to generate school year months up to current date with daily positioning
 const generateSchoolYearMonths = (schoolYear) => {
-  const [startYear, endYear] = schoolYear.split('-').map(y => parseInt(y));
+  const { startYear, endYear } = normalizeSchoolYear(schoolYear);
   const today = new Date();
   const currentMonth = today.getMonth(); // 0-11
   const currentYear = today.getFullYear();
@@ -760,7 +784,7 @@ const PASIAnalyticsV2 = ({ records, isOpen, onClose, selectedSchoolYear = '2024-
                           {analytics.schoolYearRegistrationTrends.reduce((sum, month) => sum + month.count, 0)}
                         </p>
                         <p className="text-sm text-indigo-600">
-                          From Sep {selectedSchoolYear.split('-')[0]} to {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                          From Sep {normalizeSchoolYear(selectedSchoolYear).startYear} to {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                         </p>
                       </div>
                     </div>

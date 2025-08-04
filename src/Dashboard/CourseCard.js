@@ -575,9 +575,9 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     // Check if ANY course (Firebase or not) has the enhanced course structure
     // Look in multiple possible locations for the course structure
     const hasEnhancedCourseStructure = !!(
-      course.Gradebook?.courseStructure?.units ||  // Student-specific location
-      effectiveCourseDetails?.courseStructure?.units ||  // Direct location
-      effectiveCourseDetails?.["course-config"]?.courseStructure?.units  // Course config location
+      effectiveCourseDetails?.["course-config"]?.courseStructure?.units ||  // Primary location (matches database)
+      effectiveCourseDetails?.courseStructure?.units ||  // Direct location (legacy)
+      course.Gradebook?.courseStructure?.units  // Student-specific location (legacy fallback)
     );
     
     // Debug logging to help troubleshoot
@@ -1219,7 +1219,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             <div className="space-y-4">
-              <div className={`grid ${(effectiveCourseDetails?.units || course.Gradebook?.courseStructure?.units) && !(effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+              <div className={`grid ${(effectiveCourseDetails?.units || effectiveCourseDetails?.["course-config"]?.courseStructure?.units || course.Gradebook?.courseStructure?.units) && !(effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
                 {/* Show button in disabled state while loading or if course access is restricted and user is not developer */}

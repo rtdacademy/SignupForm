@@ -245,8 +245,8 @@ const AssessmentSession = ({
   // Get assessment settings from course configuration or fallback to defaults
   const getAssessmentSettings = () => {
     // Try to get settings from course configuration first
-    if (course?.Gradebook?.courseConfig?.gradebook?.itemStructure && assessmentConfig?.assessmentId) {
-      const itemSettings = course.Gradebook.courseConfig.gradebook.itemStructure[assessmentConfig.assessmentId];
+    if (course?.courseDetails?.['course-config']?.gradebook?.itemStructure && assessmentConfig?.assessmentId) {
+      const itemSettings = course.courseDetails['course-config'].gradebook.itemStructure[assessmentConfig.assessmentId];
       if (itemSettings?.assessmentSettings) {
         console.log(`📋 Using course config settings for ${assessmentConfig.assessmentId}:`, itemSettings.assessmentSettings);
         return itemSettings.assessmentSettings;

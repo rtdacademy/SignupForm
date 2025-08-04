@@ -1,46 +1,50 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Award, Target } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
-import { 
-  validateGradeDataStructures, 
-  calculateLessonScore, 
-  calculateCategoryScores,
-  checkLessonCompletion 
-} from '../../utils/gradeCalculations';
 import { formatScore } from '../../utils/gradeUtils';
 import { useAuth } from '../../../context/AuthContext';
+import { createAllCourseItems } from '../../utils/courseItemsUtils';
+import { 
+  calculateCourseProgress,
+  hasValidGradebookData 
+} from '../../utils/courseProgressUtils';
 
-const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
+const GradebookSummary = ({ course, profile }) => {
   const { currentUser } = useAuth();
   
-  // Validate that we have the required data structures
-  const validation = validateGradeDataStructures(course);
+  // Create allCourseItems using utility function
+  const allCourseItems = useMemo(() => {
+    return createAllCourseItems(course);
+  }, [course]);
   
-  // Show error if validation fails
-  if (!validation.valid) {
+  // Check if server-calculated gradebook data is available
+  const gradebook = course?.Gradebook;
+  const hasGradebookData = hasValidGradebookData(course);
+  
+  if (!hasGradebookData) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-        <p className="text-yellow-700 font-medium">Course Data Loading</p>
+        <p className="text-yellow-700 font-medium">Gradebook Loading</p>
         <p className="text-yellow-600 text-sm mt-2">
-          Progress data is loading. Missing: {validation.missing.join(', ')}
+          Grade calculations are being processed...
         </p>
       </div>
     );
   }
-  
-  const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure || {};
-  const actualGrades = course?.Grades?.assessments || {};
-  const weights = course?.Gradebook?.courseConfig?.weights || {};
 
-  // Get student email for session-based scoring
+  // Get student email for completion checking
   const studentEmail = profile?.StudentEmail || currentUser?.email;
 
+  // Use server-calculated data directly
+  const categoryStats = gradebook.categories;
+  const overallStats = {
+    ...gradebook.overall,
+    hasAttemptedWork: Object.values(gradebook.items).some(item => item.attempted > 0)
+  };
 
-  // Calculate all stats using session-aware utility functions
-  const baseCategoryStats = calculateCategoryScores(course, studentEmail, allCourseItems);
-  const categoryStats = enhanceCategoryStatsWithItemCounts(baseCategoryStats, allCourseItems, weights);
-  const overallStats = calculateOverallStatsFromCategories(categoryStats, weights);
-  const courseItemStats = calculateCourseItemStats(course, allCourseItems, studentEmail);
+  // Get weights from course config for display
+  const weights = course?.courseDetails?.['course-config']?.gradebook?.weights || {};
+  const courseItemStats = calculateCourseProgress(course, allCourseItems);
   
   const passingGrade = 60; // Could be made configurable
 
@@ -88,18 +92,18 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
         </div>
       </div>
 
-      {/* Weighted Course Grade */}
-      {overallStats.totalPossible > 0 && (
+      {/* Course Grades */}
+      {overallStats.isWeighted && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Current Performance */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
             <div>
               <h4 className="text-md font-medium text-gray-700">Current Performance</h4>
-              {overallStats.currentWeightedGrade !== null ? (
+              {overallStats.hasAttemptedWork ? (
                 <>
-                  <span className="text-3xl font-bold text-green-700">{formatScore(overallStats.currentWeightedGrade)}%</span>
+                  <span className="text-3xl font-bold text-green-700">{formatScore(overallStats.currentPerformance)}%</span>
                   <p className="text-sm text-gray-600 mt-1">
-                    Based on completed work
+                    Based on completed work only
                   </p>
                 </>
               ) : (
@@ -117,13 +121,15 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
           <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
             <div>
               <h4 className="text-md font-medium text-gray-700">Projected Final Grade</h4>
-              <span className="text-3xl font-bold text-purple-700">{formatScore(overallStats.weightedGrade)}%</span>
+              <span className="text-3xl font-bold text-purple-700">{formatScore(overallStats.projectedFinal)}%</span>
               <p className="text-sm text-gray-600 mt-1">
                 If remaining work not completed
               </p>
-              <p className="text-xs text-gray-500">
-                Weighted by: {Object.entries(weights).filter(([_, weight]) => weight > 0).map(([type, weight]) => `${type}: ${weight * 100}%`).join(', ')}
-              </p>
+              <div className="text-xs text-gray-500 mt-2 space-y-1">
+                Weighted by: {Object.entries(weights).filter(([_, weight]) => weight > 0).map(([type, weight]) => (
+                  `${type}: ${formatScore(weight * 100)}%`
+                )).join(', ')}
+              </div>
             </div>
           </div>
         </div>
@@ -146,7 +152,7 @@ const GradebookSummary = ({ course, allCourseItems = [], profile }) => {
 };
 
 // Category Card Component
-const CategoryCard = ({ type, data }) => {
+const CategoryCard = ({ type, data, weight }) => {
   const categoryConfig = {
     lesson: { color: 'blue', icon: '📚', label: 'Lessons' },
     assignment: { color: 'emerald', icon: '📝', label: 'Assignments' },
@@ -156,9 +162,7 @@ const CategoryCard = ({ type, data }) => {
   };
 
   const config = categoryConfig[type] || { color: 'gray', icon: '📄', label: type };
-  const attemptedPercentage = data.attemptedPercentage;
-  const completionPercentage = data.completionPercentage || 0;
-  const weight = data.categoryWeight || 0;
+  const weightPercent = (weight || 0) * 100;
 
   return (
     <div className={`bg-${config.color}-50 rounded-lg p-4 border border-${config.color}-100`}>
@@ -168,27 +172,31 @@ const CategoryCard = ({ type, data }) => {
           <h4 className="text-sm font-medium text-gray-700 mt-1">{config.label}</h4>
         </div>
         <span className={`text-xs font-medium text-${config.color}-700 bg-${config.color}-100 px-2 py-1 rounded`}>
-          {weight}% weight
+          {formatScore(weightPercent)}% weight
         </span>
       </div>
       
       <div className="space-y-3">
-        {/* Performance on attempted work */}
+        {/* Current Performance */}
         <div className="flex items-baseline justify-between">
-          {attemptedPercentage !== null ? (
-            <span className={`text-2xl font-bold text-${config.color}-700`}>{formatScore(attemptedPercentage)}%</span>
+          {data.total > 0 ? (
+            <span className={`text-2xl font-bold text-${config.color}-700`}>{formatScore(data.percentage)}%</span>
           ) : (
             <span className="text-2xl font-bold text-gray-400">--</span>
           )}
           <span className="text-xs text-gray-600">
-            {attemptedPercentage !== null ? 'On attempted' : 'Not started'}
+            {data.itemCount} items
           </span>
         </div>
         
-        
-        {/* Projected contribution */}
-        <div className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
-          Contributes {formatScore(data.percentage * weight / 100)}% to final grade
+        {/* Score Details */}
+        <div className="text-xs text-gray-600">
+          {formatScore(data.score)} / {formatScore(data.total)} points
+          {data.completedCount > 0 && (
+            <div className="mt-1">
+              {data.completedCount} of {data.itemCount} completed
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -226,160 +234,7 @@ const getRelativeTime = (timestamp) => {
   return 'Just now';
 };
 
-// Calculate overall stats from category scores (replaces old calculateOverallStats)
-const calculateOverallStatsFromCategories = (categoryStats, weights) => {
-  let totalPoints = 0;
-  let totalPossible = 0;
-  let attemptedPoints = 0;
-  let attemptedPossible = 0;
-  let weightedGrade = 0; // Projected grade (includes 0s for unstarted work)
-  let currentWeightedGrade = 0; // Current grade based on attempted work only
-  let totalWeightForAttempted = 0; // Sum of weights for categories with attempted work
-  
-  // Sum up category data
-  Object.entries(categoryStats).forEach(([categoryType, categoryData]) => {
-    totalPoints += categoryData.score || 0;
-    totalPossible += categoryData.total || 0;
-    attemptedPoints += categoryData.attemptedScore || 0;
-    attemptedPossible += categoryData.attemptedTotal || 0;
-    
-    // Calculate projected weighted grade (includes all work - zeros for incomplete)
-    const weight = (weights[categoryType] || 0);
-    const categoryPercentage = categoryData.percentage || 0; // This already includes zeros
-    weightedGrade += (categoryPercentage * weight);
-    
-    
-    // Calculate current weighted grade (only attempted work)
-    if (categoryData.attemptedPercentage !== null && categoryData.attemptedCount > 0) {
-      currentWeightedGrade += (categoryData.attemptedPercentage * weight);
-      totalWeightForAttempted += weight;
-    }
-  });
-  
-  
-  // Normalize current weighted grade to show performance on attempted work
-  // This gives us the weighted average of only the categories with attempts
-  if (totalWeightForAttempted > 0) {
-    currentWeightedGrade = currentWeightedGrade / totalWeightForAttempted;
-  } else {
-    currentWeightedGrade = null; // No work attempted
-  }
-  
-  const overallPercentage = totalPossible > 0 ? (totalPoints / totalPossible) * 100 : 0;
-  const performancePercentage = attemptedPossible > 0 ? (attemptedPoints / attemptedPossible) * 100 : 0;
-  
-  return {
-    totalPoints,
-    totalPossible,
-    overallPercentage,
-    attemptedPoints,
-    attemptedPossible,
-    performancePercentage,
-    weightedGrade, // Projected final grade if all remaining work scores 0%
-    currentWeightedGrade, // Current grade based only on attempted work
-    hasAttemptedWork: attemptedPossible > 0
-  };
-};
-
-// Enhanced category stats that properly calculates overall percentages including zeros
-const enhanceCategoryStatsWithItemCounts = (categoryStats, allCourseItems = [], weights = {}) => {
-  const enhanced = { ...categoryStats };
-  
-  // Initialize missing categories
-  Object.keys(weights).forEach(categoryType => {
-    if (!enhanced[categoryType]) {
-      enhanced[categoryType] = {
-        score: 0,
-        total: 0,
-        attemptedScore: 0,
-        attemptedTotal: 0,
-        attemptedCount: 0,
-        totalCount: 0,
-        percentage: 0,
-        attemptedPercentage: null,
-        completionPercentage: 0,
-        items: [],
-        categoryWeight: (weights[categoryType] || 0) * 100,
-        totalItemCount: 0
-      };
-    } else {
-      enhanced[categoryType].categoryWeight = (weights[categoryType] || 0) * 100;
-    }
-  });
-  
-  // Count all items by category from allCourseItems
-  const categoryItemCounts = {};
-  allCourseItems.forEach(courseItem => {
-    const categoryType = courseItem.type || 'lesson';
-    categoryItemCounts[categoryType] = (categoryItemCounts[categoryType] || 0) + 1;
-    
-    // Initialize category if it doesn't exist
-    if (!enhanced[categoryType]) {
-      enhanced[categoryType] = {
-        score: 0,
-        total: 0,
-        attemptedScore: 0,
-        attemptedTotal: 0,
-        attemptedCount: 0,
-        totalCount: 0,
-        percentage: 0,
-        attemptedPercentage: null,
-        completionPercentage: 0,
-        items: [],
-        categoryWeight: 0,
-        totalItemCount: 0
-      };
-    }
-  });
-  
-  // Update completion percentages and total item counts (don't recalculate percentages - trust gradeCalculations.js)
-  Object.entries(enhanced).forEach(([categoryType, categoryData]) => {
-    const totalItemsInCategory = categoryItemCounts[categoryType] || 0;
-    categoryData.totalItemCount = totalItemsInCategory;
-    
-    // Update the totalCount if the course structure has more items
-    const originalTotalCount = categoryData.totalCount;
-    if (totalItemsInCategory > originalTotalCount) {
-      categoryData.totalCount = totalItemsInCategory;
-    }
-    
-    // Recalculate completion percentage with the updated total count
-    if (categoryData.completedCount !== undefined) {
-      categoryData.completionPercentage = totalItemsInCategory > 0 ? 
-        (categoryData.completedCount / totalItemsInCategory) * 100 : 0;
-    }
-      
-  });
-  
-  return enhanced;
-};
-
-const calculateCourseItemStats = (course, allCourseItems = [], studentEmail = null) => {
-  // Use allCourseItems passed from parent for consistency with navigation and progress
-  // Process ALL course items (lessons, assignments, exams, labs, etc.) not just lessons
-  
-  if (allCourseItems.length === 0) {
-    return {
-      total: 0,
-      completed: 0,
-      completionPercentage: 0
-    };
-  }
-  
-  // Count completed items using session-aware completion check
-  const completedCount = allCourseItems.filter(courseItem => {
-    return checkLessonCompletion(courseItem.itemId, course, studentEmail);
-  }).length;
-  
-  const total = allCourseItems.length;
-  const completionPercentage = total > 0 ? (completedCount / total) * 100 : 0;
-  
-  return {
-    total,
-    completed: completedCount,
-    completionPercentage
-  };
-};
+// Using simplified courseProgressUtils functions that leverage cloud function calculated data
 
 // Export utility functions for use in parent components
 export { getLastActivityTime, getRelativeTime };

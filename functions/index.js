@@ -303,11 +303,10 @@ exports.saveStudentScheduleV2 = studentScheduleV2Functions.saveStudentScheduleV2
 
 // Legacy reimbursement functions removed - replaced with Stripe Connect
 
-// Gradebook functions
-exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
-exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
-//exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
-exports.validateGradebookStructure = gradebookFunctions.validateGradebookStructure;
+// Gradebook functions - NEW SERVER-SIDE SYSTEM
+exports.updateGradebookOnSessionComplete = gradebookFunctions.updateGradebookOnSessionComplete;
+exports.updateGradebookOnAssessmentScore = gradebookFunctions.updateGradebookOnAssessmentScore;
+
 
 // Exam session management functions
 exports.startExamSession = examSessionFunctions.startExamSession;

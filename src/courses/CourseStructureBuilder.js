@@ -396,6 +396,55 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
     }
   };
 
+  const getUnitColors = (unitIndex) => {
+    const colorSchemes = [
+      {
+        border: 'border-blue-200',
+        bg: 'bg-blue-50',
+        header: 'bg-blue-100',
+        text: 'text-blue-800',
+        accent: 'text-blue-600'
+      },
+      {
+        border: 'border-green-200',
+        bg: 'bg-green-50',
+        header: 'bg-green-100',
+        text: 'text-green-800',
+        accent: 'text-green-600'
+      },
+      {
+        border: 'border-purple-200',
+        bg: 'bg-purple-50',
+        header: 'bg-purple-100',
+        text: 'text-purple-800',
+        accent: 'text-purple-600'
+      },
+      {
+        border: 'border-orange-200',
+        bg: 'bg-orange-50',
+        header: 'bg-orange-100',
+        text: 'text-orange-800',
+        accent: 'text-orange-600'
+      },
+      {
+        border: 'border-indigo-200',
+        bg: 'bg-indigo-50',
+        header: 'bg-indigo-100',
+        text: 'text-indigo-800',
+        accent: 'text-indigo-600'
+      },
+      {
+        border: 'border-pink-200',
+        bg: 'bg-pink-50',
+        header: 'bg-pink-100',
+        text: 'text-pink-800',
+        accent: 'text-pink-600'
+      }
+    ];
+    
+    return colorSchemes[unitIndex % colorSchemes.length];
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
@@ -434,47 +483,53 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
           )}
         </div>
       ) : (
-        <Accordion type="multiple" defaultValue={units.map((_, i) => `unit-${i}`)} className="w-full">
-          {units.map((unit, unitIndex) => (
-            <AccordionItem key={unit.unitId} value={`unit-${unitIndex}`}>
-              <AccordionTrigger className="text-left">
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{unit.name}</span>
-                    <span className="text-sm text-gray-500">
-                      ({(unit.items || []).length} items)
-                    </span>
-                  </div>
-                  
-                  {isEditing && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditingUnit(unitIndex);
-                        }}
-                      >
-                        <FaEdit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteUnit(unitIndex);
-                        }}
-                      >
-                        <FaTrash className="h-3 w-3 text-red-500" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </AccordionTrigger>
+        <div className="space-y-4">
+          {units.map((unit, unitIndex) => {
+            const colors = getUnitColors(unitIndex);
+            return (
+              <div key={unit.unitId} className={`border rounded-lg ${colors.border} ${colors.bg} overflow-hidden`}>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value={`unit-${unitIndex}`} className="border-none">
+                    <AccordionTrigger className={`text-left px-4 py-3 ${colors.header} hover:${colors.header}/80 transition-colors`}>
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${colors.text}`}>{unit.name}</span>
+                          <span className={`text-sm ${colors.accent}`}>
+                            ({(unit.items || []).length} items)
+                          </span>
+                        </div>
+                        
+                        {isEditing && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingUnit(unitIndex);
+                              }}
+                              className={`${colors.text} hover:${colors.bg}`}
+                            >
+                              <FaEdit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteUnit(unitIndex);
+                              }}
+                              className="text-red-500 hover:bg-red-50"
+                            >
+                              <FaTrash className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionTrigger>
 
-              <AccordionContent>
-                <div className="space-y-4 pl-4">
+                    <AccordionContent className="px-4 pb-4">
+                      <div className="space-y-4">
                   {/* Unit Editor */}
                   {editingUnit === unitIndex && isEditing && (
                     <div className="p-4 bg-gray-50 rounded-lg space-y-3">
@@ -619,114 +674,123 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                             
                             {/* Questions List */}
                             <div className="ml-6 space-y-2">
-                              {item.questions && item.questions.length > 0 && (
-                                <>
-                                  <div className="flex items-center justify-between">
-                                    <div className="text-sm font-medium text-gray-600">
-                                      Questions ({item.questions.length}):
-                                    </div>
-                                    {isEditing && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => addQuestion(unitIndex, itemIndex)}
-                                      >
-                                        <FaPlus className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <div className="ml-4 space-y-1">
-                                    {item.questions.map((question, qIndex) => (
-                                      <div key={question.questionId || qIndex} className="border rounded p-2">
-                                        {editingQuestion === `${unitIndex}-${itemIndex}-${qIndex}` ? (
-                                          // Edit Mode for Question
-                                          <div className="space-y-2">
-                                            <div className="grid grid-cols-2 gap-2">
-                                              <div>
-                                                <label className="block text-xs font-medium mb-1">Question Title</label>
-                                                <Input
-                                                  value={questionEditForm.title || ''}
-                                                  onChange={(e) => setQuestionEditForm(prev => ({ ...prev, title: e.target.value }))}
-                                                  placeholder="Question title"
-                                                  className="text-sm"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-xs font-medium mb-1">Points</label>
-                                                <Input
-                                                  type="number"
-                                                  value={questionEditForm.points || ''}
-                                                  onChange={(e) => setQuestionEditForm(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
-                                                  placeholder="1"
-                                                  className="text-sm"
-                                                  min="0"
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="flex justify-end gap-2">
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={cancelQuestionEditing}
-                                              >
-                                                <FaTimes className="mr-1 h-3 w-3" />
-                                                Cancel
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                onClick={() => saveQuestionChanges(unitIndex, itemIndex, qIndex)}
-                                              >
-                                                <FaSave className="mr-1 h-3 w-3" />
-                                                Save
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          // Display Mode for Question
-                                          <div className="flex items-center gap-2 text-sm">
-                                            <span className="text-gray-400">•</span>
-                                            <span className="flex-1">{question.title}</span>
-                                            <span className="text-xs text-gray-500">({question.points} pt{question.points !== 1 ? 's' : ''})</span>
-                                            {isEditing && (
-                                              <div className="flex items-center gap-1">
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  onClick={() => startEditingQuestion(unitIndex, itemIndex, qIndex)}
-                                                >
-                                                  <FaEdit className="h-3 w-3" />
-                                                </Button>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  onClick={() => deleteQuestion(unitIndex, itemIndex, qIndex)}
-                                                >
-                                                  <FaTrash className="h-3 w-3 text-red-500" />
-                                                </Button>
-                                              </div>
-                                            )}
+                              {item.questions && item.questions.length > 0 ? (
+                                <Accordion type="single" collapsible className="w-full">
+                                  <AccordionItem value={`questions-${unitIndex}-${itemIndex}`}>
+                                    <AccordionTrigger className="text-sm font-medium text-gray-600 py-2">
+                                      <div className="flex items-center justify-between w-full pr-4">
+                                        <span>Questions ({item.questions.length})</span>
+                                        <span className="text-xs text-gray-500">
+                                          Total: {item.questions.reduce((sum, q) => sum + (q.points || 0), 0)} pts
+                                        </span>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <div className="space-y-2 pt-2">
+                                        {isEditing && (
+                                          <div className="flex justify-end">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => addQuestion(unitIndex, itemIndex)}
+                                            >
+                                              <FaPlus className="mr-1 h-3 w-3" />
+                                              Add Question
+                                            </Button>
                                           </div>
                                         )}
+                                        <div className="space-y-1">
+                                          {item.questions.map((question, qIndex) => (
+                                            <div key={question.questionId || qIndex} className="border rounded p-2">
+                                              {editingQuestion === `${unitIndex}-${itemIndex}-${qIndex}` ? (
+                                                // Edit Mode for Question
+                                                <div className="space-y-2">
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                      <label className="block text-xs font-medium mb-1">Question Title</label>
+                                                      <Input
+                                                        value={questionEditForm.title || ''}
+                                                        onChange={(e) => setQuestionEditForm(prev => ({ ...prev, title: e.target.value }))}
+                                                        placeholder="Question title"
+                                                        className="text-sm"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-xs font-medium mb-1">Points</label>
+                                                      <Input
+                                                        type="number"
+                                                        value={questionEditForm.points || ''}
+                                                        onChange={(e) => setQuestionEditForm(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                                                        placeholder="1"
+                                                        className="text-sm"
+                                                        min="0"
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                  <div className="flex justify-end gap-2">
+                                                    <Button
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={cancelQuestionEditing}
+                                                    >
+                                                      <FaTimes className="mr-1 h-3 w-3" />
+                                                      Cancel
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      onClick={() => saveQuestionChanges(unitIndex, itemIndex, qIndex)}
+                                                    >
+                                                      <FaSave className="mr-1 h-3 w-3" />
+                                                      Save
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                // Display Mode for Question
+                                                <div className="flex items-center gap-2 text-sm">
+                                                  <span className="text-gray-400">•</span>
+                                                  <span className="flex-1">{question.title}</span>
+                                                  <span className="text-xs text-gray-500">({question.points} pt{question.points !== 1 ? 's' : ''})</span>
+                                                  {isEditing && (
+                                                    <div className="flex items-center gap-1">
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => startEditingQuestion(unitIndex, itemIndex, qIndex)}
+                                                      >
+                                                        <FaEdit className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => deleteQuestion(unitIndex, itemIndex, qIndex)}
+                                                      >
+                                                        <FaTrash className="h-3 w-3 text-red-500" />
+                                                      </Button>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
                                       </div>
-                                    ))}
-                                    <div className="text-sm font-medium text-gray-600 mt-2">
-                                      Total Points: {item.questions.reduce((sum, q) => sum + (q.points || 0), 0)}
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                              
-                              {/* Add Question button when no questions exist */}
-                              {(!item.questions || item.questions.length === 0) && isEditing && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => addQuestion(unitIndex, itemIndex)}
-                                  className="w-full"
-                                >
-                                  <FaPlus className="mr-2 h-3 w-3" />
-                                  Add Question
-                                </Button>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                </Accordion>
+                              ) : (
+                                /* Add Question button when no questions exist */
+                                isEditing && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => addQuestion(unitIndex, itemIndex)}
+                                    className="w-full"
+                                  >
+                                    <FaPlus className="mr-2 h-3 w-3" />
+                                    Add Question
+                                  </Button>
+                                )
                               )}
                             </div>
                           </div>
@@ -745,12 +809,15 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                         Add Item to {unit.name}
                       </Button>
                     )}
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

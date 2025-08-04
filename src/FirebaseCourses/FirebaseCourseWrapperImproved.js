@@ -12,6 +12,13 @@ import {
   calculateLessonScore, 
   calculateCategoryScores 
 } from './utils/gradeCalculations';
+import { createAllCourseItems } from './utils/courseItemsUtils';
+import { 
+  calculateCourseProgress, 
+  getNavigationProgress, 
+  hasValidGradebookData,
+  getLessonScore 
+} from './utils/courseProgressUtils';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
@@ -81,12 +88,12 @@ const FirebaseCourseWrapperContent = ({
   // Get course data first to check for errors
   const getCourseData = () => {
 
-    // First priority: check gradebook courseConfig courseStructure (database-driven from backend config)
-    if (course.Gradebook?.courseConfig?.courseStructure) {
+    // First priority: check courseDetails course-config courseStructure (database-driven from backend config)
+    if (course.courseDetails?.['course-config']?.courseStructure) {
       return {
-        title: course.Gradebook.courseConfig.courseStructure.title || course.Course?.Value || '',
-        structure: course.Gradebook.courseConfig.courseStructure.units || [],
-        courseWeights: course.Gradebook.courseConfig.weights || course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
+        title: course.courseDetails['course-config'].courseStructure.title || course.Course?.Value || '',
+        structure: course.courseDetails['course-config'].courseStructure.units || [],
+        courseWeights: course.courseDetails['course-config'].weights || course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
       };
     }
     
@@ -243,6 +250,7 @@ const FirebaseCourseWrapperContent = ({
   // State for realtime grades updates
   const [realtimeGrades, setRealtimeGrades] = useState(null);
   const [realtimeExamSessions, setRealtimeExamSessions] = useState(null);
+  const [realtimeGradebook, setRealtimeGradebook] = useState(null);
   const [dataUpdateTrigger, setDataUpdateTrigger] = useState(0);
   
   // State for content context from AI accordion
@@ -569,16 +577,10 @@ const FirebaseCourseWrapperContent = ({
   }, []);
 
   
-  // Flatten all course items for progress tracking (moved after courseData)
+  // Create enriched course items using centralized utility function
   const allCourseItems = useMemo(() => {
-    const items = [];
-    unitsList.forEach(unit => {
-      if (unit.items && Array.isArray(unit.items)) {
-        items.push(...unit.items);
-      }
-    });
-    return items;
-  }, [unitsList]);
+    return createAllCourseItems(course);
+  }, [course]);
   
   // Validate lesson from URL parameter exists in course structure
   useEffect(() => {
@@ -640,7 +642,7 @@ const FirebaseCourseWrapperContent = ({
     const courseStructure = gradebook.courseStructure || course.courseStructure;
     
     // Only apply sequential access if enabled
-    if (!gradebook.courseConfig?.globalSettings?.requireSequentialProgress || 
+    if (!course.courseDetails?.['course-config']?.globalSettings?.requireSequentialProgress || 
         !course.courseDetails?.progressionRequirements?.enabled) {
       const accessibility = {};
       allCourseItems.forEach(item => {
@@ -918,64 +920,21 @@ const FirebaseCourseWrapperContent = ({
     );
   }
 
-  // Convert gradebook data to progress format for navigation - Using new grade calculation functions
+  // Calculate progress using simplified cloud function data - Using new courseProgressUtils
   useEffect(() => {
-    const gradebookProgress = {};
-    
-    // Validate that we have the required data structures
-    const validation = validateGradeDataStructures(course);
-    if (!validation.valid) {
-      console.warn('Cannot calculate progress - missing required data:', validation.missing);
+    // Check if we have valid gradebook data from cloud functions
+    if (!hasValidGradebookData(course) || !allCourseItems.length) {
+      console.log('📊 Gradebook data not available yet or no course items');
       setProgress({});
       return;
     }
     
-    const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
-    const progressionRequirements = course.courseDetails?.progressionRequirements || {};
+    // Use simplified progress calculation from courseProgressUtils
+    const navigationProgress = getNavigationProgress(course, allCourseItems);
+    setProgress(navigationProgress);
     
-    // Process each lesson from itemStructure using new calculation functions
-    Object.entries(itemStructure).forEach(([lessonKey, lessonConfig]) => {
-      if (!lessonConfig || lessonConfig.type !== 'lesson') return;
-      
-      // Use new grade calculation function for accurate scores with session support
-      const studentEmail = profile?.StudentEmail || currentUser?.email;
-      const lessonScore = calculateLessonScore(lessonKey, course, studentEmail);
-      
-      if (!lessonScore.valid) {
-        return; // Skip if calculation failed
-      }
-      
-      // Determine if lesson meets completion requirements
-      const requirements = progressionRequirements.lessonOverrides?.[lessonKey] || progressionRequirements.defaultCriteria || {};
-      const minimumPercentage = requirements.minimumPercentage || 50;
-      const requireAllQuestions = requirements.requireAllQuestions !== false;
-      
-      const completionRate = lessonScore.totalQuestions > 0 ? (lessonScore.attempted / lessonScore.totalQuestions) * 100 : 0;
-      const averageScore = lessonScore.percentage;
-      
-      let isCompleted = false;
-      if (requireAllQuestions) {
-        // Must attempt all questions AND meet minimum score
-        isCompleted = completionRate >= 100 && averageScore >= minimumPercentage;
-      } else {
-        // Only need to meet minimum score (allows partial completion)
-        isCompleted = averageScore >= minimumPercentage;
-      }
-      
-      if (isCompleted) {
-        gradebookProgress[lessonKey] = {
-          completed: true,
-          completedAt: new Date().toISOString(),
-          score: lessonScore.score,
-          maxScore: lessonScore.total,
-          attempts: lessonScore.attempted,
-          percentage: lessonScore.percentage
-        };
-      }
-    });
-    
-    setProgress(gradebookProgress);
-  }, [course?.Gradebook?.courseConfig, course?.Grades?.assessments, course?.ExamSessions, course?.Assessments, profile?.StudentEmail, currentUser?.email, realtimeGrades, realtimeExamSessions, dataUpdateTrigger]);
+    console.log('📊 Progress calculated using cloud function data:', Object.keys(navigationProgress).length, 'completed items');
+  }, [course?.Gradebook, allCourseItems, realtimeGradebook, dataUpdateTrigger]);
 
   // Realtime listener for grades updates
   useEffect(() => {
@@ -1066,6 +1025,52 @@ const FirebaseCourseWrapperContent = ({
     return () => {
       console.log('🔚 Cleaning up ExamSessions listener');
       off(examSessionsRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
+
+  // Realtime listener for Gradebook updates (cloud function calculated data)
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Listen to the student's specific gradebook path
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    const gradebookPath = `students/${sanitizedEmail}/courses/${courseId}/Gradebook`;
+    
+    console.log('🔄 Setting up realtime Gradebook listener for:', gradebookPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const gradebookRef = ref(db, gradebookPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(gradebookRef, (snapshot) => {
+      const gradebookData = snapshot.val();
+      console.log('📊 Realtime Gradebook update received:', gradebookData ? 'Data present' : 'No data');
+      
+      // Update the realtime gradebook state
+      setRealtimeGradebook(gradebookData || {});
+      
+      // Update the course object's gradebook if it exists
+      if (gradebookData && course) {
+        course.Gradebook = gradebookData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in Gradebook listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up Gradebook listener');
+      off(gradebookRef, 'value');
     };
   }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
  
@@ -1252,9 +1257,8 @@ const FirebaseCourseWrapperContent = ({
                   return null;
                 }
                 
-                // Use new grade calculation function for accurate data with session support
-                const studentEmail = profile?.StudentEmail || currentUser?.email;
-                const lessonScore = calculateLessonScore(currentActiveItem.itemId, course, studentEmail);
+                // Use simplified lesson score from cloud function data
+                const lessonScore = getLessonScore(currentActiveItem.itemId, course);
                 
                 if (!lessonScore.valid || lessonScore.totalQuestions === 0) {
                   return null;
@@ -1363,7 +1367,6 @@ const FirebaseCourseWrapperContent = ({
                 ExamSessions: realtimeExamSessions || course?.ExamSessions || {},
                 Grades: realtimeGrades || course?.Grades || {}
               }} 
-              allCourseItems={allCourseItems} 
               profile={profile} 
               lessonAccessibility={lessonAccessibility} 
             />

@@ -16,8 +16,8 @@ import { sanitizeEmail } from '../../utils/sanitizeEmail';
 export const validateGradeDataStructures = (course) => {
   const missing = [];
   
-  if (!course?.Gradebook?.courseConfig?.gradebook?.itemStructure) {
-    missing.push('course.Gradebook.courseConfig.gradebook.itemStructure');
+  if (!course?.courseDetails?.['course-config']?.gradebook?.itemStructure) {
+    missing.push('course.courseDetails["course-config"].gradebook.itemStructure');
   }
   
   return {
@@ -70,7 +70,7 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
     };
   }
 
-  const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+  const itemStructure = course.courseDetails?.['course-config']?.gradebook?.itemStructure;
   
   // Use lessonId directly (should already be in underscore format)
   let lessonConfig = itemStructure[lessonId];
@@ -128,7 +128,6 @@ export const calculateLessonScore = (lessonId, course, studentEmail = null) => {
   // Fall back to individual question scoring for lessons
   
   if (!lessonConfig.questions) {
-    console.warn(`No questions found for lesson: ${lessonId}`);
     return {
       score: 0,
       total: 0,
@@ -201,7 +200,7 @@ export const calculateCategoryScores = (course, studentEmail = null, allCourseIt
     return {};
   }
 
-  const itemStructure = course.Gradebook.courseConfig.gradebook.itemStructure;
+  const itemStructure = course.courseDetails?.['course-config']?.gradebook?.itemStructure;
   const categories = {};
 
   // First, process items that exist in itemStructure (these have grades/attempts)
@@ -349,9 +348,9 @@ export const getAllCourseItems = (course) => {
   // Get course structure from the most reliable source
   let unitsList = [];
   
-  // First priority: check gradebook courseConfig courseStructure (database-driven from backend config)
-  if (course.Gradebook?.courseConfig?.courseStructure?.units) {
-    unitsList = course.Gradebook.courseConfig.courseStructure.units;
+  // First priority: check courseDetails course-config courseStructure (database-driven from backend config)
+  if (course.courseDetails?.['course-config']?.courseStructure?.units) {
+    unitsList = course.courseDetails['course-config'].courseStructure.units;
   }
   // Second priority: check gradebook courseStructure (legacy database path)
   else if (course.Gradebook?.courseStructure?.units) {

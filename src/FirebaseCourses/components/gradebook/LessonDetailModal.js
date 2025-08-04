@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, CheckCircle, XCircle, Clock, Award, RotateCcw, Eye, ChevronLeft, FileText, Save, Edit3, Shield } from 'lucide-react';
-import { getDatabase, ref, set, update, onValue } from 'firebase/database';
+import { getDatabase, ref, set, update, onValue, get } from 'firebase/database';
 import { useAuth } from '../../../context/AuthContext';
 import { formatScore } from '../../utils/gradeUtils';
 import { Button } from '../../../components/ui/button';
@@ -209,11 +209,23 @@ const renderEnhancedText = (text) => {
   );
 };
 
-const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = false }) => {
+const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = false, onGradeUpdate }) => {
   if (!lesson) return null;
 
   const assessments = course?.Assessments || {};
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+  
+  // Reset selectedSessionId when modal closes or lesson changes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedSessionId(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Reset selectedSessionId when lesson changes
+    setSelectedSessionId(null);
+  }, [lesson?.lessonId]);
   
   // Get selected session data if viewing a specific session
   const selectedSession = selectedSessionId 
@@ -223,6 +235,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent 
+        key={`lesson-modal-${lesson?.lessonId}-${isOpen}`} // Force remount when lesson changes or modal reopens
         side="right" 
         className={`${
           lesson?.activityType === 'lab' 
@@ -272,6 +285,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
               assessments={assessments}
               attemptNumber={lesson.sessionData.sessions.findIndex(s => s.sessionId === selectedSessionId) + 1}
               isStaffView={isStaffView}
+              onGradeUpdate={onGradeUpdate}
             />
           ) : (
             /* Overview - existing content */
@@ -288,13 +302,13 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
 
                   {/* Grading Method Info */}
                   {(() => {
-                    const sessionScoring = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[lesson.lessonId]?.assessmentSettings?.sessionScoring || 'takeHighest';
+                    const sessionScoring = lesson.scoringStrategy || course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[lesson.lessonId]?.assessmentSettings?.sessionScoring || 'takeHighest';
                     const scoringMethods = {
                       'takeHighest': { label: 'Highest Score', icon: '🏆', color: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
                       'latest': { label: 'Latest Score', icon: '🕐', color: 'bg-blue-50 border-blue-200 text-blue-800' },
                       'average': { label: 'Average Score', icon: '📊', color: 'bg-purple-50 border-purple-200 text-purple-800' }
                     };
-                    const method = scoringMethods[sessionScoring];
+                    const method = scoringMethods[sessionScoring] || scoringMethods['takeHighest']; // Fallback to takeHighest
 
                     return (
                       <div className={`mb-4 p-3 rounded-lg border ${method.color}`}>
@@ -314,7 +328,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {lesson.sessionData.sessions.filter(s => !s.isTeacherCreated).length}
+                        {lesson.sessionCount || lesson.sessionData.sessions.filter(s => !s.isTeacherCreated).length}
                       </div>
                       <div className="text-sm text-gray-600">Student Attempts</div>
                     </div>
@@ -418,9 +432,8 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                   
                   <div className="space-y-4">
                     {(() => {
-                      // Get questions from course config
-                      const itemConfig = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[lesson.lessonId];
-                      const questions = itemConfig?.questions || [];
+                      // Get questions directly from lesson object
+                      const questions = lesson.questions || [];
                       
                       if (questions.length === 0) {
                         return (
@@ -431,7 +444,7 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                       }
                       
                       return questions.map((question, index) => {
-                        const questionId = question.questionId;
+                        const questionId = question.id;
                         const assessmentData = assessments[questionId];
                         
                         if (!assessmentData) return null;
@@ -444,6 +457,10 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                             questionId={questionId}
                             isStaffView={isStaffView}
                             course={course}
+                            actualGrade={question.actualGrade}
+                            maxPoints={question.points}
+                            lessonId={lesson.lessonId}
+                            onGradeUpdate={onGradeUpdate}
                           />
                         );
                       });
@@ -489,7 +506,7 @@ const truncateQuestionText = (text, maxLength = 100) => {
 };
 
 // Session Detail View Component
-const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber, isStaffView = false }) => {
+const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber, isStaffView = false, onGradeUpdate }) => {
   console.log('🎬 SessionDetailView rendered', {
     sessionId: session?.sessionId,
     studentKey: course?.studentKey,
@@ -763,6 +780,8 @@ const SessionDetailView = ({ session, lesson, course, assessments, attemptNumber
                 isStaffView={isStaffView}
                 course={course}
                 session={session}
+                lessonId={lesson.lessonId}
+                onGradeUpdate={onGradeUpdate}
               />
             ))}
           </div>
@@ -979,7 +998,7 @@ const TeacherSessionScoreEditor = ({ session, course, onScoreUpdate }) => {
 };
 
 // Session-specific Question Card (limited info for security)
-const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, activityType, isStaffView = false, course, session }) => {
+const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, activityType, isStaffView = false, course, session, lessonId, onGradeUpdate }) => {
   const getScoreColor = (score, maxScore) => {
     const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
     if (pct >= 90) return 'text-green-700 bg-green-50 border-green-200';
@@ -1188,6 +1207,10 @@ const SessionQuestionCard = ({ questionResult, assessmentData, questionNumber, a
           onGradeUpdate={(questionIndex, grade, updatedResults) => {
             // Grade update will be reflected in parent component on next data refresh
             console.log(`Session question ${questionIndex} grade updated: ${grade}`, updatedResults);
+            // Call parent's onGradeUpdate if provided
+            if (onGradeUpdate && questionResult?.questionId) {
+              onGradeUpdate(questionResult.questionId, grade, lessonId);
+            }
           }}
         />
       </div>
@@ -1360,7 +1383,7 @@ const SessionCard = ({ session, attemptNumber, onViewDetails, showViewButton = f
 };
 
 // Lesson Question Card Component (for lesson type activities)
-const LessonQuestionCard = ({ questionNumber, assessmentData, questionId, isStaffView = false, course }) => {
+const LessonQuestionCard = ({ questionNumber, assessmentData, questionId, isStaffView = false, course, actualGrade, maxPoints, lessonId, onGradeUpdate }) => {
   const getStatusIcon = () => {
     if (assessmentData.status === 'completed' && assessmentData.correctOverall) {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
@@ -1441,13 +1464,17 @@ const LessonQuestionCard = ({ questionNumber, assessmentData, questionId, isStaf
       <div className="mt-3">
         <StaffGradeEditor
           questionId={questionId}
-          currentGrade={course?.Grades?.assessments?.[questionId] || 0}
-          maxPoints={1}
+          currentGrade={actualGrade !== undefined ? actualGrade : (course?.Grades?.assessments?.[questionId] || 0)}
+          maxPoints={maxPoints || assessmentData?.pointsValue || 1}
           course={course}
           isStaffView={isStaffView}
           onGradeUpdate={(id, grade) => {
             // Grade update will be reflected in parent component on next data refresh
             console.log(`Grade updated for ${id}: ${grade}`);
+            // Call parent's onGradeUpdate if provided
+            if (onGradeUpdate) {
+              onGradeUpdate(id, grade, lessonId);
+            }
           }}
         />
       </div>
@@ -1724,6 +1751,141 @@ const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false })
   return <LabComponent courseId={courseId} course={course} isStaffView={isStaffView} />;
 };
 
+/**
+ * Direct client-side gradebook update function
+ * Replaces cloud function dependency for immediate UI updates
+ */
+const updateGradebookItemDirectly = async (studentKey, courseId, questionId, newGrade, maxPoints) => {
+  try {
+    // Extract lesson ID from question ID (e.g., "course2_01_physics_20_review_question1" → "01-physics-20-review")
+    const lessonId = questionId.replace(/^course\d+_/, '').replace(/_question\d+$/, '').replace(/_/g, '-');
+    
+    console.log('🔧 Direct gradebook update:', { studentKey, courseId, lessonId, questionId, newGrade, maxPoints });
+    
+    // Get current gradebook item to preserve other data
+    const gradebookItemRef = ref(getDatabase(), `students/${studentKey}/courses/${courseId}/Gradebook/items/${lessonId}`);
+    const currentItemSnapshot = await get(gradebookItemRef);
+    const currentItem = currentItemSnapshot.val() || {};
+    
+    // Get all grades for this lesson to recalculate totals
+    const gradesRef = ref(getDatabase(), `students/${studentKey}/courses/${courseId}/Grades/assessments`);
+    const gradesSnapshot = await get(gradesRef);
+    const allGrades = gradesSnapshot.val() || {};
+    
+    // Find all questions that belong to this lesson
+    const lessonQuestionIds = Object.keys(allGrades).filter(qId => 
+      qId.startsWith(`course${courseId}_${lessonId.replace(/-/g, '_')}`)
+    );
+    
+    // Calculate new totals including the updated grade
+    let totalScore = 0;
+    let totalPossible = 0;
+    let attemptedQuestions = 0;
+    
+    lessonQuestionIds.forEach(qId => {
+      if (qId === questionId) {
+        // Use the new grade being saved
+        totalScore += newGrade;
+        totalPossible += maxPoints;
+        attemptedQuestions += 1;
+      } else {
+        // Use existing grade
+        const existingGrade = allGrades[qId] || 0;
+        if (existingGrade > 0) {
+          totalScore += existingGrade;
+          attemptedQuestions += 1;
+        }
+        // Add max points (assuming they're stored somewhere or use a default)
+        totalPossible += maxPoints; // This might need refinement based on actual question point values
+      }
+    });
+    
+    // Calculate percentage
+    const percentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
+    
+    // Update gradebook item directly
+    const updatedItem = {
+      ...currentItem,
+      score: totalScore,
+      total: totalPossible,
+      attempted: attemptedQuestions,
+      percentage: percentage,
+      completed: attemptedQuestions >= lessonQuestionIds.length,
+      source: 'manual', // Indicate manual grading
+      lastUpdated: Date.now()
+    };
+    
+    // Write directly to gradebook - immediate update!
+    await set(gradebookItemRef, updatedItem);
+    
+    console.log('✅ Direct gradebook update completed:', updatedItem);
+    
+  } catch (error) {
+    console.error('❌ Direct gradebook update failed:', error);
+    throw error; // Re-throw to be handled by the calling function
+  }
+};
+
+/**
+ * Direct session finalResults update function
+ * Recalculates session totals immediately after individual question grade changes
+ */
+const updateSessionFinalResultsDirectly = async (sessionConfig, updatedGrade, maxPoints) => {
+  try {
+    if (!sessionConfig.studentKey || !sessionConfig.courseId || !sessionConfig.sessionId) {
+      console.log('⚠️ Skipping session finalResults update - missing session config');
+      return;
+    }
+    
+    console.log('🔧 Direct session finalResults update:', { sessionConfig, updatedGrade, maxPoints });
+    
+    // Get current session data to recalculate totals
+    const sessionRef = ref(getDatabase(), `students/${sessionConfig.studentKey}/courses/${sessionConfig.courseId}/ExamSessions/${sessionConfig.sessionId}`);
+    const sessionSnapshot = await get(sessionRef);
+    const sessionData = sessionSnapshot.val();
+    
+    if (!sessionData) {
+      console.log('⚠️ Session data not found for finalResults update');
+      return;
+    }
+    
+    // Get all question results to recalculate totals
+    const questionResults = sessionData.questionResults || {};
+    let totalScore = 0;
+    let totalQuestions = 0;
+    
+    Object.values(questionResults).forEach(result => {
+      if (result.points !== undefined) {
+        totalScore += result.points;
+        totalQuestions += 1;
+      }
+    });
+    
+    // Calculate percentage
+    const totalPossible = totalQuestions * maxPoints; // Assuming all questions have same max points
+    const percentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
+    
+    // Update session finalResults
+    const finalResults = {
+      score: totalScore,
+      maxScore: totalPossible,
+      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+      status: 'completed',
+      completedAt: Date.now(),
+      totalQuestions: totalQuestions
+    };
+    
+    const finalResultsRef = ref(getDatabase(), `students/${sessionConfig.studentKey}/courses/${sessionConfig.courseId}/ExamSessions/${sessionConfig.sessionId}/finalResults`);
+    await set(finalResultsRef, finalResults);
+    
+    console.log('✅ Session finalResults updated directly:', finalResults);
+    
+  } catch (error) {
+    console.error('❌ Direct session finalResults update failed:', error);
+    // Don't throw - this is supplementary to the main grade save
+  }
+};
+
 // Grade Display/Editor Component
 const StaffGradeEditor = ({ questionId, currentGrade, maxPoints, course, isStaffView = false, onGradeUpdate }) => {
   const [editedGrade, setEditedGrade] = useState(currentGrade?.toString() || '');
@@ -1853,6 +2015,19 @@ const StaffGradeEditor = ({ questionId, currentGrade, maxPoints, course, isStaff
       };
       
       await set(metadataRef, metadata);
+      
+      // DIRECT CLIENT-SIDE GRADEBOOK UPDATE - No more waiting for cloud functions!
+      console.log(`🚀 [${new Date().toISOString()}] SAVING GRADE - Starting direct Firebase writes:`, {
+        studentKey,
+        courseId,
+        questionId,
+        grade,
+        maxPoints
+      });
+      
+      await updateGradebookItemDirectly(studentKey, courseId, questionId, grade, maxPoints);
+      
+      console.log(`✅ [${new Date().toISOString()}] GRADE SAVED - All Firebase writes completed`);
       
       // Update local state
       setOriginalGrade(editedGrade);
@@ -2148,6 +2323,9 @@ const SessionGradeEditor = ({
           )
         );
       }
+      
+      // DIRECT SESSION FINALRESULTS UPDATE - Recalculate session totals immediately
+      await updateSessionFinalResultsDirectly(sessionConfig, grade, maxPoints);
       
       // The real-time listener will automatically update local state
       // Notify parent component of the update

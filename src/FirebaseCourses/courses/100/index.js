@@ -30,7 +30,8 @@ const Course100 = ({
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = courseDisplay.courseId;
   // Get course structure from course object (database-driven)
-  const structure = course?.courseStructure?.units || 
+  const structure = course?.courseDetails?.['course-config']?.courseStructure?.units || 
+                   course?.courseStructure?.units || 
                    course?.Gradebook?.courseStructure?.units || 
                    [];
 
