@@ -237,9 +237,9 @@ exports.updateGradebookOnSessionComplete = onValueWritten({
     
     // Instead of updating just this item, recalculate the entire gradebook
     // This ensures all grades stay in sync and handles multiple attempts properly
-    console.log(`🔄 Recalculating entire gradebook for ${studentKey}/${courseId}`);
+    console.log(`🔄 Recalculating entire gradebook for ${studentKey}/${courseId} (triggered by session ${sessionId})`);
     
-    await recalculateFullGradebook(studentKey, courseId);
+    await recalculateFullGradebook(studentKey, courseId, sessionId);
     
     console.log(`✅ Full gradebook recalculated successfully (triggered by ${examItemId})`);
     

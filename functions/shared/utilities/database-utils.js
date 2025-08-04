@@ -866,8 +866,9 @@ async function validateGradebookStructure(studentKey, courseId) {
  * This replaces complex client-side calculations with server-side pre-calculation
  * @param {string} studentKey - Sanitized student email
  * @param {string} courseId - Course ID
+ * @param {string} triggeringSessionId - Optional: Session ID that triggered this recalculation
  */
-async function recalculateFullGradebook(studentKey, courseId) {
+async function recalculateFullGradebook(studentKey, courseId, triggeringSessionId = null) {
   try {
     console.log(`🔄 Starting full gradebook recalculation for ${studentKey}/${courseId}`);
     
@@ -876,13 +877,41 @@ async function recalculateFullGradebook(studentKey, courseId) {
     
     // Get course configuration
     const courseConfig = await getCourseConfig(courseId);
-    if (!courseConfig || !courseConfig.gradebook?.itemStructure) {
+    if (!courseConfig) {
       console.warn(`No course config found for ${courseId}, skipping calculation`);
       return;
     }
     
-    const { itemStructure, weights } = courseConfig.gradebook;
-    const courseWeights = weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
+    // Transform courseStructure into gradebook itemStructure format
+    let itemStructure = {};
+    let weights = { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15, lab: 0.15 };
+    
+    if (courseConfig.gradebook?.itemStructure) {
+      // Use existing gradebook structure if available
+      itemStructure = courseConfig.gradebook.itemStructure;
+      weights = courseConfig.gradebook.weights || weights;
+    } else if (courseConfig.courseStructure?.units) {
+      // Transform courseStructure to gradebook format
+      console.log(`🔄 Transforming courseStructure to gradebook format for course ${courseId}`);
+      
+      for (const unit of courseConfig.courseStructure.units) {
+        for (const item of unit.items || []) {
+          itemStructure[item.itemId] = {
+            title: item.title,
+            type: item.type,
+            contentPath: item.contentPath,
+            questions: item.questions || []
+          };
+        }
+      }
+      
+      console.log(`✅ Transformed ${Object.keys(itemStructure).length} items from courseStructure`);
+    } else {
+      console.warn(`No gradebook structure or courseStructure found for ${courseId}, skipping calculation`);
+      return;
+    }
+    
+    const courseWeights = weights;
     
     // Calculate total possible points per category from course config
     const categoryMaxPoints = {};
@@ -901,6 +930,12 @@ async function recalculateFullGradebook(studentKey, courseId) {
     });
     
     // Get all student assessment data
+    // Add small delay to ensure any concurrent writes are completed
+    if (triggeringSessionId) {
+      console.log(`⏱️ Adding small delay to ensure session ${triggeringSessionId} data is fully committed`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     const [gradesSnapshot, sessionsSnapshot] = await Promise.all([
       db.ref(`${basePath}/Grades/assessments`).once('value'),
       db.ref(`${basePath}/ExamSessions`).once('value')
@@ -908,6 +943,20 @@ async function recalculateFullGradebook(studentKey, courseId) {
     
     const grades = gradesSnapshot.val() || {};
     const sessions = sessionsSnapshot.val() || {};
+    
+    // If we have a triggering session, re-fetch it specifically to ensure we have the latest data
+    if (triggeringSessionId && sessions[triggeringSessionId]) {
+      console.log(`🔄 Re-fetching triggering session ${triggeringSessionId} to ensure latest data`);
+      const triggerSessionSnapshot = await db.ref(`${basePath}/ExamSessions/${triggeringSessionId}`).once('value');
+      if (triggerSessionSnapshot.exists()) {
+        sessions[triggeringSessionId] = triggerSessionSnapshot.val();
+        console.log(`✅ Updated session data for ${triggeringSessionId}:`, {
+          score: sessions[triggeringSessionId]?.finalResults?.score,
+          percentage: sessions[triggeringSessionId]?.finalResults?.percentage,
+          isTeacherCreated: sessions[triggeringSessionId]?.isTeacherCreated
+        });
+      }
+    }
     
     // Calculate scores for each item
     const itemScores = {};
@@ -937,8 +986,10 @@ async function recalculateFullGradebook(studentKey, courseId) {
       
       if (shouldUseSession) {
         // Find sessions for this item
+        // Note: Teacher-created sessions don't include studentKey in sessionId, 
+        // but they're stored under the student's path, so all sessions here belong to this student
         const itemSessions = Object.entries(sessions).filter(([sessionId, sessionData]) => 
-          sessionData.examItemId === itemId && sessionId.includes(studentKey)
+          sessionData.examItemId === itemId
         );
         
         if (itemSessions.length > 0) {

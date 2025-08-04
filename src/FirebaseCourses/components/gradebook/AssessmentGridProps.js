@@ -785,14 +785,6 @@ const AssessmentGridProps = ({
       return;
     }
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the teacher-created score for "${lesson.title}"? This will revert to the student's highest attempt.`
-    );
-
-    if (!confirmDelete) {
-      return;
-    }
-
     try {
       // Find the teacher session for this lesson
       const sanitizedEmail = studentEmail.replace(/[.#$[\]]/g, ',');
@@ -1041,7 +1033,8 @@ const LessonRow = ({
   updatingTeacherScore,
   onEditTeacherScore,
   onSaveTeacherScore,
-  onCancelEditTeacherScore
+  onCancelEditTeacherScore,
+  onDeleteTeacherSession
 }) => {
   // Handle row click to open details modal
   const handleRowClick = () => {
@@ -1173,16 +1166,28 @@ const LessonRow = ({
                           {formatScore(lesson.totalScore)} / {lesson.maxScore}
                         </div>
                         {isStaffView && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditTeacherScore(lesson);
-                            }}
-                            className="h-4 w-4 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200"
-                            title="Edit score"
-                          >
-                            <Edit3 className="h-2.5 w-2.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditTeacherScore(lesson);
+                              }}
+                              className="h-4 w-4 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200"
+                              title="Edit score"
+                            >
+                              <Edit3 className="h-2.5 w-2.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteTeacherSession(lesson);
+                              }}
+                              className="h-4 w-4 p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                              title="Delete teacher override"
+                            >
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
                         )}
                       </>
                     )}
