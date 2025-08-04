@@ -120,18 +120,24 @@ export const useStudentData = (userEmailKey) => {
         const courseData = snapshot.exists() ? snapshot.val() : null;
 
         if (courseData) {
+          // Debug: Check if course-config is present
+          console.log(`📚 Course ${courseId} data loaded:`, {
+            hasCourseConfig: !!courseData['course-config'],
+            hasCourseStructure: !!courseData['course-config']?.courseStructure,
+            courseConfigKeys: courseData['course-config'] ? Object.keys(courseData['course-config']) : 'none'
+          });
+          
           // Enhance with resolved staff members
           const teachers = await fetchStaffMembers(courseData.Teachers || []);
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
 
-          // Update course details state without course config (will be in Gradebook only)
+          // Update course details state with all course data including course-config
           setCourseDetails(prev => ({
             ...prev,
             [courseId]: {
-              ...courseData,  // Include all original course data
+              ...courseData,  // Include all original course data (including course-config)
               teachers,       // Add resolved teacher objects
               supportStaff    // Add resolved support staff objects
-              // courseConfig removed - will be added directly to Gradebook structure
             }
           }));
         } else {
@@ -149,7 +155,7 @@ export const useStudentData = (userEmailKey) => {
       console.error(`Firebase listener error for course ${courseId}:`, error);
     });
     
-    // Note: Course config listener removed - config will be added directly to Gradebook in processCourses
+    // Note: Course config is included in courseData from the listener
     
     // Return a function that unsubscribes from the listener
     return () => {
@@ -359,34 +365,20 @@ export const useStudentData = (userEmailKey) => {
           if (realtimeCourseDetails) {
           }
           
-          // Fetch payment info and course config
-          const [paymentInfo, courseConfig] = await Promise.all([
-            fetchPaymentDetails(id),
-            fetchCourseConfig(id)
-          ]);
+          // Fetch payment info only (course config will come from courseDetails)
+          const paymentInfo = await fetchPaymentDetails(id);
 
-          // Build the enhanced course object with proper Gradebook structure
+          // Build the enhanced course object
           const enhancedCourse = {
             id,
             ...studentCourse,
-            courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time
+            courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time including course-config
             payment: paymentInfo || {
               status: 'unpaid',
               details: null,
               hasValidPayment: false
             }
           };
-          
-          // Add course config directly to Gradebook structure (single source of truth)
-          if (courseConfig) {
-            // Ensure Gradebook structure exists
-            if (!enhancedCourse.Gradebook) {
-              enhancedCourse.Gradebook = {};
-            }
-            
-            // Add course config to Gradebook structure
-            enhancedCourse.Gradebook.courseConfig = courseConfig;
-          }
           
           return enhancedCourse;
         })
@@ -412,22 +404,11 @@ export const useStudentData = (userEmailKey) => {
           // Get real-time course details if available
           const realtimeCourseDetails = courseDetails[requiredCourse.id] || requiredCourse.courseDetails;
           
-          // Fetch course config for required course
-          const courseConfig = await fetchCourseConfig(requiredCourse.id);
-          
-          // Update required course with real-time details and proper Gradebook structure
+          // Update required course with real-time details (course config will come from courseDetails)
           const enhancedRequiredCourse = {
             ...requiredCourse,
             courseDetails: realtimeCourseDetails
           };
-          
-          // Add course config to Gradebook structure
-          if (courseConfig) {
-            if (!enhancedRequiredCourse.Gradebook) {
-              enhancedRequiredCourse.Gradebook = {};
-            }
-            enhancedRequiredCourse.Gradebook.courseConfig = courseConfig;
-          }
           
           allCourses.push(enhancedRequiredCourse);
         }
@@ -709,6 +690,7 @@ export const useStudentData = (userEmailKey) => {
             'ActiveFutureArchived/Value',
             'DiplomaMonthChoices/Value', 
             'Grades/assessments',
+            'Gradebook/items',
             'School_x0020_Year/Value',
             'Status/Value',
             'StudentType/Value',

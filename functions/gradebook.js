@@ -11,8 +11,7 @@
  * - Easier maintenance and fewer errors
  */
 
-const { onValueCreated, onValueUpdated } = require('firebase-functions/v2/database');
-const { onCall } = require('firebase-functions/v2/https');
+const { onValueCreated, onValueUpdated, onValueWritten } = require('firebase-functions/v2/database');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 const { 
@@ -22,13 +21,20 @@ const {
   trackLessonAccess,
   validateGradebookStructure,
   cleanupLegacyAssessments,
+  recalculateFullGradebook,
   GRADEBOOK_PATHS
 } = require('./shared/utilities/database-utils');
 
-/**
+/*
+ * LEGACY TRIGGER - DISABLED
+ * This trigger is disabled because it conflicts with our new assessment-specific triggers.
+ * The new system has better coverage:
+ * - updateGradebookOnSessionComplete handles session-based assessments
+ * - updateGradebookOnAssessmentComplete handles non-session assessments
+ * 
  * Trigger: Update gradebook when a new assessment grade is added
  * Listens to: /students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}
- */
+
 exports.updateStudentGradebook = onValueCreated({
   ref: '/students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}',
   region: 'us-central1',
@@ -75,11 +81,16 @@ exports.updateStudentGradebook = onValueCreated({
     // Don't throw error to avoid function retries
   }
 });
+*/
 
-/**
+/*
+ * LEGACY TRIGGER - DISABLED  
+ * This trigger is disabled because it conflicts with our new assessment-specific triggers.
+ * The new system has better coverage and avoids double-triggering.
+ * 
  * Trigger: Update gradebook when assessment grades are updated
  * Listens to: /students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}
- */
+
 exports.updateStudentGradebookOnChange = onValueUpdated({
   ref: '/students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}',
   region: 'us-central1',
@@ -106,69 +117,204 @@ exports.updateStudentGradebookOnChange = onValueUpdated({
       // All other configuration will be determined from course-config.json
     };
     
-    // Update gradebook item
-    await updateGradebookItem(studentKey, courseId, assessmentId, newScore, itemConfig);
+    // Instead of updating just this item, recalculate the entire gradebook
+    // This ensures all grades stay in sync and handles complex scenarios properly
+    console.log(`🔄 Recalculating entire gradebook for ${studentKey}/${courseId}`);
     
-    console.log(`✅ Gradebook updated successfully for ${assessmentId} (score changed)`);
+    await recalculateFullGradebook(studentKey, courseId);
+    
+    console.log(`✅ Full gradebook recalculated successfully (triggered by ${assessmentId})`);
     
   } catch (error) {
     console.error('Error updating gradebook on change:', error);
   }
 });
-
-
-
+*/
 
 /**
- * Cloud Function: Validate gradebook structure for Firebase courses
- * Called from frontend when students access Firebase courses
- * Ensures gradebook is complete and matches course-config.json structure
+ * Trigger: Update gradebook when exam session results are finalized
+ * Listens to: /students/{studentKey}/courses/{courseId}/ExamSessions/{sessionId}/finalResults/percentage
+ * This handles session-based scoring (assignments, exams, quizzes with multiple attempts)
+ * 
+ * UPDATED: Now uses onValueWritten to catch both session creation AND updates
+ * This ensures teacher sessions trigger gradebook recalculation when first created
  */
-exports.validateGradebookStructure = onCall({
+exports.updateGradebookOnSessionComplete = onValueWritten({
+  ref: '/students/{studentKey}/courses/{courseId}/ExamSessions/{sessionId}/finalResults/percentage',
   region: 'us-central1',
   memory: '256MiB',
-  timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
-}, async (data, context) => {
-  try {
-    const { courseId, studentEmail } = data.data || data;
+  timeoutSeconds: 60
+}, async (event) => {
+  const { studentKey, courseId, sessionId } = event.params;
+  const newPercentage = event.data.after.val();
+  const oldPercentage = event.data.before.exists() ? event.data.before.val() : null;
+  
+  console.log(`🎯 Session gradebook trigger: ${studentKey}/${courseId}/${sessionId} = ${oldPercentage} → ${newPercentage}%`);
+  
+  // Handle session deletion - we need to recalculate gradebook when sessions are deleted
+  if (newPercentage === null || newPercentage === undefined) {
+    console.log('🗑️ Session percentage deleted - need to recalculate gradebook to fall back to next best session');
     
-    // Get user email from data or auth context
-    const userEmail = studentEmail || context.auth?.token?.email;
-    
-    if (!userEmail || !courseId) {
-      throw new Error('Missing required parameters: courseId, userEmail');
+    // For deletions, we need to extract the examItemId from the sessionId since session data is gone
+    // sessionId format: exam_assignment_l1_4_000kyle,e,brown13@gmail,com_1754081936413
+    if (!sessionId.startsWith('exam_')) {
+      console.log('Cannot extract examItemId from sessionId for deletion, skipping gradebook update');
+      return;
     }
     
-    // Sanitize email for database key
-    const studentKey = sanitizeEmail(userEmail);
+    // Extract examItemId by removing 'exam_' prefix and timestamp suffix
+    // Strategy: Remove 'exam_' prefix, then remove the last part after the final underscore (timestamp)
+    const withoutExamPrefix = sessionId.substring(5); // Remove 'exam_'
+    const lastUnderscoreIndex = withoutExamPrefix.lastIndexOf('_');
+    const examItemId = lastUnderscoreIndex > 0 ? 
+      withoutExamPrefix.substring(0, lastUnderscoreIndex) : 
+      withoutExamPrefix;
     
-    console.log(`🔍 Validating gradebook structure for ${userEmail} in course ${courseId}`);
+    console.log(`🔄 Recalculating gradebook after session deletion for ${examItemId}`);
     
-    // Call the validation function
-    const validationResult = await validateGradebookStructure(studentKey, courseId);
+    try {
+      await recalculateFullGradebook(studentKey, courseId);
+      console.log(`✅ Gradebook recalculated after session deletion (${examItemId})`);
+    } catch (error) {
+      console.error('Error recalculating gradebook after session deletion:', error);
+    }
+    return;
+  }
+  
+  // Skip if percentage unchanged (but allow initial creation when before doesn't exist)
+  if (event.data.before.exists() && newPercentage === oldPercentage) {
+    console.log('Percentage unchanged, skipping gradebook update');
+    return;
+  }
+  
+  try {
+    // Get the full session data to extract examItemId and finalResults
+    const sessionRef = admin.database().ref(`students/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`);
+    const sessionSnapshot = await sessionRef.once('value');
+    const sessionData = sessionSnapshot.val();
     
-    console.log(`✅ Gradebook validation completed for course ${courseId}:`, {
-      isValid: validationResult.isValid,
-      missingItems: validationResult.missingItems?.length || 0,
-      missingCategories: validationResult.missingCategories?.length || 0,
-      wasRebuilt: validationResult.wasRebuilt
-    });
+    if (!sessionData || !sessionData.examItemId || !sessionData.finalResults) {
+      console.log('Session data incomplete, skipping gradebook update');
+      return;
+    }
     
-    return {
-      success: true,
-      isValid: validationResult.isValid,
-      missingItems: validationResult.missingItems,
-      missingCategories: validationResult.missingCategories,
-      wasRebuilt: validationResult.wasRebuilt,
-      message: validationResult.isValid 
-        ? 'Gradebook structure is valid' 
-        : 'Gradebook structure was updated to match course configuration'
+    const { examItemId, finalResults } = sessionData;
+    const { score, percentage, maxScore, totalQuestions } = finalResults;
+    
+    // Determine if this is a creation or update for better logging
+    const isCreation = !event.data.before.exists();
+    const isTeacherSession = sessionData.isTeacherCreated === true;
+    const sessionType = isTeacherSession ? 'TEACHER' : 'STUDENT';
+    const operation = isCreation ? 'CREATED' : 'UPDATED';
+    
+    console.log(`📊 ${sessionType} SESSION ${operation}: ${examItemId} = ${score}/${maxScore} (${percentage}%)`);
+    if (isTeacherSession) {
+      console.log(`👨‍🏫 Teacher session details: useAsManualGrade=${sessionData.useAsManualGrade}, teacherEmail=${sessionData.teacherEmail}`);
+    }
+    
+    // Create item config for session-based assessment
+    const itemConfig = {
+      title: examItemId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
+      isSessionBased: true,
+      sessionId: sessionId,
+      sessionData: {
+        percentage,
+        totalQuestions,
+        maxScore,
+        strategy: sessionData.scoringStrategy || 'takeHighest'
+      }
     };
     
+    // Initialize gradebook if it doesn't exist
+    const gradebookPath = `students/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(gradebookPath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    
+    if (!gradebookSnapshot.exists()) {
+      console.log('Initializing gradebook for student');
+      await initializeGradebook(studentKey, courseId);
+    }
+    
+    // Instead of updating just this item, recalculate the entire gradebook
+    // This ensures all grades stay in sync and handles multiple attempts properly
+    console.log(`🔄 Recalculating entire gradebook for ${studentKey}/${courseId}`);
+    
+    await recalculateFullGradebook(studentKey, courseId);
+    
+    console.log(`✅ Full gradebook recalculated successfully (triggered by ${examItemId})`);
+    
   } catch (error) {
-    console.error('Error validating gradebook structure:', error);
-    throw new Error(`Failed to validate gradebook structure: ${error.message}`);
+    console.error('Error updating gradebook from session:', error);
   }
 });
+
+/**
+ * Trigger: Update gradebook when non-session assessment scores are recorded
+ * Listens to: /students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}
+ * This handles individual question-based assessments (lessons, reviews, practice)
+ */
+exports.updateGradebookOnAssessmentScore = onValueUpdated({
+  ref: '/students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}',
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60
+}, async (event) => {
+  const { studentKey, courseId, assessmentId } = event.params;
+  const newScore = event.data.after.val();
+  const oldScore = event.data.before.val();
+  
+  console.log(`📝 Assessment score trigger: ${studentKey}/${courseId}/${assessmentId} = ${oldScore} → ${newScore}`);
+  
+  // Skip if score is null or unchanged
+  if (newScore === null || newScore === undefined || newScore === oldScore) {
+    console.log('Score is null/undefined or unchanged, skipping gradebook update');
+    return;
+  }
+  
+  try {
+    // Look up the activityType from the Assessments data
+    const assessmentRef = admin.database().ref(`students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+    const assessmentSnapshot = await assessmentRef.once('value');
+    const assessmentData = assessmentSnapshot.val();
+    
+    if (!assessmentData) {
+      console.log(`No assessment data found for ${assessmentId}, skipping gradebook update`);
+      return;
+    }
+    
+    const activityType = assessmentData.activityType;
+    console.log(`🔍 Assessment activityType: ${activityType}`);
+    
+    // Skip if this is a session-based assessment (handled by session trigger)
+    if (activityType === 'assignment' || activityType === 'exam' || activityType === 'quiz') {
+      console.log(`Skipping gradebook update - ${activityType} is session-based`);
+      return;
+    }
+    
+    // This is a non-session assessment (lesson, review, practice, etc.)
+    console.log(`🔄 Recalculating gradebook for non-session assessment: ${activityType}`);
+    
+    // Initialize gradebook if it doesn't exist
+    const gradebookPath = `students/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(gradebookPath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    
+    if (!gradebookSnapshot.exists()) {
+      console.log('Initializing gradebook for student');
+      await initializeGradebook(studentKey, courseId);
+    }
+    
+    // Recalculate entire gradebook to ensure sync
+    await recalculateFullGradebook(studentKey, courseId);
+    
+    console.log(`✅ Gradebook recalculated successfully (triggered by ${activityType}: ${assessmentId})`);
+    
+  } catch (error) {
+    console.error('Error updating gradebook from assessment score:', error);
+  }
+});
+
+
+
+
 

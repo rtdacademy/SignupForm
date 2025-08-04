@@ -1508,7 +1508,11 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     pasiRecordsNew, 
     studentSummaries, 
     isLoadingStudents, 
-    currentSchoolYear 
+    currentSchoolYear,
+    includeNextYear,
+    includePreviousYear,
+    getNextSchoolYear,
+    getPreviousSchoolYear
   } = useSchoolYear();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -3108,7 +3112,30 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>PASI Records - {currentSchoolYear}</span>
+            <div className="flex flex-col">
+              <span>PASI Records</span>
+              {/* Multi-Year Context Display */}
+              <div className="text-sm font-normal text-gray-600 flex items-center gap-2">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                  {currentSchoolYear}
+                </span>
+                {includePreviousYear && (
+                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                    + {getPreviousSchoolYear(currentSchoolYear)}
+                  </span>
+                )}
+                {includeNextYear && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                    + {getNextSchoolYear(currentSchoolYear)}
+                  </span>
+                )}
+                {(includeNextYear || includePreviousYear) && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    (Combined Data)
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">
                 {(() => {

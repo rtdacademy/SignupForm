@@ -16,7 +16,7 @@ import { getLessonOverride, getOverrideReason } from './staffOverrides';
  */
 export const isSequentialAccessEnabled = (courseStructure, courseGradebook = null) => {
   // Check new globalSettings approach first (preferred)
-  if (courseGradebook?.courseConfig?.globalSettings?.requireSequentialProgress === true) {
+  if (courseGradebook?.courseDetails?.['course-config']?.globalSettings?.requireSequentialProgress === true) {
     return true;
   }
   
@@ -193,7 +193,7 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
     
     if (!isPreviousCompleted && progressionRequirements?.enabled) {
       // Get item structure to determine type of previous item
-      const itemStructure = courseGradebook?.courseConfig?.gradebook?.itemStructure;
+      const itemStructure = courseGradebook?.courseDetails?.['course-config']?.gradebook?.itemStructure;
       const previousItemConfig = itemStructure?.[previousItem.itemId];
       const previousItemType = previousItemConfig?.type || 'lesson';
       
@@ -307,7 +307,7 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
     return true;
   }
   
-  const courseConfig = courseGradebook.courseConfig;
+  const courseConfig = courseGradebook.courseDetails?.['course-config'];
   
   // If progression requirements are not enabled, use basic completion check
   if (!progressionRequirements?.enabled) {
@@ -315,7 +315,7 @@ export const hasCompletedAssessments = (lessonId, assessmentData, courseGradeboo
   }
   
   // Use new data sources for reliable calculations
-  const itemStructure = courseConfig?.gradebook?.itemStructure;
+  const itemStructure = courseGradebook?.courseDetails?.['course-config']?.gradebook?.itemStructure;
   const actualGrades = courseGradebook.grades?.assessments || {}; // course.Grades.assessments
   
   if (!itemStructure || !actualGrades) {

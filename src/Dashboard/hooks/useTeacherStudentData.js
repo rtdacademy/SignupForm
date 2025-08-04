@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
+import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, onChildAdded } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
 import { 
+  calculateAge as calculateAgeUtil,
   processNotificationsForCourses as processNotificationsUtil,
+  getCurrentDate,
+  setMockDate,
+  resetNotificationAcknowledgment
 } from '../../utils/notificationFilterUtils';
 import { sanitizeEmail } from '../../utils/sanitizeEmail';
 
@@ -140,22 +145,20 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
           const teachers = await fetchStaffMembers(courseData.Teachers || []);
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
 
-          console.log(`🔄 Teacher view: Course ${courseId} real-time update:`, {
-            restrictCourseAccess: courseData.restrictCourseAccess,
-            OnRegistration: courseData.OnRegistration,
-            hasCourseConfig: !!courseConfig,
-            firebaseCourse: courseData.firebaseCourse,
-            timestamp: new Date().toLocaleTimeString()
+          // Debug: Check if course-config is present
+          console.log(`📚 Teacher view: Course ${courseId} data loaded:`, {
+            hasCourseConfig: !!courseData['course-config'],
+            hasCourseStructure: !!courseData['course-config']?.courseStructure,
+            courseConfigKeys: courseData['course-config'] ? Object.keys(courseData['course-config']) : 'none'
           });
 
-          // Update course details state without course config (will be in Gradebook only)
+          // Update course details state with all course data including course-config
           setCourseDetails(prev => ({
             ...prev,
             [courseId]: {
-              ...courseData,  // Include all original course data
+              ...courseData,  // Include all original course data (including course-config)
               teachers,       // Add resolved teacher objects
               supportStaff    // Add resolved support staff objects
-              // courseConfig removed - will be added directly to Gradebook structure
             }
           }));
         } else {
@@ -173,7 +176,7 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
       console.error(`Teacher view: Firebase listener error for course ${courseId}:`, error);
     });
     
-    // Note: Course config listener removed - config will be added directly to Gradebook in processCourses
+    // Note: Course config is included in courseData from the listener
     
     // Return a function that unsubscribes from the listener
     return () => {
@@ -246,6 +249,53 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     } catch (error) {
       console.error('Teacher view: Error fetching notifications:', error);
       return [];
+    }
+  };
+
+  // Mark a notification as seen - using cloud function (teacher view)
+  const markNotificationSeen = async (notificationId, userEmail, notification) => {
+    if (!userEmail || !notificationId) return;
+    
+    try {
+      // Get all course IDs where this notification appears
+      const courseIds = studentData.courses
+        ?.filter(course => course.notificationIds && course.notificationIds[notificationId])
+        ?.map(course => course.id) || [];
+      
+      if (courseIds.length === 0) {
+        console.warn(`Teacher view: No courses found for notification ${notificationId}`);
+        return;
+      }
+      
+      // Call the cloud function to handle the database writes
+      const functions = getFunctions();
+      const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+      
+      const result = await submitNotificationSurvey({
+        operation: 'mark_seen',
+        notificationId: notificationId,
+        courseIds: courseIds,
+        userEmail: userEmail
+      });
+      
+      console.log('Teacher view: Notification marked as seen successfully:', result.data);
+      
+      // Add window function for testing
+      if (!window.resetNotificationStatus) {
+        window.resetNotificationStatus = async (notificationId, email) => {
+          return await resetNotificationAcknowledgment(notificationId, email);
+        };
+      }
+      
+      // Add window function for date mocking
+      if (!window.mockDate) {
+        window.mockDate = (dateString) => {
+          return setMockDate(dateString ? new Date(dateString) : null);
+        };
+      }
+      
+    } catch (error) {
+      console.error('Teacher view: Error marking notification as seen:', error);
     }
   };
 
@@ -352,22 +402,19 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             });
           }
           
-          // Fetch payment info and course config
-          const [paymentInfo, courseConfig] = await Promise.all([
-            fetchPaymentDetails(id),
-            fetchCourseConfig(id)
-          ]);
+          // Fetch payment info only (course config will come from courseDetails)
+          const paymentInfo = await fetchPaymentDetails(id);
 
           // Generate studentKey reliably from the studentEmailKey parameter
           // This ensures studentKey is always consistent, even during real-time updates
           const studentKey = studentEmailKey;
 
-          // Build the enhanced course object with proper Gradebook structure
+          // Build the enhanced course object
           const enhancedCourse = {
             id,
             ...studentCourse,
             studentKey, // Add studentKey to course data
-            courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time
+            courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time including course-config
             payment: paymentInfo || {
               status: 'unpaid',
               details: null,
@@ -375,17 +422,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             },
             isTeacherView: true // Flag for teacher view
           };
-          
-          // Add course config directly to Gradebook structure (single source of truth)
-          if (courseConfig) {
-            // Ensure Gradebook structure exists
-            if (!enhancedCourse.Gradebook) {
-              enhancedCourse.Gradebook = {};
-            }
-            
-            // Add course config to Gradebook structure
-            enhancedCourse.Gradebook.courseConfig = courseConfig;
-          }
           
           return enhancedCourse;
         })
@@ -411,22 +447,11 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
           // Get real-time course details if available
           const realtimeCourseDetails = courseDetails[requiredCourse.id] || requiredCourse.courseDetails;
           
-          // Fetch course config for required course
-          const courseConfig = await fetchCourseConfig(requiredCourse.id);
-          
-          // Update required course with real-time details and proper Gradebook structure
+          // Update required course with real-time details (course config will come from courseDetails)
           const enhancedRequiredCourse = {
             ...requiredCourse,
             courseDetails: realtimeCourseDetails
           };
-          
-          // Add course config to Gradebook structure
-          if (courseConfig) {
-            if (!enhancedRequiredCourse.Gradebook) {
-              enhancedRequiredCourse.Gradebook = {};
-            }
-            enhancedRequiredCourse.Gradebook.courseConfig = courseConfig;
-          }
           
           allCourses.push(enhancedRequiredCourse);
         }
@@ -627,9 +652,16 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
       }));
     };
 
-    const setupListeners = () => {
+    const setupListeners = async () => {
       const profileRef = ref(db, `students/${studentEmailKey}/profile`);
-      const coursesRef = ref(db, `students/${studentEmailKey}/courses`);
+      const datesRef = ref(db, 'ImportantDates');
+      const notificationsRef = ref(db, 'studentDashboardNotifications');
+      // Create a query for active notifications only
+      const activeNotificationsQuery = query(
+        notificationsRef,
+        orderByChild('active'),
+        equalTo(true)
+      );
 
       // Listen for profile changes
       const profileUnsubscribe = onValue(profileRef, async (profileSnapshot) => {
@@ -638,31 +670,148 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
         profileReceived = true;
         console.log('Teacher view: Profile received for student:', studentEmailKey);
         
+        const profileData = profileSnapshot.val();
+        console.log('🔍 Teacher view: Profile data received:', profileData);
+        
         setStudentData(prev => ({
           ...prev,
-          profile: profileSnapshot.val() || null,
+          profile: profileData || null,
           studentExists: profileSnapshot.exists()
         }));
         
         checkLoadingComplete();
       }, handleError);
 
-      // Listen for course changes with deep monitoring
-      const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
-        if (!isMounted) return;
+      // Set up optimized course listeners - listen to specific paths only to avoid large payloads
+      const setupOptimizedCourseListeners = async () => {
+        // First, get the list of courses the student is enrolled in (initial fetch is OK)
+        const coursesListRef = ref(db, `students/${studentEmailKey}/courses`);
+        const coursesListSnapshot = await get(coursesListRef);
+        
+        if (!coursesListSnapshot.exists()) {
+          setStudentData(prev => ({
+            ...prev,
+            courses: []
+          }));
+          coursesReceived = true;
+          checkLoadingComplete();
+          
+          // Even if no courses exist, set up listener for when the first course gets added
+          const parentCoursesRef = ref(db, `students/${studentEmailKey}/courses`);
+          const parentUnsubscribe = onChildAdded(parentCoursesRef, async (snapshot) => {
+            if (!isMounted) return;
+            
+            const newCourseId = snapshot.key;
+            
+            // Skip non-course keys
+            if (newCourseId === 'sections' || newCourseId === 'normalizedSchedule') {
+              return;
+            }
+            
+            console.log(`🎓 Teacher view: First course detected for student: ${newCourseId} - refreshing data`);
+            
+            // For teacher view, just trigger a refresh instead of page reload
+            await forceRefresh();
+          }, handleError);
+          
+          return () => {
+            parentUnsubscribe();
+          };
+        }
 
-        console.log('Teacher view: Courses data update received for student:', studentEmailKey, {
-          timestamp: new Date().toLocaleTimeString(),
-          exists: coursesSnapshot.exists()
+        const coursesData = coursesListSnapshot.val();
+        const courseIds = Object.keys(coursesData).filter(key => 
+          key !== 'sections' && key !== 'normalizedSchedule'
+        );
+
+        // Track all unsubscribe functions
+        const courseUnsubscribers = [];
+        
+        // State to accumulate course data from multiple listeners
+        const courseDataAccumulator = {};
+        
+        // Initialize accumulator with course IDs
+        courseIds.forEach(courseId => {
+          courseDataAccumulator[courseId] = {};
         });
 
-        if (coursesSnapshot.exists()) {
-          const coursesData = coursesSnapshot.val();
+        // Helper function to set up listeners for a specific course
+        const setupCourseListeners = (courseId) => {
+          // Define the specific paths we want to listen to (excluding Assessments)
+          const pathsToListen = [
+            'ActiveFutureArchived/Value',
+            'DiplomaMonthChoices/Value', 
+            'Grades/assessments',
+            'Gradebook/items',
+            'School_x0020_Year/Value',
+            'Status/Value',
+            'StudentType/Value',
+            'TeacherComments'
+          ];
+
+          // Listen to each specific path
+          pathsToListen.forEach(pathSuffix => {
+            const specificRef = ref(db, `students/${studentEmailKey}/courses/${courseId}/${pathSuffix}`);
+            
+            const unsubscribe = onValue(specificRef, (snapshot) => {
+              if (!isMounted) return;
+              
+              const value = snapshot.exists() ? snapshot.val() : null;
+              updateCourseData(courseId, pathSuffix.replace('/', '_'), value);
+            }, handleError);
+            
+            courseUnsubscribers.push(unsubscribe);
+          });
+
+          // Listen to specific root-level course properties individually to avoid large payloads
+          const rootPropertiesToListen = [
+            'Created',
+            'Course/Value', 
+            'CourseID',
+            'Enrolled_x0020_Date',
+            'Final_x0020_Grade',
+            'Program',
+            'Semester'
+          ];
+
+          rootPropertiesToListen.forEach(propertyPath => {
+            const propertyRef = ref(db, `students/${studentEmailKey}/courses/${courseId}/${propertyPath}`);
+            const propertyUnsubscribe = onValue(propertyRef, (snapshot) => {
+              if (!isMounted) return;
+              
+              const value = snapshot.exists() ? snapshot.val() : null;
+              updateCourseData(courseId, propertyPath.replace('/', '_'), value);
+            }, handleError);
+            
+            courseUnsubscribers.push(propertyUnsubscribe);
+          });
+        };
+
+        // Helper function to update course data and reprocess
+        const updateCourseData = async (courseId, path, value) => {
+          // Ensure courseId exists in accumulator
+          if (!courseDataAccumulator[courseId]) {
+            courseDataAccumulator[courseId] = {};
+          }
+          
+          // Update the specific path in the accumulator
+          if (path === 'root') {
+            // For root level properties like Created, Course, etc.
+            courseDataAccumulator[courseId] = { ...courseDataAccumulator[courseId], ...value };
+          } else {
+            // For nested paths
+            courseDataAccumulator[courseId][path] = value;
+          }
+          
+          // Reconstruct the full courses data structure
+          const reconstructedCoursesData = { ...coursesData };
+          Object.entries(courseDataAccumulator).forEach(([id, data]) => {
+            reconstructedCoursesData[id] = { ...reconstructedCoursesData[id], ...data };
+          });
           
           // Remove jsonStudentNotes from each course before processing
-          // (teachers might have access but we'll sanitize for consistency)
           const sanitizedCoursesData = Object.fromEntries(
-            Object.entries(coursesData).map(([courseId, courseData]) => {
+            Object.entries(reconstructedCoursesData).map(([courseId, courseData]) => {
               if (courseData && typeof courseData === 'object') {
                 const { jsonStudentNotes, ...sanitizedCourseData } = courseData;
                 return [courseId, sanitizedCourseData];
@@ -671,12 +820,12 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
             })
           );
           
+          // Process courses with the updated data
           const processedCourses = await processCourses(sanitizedCoursesData);
           
           if (!isMounted) return;
 
           setStudentData(prev => {
-            // Need to re-process notifications if courses changed
             let updatedCourses = processedCourses;
             
             if (prev.profile && prev.allNotifications) {
@@ -693,26 +842,155 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
               studentExists: true
             };
           });
+        };
+
+        // Set up parent-level listener to detect new course additions
+        const parentCoursesRef = ref(db, `students/${studentEmailKey}/courses`);
+        const parentUnsubscribe = onChildAdded(parentCoursesRef, async (snapshot) => {
+          if (!isMounted) return;
+          
+          const newCourseId = snapshot.key;
+          
+          // Skip non-course keys
+          if (newCourseId === 'sections' || newCourseId === 'normalizedSchedule') {
+            return;
+          }
+          
+          // Check if we already have listeners for this course (prevents refresh on initial load)
+          if (courseDataAccumulator[newCourseId] !== undefined) {
+            return; // Already being tracked
+          }
+          
+          console.log(`🎓 Teacher view: New course detected: ${newCourseId} - refreshing data`);
+          
+          // For teacher view, trigger a refresh instead of page reload
+          await forceRefresh();
+        }, handleError);
+        
+        courseUnsubscribers.push(parentUnsubscribe);
+
+        // Set up individual listeners for existing courses
+        for (const courseId of courseIds) {
+          setupCourseListeners(courseId);
+        }
+
+        // Initial processing with existing data - sanitize first
+        const sanitizedCoursesData = Object.fromEntries(
+          Object.entries(coursesData).map(([courseId, courseData]) => {
+            if (courseData && typeof courseData === 'object') {
+              const { jsonStudentNotes, ...sanitizedCourseData } = courseData;
+              return [courseId, sanitizedCourseData];
+            }
+            return [courseId, courseData];
+          })
+        );
+        
+        const processedCourses = await processCourses(sanitizedCoursesData);
+        
+        if (isMounted) {
+          setStudentData(prev => {
+            let updatedCourses = processedCourses;
+            
+            if (prev.profile && prev.allNotifications) {
+              updatedCourses = processNotificationsForCourses(
+                processedCourses,
+                prev.profile,
+                prev.allNotifications
+              );
+            }
+            
+            return {
+              ...prev,
+              courses: updatedCourses,
+              studentExists: true
+            };
+          });
+        }
+
+        // Mark courses as received
+        coursesReceived = true;
+        checkLoadingComplete();
+
+        // Return cleanup function
+        return () => {
+          courseUnsubscribers.forEach(unsubscribe => unsubscribe());
+        };
+      };
+
+      // Set up the optimized course listeners
+      const coursesUnsubscribe = await setupOptimizedCourseListeners();
+
+      // Listen for ImportantDates changes
+      const datesUnsubscribe = onValue(datesRef, async (datesSnapshot) => {
+        if (!isMounted) return;
+        
+        datesReceived = true;
+        console.log('Teacher view: ImportantDates received via listener');
+        
+        setStudentData(prev => ({
+          ...prev,
+          importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null
+        }));
+        
+        checkLoadingComplete();
+      }, handleError);
+      
+      // Listen for active notifications changes using the query
+      const notificationsUnsubscribe = onValue(activeNotificationsQuery, async (notificationsSnapshot) => {
+        if (!isMounted) return;
+        
+        console.log('Teacher view: Active notifications received via listener');
+        
+        if (notificationsSnapshot.exists()) {
+          const notificationsData = notificationsSnapshot.val();
+          const notificationsArray = Object.entries(notificationsData).map(([id, data]) => ({
+            id,
+            ...data
+          }));
+          
+          setStudentData(prev => {
+            // Need to re-process notifications if they changed
+            let updatedCourses = prev.courses;
+            
+            if (prev.profile && prev.courses && prev.courses.length > 0) {
+              updatedCourses = processNotificationsForCourses(
+                prev.courses,
+                prev.profile,
+                notificationsArray
+              );
+            }
+            
+            return {
+              ...prev,
+              allNotifications: notificationsArray,
+              courses: updatedCourses
+            };
+          });
         } else {
           setStudentData(prev => ({
             ...prev,
-            courses: []
+            allNotifications: []
           }));
         }
         
-        // Mark courses as received after async processing is complete
-        coursesReceived = true;
+        notificationsReceived = true;
         checkLoadingComplete();
       }, handleError);
 
       return () => {
         profileUnsubscribe();
-        coursesUnsubscribe();
+        if (coursesUnsubscribe && typeof coursesUnsubscribe === 'function') {
+          coursesUnsubscribe();
+        }
+        datesUnsubscribe();
+        notificationsUnsubscribe();
       };
     };
 
     // Set up real-time listeners (teachers always use real-time data)
-    unsubscribe = setupListeners();
+    setupListeners().then(cleanupFn => {
+      unsubscribe = cleanupFn;
+    }).catch(handleError);
 
     return () => {
       isMounted = false;
@@ -733,6 +1011,34 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     };
   }, [studentEmailKey, user]);
 
+  // Listen for refresh events
+  useEffect(() => {
+    const handleRefreshEvent = () => {
+      console.log("Teacher view: Notification refresh event received");
+      forceRefresh();
+    };
+    
+    // Add event listener
+    window.addEventListener('notification-refresh-needed', handleRefreshEvent);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('notification-refresh-needed', handleRefreshEvent);
+    };
+  }, []);
+  
+  // Add the global refresh function for testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.refreshTeacherStudentData = forceRefresh;
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.refreshTeacherStudentData;
+      }
+    };
+  }, []);
 
   // Add a function to force refresh data
   const forceRefresh = async () => {
@@ -794,9 +1100,124 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     }
   };
 
+  // Add a simplified notification summary log
+  if (!studentData.loading && studentData.profile) {
+    const visibleNotifications = studentData.courses?.reduce((count, course) => {
+      if (!course.notificationIds) return count;
+      return count + Object.values(course.notificationIds)
+        .filter(n => n.shouldDisplay).length;
+    }, 0) || 0;
+
+    // Development-only raw data logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Teacher view RAW STUDENT DATA:', {
+        courses: studentData.courses,
+        profile: studentData.profile,
+        importantDates: studentData.importantDates,
+        allNotifications: studentData.allNotifications
+      });
+    }
+  }
+
+  // Function to handle survey submission (teacher view)
+  const submitSurveyResponse = async (notificationId, courseId, answers) => {
+    if (!studentData.profile || !studentData.profile.StudentEmail) return;
+    
+    try {
+      const userEmail = studentData.profile.StudentEmail;
+      const studentName = `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim();
+      
+      // Call the cloud function to handle the survey submission
+      const functions = getFunctions();
+      const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+      
+      const result = await submitNotificationSurvey({
+        operation: 'submit_survey',
+        notificationId: notificationId,
+        courseId: courseId,
+        answers: answers,
+        userEmail: userEmail,
+        studentName: studentName
+      });
+      
+      console.log('Teacher view: Survey response submitted successfully:', result.data);
+      
+    } catch (error) {
+      console.error('Teacher view: Error submitting survey response:', error);
+    }
+  };
+
+  // Add a utility function to mark a notification as seen (teacher view)
+  const markNotificationAsSeen = async (notificationId) => {
+    if (!studentData.profile || !studentData.profile.StudentEmail) return;
+    
+    // Get notification details
+    let notification = null;
+    for (const course of studentData.courses) {
+      if (course.notificationIds && course.notificationIds[notificationId]) {
+        notification = course.notificationIds[notificationId];
+        break;
+      }
+    }
+    
+    await markNotificationSeen(notificationId, studentData.profile.StudentEmail, notification);
+    
+    // Update the courses to reflect that this notification has been seen
+    setStudentData(prev => {
+      const updatedCourses = prev.courses.map(course => {
+        if (!course.notificationIds || !course.notificationIds[notificationId]) {
+          return course;
+        }
+        
+        // Create a new course object to avoid mutation
+        const updatedCourse = { ...course };
+        updatedCourse.notificationIds = { ...course.notificationIds };
+        
+        const notification = updatedCourse.notificationIds[notificationId];
+        
+        // Check for displayConfig first, then fall back to legacy configuration
+        const displayFrequency = notification.displayConfig?.frequency || 
+          (notification.type === 'weekly-survey' ? 'weekly' : 
+          (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+            notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+            
+        // Determine if this is a one-time notification type
+        const isOneTimeType = displayFrequency === 'one-time' ||
+                            notification.type === 'once' || 
+                            (notification.type === 'notification' && !notification.repeatInterval) ||
+                            (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
+                            
+        // Mark this notification as seen if it's one-time (for all courses)
+        if (isOneTimeType || displayFrequency === 'one-time') {
+          updatedCourse.notificationIds[notificationId] = {
+            ...notification,
+            shouldDisplay: false
+          };
+        }
+        
+        return updatedCourse;
+      });
+      
+      return {
+        ...prev,
+        courses: updatedCourses
+      };
+    });
+  };
+
+  // Debug: Log what we're returning
+  console.log('🔍 Teacher view: Returning student data:', {
+    hasProfile: !!studentData.profile,
+    profileEmail: studentData.profile?.StudentEmail,
+    loading: studentData.loading,
+    coursesCount: studentData.courses?.length || 0
+  });
+
   // Return the data with teacher-specific flags
   return {
     ...studentData,
+    markNotificationAsSeen,
+    submitSurveyResponse,
     isTeacherView: true,
     hasPermissions: hasTeacherPermission(),
     forceRefresh

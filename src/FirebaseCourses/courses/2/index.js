@@ -108,9 +108,22 @@ const Course2 = ({
   const courseId = course?.CourseID || '2';
   
   // Get course structure from course object (database-driven)
-  const structure = course?.courseStructure?.units || 
+  // Handle both new structure (course.courseDetails['course-config']) and direct structure (course['course-config'])
+  const structure = course?.courseDetails?.['course-config']?.courseStructure?.units || 
+                   course?.['course-config']?.courseStructure?.units ||
+                   course?.courseStructure?.units || 
                    course?.Gradebook?.courseStructure?.units || 
                    [];
+
+  // Debug logging to help identify course object structure issues
+  if (!structure || structure.length === 0) {
+    console.log('🔍 Course2 Debug - course object:', course);
+    console.log('🔍 Course2 Debug - structure paths:');
+    console.log('  - course.courseDetails:', course?.courseDetails);
+    console.log('  - course["course-config"]:', course?.['course-config']);
+    console.log('  - course.courseStructure:', course?.courseStructure);
+    console.log('  - course.Gradebook?.courseStructure:', course?.Gradebook?.courseStructure);
+  }
 
 
   // Use external or internal active item ID
@@ -248,10 +261,16 @@ const Course2 = ({
     let totalItems = 0;
     let completedItems = 0;
     
-    structure.forEach(unit => {
-      totalItems += unit.items.length;
-      // TODO: Integrate with actual progress tracking
-    });
+    // Add safety checks for structure and units
+    if (Array.isArray(structure)) {
+      structure.forEach(unit => {
+        // Ensure unit and unit.items exist before accessing length
+        if (unit && Array.isArray(unit.items)) {
+          totalItems += unit.items.length;
+          // TODO: Integrate with actual progress tracking
+        }
+      });
+    }
     
     return {
       total: totalItems,
@@ -259,6 +278,28 @@ const Course2 = ({
       percentage: totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
     };
   }, [structure]);
+
+  // Early return with error message if no structure is available
+  if (!structure || structure.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <div className="text-yellow-600 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">Course Structure Loading</h3>
+          <p className="text-yellow-700 mb-4">
+            The course structure is being initialized. Please refresh the page in a moment.
+          </p>
+          <p className="text-sm text-yellow-600">
+            If this problem persists, please contact support.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">

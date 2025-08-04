@@ -31,7 +31,7 @@ import {
   isUserAuthorizedDeveloper
 } from '../../utils/authUtils';
 // Import grade calculation utilities for session-based scoring
-import { calculateLessonScore, shouldUseSessionBasedScoring, checkLessonCompletion } from '../../utils/gradeCalculations';
+import { shouldUseSessionBasedScoring } from '../../utils/gradeCalculations';
 import { formatScore } from '../../utils/gradeUtils';
 import { 
   Accordion,
@@ -110,8 +110,8 @@ const CollapsibleNavigation = ({
 
   // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
-    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+    // Prioritize course.courseDetails['course-config'].courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.courseDetails?.['course-config']?.courseStructure?.units ||
       course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
@@ -158,8 +158,8 @@ const CollapsibleNavigation = ({
   const allCourseItems = useMemo(() => {
     const items = [];
 
-    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
-    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+    // Prioritize course.courseDetails['course-config'].courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.courseDetails?.['course-config']?.courseStructure?.units ||
       course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
@@ -173,20 +173,20 @@ const CollapsibleNavigation = ({
     return items;
   }, [unitsList, course]);
   
-  // Calculate overall progress percentage using progression requirements
+  // Calculate overall progress percentage using new gradebook structure
   const overallProgress = useMemo(() => {
     if (!allCourseItems.length) return 0;
     
-    const studentEmail = currentUser?.email || user?.email;
-    
-    // Use the same calculation method as CourseProgress.js
+    // Count completed items directly from course.Gradebook.items
     const completedCount = allCourseItems.filter(item => {
-      // Use checkLessonCompletion for consistency with CourseProgress component
-      return checkLessonCompletion(item.itemId, course, studentEmail);
+      const itemGradeData = course?.Gradebook?.items?.[item.itemId];
+      return itemGradeData?.completed === true || 
+             itemGradeData?.status === 'completed' || 
+             itemGradeData?.status === 'manually_graded';
     }).length;
     
     return Math.round((completedCount / allCourseItems.length) * 100);
-  }, [allCourseItems, course, currentUser, user]);
+  }, [allCourseItems, course]);
 
   // SEQUENTIAL_ACCESS_UPDATE: Now receives lesson accessibility as a prop from parent
   // Original code (before sequential access): Only had overallProgress calculation above
@@ -281,7 +281,7 @@ const CollapsibleNavigation = ({
     
     try {
       // Look up the questionId for this itemId in the gradebook configuration
-      const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.[itemId];
+      const itemStructure = course?.courseDetails?.['course-config']?.gradebook?.itemStructure?.[itemId];
       if (itemStructure?.questions?.[0]?.questionId) {
         questionId = itemStructure.questions[0].questionId;
       }
@@ -325,38 +325,34 @@ const CollapsibleNavigation = ({
       }
     }
     
-    // Use the same reliable calculation as the progress bars at the top
-    const gradebook = course?.Gradebook;
-    const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
-    const gradebookItem = gradebook?.items?.[item.itemId];
-    
     // Get student email for session-based scoring
     const studentEmail = currentUser?.email || user?.email;
     
-    // Use the unified grade calculation function that supports both individual and session-based scoring
-    const scoreData = calculateLessonScore(item.itemId, course, studentEmail);
+    // Use the pre-calculated grade data from course.Gradebook.items (backend handles all calculations)
+    const gradeData = course?.Gradebook?.items?.[item.itemId];
     
-    // Extract values from the unified calculation
-    let lessonPercentage = scoreData.valid ? scoreData.percentage : 0;
-    let lessonScore = scoreData.valid ? scoreData.score : 0;
-    let lessonTotal = scoreData.valid ? scoreData.total : 0;
-    let attemptedQuestions = scoreData.valid ? scoreData.attempted : 0;
-    let totalQuestions = scoreData.valid ? scoreData.totalQuestions : 0;
-    const isSessionBased = scoreData.source === 'session';
-    const sessionCount = scoreData.sessionsCount || 0;
-    const scoringStrategy = scoreData.strategy || null;
+    // Extract values directly from the gradebook (no complex calculation needed)
+    let lessonPercentage = gradeData?.percentage || 0;
+    let lessonScore = gradeData?.score || 0;
+    let lessonTotal = gradeData?.total || 0;
+    let attemptedQuestions = gradeData?.attempted || 0;
+    let totalQuestions = lessonTotal > 0 ? lessonTotal : 0; // Use total as proxy for question count when available
+    const isSessionBased = gradeData?.source === 'session';
+    // For session-based items, check if they have been completed to determine session count
+    const sessionCount = isSessionBased && gradeData?.completed ? 1 : 0;
+    const scoringStrategy = gradeData?.strategy || null;
     
-    // Check if this should be session-based but has no sessions
+    // Check if this should be session-based but has no gradebook entry
     const shouldBeSessionBased = shouldUseSessionBasedScoring(item.itemId, course);
-    const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
+    const hasNoSessions = shouldBeSessionBased && !gradeData;
     
-    // Show error if calculation failed instead of falling back
-    const hasCalculationError = !scoreData.valid;
+    // No calculation errors with direct gradebook access
+    const hasCalculationError = false;
     
     // Determine completion based on progression requirements if available
     let isCompleted = false;
-    if (scoreData.valid && course?.Gradebook?.courseConfig?.progressionRequirements?.enabled) {
-      const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
+    if (gradeData && course?.courseDetails?.['course-config']?.progressionRequirements?.enabled) {
+      const progressionRequirements = course.courseDetails['course-config'].progressionRequirements;
       const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
       const defaultCriteria = progressionRequirements.defaultCriteria || {};
       
@@ -375,11 +371,11 @@ const CollapsibleNavigation = ({
       } else {
         isCompleted = lessonPercentage >= criteria.minimumPercentage;
       }
-    } else if (!hasCalculationError) {
-      // Only use legacy completion logic if no calculation error
-      isCompleted = courseStructureItem?.completed || 
-                   gradebookItem?.status === 'completed' || 
-                   gradebookItem?.status === 'manually_graded' || 
+    } else {
+      // Use gradebook completion status or percentage-based completion
+      isCompleted = gradeData?.completed === true || 
+                   gradeData?.status === 'completed' || 
+                   gradeData?.status === 'manually_graded' ||
                    lessonPercentage >= 100;
     }
     
@@ -676,7 +672,7 @@ const CollapsibleNavigation = ({
                       </>
                     )}
                   </>
-                ) : (lessonScore > 0 || attemptedQuestions > 0 || gradebookItem) && (
+                ) : (lessonScore > 0 || attemptedQuestions > 0 || gradeData) && (
                   <>
                     {(lessonScore > 0 || totalQuestions > 0) && (
                       <>
@@ -684,11 +680,11 @@ const CollapsibleNavigation = ({
                         <p className="text-sm">Questions: {attemptedQuestions}/{totalQuestions} attempted</p>
                       </>
                     )}
-                    {gradebookItem && (
+                    {gradeData && (
                       <>
-                        <p className="text-sm">Individual Attempts: {gradebookItem.attempts || 0}</p>
-                        {gradebookItem.lastAttempt && (
-                          <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                        <p className="text-sm">Individual Attempts: {gradeData.attempts || attemptedQuestions}</p>
+                        {gradeData.lastAttempt && (
+                          <p className="text-sm">Last attempt: {new Date(gradeData.lastAttempt).toLocaleDateString()}</p>
                         )}
                       </>
                     )}
@@ -700,10 +696,10 @@ const CollapsibleNavigation = ({
               <p className="text-sm text-gray-600">Not yet completed</p>
             )}
             {/* Show progression requirements for course progression */}
-            {course?.Gradebook?.courseConfig?.progressionRequirements?.enabled && (
+            {course?.courseDetails?.['course-config']?.progressionRequirements?.enabled && (
               <>
                 {(() => {
-                  const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
+                  const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements;
                   const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId];
                   const defaultCriteria = progressionRequirements.defaultCriteria || {};
                   
@@ -918,15 +914,13 @@ const CollapsibleNavigation = ({
                   className="space-y-2"
                 >
                   {sectionUnits.map((unit) => {
-                    // Calculate unit progress using gradebook data
+                    // Calculate unit progress using new gradebook data structure
                     const unitItems = unit.items || [];
-                    const gradebook = course?.Gradebook;
                     const unitCompletedCount = unitItems.filter(item => {
-                      const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
-                      const gradebookItem = gradebook?.items?.[item.itemId];
-                      return courseStructureItem?.completed || 
-                             gradebookItem?.status === 'completed' || 
-                             gradebookItem?.status === 'manually_graded';
+                      const itemGradeData = course?.Gradebook?.items?.[item.itemId];
+                      return itemGradeData?.completed === true || 
+                             itemGradeData?.status === 'completed' || 
+                             itemGradeData?.status === 'manually_graded';
                     }).length;
                     const unitPercentage = unitItems.length > 0
                       ? Math.round((unitCompletedCount / unitItems.length) * 100)
