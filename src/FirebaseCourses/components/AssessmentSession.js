@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
 import { sanitizeEmail } from '../../utils/sanitizeEmail';
+import { getAttemptLimitForAssessment, findAssessmentTypeInCourseStructure } from '../../utils/attemptLimitsUtils';
 import { Button } from '../../components/ui/button';
 import { StandardMultipleChoiceQuestion, AIShortAnswerQuestion, AILongAnswerQuestion } from './assessments';
 import StandardLongAnswerQuestion from './assessments/StandardLongAnswerQuestion';
@@ -241,32 +243,20 @@ const AssessmentSession = ({
   onAssessmentExit = () => {},
 }) => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
-  // Get assessment settings from course configuration or fallback to defaults
-  const getAssessmentSettings = () => {
-    // Try to get settings from course configuration first
-    if (course?.courseDetails?.['course-config']?.gradebook?.itemStructure && assessmentConfig?.assessmentId) {
-      const itemSettings = course.courseDetails['course-config'].gradebook.itemStructure[assessmentConfig.assessmentId];
-      if (itemSettings?.assessmentSettings) {
-        console.log(`📋 Using course config settings for ${assessmentConfig.assessmentId}:`, itemSettings.assessmentSettings);
-        return itemSettings.assessmentSettings;
-      }
+  // Get attempt limit for assessment from new attemptLimits configuration
+  const getAssessmentAttemptLimit = () => {
+    if (!course?.courseDetails?.['course-config'] || !assessmentConfig?.assessmentId) {
+      console.log(`⚠️ Missing course config or assessmentId: ${assessmentConfig?.assessmentId}`);
+      return null;
     }
     
-    // Fallback to hardcoded defaults if no course config is available
-    console.log(`⚠️ No course config found for ${assessmentConfig?.assessmentId}, using fallback defaults`);
-    return null;
+    return getAttemptLimitForAssessment(course.courseDetails['course-config'], assessmentConfig.assessmentId);
   };
 
-  // Activity configuration system with course config integration
+  // Activity configuration system - UI settings only (no maxAttempts)
   const getActivityConfig = (type) => {
-    // First try to get settings from course configuration
-    const courseSettings = getAssessmentSettings();
-    if (courseSettings) {
-      return courseSettings;
-    }
-    
-    // Fallback to hardcoded defaults
     const configs = {
       assignment: {
         badge: { text: "ASSIGNMENT MODE", color: "bg-green-100 text-green-800 border-green-300" },
@@ -281,12 +271,11 @@ const AssessmentSession = ({
         title: "Assignment in Progress",
         allowEasyExit: true,
         showExitButton: true,
-        useSession: true, // Enable sessions for assignments to track answers
+        useSession: true,
         allowImmediateFeedback: true,
         secureModeIntensity: "low",
         activityType: "assignment",
-        timeLimit: 60,
-        maxAttempts: 3
+        timeLimit: 60
       },
       quiz: {
         badge: { text: "QUIZ MODE", color: "bg-blue-100 text-blue-800 border-blue-300" },
@@ -305,8 +294,7 @@ const AssessmentSession = ({
         allowImmediateFeedback: false,
         secureModeIntensity: "medium",
         activityType: "quiz",
-        timeLimit: 45,
-        maxAttempts: 2
+        timeLimit: 45
       },
       exam: {
         badge: { text: "EXAM MODE", color: "bg-red-100 text-red-800 border-red-300" },
@@ -325,30 +313,74 @@ const AssessmentSession = ({
         allowImmediateFeedback: false,
         secureModeIntensity: "high",
         activityType: "exam",
-        timeLimit: 180,
-        maxAttempts: 1
+        timeLimit: 180
+      },
+      lesson: {
+        badge: { text: "LESSON MODE", color: "bg-purple-100 text-purple-800 border-purple-300" },
+        theme: {
+          gradient: "from-purple-600 to-indigo-600",
+          gradientHover: "from-purple-700 to-indigo-700",
+          accent: "purple-600",
+          light: "purple-100",
+          border: "purple-200",
+          ring: "ring-purple-200"
+        },
+        title: "Lesson in Progress",
+        allowEasyExit: true,
+        showExitButton: true,
+        useSession: true,
+        allowImmediateFeedback: true,
+        secureModeIntensity: "low",
+        activityType: "lesson",
+        timeLimit: null
+      },
+      lab: {
+        badge: { text: "LAB MODE", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+        theme: {
+          gradient: "from-yellow-600 to-orange-600",
+          gradientHover: "from-yellow-700 to-orange-700",
+          accent: "yellow-600",
+          light: "yellow-100",
+          border: "yellow-200",
+          ring: "ring-yellow-200"
+        },
+        title: "Lab in Progress",
+        allowEasyExit: true,
+        showExitButton: true,
+        useSession: true,
+        allowImmediateFeedback: false,
+        secureModeIntensity: "medium",
+        activityType: "lab",
+        timeLimit: null
       }
     };
     return configs[type] || configs.exam; // Default to exam if unknown
   };
 
-  // Auto-detect activity type from config if not provided
+  // Auto-detect activity type from course structure
   const detectActivityType = () => {
     if (activityType) return activityType;
     
-    // Try to get activity type from course configuration first
-    const courseSettings = getAssessmentSettings();
-    if (courseSettings?.activityType) return courseSettings.activityType;
+    // Try to get activity type from course structure first
+    if (course?.courseDetails?.['course-config'] && assessmentConfig?.assessmentId) {
+      const detectedType = findAssessmentTypeInCourseStructure(
+        course.courseDetails['course-config'], 
+        assessmentConfig.assessmentId
+      );
+      if (detectedType) return detectedType;
+    }
     
-    // Auto-detection logic based on config properties
+    // Fallback auto-detection based on assessment config properties
     if (assessmentConfig?.activityType) return assessmentConfig.activityType;
     if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('assignment')) return 'assignment';
     if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('quiz')) return 'quiz';
+    if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('lab')) return 'lab';
+    if (assessmentConfig?.assessmentId && assessmentConfig.assessmentId.includes('lesson')) return 'lesson';
     if (assessmentConfig?.timeLimit && assessmentConfig.timeLimit > 60) return 'exam';
     if (assessmentConfig?.questions?.length > 20) return 'exam';
     
-    // Default based on other clues
-    return 'exam'; // Safe default
+    // Default fallback
+    return 'exam';
   };
 
   const currentActivityType = detectActivityType();
@@ -991,7 +1023,8 @@ const AssessmentSession = ({
       // Update URL to show exam completed
       updateExamURLParams('completed', assessmentSession.sessionId);
       
-      onAssessmentComplete(examResult.data);
+      // Redirect to standalone results page to avoid course object corruption
+      navigate(`/exam-results/${assessmentSession.sessionId}`);
       
     } catch (error) {
       console.error('Error submitting exam:', error);
@@ -1125,15 +1158,37 @@ const AssessmentSession = ({
                 <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
                   <h3 className="font-medium text-gray-800 mb-3">Previous Attempts:</h3>
                   <div className="space-y-2">
-                    {sessionDetection.completedSessions.map((session, index) => (
-                      <div key={session.sessionId} className="flex justify-between items-center text-sm">
-                        <span>Attempt {index + 1}</span>
-                        <span className="font-medium">
-                          {session.finalResults?.score || 0}/{session.finalResults?.maxScore || 0} 
-                          ({session.finalResults?.percentage || 0}%)
-                        </span>
-                      </div>
-                    ))}
+                    {sessionDetection.completedSessions
+                      .sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1))
+                      .map((session) => {
+                        // Check if this session is currently being used in gradebook
+                        const isCurrentlyUsed = course?.Gradebook?.items?.[assessmentConfig?.assessmentId]?.sessionId === session.sessionId;
+                        const isTeacherOverride = session.createdBy || session.isTeacherCreated;
+                        
+                        return (
+                          <div key={session.sessionId} className={`flex justify-between items-center text-sm p-2 rounded ${
+                            isCurrentlyUsed ? 'bg-blue-50 border border-blue-200' : ''
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span>Attempt {session.attemptNumber || 1}</span>
+                              {isCurrentlyUsed && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                  Current
+                                </span>
+                              )}
+                              {isTeacherOverride && (
+                                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                                  Teacher Override
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-medium">
+                              {session.finalResults?.score || 0}/{session.finalResults?.maxScore || 0} 
+                              ({(session.finalResults?.percentage || 0).toFixed(1)}%)
+                            </span>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -1250,15 +1305,37 @@ const AssessmentSession = ({
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 mb-6">
               <h3 className="font-medium text-gray-800 mb-2">Previous Attempts:</h3>
               <div className="space-y-1 text-sm text-gray-700">
-                {sessionDetection.completedSessions.map((session, index) => (
-                  <div key={session.sessionId} className="flex justify-between">
-                    <span>Attempt {index + 1}:</span>
-                    <span className="font-medium">
-                      {session.finalResults?.score || 0}/{session.finalResults?.maxScore || 0} 
-                      ({session.finalResults?.percentage || 0}%)
-                    </span>
-                  </div>
-                ))}
+                {sessionDetection.completedSessions
+                  .sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1))
+                  .map((session) => {
+                    // Check if this session is currently being used in gradebook
+                    const isCurrentlyUsed = course?.Gradebook?.items?.[assessmentConfig?.assessmentId]?.sessionId === session.sessionId;
+                    const isTeacherOverride = session.createdBy || session.isTeacherCreated;
+                    
+                    return (
+                      <div key={session.sessionId} className={`flex justify-between items-center p-2 rounded ${
+                        isCurrentlyUsed ? 'bg-blue-50 border border-blue-200' : ''
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span>Attempt {session.attemptNumber || 1}:</span>
+                          {isCurrentlyUsed && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                              Current
+                            </span>
+                          )}
+                          {isTeacherOverride && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                              Teacher Override
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-medium">
+                          {session.finalResults?.score || 0}/{session.finalResults?.maxScore || 0} 
+                          ({(session.finalResults?.percentage || 0).toFixed(1)}%)
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -1322,7 +1399,7 @@ const AssessmentSession = ({
           <div className="grid md:grid-cols-2 gap-4 mb-6">
           
             <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-emerald-700">{assessmentResults.percentage}%</div>
+              <div className="text-2xl font-bold text-emerald-700">{assessmentResults.percentage.toFixed(1)}%</div>
               <div className="text-sm text-emerald-600">Percentage</div>
             </div>
             <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg text-center">

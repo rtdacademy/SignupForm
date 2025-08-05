@@ -1,0 +1,67 @@
+[
+  {
+    "questionId": "course2_53_question1",
+    "title": "Radio Wave Photon Energy (Joules)",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question2",
+    "title": "Radio Wave Photon Energy (eV)",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question3",
+    "title": "Blue Light Photon Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question4",
+    "title": "High Energy Photon Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question5",
+    "title": "EMR Type from Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question6",
+    "title": "Laser Photon Emission Rate",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question7",
+    "title": "Light Bulb Photon Rate",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question8",
+    "title": "Red Light in Darkrooms",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question9",
+    "title": "Star Colors and Temperature",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question10",
+    "title": "Objects Radiating in Dark",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question11",
+    "title": "Particle Definition",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question12",
+    "title": "Wave Definition",
+    "points": 1
+  },
+  {
+    "questionId": "course2_53_question13",
+    "title": "Electrons vs Photons",
+    "points": 1
+  }
+]

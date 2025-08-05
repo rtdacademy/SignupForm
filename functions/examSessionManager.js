@@ -12,6 +12,7 @@ const admin = require('firebase-admin');
 const { onCall } = require('firebase-functions/v2/https');
 const { sanitizeEmail } = require('./utils');
 const { getServerTimestamp, updateGradebookItem, getCourseConfig } = require('./shared/utilities/database-utils');
+const { getAttemptLimitForAssessment } = require('./shared/utilities/attempt-limits-utils');
 
 /**
  * Start a new exam session
@@ -80,18 +81,11 @@ exports.startExamSession = onCall({
       throw new Error(`An active exam session already exists for this exam. Session ID: ${activeSession.sessionId}`);
     }
     
-    // Get maxAttempts - try assessment-specific first, then general exam config
-    let maxAttempts = 1; // Default fallback
+    // Get maxAttempts from new attemptLimits configuration
+    const maxAttempts = getAttemptLimitForAssessment(courseConfig, itemId);
     
-    if (courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.maxAttempts) {
-      // Use assessment-specific maxAttempts from course config
-      maxAttempts = courseConfig.gradebook.itemStructure[itemId].assessmentSettings.maxAttempts;
-      console.log(`📋 Using assessment-specific maxAttempts: ${maxAttempts} for ${itemId}`);
-    } else {
-      // Fallback to general exam config
-      const examConfig = courseConfig?.activityTypes?.exam || {};
-      maxAttempts = examConfig.maxAttempts || 1;
-      console.log(`📋 Using general exam maxAttempts: ${maxAttempts} for ${itemId}`);
+    if (!maxAttempts) {
+      throw new Error(`Unable to determine attempt limit for assessment ${itemId}. Check course configuration.`);
     }
     
     // Check attempt limits
@@ -446,7 +440,7 @@ exports.submitExamSession = onCall({
     const totalPoints = questionResults.reduce((sum, q) => sum + q.points, 0);
     const maxPoints = questionResults.reduce((sum, q) => sum + q.maxPoints, 0);
     const correctAnswers = questionResults.filter(q => q.isCorrect).length;
-    const percentage = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
+    const percentage = maxPoints > 0 ? Math.round(((totalPoints / maxPoints) * 100) * 10) / 10 : 0;
     
     // Create results object
     const examResults = {
@@ -699,18 +693,11 @@ exports.detectActiveExamSession = onCall({
     // Get course config to check attempt limits
     const courseConfig = await getCourseConfig(courseId);
     
-    // First try to get maxAttempts from specific assessment settings
-    let maxAttempts = 1; // Default fallback
+    // Get maxAttempts from new attemptLimits configuration
+    const maxAttempts = getAttemptLimitForAssessment(courseConfig, itemId);
     
-    if (courseConfig?.gradebook?.itemStructure?.[itemId]?.assessmentSettings?.maxAttempts) {
-      // Use assessment-specific maxAttempts from course config
-      maxAttempts = courseConfig.gradebook.itemStructure[itemId].assessmentSettings.maxAttempts;
-      console.log(`📋 Using assessment-specific maxAttempts: ${maxAttempts} for ${itemId}`);
-    } else {
-      // Fallback to general exam config
-      const examConfig = courseConfig?.activityTypes?.exam || {};
-      maxAttempts = examConfig.maxAttempts || 1;
-      console.log(`📋 Using general exam maxAttempts: ${maxAttempts} for ${itemId}`);
+    if (!maxAttempts) {
+      throw new Error(`Unable to determine attempt limit for assessment ${itemId}. Check course configuration.`);
     }
     
     // Calculate attempts used (completed + active + resumable sessions)
@@ -799,7 +786,7 @@ exports.createTeacherSession = onCall({
     
     // Validate initial score
     const validatedInitialScore = Math.max(0, Math.min(initialScore || 0, maxScore));
-    const initialPercentage = maxScore > 0 ? (validatedInitialScore / maxScore) * 100 : 0;
+    const initialPercentage = maxScore > 0 ? Math.round(((validatedInitialScore / maxScore) * 100) * 10) / 10 : 0;
     
     // Create minimal session data - only what's needed for grading
     const sessionData = {

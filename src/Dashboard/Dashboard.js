@@ -163,9 +163,20 @@ const Dashboard = () => {
   const [forceProfileOpen, setForceProfileOpen] = useState(false);
 
   // Get the current course object from the real-time courses array
-  const selectedCourse = selectedCourseId 
-    ? courses.find(course => course.CourseID === selectedCourseId || course.id === selectedCourseId)
-    : null;
+  // Memoize to prevent unnecessary re-renders during course data updates
+  const selectedCourse = useMemo(() => {
+    if (!selectedCourseId) return null;
+    
+    const course = courses.find(course => course.CourseID === selectedCourseId || course.id === selectedCourseId);
+    console.log('🔍 Dashboard: selectedCourse memoized', { 
+      selectedCourseId, 
+      found: !!course,
+      hasValidConfig: !!course?.courseDetails?.['course-config']?.courseStructure,
+      courseConfigExists: !!course?.courseDetails?.['course-config']
+    });
+    
+    return course;
+  }, [selectedCourseId, courses]);
     
 
   const { isModernCourse, loading: courseTypeLoading } = useModernCourse(

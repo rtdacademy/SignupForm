@@ -1,0 +1,77 @@
+[
+  {
+    "questionId": "course2_61_question1",
+    "title": "X-ray Production Minimum Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question2",
+    "title": "X-ray Tube Potential Difference",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question3",
+    "title": "Electron Collision Photon Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question4",
+    "title": "CRT High Voltage Radiation Safety",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question5",
+    "title": "Alpha Particle Radiation Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question6",
+    "title": "Electron Beam Average Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question7",
+    "title": "Elastic Collision Conservation Laws",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question8",
+    "title": "Photon Momentum from Relativity",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question9",
+    "title": "Photon Mass Equivalent",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question10",
+    "title": "Compton Scattering and Observation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question11",
+    "title": "Photon Momentum from Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question12",
+    "title": "High Energy Photon Momentum",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question13",
+    "title": "Compton Scattering Analysis",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question14",
+    "title": "Electron Recoil Speed Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_61_question15",
+    "title": "X-ray Wavelength Shift at 120°",
+    "points": 1
+  }
+]

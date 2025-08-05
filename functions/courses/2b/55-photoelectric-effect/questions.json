@@ -1,0 +1,72 @@
+[
+  {
+    "questionId": "course2_55_question1",
+    "title": "Photon Energy from Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question2",
+    "title": "Photon Rate from Intensity",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question3",
+    "title": "Electron Emission Rate",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question4",
+    "title": "Photocurrent Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question5",
+    "title": "Intensity Effect on Current",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question6",
+    "title": "Frequency Effect on Current",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question7",
+    "title": "Intensity Effect on Speed",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question8",
+    "title": "Frequency Effect on Speed",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question9",
+    "title": "Threshold Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question10",
+    "title": "Maximum Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question11",
+    "title": "Maximum Kinetic Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question12",
+    "title": "Below Threshold Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question13",
+    "title": "Wavelength from Speed",
+    "points": 1
+  },
+  {
+    "questionId": "course2_55_question14",
+    "title": "Stopping Voltage",
+    "points": 1
+  }
+]

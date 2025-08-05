@@ -1,0 +1,77 @@
+[
+  {
+    "questionId": "course2_60_question1",
+    "title": "Rutherford Model Problems",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question2",
+    "title": "Photon Emission in Gas",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question3",
+    "title": "Bohr Model Explanation of Spectra",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question4",
+    "title": "Bohr Model Strengths",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question5",
+    "title": "Bohr Model Weaknesses",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question6",
+    "title": "Hydrogen Energy Level Transitions",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question7",
+    "title": "Energy Conservation in Photon Emission",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question8",
+    "title": "Photon Color and Transition Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question9",
+    "title": "Hydrogen Ground State Ionization Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question10",
+    "title": "Photon Wavelength Calculations",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question11",
+    "title": "Electron Acceleration and Emission Wavelengths",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question12",
+    "title": "n=6 to n=2 Transition Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question13",
+    "title": "n=7 to n=3 Transition Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question14",
+    "title": "n=1 to n=8 Energy Absorption",
+    "points": 1
+  },
+  {
+    "questionId": "course2_60_question15",
+    "title": "Ground State Ionization Energy Calculation",
+    "points": 1
+  }
+]

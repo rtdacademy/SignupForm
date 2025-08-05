@@ -1,0 +1,32 @@
+[
+  {
+    "questionId": "course2_64_question1",
+    "title": "Standing Wave Formation Condition",
+    "points": 1
+  },
+  {
+    "questionId": "course2_64_question2",
+    "title": "Classical vs Quantum Mechanics Relationship",
+    "points": 1
+  },
+  {
+    "questionId": "course2_64_question3",
+    "title": "Uncertainty Principle Position-Momentum",
+    "points": 1
+  },
+  {
+    "questionId": "course2_64_question4",
+    "title": "Wave-Particle Duality Central Concept",
+    "points": 1
+  },
+  {
+    "questionId": "course2_64_question5",
+    "title": "Quantum Orbital Probability Interpretation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_64_question6",
+    "title": "Quantized Energy Levels Significance",
+    "points": 1
+  }
+]

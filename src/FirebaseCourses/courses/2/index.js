@@ -173,9 +173,9 @@ const Course2 = ({
       );
     }
 
-    // Get content component using the contentPath from structure
-    const contentPath = activeItem.contentPath;
-    const ContentComponent = contentRegistry[contentPath];
+    // Get content component using contentPath directly
+    const contentKey = activeItem.contentPath || activeItem.itemId?.replace(/_/g, '-');
+    const ContentComponent = contentRegistry[contentKey];
 
 
     if (ContentComponent) {
@@ -237,17 +237,17 @@ const Course2 = ({
           Content for this {activeItem.type} is currently under development.
         </p>
         <p className="text-sm text-amber-600 mt-2">
-          Expected content path: <code className="bg-amber-100 px-1 py-0.5 rounded">{contentPath}</code>
+          Expected content path: <code className="bg-amber-100 px-1 py-0.5 rounded">{contentKey}</code>
         </p>
         {devMode && (
           <div className="mt-4 p-3 bg-amber-100 rounded">
             <p className="text-sm font-medium text-amber-900">Developer Info:</p>
             <p className="text-xs text-amber-800 mt-1">
-              Create a component at: content/{contentPath}/index.js
+              Create a component at: content/{contentKey}/index.js
             </p>
             {activeItem.hasCloudFunctions && (
               <p className="text-xs text-amber-800 mt-1">
-                Create cloud functions at: functions/{courseId}/{contentPath}/
+                Create cloud functions at: functions/{courseId}/{contentKey}/
               </p>
             )}
           </div>

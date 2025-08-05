@@ -39,6 +39,7 @@ import ParentEmailVerification from './ParentPortal/ParentEmailVerification';
 import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
 import TeacherFirebaseCourseView from './StudentManagement/TeacherFirebaseCourseView';
 import JSXGraphTest from './components/JSXGraphTest';
+import ExamResults from './components/ExamResults';
 import RTDLearningLogin from './rtdLearning/Login';
 import RTDLearningDashboard from './rtdLearning/Dashboard';
 import RTDLearningAdminLogin from './rtdLearning/AdminLogin';
@@ -195,6 +196,11 @@ function MainApp() {
       <Route 
   path="/dashboard" 
   element={user && !isStaff(user) ? <Dashboard /> : <Navigate to="/login" />} 
+/>
+
+<Route 
+  path="/exam-results/:sessionId" 
+  element={user ? <ExamResults /> : <Navigate to="/login" />} 
 />
 
 <Route 

@@ -178,7 +178,7 @@ export const hasValidGradebookData = (course) => {
  * @returns {Object} - Score data including percentage, score, total, etc.
  */
 export const getLessonScore = (itemId, course) => {
-  if (!course?.Gradebook?.items?.[itemId]) {
+  if (!course?.Gradebook?.items) {
     return {
       score: 0,
       total: 0,
@@ -189,14 +189,42 @@ export const getLessonScore = (itemId, course) => {
     };
   }
 
-  const item = course.Gradebook.items[itemId];
+  // Try original itemId first
+  let item = course.Gradebook.items[itemId];
   
+  // If not found, try converting hyphens to underscores (common format difference)
+  if (!item && itemId.includes('-')) {
+    const underscoreItemId = itemId.replace(/-/g, '_');
+    item = course.Gradebook.items[underscoreItemId];
+    console.log('🔍 Converted itemId format:', itemId, '->', underscoreItemId, 'Found:', !!item);
+  }
+  
+  // If still not found, try converting underscores to hyphens
+  if (!item && itemId.includes('_')) {
+    const hyphenItemId = itemId.replace(/_/g, '-');
+    item = course.Gradebook.items[hyphenItemId];
+    console.log('🔍 Converted itemId format:', itemId, '->', hyphenItemId, 'Found:', !!item);
+  }
+  
+  if (!item) {
+    console.log('🔍 No gradebook data found for itemId:', itemId);
+    console.log('🔍 Available gradebook items:', Object.keys(course.Gradebook.items));
+    return {
+      score: 0,
+      total: 0,
+      percentage: 0,
+      attempted: 0,
+      totalQuestions: 0,
+      valid: false
+    };
+  }
+
   return {
     score: item.score || 0,
     total: item.total || 0,
     percentage: item.percentage || 0,
     attempted: item.attempted || 0,
-    totalQuestions: item.totalQuestions || 0,
+    totalQuestions: item.totalQuestions || item.total || 0, // Use total as fallback for totalQuestions
     valid: true
   };
 };
