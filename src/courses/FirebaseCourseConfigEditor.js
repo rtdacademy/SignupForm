@@ -28,10 +28,18 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
       const result = await loadCourseConfig(courseId);
       
       if (result.success) {
-        // Merge with course title from courseData
+        // Merge with course title from courseData and ensure attemptLimits exist
         const loadedConfig = {
           ...result.config,
-          title: courseData?.Title || result.config.title
+          title: courseData?.Title || result.config.title,
+          // Ensure attemptLimits exist with defaults if not present
+          attemptLimits: result.config.attemptLimits || {
+            lesson: 999,
+            assignment: 3,
+            exam: 1,
+            quiz: 2,
+            lab: 3
+          }
         };
         setConfig(loadedConfig);
       } else {
@@ -84,6 +92,13 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
     }));
   };
 
+  const updateAttemptLimits = (attemptLimits) => {
+    setConfig(prev => ({
+      ...prev,
+      attemptLimits
+    }));
+  };
+
   const updateStructure = (courseStructure) => {
     setConfig(prev => ({
       ...prev,
@@ -130,9 +145,10 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
 
       {/* Configuration Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="structure">Structure</TabsTrigger>
           <TabsTrigger value="weights">Weights</TabsTrigger>
+          <TabsTrigger value="attempts">Attempts</TabsTrigger>
           <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
@@ -149,6 +165,14 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
           <WeightsTab
             weights={config.weights || {}}
             onUpdate={updateWeights}
+            isEditing={isEditing}
+          />
+        </TabsContent>
+
+        <TabsContent value="attempts">
+          <AttemptsTab
+            attemptLimits={config.attemptLimits || {}}
+            onUpdate={updateAttemptLimits}
             isEditing={isEditing}
           />
         </TabsContent>
@@ -222,6 +246,70 @@ const WeightsTab = ({ weights, onUpdate, isEditing }) => {
             Weights must sum to 100% or 0% for ungraded courses.
           </p>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Attempts Tab Component
+const AttemptsTab = ({ attemptLimits, onUpdate, isEditing }) => {
+  const handleAttemptChange = (sessionType, value) => {
+    const numValue = parseInt(value) || 1;
+    const clampedValue = Math.max(1, Math.min(999, numValue));
+    onUpdate({
+      ...attemptLimits,
+      [sessionType]: clampedValue
+    });
+  };
+
+  const sessionTypeDescriptions = {
+    lesson: 'Interactive content with knowledge checks and questions',
+    assignment: 'Practice assignments with multiple questions',
+    exam: 'Formal examinations and tests',
+    quiz: 'Short quizzes and knowledge checks',
+    lab: 'Laboratory activities and simulations'
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <div>
+        <h4 className="text-md font-semibold mb-4">Session Attempt Limits</h4>
+        <p className="text-sm text-gray-600 mb-4">
+          Set the maximum number of attempts students can make for each session type.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {Object.entries(attemptLimits).map(([sessionType, attempts]) => (
+          <div key={sessionType} className="p-4 border rounded-lg bg-gray-50">
+            <div className="flex items-center gap-4 mb-2">
+              <label className="w-24 text-sm font-medium capitalize">
+                {sessionType}
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="999"
+                value={attempts}
+                onChange={(e) => handleAttemptChange(sessionType, e.target.value)}
+                disabled={!isEditing}
+                className="w-20 p-2 border rounded-md"
+              />
+              <span className="text-sm text-gray-600">
+                {attempts === 999 ? 'Unlimited' : `${attempts} attempt${attempts === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 ml-28">
+              {sessionTypeDescriptions[sessionType]}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="p-3 bg-blue-50 text-blue-800 rounded-md">
+        <p className="text-sm">
+          <strong>Note:</strong> These limits apply to new sessions. Individual assessments may override these defaults with their own maxAttempts settings.
+        </p>
       </div>
     </div>
   );

@@ -649,15 +649,15 @@ const CollapsibleNavigation = ({
                       <p className="text-sm text-gray-600">No assessment sessions started yet</p>
                     ) : (
                       <>
-                        {scoreData.sessionStatus === 'completed' ? (
+                        {gradeData?.completed ? (
                           <>
                             <p className="text-sm">Score: {formatScore(lessonScore)}/{lessonTotal} ({formatScore(gradePercentage || 0)}%)</p>
-                            <p className="text-sm">Sessions completed: {scoreData.completedSessionsCount || sessionCount}</p>
+                            <p className="text-sm">Sessions completed: {sessionCount}</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-sm">Status: {scoreData.sessionStatus || 'In progress'}</p>
-                            <p className="text-sm">Progress: {scoreData.attempted}/{scoreData.totalQuestions} questions answered ({formatScore(scoreData.sessionProgress || 0)}%)</p>
+                            <p className="text-sm">Status: {gradeData?.status || 'In progress'}</p>
+                            <p className="text-sm">Progress: {attemptedQuestions}/{totalQuestions} questions answered ({formatScore(gradePercentage || 0)}%)</p>
                             <p className="text-sm">Total sessions: {sessionCount}</p>
                           </>
                         )}

@@ -81,85 +81,10 @@ const FirebaseCourseWrapperContent = ({
 }) => {
   const { currentUser } = useAuth();
   
-  // Debug: Log course prop value
-  console.log('🔍 Course prop value:', course);
-  console.log('🔍 Profile prop value:', profile);
+  // State variables that are used in functions must be declared first
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
-  // Get course data first to check for errors
-  const getCourseData = () => {
-
-    // First priority: check courseDetails course-config courseStructure (database-driven from backend config)
-    if (course.courseDetails?.['course-config']?.courseStructure) {
-      return {
-        title: course.courseDetails['course-config'].courseStructure.title || course.Course?.Value || '',
-        structure: course.courseDetails['course-config'].courseStructure.units || [],
-        courseWeights: course.courseDetails['course-config'].weights || course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
-      };
-    }
-    
-    // Second priority: check gradebook courseStructure (legacy database path)
-    else if (course.Gradebook?.courseStructure) {
-      return {
-        title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
-        structure: course.Gradebook.courseStructure.units || [],
-        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
-      };
-    }
-    
-    // Second priority: check direct courseStructure path (legacy JSON file approach)
-    else if (course.courseStructure?.structure) {
-      console.log("⚠️ Using legacy courseStructure.structure from JSON file");
-      return {
-        title: course.courseStructure.title || '',
-        structure: course.courseStructure.structure || [],
-        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
-      };
-    }
-    // Also check for nested courseStructure.units pattern (legacy)
-    else if (course.courseStructure?.units) {
-      console.log("⚠️ Using legacy courseStructure.units from JSON file");
-      return {
-        title: course.courseStructure.title || course.Course?.Value || '',
-        structure: course.courseStructure.units || [],
-        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
-      };
-    }
-
-    // Error state: no structure available
-    console.error("❌ ERROR: No course structure found! Gradebook may not be initialized.");
-    return {
-      title: course.Course?.Value || course.courseDetails?.Title || 'Course',
-      structure: [],
-      courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 },
-      error: "Course structure not available. Please refresh the page or contact support."
-    };
-  };
-
-  const courseData = getCourseData();
-  
-  // Show error state if no course structure available - BEFORE any hooks
-  if (courseData.error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
-          <div className="text-red-600 mb-4">
-            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Course Structure Loading</h2>
-          <p className="text-gray-600 mb-4">{courseData.error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
+  // ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURNS
   // Check if current user is an authorized developer with caching to prevent flickering
   // Use a ref to track previous authorization state for persistence
   const previousAuthRef = useRef({ wasAuthorized: false, userEmail: null, courseId: null });
@@ -203,9 +128,110 @@ const FirebaseCourseWrapperContent = ({
   }, [currentUser?.email, course?.CourseID, course?.courseId, currentUser, course]);
   const [activeTab, setActiveTab] = useState('content');
   
+  // VARIABLE DECLARATIONS needed by useEffect hooks must come before useEffect hooks
+  
+  // Get course data - simplified to use only the correct course-config path
+  const getCourseData = () => {
+    // First check if course object exists at all
+    if (!course) {
+      console.warn("⚠️ WARNING: Course object is null/undefined - likely during re-render transition");
+      return {
+        title: 'Loading Course...',
+        structure: [],
+        courseWeights: null,
+        loading: true
+      };
+    }
+    
+    // Only use the correct course-config path - no fallbacks
+    if (course.courseDetails?.['course-config']?.courseStructure) {
+      return {
+        title: course.courseDetails['course-config'].courseStructure.title || course.Course?.Value || '',
+        structure: course.courseDetails['course-config'].courseStructure.units,
+        courseWeights: course.courseDetails['course-config'].weights
+      };
+    }
+    
+    // During initial loading period, show loading state instead of error
+    if (isInitialLoading) {
+      console.log("⏳ Course configuration not yet available, but still in initial loading period");
+      return {
+        title: 'Loading Course...',
+        structure: [],
+        courseWeights: null,
+        loading: true
+      };
+    }
+    
+    // Only show error after initial loading period has passed
+    console.error("❌ ERROR: Course configuration not available at course.courseDetails['course-config']", {
+      courseExists: !!course,
+      courseDetailsExists: !!course?.courseDetails,
+      courseConfigExists: !!course?.courseDetails?.['course-config'],
+      courseStructureExists: !!course?.courseDetails?.['course-config']?.courseStructure
+    });
+    return {
+      title: course.Course?.Value || 'Course',
+      structure: [],
+      courseWeights: null,
+      error: "Course configuration not available. Please refresh the page or contact support."
+    };
+  };
+
+  const courseData = getCourseData();
+  const courseTitle = courseData.title;
+  const unitsList = courseData.structure;
+  const courseWeights = courseData.courseWeights;
+  
+  // Create enriched course items using centralized utility function
+  const allCourseItems = useMemo(() => {
+    return createAllCourseItems(course);
+  }, [course]);
+  
+  // Utility function to extract lesson-specific questions
+  const getLessonSpecificQuestions = useCallback((courseId, lessonId, assessments) => {
+    if (!courseId || !lessonId || !assessments) {
+      return {};
+    }
+    
+    // Convert lesson ID to question pattern: "01-physics-20-review" -> "course2_01_physics_20_review"
+    // Handle both hyphenated and underscored lessonId formats
+    const normalizedLessonId = lessonId.replace(/-/g, '_');
+    const questionPattern = `course${courseId}_${normalizedLessonId}`;
+    
+    
+    const lessonQuestions = {};
+    
+    Object.entries(assessments).forEach(([questionId, questionData]) => {
+      if (questionId.startsWith(questionPattern)) {
+        // Extract only the relevant fields for AI context
+        lessonQuestions[questionId] = {
+          questionText: questionData.questionText,
+          options: questionData.options,
+          activityType: questionData.activityType,
+          attempts: questionData.attempts || 0,
+          status: questionData.status,
+          // Include lastSubmission if it exists
+          ...(questionData.lastSubmission && {
+            lastSubmission: {
+              answer: questionData.lastSubmission.answer,
+              correctOptionId: questionData.lastSubmission.correctOptionId,
+              feedback: questionData.lastSubmission.feedback,
+              isCorrect: questionData.lastSubmission.isCorrect,
+              timestamp: questionData.lastSubmission.timestamp
+            }
+          })
+        };
+      }
+    });
+    
+    
+    return lessonQuestions;
+  }, []);
+  
+  // ALL useState DECLARATIONS must come before useEffect hooks that use them
   // Developer mode toggle state - only active if user is authorized
   const [isDeveloperModeActive, setIsDeveloperModeActive] = useState(false);
-  
   // Initialize activeItemId from URL or localStorage
   const [activeItemId, setActiveItemId] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -231,7 +257,6 @@ const FirebaseCourseWrapperContent = ({
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [reviewQuestion, setReviewQuestion] = useState(null);
-  //const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
@@ -243,65 +268,42 @@ const FirebaseCourseWrapperContent = ({
   const [currentAIPrompt, setCurrentAIPrompt] = useState(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [chatAnimationState, setChatAnimationState] = useState('closed'); // 'closed', 'opening', 'open', 'closing'
-  
   // Simplified AI state - just prepopulated message for chat input
   const [prepopulatedMessage, setPrepopulatedMessage] = useState('');
-  
   // State for realtime grades updates
   const [realtimeGrades, setRealtimeGrades] = useState(null);
   const [realtimeExamSessions, setRealtimeExamSessions] = useState(null);
   const [realtimeGradebook, setRealtimeGradebook] = useState(null);
   const [dataUpdateTrigger, setDataUpdateTrigger] = useState(0);
-  
   // State for content context from AI accordion
   const [contentContextData, setContentContextData] = useState(null);
+  // State for forcing new chat sessions
+  const [forceNewChatSession, setForceNewChatSession] = useState(false);
   
-  // Draggable and resizable functionality for AI chat
-  const {
-    position: chatPosition,
-    size: chatSize,
-    isDragging,
-    isResizing,
-    handleDragStart,
-    handleResizeStart,
-    resetToDefault: resetChatPosition
-  } = useDraggableResizable({
-    defaultPosition: { x: window.innerWidth - 644, y: 24 }, // 620px width + 24px margin
-    defaultSize: { width: 620, height: 600 }, // More reasonable initial height
-    minSize: { width: 320, height: 400 },
-    maxSize: { width: 1000, height: Math.min(900, window.innerHeight - 48) },
-    storageKey: `ai-chat-state-course-${course?.CourseID}`,
-    disabled: isMobile
-  });
-  
-  // Ref for navigation container to detect outside clicks
-  const navigationRef = useRef(null);
-  
-  // Check if current user is authorized to see debug info
-  const isDebugAuthorized = useMemo(() => {
-    if (!currentUser?.email || !course?.courseDetails?.allowedEmails) {
-      return false;
-    }
-    
-    const userEmail = currentUser.email.toLowerCase();
-    const allowedEmails = course.courseDetails.allowedEmails;
-    
-    // Check if user email is in the allowed emails array
-    return allowedEmails.some(email => 
-      email.toLowerCase() === userEmail
-    );
-  }, [currentUser, course]);
-
-  const courseTitle = courseData.title;
-  const unitsList = courseData.structure || [];
-  const courseWeights = courseData.courseWeights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
-
-  // Debug logging
+  // ALL useEffect HOOKS MUST BE DECLARED HERE - BEFORE ANY CONDITIONAL RETURNS
+  // This prevents "Rendered more hooks than during the previous render" error
   
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+  
+  // Timer to prevent brief error message flash during normal loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 2000); // Wait 2 seconds before allowing error messages
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Clear loading state early if course configuration becomes available
+  useEffect(() => {
+    if (course?.courseDetails?.['course-config']?.courseStructure && isInitialLoading) {
+      console.log("✅ Course configuration loaded, clearing initial loading state");
+      setIsInitialLoading(false);
+    }
+  }, [course?.courseDetails, isInitialLoading]);
   
   // Clear developer authorization cache when user logs out
   useEffect(() => {
@@ -351,7 +353,6 @@ const FirebaseCourseWrapperContent = ({
     };
   }, [isMobile, navExpanded]);
   
-  
   // Sync with external state if provided
   useEffect(() => {
     if (externalActiveItemId && externalActiveItemId !== activeItemId) {
@@ -359,6 +360,370 @@ const FirebaseCourseWrapperContent = ({
     }
   }, [externalActiveItemId, activeItemId]);
 
+  // Validate lesson from URL parameter exists in course structure
+  useEffect(() => {
+    // Only validate if we have both an activeItemId AND course structure is loaded
+    if (activeItemId && allCourseItems.length > 0) {
+      
+      // Validate that the current activeItemId (from URL) exists in course structure
+      const lessonExists = allCourseItems.find(item => item.itemId === activeItemId);
+      if (!lessonExists) {
+        // If lesson from URL doesn't exist, clear it so course can set default
+        setActiveItemId(null);
+        // Also clean up the URL and localStorage
+        const url = new URL(window.location);
+        url.searchParams.delete('lesson');
+        window.history.replaceState({}, '', url);
+        
+        const courseId = course?.CourseID || course?.courseId;
+        if (courseId) {
+          const storageKey = `lastLesson_${courseId}`;
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        // If lesson exists and came from URL, save it to localStorage for future sessions
+        const urlParams = new URLSearchParams(window.location.search);
+        const lessonFromUrl = urlParams.get('lesson');
+        if (lessonFromUrl === activeItemId) {
+          const courseId = course?.CourseID || course?.courseId;
+          if (courseId) {
+            const storageKey = `lastLesson_${courseId}`;
+            localStorage.setItem(storageKey, activeItemId);
+          }
+        }
+      }
+    } else if (activeItemId && allCourseItems.length === 0) {
+    }
+  }, [allCourseItems, activeItemId, course]);
+
+  // Preload course module when course ID is known
+  useEffect(() => {
+    const courseId = course?.CourseID;
+    if (courseId && !courseModuleLoaded) {
+      // Preload the appropriate course module
+      let modulePromise;
+      switch(courseId) {
+        case 4:
+        case '4':
+          modulePromise = import('./courses/4');
+          break;
+        case 2:
+        case '2':
+          modulePromise = import('./courses/2');
+          break;
+        case 3:
+        case '3':
+          modulePromise = import('./courses/3');
+          break;
+        case 0:
+        case '0':
+          modulePromise = import('./courses/PHY30');
+          break;
+        case 100:
+        case '100':
+          modulePromise = import('./courses/100');
+          break;
+        default:
+          setCourseModuleLoaded(true); // No module to load
+          return;
+      }
+      
+      modulePromise.then(() => {
+        setCourseModuleLoaded(true);
+      }).catch(err => {
+        console.error('❌ Failed to load course module:', err);
+        setCourseModuleLoaded(true); // Set to true anyway to show error state
+      });
+    }
+  }, [course?.CourseID, courseModuleLoaded]);
+
+  // Set content ready state when all necessary data is loaded including course module
+  useEffect(() => {
+    const hasStructure = allCourseItems.length > 0;
+    const hasCourseData = !!course;
+    const hasTitle = !!courseData.title;
+    const hasModule = courseModuleLoaded;
+    
+    if (hasStructure && hasCourseData && hasTitle && hasModule && !isContentReady) {
+      // Small delay to prevent flickering
+      const timer = setTimeout(() => {
+        setIsContentReady(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [allCourseItems.length, course, courseData.title, courseModuleLoaded, isContentReady]);
+
+  // Load AI prompt when active lesson changes
+  useEffect(() => {
+    const loadPromptForLesson = async () => {
+      if (!activeItemId || !course?.CourseID) {
+        return;
+      }
+      
+      setIsLoadingPrompt(true);
+      try {
+        const prompt = await loadLessonPrompt(course.CourseID, activeItemId);
+        
+        // Enhance prompt with additional context
+        const currentItem = allCourseItems.find(item => item.itemId === activeItemId);
+        const currentUnit = unitsList.find(unit => 
+          unit.items?.some(item => item.itemId === activeItemId)
+        );
+        
+        // Extract lesson-specific questions from course assessments
+        const lessonQuestions = getLessonSpecificQuestions(
+          course.CourseID, 
+          activeItemId, 
+          course.Assessments
+        );
+        
+        // Calculate progress for this specific use
+        let courseProgress = 0;
+        if (allCourseItems.length > 0) {
+          const gradebook = course?.Gradebook;
+          const completedCount = allCourseItems.filter(item => {
+            const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+            const gradebookItem = gradebook?.items?.[item.itemId];
+            return courseStructureItem?.completed || gradebookItem?.status === 'completed' || gradebookItem?.status === 'manually_graded';
+          }).length;
+          courseProgress = Math.round((completedCount / allCourseItems.length) * 100);
+        }
+        
+        const enhancedPrompt = enhancePromptWithContext(prompt, {
+          currentUnit: currentUnit?.title || currentUnit?.name,
+          lessonTitle: currentItem?.title,
+          lessonType: currentItem?.type,
+          studentProgress: `${courseProgress}% course completion`,
+          keywords: currentItem?.keywords || [],
+          lessonQuestions: lessonQuestions,
+          studentName: profile?.preferredFirstName || profile?.firstName
+        });
+        
+        // Add lesson questions to the enhanced prompt for AI context
+        enhancedPrompt.lessonQuestions = lessonQuestions;
+        
+        
+        setCurrentAIPrompt(enhancedPrompt);
+      } catch (error) {
+        console.error('Failed to load AI prompt:', error);
+        // Will use default prompt from the loader
+      } finally {
+        setIsLoadingPrompt(false);
+      }
+    };
+    
+    if (activeItemId) {
+      loadPromptForLesson();
+    }
+  }, [activeItemId, course?.CourseID, allCourseItems, unitsList, course?.Gradebook, course?.Assessments, getLessonSpecificQuestions]);
+
+  // Calculate progress using simplified cloud function data - Using new courseProgressUtils
+  useEffect(() => {
+    // Check if we have valid gradebook data from cloud functions
+    if (!hasValidGradebookData(course) || !allCourseItems.length) {
+      console.log('📊 Gradebook data not available yet or no course items');
+      setProgress({});
+      return;
+    }
+    
+    // Use simplified progress calculation from courseProgressUtils
+    const navigationProgress = getNavigationProgress(course, allCourseItems);
+    setProgress(navigationProgress);
+    
+    console.log('📊 Progress calculated using cloud function data:', Object.keys(navigationProgress).length, 'completed items');
+  
+  // DEBUG: Log activeItemId and gradebook path for troubleshooting
+  console.log('🔍 DEBUG - ActiveItemId:', activeItemId);
+  console.log('🔍 DEBUG - Current user email:', currentUser?.email);
+  console.log('🔍 DEBUG - Sanitized email:', sanitizeEmail(currentUser?.email || ''));
+  console.log('🔍 DEBUG - Course Gradebook items keys:', Object.keys(course?.Gradebook?.items || {}));
+  console.log('🔍 DEBUG - Looking for gradebook item:', activeItemId, '- Found:', !!course?.Gradebook?.items?.[activeItemId]);
+  }, [course?.Gradebook, allCourseItems, realtimeGradebook, dataUpdateTrigger]);
+
+  // Realtime listener for grades updates
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    console.log('🔍 DEBUG - Setting up grades listener for user email:', userEmail);
+    
+    // Use the correct student key format from the profile if available
+    let studentKey;
+    if (profile?.StudentKey) {
+      studentKey = profile.StudentKey;
+      console.log('🔍 DEBUG - Using profile StudentKey:', studentKey);
+    } else {
+      // Fallback to sanitizing the email
+      studentKey = sanitizeEmail(userEmail);
+      console.log('🔍 DEBUG - Using sanitized email as StudentKey:', studentKey);
+    }
+    const gradesPath = `students/${studentKey}/courses/${courseId}/Grades/assessments`;
+    
+    console.log('🔄 Setting up realtime grades listener for:', gradesPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const gradesRef = ref(db, gradesPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(gradesRef, (snapshot) => {
+      const gradesData = snapshot.val();
+      console.log('📊 Realtime grades update received:', gradesData ? 'Data present' : 'No data');
+      
+      // Update the realtime grades state
+      setRealtimeGrades(gradesData || {});
+      
+      // Update the course object's grades if they exist
+      if (gradesData && course?.Grades) {
+        course.Grades.assessments = gradesData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in grades listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up grades listener');
+      off(gradesRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
+
+  // Realtime listener for ExamSessions updates (for session-based scoring)
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Use the correct student key format from the profile if available
+    let studentKey;
+    if (profile?.StudentKey) {
+      studentKey = profile.StudentKey;
+    } else {
+      // Fallback to sanitizing the email
+      studentKey = sanitizeEmail(userEmail);
+    }
+    
+    // Listen to the student's specific exam sessions path
+    const examSessionsPath = `students/${studentKey}/courses/${courseId}/ExamSessions`;
+    
+    console.log('🔄 Setting up realtime ExamSessions listener for:', examSessionsPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const examSessionsRef = ref(db, examSessionsPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(examSessionsRef, (snapshot) => {
+      const sessionsData = snapshot.val();
+      console.log('📊 Realtime ExamSessions update received:', sessionsData ? 'Data present' : 'No data');
+      
+      // Update the realtime exam sessions state
+      setRealtimeExamSessions(sessionsData || {});
+      
+      // Update the course object's exam sessions if they exist
+      if (sessionsData && course) {
+        course.ExamSessions = sessionsData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in ExamSessions listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up ExamSessions listener');
+      off(examSessionsRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
+
+  // Realtime listener for Gradebook updates (cloud function calculated data)
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Use the correct student key format from the profile if available
+    let studentKey;
+    if (profile?.StudentKey) {
+      studentKey = profile.StudentKey;
+    } else {
+      // Fallback to sanitizing the email
+      studentKey = sanitizeEmail(userEmail);
+    }
+    
+    // Listen to the student's specific gradebook path
+    const gradebookPath = `students/${studentKey}/courses/${courseId}/Gradebook`;
+    
+    console.log('🔄 Setting up realtime Gradebook listener for:', gradebookPath);
+    
+    // Create database reference
+    const db = getDatabase();
+    const gradebookRef = ref(db, gradebookPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(gradebookRef, (snapshot) => {
+      const gradebookData = snapshot.val();
+      console.log('📊 Realtime Gradebook update received:', gradebookData ? 'Data present' : 'No data');
+      
+      // Update the realtime gradebook state
+      setRealtimeGradebook(gradebookData || {});
+      
+      // Update the course object's gradebook if it exists
+      if (gradebookData && course) {
+        course.Gradebook = gradebookData;
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in Gradebook listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🔚 Cleaning up Gradebook listener');
+      off(gradebookRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
+  
+  // END OF useEffect HOOKS SECTION
+  
+  // Ref for navigation container to detect outside clicks
+  const navigationRef = useRef(null);
+  
+  // Check if current user is authorized to see debug info
+  const isDebugAuthorized = useMemo(() => {
+    if (!currentUser?.email || !course?.courseDetails?.allowedEmails) {
+      return false;
+    }
+    
+    const userEmail = currentUser.email.toLowerCase();
+    const allowedEmails = course.courseDetails.allowedEmails;
+    
+    // Check if user email is in the allowed emails array
+    return allowedEmails.some(email => 
+      email.toLowerCase() === userEmail
+    );
+  }, [currentUser, course]);
+  
   // Handle developer mode toggle
   const handleDeveloperModeToggle = useCallback((enabled) => {
     setIsDeveloperModeActive(enabled);
@@ -401,46 +766,6 @@ const FirebaseCourseWrapperContent = ({
     }
   }, [isChatMinimized]);
 
-  // State for forcing new chat sessions
-  const [forceNewChatSession, setForceNewChatSession] = useState(false);
-  
-  // Handle dynamic AI context updates from child components
-  // COMMENTED OUT: Complex conversation history management - using simple approach instead
-  /*
-  const handleUpdateAIContext = useCallback((newContext) => {
-    // Instead of modifying system instructions, we'll update the conversation history
-    if (newContext.type === 'askAboutExample' && newContext.exampleNumber) {
-      // Generate conversation history for specific example
-      const exampleConversation = currentAIPrompt?.generateExampleConversation?.(
-        newContext.exampleNumber, 
-        newContext.userQuestion
-      );
-      
-      if (exampleConversation) {
-        // Update the current prompt with new conversation history and force new session
-        setCurrentAIPrompt(prev => ({
-          ...prev,
-          conversationHistory: exampleConversation
-        }));
-        
-        // Force a new chat session to clear existing messages
-        setForceNewChatSession(true);
-        
-        // Reset the force flag after a brief delay
-        setTimeout(() => setForceNewChatSession(false), 100);
-      }
-    } else {
-      // For other types of dynamic context, store for processing
-      setDynamicAIContext(newContext);
-    }
-    
-    // If chat is closed, open it
-    if (chatAnimationState === 'closed') {
-      handleChatToggle();
-    }
-  }, [chatAnimationState, handleChatToggle, currentAIPrompt]);
-  */
-
   // Handle message prepopulation from child components
   const handlePrepopulateMessage = useCallback((message) => {
     setPrepopulatedMessage(message);
@@ -472,7 +797,6 @@ const FirebaseCourseWrapperContent = ({
   }, [chatAnimationState, handleChatToggle, isChatMinimized]);
 
   // Helper function to create "Ask AI about this question/example" buttons
-  // Simplified version that just populates the chat input with question text
   const createAskAIButton = useCallback((questionTextOrNumber, userQuestion = null, buttonText = null) => {
     // Handle both direct question text and example numbers
     let messageText;
@@ -576,48 +900,6 @@ const FirebaseCourseWrapperContent = ({
     });
   }, []);
 
-  
-  // Create enriched course items using centralized utility function
-  const allCourseItems = useMemo(() => {
-    return createAllCourseItems(course);
-  }, [course]);
-  
-  // Validate lesson from URL parameter exists in course structure
-  useEffect(() => {
-    // Only validate if we have both an activeItemId AND course structure is loaded
-    if (activeItemId && allCourseItems.length > 0) {
-      
-      // Validate that the current activeItemId (from URL) exists in course structure
-      const lessonExists = allCourseItems.find(item => item.itemId === activeItemId);
-      if (!lessonExists) {
-        // If lesson from URL doesn't exist, clear it so course can set default
-        setActiveItemId(null);
-        // Also clean up the URL and localStorage
-        const url = new URL(window.location);
-        url.searchParams.delete('lesson');
-        window.history.replaceState({}, '', url);
-        
-        const courseId = course?.CourseID || course?.courseId;
-        if (courseId) {
-          const storageKey = `lastLesson_${courseId}`;
-          localStorage.removeItem(storageKey);
-        }
-      } else {
-        // If lesson exists and came from URL, save it to localStorage for future sessions
-        const urlParams = new URLSearchParams(window.location.search);
-        const lessonFromUrl = urlParams.get('lesson');
-        if (lessonFromUrl === activeItemId) {
-          const courseId = course?.CourseID || course?.courseId;
-          if (courseId) {
-            const storageKey = `lastLesson_${courseId}`;
-            localStorage.setItem(storageKey, activeItemId);
-          }
-        }
-      }
-    } else if (activeItemId && allCourseItems.length === 0) {
-    }
-  }, [allCourseItems, activeItemId, course]);
-  
   // Calculate lesson accessibility for the active lesson info panel
   const lessonAccessibility = useMemo(() => {
     
@@ -675,47 +957,85 @@ const FirebaseCourseWrapperContent = ({
     if (!activeItemId) return null;
     return allCourseItems.find(item => item.itemId === activeItemId);
   }, [activeItemId, allCourseItems]);
-  
-  // Preload course module when course ID is known
-  useEffect(() => {
-    const courseId = course?.CourseID;
-    if (courseId && !courseModuleLoaded) {
-      // Preload the appropriate course module
-      let modulePromise;
-      switch(courseId) {
-        case 4:
-        case '4':
-          modulePromise = import('./courses/4');
-          break;
-        case 2:
-        case '2':
-          modulePromise = import('./courses/2');
-          break;
-        case 3:
-        case '3':
-          modulePromise = import('./courses/3');
-          break;
-        case 0:
-        case '0':
-          modulePromise = import('./courses/PHY30');
-          break;
-        case 100:
-        case '100':
-          modulePromise = import('./courses/100');
-          break;
-        default:
-          setCourseModuleLoaded(true); // No module to load
-          return;
-      }
-      
-      modulePromise.then(() => {
-        setCourseModuleLoaded(true);
-      }).catch(err => {
-        console.error('❌ Failed to load course module:', err);
-        setCourseModuleLoaded(true); // Set to true anyway to show error state
-      });
+
+  // Get current unit index
+  const currentUnitIndex = useMemo(() => {
+    if (!activeItemId) {
+      // Default to first unit if no active item
+      return 0;
     }
-  }, [course?.CourseID, courseModuleLoaded]);
+    
+    return unitsList.findIndex(unit => 
+      unit.items && unit.items.some(item => item.itemId === activeItemId)
+    );
+  }, [unitsList, activeItemId]);
+  
+  // Draggable and resizable functionality for AI chat
+  const {
+    position: chatPosition,
+    size: chatSize,
+    isDragging,
+    isResizing,
+    handleDragStart,
+    handleResizeStart,
+    resetToDefault: resetChatPosition
+  } = useDraggableResizable({
+    defaultPosition: { x: window.innerWidth - 644, y: 24 }, // 620px width + 24px margin
+    defaultSize: { width: 620, height: 600 }, // More reasonable initial height
+    minSize: { width: 320, height: 400 },
+    maxSize: { width: 1000, height: Math.min(900, window.innerHeight - 48) },
+    storageKey: `ai-chat-state-course-${course?.CourseID}`,
+    disabled: isMobile
+  });
+  
+  // Debug: Log course prop value
+  console.log('🔍 Course prop value:', course);
+  console.log('🔍 Profile prop value:', profile);
+  console.log('🔍 Profile StudentKey:', profile?.StudentKey);
+  console.log('🔍 Profile StudentEmail:', profile?.StudentEmail);
+  
+  // Now that all hooks are declared, we can do conditional returns
+  // Show loading state if course is temporarily unavailable during transitions
+  if (courseData.loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-blue-600 mb-4">
+            <svg className="mx-auto h-16 w-16 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Course...</h2>
+          <p className="text-gray-600">Please wait while we load the course structure.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no course structure available
+  if (courseData.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Course Structure Loading</h2>
+          <p className="text-gray-600 mb-4">{courseData.error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Debug logging
 
   // Validate gradebook structure and sync course config when course loads
   // TEMPORARILY COMMENTED OUT FOR TESTING - Kyle
@@ -774,128 +1094,7 @@ const FirebaseCourseWrapperContent = ({
   }, [course?.CourseID, currentUser?.email, allCourseItems.length, isStaffView, devMode]);
   */
 
-  // Set content ready state when all necessary data is loaded including course module
-  useEffect(() => {
-    const hasStructure = allCourseItems.length > 0;
-    const hasCourseData = !!course;
-    const hasTitle = !!courseData.title;
-    const hasModule = courseModuleLoaded;
-    
-    if (hasStructure && hasCourseData && hasTitle && hasModule && !isContentReady) {
-      // Small delay to prevent flickering
-      const timer = setTimeout(() => {
-        setIsContentReady(true);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [allCourseItems.length, course, courseData.title, courseModuleLoaded, isContentReady]);
-  
-  // Utility function to extract lesson-specific questions
-  const getLessonSpecificQuestions = useCallback((courseId, lessonId, assessments) => {
-    if (!courseId || !lessonId || !assessments) {
-      return {};
-    }
-    
-    // Convert lesson ID to question pattern: "01-physics-20-review" -> "course2_01_physics_20_review"
-    // Handle both hyphenated and underscored lessonId formats
-    const normalizedLessonId = lessonId.replace(/-/g, '_');
-    const questionPattern = `course${courseId}_${normalizedLessonId}`;
-    
-    
-    const lessonQuestions = {};
-    
-    Object.entries(assessments).forEach(([questionId, questionData]) => {
-      if (questionId.startsWith(questionPattern)) {
-        // Extract only the relevant fields for AI context
-        lessonQuestions[questionId] = {
-          questionText: questionData.questionText,
-          options: questionData.options,
-          activityType: questionData.activityType,
-          attempts: questionData.attempts || 0,
-          status: questionData.status,
-          // Include lastSubmission if it exists
-          ...(questionData.lastSubmission && {
-            lastSubmission: {
-              answer: questionData.lastSubmission.answer,
-              correctOptionId: questionData.lastSubmission.correctOptionId,
-              feedback: questionData.lastSubmission.feedback,
-              isCorrect: questionData.lastSubmission.isCorrect,
-              timestamp: questionData.lastSubmission.timestamp
-            }
-          })
-        };
-      }
-    });
-    
-    
-    return lessonQuestions;
-  }, []);
-
   // GRADE CALCULATION UTILITY FUNCTIONS - Now imported from utils
-
-  // Load AI prompt when active lesson changes
-  useEffect(() => {
-    const loadPromptForLesson = async () => {
-      if (!activeItemId || !course?.CourseID) {
-        return;
-      }
-      
-      setIsLoadingPrompt(true);
-      try {
-        const prompt = await loadLessonPrompt(course.CourseID, activeItemId);
-        
-        // Enhance prompt with additional context
-        const currentItem = allCourseItems.find(item => item.itemId === activeItemId);
-        const currentUnit = unitsList.find(unit => 
-          unit.items?.some(item => item.itemId === activeItemId)
-        );
-        
-        // Extract lesson-specific questions from course assessments
-        const lessonQuestions = getLessonSpecificQuestions(
-          course.CourseID, 
-          activeItemId, 
-          course.Assessments
-        );
-        
-        // Calculate progress for this specific use
-        let courseProgress = 0;
-        if (allCourseItems.length > 0) {
-          const gradebook = course?.Gradebook;
-          const completedCount = allCourseItems.filter(item => {
-            const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
-            const gradebookItem = gradebook?.items?.[item.itemId];
-            return courseStructureItem?.completed || gradebookItem?.status === 'completed' || gradebookItem?.status === 'manually_graded';
-          }).length;
-          courseProgress = Math.round((completedCount / allCourseItems.length) * 100);
-        }
-        
-        const enhancedPrompt = enhancePromptWithContext(prompt, {
-          currentUnit: currentUnit?.title || currentUnit?.name,
-          lessonTitle: currentItem?.title,
-          lessonType: currentItem?.type,
-          studentProgress: `${courseProgress}% course completion`,
-          keywords: currentItem?.keywords || [],
-          lessonQuestions: lessonQuestions,
-          studentName: profile?.preferredFirstName || profile?.firstName
-        });
-        
-        // Add lesson questions to the enhanced prompt for AI context
-        enhancedPrompt.lessonQuestions = lessonQuestions;
-        
-        
-        setCurrentAIPrompt(enhancedPrompt);
-      } catch (error) {
-        console.error('Failed to load AI prompt:', error);
-        // Will use default prompt from the loader
-      } finally {
-        setIsLoadingPrompt(false);
-      }
-    };
-    
-    if (activeItemId) {
-      loadPromptForLesson();
-    }
-  }, [activeItemId, course?.CourseID, allCourseItems, unitsList, course?.Gradebook, course?.Assessments, getLessonSpecificQuestions]);
   
   // Show error state if no course structure available
   if (courseData.error) {
@@ -919,173 +1118,6 @@ const FirebaseCourseWrapperContent = ({
       </div>
     );
   }
-
-  // Calculate progress using simplified cloud function data - Using new courseProgressUtils
-  useEffect(() => {
-    // Check if we have valid gradebook data from cloud functions
-    if (!hasValidGradebookData(course) || !allCourseItems.length) {
-      console.log('📊 Gradebook data not available yet or no course items');
-      setProgress({});
-      return;
-    }
-    
-    // Use simplified progress calculation from courseProgressUtils
-    const navigationProgress = getNavigationProgress(course, allCourseItems);
-    setProgress(navigationProgress);
-    
-    console.log('📊 Progress calculated using cloud function data:', Object.keys(navigationProgress).length, 'completed items');
-  }, [course?.Gradebook, allCourseItems, realtimeGradebook, dataUpdateTrigger]);
-
-  // Realtime listener for grades updates
-  useEffect(() => {
-    // Only set up listener if we have a course ID and user email
-    const courseId = course?.CourseID || course?.courseId;
-    const userEmail = currentUser?.email || profile?.StudentEmail;
-    
-    if (!courseId || !userEmail) {
-      return;
-    }
-    
-    // Sanitize email for Firebase path
-    const sanitizedEmail = sanitizeEmail(userEmail);
-    const gradesPath = `students/${sanitizedEmail}/courses/${courseId}/Grades/assessments`;
-    
-    console.log('🔄 Setting up realtime grades listener for:', gradesPath);
-    
-    // Create database reference
-    const db = getDatabase();
-    const gradesRef = ref(db, gradesPath);
-    
-    // Set up the listener
-    const unsubscribe = onValue(gradesRef, (snapshot) => {
-      const gradesData = snapshot.val();
-      console.log('📊 Realtime grades update received:', gradesData ? 'Data present' : 'No data');
-      
-      // Update the realtime grades state
-      setRealtimeGrades(gradesData || {});
-      
-      // Update the course object's grades if they exist
-      if (gradesData && course?.Grades) {
-        course.Grades.assessments = gradesData;
-      }
-      
-      // Force re-render by updating trigger
-      setDataUpdateTrigger(prev => prev + 1);
-    }, (error) => {
-      console.error('❌ Error in grades listener:', error);
-    });
-    
-    // Cleanup function
-    return () => {
-      console.log('🔚 Cleaning up grades listener');
-      off(gradesRef, 'value');
-    };
-  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
-
-  // Realtime listener for ExamSessions updates (for session-based scoring)
-  useEffect(() => {
-    // Only set up listener if we have a course ID and user email
-    const courseId = course?.CourseID || course?.courseId;
-    const userEmail = currentUser?.email || profile?.StudentEmail;
-    
-    if (!courseId || !userEmail) {
-      return;
-    }
-    
-    // Listen to the student's specific exam sessions path
-    const sanitizedEmail = sanitizeEmail(userEmail);
-    const examSessionsPath = `students/${sanitizedEmail}/courses/${courseId}/ExamSessions`;
-    
-    console.log('🔄 Setting up realtime ExamSessions listener for:', examSessionsPath);
-    
-    // Create database reference
-    const db = getDatabase();
-    const examSessionsRef = ref(db, examSessionsPath);
-    
-    // Set up the listener
-    const unsubscribe = onValue(examSessionsRef, (snapshot) => {
-      const sessionsData = snapshot.val();
-      console.log('📊 Realtime ExamSessions update received:', sessionsData ? 'Data present' : 'No data');
-      
-      // Update the realtime exam sessions state
-      setRealtimeExamSessions(sessionsData || {});
-      
-      // Update the course object's exam sessions if they exist
-      if (sessionsData && course) {
-        course.ExamSessions = sessionsData;
-      }
-      
-      // Force re-render by updating trigger
-      setDataUpdateTrigger(prev => prev + 1);
-    }, (error) => {
-      console.error('❌ Error in ExamSessions listener:', error);
-    });
-    
-    // Cleanup function
-    return () => {
-      console.log('🔚 Cleaning up ExamSessions listener');
-      off(examSessionsRef, 'value');
-    };
-  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
-
-  // Realtime listener for Gradebook updates (cloud function calculated data)
-  useEffect(() => {
-    // Only set up listener if we have a course ID and user email
-    const courseId = course?.CourseID || course?.courseId;
-    const userEmail = currentUser?.email || profile?.StudentEmail;
-    
-    if (!courseId || !userEmail) {
-      return;
-    }
-    
-    // Listen to the student's specific gradebook path
-    const sanitizedEmail = sanitizeEmail(userEmail);
-    const gradebookPath = `students/${sanitizedEmail}/courses/${courseId}/Gradebook`;
-    
-    console.log('🔄 Setting up realtime Gradebook listener for:', gradebookPath);
-    
-    // Create database reference
-    const db = getDatabase();
-    const gradebookRef = ref(db, gradebookPath);
-    
-    // Set up the listener
-    const unsubscribe = onValue(gradebookRef, (snapshot) => {
-      const gradebookData = snapshot.val();
-      console.log('📊 Realtime Gradebook update received:', gradebookData ? 'Data present' : 'No data');
-      
-      // Update the realtime gradebook state
-      setRealtimeGradebook(gradebookData || {});
-      
-      // Update the course object's gradebook if it exists
-      if (gradebookData && course) {
-        course.Gradebook = gradebookData;
-      }
-      
-      // Force re-render by updating trigger
-      setDataUpdateTrigger(prev => prev + 1);
-    }, (error) => {
-      console.error('❌ Error in Gradebook listener:', error);
-    });
-    
-    // Cleanup function
-    return () => {
-      console.log('🔚 Cleaning up Gradebook listener');
-      off(gradebookRef, 'value');
-    };
-  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail]);
- 
-  
-  // Get current unit index
-  const currentUnitIndex = useMemo(() => {
-    if (!activeItemId) {
-      // Default to first unit if no active item
-      return 0;
-    }
-    
-    return unitsList.findIndex(unit => 
-      unit.items && unit.items.some(item => item.itemId === activeItemId)
-    );
-  }, [unitsList, activeItemId]);
 
   return (
     <div className="min-h-screen">
@@ -1260,7 +1292,13 @@ const FirebaseCourseWrapperContent = ({
                 // Use simplified lesson score from cloud function data
                 const lessonScore = getLessonScore(currentActiveItem.itemId, course);
                 
+                // DEBUG: Log lesson score data for troubleshooting
+                console.log('🔍 DEBUG - Progress bar check for lesson:', currentActiveItem.itemId);
+                console.log('🔍 DEBUG - Lesson score data:', lessonScore);
+                console.log('🔍 DEBUG - Item type:', currentActiveItem.type);
+                
                 if (!lessonScore.valid || lessonScore.totalQuestions === 0) {
+                  console.log('🔍 DEBUG - Progress bars hidden because:', !lessonScore.valid ? 'invalid score' : 'no questions');
                   return null;
                 }
                 

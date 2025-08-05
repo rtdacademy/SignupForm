@@ -1,0 +1,82 @@
+[
+  {
+    "questionId": "course2_70_question1",
+    "title": "Bubble Chamber vs Cloud Chamber Advantages",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question2",
+    "title": "Particles That Don't Leave Tracks in Bubble Chambers",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question3",
+    "title": "Magnetic Fields in Detection Chambers",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question4",
+    "title": "Alpha vs Proton Track Characteristics",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question5",
+    "title": "Proton vs Electron Track Differences",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question6",
+    "title": "Psi Particle Mass Conversion",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question7",
+    "title": "Beta Decay Neutrino Energy Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question8",
+    "title": "Maximum Electron Energy in Beta Decay",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question9",
+    "title": "Positron Emission Neutrino Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question10",
+    "title": "Neutron-Antineutron Pair Production Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question11",
+    "title": "X-ray Photon Pair Production Threshold",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question12",
+    "title": "Electron-Positron Annihilation Wavelength",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question13",
+    "title": "Conservation Laws in Particle Interactions",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question14",
+    "title": "Proton-Proton Attraction Conditions",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question15",
+    "title": "Fundamental Force Strength at Different Scales",
+    "points": 1
+  },
+  {
+    "questionId": "course2_70_question16",
+    "title": "Virtual Particle Exchange in Quantum Field Theory",
+    "points": 1
+  }
+]

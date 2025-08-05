@@ -1,0 +1,42 @@
+[
+  {
+    "questionId": "course2_59_l2830_question1",
+    "title": "Quantum Energy Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question2",
+    "title": "Photon Wavelength from Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question3",
+    "title": "Work Function from Threshold Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question4",
+    "title": "Photoelectron Speed Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question5",
+    "title": "Stopping Voltage Determination",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question6",
+    "title": "Lichtium Energy Level Analysis",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question7",
+    "title": "Absorption Wavelengths from Energy Levels",
+    "points": 1
+  },
+  {
+    "questionId": "course2_59_l2830_question8",
+    "title": "Emission Photon Wavelength Count",
+    "points": 1
+  }
+]

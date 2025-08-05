@@ -1,0 +1,77 @@
+[
+  {
+    "questionId": "course2_66_question1",
+    "title": "Nuclear Reaction with Alpha Particle",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question2",
+    "title": "Artificial Transmutation Conservation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question3",
+    "title": "Velocity Selector Potential Difference",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question4",
+    "title": "Ion Mass from Circular Motion",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question5",
+    "title": "Carbon Isotope Mass Number",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question6",
+    "title": "Cobalt-59 Mass Defect",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question7",
+    "title": "Chlorine Average Atomic Mass",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question8",
+    "title": "Lithium-7 Binding Energy",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question9",
+    "title": "Radium-226 Binding Energy per Nucleon",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question10",
+    "title": "Sun Mass Loss Rate",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question11",
+    "title": "Uranium Fission Atom Count",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question12",
+    "title": "Hiroshima Bomb Mass Conversion",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question13",
+    "title": "Uranium Fission Energy Release",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question14",
+    "title": "Helium Fusion Energy Release",
+    "points": 1
+  },
+  {
+    "questionId": "course2_66_question15",
+    "title": "Nuclear Power Plant Mass Change",
+    "points": 1
+  }
+]
