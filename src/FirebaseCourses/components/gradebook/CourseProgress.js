@@ -513,13 +513,14 @@ const LessonProgressRow = ({ lesson, onViewDetails, canOverride, onOverrideToggl
 
   // Handle row click to open details modal
   const handleRowClick = () => {
-    if (lesson.isConfigured && lesson.questions.length > 0) {
+    // Only check if configured - the modal has fallback logic to fetch questions
+    if (lesson.isConfigured) {
       onViewDetails();
     }
   };
 
-  // Determine if row should be clickable
-  const isClickable = lesson.isConfigured && lesson.questions.length > 0;
+  // Determine if row should be clickable - only needs to be configured
+  const isClickable = lesson.isConfigured;
 
   return (
     <tr 

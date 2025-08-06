@@ -26,6 +26,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
   const [realtimeExamSessions, setRealtimeExamSessions] = useState(null);
   const [realtimeGrades, setRealtimeGrades] = useState(null);
   const [itemStructure, setItemStructure] = useState(null);
+  const [realtimeCourseStructure, setRealtimeCourseStructure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -53,7 +54,8 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     const assessmentsRef = ref(database, `students/${userEmailKey}/courses/${courseId}/Assessments`);
     const examSessionsRef = ref(database, `students/${userEmailKey}/courses/${courseId}/ExamSessions`);
     const gradesRef = ref(database, `students/${userEmailKey}/courses/${courseId}/Grades`);
-    const itemStructureRef = ref(database, `courses/${courseId}/course-config/gradebook/itemStructure`);
+    const itemStructureRef = ref(database, `courses/${courseId}/course-config/itemStructure`);
+    const courseStructureRef = ref(database, `courses/${courseId}/course-config/courseStructure`);
 
     setLoading(true);
     setError(null);
@@ -94,6 +96,21 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
       setItemStructure(data);
     }, (error) => handleError(error, 'itemStructure'));
 
+    const unsubscribeCourseStructure = onValue(courseStructureRef, (snapshot) => {
+      const data = snapshot.exists() ? snapshot.val() : null;
+      if (data && data.units) {
+        console.log('🔍 CourseStructure listener update: Loaded', data.units.length, 'units');
+        // Log first unit for debugging
+        if (data.units.length > 0 && data.units[0].items) {
+          const firstItem = data.units[0].items[0];
+          console.log('🔍 First item has questions:', firstItem?.questions?.length || 0);
+        }
+      } else {
+        console.log('🔍 CourseStructure listener update: No data found');
+      }
+      setRealtimeCourseStructure(data);
+    }, (error) => handleError(error, 'courseStructure'));
+
     // Set loading to false after a brief delay to allow initial data to load
     const loadingTimeout = setTimeout(() => {
       setLoading(false);
@@ -108,20 +125,30 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
       unsubscribeExamSessions();
       unsubscribeGrades();
       unsubscribeItemStructure();
+      unsubscribeCourseStructure();
     };
   }, [userEmailKey, courseId]);
 
   // Create enriched course object from realtime data
   const enrichedCourse = useMemo(() => {
-    if (!realtimeGradebook && !realtimeSchedule && !realtimeAssessments) {
+    if (!realtimeGradebook && !realtimeSchedule && !realtimeAssessments && !realtimeCourseStructure) {
       return course; // Return original course if no realtime data yet
     }
 
     // Create enriched course object by combining original course with realtime data
     const enriched = {
       ...course,
-      // Override with realtime data where available
-      Gradebook: realtimeGradebook || course.Gradebook,
+      // Override with realtime data where available, but preserve course structure
+      Gradebook: realtimeGradebook ? {
+        ...realtimeGradebook,
+        // Preserve original courseStructure from course.Gradebook if it exists
+        courseStructure: course.Gradebook?.courseStructure || realtimeGradebook.courseStructure,
+        // Preserve courseConfig with courseStructure
+        courseConfig: course.Gradebook?.courseConfig ? {
+          ...course.Gradebook.courseConfig,
+          courseStructure: course.Gradebook?.courseConfig?.courseStructure || realtimeGradebook.courseConfig?.courseStructure
+        } : realtimeGradebook.courseConfig
+      } : course.Gradebook,
       ScheduleJSON: realtimeSchedule || course.ScheduleJSON,
       Assessments: realtimeAssessments || course.Assessments,
       ExamSessions: realtimeExamSessions || course.ExamSessions,
@@ -131,9 +158,11 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
         ...course.courseDetails,
         'course-config': {
           ...course.courseDetails?.['course-config'],
+          // Use realtime courseStructure if available, otherwise fall back to original
+          courseStructure: realtimeCourseStructure || course.courseDetails?.['course-config']?.courseStructure,
+          itemStructure: itemStructure || course.courseDetails?.['course-config']?.itemStructure,
           gradebook: {
-            ...course.courseDetails?.['course-config']?.gradebook,
-            itemStructure: itemStructure || course.courseDetails?.['course-config']?.gradebook?.itemStructure
+            ...course.courseDetails?.['course-config']?.gradebook
           }
         }
       },
@@ -143,7 +172,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     };
 
     return enriched;
-  }, [course, realtimeGradebook, realtimeSchedule, realtimeAssessments, realtimeExamSessions, realtimeGrades, itemStructure]);
+  }, [course, realtimeGradebook, realtimeSchedule, realtimeAssessments, realtimeExamSessions, realtimeGrades, itemStructure, realtimeCourseStructure]);
 
   // Create enriched course items using the utility function with realtime data
   const enrichedCourseItems = useMemo(() => {
@@ -152,7 +181,16 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     }
     
     const unitsList = getCourseUnitsList(enrichedCourse);
+    console.log('🔍 GradebookDashboardRealtime: Units list found:', unitsList?.length || 0, 'units');
+    
     const enrichedItems = createEnrichedCourseItems(enrichedCourse, unitsList);
+    console.log('🔍 GradebookDashboardRealtime: Enriched items created:', enrichedItems?.length || 0, 'items');
+    
+    // Debug: Check if first few items have questions
+    if (enrichedItems.length > 0) {
+      const firstItem = enrichedItems[0];
+      console.log('🔍 GradebookDashboardRealtime: First item questions:', firstItem?.questions?.length || 0, 'questions');
+    }
     
     return enrichedItems;
   }, [enrichedCourse]);

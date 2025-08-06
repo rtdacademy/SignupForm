@@ -131,11 +131,8 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
         paymentType: isSubscription ? 'subscription_3_month' : 'one_time'
       };
 
-      // Add cancel_at to metadata for subscription payments
-      if (isSubscription) {
-        const subscriptionEndDate = calculateSubscriptionEndDate();
-        baseMetadata.cancel_at = subscriptionEndDate.toISOString();
-      }
+      // Note: All subscriptions are now automatically limited to 3 payments
+      // The webhook handler will cancel after the 3rd successful payment
 
       const sessionData = {
         success_url: `${window.location.origin}/payment/result?session_id={CHECKOUT_SESSION_ID}`,

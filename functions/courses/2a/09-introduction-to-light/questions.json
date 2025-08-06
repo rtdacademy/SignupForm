@@ -1,0 +1,87 @@
+[
+  {
+    "questionId": "course2_09_pinhole_distance_calculation",
+    "title": "Pinhole Camera Distance Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_building_height_calculation",
+    "title": "Building Height Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_shadow_size_calculation",
+    "title": "Shadow Size Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_shadow_area_calculation",
+    "title": "Shadow Area Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_fence_shadow_calculation",
+    "title": "Fence Shadow Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_michelson_six_sided_calculation",
+    "title": "Michelson Six-Sided Mirror Speed of Light",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_michelson_eight_sided_frequency",
+    "title": "Michelson Eight-Sided Mirror Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_michelson_pentagonal_frequency",
+    "title": "Michelson Pentagonal Mirror Frequency",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_michelson_twelve_sided_distance",
+    "title": "Michelson Twelve-Sided Mirror Distance",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_space_station_radio_signal",
+    "title": "Space Station Radio Signal Travel Time",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_light_travel_three_years",
+    "title": "Light Travel Distance in Three Years",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_star_explosion_observation",
+    "title": "Star Explosion Observation Time",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_proxima_centauri_distance",
+    "title": "Proxima Centauri Distance in Meters",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_spacecraft_travel_time",
+    "title": "Spacecraft Travel Time at 0.1c",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_sunlight_travel_time",
+    "title": "Sunlight Travel Time to Earth",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_galileo_light_travel",
+    "title": "Galileo's Earth-Jupiter Light Travel",
+    "points": 1
+  },
+  {
+    "questionId": "course2_09_earth_jupiter_speed_calculation",
+    "title": "Earth-Jupiter Distance Calculation",
+    "points": 1
+  }
+]

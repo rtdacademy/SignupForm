@@ -209,11 +209,62 @@ const renderEnhancedText = (text) => {
   );
 };
 
-const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = false, onGradeUpdate }) => {
+const LessonDetailModal = ({ isOpen, onClose, lesson, course, courseUnits, isStaffView = false, onGradeUpdate }) => {
   if (!lesson) return null;
 
   const assessments = course?.Assessments || {};
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+  
+  // Get questions from lesson or fallback to course structure
+  const getQuestions = useMemo(() => {
+    // First, try to use questions from the lesson object
+    if (lesson.questions && lesson.questions.length > 0) {
+      return lesson.questions;
+    }
+    
+    // Fallback: find questions from course structure
+    if (!courseUnits || courseUnits.length === 0) {
+      // Try alternate path through course.courseDetails
+      const units = course?.courseDetails?.['course-config']?.courseStructure?.units || [];
+      for (const unit of units) {
+        if (unit.items && Array.isArray(unit.items)) {
+          const originalItem = unit.items.find(item => item.itemId === lesson.lessonId);
+          if (originalItem && originalItem.questions && originalItem.questions.length > 0) {
+            // Transform to match expected format
+            return originalItem.questions.map(q => ({
+              id: q.questionId,
+              title: q.title || q.questionId,
+              points: q.points || 0,
+              actualGrade: course?.Grades?.assessments?.[q.questionId] || 0,
+              attempted: course?.Grades?.assessments?.hasOwnProperty(q.questionId) || false,
+              assessmentData: assessments[q.questionId]
+            }));
+          }
+        }
+      }
+    } else {
+      // Use courseUnits passed from parent
+      for (const unit of courseUnits) {
+        if (unit.items && Array.isArray(unit.items)) {
+          const originalItem = unit.items.find(item => item.itemId === lesson.lessonId);
+          if (originalItem && originalItem.questions && originalItem.questions.length > 0) {
+            // Transform to match expected format
+            return originalItem.questions.map(q => ({
+              id: q.questionId,
+              title: q.title || q.questionId,
+              points: q.points || 0,
+              actualGrade: course?.Grades?.assessments?.[q.questionId] || 0,
+              attempted: course?.Grades?.assessments?.hasOwnProperty(q.questionId) || false,
+              assessmentData: assessments[q.questionId]
+            }));
+          }
+        }
+      }
+    }
+    
+    // If no questions found, return empty array
+    return [];
+  }, [lesson, courseUnits, course, assessments]);
   
   // Reset selectedSessionId when modal closes or lesson changes
   useEffect(() => {
@@ -432,13 +483,14 @@ const LessonDetailModal = ({ isOpen, onClose, lesson, course, isStaffView = fals
                   
                   <div className="space-y-4">
                     {(() => {
-                      // Get questions directly from lesson object
-                      const questions = lesson.questions || [];
+                      // Use the getQuestions computed value with fallback
+                      const questions = getQuestions;
                       
                       if (questions.length === 0) {
                         return (
                           <div className="text-center py-8 text-gray-500">
-                            No questions found for this lesson.
+                            <div>No questions found for this lesson.</div>
+                            <div className="text-sm mt-2">This lesson may not have questions configured or they couldn't be loaded from the course structure.</div>
                           </div>
                         );
                       }

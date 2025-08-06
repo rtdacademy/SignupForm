@@ -162,6 +162,18 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     }
   };
 
+  const handlePaymentStatusUpdate = (newStatus) => {
+    // Update local state immediately for real-time UI updates
+    setCourseEnrollmentData(prev => ({
+      ...prev,
+      payment_status: {
+        ...prev.payment_status,
+        status: newStatus,
+        last_updated: Date.now()
+      }
+    }));
+  };
+
   const renderEditableField = (label, field, options, readOnly = false) => {
     // Make field read-only if user is not admin (with exception for teachers editing diploma month)
     const isDiplomaMonthField = field === 'DiplomaMonthChoices_Value';
@@ -317,6 +329,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
               paymentStatus={courseEnrollmentData.payment_status?.status}
               paymentDetails={courseEnrollmentData.paymentDetails}
               readOnly={!isAdminUser}
+              onPaymentStatusUpdate={handlePaymentStatusUpdate}
             />
           </ScrollArea>
         </TabsContent>

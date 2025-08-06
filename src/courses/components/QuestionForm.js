@@ -67,7 +67,7 @@ const QuestionForm = ({
       ? existingQuestions.filter(q => q.questionId !== question.questionId)
       : existingQuestions;
     
-    const validation = validateQuestionId(formData.questionId, currentQuestions);
+    const validation = validateQuestionId(formData.questionId, currentQuestions, true);
     setValidation(validation);
   }, [formData.questionId, existingQuestions, question]);
 

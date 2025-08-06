@@ -163,29 +163,33 @@ export const generateImportPreview = (questions, courseId, itemNumber, existingQ
     result.errors.push('No questions to preview');
     return result;
   }
-
-  const startingQuestionNumber = getNextQuestionNumber(existingQuestions);
   
   questions.forEach((question, index) => {
-    const questionNumber = startingQuestionNumber + index;
-    const generatedId = generateQuestionIdPreview(courseId, itemNumber, questionNumber, question.title);
-    
     const previewItem = {
       originalIndex: index,
       title: question.title,
       points: question.points,
-      questionId: generatedId,
+      questionId: question.questionId,
       status: 'valid',
       errors: [],
       warnings: []
     };
 
-    // Validate question ID
-    const idValidation = validateQuestionId(generatedId, existingQuestions);
-    if (!idValidation.isValid) {
+    // Validate that questionId is present
+    if (!question.questionId || typeof question.questionId !== 'string' || !question.questionId.trim()) {
       previewItem.status = 'error';
-      previewItem.errors = idValidation.errors;
+      previewItem.errors.push('Question ID is required');
       result.summary.errors++;
+    }
+
+    // Validate question ID format if present
+    if (question.questionId) {
+      const idValidation = validateQuestionId(question.questionId, existingQuestions, false);
+      if (!idValidation.isValid) {
+        previewItem.status = 'error';
+        previewItem.errors.push(...idValidation.errors);
+        result.summary.errors++;
+      }
     }
 
     // Check for duplicate titles

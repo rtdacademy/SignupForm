@@ -1,0 +1,37 @@
+[
+  {
+    "questionId": "course2_10_angle_of_incidence_basic",
+    "title": "Angle of Incidence and Reflection",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_surface_to_normal_angle",
+    "title": "Surface Angle to Normal Angle",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_total_angle_between_rays",
+    "title": "Total Angle Between Incident and Reflected Rays",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_two_mirrors_scenario_a",
+    "title": "Two Mirrors Reflection Scenario A",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_two_mirrors_scenario_b",
+    "title": "Two Mirrors Reflection Scenario B",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_mirror_image_description",
+    "title": "Mirror Image of Letter G",
+    "points": 1
+  },
+  {
+    "questionId": "course2_10_mirror_time_reading",
+    "title": "Clock Time Reading in Mirror",
+    "points": 1
+  }
+]

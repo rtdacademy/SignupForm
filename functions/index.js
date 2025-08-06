@@ -306,6 +306,7 @@ exports.saveStudentScheduleV2 = studentScheduleV2Functions.saveStudentScheduleV2
 // Gradebook functions - NEW SERVER-SIDE SYSTEM
 exports.updateGradebookOnSessionComplete = gradebookFunctions.updateGradebookOnSessionComplete;
 exports.updateGradebookOnAssessmentScore = gradebookFunctions.updateGradebookOnAssessmentScore;
+exports.recalculateStudentGradebook = gradebookFunctions.recalculateStudentGradebook;
 
 
 // Exam session management functions

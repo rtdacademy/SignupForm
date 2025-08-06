@@ -918,6 +918,9 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
       const { type, questions } = itemConfig;
       
+      // Skip omitted items when calculating max points (we'll read omittedItems later)
+      // For now, include all items - we'll adjust later when we have the omitted items data
+      
       if (!categoryMaxPoints[type]) {
         categoryMaxPoints[type] = 0;
       }
@@ -936,13 +939,25 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    const [gradesSnapshot, sessionsSnapshot] = await Promise.all([
+    const [gradesSnapshot, sessionsSnapshot, omittedSnapshot] = await Promise.all([
       db.ref(`${basePath}/Grades/assessments`).once('value'),
-      db.ref(`${basePath}/ExamSessions`).once('value')
+      db.ref(`${basePath}/ExamSessions`).once('value'),
+      db.ref(`${basePath}/Gradebook/omittedItems`).once('value')
     ]);
     
     const grades = gradesSnapshot.val() || {};
     const sessions = sessionsSnapshot.val() || {};
+    const omittedItems = omittedSnapshot.val() || {};
+    
+    // Adjust category max points by removing points from omitted items
+    Object.entries(omittedItems).forEach(([itemId, omitData]) => {
+      const itemConfig = itemStructure[itemId];
+      if (itemConfig && itemConfig.questions && Array.isArray(itemConfig.questions)) {
+        const itemMaxPoints = itemConfig.questions.reduce((sum, question) => sum + (question.points || 1), 0);
+        categoryMaxPoints[itemConfig.type] = Math.max(0, categoryMaxPoints[itemConfig.type] - itemMaxPoints);
+        console.log(`📉 Reduced ${itemConfig.type} category max points by ${itemMaxPoints} due to omitted item: ${itemId}`);
+      }
+    });
     
     // If we have a triggering session, re-fetch it specifically to ensure we have the latest data
     if (triggeringSessionId && sessions[triggeringSessionId]) {
@@ -965,6 +980,11 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     // Process each item in the course structure
     for (const [itemId, itemConfig] of Object.entries(itemStructure)) {
       const { type, questions } = itemConfig;
+      
+      const isOmitted = omittedItems[itemId];
+      if (isOmitted) {
+        console.log(`📝 Processing omitted item (will exclude from totals): ${itemId}`);
+      }
       
       // Initialize category if not exists
       if (!categoryTotals[type]) {
@@ -1038,40 +1058,64 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
           }
         }
       } else if (questions) {
-        // Use individual question scoring
-        let totalScore = 0;
-        let totalPossible = 0;
-        let attemptedQuestions = 0;
+        // Check for manual teacher override first
+        const existingItemData = await db.ref(`${basePath}/Gradebook/items/${itemId}`).once('value');
+        const itemData = existingItemData.val();
         
-        questions.forEach(question => {
-          const questionId = question.questionId;
-          const maxPoints = question.points || 1;
-          const actualGrade = grades[questionId] || 0;
+        if (itemData && itemData.isManualOverride === true) {
+          // Use manual override score
+          console.log(`📝 Using manual override for ${itemId}: ${itemData.manualScore}/${itemData.manualTotal}`);
           
-          totalPossible += maxPoints;
-          totalScore += actualGrade;
+          itemScore = {
+            score: itemData.manualScore || 0,
+            total: itemData.manualTotal || 0,
+            percentage: itemData.manualTotal > 0 ? (itemData.manualScore / itemData.manualTotal) * 100 : 0,
+            attempted: itemData.manualTotal || 0, // Consider fully attempted if manually set
+            source: 'individual',
+            strategy: 'teacher_manual',
+            isManualOverride: true,
+            originalScore: itemData.originalScore,
+            originalTotal: itemData.originalTotal
+          };
+        } else {
+          // Use individual question scoring (original logic)
+          let totalScore = 0;
+          let totalPossible = 0;
+          let attemptedQuestions = 0;
           
-          if (grades.hasOwnProperty(questionId)) {
-            attemptedQuestions++;
-          }
-        });
-        
-        const percentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
-        
-        itemScore = {
-          score: totalScore,
-          total: totalPossible,
-          percentage,
-          attempted: attemptedQuestions,
-          source: 'individual'
-        };
+          questions.forEach(question => {
+            const questionId = question.questionId;
+            const maxPoints = question.points || 1;
+            const actualGrade = grades[questionId] || 0;
+            
+            totalPossible += maxPoints;
+            totalScore += actualGrade;
+            
+            if (grades.hasOwnProperty(questionId)) {
+              attemptedQuestions++;
+            }
+          });
+          
+          const percentage = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0;
+          
+          itemScore = {
+            score: totalScore,
+            total: totalPossible,
+            percentage,
+            attempted: attemptedQuestions,
+            source: 'individual'
+          };
+        }
       }
       
-      // Store item score
-      itemScores[itemId] = itemScore;
+      // Store item score (always store, even if omitted)
+      itemScores[itemId] = {
+        ...itemScore,
+        isOmitted: isOmitted || false  // Add omitted flag to item score
+      };
       
-      // Add to category totals
-      if (itemScore.total > 0) { // Only count items with actual points
+      // Add to category totals (but skip omitted items)
+      if (!isOmitted && itemScore.total > 0) { // Only count non-omitted items with actual points
         categoryTotals[type].score += itemScore.score;
         categoryTotals[type].total += itemScore.total;
         categoryTotals[type].itemCount++;
@@ -1090,6 +1134,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
         if (itemScore.completed) {
           categoryTotals[type].completedCount++;
         }
+      } else if (isOmitted) {
+        console.log(`⏭️ Excluded omitted item from category totals: ${itemId} (but preserved item data)`);
       }
     }
     
@@ -1156,6 +1202,7 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     throw error;
   }
 }
+
 
 
 module.exports = {

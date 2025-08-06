@@ -71,13 +71,17 @@ import {
   AlertTriangle,
   Calendar,
   CalendarDays,
-  CalendarCheck
+  CalendarCheck,
+  EyeOff,
+  Ban,
+  MoreVertical
 } from 'lucide-react';
 import { 
   checkLessonCompletion,
   findAssessmentSessions,
   shouldUseSessionBasedScoring 
 } from '../../utils/gradeCalculations';
+import { getCourseUnitsList } from '../../utils/courseItemsUtils';
 
 // Helper function to get due date status and styling
 const getDueDateStatus = (scheduledDate, isCompleted = false) => {
@@ -185,6 +189,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import LessonDetailModal from './LessonDetailModal';
+import { toast } from 'sonner';
 
 /**
  * Helper function to update session final results directly in Firebase
@@ -222,7 +227,6 @@ const AssessmentGridProps = ({
   
   
   // Extract data from props instead of course object
-  const itemStructure = course?.courseDetails?.['course-config']?.gradebook?.itemStructure || {};
   const actualGrades = course?.Grades?.assessments || course?.Grades || {};
   const assessments = course?.Assessments || {};
   
@@ -232,6 +236,15 @@ const AssessmentGridProps = ({
   // Determine if this is a staff view (teacher looking at student data)
   const isStaffView = currentUser?.email && studentEmail && 
                       currentUser.email !== studentEmail;
+  
+  // State for omitted items
+  const [omittedItems, setOmittedItems] = useState({});
+  const [loadingOmittedItems, setLoadingOmittedItems] = useState(true);
+  const [togglingOmit, setTogglingOmit] = useState({});
+  
+  // State for dropdown menu
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const dropdownRef = useRef(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -244,9 +257,218 @@ const AssessmentGridProps = ({
   const [editingTeacherScore, setEditingTeacherScore] = useState(null);
   const [teacherScoreValue, setTeacherScoreValue] = useState('');
   const [updatingTeacherScore, setUpdatingTeacherScore] = useState(false);
+  const [recalculatingGradebook, setRecalculatingGradebook] = useState(false);
+  const [recalculationError, setRecalculationError] = useState(null);
   
   // Use enriched course items directly from props
   const allCourseItems = enrichedCourseItems || [];
+  
+  // Load omitted items from Firebase on component mount
+  useEffect(() => {
+    const loadOmittedItems = async () => {
+      if (!studentEmail || !course?.CourseID) return;
+      
+      const database = getDatabase();
+      const courseId = course.CourseID;
+      const omittedPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/omittedItems`;
+      
+      try {
+        const snapshot = await get(ref(database, omittedPath));
+        if (snapshot.exists()) {
+          setOmittedItems(snapshot.val());
+        }
+        setLoadingOmittedItems(false);
+      } catch (error) {
+        console.error('Error loading omitted items:', error);
+        setLoadingOmittedItems(false);
+      }
+    };
+    
+    loadOmittedItems();
+  }, [studentEmail, course?.CourseID]);
+
+  // Handle click outside and escape key for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdown(null);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setOpenDropdown(null);
+      }
+    };
+
+    if (openDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [openDropdown]);
+  
+  // Toggle omit status for an item
+  const handleToggleOmit = async (itemId) => {
+    if (!isStaffView || !studentEmail || !course?.CourseID) return;
+    
+    setTogglingOmit(prev => ({ ...prev, [itemId]: true }));
+    
+    const database = getDatabase();
+    const courseId = course.CourseID;
+    const omittedItemPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/omittedItems/${itemId}`;
+    
+    // Add debugging to verify path construction
+    console.log('🎯 Omit action:', {
+      isStaffView,
+      studentEmail,
+      courseId,
+      itemId,
+      omittedItemPath,
+      courseData: { CourseID: course.CourseID }
+    });
+    
+    try {
+      if (omittedItems[itemId]) {
+        // Un-omit the item
+        await remove(ref(database, omittedItemPath));
+        setOmittedItems(prev => {
+          const newItems = { ...prev };
+          delete newItems[itemId];
+          return newItems;
+        });
+        toast.success(`${itemId} has been included in grade calculations`);
+      } else {
+        // Omit the item
+        const omitData = {
+          omittedAt: Date.now(),
+          omittedBy: currentUser.email,
+          reason: 'Legacy assessment data - incorrect naming convention'
+        };
+        await update(ref(database, omittedItemPath), omitData);
+        setOmittedItems(prev => ({ ...prev, [itemId]: omitData }));
+        toast.success(`${itemId} has been excluded from grade calculations`);
+      }
+      
+      // Trigger gradebook recalculation
+      await handleRecalculateGradebook();
+      
+    } catch (error) {
+      console.error('Error toggling omit status:', error);
+      toast.error('Failed to update omit status');
+    } finally {
+      setTogglingOmit(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  // Handle manual score override for non-session items (lessons, labs)
+  const handleSetManualOverride = async (lesson, manualScore, manualTotal) => {
+    if (!isStaffView || !studentEmail || !course?.CourseID) return;
+    
+    const database = getDatabase();
+    const courseId = course.CourseID;
+    const itemPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/items/${lesson.lessonId}`;
+    
+    try {
+      // Get existing data to preserve original values
+      const snapshot = await get(ref(database, itemPath));
+      const existingItem = snapshot.val() || {};
+      
+      console.log('🎯 Setting manual score override:', {
+        lessonId: lesson.lessonId,
+        manualScore,
+        manualTotal,
+        existingItem
+      });
+      
+      const overrideData = {
+        isManualOverride: true,
+        manualScore: manualScore,
+        manualTotal: manualTotal,
+        manualSetBy: currentUser.email,
+        manualSetAt: Date.now(),
+        // Preserve original calculated values if this is first override
+        originalScore: existingItem.isManualOverride ? existingItem.originalScore : (existingItem.score || 0),
+        originalTotal: existingItem.isManualOverride ? existingItem.originalTotal : (existingItem.total || 0),
+        // Update current display values for compatibility
+        score: manualScore,
+        total: manualTotal,
+        percentage: manualTotal > 0 ? (manualScore / manualTotal) * 100 : 0,
+        attempted: manualTotal, // Consider fully attempted if manually set
+        source: 'individual'
+      };
+      
+      await update(ref(database, itemPath), overrideData);
+      
+      // Trigger gradebook recalculation in background (don't await)
+      handleRecalculateGradebook().catch(error => {
+        console.error('Background gradebook recalculation failed:', error);
+        // Could show a subtle notification if needed, but don't block UI
+      });
+      
+      toast.success(`Manual score set for ${lesson.lessonTitle}: ${manualScore}/${manualTotal}`);
+      
+    } catch (error) {
+      console.error('Error setting manual score override:', error);
+      toast.error('Failed to set manual score');
+    }
+  };
+
+  // Remove manual score override and restore calculated scores
+  const handleRemoveManualOverride = async (lesson) => {
+    if (!isStaffView || !studentEmail || !course?.CourseID) return;
+    
+    const database = getDatabase();
+    const courseId = course.CourseID;
+    const itemPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/items/${lesson.lessonId}`;
+    
+    try {
+      // Get existing data
+      const snapshot = await get(ref(database, itemPath));
+      const existingItem = snapshot.val();
+      
+      if (!existingItem || !existingItem.isManualOverride) {
+        console.log(`No manual override found for ${lesson.lessonId}`);
+        return;
+      }
+      
+      // Restore original calculated values
+      const restoredData = {
+        score: existingItem.originalScore || 0,
+        total: existingItem.originalTotal || 0,
+        percentage: existingItem.originalTotal > 0 ? (existingItem.originalScore / existingItem.originalTotal) * 100 : 0,
+        // Remove override-specific fields by setting to null
+        isManualOverride: null,
+        manualScore: null,
+        manualTotal: null,
+        manualSetBy: null,
+        manualSetAt: null,
+        originalScore: null,
+        originalTotal: null
+      };
+      
+      await update(ref(database, itemPath), restoredData);
+      
+      // Trigger gradebook recalculation in background (don't await)
+      handleRecalculateGradebook().catch(error => {
+        console.error('Background gradebook recalculation failed:', error);
+      });
+      
+      toast.success(`Manual override removed for ${lesson.lessonTitle}`);
+      
+    } catch (error) {
+      console.error('Error removing manual score override:', error);
+      toast.error('Failed to remove manual override');
+    }
+  };
+  
+  // Get course structure units for fallback question lookup
+  const courseUnits = useMemo(() => {
+    return getCourseUnitsList(course) || [];
+  }, [course]);
 
   // Handle grade updates from the modal - now just a callback since parent handles realtime updates
   const handleModalGradeUpdate = useCallback((questionId, newGrade, lessonId) => {
@@ -274,54 +496,14 @@ const AssessmentGridProps = ({
       const sessionCount = courseItem.sessionsCount || 0;
       const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
       
-      // Calculate completion rate and status
-      const completionRate = courseItem.total > 0 ? 
+      // Calculate initial completion rate (will be updated later for session-based items)
+      let completionRate = courseItem.total > 0 ? 
         (courseItem.attempted / courseItem.total) * 100 : 0;
-      
-      let status = 'not_started';
-      
-      // Special handling for lab-type assessments
-      if (courseItem.type === 'lab') {
-        // For labs, check if there's a submission in course.Assessments
-        const normalizedLessonId = courseItem.itemId.replace(/-/g, '_');
-        const lessonConfig = itemStructure[normalizedLessonId];
-        const questionId = lessonConfig?.questions?.[0]?.questionId;
-        
-        if (questionId && course?.Assessments?.[questionId]) {
-          const labSubmission = course.Assessments[questionId];
-          // Lab is submitted if there's assessment data
-          if (labSubmission.status === 'completed' || labSubmission.status === 'submitted') {
-            status = 'completed';
-          } else {
-            status = 'in_progress';
-          }
-        } else if (courseItem.attempted > 0 || courseItem.score > 0) {
-          // Fallback: if there's a grade but no submission data, consider it completed
-          status = 'completed';
-        }
-      } else if (shouldBeSessionBased) {
-        // For session-based items, status depends on sessions
-        if (sessionCount > 0) {
-          status = isCompleted ? 'completed' : 'in_progress';
-        }
-      } else {
-        // For individual question items, status depends on attempts and completion
-        if (courseItem.attempted > 0) {
-          // Check if all questions are completed (attempted === total for lessons)
-          if (courseItem.attempted === courseItem.total) {
-            status = 'completed';
-          } else {
-            status = 'in_progress';
-          }
-        }
-      }
       
       // Global lesson number: 1, 2, 3, 4, 5... across all units (same as CourseProgress)
       const lessonNumber = globalIndex + 1;
       
       // Get detailed question information if configured
-      const normalizedLessonId = courseItem.itemId.replace(/-/g, '_');
-      const lessonConfig = itemStructure[normalizedLessonId];
       const questions = [];
       // Get last activity from course data
       let lastActivity = null;
@@ -413,12 +595,95 @@ const AssessmentGridProps = ({
         }
       }
       
-      // If lesson is configured, get detailed question data
-      if (lessonConfig && lessonConfig.questions) {
+      // Update completion rate for session-based items now that sessionData is available
+      if (shouldBeSessionBased && sessionData?.sessionCount > 0) {
+        // For session-based items, completion rate should reflect session progress
+        const latestSession = sessionData.latestSession;
+        if (latestSession) {
+          // Use session progress if available, otherwise consider it 100% if completed
+          completionRate = latestSession.sessionProgress || 
+            (latestSession.status === 'completed' ? 100 : 
+             latestSession.questionsCompleted ? (latestSession.questionsCompleted / latestSession.totalQuestions) * 100 : 0);
+        }
+      }
+      
+      // Determine status now that sessionData is available
+      let status = 'not_started';
+      
+      // Special handling for lab-type assessments
+      if (courseItem.type === 'lab') {
+        // For labs, check if there's a submission in course.Assessments
+        const questionId = courseItem.questions?.[0]?.questionId;
+        const labAssessment = questionId && course?.Assessments?.[questionId];
+        
+        if (labAssessment) {
+          // Check if teacher has marked it (actualGrade > 0)
+          const isMarked = courseItem.attempted && courseItem.score > 0;
+          
+          if (isMarked) {
+            status = 'marked'; // New status for teacher-graded labs
+          } else if (labAssessment.status === 'submitted') {
+            status = 'submitted'; // New status for student-submitted labs
+          } else {
+            status = 'in_progress'; // Lab started but not submitted
+          }
+        } else if (courseItem.attempted > 0 || courseItem.score > 0) {
+          // Fallback: if there's a grade but no assessment data, consider it marked
+          status = 'marked';
+        }
+      } else if (shouldBeSessionBased) {
+        // For session-based items, status depends on actual session data
+        const actualSessionCount = sessionData?.sessionCount || 0;
+        if (actualSessionCount > 0) {
+          // Determine status based on session completion and scoring strategy
+          const latestSession = sessionData?.latestSession;
+          const hasCompletedSessions = sessionData?.sessions?.some(session => 
+            session.status === 'completed' && session.finalResults?.score !== undefined
+          );
+          
+          if (hasCompletedSessions) {
+            status = 'completed';
+          } else if (latestSession && latestSession.status === 'completed') {
+            status = 'completed';
+          } else if (latestSession) {
+            status = 'in_progress';
+          }
+        }
+      } else {
+        // For individual question items, status depends on attempts and completion
+        if (courseItem.attempted > 0) {
+          // Check if all questions are completed (attempted === total for lessons)
+          if (courseItem.attempted === courseItem.total) {
+            status = 'completed';
+          } else {
+            status = 'in_progress';
+          }
+        }
+      }
+      
+      // If lesson has questions in courseItem, get detailed question data
+      // Always preserve the questions array from the original course structure
+      let questionsSource = courseItem.questions;
+      
+      // If questions are missing from enriched item, try to fetch from original course structure
+      if ((!questionsSource || questionsSource.length === 0) && courseUnits.length > 0) {
+        // Find the matching item in course structure
+        for (const unit of courseUnits) {
+          if (unit.items && Array.isArray(unit.items)) {
+            const originalItem = unit.items.find(item => item.itemId === courseItem.itemId);
+            if (originalItem && originalItem.questions && originalItem.questions.length > 0) {
+              questionsSource = originalItem.questions;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (questionsSource && Array.isArray(questionsSource)) {
         // For non-session based assessments, count attempts differently
         if (!sessionTypes.includes(courseItem.type)) {
           // For regular lessons, consider it 1 attempt if any questions are attempted
-          const attemptedQuestions = lessonConfig.questions.filter(q => 
+          const attemptedQuestions = questionsSource.filter(q => 
             actualGrades.hasOwnProperty(q.questionId)
           );
           if (attemptedQuestions.length > 0) {
@@ -426,7 +691,7 @@ const AssessmentGridProps = ({
           }
         }
         
-        lessonConfig.questions.forEach(questionConfig => {
+        questionsSource.forEach(questionConfig => {
           const questionId = questionConfig.questionId;
           const actualGrade = actualGrades[questionId] || 0;
           const assessmentData = assessments[questionId];
@@ -447,40 +712,98 @@ const AssessmentGridProps = ({
       // Schedule data is already available in enriched courseItem
       const scheduledDate = courseItem.scheduledDate;
       
+      // For session-based items, override certain values with session data
+      let finalTotalScore = courseItem.score;
+      let finalMaxScore = courseItem.total;
+      let finalAverageScore = courseItem.percentage;
+      let finalCompletedQuestions = courseItem.attempted;
+      let finalSessionCount = sessionCount;
+      let currentAttemptNumber = null;
+      
+      if (shouldBeSessionBased && sessionData?.sessionCount > 0) {
+        finalSessionCount = sessionData.sessionCount;
+        currentAttemptNumber = sessionData.sessions.length;
+        
+        // Apply scoring strategy to determine which session score to use
+        if (courseItem.strategy === 'takeHighest' && sessionData.sessions.length > 0) {
+          const bestSession = sessionData.sessions.reduce((best, session) => {
+            const sessionScore = session.finalResults?.score || 0;
+            const bestScore = best.finalResults?.score || 0;
+            return sessionScore > bestScore ? session : best;
+          });
+          finalTotalScore = bestSession.finalResults?.score || 0;
+          finalMaxScore = bestSession.finalResults?.maxScore || courseItem.total;
+          finalAverageScore = bestSession.finalResults?.percentage || 0;
+        } else if (courseItem.strategy === 'latest' && sessionData.latestSession) {
+          finalTotalScore = sessionData.latestSession.finalResults?.score || 0;
+          finalMaxScore = sessionData.latestSession.finalResults?.maxScore || courseItem.total;
+          finalAverageScore = sessionData.latestSession.finalResults?.percentage || 0;
+        }
+        
+        // For session-based items, completed questions should reflect session completion
+        if (status === 'completed') {
+          finalCompletedQuestions = finalMaxScore; // Consider all questions completed if session is completed
+        } else if (sessionData.latestSession?.questionsCompleted) {
+          finalCompletedQuestions = sessionData.latestSession.questionsCompleted;
+        }
+      }
+
+      // Check for manual override in gradebook data for non-session items
+      let scoringStrategy = courseItem.strategy || null;
+      if (!shouldBeSessionBased && courseItem.gradebookData?.isManualOverride === true) {
+        scoringStrategy = 'teacher_manual';
+        // Use manual override values
+        finalTotalScore = courseItem.gradebookData.manualScore || 0;
+        finalMaxScore = courseItem.gradebookData.manualTotal || 0;
+        finalAverageScore = finalMaxScore > 0 ? (finalTotalScore / finalMaxScore) * 100 : 0;
+        
+        console.log(`🎯 Detected manual override for ${courseItem.itemId}:`, {
+          manualScore: finalTotalScore,
+          manualTotal: finalMaxScore,
+          originalScore: courseItem.gradebookData.originalScore,
+          originalTotal: courseItem.gradebookData.originalTotal
+        });
+      }
+
       const lesson = {
         lessonId: courseItem.itemId,
         lessonNumber: lessonNumber,
         lessonTitle: courseItem.title || `Lesson ${lessonNumber}`,
         activityType: courseItem.type || 'lesson',
         questions: questions,
-        totalQuestions: courseItem.total,
-        completedQuestions: courseItem.attempted,
-        totalScore: courseItem.score,
-        maxScore: courseItem.total,
-        averageScore: courseItem.percentage,
+        totalQuestions: finalMaxScore,
+        completedQuestions: finalCompletedQuestions,
+        totalScore: finalTotalScore,
+        maxScore: finalMaxScore,
+        averageScore: finalAverageScore,
         completionRate: completionRate,
         status: status,
         totalAttempts: totalAttempts,
         teacherSessionCount: teacherSessionCount,
         lastActivity: lastActivity,
-        isConfigured: courseItem.hasGradebookData || !!lessonConfig, // Show scores if we have gradebook data OR lesson config
+        isConfigured: courseItem.hasGradebookData || !!(questionsSource && questionsSource.length > 0), // Show scores if we have gradebook data OR questions
         sessionData: sessionData, // Include session data for assignments/exams/quizzes
         // Session-based scoring information
         shouldBeSessionBased: shouldBeSessionBased,
         isSessionBased: isSessionBased,
-        sessionCount: sessionCount,
-        hasNoSessions: hasNoSessions,
-        scoringStrategy: courseItem.strategy || null,
+        sessionCount: finalSessionCount,
+        hasNoSessions: shouldBeSessionBased && finalSessionCount === 0,
+        scoringStrategy: scoringStrategy, // Updated to use the potentially modified strategy
         sessionStatus: courseItem.sessionStatus || null,
+        // Add attempt number for session-based items
+        currentAttemptNumber: currentAttemptNumber,
         // Add scheduled date if available (from enriched data)
-        scheduledDate: scheduledDate
+        scheduledDate: scheduledDate,
+        // Add manual override data for delete functionality
+        hasManualOverride: courseItem.gradebookData?.isManualOverride === true,
+        manualOverrideData: courseItem.gradebookData?.isManualOverride ? courseItem.gradebookData : null
       };
       
       lessons.push(lesson);
     });
     
     return lessons;
-  }, [allCourseItems, course, studentEmail, itemStructure, actualGrades, assessments]);
+  }, [allCourseItems, course, studentEmail, actualGrades, assessments]);
 
   // Filter and sort lessons
   const filteredLessons = useMemo(() => {
@@ -605,17 +928,13 @@ const AssessmentGridProps = ({
     setCreatingSessionFor(lesson.lessonId);
 
     try {
-      // Get lesson configuration from itemStructure using the current data structure path
-      const normalizedLessonId = lesson.lessonId.replace(/-/g, '_');
-      const itemStructure = course?.courseDetails?.['course-config']?.gradebook?.itemStructure || {};
-      const lessonConfig = itemStructure[normalizedLessonId] || itemStructure[lesson.lessonId];
-      
-      if (!lessonConfig || !lessonConfig.questions) {
-        throw new Error(`No lesson configuration found for ${lesson.lessonId}`);
+      // Get lesson configuration from the lesson object itself
+      if (!lesson.questions || lesson.questions.length === 0) {
+        throw new Error(`No questions found for ${lesson.lessonId}`);
       }
 
       // Extract course ID from the current course context
-      const courseId = course?.courseDetails?.courseId || course?.id;
+      const courseId = course.CourseID;
       if (!courseId) {
         throw new Error('Course ID not found');
       }
@@ -624,7 +943,7 @@ const AssessmentGridProps = ({
         lessonId: lesson.lessonId,
         studentEmail,
         courseId,
-        questionsCount: lessonConfig.questions.length,
+        questionsCount: lesson.questions.length,
         maxScore: lesson.maxScore
       });
 
@@ -635,7 +954,7 @@ const AssessmentGridProps = ({
         courseId: courseId,
         assessmentItemId: lesson.lessonId,
         studentEmail: studentEmail,
-        questionsCount: lessonConfig.questions.length, // Just count, not full question data
+        questionsCount: lesson.questions.length, // Just count, not full question data
         maxScore: lesson.maxScore, // Pass max score directly
         initialScore: 0 // Start with 0 score - teacher can set it manually
       });
@@ -664,47 +983,67 @@ const AssessmentGridProps = ({
     setCreatingSessionFor(lesson.lessonId);
 
     try {
-      const courseId = course?.courseDetails?.courseId || course?.id;
-      const timestamp = Date.now();
+      // Determine if this is a session-based item (assignment, exam, quiz) or regular lesson/lab
+      const sessionBasedTypes = ['assignment', 'exam', 'quiz'];
+      const isSessionBased = sessionBasedTypes.includes(lesson.activityType);
 
-      // Create teacher session object
-      const teacherSession = {
-        completedAt: timestamp,
-        countsTowardAttempts: false,
-        courseId: parseInt(courseId),
-        createdAt: timestamp,
-        examItemId: lesson.lessonId,
-        finalResults: {
+      if (isSessionBased) {
+        // Handle session-based items (assignments, exams, quizzes) - original logic
+        const courseId = course.CourseID;
+        const timestamp = Date.now();
+
+        const teacherSession = {
           completedAt: timestamp,
-          maxScore: lesson.maxScore || lesson.totalQuestions || 10,
-          percentage: 0,
-          score: 0,
-          status: "manually_graded",
-          totalQuestions: lesson.totalQuestions || lesson.maxScore || 10
-        },
-        isTeacherCreated: true,
-        status: "completed",
-        studentEmail: studentEmail,
-        teacherEmail: currentUser.email,
-        useAsManualGrade: true
-      };
+          countsTowardAttempts: false,
+          courseId: parseInt(courseId),
+          createdAt: timestamp,
+          examItemId: lesson.lessonId,
+          finalResults: {
+            completedAt: timestamp,
+            maxScore: lesson.maxScore || lesson.totalQuestions || 10,
+            percentage: 0,
+            score: 0,
+            status: "manually_graded",
+            totalQuestions: lesson.totalQuestions || lesson.maxScore || 10
+          },
+          isTeacherCreated: true,
+          status: "completed",
+          studentEmail: studentEmail,
+          teacherEmail: currentUser.email,
+          useAsManualGrade: true
+        };
 
+        // Create session directly in Firebase
+        const database = getDatabase();
+        const sessionTimestamp = Date.now();
+        const sessionId = `exam_${lesson.lessonId}_${sanitizeEmail(studentEmail)}_${sessionTimestamp}`;
+        const sessionPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/ExamSessions/${sessionId}`;
+        
+        await update(ref(database, sessionPath), teacherSession);
 
-      // Create session directly in Firebase
-      const database = getDatabase();
-      const sessionTimestamp = Date.now();
-      const sessionId = `exam_${lesson.lessonId}_${sanitizeEmail(studentEmail)}_${sessionTimestamp}`;
-      const sessionPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/ExamSessions/${sessionId}`;
-      
-      await update(ref(database, sessionPath), teacherSession);
-
-      
-      setCreatingSessionFor(null);
-      // Parent's realtime listeners will handle the data updates
+        setCreatingSessionFor(null);
+        
+        // Auto-open edit mode for the newly created session
+        setEditingTeacherScore(lesson);
+        setTeacherScoreValue(''); // Start with empty value for immediate input
+        
+      } else {
+        // Handle non-session items (lessons, labs) - open edit mode immediately
+        console.log(`🎓 Opening edit mode for ${lesson.activityType}: ${lesson.lessonId}`);
+        
+        setCreatingSessionFor(null);
+        
+        // Auto-open edit mode immediately (NO database operations)
+        setEditingTeacherScore(lesson);
+        setTeacherScoreValue(''); // Start with empty value for immediate input
+        
+        // NOTE: Manual override will be created only when user saves the score
+        // This ensures instant UI response with zero database blocking
+      }
       
     } catch (error) {
-      console.error('Error creating teacher session:', error);
-      alert(`Failed to create teacher session: ${error.message}`);
+      console.error('Error creating manual score:', error);
+      alert(`Failed to create manual score: ${error.message}`);
       setCreatingSessionFor(null);
     }
   };
@@ -730,45 +1069,91 @@ const AssessmentGridProps = ({
     setUpdatingTeacherScore(true);
 
     try {
-      // Find the teacher session for this lesson
-      const sanitizedEmail = studentEmail.replace(/[.#$[\]]/g, ',');
-      const sessionsRef = ref(getDatabase(), `students/${sanitizedEmail}/courses/${course?.courseDetails?.courseId || course?.id}/ExamSessions`);
-      const sessionsSnapshot = await get(sessionsRef);
-      const allSessions = sessionsSnapshot.val() || {};
-      
-      // Find teacher-created session for this item
-      let teacherSessionId = null;
-      for (const [sessionId, sessionData] of Object.entries(allSessions)) {
-        if (sessionData.examItemId === editingTeacherScore.lessonId && 
-            sessionData.isTeacherCreated === true &&
-            sessionData.useAsManualGrade === true) {
-          teacherSessionId = sessionId;
-          break;
+      // Check if this is a manual override for a non-session item
+      if (editingTeacherScore.hasManualOverride || 
+          !['assignment', 'exam', 'quiz'].includes(editingTeacherScore.activityType)) {
+        console.log(`💾 Saving manual override score for ${editingTeacherScore.lessonId}: ${newScore}/${maxScore}`);
+        
+        // Create/update manual override directly here (since we didn't create it on initial click)
+        const database = getDatabase();
+        const courseId = course.CourseID;
+        const itemPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/items/${editingTeacherScore.lessonId}`;
+        
+        // Get existing data to preserve original values, then save
+        get(ref(database, itemPath))
+          .then(snapshot => {
+            const existingItem = snapshot.val() || {};
+            
+            const overrideData = {
+              isManualOverride: true,
+              manualScore: newScore,
+              manualTotal: maxScore,
+              manualSetBy: currentUser.email,
+              manualSetAt: Date.now(),
+              // Preserve original calculated values if this is first override
+              originalScore: existingItem.isManualOverride ? existingItem.originalScore : (existingItem.score || editingTeacherScore.totalScore || 0),
+              originalTotal: existingItem.isManualOverride ? existingItem.originalTotal : (existingItem.total || editingTeacherScore.maxScore || maxScore),
+              // Update current display values for compatibility
+              score: newScore,
+              total: maxScore,
+              percentage: maxScore > 0 ? (newScore / maxScore) * 100 : 0,
+              attempted: maxScore,
+              source: 'individual'
+            };
+            
+            return update(ref(database, itemPath), overrideData);
+          })
+          .then(() => {
+            // Trigger gradebook recalculation in background
+            handleRecalculateGradebook().catch(error => {
+              console.error('Background gradebook recalculation failed:', error);
+            });
+            
+            toast.success(`Manual score set: ${newScore}/${maxScore}`);
+          })
+          .catch(error => {
+            console.error('Failed to save manual override:', error);
+            toast.error('Failed to save manual score');
+          });
+      } else {
+        // Handle session-based score saving (original logic)
+        const sanitizedEmail = studentEmail.replace(/[.#$[\]]/g, ',');
+        const sessionsRef = ref(getDatabase(), `students/${sanitizedEmail}/courses/${course.CourseID}/ExamSessions`);
+        const sessionsSnapshot = await get(sessionsRef);
+        const allSessions = sessionsSnapshot.val() || {};
+        
+        // Find teacher-created session for this item
+        let teacherSessionId = null;
+        for (const [sessionId, sessionData] of Object.entries(allSessions)) {
+          if (sessionData.examItemId === editingTeacherScore.lessonId && 
+              sessionData.isTeacherCreated === true &&
+              sessionData.useAsManualGrade === true) {
+            teacherSessionId = sessionId;
+            break;
+          }
         }
+
+        if (!teacherSessionId) {
+          throw new Error('Teacher session not found');
+        }
+
+        // Update session score directly in Firebase
+        await updateSessionFinalResultsDirectly(
+          studentEmail,
+          course.CourseID,
+          teacherSessionId,
+          newScore,
+          maxScore
+        );
       }
 
-      if (!teacherSessionId) {
-        throw new Error('Teacher session not found');
-      }
-
-
-      // Update session score directly in Firebase
-      await updateSessionFinalResultsDirectly(
-        studentEmail,
-        course?.courseDetails?.courseId || course?.id,
-        teacherSessionId,
-        newScore,
-        maxScore
-      );
-
-      
       // Close the editing interface
       setEditingTeacherScore(null);
       setTeacherScoreValue('');
       // Parent's realtime listeners will handle the data updates
       
     } catch (error) {
-      console.error('Error updating teacher score:', error);
+      console.error('Error updating score:', error);
       alert(`Failed to update score: ${error.message}`);
     } finally {
       setUpdatingTeacherScore(false);
@@ -786,9 +1171,49 @@ const AssessmentGridProps = ({
     }
 
     try {
-      // Find the teacher session for this lesson
+      // First check if this lesson has a manual override in gradebook items
+      const database = getDatabase();
+      const courseId = course.CourseID;
+      const itemPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/Gradebook/items/${lesson.lessonId}`;
+      
+      // Check gradebook item for manual override
+      const itemSnapshot = await get(ref(database, itemPath));
+      const itemData = itemSnapshot.val();
+      
+      if (itemData && itemData.isManualOverride === true) {
+        console.log(`🗑️ Removing manual override from gradebook item: ${lesson.lessonId}`);
+        
+        // Restore to original calculated values
+        const restoredData = {
+          score: itemData.originalScore || 0,
+          total: itemData.originalTotal || 0,
+          percentage: itemData.originalTotal > 0 ? (itemData.originalScore / itemData.originalTotal) * 100 : 0,
+          attempted: itemData.originalScore > 0 ? itemData.originalTotal : 0, // Restore original attempted count
+          // Remove manual override fields
+          isManualOverride: null,
+          manualScore: null,
+          manualTotal: null,
+          manualSetBy: null,
+          manualSetAt: null,
+          originalScore: null,
+          originalTotal: null,
+          strategy: null // Remove teacher_manual strategy
+        };
+        
+        await update(ref(database, itemPath), restoredData);
+        
+        // Trigger gradebook recalculation in background
+        handleRecalculateGradebook().catch(error => {
+          console.error('Background gradebook recalculation failed:', error);
+        });
+        
+        toast.success(`Manual override removed for ${lesson.lessonTitle}`);
+        return;
+      }
+
+      // Handle session-based deletion (original logic for assignments/exams/quizzes)
       const sanitizedEmail = studentEmail.replace(/[.#$[\]]/g, ',');
-      const sessionsRef = ref(getDatabase(), `students/${sanitizedEmail}/courses/${course?.courseDetails?.courseId || course?.id}/ExamSessions`);
+      const sessionsRef = ref(getDatabase(), `students/${sanitizedEmail}/courses/${course.CourseID}/ExamSessions`);
       const sessionsSnapshot = await get(sessionsRef);
       const allSessions = sessionsSnapshot.val() || {};
       
@@ -804,21 +1229,86 @@ const AssessmentGridProps = ({
       }
 
       if (!teacherSessionId) {
-        alert('No teacher session found to delete');
+        console.log(`No manual override or teacher session found for ${lesson.lessonId}`);
+        alert('No teacher override found to delete');
         return;
       }
 
-
       // Delete session directly from Firebase
-      const database = getDatabase();
-      const sessionPath = `students/${sanitizeEmail(studentEmail)}/courses/${course?.courseDetails?.courseId || course?.id}/ExamSessions/${teacherSessionId}`;
+      const sessionPath = `students/${sanitizeEmail(studentEmail)}/courses/${course.CourseID}/ExamSessions/${teacherSessionId}`;
       await remove(ref(database, sessionPath));
 
-      // Parent's realtime listeners will handle the data updates
+      toast.success(`Teacher session deleted for ${lesson.lessonTitle}`);
       
     } catch (error) {
-      console.error('Error deleting teacher session:', error);
-      alert(`Failed to delete teacher session: ${error.message}`);
+      console.error('Error deleting teacher override:', error);
+      alert(`Failed to delete teacher override: ${error.message}`);
+    }
+  };
+
+  const handleRecalculateGradebook = async () => {
+    if (!isStaffView || !studentEmail) {
+      console.error('Cannot recalculate gradebook: not in staff view or no student email');
+      return;
+    }
+
+    // Clear any previous error
+    setRecalculationError(null);
+    setRecalculatingGradebook(true);
+
+    try {
+      const courseId = course.CourseID;
+      if (!courseId) {
+        throw new Error('Course ID not found');
+      }
+
+      console.log('🔄 Teacher requesting gradebook recalculation for:', {
+        studentEmail,
+        courseId,
+        teacherEmail: currentUser?.email
+      });
+
+      // Call the Cloud Function
+      const recalculateGradebookFunction = httpsCallable(functions, 'recalculateStudentGradebook');
+      
+      const result = await recalculateGradebookFunction({
+        studentEmail: studentEmail,
+        courseId: courseId
+      });
+
+      console.log('✅ Gradebook recalculation completed:', result.data);
+      
+      // Show success toast
+      toast.success('Gradebook recalculated successfully', {
+        description: `Updated scores for ${studentEmail}`,
+        duration: 4000,
+      });
+      
+      // The parent's real-time listeners will automatically update the gradebook data
+      // No need to manually refresh anything
+      
+    } catch (error) {
+      console.error('❌ Error recalculating gradebook:', error);
+      
+      // Set user-friendly error message
+      let errorMessage = 'Failed to recalculate gradebook';
+      if (error.code === 'permission-denied') {
+        errorMessage = 'You do not have permission to recalculate gradebooks';
+      } else if (error.code === 'not-found') {
+        errorMessage = 'Student is not enrolled in this course';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setRecalculationError(errorMessage);
+      
+      // Show error toast
+      toast.error('Failed to recalculate gradebook', {
+        description: errorMessage,
+        duration: 5000,
+      });
+    } finally {
+      setRecalculatingGradebook(false);
     }
   };
 
@@ -861,7 +1351,45 @@ const AssessmentGridProps = ({
             <SelectItem value="not_started">Not Started</SelectItem>
           </SelectContent>
         </Select>
+        
+        {/* Recalculation Button - Only visible to teachers */}
+        {isStaffView && (
+          <Button
+            onClick={handleRecalculateGradebook}
+            disabled={recalculatingGradebook}
+            variant="outline"
+            className="w-full md:w-auto whitespace-nowrap"
+          >
+            {recalculatingGradebook ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Recalculating...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Recalculate Scores
+              </>
+            )}
+          </Button>
+        )}
       </div>
+
+      {/* Error Display */}
+      {recalculationError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center">
+            <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
+            <p className="text-red-700 text-sm">{recalculationError}</p>
+            <button
+              onClick={() => setRecalculationError(null)}
+              className="ml-auto text-red-500 hover:text-red-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Results Summary */}
       <div className="text-sm text-gray-600 flex items-center gap-4">
@@ -884,7 +1412,7 @@ const AssessmentGridProps = ({
             <thead className="bg-gray-50">
               <tr>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="w-80 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('lesson')}
                 >
                   <div className="flex items-center gap-1">
@@ -907,6 +1435,11 @@ const AssessmentGridProps = ({
                 <th className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Due Date
                 </th>
+                {isStaffView && (
+                  <th className="w-12 px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -927,6 +1460,12 @@ const AssessmentGridProps = ({
                   onSaveTeacherScore={handleSaveTeacherScore}
                   onCancelEditTeacherScore={handleCancelEditTeacherScore}
                   onDeleteTeacherSession={handleDeleteTeacherSession}
+                  isOmitted={!!omittedItems[lesson.lessonId]}
+                  onToggleOmit={() => handleToggleOmit(lesson.lessonId)}
+                  togglingOmit={togglingOmit[lesson.lessonId]}
+                  openDropdown={openDropdown}
+                  setOpenDropdown={setOpenDropdown}
+                  dropdownRef={dropdownRef}
                 />
               ))}
             </tbody>
@@ -946,6 +1485,7 @@ const AssessmentGridProps = ({
         onClose={handleCloseModal}
         lesson={selectedLesson}
         course={course}
+        courseUnits={courseUnits}
         isStaffView={isStaffView}
         onGradeUpdate={handleModalGradeUpdate}
       />
@@ -972,39 +1512,78 @@ const getScoreColor = (pct) => {
 
 // Helper function to get status badge for session-based items and labs
 const getStatusBadge = (lesson) => {
-  // Handle session-based items
+  // Handle session-based items using the new status logic
   if (lesson.shouldBeSessionBased && lesson.sessionCount > 0) {
-    if (lesson.sessionStatus === 'completed') {
+    if (lesson.status === 'completed') {
       return (
-        <div className="flex items-center justify-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-500" />
-          <Badge className="bg-green-100 text-green-800 text-xs">Submitted</Badge>
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-green-100 text-green-800 text-xs px-2 py-1 text-center">
+            Completed
+          </Badge>
+          {lesson.currentAttemptNumber && (
+            <div className="text-xs text-gray-500">
+              {lesson.currentAttemptNumber} {lesson.currentAttemptNumber === 1 ? 'attempt' : 'attempts'}
+            </div>
+          )}
         </div>
       );
-    } else if (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') {
+    } else if (lesson.status === 'in_progress') {
       return (
-        <div className="flex items-center justify-center gap-2">
-          <RotateCcw className="h-4 w-4 text-yellow-500" />
-          <Badge className="bg-yellow-100 text-yellow-800 text-xs">In Progress</Badge>
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 text-center">
+            In Progress
+          </Badge>
+          {lesson.currentAttemptNumber && (
+            <div className="text-xs text-gray-500">
+              Attempt {lesson.currentAttemptNumber}
+            </div>
+          )}
         </div>
       );
     }
   }
   
-  // Handle labs - submitted if any progress > 0
+  // Handle labs with new status system
   if (lesson.activityType === 'lab') {
-    if (lesson.completionRate > 0) {
+    if (lesson.status === 'marked') {
       return (
-        <div className="flex items-center justify-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-500" />
-          <Badge className="bg-green-100 text-green-800 text-xs">Submitted</Badge>
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-green-100 text-green-800 text-xs px-2 py-1 text-center">
+            Marked
+          </Badge>
+          <div className="text-xs text-gray-500">
+            {lesson.totalScore}/{lesson.maxScore}
+          </div>
+        </div>
+      );
+    } else if (lesson.status === 'submitted') {
+      return (
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-blue-100 text-blue-800 text-xs px-2 py-1 text-center">
+            Submitted
+          </Badge>
+          <div className="text-xs text-gray-500">
+            Awaiting marking
+          </div>
+        </div>
+      );
+    } else if (lesson.status === 'in_progress') {
+      return (
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 text-center">
+            In Progress
+          </Badge>
+          <div className="text-xs text-gray-500">
+            Not submitted
+          </div>
         </div>
       );
     } else {
       return (
-        <div className="flex items-center justify-center gap-2">
-          <Clock className="h-4 w-4 text-gray-400" />
-          <Badge className="bg-gray-100 text-gray-600 text-xs">Not Started</Badge>
+        <div className="flex flex-col items-center justify-center gap-1">
+          <Badge className="bg-gray-100 text-gray-600 text-xs px-2 py-1 text-center">
+            Not Started
+          </Badge>
         </div>
       );
     }
@@ -1034,23 +1613,31 @@ const LessonRow = ({
   onEditTeacherScore,
   onSaveTeacherScore,
   onCancelEditTeacherScore,
-  onDeleteTeacherSession
+  onDeleteTeacherSession,
+  isOmitted,
+  onToggleOmit,
+  togglingOmit,
+  openDropdown,
+  setOpenDropdown,
+  dropdownRef
 }) => {
   // Handle row click to open details modal
   const handleRowClick = () => {
     // Log the lesson record to console
+    console.log('🎯 Lesson clicked:', lesson);
     
     // Prevent clicking if session is being created for this lesson
     if (creatingSessionFor === lesson.lessonId) {
       return;
     }
-    if (lesson.isConfigured && lesson.questions.length > 0) {
+    // Only check if configured - the modal has fallback logic to fetch questions
+    if (lesson.isConfigured) {
       onViewDetails();
     }
   };
 
-  // Determine if row should be clickable
-  const isClickable = lesson.isConfigured && lesson.questions.length > 0 && creatingSessionFor !== lesson.lessonId;
+  // Determine if row should be clickable - only needs to be configured
+  const isClickable = lesson.isConfigured && creatingSessionFor !== lesson.lessonId;
 
   const getTypeColor = (type) => {
     const colors = {
@@ -1066,7 +1653,9 @@ const LessonRow = ({
   return (
     <tr 
       className={`${
-        creatingSessionFor === lesson.lessonId
+        isOmitted 
+          ? 'bg-gray-100 opacity-60' 
+          : creatingSessionFor === lesson.lessonId
           ? 'bg-blue-50 opacity-75 cursor-wait' 
           : isClickable
             ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group' 
@@ -1076,9 +1665,9 @@ const LessonRow = ({
       title={
         creatingSessionFor === lesson.lessonId 
           ? 'Creating session...' 
-          : isClickable 
+          : lesson.isConfigured 
             ? 'Click to view details' 
-            : undefined
+            : 'Coming soon'
       }
     >
       <td className="px-6 py-4">
@@ -1088,21 +1677,26 @@ const LessonRow = ({
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <div className="text-sm font-medium text-gray-900">
+              <div className={`text-sm font-medium ${isOmitted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                 {lesson.lessonTitle}
               </div>
               {creatingSessionFor === lesson.lessonId && (
                 <Loader2 className="h-4 w-4 text-blue-500 animate-spin" 
                      title="Creating session..." />
               )}
-              {/* Show urgency indicator */}
-              {lesson.scheduledDate && (() => {
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
+                {lesson.activityType}
+              </Badge>
+              {/* Show urgency indicator badge alongside activity type (but not for omitted items) */}
+              {!isOmitted && lesson.scheduledDate && (() => {
                 const dueDateStatus = getDueDateStatus(lesson.scheduledDate, lesson.status === 'completed');
                 
-                // Only show high priority indicators in the title area (overdue, due today, due tomorrow)
+                // Only show high priority indicators (overdue, due today, due tomorrow)
                 if (dueDateStatus && dueDateStatus.priority >= 2) {
                   return (
-                    <Badge className={`${dueDateStatus.bgColor} ${dueDateStatus.textColor} text-xs px-1.5 py-0 shadow-sm`}>
+                    <Badge className={`${dueDateStatus.bgColor} ${dueDateStatus.textColor} text-xs px-1.5 py-0.5 shadow-sm`}>
                       <dueDateStatus.icon className="w-2.5 h-2.5 mr-1" />
                       <span className="text-[10px] font-medium">
                         {dueDateStatus.status === 'overdue' ? 'Overdue' : 
@@ -1113,11 +1707,20 @@ const LessonRow = ({
                 }
                 return null;
               })()}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
-                {lesson.activityType}
-              </Badge>
+              {/* Show compact attempt/strategy info for session-based items */}
+              {lesson.shouldBeSessionBased && lesson.currentAttemptNumber && (
+                <div className="text-xs text-gray-500">
+                  Attempt #{lesson.currentAttemptNumber}
+                  {lesson.scoringStrategy && (
+                    <span className="ml-1">
+                      • {lesson.scoringStrategy === 'takeHighest' ? 'Best' : 
+                         lesson.scoringStrategy === 'latest' ? 'Latest' : 
+                         lesson.scoringStrategy === 'average' ? 'Avg' : 
+                         lesson.scoringStrategy}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1127,10 +1730,15 @@ const LessonRow = ({
           <>
             {lesson.maxScore > 0 ? (
               <div className="flex flex-col items-center">
-                {lesson.scoringStrategy === 'teacher_manual' ? (
-                  // Teacher override display with editing capability
+                {isOmitted && (
+                  <div className="text-[10px] text-gray-500 mb-1 font-medium">
+                    Excused
+                  </div>
+                )}
+                {lesson.scoringStrategy === 'teacher_manual' || editingTeacherScore?.lessonId === lesson.lessonId ? (
+                  // Teacher override display with editing capability OR currently editing
                   <div className="flex items-center gap-1">
-                    <Shield className="h-3 w-3 text-orange-500" title="Teacher Override" />
+                    {lesson.scoringStrategy === 'teacher_manual' && <Shield className="h-3 w-3 text-orange-500" title="Teacher Override" />}
                     {editingTeacherScore?.lessonId === lesson.lessonId ? (
                       // Editing mode
                       <div className="flex items-center gap-1">
@@ -1162,32 +1770,27 @@ const LessonRow = ({
                     ) : (
                       // Display mode
                       <>
-                        <div className="text-sm font-medium px-2 py-1 rounded border border-orange-300 bg-orange-50 text-orange-800">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditTeacherScore(lesson);
+                          }}
+                          className="text-sm font-medium px-2 py-1 rounded border border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer transition-colors duration-200"
+                          title="Click to edit score"
+                        >
                           {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                        </div>
+                        </button>
                         {isStaffView && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditTeacherScore(lesson);
-                              }}
-                              className="h-4 w-4 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200"
-                              title="Edit score"
-                            >
-                              <Edit3 className="h-2.5 w-2.5" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteTeacherSession(lesson);
-                              }}
-                              className="h-4 w-4 p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
-                              title="Delete teacher override"
-                            >
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTeacherSession(lesson);
+                            }}
+                            className="h-4 w-4 p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 ml-1"
+                            title="Delete teacher override"
+                          >
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
                         )}
                       </>
                     )}
@@ -1195,10 +1798,34 @@ const LessonRow = ({
                 ) : (
                   // Regular score display
                   <div className="flex items-center gap-2">
-                    <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
-                      {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                    </div>
-                    {isStaffView && lesson.isSessionBased && (
+                    {lesson.activityType === 'lab' ? (
+                      // Special handling for labs - show status text until marked
+                      <div className="text-sm font-medium px-2 py-1 rounded">
+                        {lesson.status === 'marked' ? (
+                          <span className={getScoreColor(lesson.averageScore)}>
+                            {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                          </span>
+                        ) : lesson.status === 'submitted' ? (
+                          <span className="text-blue-700 bg-blue-50">
+                            Awaiting Grade
+                          </span>
+                        ) : lesson.status === 'in_progress' ? (
+                          <span className="text-yellow-700 bg-yellow-50">
+                            In Progress
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 bg-gray-50">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      // Regular numerical score display for non-labs
+                      <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                        {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                      </div>
+                    )}
+                    {isStaffView && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1217,7 +1844,12 @@ const LessonRow = ({
                     )}
                   </div>
                 )}
-                <div className="text-xs text-gray-500 mt-1">{formatScore(lesson.averageScore)}%</div>
+                <div className={`text-xs mt-1 ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {formatScore(lesson.averageScore)}%
+                  {isOmitted && (
+                    <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
+                  )}
+                </div>
                 {lesson.totalAttempts > 0 && lesson.isSessionBased && (
                   <div className="text-xs text-gray-500">
                     {lesson.totalAttempts} {lesson.totalAttempts === 1 ? 'attempt' : 'attempts'}
@@ -1251,7 +1883,14 @@ const LessonRow = ({
         )}
       </td>
       <td className="px-6 py-4 text-center">
-        {lesson.isConfigured ? (
+        {isOmitted ? (
+          // Simplified display for omitted items
+          <div className="text-center">
+            <Badge className="bg-gray-100 text-gray-600 text-xs">
+              Excused
+            </Badge>
+          </div>
+        ) : lesson.isConfigured ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1301,27 +1940,36 @@ const LessonRow = ({
                   ) : (
                     <div className="text-center space-y-1">
                       <div className="font-medium">
-                        {lesson.sessionStatus === 'completed' ? 'Session submitted' :
-                         lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited' ? 'Session in progress' :
-                         'Session status unknown'}
+                        {lesson.status === 'completed' ? 
+                          `${lesson.currentAttemptNumber} attempt${lesson.currentAttemptNumber !== 1 ? 's' : ''} completed` :
+                         lesson.status === 'in_progress' ? 
+                          `Attempt ${lesson.currentAttemptNumber} in progress` :
+                         'Sessions available'}
                       </div>
                       
-                      {/* Show session progress details if available */}
-                      {lesson.sessionData?.latestSession && (lesson.sessionStatus === 'in_progress' || lesson.sessionStatus === 'exited') && (
+                      {/* Show current score based on strategy */}
+                      {lesson.status === 'completed' && (
                         <div className="text-xs">
-                          <div>
-                            {lesson.sessionData.latestSession.answeredQuestions || 0} / {lesson.sessionData.latestSession.totalQuestions || 0} questions attempted in current session
+                          <div className="font-medium">
+                            Score: {Math.round(lesson.averageScore)}% ({lesson.totalScore}/{lesson.maxScore})
                           </div>
                           <div className="opacity-75">
-                            ({Math.round(lesson.completionRate)}% progress)
+                            Using {lesson.scoringStrategy === 'takeHighest' ? 'best' : 
+                                   lesson.scoringStrategy === 'latest' ? 'latest' : 
+                                   lesson.scoringStrategy === 'average' ? 'average' : 'session'} score
                           </div>
                         </div>
                       )}
                       
-                      {/* Show completed session info */}
-                      {lesson.sessionStatus === 'completed' && (
-                        <div className="text-xs opacity-75">
-                          {lesson.sessionCount} session{lesson.sessionCount !== 1 ? 's' : ''} completed
+                      {/* Show session progress details if in progress */}
+                      {lesson.status === 'in_progress' && lesson.sessionData?.latestSession && (
+                        <div className="text-xs">
+                          <div>
+                            {lesson.sessionData.latestSession.answeredQuestions || 0} / {lesson.sessionData.latestSession.totalQuestions || 0} questions answered
+                          </div>
+                          <div className="opacity-75">
+                            ({Math.round(lesson.completionRate)}% progress)
+                          </div>
                         </div>
                       )}
                       
@@ -1335,15 +1983,22 @@ const LessonRow = ({
                     </div>
                   )
                 ) : lesson.activityType === 'lab' ? (
-                  // Lab tooltip
+                  // Lab tooltip with new status system
                   <div className="text-center">
                     <div className="font-medium">
-                      {lesson.completionRate > 0 ? 'Lab submitted' : 'Lab not started'}
+                      {lesson.status === 'marked' ? 'Lab marked by teacher' :
+                       lesson.status === 'submitted' ? 'Lab submitted for marking' :
+                       lesson.status === 'in_progress' ? 'Lab in progress' :
+                       'Lab not started'}
                     </div>
                     <div className="text-xs opacity-75">
-                      {lesson.completionRate > 0 ? 
-                        `Submitted with ${Math.round(lesson.completionRate)}% completion` : 
-                        'Lab assignment not yet submitted'}
+                      {lesson.status === 'marked' ? 
+                        `Grade: ${lesson.totalScore}/${lesson.maxScore} (${Math.round(lesson.averageScore)}%)` :
+                       lesson.status === 'submitted' ? 
+                        'Awaiting teacher to mark and provide grade' :
+                       lesson.status === 'in_progress' ? 
+                        'Student working on lab but not yet submitted' :
+                        'Lab assignment not yet started'}
                     </div>
                   </div>
                 ) : (
@@ -1366,7 +2021,27 @@ const LessonRow = ({
       </td>
       <td className="px-6 py-4">
         <div className="text-sm">
-          {lesson.scheduledDate ? (
+          {isOmitted ? (
+            // Simplified display for omitted items - just show the date without status
+            lesson.scheduledDate ? (
+              <div className="text-center">
+                <div className="text-gray-500 text-sm">
+                  {new Date(lesson.scheduledDate).toLocaleDateString(undefined, { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Excused
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 text-sm">
+                Excused
+              </div>
+            )
+          ) : lesson.scheduledDate ? (
             (() => {
               const dueDateStatus = getDueDateStatus(lesson.scheduledDate, lesson.status === 'completed');
               if (!dueDateStatus) return null;
@@ -1395,6 +2070,56 @@ const LessonRow = ({
           )}
         </div>
       </td>
+      {isStaffView && (
+        <td className="px-2 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="relative" ref={openDropdown === lesson.lessonId ? dropdownRef : null}>
+            {/* Three-dot menu button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenDropdown(openDropdown === lesson.lessonId ? null : lesson.lessonId);
+              }}
+              className="p-1.5 rounded transition-all duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+              title="Actions"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            {/* Dropdown menu */}
+            {openDropdown === lesson.lessonId && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <div className="py-1">
+                  {/* Omit/Include menu item */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleOmit();
+                      setOpenDropdown(null);
+                    }}
+                    disabled={togglingOmit}
+                    className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors duration-200 ${
+                      isOmitted 
+                        ? 'text-red-600' 
+                        : 'text-gray-700'
+                    } disabled:opacity-50`}
+                  >
+                    {togglingOmit ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isOmitted ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    <span>
+                      {isOmitted ? 'Include in grades' : 'Exclude from grades'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </td>
+      )}
     </tr>
   );
 };

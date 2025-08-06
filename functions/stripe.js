@@ -11,6 +11,9 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
+// Initialize Firestore
+const firestore = admin.firestore();
+
 // Helper function to create payment note content
 function createPaymentNoteContent(paymentData, metadata) {
   const courseName = metadata.courseName || 'Unknown Course';
@@ -251,6 +254,47 @@ async function handleSubscriptionUpdate(stripe, data, eventType = 'subscription.
       
       if (!invoiceExists) {
         paymentData.invoices.unshift(newInvoiceData); // Add to beginning of array
+        
+        // For ALL subscriptions, limit to 3 payments maximum
+        if (paymentData.type === 'subscription' && invoice.status === 'paid' && invoice.amount_paid > 0) {
+          console.log(`Processing payment for subscription ${subscription.id}. Checking payment count...`);
+          
+          try {
+            // Count successful payments from Firestore (from Stripe extension)
+            const customerRef = firestore.collection('customers').doc(subscription.customer);
+            const paymentsQuery = customerRef.collection('payments')
+              .where('status', '==', 'succeeded');
+            
+            const paymentsSnapshot = await paymentsQuery.get();
+            const successfulPayments = paymentsSnapshot.docs.filter(doc => {
+              const paymentData = doc.data();
+              // Only count payments for this specific subscription
+              return paymentData.subscription === subscription.id;
+            });
+            
+            const paymentCount = successfulPayments.length;
+            console.log(`Found ${paymentCount} successful payments for subscription ${subscription.id}`);
+            
+            if (paymentCount >= 3) {
+              console.log(`3rd payment received for subscription ${subscription.id}. Scheduling cancellation at period end.`);
+              
+              // Cancel the subscription at the end of the current billing period
+              const canceledSubscription = await stripe.subscriptions.update(subscription.id, {
+                cancel_at_period_end: true
+              });
+              
+              console.log(`Subscription ${subscription.id} set to cancel at period end after 3rd payment`);
+              
+              // Update the payment data with cancellation info
+              paymentData.cancel_at_period_end = true;
+              paymentData.canceled_at_period_end_timestamp = Date.now();
+              paymentData.total_payments_received = paymentCount;
+            }
+            
+          } catch (countError) {
+            console.error(`Error counting payments for subscription ${subscription.id}:`, countError);
+          }
+        }
       }
 
       // Also keep latest_invoice for backwards compatibility
@@ -394,20 +438,8 @@ const handleStripeWebhookV2 = onRequest({
             metadata: subscription.metadata
           });
           
-          // Schedule cancellation if needed
-          if (subscription.metadata?.cancel_at) {
-            const result = await handleSubscriptionSchedule(stripe, {
-              subscriptionId: subscription.id,
-              cancelAt: subscription.metadata.cancel_at
-            });
-            
-            // Use the updated subscription with cancellation data
-            subscription = result.subscription;
-            console.log('Updated subscription with cancellation:', {
-              id: subscription.id,
-              cancel_at: subscription.cancel_at
-            });
-          }
+          // Note: We no longer schedule cancellation at checkout completion
+          // Instead, we cancel after the 3rd payment is received in handleSubscriptionUpdate
           
           // Now process the webhook with the updated subscription
           await handleSubscriptionUpdate(stripe, { subscription }, event.type);

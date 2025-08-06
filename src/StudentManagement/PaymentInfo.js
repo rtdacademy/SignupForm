@@ -20,7 +20,8 @@ const PaymentInfo = ({
   courseId, 
   paymentStatus,
   paymentDetails,
-  readOnly = false 
+  readOnly = false,
+  onPaymentStatusUpdate
 }) => {
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
@@ -47,6 +48,10 @@ const PaymentInfo = ({
     
     try {
       await update(ref(db, '/'), updates);
+      // Update parent component's local state immediately
+      if (onPaymentStatusUpdate) {
+        onPaymentStatusUpdate(newStatus);
+      }
       toast.success('Payment status updated successfully');
     } catch (error) {
       console.error('Error updating payment status:', error);

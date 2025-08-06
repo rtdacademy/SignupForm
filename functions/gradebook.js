@@ -12,6 +12,7 @@
  */
 
 const { onValueCreated, onValueUpdated, onValueWritten } = require('firebase-functions/v2/database');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 const { 
@@ -311,6 +312,82 @@ exports.updateGradebookOnAssessmentScore = onValueUpdated({
     
   } catch (error) {
     console.error('Error updating gradebook from assessment score:', error);
+  }
+});
+
+/**
+ * Callable Function: Manual Gradebook Recalculation
+ * Allows teachers to manually trigger a full gradebook recalculation for a student
+ * This helps resolve data inconsistencies or outdated calculations
+ */
+exports.recalculateStudentGradebook = onCall({
+  region: 'us-central1',
+  memory: '512MiB',
+  timeoutSeconds: 120,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  try {
+    console.log('🔄 Manual gradebook recalculation requested');
+    
+    // Validate request data
+    const { studentEmail, courseId } = request.data;
+    
+    if (!studentEmail || !courseId) {
+      throw new HttpsError('invalid-argument', 'Missing required parameters: studentEmail and courseId');
+    }
+    
+    // Authenticate that the caller is a teacher/staff member
+    const { auth } = request;
+    if (!auth || !auth.token) {
+      throw new HttpsError('unauthenticated', 'Authentication required');
+    }
+    
+    const teacherEmail = auth.token.email;
+    
+    // Check if the authenticated user is a staff member (ends with @rtdacademy.com)
+    if (!teacherEmail || !teacherEmail.toLowerCase().endsWith('@rtdacademy.com')) {
+      throw new HttpsError('permission-denied', 'Only staff members can recalculate gradebooks');
+    }
+    
+    console.log(`👨‍🏫 Staff member ${teacherEmail} requesting gradebook recalculation for ${studentEmail} in course ${courseId}`);
+    
+    // Sanitize the student email for database path
+    const studentKey = sanitizeEmail(studentEmail);
+    
+    // Verify that the student course exists
+    const studentCourseRef = admin.database().ref(`students/${studentKey}/courses/${courseId}`);
+    const studentCourseSnapshot = await studentCourseRef.once('value');
+    
+    if (!studentCourseSnapshot.exists()) {
+      throw new HttpsError('not-found', `Student ${studentEmail} is not enrolled in course ${courseId}`);
+    }
+    
+    // Trigger the recalculation using the existing utility function
+    console.log(`🔄 Starting gradebook recalculation for ${studentKey}/${courseId}`);
+    await recalculateFullGradebook(studentKey, courseId);
+    
+    console.log(`✅ Gradebook recalculation completed successfully for ${studentEmail} in course ${courseId}`);
+    
+    // Return success response
+    return {
+      success: true,
+      message: 'Gradebook recalculated successfully',
+      timestamp: Date.now(),
+      studentEmail: studentEmail,
+      courseId: courseId,
+      teacherEmail: teacherEmail
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in manual gradebook recalculation:', error);
+    
+    // Re-throw HttpsError instances as-is
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    // Wrap other errors as internal errors
+    throw new HttpsError('internal', `Failed to recalculate gradebook: ${error.message}`);
   }
 });
 

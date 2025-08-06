@@ -85,13 +85,29 @@ const PostSubmissionOverlay = ({
   const { user } = useAuth();
 
   // Helper function to resolve itemId from questionId
-  const resolveItemIdFromQuestionId = (questionId, itemStructure) => {
-    if (!questionId || !itemStructure) return null;
+  const resolveItemIdFromQuestionId = (questionId, course) => {
+    if (!questionId || !course) return null;
     
-    // Search through all items in itemStructure to find one with matching questionId
-    for (const [itemId, itemConfig] of Object.entries(itemStructure)) {
-      if (itemConfig?.questions?.[0]?.questionId === questionId) {
-        return itemId;
+    // First search in course.courseDetails structure (new path)
+    if (course?.courseDetails?.["course-config"]?.courseStructure?.units) {
+      for (const unit of course.courseDetails["course-config"].courseStructure.units) {
+        if (unit.items) {
+          for (const item of unit.items) {
+            if (item.questions?.[0]?.questionId === questionId) {
+              return item.itemId;
+            }
+          }
+        }
+      }
+    }
+    
+    // Then search in Gradebook itemStructure (legacy path)
+    const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
+    if (itemStructure) {
+      for (const [itemId, itemConfig] of Object.entries(itemStructure)) {
+        if (itemConfig?.questions?.[0]?.questionId === questionId) {
+          return itemId;
+        }
       }
     }
     
@@ -101,9 +117,18 @@ const PostSubmissionOverlay = ({
     if (questionIdParts.length > 1) {
       // Remove course prefix (e.g., "course2") and rejoin
       const possibleItemId = questionIdParts.slice(1).join('_');
-      if (itemStructure[possibleItemId]) {
+      
+      // Check if this itemId exists in either structure
+      if (itemStructure && itemStructure[possibleItemId]) {
         return possibleItemId;
       }
+      
+      // Also check in Gradebook items
+      if (course?.Gradebook?.items?.[possibleItemId]) {
+        return possibleItemId;
+      }
+      
+      return possibleItemId; // Return it anyway as last resort
     }
     
     return null;
@@ -112,19 +137,58 @@ const PostSubmissionOverlay = ({
   // Extract grading data and set initial grade
   useEffect(() => {
     if (course && questionId) {
-      // Get max points from course config by resolving the correct itemId
-      const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
-      const itemId = resolveItemIdFromQuestionId(questionId, itemStructure);
+      // Resolve itemId first
+      const itemId = resolveItemIdFromQuestionId(questionId, course);
       
-      if (itemId && itemStructure?.[itemId]) {
-        const points = itemStructure[itemId]?.questions?.[0]?.points;
-        if (points) {
-          setMaxPoints(points);
+      // Get max points - try multiple sources
+      let points = 0;
+      
+      // First try: course.courseDetails structure (preferred)
+      if (course?.courseDetails?.["course-config"]?.courseStructure?.units) {
+        for (const unit of course.courseDetails["course-config"].courseStructure.units) {
+          if (unit.items) {
+            const foundItem = unit.items.find(item => 
+              item.questions?.[0]?.questionId === questionId
+            );
+            if (foundItem?.questions?.[0]?.points) {
+              points = foundItem.questions[0].points;
+              break;
+            }
+          }
         }
       }
+      
+      // Second try: Gradebook itemStructure (legacy)
+      if (!points && itemId) {
+        const itemStructure = course?.Gradebook?.courseConfig?.gradebook?.itemStructure;
+        if (itemStructure?.[itemId]?.questions?.[0]?.points) {
+          points = itemStructure[itemId].questions[0].points;
+        }
+      }
+      
+      // Third try: Gradebook items total
+      if (!points && itemId && course?.Gradebook?.items?.[itemId]?.total) {
+        points = course.Gradebook.items[itemId].total;
+      }
+      
+      if (points > 0) {
+        setMaxPoints(points);
+      }
 
-      // Set initial grade from course object (works for both staff and student views)
-      const existingGrade = course.Grades?.assessments?.[questionId];
+      // Set initial grade - check multiple sources in priority order
+      let existingGrade = null;
+      
+      // First priority: Check Gradebook/items path for existing score
+      if (itemId && course?.Gradebook?.items?.[itemId]?.score !== undefined) {
+        existingGrade = course.Gradebook.items[itemId].score;
+      }
+      
+      // Second priority: Check Grades/assessments path
+      if (existingGrade === null || existingGrade === undefined) {
+        existingGrade = course.Grades?.assessments?.[questionId];
+      }
+      
+      // Set the grade if found
       if (existingGrade !== undefined && existingGrade !== null) {
         const gradeStr = existingGrade.toString();
         setCurrentGrade(gradeStr);

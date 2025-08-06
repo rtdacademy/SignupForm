@@ -150,7 +150,7 @@ export const generateContentPathWithOrder = (itemId, order) => {
 };
 
 // Validate question ID format and uniqueness
-export const validateQuestionId = (questionId, existingQuestions = []) => {
+export const validateQuestionId = (questionId, existingQuestions = [], enforceFormat = false) => {
   const errors = [];
   
   // Check format
@@ -159,10 +159,13 @@ export const validateQuestionId = (questionId, existingQuestions = []) => {
     return { isValid: false, errors };
   }
   
-  // Check basic format pattern
-  const pattern = /^course\d+_\d{2}_.*_question\d+$|^course\d+_\d{2}_question\d+$/;
-  if (!pattern.test(questionId)) {
-    errors.push('Question ID must follow the format: course{id}_{item}_question{num} or course{id}_{item}_{title}_question{num}');
+  // Basic format validation - no spaces, reasonable characters
+  if (/\s/.test(questionId)) {
+    errors.push('Question ID cannot contain spaces');
+  }
+  
+  if (!/^[a-zA-Z0-9_-]+$/.test(questionId)) {
+    errors.push('Question ID can only contain letters, numbers, underscores, and hyphens');
   }
   
   // Check uniqueness
