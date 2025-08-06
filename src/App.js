@@ -47,10 +47,13 @@ import RTDLearningAdminDashboard from './rtdLearning/AdminDashboard';
 import RTDConnectLogin from './RTDConnect/Login';
 import RTDConnectDashboard from './RTDConnect/Dashboard';
 import RTDConnectLandingPage from './RTDConnect/LandingPage';
-import FacilitatorsPage from './RTDConnect/FacilitatorsPage';
 import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
 import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
 import FacilitatorProfile3 from './RTDConnect/FacilitatorProfile3';
+import AboutPage from './RTDConnect/pages/AboutPage';
+import FAQPage from './RTDConnect/pages/FAQPage';
+import FundingPage from './RTDConnect/pages/FundingPage';
+import BioPage from './RTDConnect/pages/BioPage';
 import HomeEducationStaffDashboard from './HomeEducation/HomeEducationStaffDashboard';
 
 // EdBotz imports
@@ -63,6 +66,7 @@ import GoogleAIChatPage from './edbotz/GoogleAIChat/GoogleAIChatPage';
 
 import './styles/styles.css';
 import 'katex/dist/katex.min.css';
+import ScrollToTop from './components/ScrollToTop';
 
 // Protected Route Component for EdBotz
 const EdBotzProtectedRoute = ({ children }) => {
@@ -97,6 +101,7 @@ function MainApp() {
   return (
     <div className="App">
        {user && <SessionTimeoutWarning showDebugInfo={isDebugMode} />}
+      <ScrollToTop />
       <Routes>
 
       <Route 
@@ -291,6 +296,7 @@ function EdBotzApp() {
 
   return (
     <div className="EdBotzApp">
+      <ScrollToTop />
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={
@@ -348,10 +354,14 @@ function RTDConnectApp() {
 
   return (
     <div className="RTDConnectApp">
+      <ScrollToTop />
       <Routes>
         {/* Public routes - always accessible */}
         <Route path="/" element={<RTDConnectLandingPage />} />
-        <Route path="/facilitators" element={<FacilitatorsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/bio" element={<BioPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/funding" element={<FundingPage />} />
         <Route path="/facilitator/golda-david" element={<FacilitatorProfile1 />} />
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />

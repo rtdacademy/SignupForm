@@ -1529,7 +1529,9 @@ const GoogleAIChatApp = ({
       timestamp: Date.now()
     }
   ],
-  forceNewSession = false // Force a new chat session, clearing existing messages
+  forceNewSession = false, // Force a new chat session, clearing existing messages
+  // Tool configuration
+  enabledTools = ['createVisualization'] // Array of tools to enable for this chat session
 }) => {
   // Generate session-specific localStorage keys
   const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
@@ -2430,7 +2432,9 @@ const GoogleAIChatApp = ({
             messages: conversationHistory,
             aiModel: aiModel,
             aiTemperature: aiTemperature,
-            aiMaxTokens: aiMaxTokens
+            aiMaxTokens: aiMaxTokens,
+            enabledTools: enabledTools,
+            mediaItems: mediaItemsToSend
           });
           
           console.log('📡 Starting to consume streaming chunks...');
@@ -2515,7 +2519,9 @@ const GoogleAIChatApp = ({
           messages: conversationHistory,
           aiModel: aiModel,
           aiTemperature: aiTemperature,
-          aiMaxTokens: aiMaxTokens
+          aiMaxTokens: aiMaxTokens,
+          enabledTools: enabledTools,
+          mediaItems: mediaItemsToSend
         });
         
         modelResponse = result.data.text;

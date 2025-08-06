@@ -543,12 +543,24 @@ const sendChatMessage = onCall({
       messages = [], // Previous conversation history
       aiModel = 'FLASH', // Default to FLASH model
       aiTemperature = 'BALANCED', // Default to balanced temperature
-      aiMaxTokens = 'MEDIUM' // Default to medium response length
+      aiMaxTokens = 'MEDIUM', // Default to medium response length
+      enabledTools = ['createVisualization'], // Default to visualization tool for backward compatibility
+      mediaItems = [] // Media items (images, documents, videos) attached to the message
     } = data;
 
     if (!message) {
       throw new Error('Message is required');
     }
+    
+    // Process multimodal content (text + images/documents/videos)
+    console.log('📎 Processing multimodal content:', {
+      hasMessage: !!message,
+      mediaItemsCount: mediaItems.length,
+      mediaTypes: mediaItems.map(item => item.type)
+    });
+    
+    const processedContent = await processMultimodalContent(message, mediaItems);
+    console.log('📎 Processed content type:', Array.isArray(processedContent) ? 'multimodal_array' : 'text_string');
     
     // Resolve AI settings from the request
     const resolvedSettings = resolveAISettings(aiModel, aiTemperature, aiMaxTokens);
@@ -579,8 +591,8 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
-          prompt: message,
-          tools: ['createVisualization'], // Enable visualization tool
+          prompt: processedContent, // Use processedContent instead of message for multimodal support
+          tools: enabledTools, // Use dynamic tools configuration
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -597,26 +609,40 @@ const sendChatMessage = onCall({
           content: [{ text: msg.content }] // Convert string to array format
         }));
         
-        // Add tool usage reminder before current message since system instruction isn't applied
-        const toolReminderMessage = {
-          role: 'model',
-          content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
-        };
+        // Add tool usage reminder before current message since system instruction isn't applied (only if tools are enabled)
+        if (enabledTools.length > 0) {
+          const toolReminderMessage = {
+            role: 'model',
+            content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
+          };
+          conversationMessages.push(toolReminderMessage);
+        }
         
         // Add current user message with enhanced context for visualization requests
         let enhancedMessage = message;
-        if (message.toLowerCase().includes('draw') || 
+        if (enabledTools.includes('createVisualization') && (message.toLowerCase().includes('draw') || 
             message.toLowerCase().includes('visualize') || 
             message.toLowerCase().includes('show') || 
             message.toLowerCase().includes('graph') ||
             message.toLowerCase().includes('sine') ||
             message.toLowerCase().includes('wave') ||
-            message.toLowerCase().includes('plot')) {
+            message.toLowerCase().includes('plot'))) {
           enhancedMessage = `${message}\n\n[Note: If this is a request for a visualization, diagram, or graph, please use the createVisualization tool to create an interactive JSXGraph visualization.]`;
         }
         
-        conversationMessages.push(toolReminderMessage);
-        conversationMessages.push({ role: 'user', content: [{ text: enhancedMessage }] });
+        // Handle multimodal content for current message
+        let currentMessageContent;
+        if (Array.isArray(processedContent)) {
+          // Multimodal content - replace text content with enhanced message
+          currentMessageContent = processedContent.map(part => 
+            part.text ? { text: enhancedMessage } : part
+          );
+        } else {
+          // Text-only content
+          currentMessageContent = [{ text: enhancedMessage }];
+        }
+        
+        conversationMessages.push({ role: 'user', content: currentMessageContent });
         
         // Ensure first message is from user - if not, we need to restructure
         if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
@@ -632,7 +658,7 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           messages: conversationMessages,
-          tools: ['createVisualization'], // Enable visualization tool
+          tools: enabledTools, // Use dynamic tools configuration
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -818,8 +844,8 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
-          prompt: message,
-          tools: ['createVisualization'], // Enable visualization tool
+          prompt: processedContent, // Use processedContent instead of message for multimodal support
+          tools: enabledTools, // Use dynamic tools configuration
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens
@@ -836,26 +862,40 @@ const sendChatMessage = onCall({
           content: [{ text: msg.content }] // Convert string to array format
         }));
         
-        // Add tool usage reminder before current message since system instruction isn't applied
-        const toolReminderMessage = {
-          role: 'model',
-          content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
-        };
+        // Add tool usage reminder before current message since system instruction isn't applied (only if tools are enabled)
+        if (enabledTools.length > 0) {
+          const toolReminderMessage = {
+            role: 'model',
+            content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
+          };
+          conversationMessages.push(toolReminderMessage);
+        }
         
         // Add current user message with enhanced context for visualization requests
         let enhancedMessage = message;
-        if (message.toLowerCase().includes('draw') || 
+        if (enabledTools.includes('createVisualization') && (message.toLowerCase().includes('draw') || 
             message.toLowerCase().includes('visualize') || 
             message.toLowerCase().includes('show') || 
             message.toLowerCase().includes('graph') ||
             message.toLowerCase().includes('sine') ||
             message.toLowerCase().includes('wave') ||
-            message.toLowerCase().includes('plot')) {
+            message.toLowerCase().includes('plot'))) {
           enhancedMessage = `${message}\n\n[Note: If this is a request for a visualization, diagram, or graph, please use the createVisualization tool to create an interactive JSXGraph visualization.]`;
         }
         
-        conversationMessages.push(toolReminderMessage);
-        conversationMessages.push({ role: 'user', content: [{ text: enhancedMessage }] });
+        // Handle multimodal content for current message
+        let currentMessageContent;
+        if (Array.isArray(processedContent)) {
+          // Multimodal content - replace text content with enhanced message
+          currentMessageContent = processedContent.map(part => 
+            part.text ? { text: enhancedMessage } : part
+          );
+        } else {
+          // Text-only content
+          currentMessageContent = [{ text: enhancedMessage }];
+        }
+        
+        conversationMessages.push({ role: 'user', content: currentMessageContent });
         
         // Ensure first message is from user - if not, we need to restructure
         if (conversationMessages.length > 0 && conversationMessages[0].role !== 'user') {
@@ -871,7 +911,7 @@ const sendChatMessage = onCall({
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           messages: conversationMessages,
-          tools: ['createVisualization'], // Enable visualization tool
+          tools: enabledTools, // Use dynamic tools configuration
           config: {
             temperature: resolvedSettings.temperature,
             maxOutputTokens: resolvedSettings.maxTokens

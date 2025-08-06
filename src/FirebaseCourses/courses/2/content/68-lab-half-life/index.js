@@ -179,9 +179,14 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
           setSectionContent(data.sectionContent);
         }
         
-        // Load observation data
+        // Load observation data - merge with defaults to ensure all required properties exist
         if (data.observationData) {
-          setObservationData(data.observationData);
+          setObservationData(prev => ({
+            ...prev,
+            ...data.observationData,
+            // Ensure measurements array always exists
+            measurements: data.observationData.measurements || []
+          }));
         }
         
         // Load analysis data
@@ -767,7 +772,7 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
           </div>
           
           {/* Data Summary */}
-          {observationData.measurements.length > 0 && (
+          {observationData.measurements?.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Collected Data Summary</h3>
               
@@ -778,7 +783,7 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg">
                   <div className="text-sm text-green-600">Data Points</div>
-                  <div className="font-medium">{observationData.measurements.length}</div>
+                  <div className="font-medium">{observationData.measurements?.length || 0}</div>
                 </div>
                 <div className="bg-purple-50 p-3 rounded-lg">
                   <div className="text-sm text-purple-600">Total Time</div>
@@ -798,7 +803,7 @@ const LabHalfLife = ({ courseId = '2', course, isStaffView = false }) => {
                     </tr>
                   </thead>
                   <tbody className="font-mono">
-                    {observationData.measurements.map((measurement, index) => (
+                    {(observationData.measurements || []).map((measurement, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-3 py-2">{measurement.time}</td>
                         <td className="border border-gray-300 px-3 py-2">{Math.round(measurement.totalCPM)}</td>

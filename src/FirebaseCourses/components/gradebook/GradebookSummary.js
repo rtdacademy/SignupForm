@@ -17,6 +17,28 @@ const GradebookSummary = ({ course, profile }) => {
     return createAllCourseItems(course);
   }, [course]);
   
+  // Calculate actual item counts from course structure
+  const actualItemCounts = useMemo(() => {
+    const counts = {};
+    const courseStructure = course?.courseDetails?.['course-config']?.courseStructure;
+    
+    if (courseStructure?.units) {
+      courseStructure.units.forEach(unit => {
+        if (unit.items) {
+          unit.items.forEach(item => {
+            const type = item.type;
+            if (type) {
+              counts[type] = (counts[type] || 0) + 1;
+            }
+          });
+        }
+      });
+    }
+    
+    console.log('Actual item counts from course structure:', counts);
+    return counts;
+  }, [course]);
+  
   // Check if server-calculated gradebook data is available
   const gradebook = course?.Gradebook;
   const hasGradebookData = hasValidGradebookData(course);
@@ -43,7 +65,7 @@ const GradebookSummary = ({ course, profile }) => {
   };
 
   // Get weights from course config for display
-  const weights = course?.courseDetails?.['course-config']?.gradebook?.weights || {};
+  const weights = course?.courseDetails?.['course-config']?.weights || {};
   const courseItemStats = calculateCourseProgress(course, allCourseItems);
   
   const passingGrade = 60; // Could be made configurable
@@ -125,11 +147,7 @@ const GradebookSummary = ({ course, profile }) => {
               <p className="text-sm text-gray-600 mt-1">
                 If remaining work not completed
               </p>
-              <div className="text-xs text-gray-500 mt-2 space-y-1">
-                Weighted by: {Object.entries(weights).filter(([_, weight]) => weight > 0).map(([type, weight]) => (
-                  `${type}: ${formatScore(weight * 100)}%`
-                )).join(', ')}
-              </div>
+           
             </div>
           </div>
         </div>
@@ -143,6 +161,7 @@ const GradebookSummary = ({ course, profile }) => {
             type={categoryType}
             data={categoryData}
             weight={weights[categoryType] || 0}
+            actualItemCount={actualItemCounts[categoryType] || 0}
           />
         ))}
       </div>
@@ -152,7 +171,7 @@ const GradebookSummary = ({ course, profile }) => {
 };
 
 // Category Card Component
-const CategoryCard = ({ type, data, weight }) => {
+const CategoryCard = ({ type, data, weight, actualItemCount }) => {
   const categoryConfig = {
     lesson: { color: 'blue', icon: '📚', label: 'Lessons' },
     assignment: { color: 'emerald', icon: '📝', label: 'Assignments' },
@@ -185,16 +204,15 @@ const CategoryCard = ({ type, data, weight }) => {
             <span className="text-2xl font-bold text-gray-400">--</span>
           )}
           <span className="text-xs text-gray-600">
-            {data.itemCount} items
+            {actualItemCount} items
           </span>
         </div>
         
         {/* Score Details */}
         <div className="text-xs text-gray-600">
-          {formatScore(data.score)} / {formatScore(data.total)} points
           {data.completedCount > 0 && (
-            <div className="mt-1">
-              {data.completedCount} of {data.itemCount} completed
+            <div>
+              {data.completedCount} of {actualItemCount} completed
             </div>
           )}
         </div>

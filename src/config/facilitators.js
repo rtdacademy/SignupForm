@@ -34,6 +34,37 @@ export const FACILITATORS = [
     }
   },
   {
+    id: 'grace-anne-post',
+    name: 'Grace-Anne Post',
+    title: 'K-12 Home Education Teacher/Facilitator',
+    experience: '25+ years experience',
+    description: 'With over 20 years of homeschooling her own children and extensive experience supporting diverse learners, Grace-Anne offers empathetic, grounded guidance rooted in child development and brain-based learning.',
+    image: '/connectImages/Grace-Anne.jpg',
+    specializations: [
+      'Eclectic & Interest-Led Learning',
+      'Support for Gifted & Neurodiverse Learners',
+      'Highly Sensitive Children (HSP)',
+      'Early Childhood Development'
+    ],
+    stats: [
+      { icon: 'Star', value: '25+', label: 'Years Experience' },
+      { icon: 'GraduationCap', value: 'B.Ed, ECE', label: 'Qualifications' },
+      { icon: 'Users', value: '20+', label: 'Years Homeschooling' }
+    ],
+    contact: {
+      email: 'grace-anne@rtdconnect.com'
+    },
+    gradients: {
+      card: 'from-green-500 to-teal-500',
+      border: 'border-green-100'
+    },
+    // Grade focus for assignment recommendations
+    gradeFocus: {
+      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      secondary: [] // Handles all grades equally well
+    }
+  },
+  {
     id: 'marian-johnson',
     name: 'Marian Johnson',
     title: 'High School & Transition Specialist',
@@ -62,37 +93,6 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['9', '10', '11', '12'],
       secondary: ['8'] // Can handle some Grade 8
-    }
-  },
-  {
-    id: 'grace-anne-post',
-    name: 'Grace-Anne Post',
-    title: 'K-12 Education Specialist',
-    experience: '12+ years experience',
-    description: 'Passionate about supporting families throughout their entire home education journey, from kindergarten through graduation, with expertise in diverse learning styles and educational approaches.',
-    image: '/connectImages/FakeFacil2.png',
-    specializations: [
-      'K-12 Curriculum Development',
-      'Multi-Grade Family Support',
-      'Special Needs Education'
-    ],
-    stats: [
-      { icon: 'Star', value: '12+', label: 'Years Experience' },
-      { icon: 'Users', value: '200+', label: 'Families Supported' },
-      { icon: 'Clock', value: '24hr', label: 'Response Time' }
-    ],
-    contact: {
-      email: 'graceanne@rtdacademy.com',
-      phone: '(403) 555-0126'
-    },
-    gradients: {
-      card: 'from-green-500 to-teal-500',
-      border: 'border-green-100'
-    },
-    // Grade focus for assignment recommendations
-    gradeFocus: {
-      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-      secondary: [] // Handles all grades equally well
     }
   }
 ];

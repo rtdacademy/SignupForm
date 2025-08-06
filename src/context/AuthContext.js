@@ -131,7 +131,11 @@ export function AuthProvider({ children }) {
     '/parent-verify-email',
     '/rtd-learning-login',
     '/rtd-learning-admin-login',
-    '/facilitators'
+    '/facilitators',
+    '/about',
+    '/bio',
+    '/faq',
+    '/funding'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public

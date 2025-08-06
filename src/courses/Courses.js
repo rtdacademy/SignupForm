@@ -895,215 +895,225 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <FaGraduationCap className="text-blue-500" />
-          Course Progression Requirements
-        </h3>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={requirements.enabled || false}
-              onCheckedChange={handleEnabledChange}
-              disabled={!isEditing}
-            />
-            <label className="text-sm font-medium text-gray-700">
-              Enable Progression Requirements
-            </label>
-          </div>
-          {isEditing && requirements.enabled && (
-            <Button
-              onClick={handleResetToDefaults}
-              variant="outline"
-              size="sm"
-              className="text-gray-600 hover:text-gray-800"
-            >
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Reset to Defaults
-            </Button>
-          )}
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={requirements.enabled || false}
+            onCheckedChange={handleEnabledChange}
+            disabled={!isEditing}
+          />
+          <label className="text-sm font-medium text-gray-700">
+            Enable Progression Requirements
+          </label>
         </div>
+        {isEditing && requirements.enabled && (
+          <Button
+            onClick={handleResetToDefaults}
+            variant="outline"
+            size="sm"
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <RotateCcw className="w-4 h-4 mr-1" />
+            Reset to Defaults
+          </Button>
+        )}
       </div>
 
       {requirements.enabled && (
         <div className="space-y-6">
-          {/* Default Criteria */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-md font-semibold text-blue-800 mb-3">Default Criteria</h4>
-            <p className="text-xs text-gray-600 mb-4">
-              These criteria apply to all items of each type unless overridden below.
-            </p>
-            
-            <div className="space-y-6">
-              {/* Lesson Defaults */}
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-700 mb-3">Lessons</h5>
-                <div className="flex flex-wrap gap-6">
-                  <div className="flex-1 min-w-48">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Minimum Percentage
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={requirements.defaultCriteria?.lesson?.minimumPercentage || 50}
-                        onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                        disabled={!isEditing}
-                        className="flex-1"
-                      />
-                      <FaPercentage className="text-gray-400" />
+          {/* Default Criteria - Wrapped in Accordion */}
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="default-criteria">
+              <AccordionTrigger className="text-md font-semibold text-blue-800">
+                Default Criteria
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-4">
+                    These criteria apply to all items of each type unless overridden below.
+                  </p>
+                  
+                  <div className="space-y-6">
+                    {/* Lesson Defaults */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-100">
+                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Lessons</h5>
+                      <div className="flex flex-wrap gap-6">
+                        <div className="flex-1 min-w-48">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Minimum Percentage
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={requirements.defaultCriteria?.lesson?.minimumPercentage || 50}
+                              onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                              disabled={!isEditing}
+                              className="flex-1"
+                            />
+                            <FaPercentage className="text-gray-400" />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 mt-6">
+                          <Switch
+                            checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
+                            onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
+                            disabled={!isEditing}
+                          />
+                          <label className="text-sm font-medium text-gray-700">
+                            Require All Questions
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Assignment Defaults */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-100">
+                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Assignments</h5>
+                      <div className="flex-1 min-w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Sessions Required
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
+                            value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
+                            onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                            disabled={!isEditing}
+                            className="flex-1"
+                          />
+                          <span className="text-sm text-gray-500">sessions</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Exam Defaults */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-100">
+                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Exams</h5>
+                      <div className="flex-1 min-w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Sessions Required
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
+                            value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
+                            onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                            disabled={!isEditing}
+                            className="flex-1"
+                          />
+                          <span className="text-sm text-gray-500">sessions</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quiz Defaults */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-100">
+                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Quizzes</h5>
+                      <div className="flex-1 min-w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Sessions Required
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
+                            value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
+                            onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                            disabled={!isEditing}
+                            className="flex-1"
+                          />
+                          <span className="text-sm text-gray-500">sessions</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lab Defaults */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-100">
+                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Labs</h5>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
+                          onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
+                          disabled={!isEditing}
+                        />
+                        <label className="text-sm font-medium text-gray-700">
+                          Requires Submission
+                        </label>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center space-x-2 mt-6">
-                    <Switch
-                      checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
-                      onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
-                      disabled={!isEditing}
-                    />
-                    <label className="text-sm font-medium text-gray-700">
-                      Require All Questions
-                    </label>
-                  </div>
                 </div>
-              </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
-              {/* Assignment Defaults */}
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-700 mb-3">Assignments</h5>
-                <div className="flex-1 min-w-48">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sessions Required
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
-                      onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                      disabled={!isEditing}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-500">sessions</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Exam Defaults */}
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-700 mb-3">Exams</h5>
-                <div className="flex-1 min-w-48">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sessions Required
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
-                      onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                      disabled={!isEditing}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-500">sessions</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quiz Defaults */}
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-700 mb-3">Quizzes</h5>
-                <div className="flex-1 min-w-48">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sessions Required
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
-                      onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                      disabled={!isEditing}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-500">sessions</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lab Defaults */}
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-700 mb-3">Labs</h5>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
-                    onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
-                    disabled={!isEditing}
-                  />
-                  <label className="text-sm font-medium text-gray-700">
-                    Requires Submission
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lesson Overrides */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-md font-semibold text-gray-800">Lesson Overrides</h4>
-                {availableLessons.length > 0 && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    {overrideEntries.length} of {availableLessons.length} lessons have custom criteria
-                  </p>
-                )}
-              </div>
-              {isEditing && (
-                <Button 
-                  onClick={handleAddOverride}
-                  type="button"
-                  className="flex items-center"
-                  size="sm"
-                  disabled={loadingLessons || availableLessons.every(lesson => 
-                    Object.keys(requirements.lessonOverrides || {}).includes(lesson.itemId)
+          {/* Lesson Overrides - Wrapped in Accordion */}
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="lesson-overrides">
+              <AccordionTrigger className="text-md font-semibold text-gray-800">
+                <div className="flex items-center justify-between w-full">
+                  <span>Lesson Overrides</span>
+                  {availableLessons.length > 0 && (
+                    <span className="text-xs text-gray-600 ml-2">
+                      ({overrideEntries.length} of {availableLessons.length} lessons have custom criteria)
+                    </span>
                   )}
-                >
-                  <FaPlus className="mr-2" /> Add Override
-                </Button>
-              )}
-            </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    {isEditing && (
+                      <Button 
+                        onClick={handleAddOverride}
+                        type="button"
+                        className="flex items-center"
+                        size="sm"
+                        disabled={loadingLessons || availableLessons.every(lesson => 
+                          Object.keys(requirements.lessonOverrides || {}).includes(lesson.itemId)
+                        )}
+                      >
+                        <FaPlus className="mr-2" /> Add Override
+                      </Button>
+                    )}
+                  </div>
 
-            <div className="space-y-3">
-              {loadingLessons ? (
-                <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
-                  Loading available lessons...
-                </p>
-              ) : overrideEntries.length === 0 ? (
-                <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
-                  No lesson overrides configured. All lessons will use the default criteria.
-                </p>
-              ) : (
-                overrideEntries.map(([lessonId, override]) => (
-                  <LessonOverrideEditor
-                    key={lessonId}
-                    lessonId={lessonId}
-                    override={override}
-                    onChange={(newOverride) => handleOverrideChange(lessonId, lessonId, newOverride)}
-                    onLessonIdChange={(newLessonId) => handleOverrideChange(lessonId, newLessonId, override)}
-                    onDelete={() => handleDeleteOverride(lessonId)}
-                    isEditing={isEditing}
-                    availableLessons={availableLessons}
-                    existingOverrides={requirements.lessonOverrides || {}}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+                  <div className="space-y-3">
+                    {loadingLessons ? (
+                      <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                        Loading available lessons...
+                      </p>
+                    ) : overrideEntries.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                        No lesson overrides configured. All lessons will use the default criteria.
+                      </p>
+                    ) : (
+                      overrideEntries.map(([lessonId, override]) => (
+                        <LessonOverrideEditor
+                          key={lessonId}
+                          lessonId={lessonId}
+                          override={override}
+                          onChange={(newOverride) => handleOverrideChange(lessonId, lessonId, newOverride)}
+                          onLessonIdChange={(newLessonId) => handleOverrideChange(lessonId, newLessonId, override)}
+                          onDelete={() => handleDeleteOverride(lessonId)}
+                          isEditing={isEditing}
+                          availableLessons={availableLessons}
+                          existingOverrides={requirements.lessonOverrides || {}}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           {/* Lesson Visibility Overrides */}
           <Accordion 
@@ -2908,13 +2918,20 @@ function Courses({
                       />
                     </div>
                     
-                    <div>
-                      <ProgressionRequirementsManager 
-                        courseId={selectedCourseId}
-                        progressionRequirements={courseData.progressionRequirements}
-                        isEditing={courseIsEditing}
-                      />
-                    </div>
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="progression-requirements">
+                        <AccordionTrigger className="text-lg font-semibold">
+                          Course Progression Requirements
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <ProgressionRequirementsManager 
+                            courseId={selectedCourseId}
+                            progressionRequirements={courseData.progressionRequirements}
+                            isEditing={courseIsEditing}
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
                   </div>
                 ) : (
                   // Regular Course - Show editable units

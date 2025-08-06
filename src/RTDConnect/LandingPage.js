@@ -114,7 +114,7 @@ const RTDConnectLandingPage = () => {
   };
 
   const handleFacilitatorsClick = () => {
-    navigate('/facilitators');
+    navigate('/bio');
     setIsMenuOpen(false);
   };
 
@@ -145,21 +145,33 @@ const RTDConnectLandingPage = () => {
             <div className="hidden sm:flex items-center space-x-4">
               <button
                 onClick={handleHomeClick}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-purple-600 font-medium"
               >
                 Home
               </button>
               <button
-                onClick={handleFacilitatorsClick}
+                onClick={() => navigate('/about')}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Our Facilitators
+                About
               </button>
               <button
-                onClick={handleEducationClick}
+                onClick={() => navigate('/bio')}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Education
+                Facilitators
+              </button>
+              <button
+                onClick={() => navigate('/faq')}
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                FAQ
+              </button>
+              <button
+                onClick={() => navigate('/funding')}
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Funding
               </button>
               <button
                 onClick={handleContactClick}
@@ -191,21 +203,33 @@ const RTDConnectLandingPage = () => {
               <div className="flex flex-col space-y-2 px-2">
                 <button
                   onClick={handleHomeClick}
-                  className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
+                  className="text-purple-600 font-medium py-2 text-left"
                 >
                   Home
                 </button>
                 <button
-                  onClick={handleFacilitatorsClick}
+                  onClick={() => navigate('/about')}
                   className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
                 >
-                  Our Facilitators
+                  About
                 </button>
                 <button
-                  onClick={handleEducationClick}
+                  onClick={() => navigate('/bio')}
                   className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
                 >
-                  Education
+                  Facilitators
+                </button>
+                <button
+                  onClick={() => navigate('/faq')}
+                  className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
+                >
+                  FAQ
+                </button>
+                <button
+                  onClick={() => navigate('/funding')}
+                  className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
+                >
+                  Funding
                 </button>
                 <button
                   onClick={handleContactClick}
@@ -227,63 +251,182 @@ const RTDConnectLandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 py-12 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-gray-900 mb-6">
-                Empower Your Child's Learning with 
-                <span className="bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent block">
-                  Flexible Home Education in Alberta
+      <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-10 left-10 w-20 h-20 bg-purple-200 rounded-full opacity-20 animate-pulse"></div>
+          <div className="absolute top-32 right-20 w-16 h-16 bg-blue-200 rounded-full opacity-30 animate-pulse delay-75"></div>
+          <div className="absolute bottom-20 left-1/4 w-24 h-24 bg-cyan-200 rounded-full opacity-20 animate-pulse delay-150"></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          {/* Hero Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-16">
+            {/* Left Column - Text Content */}
+            <div className="text-center lg:text-left">
+              {/* Badge */}
+              <div className="inline-flex items-center px-6 py-3 rounded-full bg-white/70 backdrop-blur-sm border border-purple-200 mb-8">
+                <Heart className="w-5 h-5 text-purple-500 mr-2" />
+                <span className="text-purple-700 font-semibold text-sm sm:text-base">
+                  Rooted in Relationship • Thriving in Freedom • Dynamic by Design
+                </span>
+              </div>
+              
+              {/* Main Heading */}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-8 leading-tight">
+                Welcome to
+                <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent block mt-2">
+                  RTD-Connect
+                </span>
+                <span className="block text-2xl sm:text-3xl lg:text-4xl mt-4 text-gray-700">
+                  Home Education, Reimagined
                 </span>
               </h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed">
-                Experience the joy of tailored education supported by expert guidance. RTD Connect simplifies home education for Alberta families with easy registration, fast funding payouts, and comprehensive resources—all in one user-friendly portal.
-              </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              {/* Subheading with better spacing */}
+              <div className="mb-12">
+                <p className="text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">
+                  Learning should be as <span className="text-purple-600 font-semibold">unique as the child</span>
+                </p>
+                <p className="text-lg text-gray-600 leading-relaxed">
+                  As part of RTD Academy, we offer Alberta families the support, flexibility, and freedom to follow their own path. 
+                  Our experienced facilitators—both certified teachers and homeschool parents—partner with you to create 
+                  personalized learning journeys rooted in curiosity, creativity, and connection.
+                </p>
+              </div>
+              
+              {/* Call to Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center lg:justify-start">
                 <button
                   onClick={handleGetStarted}
-                  className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base sm:text-lg font-medium rounded-lg text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                  className="group inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   Start Your Journey
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </button>
                 
                 <button
-                  onClick={handleLearnMore}
-                  className="inline-flex items-center justify-center px-8 py-4 border border-gray-300 text-base sm:text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                  onClick={handleFacilitatorsClick}
+                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-purple-300 text-lg font-semibold rounded-xl text-purple-700 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
-                  Learn More
+                  <Users className="w-5 h-5 mr-2" />
+                  Meet Our Facilitators
                 </button>
               </div>
+            </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <StatCard 
-                  value={FUNDING_RATES.GRADES_1_TO_12.formatted}
-                  label="Per Student Funding"
-                  icon={DollarSign}
-                />
-                <StatCard 
-                  value={`${ACADEMIC_STATS.HOME_EDUCATION_DIPLOMA_AVERAGE.percentage}%`}
-                  label="Diploma Exam Avg"
-                  icon={Star}
-                />
-                <StatCard 
-                  value={PORTAL_STATS.COMMUNITY_PARTNERS.count}
-                  label="Community Partners"
-                  icon={Users}
-                />
+            {/* Right Column - Hero Image */}
+            <div className="relative lg:order-last">
+              <div className="relative">
+                {/* Decorative elements around image */}
+                <div className="absolute -top-4 -left-4 w-24 h-24 bg-gradient-to-r from-purple-400 to-blue-400 rounded-2xl opacity-20 rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full opacity-15"></div>
+                
+                {/* Main image container */}
+                <div className="relative bg-white/60 backdrop-blur-sm rounded-3xl p-4 border border-white/50 shadow-2xl">
+                  <img 
+                    src="/connectImages/ChildComputer.png" 
+                    alt="Child learning with computer - personalized home education"
+                    className="w-full h-auto rounded-2xl shadow-lg"
+                  />
+                  
+                  {/* Floating stats badge */}
+                  <div className="absolute -bottom-4 -left-4 bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900">100%</div>
+                        <div className="text-sm text-gray-600">Success Rate</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Floating facilitator badge */}
+                  <div className="absolute -top-4 -right-4 bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900">Expert</div>
+                        <div className="text-sm text-gray-600">Facilitators</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Feature Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            {/* Feature 1 */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-purple-100 hover:bg-white/80 transition-all duration-300 hover:shadow-lg group">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Personalized Learning</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Tailored education paths that adapt to your child's unique learning style, interests, and pace.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-blue-100 hover:bg-white/80 transition-all duration-300 hover:shadow-lg group">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Expert Support</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Certified teachers who are also homeschool parents, providing both professional and personal guidance.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-cyan-100 hover:bg-white/80 transition-all duration-300 hover:shadow-lg group">
+              <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-green-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <MapPin className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Alberta Approved</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Fully compliant with Alberta's education requirements while maintaining the flexibility you need.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Section */}
+          <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-8 border border-white/50">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Trusted by Alberta Families</h3>
+              <p className="text-gray-600">Real results from our home education community</p>
+            </div>
             
-            <div className="relative">
-              <img 
-                src="/connectImages/ChildComputer.png" 
-                alt="Child learning with computer"
-                className="w-full max-w-lg mx-auto rounded-2xl shadow-xl"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <DollarSign className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-3xl font-bold text-gray-900 mb-2">{FUNDING_RATES.GRADES_1_TO_12.formatted}</div>
+                <div className="text-sm text-gray-600 font-medium">Per Student Funding</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-3xl font-bold text-gray-900 mb-2">{ACADEMIC_STATS.HOME_EDUCATION_DIPLOMA_AVERAGE.percentage}%</div>
+                <div className="text-sm text-gray-600 font-medium">Diploma Exam Average</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-3xl font-bold text-gray-900 mb-2">{PORTAL_STATS.COMMUNITY_PARTNERS.count}</div>
+                <div className="text-sm text-gray-600 font-medium">Community Partners</div>
+              </div>
             </div>
           </div>
         </div>
@@ -535,12 +678,21 @@ const RTDConnectLandingPage = () => {
             <p className="text-base sm:text-lg text-gray-600 mb-6">
               Ready to connect with one of our facilitators? They're here to help you succeed.
             </p>
-            <button
-              onClick={handleContactClick}
-              className="inline-flex items-center px-8 py-4 border border-gray-300 text-base sm:text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-            >
-              Contact Our Team
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => navigate('/bio')}
+                className="inline-flex items-center px-8 py-4 border border-transparent text-base sm:text-lg font-medium rounded-lg text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+              >
+                View All Facilitators
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </button>
+              <button
+                onClick={handleContactClick}
+                className="inline-flex items-center px-8 py-4 border border-gray-300 text-base sm:text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+              >
+                Contact Our Team
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -687,8 +839,10 @@ const RTDConnectLandingPage = () => {
             <div>
               <h4 className="text-base sm:text-lg font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
-                <li><button onClick={handleEducationClick} className="hover:text-white transition-colors">About Home Education</button></li>
-                <li><button onClick={handleFacilitatorsClick} className="hover:text-white transition-colors">Our Facilitators</button></li>
+                <li><button onClick={() => navigate('/about')} className="hover:text-white transition-colors">About</button></li>
+                <li><button onClick={() => navigate('/bio')} className="hover:text-white transition-colors">Our Facilitators</button></li>
+                <li><button onClick={() => navigate('/faq')} className="hover:text-white transition-colors">FAQ</button></li>
+                <li><button onClick={() => navigate('/funding')} className="hover:text-white transition-colors">Funding</button></li>
                 <li><button onClick={handleGetStarted} className="hover:text-white transition-colors">Get Started</button></li>
                 <li><button onClick={handleContactClick} className="hover:text-white transition-colors">Contact Us</button></li>
                 <li><a href="https://rtdacademy.com" className="hover:text-white transition-colors">RTD Academy</a></li>
