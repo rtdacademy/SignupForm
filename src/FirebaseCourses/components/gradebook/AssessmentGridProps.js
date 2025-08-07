@@ -496,9 +496,9 @@ const AssessmentGridProps = ({
       const sessionCount = courseItem.sessionsCount || 0;
       const hasNoSessions = shouldBeSessionBased && sessionCount === 0;
       
-      // Calculate initial completion rate (will be updated later for session-based items)
-      let completionRate = courseItem.total > 0 ? 
-        (courseItem.attempted / courseItem.total) * 100 : 0;
+      // Calculate initial completion rate using questions array length
+      // For non-session items, use actual question count vs completed questions
+      let completionRate = 0;
       
       // Global lesson number: 1, 2, 3, 4, 5... across all units (same as CourseProgress)
       const lessonNumber = globalIndex + 1;
@@ -597,13 +597,49 @@ const AssessmentGridProps = ({
       
       // Update completion rate for session-based items now that sessionData is available
       if (shouldBeSessionBased && sessionData?.sessionCount > 0) {
-        // For session-based items, completion rate should reflect session progress
-        const latestSession = sessionData.latestSession;
-        if (latestSession) {
-          // Use session progress if available, otherwise consider it 100% if completed
-          completionRate = latestSession.sessionProgress || 
-            (latestSession.status === 'completed' ? 100 : 
-             latestSession.questionsCompleted ? (latestSession.questionsCompleted / latestSession.totalQuestions) * 100 : 0);
+        // Check if ANY session is completed (teacher or student)
+        let hasCompletedSession = false;
+        let inProgressSession = null;
+        
+        // Check all sessions for completion
+        if (sessionData.sessions && sessionData.sessions.length > 0) {
+          for (const session of sessionData.sessions) {
+            // Teacher sessions: completed if they have finalResults
+            if (session.isTeacherCreated && session.finalResults) {
+              hasCompletedSession = true;
+              break;
+            }
+            // Student sessions: completed if status is completed or time expired
+            else if (!session.isTeacherCreated && 
+                    (session.status === 'completed' || 
+                     (session.endTime && Date.now() > session.endTime))) {
+              hasCompletedSession = true;
+              break;
+            }
+            // Track the most recent in-progress student session
+            else if (!session.isTeacherCreated && session.status !== 'completed' && !inProgressSession) {
+              inProgressSession = session;
+            }
+          }
+        }
+        
+        if (hasCompletedSession) {
+          // Any session is completed - show 100%
+          completionRate = 100;
+        } else if (inProgressSession) {
+          // Use in-progress session data
+          if (inProgressSession.sessionProgress !== undefined && inProgressSession.sessionProgress > 0) {
+            completionRate = inProgressSession.sessionProgress;
+          } else if (inProgressSession.answeredQuestions && inProgressSession.totalQuestions) {
+            completionRate = (inProgressSession.answeredQuestions / inProgressSession.totalQuestions) * 100;
+          } else if (inProgressSession.questionsCompleted && inProgressSession.totalQuestions) {
+            completionRate = (inProgressSession.questionsCompleted / inProgressSession.totalQuestions) * 100;
+          } else {
+            completionRate = 0;
+          }
+        } else {
+          // No sessions or all sessions are incomplete
+          completionRate = 0;
         }
       }
       
@@ -635,18 +671,38 @@ const AssessmentGridProps = ({
         // For session-based items, status depends on actual session data
         const actualSessionCount = sessionData?.sessionCount || 0;
         if (actualSessionCount > 0) {
-          // Determine status based on session completion and scoring strategy
-          const latestSession = sessionData?.latestSession;
-          const hasCompletedSessions = sessionData?.sessions?.some(session => 
-            session.status === 'completed' && session.finalResults?.score !== undefined
-          );
+          // Determine status based on session completion (same logic as completion rate)
+          let hasAnyCompletedSession = false;
+          let hasInProgressSession = false;
           
-          if (hasCompletedSessions) {
+          // Check all sessions for completion
+          if (sessionData.sessions && sessionData.sessions.length > 0) {
+            for (const session of sessionData.sessions) {
+              // Teacher sessions: completed if they have finalResults
+              if (session.isTeacherCreated && session.finalResults) {
+                hasAnyCompletedSession = true;
+                break;
+              }
+              // Student sessions: completed if status is completed or time expired
+              else if (!session.isTeacherCreated && 
+                      (session.status === 'completed' || 
+                       (session.endTime && Date.now() > session.endTime))) {
+                hasAnyCompletedSession = true;
+                break;
+              }
+              // Check for in-progress student sessions
+              else if (!session.isTeacherCreated && session.status !== 'completed') {
+                hasInProgressSession = true;
+              }
+            }
+          }
+          
+          if (hasAnyCompletedSession) {
             status = 'completed';
-          } else if (latestSession && latestSession.status === 'completed') {
-            status = 'completed';
-          } else if (latestSession) {
+          } else if (hasInProgressSession) {
             status = 'in_progress';
+          } else {
+            status = 'not_started';
           }
         }
       } else {
@@ -707,6 +763,13 @@ const AssessmentGridProps = ({
             assessmentData: assessmentData
           });
         });
+        
+        // Calculate completion rate for non-session items using actual question completion
+        if (!sessionTypes.includes(courseItem.type)) {
+          const completedQuestions = questions.filter(q => q.attempted).length;
+          const totalQuestions = questions.length;
+          completionRate = totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0;
+        }
       }
       
       // Schedule data is already available in enriched courseItem
@@ -741,10 +804,41 @@ const AssessmentGridProps = ({
         }
         
         // For session-based items, completed questions should reflect session completion
-        if (status === 'completed') {
-          finalCompletedQuestions = finalMaxScore; // Consider all questions completed if session is completed
-        } else if (sessionData.latestSession?.questionsCompleted) {
-          finalCompletedQuestions = sessionData.latestSession.questionsCompleted;
+        // Use the same logic as our completion detection
+        let hasAnyCompletedSessionForQuestions = false;
+        let mostRecentInProgressSession = null;
+        
+        if (sessionData.sessions && sessionData.sessions.length > 0) {
+          for (const session of sessionData.sessions) {
+            // Teacher sessions: completed if they have finalResults
+            if (session.isTeacherCreated && session.finalResults) {
+              hasAnyCompletedSessionForQuestions = true;
+              break;
+            }
+            // Student sessions: completed if status is completed or time expired
+            else if (!session.isTeacherCreated && 
+                    (session.status === 'completed' || 
+                     (session.endTime && Date.now() > session.endTime))) {
+              hasAnyCompletedSessionForQuestions = true;
+              break;
+            }
+            // Track most recent in-progress session
+            else if (!session.isTeacherCreated && session.status !== 'completed' && !mostRecentInProgressSession) {
+              mostRecentInProgressSession = session;
+            }
+          }
+        }
+        
+        if (hasAnyCompletedSessionForQuestions) {
+          // Any session is completed - consider all questions completed
+          finalCompletedQuestions = finalMaxScore;
+        } else if (mostRecentInProgressSession) {
+          // Use in-progress session data
+          finalCompletedQuestions = mostRecentInProgressSession.answeredQuestions || 
+                                   mostRecentInProgressSession.questionsCompleted || 0;
+        } else {
+          // No sessions or incomplete - use courseItem data
+          finalCompletedQuestions = courseItem.attempted || 0;
         }
       }
 
@@ -765,14 +859,19 @@ const AssessmentGridProps = ({
         });
       }
 
+      // Calculate correct question counts
+      const actualTotalQuestions = questions.length > 0 ? questions.length : finalMaxScore;
+      const actualCompletedQuestions = questions.length > 0 ? 
+        questions.filter(q => q.attempted).length : finalCompletedQuestions;
+      
       const lesson = {
         lessonId: courseItem.itemId,
         lessonNumber: lessonNumber,
         lessonTitle: courseItem.title || `Lesson ${lessonNumber}`,
         activityType: courseItem.type || 'lesson',
         questions: questions,
-        totalQuestions: finalMaxScore,
-        completedQuestions: finalCompletedQuestions,
+        totalQuestions: actualTotalQuestions, // Use actual question count, not finalMaxScore
+        completedQuestions: actualCompletedQuestions, // Use actual completed question count
         totalScore: finalTotalScore,
         maxScore: finalMaxScore,
         averageScore: finalAverageScore,
@@ -1059,7 +1158,8 @@ const AssessmentGridProps = ({
     }
 
     const newScore = parseFloat(teacherScoreValue) || 0;
-    const maxScore = editingTeacherScore.maxScore;
+    // Use same fallback logic as session creation for items with no existing sessions/scores
+    const maxScore = editingTeacherScore.maxScore || editingTeacherScore.totalQuestions || 10;
 
     if (newScore < 0 || newScore > maxScore) {
       alert(`Score must be between 0 and ${maxScore}`);
@@ -1145,6 +1245,12 @@ const AssessmentGridProps = ({
           newScore,
           maxScore
         );
+        
+        // Show toast notification for session-based update
+        toast.success(`Score updated: ${newScore}/${maxScore}`, {
+          description: 'Gradebook recalculation in progress',
+          duration: 4000,
+        });
       }
 
       // Close the editing interface
@@ -1543,9 +1649,10 @@ const getStatusBadge = (lesson) => {
     }
   }
   
-  // Handle labs with new status system
+  // Handle labs with simplified status system
   if (lesson.activityType === 'lab') {
-    if (lesson.status === 'marked') {
+    // Check if teacher has marked it (has a score)
+    if (lesson.totalScore > 0 || lesson.averageScore > 0) {
       return (
         <div className="flex flex-col items-center justify-center gap-1">
           <Badge className="bg-green-100 text-green-800 text-xs px-2 py-1 text-center">
@@ -1556,7 +1663,9 @@ const getStatusBadge = (lesson) => {
           </div>
         </div>
       );
-    } else if (lesson.status === 'submitted') {
+    }
+    // Check if student has submitted anything (assessment data exists)
+    else if (lesson.questions && lesson.questions.length > 0 && lesson.questions[0].assessmentData) {
       return (
         <div className="flex flex-col items-center justify-center gap-1">
           <Badge className="bg-blue-100 text-blue-800 text-xs px-2 py-1 text-center">
@@ -1567,23 +1676,12 @@ const getStatusBadge = (lesson) => {
           </div>
         </div>
       );
-    } else if (lesson.status === 'in_progress') {
+    }
+    // No assessment data - not started
+    else {
       return (
-        <div className="flex flex-col items-center justify-center gap-1">
-          <Badge className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 text-center">
-            In Progress
-          </Badge>
-          <div className="text-xs text-gray-500">
-            Not submitted
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex flex-col items-center justify-center gap-1">
-          <Badge className="bg-gray-100 text-gray-600 text-xs px-2 py-1 text-center">
-            Not Started
-          </Badge>
+        <div className="text-sm text-gray-400 text-center">
+          -
         </div>
       );
     }
@@ -1591,9 +1689,8 @@ const getStatusBadge = (lesson) => {
   
   // Not started or no sessions (for session-based items)
   return (
-    <div className="flex items-center justify-center gap-2">
-      <Clock className="h-4 w-4 text-gray-400" />
-      <Badge className="bg-gray-100 text-gray-600 text-xs">Not Started</Badge>
+    <div className="text-sm text-gray-400 text-center">
+      -
     </div>
   );
 };
@@ -1805,13 +1902,9 @@ const LessonRow = ({
                           <span className={getScoreColor(lesson.averageScore)}>
                             {formatScore(lesson.totalScore)} / {lesson.maxScore}
                           </span>
-                        ) : lesson.status === 'submitted' ? (
+                        ) : (lesson.questions && lesson.questions.length > 0 && lesson.questions[0].assessmentData) ? (
                           <span className="text-blue-700 bg-blue-50">
-                            Awaiting Grade
-                          </span>
-                        ) : lesson.status === 'in_progress' ? (
-                          <span className="text-yellow-700 bg-yellow-50">
-                            In Progress
+                            Needs Marking
                           </span>
                         ) : (
                           <span className="text-gray-500 bg-gray-50">
@@ -1895,8 +1988,48 @@ const LessonRow = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-full cursor-help">
-                  {lesson.shouldBeSessionBased || lesson.activityType === 'lab' ? (
-                    // Session-based items and labs: Show status badge
+                  {['assignment', 'exam', 'quiz'].includes(lesson.activityType) ? (
+                    // Session-based items: Show status based on actual session timing
+                    (() => {
+                      // Check if there are any active sessions (endTime > current time)
+                      const currentTime = Date.now();
+                      const hasActiveSessions = lesson.sessionData?.sessions?.some(session => 
+                        session.endTime && session.endTime > currentTime
+                      );
+                      
+                      // Check if there are any completed sessions
+                      const hasCompletedSessions = lesson.sessionData?.sessions?.some(session => 
+                        session.status === 'completed' || 
+                        session.finalResults ||
+                        (session.endTime && session.endTime <= currentTime)
+                      );
+                      
+                      if (hasActiveSessions) {
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <Badge className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 text-center">
+                              In Progress
+                            </Badge>
+                          </div>
+                        );
+                      } else if (hasCompletedSessions) {
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <Badge className="bg-green-100 text-green-800 text-xs px-2 py-1 text-center">
+                              Completed
+                            </Badge>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="text-sm text-gray-400 text-center">
+                            -
+                          </div>
+                        );
+                      }
+                    })()
+                  ) : lesson.activityType === 'lab' ? (
+                    // Labs: Show status badge
                     getStatusBadge(lesson)
                   ) : (
                     // Other items (lessons, etc.): Show progress bar or dash
@@ -1930,58 +2063,36 @@ const LessonRow = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
-                {lesson.shouldBeSessionBased ? (
-                  // Session-based assessment tooltip
-                  lesson.hasNoSessions ? (
-                    <div className="text-center">
-                      <div className="font-medium">No sessions started</div>
-                      <div className="text-xs opacity-75">Session-based assessment</div>
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-1">
-                      <div className="font-medium">
-                        {lesson.status === 'completed' ? 
-                          `${lesson.currentAttemptNumber} attempt${lesson.currentAttemptNumber !== 1 ? 's' : ''} completed` :
-                         lesson.status === 'in_progress' ? 
-                          `Attempt ${lesson.currentAttemptNumber} in progress` :
-                         'Sessions available'}
-                      </div>
-                      
-                      {/* Show current score based on strategy */}
-                      {lesson.status === 'completed' && (
-                        <div className="text-xs">
-                          <div className="font-medium">
+                {['assignment', 'exam', 'quiz'].includes(lesson.activityType) ? (
+                  // Assignment/Exam/Quiz tooltip with real-time status
+                  (() => {
+                    const currentTime = Date.now();
+                    const hasActiveSessions = lesson.sessionData?.sessions?.some(session => 
+                      session.endTime && session.endTime > currentTime
+                    );
+                    const hasCompletedSessions = lesson.sessionData?.sessions?.some(session => 
+                      session.status === 'completed' || 
+                      session.finalResults ||
+                      (session.endTime && session.endTime <= currentTime)
+                    );
+                    
+                    return (
+                      <div className="text-center">
+                        <div className="font-medium">
+                          {hasActiveSessions ? 
+                            `Assignment in progress` :
+                           hasCompletedSessions ? 
+                            `Assignment completed` :
+                           'Assignment not started'}
+                        </div>
+                        {hasCompletedSessions && (
+                          <div className="text-xs opacity-75">
                             Score: {Math.round(lesson.averageScore)}% ({lesson.totalScore}/{lesson.maxScore})
                           </div>
-                          <div className="opacity-75">
-                            Using {lesson.scoringStrategy === 'takeHighest' ? 'best' : 
-                                   lesson.scoringStrategy === 'latest' ? 'latest' : 
-                                   lesson.scoringStrategy === 'average' ? 'average' : 'session'} score
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Show session progress details if in progress */}
-                      {lesson.status === 'in_progress' && lesson.sessionData?.latestSession && (
-                        <div className="text-xs">
-                          <div>
-                            {lesson.sessionData.latestSession.answeredQuestions || 0} / {lesson.sessionData.latestSession.totalQuestions || 0} questions answered
-                          </div>
-                          <div className="opacity-75">
-                            ({Math.round(lesson.completionRate)}% progress)
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Show scoring strategy */}
-                      <div className="text-xs opacity-75 border-t pt-1">
-                        Strategy: {lesson.scoringStrategy === 'takeHighest' ? 'Highest score' :
-                                 lesson.scoringStrategy === 'latest' ? 'Latest attempt' :
-                                 lesson.scoringStrategy === 'average' ? 'Average score' :
-                                 'Session-based'}
+                        )}
                       </div>
-                    </div>
-                  )
+                    );
+                  })()
                 ) : lesson.activityType === 'lab' ? (
                   // Lab tooltip with new status system
                   <div className="text-center">
@@ -2005,7 +2116,12 @@ const LessonRow = ({
                   // Individual question-based tooltip (lessons, etc.)
                   <div className="text-center">
                     <div className="font-medium">
-                      {lesson.completedQuestions} / {lesson.totalQuestions} questions attempted
+                      {lesson.shouldBeSessionBased ? 
+                        // For session-based items that don't have sessions yet or are treated as individual
+                        `Assignment: ${lesson.status === 'completed' ? 'Completed' : 'Not started'}` :
+                        // For regular lessons
+                        `${lesson.completedQuestions} / ${lesson.totalQuestions} questions attempted`
+                      }
                     </div>
                     <div className="text-xs opacity-75">
                       {Math.round(lesson.completionRate)}% progress

@@ -1053,7 +1053,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
               source: 'session',
               strategy: strategy,
               sessionId: selectedSession.sessionId, // Include the session ID used
-              examItemId: selectedSession.examItemId // Include the exam item ID
+              examItemId: selectedSession.examItemId, // Include the exam item ID
+              totalQuestions: selectedSession.finalResults.totalQuestions
             };
           }
         }
@@ -1075,7 +1076,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
             strategy: 'teacher_manual',
             isManualOverride: true,
             originalScore: itemData.originalScore,
-            originalTotal: itemData.originalTotal
+            originalTotal: itemData.originalTotal,
+            totalQuestions: questions?.length || 0
           };
         } else {
           // Use individual question scoring (original logic)
@@ -1103,7 +1105,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
             total: totalPossible,
             percentage,
             attempted: attemptedQuestions,
-            source: 'individual'
+            source: 'individual',
+            totalQuestions: questions.length
           };
         }
       }
