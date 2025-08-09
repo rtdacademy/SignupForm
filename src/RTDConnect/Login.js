@@ -134,6 +134,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     return sanitized.endsWith("@rtdacademy.com");
   };
 
+
   const handleStaffAttempt = () => {
     setError("This email belongs to staff. Please use the staff login portal instead.");
     setTimeout(() => {

@@ -387,6 +387,7 @@ function RTDConnectApp() {
           user && isHomeEducationParent ? <Navigate to="/dashboard" /> : <RTDConnectLogin />
         } />
 
+
         {/* Protected routes - require login and home education parent status */}
         <Route path="/dashboard" element={
           user && isHomeEducationParent ? <RTDConnectDashboard /> : <Navigate to="/login" />

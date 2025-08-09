@@ -21,7 +21,8 @@ import {
   Sparkles,
   Info,
   Eye,
-  Maximize2
+  Maximize2,
+  Download
 } from 'lucide-react';
 import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString } from '../utils/timeZoneUtils';
 import { FUNDING_RATES, REIMBURSEMENT_SETTINGS } from '../config/HomeEducation';
@@ -160,7 +161,8 @@ const StudentAllocationCard = ({
   studentSOLOCategories = [],
   errors = {},
   remainingBudget = 901.00,
-  budgetInfo = null
+  budgetInfo = null,
+  analyzingReceipt = false
 }) => {
   const [showCategorySelector, setShowCategorySelector] = useState(false);
 
@@ -227,12 +229,15 @@ const StudentAllocationCard = ({
     }`}>
       {/* Student Header */}
       <div className="flex items-center justify-between mb-3">
-        <label className="flex items-center space-x-3 cursor-pointer">
+        <label className={`flex items-center space-x-3 ${analyzingReceipt ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
           <input
             type="checkbox"
             checked={isSelected}
             onChange={(e) => onToggleStudent(student.id, e.target.checked)}
-            className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+            disabled={analyzingReceipt}
+            className={`h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 ${
+              analyzingReceipt ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
           <div>
             <span className="font-medium text-gray-900">
@@ -279,12 +284,17 @@ const StudentAllocationCard = ({
                   step="0.1"
                   value={allocation.percentage || ''}
                   onChange={(e) => handlePercentageChange(e.target.value)}
-                  className={`w-full px-3 py-2 pr-8 border ${
-                    errors.percentage ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  placeholder="0"
+                  disabled={analyzingReceipt}
+                  className={`w-full px-3 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    analyzingReceipt 
+                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                      : errors.percentage 
+                        ? 'border-red-300' 
+                        : 'border-gray-300'
+                  }`}
+                  placeholder={analyzingReceipt ? "Wait..." : "0"}
                 />
-                <span className="absolute right-3 top-2 text-gray-500">%</span>
+                <span className={`absolute right-3 top-2 ${analyzingReceipt ? 'text-gray-400' : 'text-gray-500'}`}>%</span>
               </div>
             </FormField>
 
@@ -320,9 +330,14 @@ const StudentAllocationCard = ({
                 <select
                   value={allocation.soloCategories?.[0] || ''}
                   onChange={(e) => handleCategoryChange(e.target.value ? [e.target.value] : [])}
-                  className={`w-full px-3 py-2 border ${
-                    errors.soloCategories ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  disabled={analyzingReceipt}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    analyzingReceipt 
+                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                      : errors.soloCategories 
+                        ? 'border-red-300' 
+                        : 'border-gray-300'
+                  }`}
                 >
                   <option value="">Select a category...</option>
                   {studentSOLOCategories.map((category) => (
@@ -369,11 +384,16 @@ const StudentAllocationCard = ({
             <textarea
               value={allocation.categoryJustification || ''}
               onChange={(e) => handleJustificationChange(e.target.value)}
-              className={`w-full px-3 py-2 border ${
-                errors.categoryJustification ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+              disabled={analyzingReceipt}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                analyzingReceipt 
+                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                  : errors.categoryJustification 
+                    ? 'border-red-300' 
+                    : 'border-gray-300'
+              }`}
               rows={3}
-              placeholder="Describe how this purchase will be used for this student's education..."
+              placeholder={analyzingReceipt ? "Please wait for AI analysis to complete..." : "Describe how this purchase will be used for this student's education..."}
             />
           </FormField>
         </div>
@@ -411,10 +431,26 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
   const [analyzingReceipt, setAnalyzingReceipt] = useState(false);
   const [receiptAnalysis, setReceiptAnalysis] = useState(null);
   const [showAnalysisResults, setShowAnalysisResults] = useState(false);
+  const [aiAnalysisFailed, setAiAnalysisFailed] = useState(false);
+  
+  // Receipt workflow state
+  const [hasUploadedReceipt, setHasUploadedReceipt] = useState(false);
+  const [userHasOverridden, setUserHasOverridden] = useState({
+    purchaseDate: false,
+    vendor: false,
+    totalAmount: false,
+    taxAmount: false,
+    description: false
+  });
   
   // Preview state
   const [previewReceipt, setPreviewReceipt] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  
+  // Mixed receipt state
+  const [isMixedReceipt, setIsMixedReceipt] = useState(false);
+  const [selectedEducationalItems, setSelectedEducationalItems] = useState(new Set());
+  const [mixedReceiptAnalysis, setMixedReceiptAnalysis] = useState(null);
 
   // Load student data when form opens
   useEffect(() => {
@@ -553,8 +589,13 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field, value, isUserInput = true) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Track user overrides for purchase info fields
+    if (isUserInput && ['purchaseDate', 'vendor', 'totalAmount', 'taxAmount', 'description'].includes(field)) {
+      setUserHasOverridden(prev => ({ ...prev, [field]: true }));
+    }
     
     // Update allocations when total amount changes
     if (field === 'totalAmount') {
@@ -621,9 +662,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
         ...prev,
         receipts: [uploadedFile]
       }));
+      
+      // Set receipt uploaded state
+      setHasUploadedReceipt(true);
 
-      // Automatically analyze the receipt with AI
-      analyzeReceiptWithAI(uploadedFile);
+      // Note: AI analysis is now triggered manually by user after selecting receipt type
     } catch (error) {
       console.error('Error uploading files:', error);
       setErrors(prev => ({ ...prev, receipts: error.message }));
@@ -642,24 +685,42 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       setReceiptAnalysis(null);
       setShowAnalysisResults(false);
     }
+    // Reset receipt uploaded state if no receipts remain
+    if (formData.receipts.length <= 1) {
+      setHasUploadedReceipt(false);
+    }
   };
 
   const analyzeReceiptWithAI = async (receipt) => {
     setAnalyzingReceipt(true);
     setShowAnalysisResults(false);
+    setAiAnalysisFailed(false);
     
-    // Show loading toast
-    const toastId = toast.loading('Analyzing receipt with AI...', {
-      description: 'Extracting purchase details from your receipt'
-    });
+    // Clear previous mixed receipt analysis
+    setMixedReceiptAnalysis(null);
+    setSelectedEducationalItems(new Set());
+    
+    // Show loading toast based on receipt type
+    const toastId = toast.loading(
+      isMixedReceipt ? 'Analyzing mixed receipt with AI...' : 'Analyzing receipt with AI...', 
+      {
+        description: isMixedReceipt 
+          ? 'Breaking down individual items and classifying educational vs non-educational'
+          : 'Extracting purchase details from your receipt'
+      }
+    );
     
     try {
       const functions = getFunctions();
-      const analyzeReceiptFunc = httpsCallable(functions, 'analyzeReceipt');
       
-      console.log('Analyzing receipt:', receipt.fileName);
+      // Choose the appropriate cloud function based on receipt type
+      const analyzeFunc = isMixedReceipt 
+        ? httpsCallable(functions, 'analyzeMixedReceipt')
+        : httpsCallable(functions, 'analyzeReceipt');
       
-      const result = await analyzeReceiptFunc({
+      console.log(`Analyzing ${isMixedReceipt ? 'mixed' : 'standard'} receipt:`, receipt.fileName);
+      
+      const result = await analyzeFunc({
         fileUrl: receipt.fileUrl,
         fileName: receipt.fileName,
         mimeType: receipt.fileType
@@ -668,68 +729,145 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       if (result.data.success) {
         const analysis = result.data.analysis;
         
-        // Store the analysis with the receipt ID
-        setReceiptAnalysis({
-          ...analysis,
-          receiptId: receipt.fileId
-        });
-        
-        // Auto-populate form fields if data was extracted
-        if (analysis.purchaseDate && !formData.purchaseDate) {
-          handleInputChange('purchaseDate', analysis.purchaseDate);
-        }
-        
-        if (analysis.totalAmount && !formData.totalAmount) {
-          handleInputChange('totalAmount', analysis.totalAmount.toString());
-        }
-        
-        if (analysis.taxAmount && !formData.taxAmount) {
-          handleInputChange('taxAmount', analysis.taxAmount.toString());
-        }
-        
-        if (analysis.vendor && !formData.vendor) {
-          handleInputChange('vendor', analysis.vendor);
-        }
-        
-        if (analysis.purchaseDescription && !formData.description) {
-          handleInputChange('description', analysis.purchaseDescription);
+        if (isMixedReceipt) {
+          // Handle mixed receipt results
+          setMixedReceiptAnalysis({
+            ...analysis,
+            receiptId: receipt.fileId
+          });
+          
+          // Pre-select all educational items
+          if (analysis.items && analysis.items.length > 0) {
+            const educationalItemIndices = new Set(
+              analysis.items
+                .map((item, index) => item.isEducational ? index : null)
+                .filter(index => index !== null)
+            );
+            setSelectedEducationalItems(educationalItemIndices);
+            
+            // Set total amount to recommended claim amount (educational items only)
+            if (analysis.recommendedClaimAmount && !userHasOverridden.totalAmount) {
+              handleInputChange('totalAmount', analysis.recommendedClaimAmount.toString(), false);
+            }
+          }
+          
+          // Auto-populate common fields
+          if (analysis.purchaseDate && !formData.purchaseDate && !userHasOverridden.purchaseDate) {
+            handleInputChange('purchaseDate', analysis.purchaseDate, false);
+          }
+          
+          if (analysis.vendor && !formData.vendor && !userHasOverridden.vendor) {
+            handleInputChange('vendor', analysis.vendor, false);
+          }
+          
+          if (analysis.taxAmount && !formData.taxAmount && !userHasOverridden.taxAmount) {
+            handleInputChange('taxAmount', analysis.taxAmount.toString(), false);
+          }
+          
+          // For mixed receipts, generate description from educational items
+          if (analysis.items && !formData.description && !userHasOverridden.description) {
+            const educationalItems = analysis.items.filter(item => item.isEducational);
+            if (educationalItems.length > 0) {
+              const description = educationalItems
+                .map(item => item.description)
+                .join(', ');
+              handleInputChange('description', description, false);
+            }
+          }
+          
+          // Show mixed receipt success toast
+          const educationalCount = analysis.items?.filter(item => item.isEducational)?.length || 0;
+          const totalCount = analysis.items?.length || 0;
+          
+          toast.success('Mixed receipt analyzed successfully!', {
+            id: toastId,
+            description: `Found ${educationalCount} educational items out of ${totalCount} total items. Educational total: $${(analysis.educationalTotal || 0).toFixed(2)}`
+          });
+          
+        } else {
+          // Handle standard receipt results (existing logic)
+          setReceiptAnalysis({
+            ...analysis,
+            receiptId: receipt.fileId
+          });
+          
+          // Auto-populate form fields ONLY if data was extracted AND user hasn't overridden
+          if (analysis.purchaseDate && !formData.purchaseDate && !userHasOverridden.purchaseDate) {
+            handleInputChange('purchaseDate', analysis.purchaseDate, false); // false = not user input
+          }
+          
+          if (analysis.totalAmount && !formData.totalAmount && !userHasOverridden.totalAmount) {
+            handleInputChange('totalAmount', analysis.totalAmount.toString(), false);
+          }
+          
+          if (analysis.taxAmount && !formData.taxAmount && !userHasOverridden.taxAmount) {
+            handleInputChange('taxAmount', analysis.taxAmount.toString(), false);
+          }
+          
+          if (analysis.vendor && !formData.vendor && !userHasOverridden.vendor) {
+            handleInputChange('vendor', analysis.vendor, false);
+          }
+          
+          if (analysis.purchaseDescription && !formData.description && !userHasOverridden.description) {
+            handleInputChange('description', analysis.purchaseDescription, false);
+          }
+          
+          // Show standard success toast with extracted info
+          const extractedFields = [];
+          if (analysis.vendor) extractedFields.push('vendor');
+          if (analysis.totalAmount) extractedFields.push('amount');
+          if (analysis.taxAmount) extractedFields.push('tax');
+          if (analysis.purchaseDate) extractedFields.push('date');
+          if (analysis.purchaseDescription) extractedFields.push('description');
+          
+          if (extractedFields.length > 0) {
+            toast.success('Receipt analyzed successfully!', {
+              id: toastId,
+              description: `Extracted: ${extractedFields.join(', ')}. Quality score: ${analysis.validationScore}%`
+            });
+          } else {
+            toast.warning('Receipt analyzed, but no data could be extracted', {
+              id: toastId,
+              description: 'Please fill in the purchase details manually'
+            });
+          }
         }
         
         setShowAnalysisResults(true);
         
-        // Show success toast with extracted info
-        const extractedFields = [];
-        if (analysis.vendor) extractedFields.push('vendor');
-        if (analysis.totalAmount) extractedFields.push('amount');
-        if (analysis.taxAmount) extractedFields.push('tax');
-        if (analysis.purchaseDate) extractedFields.push('date');
-        if (analysis.purchaseDescription) extractedFields.push('description');
+        // Clear any previous AI analysis errors
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.aiAnalysis;
+          return newErrors;
+        });
         
-        if (extractedFields.length > 0) {
-          toast.success('Receipt analyzed successfully!', {
-            id: toastId,
-            description: `Extracted: ${extractedFields.join(', ')}. Quality score: ${analysis.validationScore}%`
-          });
-        } else {
-          toast.warning('Receipt analyzed, but no data could be extracted', {
-            id: toastId,
-            description: 'Please fill in the purchase details manually'
-          });
-        }
       } else {
         throw new Error(result.data.error || 'Analysis failed');
       }
     } catch (error) {
       console.error('Error analyzing receipt:', error);
+      setAiAnalysisFailed(true);
+      
+      // Store a minimal analysis result for failed cases to prevent UI issues
+      setReceiptAnalysis({
+        receiptId: receipt.fileId,
+        validationScore: 0,
+        educationComplianceScore: 0,
+        educationCategory: 'unclear',
+        educationReasoning: 'AI analysis failed - manual review required',
+        reimbursementEligibility: 'requires-review'
+      });
+      
       setErrors(prev => ({ 
         ...prev, 
-        aiAnalysis: `Failed to analyze receipt: ${error.message}` 
+        aiAnalysis: `AI analysis failed: ${error.message}. You can continue filling out the form manually.` 
       }));
       
-      // Show error toast
-      toast.error('Failed to analyze receipt', {
+      // Show error toast with recovery guidance
+      toast.error('AI analysis failed', {
         id: toastId,
-        description: error.message
+        description: 'No worries! You can fill in the purchase details manually and continue.'
       });
     } finally {
       setAnalyzingReceipt(false);
@@ -856,8 +994,8 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       }
     });
 
-    // Manual validation check for low-quality receipts
-    if (receiptAnalysis && receiptAnalysis.validationScore < 50) {
+    // Manual validation check for low-quality receipts (only if AI analysis succeeded)
+    if (receiptAnalysis && !aiAnalysisFailed && receiptAnalysis.validationScore < 50) {
       if (!formData.manualValidationNotes?.trim()) {
         newErrors.manualValidationNotes = 'Manual validation explanation is required for this document';
       } else if (formData.manualValidationNotes.trim().length < 50) {
@@ -941,6 +1079,24 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       });
       setStudentAllocations({});
       setSelectedStudents(new Set());
+      
+      // Reset workflow states
+      setHasUploadedReceipt(false);
+      setUserHasOverridden({
+        purchaseDate: false,
+        vendor: false,
+        totalAmount: false,
+        taxAmount: false,
+        description: false
+      });
+      setReceiptAnalysis(null);
+      setShowAnalysisResults(false);
+      setAiAnalysisFailed(false);
+      
+      // Reset mixed receipt states
+      setIsMixedReceipt(false);
+      setSelectedEducationalItems(new Set());
+      setMixedReceiptAnalysis(null);
 
       // Close form
       onOpenChange(false);
@@ -1029,77 +1185,6 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
 
   const hasViolations = hasFundingLimitViolations();
 
-  // Receipt Preview Modal Component
-  const ReceiptPreviewModal = ({ receipt, isOpen, onClose }) => {
-    if (!receipt || !isOpen) return null;
-
-    const isImage = receipt.fileType?.startsWith('image/') || false;
-    const isPDF = receipt.fileType === 'application/pdf' || false;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-        <div className="relative max-w-4xl max-h-full bg-white rounded-lg shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Eye className="w-5 h-5 mr-2" />
-              {receipt.fileName}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          
-          {/* Content */}
-          <div className="p-4 max-h-[80vh] overflow-auto">
-            {isImage ? (
-              <img
-                src={receipt.fileUrl}
-                alt={receipt.fileName}
-                className="max-w-full h-auto rounded-lg shadow-sm"
-                style={{ maxHeight: 'calc(80vh - 100px)' }}
-              />
-            ) : isPDF ? (
-              <div className="text-center">
-                <iframe
-                  src={receipt.fileUrl}
-                  title={receipt.fileName}
-                  className="w-full rounded-lg shadow-sm"
-                  style={{ height: 'calc(80vh - 100px)', minHeight: '500px' }}
-                />
-                <p className="text-sm text-gray-600 mt-2">
-                  <a 
-                    href={receipt.fileUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-purple-600 hover:text-purple-800 underline"
-                  >
-                    Open PDF in new tab
-                  </a>
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-                <a 
-                  href={receipt.fileUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-purple-600 hover:text-purple-800 underline"
-                >
-                  Download file to view
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Receipt Thumbnail Component
   const ReceiptThumbnail = ({ receipt }) => {
@@ -1113,11 +1198,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
 
     if (isImage) {
       return (
-        <div className="relative group">
+        <div className="relative group w-16 h-16">
           <img
             src={receipt.fileUrl}
             alt={receipt.fileName}
-            className="w-16 h-16 object-cover rounded-lg border border-purple-200 cursor-pointer hover:border-purple-400 transition-colors"
+            className="w-full h-full object-cover rounded-lg border border-purple-200 cursor-pointer hover:border-purple-400 transition-colors"
             onClick={handlePreview}
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center rounded-lg cursor-pointer" onClick={handlePreview}>
@@ -1128,7 +1213,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
     } else if (isPDF) {
       return (
         <div 
-          className="w-16 h-16 bg-red-100 border border-red-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-200 transition-colors group"
+          className="relative w-16 h-16 bg-red-100 border border-red-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-200 transition-colors group"
           onClick={handlePreview}
         >
           <FileText className="w-8 h-8 text-red-600" />
@@ -1147,6 +1232,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:w-[90vw] max-w-none overflow-y-auto">
         <SheetHeader>
@@ -1180,11 +1266,113 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
             </div>
           </div>
 
+          {/* Workflow Steps Indicator */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+            <h3 className="font-semibold text-purple-900 mb-3 text-center">Complete Your Claim in 3 Easy Steps</h3>
+            <div className="flex items-center justify-between max-w-2xl mx-auto">
+              {/* Step 1: Upload Receipt */}
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  hasUploadedReceipt 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-purple-500 text-white'
+                }`}>
+                  {hasUploadedReceipt ? '✓' : '1'}
+                </div>
+                <div className="text-center mt-2">
+                  <p className={`text-sm font-medium ${hasUploadedReceipt ? 'text-green-700' : 'text-purple-700'}`}>
+                    Upload Receipt
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {hasUploadedReceipt ? 'Receipt uploaded!' : 'Start here'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Connector */}
+              <div className="flex-1 h-px bg-gray-300 mx-4"></div>
+              
+              {/* Step 2: Review Details */}
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  hasUploadedReceipt 
+                    ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                      ? 'bg-green-500 text-white'
+                      : 'bg-purple-500 text-white'
+                    : 'bg-gray-300 text-gray-500'
+                }`}>
+                  {(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)) ? '✓' : '2'}
+                </div>
+                <div className="text-center mt-2">
+                  <p className={`text-sm font-medium ${
+                    hasUploadedReceipt 
+                      ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults) 
+                        ? 'text-green-700' 
+                        : 'text-purple-700'
+                      : 'text-gray-500'
+                  }`}>
+                    Review Details
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {!hasUploadedReceipt 
+                      ? 'Complete step 1 first'
+                      : analyzingReceipt 
+                        ? 'AI is analyzing...'
+                        : (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                          ? 'Details ready!'
+                          : 'Fill in details'
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {/* Connector */}
+              <div className="flex-1 h-px bg-gray-300 mx-4"></div>
+              
+              {/* Step 3: Allocate to Students */}
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  selectedStudents.size > 0 && isPercentageValid
+                    ? 'bg-green-500 text-white'
+                    : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-300 text-gray-500'
+                }`}>
+                  {(selectedStudents.size > 0 && isPercentageValid) ? '✓' : '3'}
+                </div>
+                <div className="text-center mt-2">
+                  <p className={`text-sm font-medium ${
+                    selectedStudents.size > 0 && isPercentageValid
+                      ? 'text-green-700'
+                      : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                        ? 'text-purple-700'
+                        : 'text-gray-500'
+                  }`}>
+                    Allocate to Students
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {!(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults))
+                      ? 'Complete step 2 first'
+                      : selectedStudents.size > 0 && isPercentageValid
+                        ? 'Ready to submit!'
+                        : 'Select students'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Receipt Upload - Moved to Top */}
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <h3 className="font-semibold text-purple-900 mb-4 flex items-center">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
+                hasUploadedReceipt ? 'bg-green-500 text-white' : 'bg-purple-500 text-white'
+              }`}>
+                {hasUploadedReceipt ? '✓' : '1'}
+              </div>
               <Upload className="w-5 h-5 mr-2" />
-              Upload Your Receipt
+              Step 1: Upload Your Receipt
             </h3>
             
             <FormField label="Upload Receipt" error={errors.receipts} required>
@@ -1228,6 +1416,10 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           setFormData(prev => ({ ...prev, receipts: [] }));
                           setReceiptAnalysis(null);
                           setShowAnalysisResults(false);
+                          // Reset mixed receipt states
+                          setMixedReceiptAnalysis(null);
+                          setSelectedEducationalItems(new Set());
+                          setHasUploadedReceipt(false);
                         }}
                         className="text-xs text-purple-600 hover:text-purple-800 underline flex items-center"
                       >
@@ -1235,6 +1427,101 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                         Upload different receipt
                       </button>
                     </div>
+                    
+                    {/* Receipt Type Selector */}
+                    {!analyzingReceipt && (
+                      <div className="bg-white border border-purple-200 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
+                          <Info className="w-4 h-4 mr-2" />
+                          Tell us about your receipt
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start space-x-3">
+                            <input
+                              type="radio"
+                              id="single-receipt"
+                              name="receiptType"
+                              checked={!isMixedReceipt}
+                              onChange={() => {
+                                setIsMixedReceipt(false);
+                                setMixedReceiptAnalysis(null);
+                                setSelectedEducationalItems(new Set());
+                              }}
+                              className="mt-1 h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                            />
+                            <div className="flex-1">
+                              <label htmlFor="single-receipt" className="block text-sm font-medium text-purple-800 cursor-pointer">
+                                Single educational purchase
+                              </label>
+                              <p className="text-xs text-purple-600 mt-1">
+                                Everything on this receipt is for educational purposes (books, art supplies, etc.)
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3">
+                            <input
+                              type="radio"
+                              id="mixed-receipt"
+                              name="receiptType"
+                              checked={isMixedReceipt}
+                              onChange={() => {
+                                setIsMixedReceipt(true);
+                                setReceiptAnalysis(null);
+                                setShowAnalysisResults(false);
+                              }}
+                              className="mt-1 h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                            />
+                            <div className="flex-1">
+                              <label htmlFor="mixed-receipt" className="block text-sm font-medium text-purple-800 cursor-pointer">
+                                Mixed purchase (educational + other items)
+                              </label>
+                              <p className="text-xs text-purple-600 mt-1">
+                                This receipt has both educational items AND other items (groceries, personal items, etc.)
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {isMixedReceipt && (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-800">
+                              <strong>Mixed Receipt Mode:</strong> AI will analyze each item individually and help you select only the educational items for reimbursement.
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Start analysis with the selected receipt type
+                              if (formData.receipts.length > 0) {
+                                analyzeReceiptWithAI(formData.receipts[0]);
+                              }
+                            }}
+                            disabled={formData.receipts.length === 0 || analyzingReceipt}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                              formData.receipts.length === 0 || analyzingReceipt
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500'
+                            }`}
+                          >
+                            {analyzingReceipt ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                Analyzing...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                Analyze with AI
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {formData.receipts.map((receipt) => (
                       <div key={receipt.fileId} className="flex items-start space-x-3 p-3 bg-white border border-purple-200 rounded-lg">
                         {/* Receipt Thumbnail */}
@@ -1282,8 +1569,207 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   </div>
                 )}
                 
-                {/* AI Analysis Results */}
-                {showAnalysisResults && receiptAnalysis && (
+                {/* Mixed Receipt Analysis Results */}
+                {showAnalysisResults && mixedReceiptAnalysis && isMixedReceipt && (
+                  <div className="mt-4 space-y-4">
+                    {/* Header */}
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                        <Calculator className="w-4 h-4 mr-2" />
+                        Mixed Receipt Analysis - Item Breakdown
+                      </h4>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="text-center">
+                          <p className="text-blue-600 font-medium">Total Items</p>
+                          <p className="text-lg font-bold text-blue-900">{mixedReceiptAnalysis.items?.length || 0}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-green-600 font-medium">Educational</p>
+                          <p className="text-lg font-bold text-green-900">
+                            {mixedReceiptAnalysis.items?.filter(item => item.isEducational)?.length || 0}
+                          </p>
+                          <p className="text-xs text-green-600">${(mixedReceiptAnalysis.educationalTotal || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-gray-600 font-medium">Non-Educational</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {mixedReceiptAnalysis.items?.filter(item => !item.isEducational)?.length || 0}
+                          </p>
+                          <p className="text-xs text-gray-600">${(mixedReceiptAnalysis.nonEducationalTotal || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Item Selection Table */}
+                    {mixedReceiptAnalysis.items && mixedReceiptAnalysis.items.length > 0 && (
+                      <div className="bg-white border border-purple-200 rounded-lg overflow-hidden">
+                        <div className="px-4 py-3 bg-purple-50 border-b border-purple-200">
+                          <h5 className="text-sm font-semibold text-purple-900 flex items-center">
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Select Educational Items to Claim
+                          </h5>
+                          <p className="text-xs text-purple-600 mt-1">
+                            Check only the items that are for educational purposes. The total amount will update automatically.
+                          </p>
+                        </div>
+                        
+                        <div className="max-h-96 overflow-y-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                  Claim
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Item Description
+                                </th>
+                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                                  Amount
+                                </th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                                  Educational
+                                </th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                                  Confidence
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {mixedReceiptAnalysis.items.map((item, index) => (
+                                <tr 
+                                  key={index}
+                                  className={`hover:bg-gray-50 ${
+                                    selectedEducationalItems.has(index) ? 'bg-green-50' : ''
+                                  }`}
+                                >
+                                  <td className="px-4 py-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedEducationalItems.has(index)}
+                                      onChange={(e) => {
+                                        const newSelected = new Set(selectedEducationalItems);
+                                        if (e.target.checked) {
+                                          newSelected.add(index);
+                                        } else {
+                                          newSelected.delete(index);
+                                        }
+                                        setSelectedEducationalItems(newSelected);
+                                        
+                                        // Update total amount based on selected items
+                                        const selectedTotal = mixedReceiptAnalysis.items
+                                          .filter((_, idx) => newSelected.has(idx))
+                                          .reduce((sum, item) => sum + (item.amount || 0), 0);
+                                        handleInputChange('totalAmount', selectedTotal.toFixed(2), true);
+                                      }}
+                                      className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {item.description}
+                                      </p>
+                                      {item.complianceReasoning && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {item.complianceReasoning}
+                                        </p>
+                                      )}
+                                      {item.educationCategory && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1 w-fit">
+                                          {item.educationCategory.replace(/_/g, ' ')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      ${(item.amount || 0).toFixed(2)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      item.isEducational 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {item.isEducational ? 'Yes' : 'No'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <div className="flex flex-col items-center">
+                                      <div className={`w-8 h-2 rounded-full ${
+                                        (item.confidence || 0) >= 0.8 ? 'bg-green-400' :
+                                        (item.confidence || 0) >= 0.6 ? 'bg-yellow-400' :
+                                        'bg-red-400'
+                                      }`}></div>
+                                      <span className="text-xs text-gray-500 mt-1">
+                                        {Math.round((item.confidence || 0) * 100)}%
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Selection Summary */}
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const educationalIndices = new Set(
+                                    mixedReceiptAnalysis.items
+                                      .map((item, index) => item.isEducational ? index : null)
+                                      .filter(index => index !== null)
+                                  );
+                                  setSelectedEducationalItems(educationalIndices);
+                                  
+                                  const educationalTotal = mixedReceiptAnalysis.items
+                                    .filter(item => item.isEducational)
+                                    .reduce((sum, item) => sum + (item.amount || 0), 0);
+                                  handleInputChange('totalAmount', educationalTotal.toFixed(2), true);
+                                }}
+                                className="text-xs text-green-600 hover:text-green-800 underline"
+                              >
+                                Select All Educational
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedEducationalItems(new Set());
+                                  handleInputChange('totalAmount', '0.00', true);
+                                }}
+                                className="text-xs text-gray-600 hover:text-gray-800 underline"
+                              >
+                                Clear All
+                              </button>
+                            </div>
+                            
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-gray-900">
+                                Selected: ${
+                                  mixedReceiptAnalysis.items
+                                    ?.filter((_, idx) => selectedEducationalItems.has(idx))
+                                    ?.reduce((sum, item) => sum + (item.amount || 0), 0)
+                                    ?.toFixed(2) || '0.00'
+                                }
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {selectedEducationalItems.size} of {mixedReceiptAnalysis.items?.length || 0} items
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Standard Receipt Analysis Results */}
+                {showAnalysisResults && receiptAnalysis && !isMixedReceipt && (
                   <div className="mt-4 space-y-3">
                     <ValidationScoreIndicator 
                       score={receiptAnalysis.validationScore} 
@@ -1475,6 +1961,170 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                         </div>
                       )}
                     </div>
+                    
+                    {/* Education Compliance Assessment */}
+                    <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Alberta Education Standards Compliance
+                      </h4>
+                      
+                      {/* Compliance Score */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-700">Compliance Score</span>
+                            <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              receiptAnalysis.educationComplianceScore >= 80 ? 'bg-green-100 text-green-800' :
+                              receiptAnalysis.educationComplianceScore >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {receiptAnalysis.educationComplianceScore || 0}/100
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                receiptAnalysis.educationComplianceScore >= 80 ? 'bg-green-500' :
+                                receiptAnalysis.educationComplianceScore >= 50 ? 'bg-yellow-500' :
+                                'bg-red-500'
+                              }`}
+                              style={{ width: `${receiptAnalysis.educationComplianceScore || 0}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium text-green-700">Reimbursement Status</span>
+                          <div className={`px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center ${
+                            receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'bg-green-100 text-green-800' :
+                            receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            <div className={`w-2 h-2 rounded-full mr-2 ${
+                              receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'bg-green-500' :
+                              receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'bg-yellow-500' :
+                              'bg-red-500'
+                            }`}></div>
+                            {receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'Likely Eligible' :
+                             receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'Requires Review' :
+                             'Not Eligible'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Category */}
+                      <div className="mb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-green-700">Category:</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            receiptAnalysis.educationCategory === 'recommended' ? 'bg-green-100 text-green-700' :
+                            receiptAnalysis.educationCategory === 'not-recommended' ? 'bg-red-100 text-red-700' :
+                            receiptAnalysis.educationCategory === 'requires-review' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {receiptAnalysis.educationCategory === 'recommended' ? 'Recommended for Reimbursement' :
+                             receiptAnalysis.educationCategory === 'not-recommended' ? 'Not Recommended' :
+                             receiptAnalysis.educationCategory === 'requires-review' ? 'Requires Manual Review' :
+                             'Unclear - Needs Assessment'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Reasoning */}
+                      {receiptAnalysis.educationReasoning && (
+                        <div className="p-3 bg-white bg-opacity-60 rounded-md">
+                          <p className="text-sm font-medium text-green-800 mb-1">Assessment Reasoning:</p>
+                          <p className="text-sm text-green-700">{receiptAnalysis.educationReasoning}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* User Override Indicators */}
+                    {showAnalysisResults && Object.values(userHasOverridden).some(Boolean) && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Manual Overrides Active
+                        </h4>
+                        <div className="text-sm text-blue-800">
+                          <p className="mb-2">You have manually edited the following fields:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {userHasOverridden.purchaseDate && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Purchase Date
+                              </span>
+                            )}
+                            {userHasOverridden.vendor && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Vendor
+                              </span>
+                            )}
+                            {userHasOverridden.totalAmount && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Total Amount
+                              </span>
+                            )}
+                            {userHasOverridden.taxAmount && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Tax Amount
+                              </span>
+                            )}
+                            {userHasOverridden.description && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Description
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-blue-600 mt-2">
+                            Your manual entries will be used instead of AI suggestions.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Manual Entry Mode Option */}
+                {hasUploadedReceipt && (showAnalysisResults || aiAnalysisFailed) && (
+                  <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                          Need to start over?
+                        </h4>
+                        <p className="text-xs text-gray-600">
+                          Clear AI analysis and fill in all details manually
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReceiptAnalysis(null);
+                          setShowAnalysisResults(false);
+                          setAiAnalysisFailed(false);
+                          setUserHasOverridden({
+                            purchaseDate: true,
+                            vendor: true,
+                            totalAmount: true,
+                            taxAmount: true,
+                            description: true
+                          });
+                          // Clear form fields to let user start fresh
+                          setFormData(prev => ({
+                            ...prev,
+                            purchaseDate: toDateString(new Date()),
+                            vendor: '',
+                            totalAmount: '',
+                            taxAmount: '',
+                            description: ''
+                          }));
+                        }}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        Clear AI & Start Manual
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -1529,10 +2179,23 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                 {/* AI Analysis Error */}
                 {errors.aiAnalysis && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm text-red-800 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      {errors.aiAnalysis}
-                    </p>
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-800 mb-2">
+                          {errors.aiAnalysis}
+                        </p>
+                        <div className="text-xs text-red-700">
+                          <p className="mb-1"><strong>What to do:</strong></p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>You can continue filling out the form manually</li>
+                            <li>Try uploading a clearer photo of your receipt</li>
+                            <li>Make sure the receipt shows all key information clearly</li>
+                            <li>Contact support if the problem persists</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1540,10 +2203,54 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
           </div>
           {/* Purchase Information */}
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <h3 className="font-semibold text-purple-900 mb-4 flex items-center">
-              <FileText className="w-5 h-5 mr-2" />
-              Purchase Information
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-purple-900 flex items-center">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
+                  hasUploadedReceipt 
+                    ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                      ? 'bg-green-500 text-white'
+                      : 'bg-purple-500 text-white'
+                    : 'bg-gray-300 text-gray-500'
+                }`}>
+                  {(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)) ? '✓' : '2'}
+                </div>
+                <FileText className="w-5 h-5 mr-2" />
+                Step 2: Purchase Information
+              </h3>
+              {analyzingReceipt && (
+                <div className="flex items-center space-x-2 text-sm text-purple-700">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>AI is extracting data...</span>
+                </div>
+              )}
+            </div>
+            
+            {!hasUploadedReceipt && (
+              <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                <p className="text-sm text-purple-800">
+                  <Info className="w-4 h-4 inline mr-2" />
+                  Please upload a receipt first. AI will automatically extract purchase details to pre-fill these fields.
+                </p>
+              </div>
+            )}
+            
+            {analyzingReceipt && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <Info className="w-4 h-4 inline mr-2" />
+                  AI is analyzing your receipt and extracting purchase information...
+                </p>
+              </div>
+            )}
+            
+            {aiAnalysisFailed && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <p className="text-sm text-orange-800">
+                  <AlertCircle className="w-4 h-4 inline mr-2" />
+                  AI analysis failed, but you can continue by filling in the details manually.
+                </p>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField label="Purchase Date" error={errors.purchaseDate} required>
@@ -1551,9 +2258,16 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   type="date"
                   value={formData.purchaseDate}
                   onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
-                  className={`w-full px-3 py-2 border ${
-                    errors.purchaseDate ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  disabled={!hasUploadedReceipt || analyzingReceipt}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    (!hasUploadedReceipt || analyzingReceipt)
+                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                      : errors.purchaseDate 
+                        ? 'border-red-300' 
+                        : userHasOverridden.purchaseDate
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                  }`}
                 />
               </FormField>
 
@@ -1562,26 +2276,40 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   type="text"
                   value={formData.vendor}
                   onChange={(e) => handleInputChange('vendor', e.target.value)}
-                  className={`w-full px-3 py-2 border ${
-                    errors.vendor ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  placeholder="e.g., Amazon, Staples, Local Bookstore"
+                  disabled={!hasUploadedReceipt || analyzingReceipt}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    (!hasUploadedReceipt || analyzingReceipt)
+                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                      : errors.vendor 
+                        ? 'border-red-300' 
+                        : userHasOverridden.vendor
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                  }`}
+                  placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Amazon, Staples, Local Bookstore"}
                 />
               </FormField>
 
               <FormField label="Total Amount" error={errors.totalAmount} required>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">$</span>
+                  <span className={`absolute left-3 top-2 ${(!hasUploadedReceipt || analyzingReceipt) ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={formData.totalAmount}
                     onChange={(e) => handleInputChange('totalAmount', e.target.value)}
-                    className={`w-full pl-8 pr-3 py-2 border ${
-                      errors.totalAmount ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    placeholder="0.00"
+                    disabled={!hasUploadedReceipt || analyzingReceipt}
+                    className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      (!hasUploadedReceipt || analyzingReceipt)
+                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                        : errors.totalAmount 
+                          ? 'border-red-300' 
+                          : userHasOverridden.totalAmount
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300'
+                    }`}
+                    placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "0.00"}
                   />
                 </div>
               </FormField>
@@ -1592,17 +2320,24 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                 description="Tax portion of the purchase (GST, HST, PST, etc.)"
               >
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">$</span>
+                  <span className={`absolute left-3 top-2 ${(!hasUploadedReceipt || analyzingReceipt) ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={formData.taxAmount}
                     onChange={(e) => handleInputChange('taxAmount', e.target.value)}
-                    className={`w-full pl-8 pr-3 py-2 border ${
-                      errors.taxAmount ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    placeholder="0.00"
+                    disabled={!hasUploadedReceipt || analyzingReceipt}
+                    className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      (!hasUploadedReceipt || analyzingReceipt)
+                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                        : errors.taxAmount 
+                          ? 'border-red-300' 
+                          : userHasOverridden.taxAmount
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300'
+                    }`}
+                    placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "0.00"}
                   />
                 </div>
               </FormField>
@@ -1617,10 +2352,17 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   type="text"
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  className={`w-full px-3 py-2 border ${
-                    errors.description ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  placeholder="e.g., Science equipment and art supplies"
+                  disabled={!hasUploadedReceipt || analyzingReceipt}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    (!hasUploadedReceipt || analyzingReceipt)
+                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                      : errors.description 
+                        ? 'border-red-300' 
+                        : userHasOverridden.description
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                  }`}
+                  placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Science equipment and art supplies"}
                 />
               </FormField>
             </div>
@@ -1631,9 +2373,21 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-purple-900 flex items-center">
-            <Calculator className="w-5 h-5 mr-2" />
-            Student Allocation
-          </h3>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
+                  selectedStudents.size > 0 && isPercentageValid
+                    ? 'bg-green-500 text-white'
+                    : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-300 text-gray-500'
+                }`}>
+                  {(selectedStudents.size > 0 && isPercentageValid) ? '✓' : '3'}
+                </div>
+                <Calculator className="w-5 h-5 mr-2" />
+                Step 3: Student Allocation
+                {analyzingReceipt && (
+                  <span className="ml-2 text-sm text-purple-600 font-normal">(Disabled during AI analysis)</span>
+                )}
+              </h3>
               <div className={`text-sm font-medium ${
                 isPercentageValid ? 'text-green-600' : 'text-red-600'
               }`}>
@@ -1681,6 +2435,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                             errors={errors[`student_${student.id}`] || {}}
                             remainingBudget={studentBudgets[student.id]?.remaining || 901.00}
                             budgetInfo={studentBudgets[student.id]}
+                            analyzingReceipt={analyzingReceipt}
                           />
                         ))}
                       </>
@@ -1756,6 +2511,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Submitting Claim...
                 </>
+              ) : analyzingReceipt ? (
+                <>
+                  <Sparkles className="w-4 h-4 animate-pulse mr-2" />
+                  Submit Reimbursement Claim (AI Still Processing)
+                </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -1763,20 +2523,110 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                 </>
               )}
             </button>
+            
+            {analyzingReceipt && (
+              <p className="text-sm text-gray-600 text-center mt-2">
+                You can submit now or wait for AI analysis to complete
+              </p>
+            )}
           </div>
         </form>
         
-        {/* Receipt Preview Modal */}
-        <ReceiptPreviewModal 
-          receipt={previewReceipt}
-          isOpen={showPreviewModal}
-          onClose={() => {
-            setShowPreviewModal(false);
-            setPreviewReceipt(null);
-          }}
-        />
       </SheetContent>
     </Sheet>
+
+    {/* Receipt Preview Sheet */}
+    <Sheet open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+      <SheetContent side="right" className="w-full sm:w-[90vw] max-w-none overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="text-left">
+            <div className="flex items-center space-x-2">
+              <Eye className="w-5 h-5 text-purple-500" />
+              <span>Receipt Preview</span>
+            </div>
+          </SheetTitle>
+          <SheetDescription className="text-left">
+            {previewReceipt?.fileName || 'Receipt preview'}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6">
+          {previewReceipt && (() => {
+            const isImage = previewReceipt.fileType?.startsWith('image/') || false;
+            const isPDF = previewReceipt.fileType === 'application/pdf' || false;
+
+            if (isImage) {
+              return (
+                <div className="text-center">
+                  <img
+                    src={previewReceipt.fileUrl}
+                    alt={previewReceipt.fileName}
+                    className="max-w-full h-auto rounded-lg shadow-sm border border-gray-200"
+                    style={{ maxHeight: 'calc(90vh - 200px)' }}
+                  />
+                  <p className="text-sm text-gray-600 mt-4">
+                    <strong>File:</strong> {previewReceipt.fileName} • {formatFileSize(previewReceipt.fileSize)}
+                  </p>
+                </div>
+              );
+            } else if (isPDF) {
+              return (
+                <div className="space-y-4">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-8 h-8 text-red-600" />
+                      <div>
+                        <p className="font-medium text-red-800">{previewReceipt.fileName}</p>
+                        <p className="text-sm text-red-600">PDF • {formatFileSize(previewReceipt.fileSize)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <iframe
+                      src={previewReceipt.fileUrl}
+                      title={previewReceipt.fileName}
+                      className="w-full rounded-lg shadow-sm border border-gray-200"
+                      style={{ height: 'calc(90vh - 250px)', minHeight: '500px' }}
+                    />
+                    <p className="text-sm text-gray-600 mt-4">
+                      <a 
+                        href={previewReceipt.fileUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-600 hover:text-purple-800 underline font-medium"
+                      >
+                        Open PDF in new tab →
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              );
+            } else {
+              return (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-2">Preview not available for this file type</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    <strong>File:</strong> {previewReceipt.fileName} • {formatFileSize(previewReceipt.fileSize)}
+                  </p>
+                  <a 
+                    href={previewReceipt.fileUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download file to view
+                  </a>
+                </div>
+              );
+            }
+          })()}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };
 

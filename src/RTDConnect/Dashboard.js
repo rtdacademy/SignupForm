@@ -14,7 +14,6 @@ import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
 import FacilitatorSelection from './FacilitatorSelection';
-import ReimbursementSubmissionForm from './ReimbursementSubmissionForm';
 import ReceiptUploadForm from './ReceiptUploadForm';
 import StudentBudgetCard from './StudentBudgetCard';
 import FamilyBudgetOverview from './FamilyBudgetOverview';
@@ -616,13 +615,9 @@ const RTDConnectDashboard = () => {
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
   
   // Reimbursement system state
-  const [showReimbursementForm, setShowReimbursementForm] = useState(false);
-  const [selectedStudentForReimbursement, setSelectedStudentForReimbursement] = useState(null);
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
   const [studentReimbursementStatuses, setStudentReimbursementStatuses] = useState({});
-  const [isSubmittingReimbursement, setIsSubmittingReimbursement] = useState(false);
   const [stripeConnectError, setStripeConnectError] = useState(null);
-  const [reimbursementError, setReimbursementError] = useState(null);
   
   // Receipt upload form state
   const [showReceiptUploadForm, setShowReceiptUploadForm] = useState(false);
@@ -1936,113 +1931,7 @@ Check console for full details.
     }
   };
 
-  const handleSubmitReimbursement = async (reimbursementData) => {
-    setIsSubmittingReimbursement(true);
-    setReimbursementError(null);
 
-    try {
-      // Get current user's family ID from custom claims
-      const idTokenResult = await user.getIdTokenResult();
-      const familyId = idTokenResult.claims.familyId;
-      
-      if (!familyId) {
-        throw new Error('User must be part of a family to submit reimbursements');
-      }
-
-      // Convert file objects to base64 for storage
-      const receiptFiles = await Promise.all(
-        reimbursementData.receipts.map(async (file) => {
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              resolve({
-                data: reader.result.split(',')[1], // Remove data:... prefix
-                name: file.name,
-                type: file.type,
-                size: file.size
-              });
-            };
-            reader.readAsDataURL(file);
-          });
-        })
-      );
-
-      // Find the student name from familyData
-      const student = familyData.students.find(s => s.id === reimbursementData.studentId);
-      const studentName = student ? `${student.firstName} ${student.lastName}` : 'Unknown Student';
-
-      // Use the Cloud Function to submit reimbursement
-      const functions = getFunctions();
-      const submitReimbursementFunc = httpsCallable(functions, 'submitReimbursement');
-      
-      const result = await submitReimbursementFunc({
-        familyId: familyId,
-        studentId: reimbursementData.studentId,
-        studentName: studentName,
-        amount: parseFloat(reimbursementData.amount),
-        description: reimbursementData.description,
-        category: reimbursementData.category,
-        purchaseDate: reimbursementData.purchaseDate,
-        receiptFiles: receiptFiles,
-        schoolYear: activeSchoolYear
-      });
-
-      if (result.data.success) {
-        console.log('Reimbursement submitted successfully:', result.data.reimbursementId);
-        
-        // Show success toast
-        setToast({
-          message: `Reimbursement submitted successfully! ID: ${result.data.reimbursementId}`,
-          type: 'success'
-        });
-        
-        setShowReimbursementForm(false);
-        setSelectedStudentForReimbursement(null);
-        
-        // Reload reimbursement statuses
-        await loadReimbursementStatuses();
-      } else {
-        throw new Error('Failed to submit reimbursement');
-      }
-    } catch (error) {
-      console.error('Error submitting reimbursement:', error);
-      setReimbursementError(error.message || 'Failed to submit reimbursement');
-    } finally {
-      setIsSubmittingReimbursement(false);
-    }
-  };
-
-  const handleOpenReimbursementForm = (student) => {
-    // Check payment eligibility first
-    const studentEligibility = studentPaymentEligibility[student.id];
-    if (!studentEligibility?.canAccessPayments) {
-      const missingFormLabels = {
-        'notification-form': `${activeSchoolYear} Notification Form`,
-        'citizenship-docs': 'Citizenship Documents',
-        'solo-plan': 'Program Plan'
-      };
-      
-      const missingForms = studentEligibility?.missingForms?.map(form => missingFormLabels[form]).join(', ') || 'required forms';
-      
-      setToast({
-        message: `${student.firstName} must complete ${missingForms} before accessing payment features.`,
-        type: 'warning'
-      });
-      return;
-    }
-    
-    // Check if Stripe Connect is set up
-    if (stripeConnectStatus?.status !== 'completed') {
-      setToast({
-        message: 'Please complete the banking setup using the Account Management button before submitting reimbursements.',
-        type: 'warning'
-      });
-      return;
-    }
-    
-    setSelectedStudentForReimbursement(student);
-    setShowReimbursementForm(true);
-  };
 
   // Handler for new receipt upload form
   const handleOpenReceiptUploadForm = () => {
@@ -4304,6 +4193,7 @@ Check console for full details.
           student={selectedStudentForDocs}
           familyId={customClaims?.familyId}
           onDocumentsUpdated={handleDocumentsUpdated}
+          aiAnalyze={true}
         />
       )}
 
@@ -4336,41 +4226,6 @@ Check console for full details.
       )}
 
 
-      {/* Reimbursement Submission Sheet */}
-      <Sheet open={showReimbursementForm} onOpenChange={setShowReimbursementForm}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="text-left">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-blue-500" />
-                <span>Submit Reimbursement</span>
-              </div>
-            </SheetTitle>
-            <SheetDescription className="text-left">
-              Submit an educational expense for reimbursement review.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-6">
-            {selectedStudentForReimbursement && (
-              <ReimbursementSubmissionForm
-                student={selectedStudentForReimbursement}
-                onSubmit={handleSubmitReimbursement}
-                onCancel={() => {
-                  setShowReimbursementForm(false);
-                  setSelectedStudentForReimbursement(null);
-                  setReimbursementError(null);
-                }}
-                isSubmitting={isSubmittingReimbursement}
-                error={reimbursementError}
-                isEligible={studentPaymentEligibility[selectedStudentForReimbursement?.id]?.canAccessPayments || false}
-                eligibilityMessage={studentPaymentEligibility[selectedStudentForReimbursement?.id]?.canAccessPayments ? null : 
-                  `${selectedStudentForReimbursement.firstName} must complete all required forms before accessing payment features.`}
-              />
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Receipt Upload Form */}
       <ReceiptUploadForm

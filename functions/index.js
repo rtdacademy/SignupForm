@@ -65,6 +65,7 @@ const edgeFunctions = require('./edge');
 
 // AI services
 const googleAIFunctions = require('./googleai');
+const googleGenkitFunctions = require('./googlegenkit');
 //const tempFunctions = require('./TempFunction');
 
 // Student dashboard notifications
@@ -178,7 +179,9 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 exports.generateContent = googleAIFunctions.generateContent;
 exports.startChatSession = googleAIFunctions.startChatSession;
 exports.sendChatMessage = googleAIFunctions.sendChatMessage;
-exports.analyzeReceipt = googleAIFunctions.analyzeReceipt;
+
+// Google Genkit functions
+exports.analyzeReceipt = googleGenkitFunctions.analyzeReceipt;
 //exports.terminalChat = tempFunctions.terminalChat;
 
 // Notification functions

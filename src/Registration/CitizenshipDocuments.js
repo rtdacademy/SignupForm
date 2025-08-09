@@ -34,6 +34,7 @@ const CitizenshipDocuments = forwardRef(({
     { value: 'citizenship-certificate', label: 'Canadian Citizenship Certificate' },
     { value: 'citizenship-card', label: 'Canadian Citizenship Card' },
     { value: 'passport', label: 'Canadian Passport' },
+    { value: 'status-card', label: 'Status Card (Indigenous)' },
     { value: 'visa', label: 'Visa' },
     { value: 'immigration-document', label: 'Immigration Document' },
     { value: 'other', label: 'Other' }
@@ -228,6 +229,7 @@ const CitizenshipDocuments = forwardRef(({
                   <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
                   <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
                   <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
+                  <li><strong>Status Card (Indigenous):</strong> Secure Certificate of Indian Status for First Nations people registered under the Indian Act</li>
                   <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
                 </ul>
                 <p className="mt-2 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>
@@ -239,6 +241,7 @@ const CitizenshipDocuments = forwardRef(({
                   <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
                   <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
                   <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
+                  <li><strong>Status Card (Indigenous):</strong> Secure Certificate of Indian Status for First Nations people registered under the Indian Act</li>
                   <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
                 </ul>
                 <p className="mt-3 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>

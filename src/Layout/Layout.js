@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
+import HomeEducationHeader from './HomeEducationHeader';
 import { useAuth } from '../context/AuthContext';
 import { useLayout } from '../context/LayoutContext';
 import { getDatabase, ref, get } from "firebase/database";
@@ -14,6 +15,15 @@ const Layout = React.memo(({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [studentData, setStudentData] = useState(null);
   const [hasParentAccount, setHasParentAccount] = useState(false);
+  
+  // Home Education Header state
+  const [showMyFamiliesOnly, setShowMyFamiliesOnly] = useState(false);
+  const [impersonatingFacilitator, setImpersonatingFacilitator] = useState(null);
+  const [showImpersonationDropdown, setShowImpersonationDropdown] = useState(false);
+  const [homeEducationStats, setHomeEducationStats] = useState({
+    totalFamilies: 0,
+    myFamilies: 0
+  });
 
   const fetchStudentData = useCallback(async () => {
     if (user && !isStaff(user)) {
@@ -90,22 +100,43 @@ const Layout = React.memo(({ children }) => {
   }, [setIsFullScreen]);
 
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/teacher-dashboard';
+  const isHomeEducationRoute = location.pathname === '/home-education-staff';
 
   const childrenWithProps = useMemo(() => {
     return React.Children.map(children, child => {
       if (React.isValidElement(child)) {
-        return React.cloneElement(child, { 
+        const baseProps = { 
           userEmail: user ? user.email : null,
           isSidebarOpen: isSidebarOpen,
           onSidebarToggle: handleSidebarToggle,
           studentData: studentData,
           isFullScreen: isFullScreen,
           onFullScreenToggle: handleFullScreenToggle
-        });
+        };
+
+        // Add home education props if on the home education route
+        if (isHomeEducationRoute) {
+          return React.cloneElement(child, { 
+            ...baseProps,
+            showMyFamiliesOnly,
+            setShowMyFamiliesOnly,
+            impersonatingFacilitator,
+            setImpersonatingFacilitator,
+            showImpersonationDropdown,
+            setShowImpersonationDropdown,
+            homeEducationStats,
+            setHomeEducationStats
+          });
+        }
+
+        return React.cloneElement(child, baseProps);
       }
       return child;
     });
-  }, [user, isSidebarOpen, handleSidebarToggle, studentData, isFullScreen, handleFullScreenToggle, children]);
+  }, [
+    user, isSidebarOpen, handleSidebarToggle, studentData, isFullScreen, handleFullScreenToggle, 
+    children, isHomeEducationRoute, showMyFamiliesOnly, impersonatingFacilitator, showImpersonationDropdown, homeEducationStats
+  ]);
 
   const headerProps = useMemo(() => ({
     user,
@@ -121,13 +152,32 @@ const Layout = React.memo(({ children }) => {
     hasParentAccount
   }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating, hasParentAccount]);
 
+  const homeEducationHeaderProps = useMemo(() => ({
+    user,
+    onLogout: handleLogout,
+    showMyFamiliesOnly,
+    setShowMyFamiliesOnly,
+    impersonatingFacilitator,
+    setImpersonatingFacilitator,
+    showImpersonationDropdown,
+    setShowImpersonationDropdown,
+    stats: homeEducationStats
+  }), [
+    user, handleLogout, showMyFamiliesOnly, impersonatingFacilitator, 
+    showImpersonationDropdown, homeEducationStats
+  ]);
+
   return (
     <div className={`flex flex-col h-screen bg-white ${isFullScreen ? 'overflow-hidden' : ''}`}>
       {/* Header - only shown when not fullscreen */}
-      {!isFullScreen && <Header {...headerProps} />}
+      {!isFullScreen && (
+        isHomeEducationRoute ? 
+          <HomeEducationHeader {...homeEducationHeaderProps} /> :
+          <Header {...headerProps} />
+      )}
 
       {/* Main content area */}
-      <main className="flex-1 overflow-hidden bg-gray-50 min-h-0">
+      <main className="flex-1 overflow-auto bg-gray-50 min-h-0">
         {childrenWithProps}
       </main>
 

@@ -58,9 +58,13 @@ const StaffLogin = () => {
           console.log("Successfully applied staff claims:", staffClaims);
           console.log("Signed in staff:", user.displayName, "with permissions:", staffClaims.staffPermissions);
           
-          // Navigate to dashboard with a slight delay to ensure state is updated
+          // Navigate to appropriate dashboard based on email domain
+          const finalRedirectTo = (user.email.endsWith('@rtd-connect.com') || user.email === 'kyle@rtdacademy.com') 
+            ? '/home-education-staff' 
+            : redirectTo;
+            
           setTimeout(() => {
-            navigate(redirectTo);
+            navigate(finalRedirectTo);
             setIsLoggingIn(false);
           }, 1000);
         } else {
@@ -102,6 +106,9 @@ const StaffLogin = () => {
         <h1 className="text-3xl font-extrabold text-center text-primary">RTD Math Academy</h1>
         <p className="mt-2 text-center text-sm text-gray-600 max-w-md mx-auto">
           Staff Portal - Course Management & Administration
+        </p>
+        <p className="mt-1 text-center text-xs text-green-600 max-w-md mx-auto">
+          RTD Connect facilitators welcome
         </p>
       </div>
 
