@@ -56,6 +56,10 @@ import FundingPage from './RTDConnect/pages/FundingPage';
 import BioPage from './RTDConnect/pages/BioPage';
 import HomeEducationStaffDashboard from './HomeEducation/HomeEducationStaffDashboard';
 
+// Legal page imports
+import PrivacyStatement from './legal/PrivacyStatement';
+import TermsAndConditions from './legal/TermsAndConditions';
+
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
 import EdBotzLogin from './edbotz/Login';
@@ -176,6 +180,10 @@ function MainApp() {
 <Route path="/policies-reports" element={<PoliciesAndReports />} />
 <Route path="/aerr/2023-24" element={<AERR2324 />} />
 <Route path="/education-plan/2025-26" element={<EducationPlan />} />
+
+{/* Legal pages */}
+<Route path="/privacy" element={<PrivacyStatement />} />
+<Route path="/terms" element={<TermsAndConditions />} />
 <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
 <Route path="/parent-login" element={<ParentLogin />} />
 <Route path="/parent-verify-email" element={<ParentEmailVerification />} />
@@ -331,6 +339,10 @@ function EdBotzApp() {
          {/* Student Portal Route - Note this is public but access controlled via Firebase */}
          <Route path="/student-portal/:userId/:accessKey" element={<StudentPortal />} />
 
+        {/* Legal pages */}
+        <Route path="/privacy" element={<PrivacyStatement />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
+
         {/* Shared routes */}
         <Route path="/auth-action-handler" element={<MultiActionAuthHandler />} />
         
@@ -365,6 +377,11 @@ function RTDConnectApp() {
         <Route path="/facilitator/golda-david" element={<FacilitatorProfile1 />} />
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
+        
+        {/* Legal pages */}
+        <Route path="/privacy" element={<PrivacyStatement />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
+        <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
         
         <Route path="/login" element={
           user && isHomeEducationParent ? <Navigate to="/dashboard" /> : <RTDConnectLogin />

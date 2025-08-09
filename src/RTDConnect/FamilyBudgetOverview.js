@@ -1,7 +1,7 @@
 import React from 'react';
-import { DollarSign, Users, TrendingUp, AlertTriangle } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertTriangle, Shield } from 'lucide-react';
 
-const FamilyBudgetOverview = ({ students, budgetData }) => {
+const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility }) => {
   if (!students || students.length === 0 || !budgetData) return null;
 
   // Calculate family totals
@@ -36,21 +36,53 @@ const FamilyBudgetOverview = ({ students, budgetData }) => {
   };
 
   const status = getOverallStatus();
+  
+  // Check if payment features are restricted
+  const isRestricted = familyPaymentEligibility && !familyPaymentEligibility.canAccessPayments;
+  const restrictionOverlay = isRestricted ? 'relative overflow-hidden' : '';
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-6">
+    <div className={`bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-6 ${restrictionOverlay}`}>
+      {/* Payment Restriction Overlay */}
+      {isRestricted && (
+        <div className="absolute inset-0 bg-gray-50 bg-opacity-90 flex items-center justify-center z-10 rounded-lg">
+          <div className="text-center p-6 max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Budget Tracking Locked
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Complete all required forms to access budget and payment features
+            </p>
+            <div className="text-xs text-gray-500 bg-white px-3 py-2 rounded-lg border">
+              <div className="flex items-center justify-center space-x-2">
+                <Shield className="w-4 h-4 text-blue-500" />
+                <span>
+                  {familyPaymentEligibility?.studentsWithoutAccess?.length || 0} student(s) need forms
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <DollarSign className="w-5 h-5 mr-2 text-blue-500" />
           Family Budget Overview
+          {isRestricted && (
+            <Shield className="w-4 h-4 ml-2 text-red-500" />
+          )}
         </h3>
-        <div className={`text-sm font-medium ${status.color}`}>
-          {status.message}
+        <div className={`text-sm font-medium ${isRestricted ? 'text-gray-400' : status.color}`}>
+          {isRestricted ? 'Restricted Access' : status.message}
         </div>
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 ${isRestricted ? 'opacity-40' : ''}`}>
         <div className="text-center p-3 bg-white rounded-lg shadow-sm">
           <div className="text-2xl font-bold text-blue-600">
             ${totals.totalAllocated.toFixed(2)}
@@ -94,7 +126,7 @@ const FamilyBudgetOverview = ({ students, budgetData }) => {
       </div>
 
       {/* Progress Bar */}
-      <div className="mb-4">
+      <div className={`mb-4 ${isRestricted ? 'opacity-40' : ''}`}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">Overall Family Budget Usage</span>
           <span className="text-sm text-gray-600">{overallPercentageUsed.toFixed(1)}%</span>
@@ -111,7 +143,7 @@ const FamilyBudgetOverview = ({ students, budgetData }) => {
       </div>
 
       {/* Alerts for High Usage Students */}
-      {highUsageStudents.length > 0 && (
+      {!isRestricted && highUsageStudents.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
           <div className="flex items-start space-x-2">
             <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -143,14 +175,14 @@ const FamilyBudgetOverview = ({ students, budgetData }) => {
       )}
 
       {/* Quick Actions */}
-      <div className="pt-3 border-t border-blue-200">
+      <div className={`pt-3 border-t border-blue-200 ${isRestricted ? 'opacity-40' : ''}`}>
         <div className="flex items-center justify-between text-sm">
           <div className="text-gray-600">
             Last updated: {new Date().toLocaleDateString()}
           </div>
           <div className="flex items-center space-x-1 text-blue-600">
             <TrendingUp className="w-4 h-4" />
-            <span>Budget tracking active</span>
+            <span>{isRestricted ? 'Tracking paused' : 'Budget tracking active'}</span>
           </div>
         </div>
       </div>

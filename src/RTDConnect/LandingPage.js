@@ -3,31 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { 
   GraduationCap, 
   Heart, 
-  Shield, 
   Users, 
-  Calendar, 
-  FileText, 
   DollarSign, 
   ArrowRight, 
   CheckCircle2, 
   BookOpen, 
   Home as HomeIcon, 
-  Star,
   Phone,
   Mail,
   MapPin,
-  Clock,
-  Menu
+  Menu,
+  Smartphone
 } from 'lucide-react';
 
 // Import configuration
 import { 
+  TAGLINE,
   FUNDING_RATES, 
-  ACADEMIC_STATS, 
-  CONTACT_INFO,
-  PORTAL_STATS
+  CONTACT_INFO
 } from '../config/HomeEducation';
-import { getAllFacilitators } from '../config/facilitators';
 import { 
   getCurrentSchoolYear,
   getOpenRegistrationSchoolYear,
@@ -264,14 +258,6 @@ const RTDConnectLandingPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-16">
             {/* Left Column - Text Content */}
             <div className="text-center lg:text-left">
-              {/* Badge */}
-              <div className="inline-flex items-center px-6 py-3 rounded-full bg-white/70 backdrop-blur-sm border border-purple-200 mb-8">
-                <Heart className="w-5 h-5 text-purple-500 mr-2" />
-                <span className="text-purple-700 font-semibold text-sm sm:text-base">
-                  Rooted in Relationship • Thriving in Freedom • Dynamic by Design
-                </span>
-              </div>
-              
               {/* Main Heading */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-8 leading-tight">
                 Welcome to
@@ -317,6 +303,16 @@ const RTDConnectLandingPage = () => {
 
             {/* Right Column - Hero Image */}
             <div className="relative lg:order-last">
+              {/* Centered tagline above image */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center px-6 py-3 rounded-full bg-white/70 backdrop-blur-sm border border-purple-200">
+                  <Heart className="w-5 h-5 text-purple-500 mr-2" />
+                  <span className="text-purple-700 font-semibold text-sm sm:text-base">
+                    {TAGLINE}
+                  </span>
+                </div>
+              </div>
+              
               <div className="relative">
                 {/* Decorative elements around image */}
                 <div className="absolute -top-4 -left-4 w-24 h-24 bg-gradient-to-r from-purple-400 to-blue-400 rounded-2xl opacity-20 rotate-12"></div>
@@ -325,7 +321,7 @@ const RTDConnectLandingPage = () => {
                 {/* Main image container */}
                 <div className="relative bg-white/60 backdrop-blur-sm rounded-3xl p-4 border border-white/50 shadow-2xl">
                   <img 
-                    src="/connectImages/ChildComputer.png" 
+                    src="/connectImages/mainpic2.jpg" 
                     alt="Child learning with computer - personalized home education"
                     className="w-full h-auto rounded-2xl shadow-lg"
                   />
@@ -398,89 +394,16 @@ const RTDConnectLandingPage = () => {
 
           {/* Stats Section */}
           <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-8 border border-white/50">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Trusted by Alberta Families</h3>
-              <p className="text-gray-600">Real results from our home education community</p>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{FUNDING_RATES.GRADES_1_TO_12.formatted}</div>
-                <div className="text-sm text-gray-600 font-medium">Per Student Funding</div>
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <DollarSign className="w-10 h-10 text-white" />
               </div>
-              
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Star className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{ACADEMIC_STATS.HOME_EDUCATION_DIPLOMA_AVERAGE.percentage}%</div>
-                <div className="text-sm text-gray-600 font-medium">Diploma Exam Average</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{PORTAL_STATS.COMMUNITY_PARTNERS.count}</div>
-                <div className="text-sm text-gray-600 font-medium">Community Partners</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* What is Home Education Section */}
-      <section id="what-is-home-education" className="py-12 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              What Is Home Education in Alberta?
-            </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-              Home education empowers parents to direct their child's learning in Grades K-12, choosing curricula and methods that suit their family's lifestyle while meeting Alberta's Schedule of Learning Outcomes (SOLO).
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-12 sm:mb-16">
-            <FeatureCard 
-              icon={Heart}
-              title="Tailored Learning Paths"
-              description="Customize education to your child's strengths, interests, and pace for better engagement and outcomes"
-              gradient="from-purple-500 to-blue-500"
-            />
-            <FeatureCard 
-              icon={Clock}
-              title="Flexible Family Scheduling"
-              description="Integrate learning into your daily life without rigid timetables or school calendars"
-              gradient="from-blue-500 to-cyan-500"
-            />
-            <FeatureCard 
-              icon={Shield}
-              title="Supportive Home Setting"
-              description="Provide a positive, bully-free environment that builds confidence and values"
-              gradient="from-cyan-500 to-blue-500"
-            />
-            <FeatureCard 
-              icon={Users}
-              title="Stronger Community Bonds"
-              description="More time for family, faith, and local activities that enrich your child's world"
-              gradient="from-green-500 to-cyan-500"
-            />
-          </div>
-
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 sm:p-8 text-center">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-              Proven Results for Alberta
-            </h3>
-            <p className="text-base sm:text-lg text-gray-700 mb-6">
-              Home educated students frequently surpass provincial averages, scoring {ACADEMIC_STATS.HOME_EDUCATION_DIPLOMA_AVERAGE.percentage}% on diploma exams compared to {ACADEMIC_STATS.PROVINCIAL_DIPLOMA_AVERAGE.percentage}% province-wide, with flexible learning.
-            </p>
-            <div className="inline-flex items-center text-purple-600 font-semibold">
-              <Star className="w-5 h-5 mr-2" />
-              Academic success through personalization
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Alberta Home Education Funding</h3>
+              <p className="text-gray-600 mb-6">Government funding to support your educational journey</p>
+              <div className="text-4xl font-bold text-purple-600 mb-2">{FUNDING_RATES.GRADES_1_TO_12.formatted}</div>
+              <div className="text-lg text-gray-600 font-medium mb-2">Per Student (Grades 1-12)</div>
+              <div className="text-2xl font-semibold text-blue-600">{FUNDING_RATES.KINDERGARTEN.formatted}</div>
+              <div className="text-sm text-gray-600">Kindergarten Funding</div>
             </div>
           </div>
         </div>
@@ -498,24 +421,30 @@ const RTDConnectLandingPage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             <FeatureCard 
               icon={GraduationCap}
-              title="Expert Educational Backing"
-              description="Leverage RTD Academy's established expertise in Alberta's learning standards"
+              title="Expert Support"
+              description="Certified teachers who are also homeschool parents guide your journey"
               gradient="from-purple-500 to-blue-500"
             />
             <FeatureCard 
-              icon={FileText}
-              title="Effortless Registration"
-              description="Complete everything online—no downloads or complex paperwork required"
+              icon={BookOpen}
+              title="Simple Online Process"
+              description="Complete registration and manage everything through our easy portal"
               gradient="from-blue-500 to-cyan-500"
             />
             <FeatureCard 
               icon={DollarSign}
-              title="Quick Funding Payouts"
-              description="Avoid delays with our streamlined reimbursement process for educational resources"
+              title="Fast Funding Access"
+              description="Quick reimbursements for your educational resources and materials"
               gradient="from-cyan-500 to-blue-500"
+            />
+            <FeatureCard 
+              icon={Smartphone}
+              title="Mobile-First Design"
+              description="Manage everything from your phone—no PDFs to download, just snap photos of documents"
+              gradient="from-green-500 to-emerald-500"
             />
           </div>
         </div>
@@ -543,7 +472,7 @@ const RTDConnectLandingPage = () => {
             <StepCard 
               number="2"
               title="Plan Your Program"
-              description="Customize your home education plan with SOLO guidance and resource recommendations"
+              description="Customize your home education plan with program guidance and resource recommendations"
               icon={HomeIcon}
             />
             <StepCard 
@@ -566,117 +495,15 @@ const RTDConnectLandingPage = () => {
         </div>
       </section>
 
-      {/* Features & Services Section */}
-      <section className="py-12 sm:py-20 bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Full Suite of Tools for Success
-            </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-              Our all-in-one platform delivers the support Alberta parents need to thrive in home education, from planning to payouts.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <FeatureCard 
-              icon={Users}
-              title="Family & Student Profiles"
-              description="Easily manage multiple children with personalized tracking and plans"
-              gradient="from-purple-500 to-blue-500"
-            />
-            <FeatureCard 
-              icon={FileText}
-              title="Annual Registration Simplified"
-              description="Renew effortlessly with automated reminders and one-click submission"
-              gradient="from-blue-500 to-cyan-500"
-            />
-            <FeatureCard 
-              icon={DollarSign}
-              title="Hassle-Free Reimbursements"
-              description="Upload receipts in the portal for quick approvals and payouts—no waiting or complex rules"
-              gradient="from-cyan-500 to-blue-500"
-            />
-            <FeatureCard 
-              icon={Calendar}
-              title="Progress & Compliance Tracking"
-              description="Monitor learning outcomes and maintain records seamlessly"
-              gradient="from-green-500 to-cyan-500"
-            />
-            <FeatureCard 
-              icon={BookOpen}
-              title="Curated Resource Hub"
-              description="Discover approved curricula, tools, and activities for SOLO alignment"
-              gradient="from-indigo-500 to-purple-500"
-            />
-            <FeatureCard 
-              icon={Shield}
-              title="Secure Family Portal"
-              description="Keep your data safe while accessing all features in one place"
-              gradient="from-blue-500 to-cyan-500"
-            />
-          </div>
-        </div>
-      </section>
-
       {/* Meet Our Facilitators Section */}
       <section className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
+          <div className="text-center mb-8">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Meet Our Expert Facilitators
+              Expert Facilitators Ready to Support You
             </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-              Our dedicated team of education specialists is here to guide and support your family throughout your home education journey. Get to know our facilitators and find the perfect match for your needs.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
-            {/* Facilitator Cards */}
-            {getAllFacilitators().slice(0, 2).map((facilitator) => (
-              <div key={facilitator.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
-                <div className="p-6 sm:p-8">
-                  <div className="flex items-center space-x-4 sm:space-x-6 mb-6">
-                    <img 
-                      src={facilitator.image} 
-                      alt={facilitator.name}
-                      className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 ${facilitator.gradients.border}`}
-                    />
-                    <div>
-                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{facilitator.name}</h3>
-                      <p className="text-base sm:text-lg text-purple-600 font-semibold">{facilitator.title}</p>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1">{facilitator.experience}</p>
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-6">
-                    {facilitator.description}
-                  </p>
-                  
-                  <div className="space-y-3 mb-6">
-                    {facilitator.specializations.slice(0, 3).map((spec, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-gray-700 text-sm">{spec}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <button
-                    onClick={() => navigate(`/facilitator/${facilitator.id}`)}
-                    className={`w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r ${facilitator.gradients.card} hover:from-purple-600 hover:to-blue-600 transition-colors`}
-                  >
-                    Learn More About {facilitator.name.split(' ')[0]}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8 sm:mt-12">
-            <p className="text-base sm:text-lg text-gray-600 mb-6">
-              Ready to connect with one of our facilitators? They're here to help you succeed.
+            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+              Our team of certified teachers—many of whom are homeschool parents themselves—bring both professional expertise and personal understanding to guide your family's educational journey.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
@@ -691,69 +518,6 @@ const RTDConnectLandingPage = () => {
                 className="inline-flex items-center px-8 py-4 border border-gray-300 text-base sm:text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
               >
                 Contact Our Team
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Requirements & Funding Section */}
-      <section className="py-12 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
-                Alberta Home Education Essentials & Funding
-              </h2>
-              <div className="space-y-6">
-                <div className="flex items-start space-x-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Registration Timeline</h3>
-                    <p className="text-gray-600">
-                      {openRegistrationYear ? (
-                        <>Registration open for {openRegistrationYear} school year. Deadline: {septemberCountDate ? formatImportantDate(septemberCountDate) : 'September 30'}</>
-                      ) : (
-                        'Registration opens January 1st each year. Deadline: September 30th for funding eligibility'
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Learning Requirements</h3>
-                    <p className="text-gray-600">Meet Schedule of Learning Outcomes (SOLO) by age 20</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Available Funding (Per Student)</h3>
-                    <p className="text-gray-600">{FUNDING_RATES.GRADES_1_TO_12.formatted} per year for grades 1-12, {FUNDING_RATES.KINDERGARTEN.formatted} per year for Kindergarten</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Flexible Assessment</h3>
-                    <p className="text-gray-600">No mandatory provincial testing—assess as fits your family</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-500 to-cyan-500 rounded-2xl p-6 sm:p-8 text-white">
-              <h3 className="text-xl sm:text-2xl font-bold mb-6">Ready to Empower Your Child?</h3>
-              <p className="text-purple-100 mb-6">
-                Join Alberta families embracing home education for personalized growth and achievement.
-              </p>
-              <button
-                onClick={handleGetStarted}
-                className="w-full inline-flex items-center justify-center px-6 py-3 border border-white text-base sm:text-lg font-medium rounded-lg text-purple-600 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Start Registration
-                <ArrowRight className="w-5 h-5 ml-2" />
               </button>
             </div>
           </div>
@@ -832,7 +596,7 @@ const RTDConnectLandingPage = () => {
                 </div>
               </div>
               <p className="text-gray-400 text-sm">
-                Simplifying home education with fast funding, easy tools, and expert support for Alberta parents.
+                {TAGLINE}
               </p>
             </div>
 
@@ -846,6 +610,8 @@ const RTDConnectLandingPage = () => {
                 <li><button onClick={handleGetStarted} className="hover:text-white transition-colors">Get Started</button></li>
                 <li><button onClick={handleContactClick} className="hover:text-white transition-colors">Contact Us</button></li>
                 <li><a href="https://rtdacademy.com" className="hover:text-white transition-colors">RTD Academy</a></li>
+                <li><button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">Privacy Statement</button></li>
+                <li><button onClick={() => navigate('/terms')} className="hover:text-white transition-colors">Terms & Conditions</button></li>
               </ul>
             </div>
 

@@ -131,11 +131,15 @@ const Layout = React.memo(({ children }) => {
         {childrenWithProps}
       </main>
 
-      {/* Footer - only shown when not fullscreen 
+      {/* Footer - only shown when not fullscreen */}
       {!isFullScreen && (
-        <footer className="flex-none h-8 bg-gray-800 text-gray-400 px-4 flex items-center justify-between text-xs">
-          <div>
-            © {new Date().getFullYear()} Edbotz
+        <footer className="flex-none bg-gray-800 text-gray-400 px-4 py-2 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-4">
+            © {new Date().getFullYear()} Edbotz Inc. - YourWay Platform
+            <span>|</span>
+            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+            <span>|</span>
+            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
           </div>
           <div className="flex items-center gap-4">
             <span>Version 2.0</span>
@@ -145,7 +149,6 @@ const Layout = React.memo(({ children }) => {
           </div>
         </footer>
       )}
-        */}
     </div>
   );
 });

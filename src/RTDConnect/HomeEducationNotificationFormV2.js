@@ -8,8 +8,10 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { getCurrentSchoolYear, formatImportantDate } from '../config/importantDates';
 import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANCOPHONE_OPTIONS } from './utils/homeEducationFormConstants';
+import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
 import AddressPicker from '../components/AddressPicker';
+import { formatDateForDisplay } from '../utils/timeZoneUtils';
 
 // Helper function to get previous school year
 const getPreviousSchoolYear = (currentYear) => {
@@ -17,6 +19,41 @@ const getPreviousSchoolYear = (currentYear) => {
   const prevStart = (parseInt(startYear) - 1).toString().padStart(2, '0');
   const prevEnd = (parseInt(endYear) - 1).toString().padStart(2, '0');
   return `${prevStart}/${prevEnd}`;
+};
+
+// Form completeness detection helpers
+const isFormComplete = (formData) => {
+  return !!(
+    formData?.PART_A && 
+    formData?.PART_B?.declaration && 
+    formData?.PART_C?.acceptanceStatus
+  );
+};
+
+const getMissingParts = (formData) => {
+  const missing = [];
+  if (!formData?.PART_A) {
+    missing.push({ 
+      part: 'PART_A', 
+      description: 'Basic student and family information',
+      action: 'Complete the form fields'
+    });
+  }
+  if (!formData?.PART_B?.declaration) {
+    missing.push({ 
+      part: 'PART_B', 
+      description: 'Parent/guardian declaration and signature',
+      action: 'Complete declaration and provide signature'
+    });
+  }
+  if (!formData?.PART_C?.acceptanceStatus) {
+    missing.push({ 
+      part: 'PART_C', 
+      description: 'School board approval and signature',
+      action: 'Simply resubmit form to add our approval signature'
+    });
+  }
+  return missing;
 };
 
 import { 
@@ -49,9 +86,31 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 
-const FormField = ({ label, error, children, required = false, readOnly = false, icon: Icon, legalText }) => (
+// InfoSheet component for displaying detailed legal/help information
+const InfoSheet = ({ isOpen, onOpenChange, title, content }) => (
+  <Sheet open={isOpen} onOpenChange={onOpenChange}>
+    <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetHeader>
+        <SheetTitle className="text-left flex items-center">
+          <Info className="w-5 h-5 mr-2 text-blue-500" />
+          {title}
+        </SheetTitle>
+        <SheetDescription className="text-left">
+          Detailed information and guidance
+        </SheetDescription>
+      </SheetHeader>
+      <div className="mt-6 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+        {content}
+      </div>
+    </SheetContent>
+  </Sheet>
+);
+
+const FormField = ({ label, error, children, required = false, readOnly = false, icon: Icon, legalText }) => {
+  const [infoSheetOpen, setInfoSheetOpen] = React.useState(false);
+  
+  return (
   <div className="space-y-2">
     <div className="flex items-center gap-2">
       <label className={`flex items-center text-sm font-medium ${readOnly ? 'text-gray-500' : 'text-gray-900'}`}>
@@ -61,16 +120,23 @@ const FormField = ({ label, error, children, required = false, readOnly = false,
         {readOnly && <span className="text-xs text-gray-500 ml-2">(from family profile)</span>}
       </label>
       {legalText && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-5 w-5">
-              <Info className="h-4 w-4 text-gray-400" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[600px] max-w-[90vw] p-4 max-h-[80vh] overflow-y-auto">
-            <div className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{legalText}</div>
-          </PopoverContent>
-        </Popover>
+        <>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-5 w-5"
+            onClick={() => setInfoSheetOpen(true)}
+            type="button"
+          >
+            <Info className="h-4 w-4 text-gray-400" />
+          </Button>
+          <InfoSheet
+            isOpen={infoSheetOpen}
+            onOpenChange={setInfoSheetOpen}
+            title={label}
+            content={legalText}
+          />
+        </>
       )}
     </div>
     {children}
@@ -81,7 +147,8 @@ const FormField = ({ label, error, children, required = false, readOnly = false,
       </div>
     )}
   </div>
-);
+  );
+};
 
 const ReadOnlyField = ({ label, value, icon: Icon, legalText }) => (
   <FormField label={label} readOnly icon={Icon} legalText={legalText}>
@@ -137,7 +204,10 @@ const SmartFormField = ({
   onCopy,
   fieldName,
   legalText
-}) => (
+}) => {
+  const [infoSheetOpen, setInfoSheetOpen] = React.useState(false);
+  
+  return (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -147,16 +217,23 @@ const SmartFormField = ({
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
         {legalText && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-5 w-5">
-                <Info className="h-4 w-4 text-gray-400" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[600px] max-w-[90vw] p-4 max-h-[80vh] overflow-y-auto">
-              <div className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{legalText}</div>
-            </PopoverContent>
-          </Popover>
+          <>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-5 w-5"
+              onClick={() => setInfoSheetOpen(true)}
+              type="button"
+            >
+              <Info className="h-4 w-4 text-gray-400" />
+            </Button>
+            <InfoSheet
+              isOpen={infoSheetOpen}
+              onOpenChange={setInfoSheetOpen}
+              title={label}
+              content={legalText}
+            />
+          </>
         )}
       </div>
       
@@ -182,7 +259,8 @@ const SmartFormField = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 
 const HomeEducationNotificationFormV2 = ({ 
@@ -198,6 +276,8 @@ const HomeEducationNotificationFormV2 = ({
   const [saving, setSaving] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [existingSubmission, setExistingSubmission] = useState(null);
+  const [albertaProgramsInfoOpen, setAlbertaProgramsInfoOpen] = useState(false);
+  const [soloInfoOpen, setSoloInfoOpen] = useState(false);
   
   // Data for smart copying
   const [familyFormData, setFamilyFormData] = useState({});
@@ -216,10 +296,6 @@ const HomeEducationNotificationFormV2 = ({
       francophoneExercise: '',
       programAlberta: true,
       programSchedule: false,
-      partDMethod: '',
-      partDResources: '',
-      partDEvaluation: '',
-      partDFacilities: '',
       signatureAgreed: false,
       programAddressDifferent: false,
       programAddress: null,
@@ -248,6 +324,7 @@ const HomeEducationNotificationFormV2 = ({
             // New structure
             setValue('formType', data.PART_A.formType);
             Object.keys(data.PART_A.editableFields || {}).forEach(key => {
+              console.log(`Loading ${key}:`, data.PART_A.editableFields[key]);
               setValue(key, data.PART_A.editableFields[key]);
             });
             if (data.PART_A.addresses) {
@@ -255,16 +332,12 @@ const HomeEducationNotificationFormV2 = ({
               setValue('programAddress', data.PART_A.addresses.programAddress);
             }
             if (data.PART_B?.declaration) {
+              console.log('Loading PART_B data:', data.PART_B.declaration);
               setValue('programAlberta', data.PART_B.declaration.programAlberta);
               setValue('programSchedule', data.PART_B.declaration.programSchedule);
               setValue('signatureAgreed', data.PART_B.declaration.signatureAgreed);
             }
-            if (data.PART_D) {
-              setValue('partDMethod', data.PART_D.partDMethod);
-              setValue('partDResources', data.PART_D.partDResources);
-              setValue('partDEvaluation', data.PART_D.partDEvaluation);
-              setValue('partDFacilities', data.PART_D.partDFacilities);
-            }
+            // Note: PART_D is handled separately by SOLOEducationPlanForm.js
           } else {
             // Legacy structure support
             setValue('formType', data.formType);
@@ -351,12 +424,8 @@ const HomeEducationNotificationFormV2 = ({
         'previousSchoolProgram',
         'programAlberta',
         'programSchedule',
-        'programAddress',
-        // Add partD fields
-        'partDMethod',
-        'partDResources',
-        'partDEvaluation',
-        'partDFacilities'
+        'programAddress'
+        // Note: partD fields removed - handled by SOLOEducationPlanForm.js
       ];
       
       fieldsToCopy.forEach(fieldName => {
@@ -497,23 +566,10 @@ const HomeEducationNotificationFormV2 = ({
           }
         },
         
-        PART_C: {
-          acceptanceStatus: null,
-          schoolResponse: null,
-          schoolName: null,
-          schoolContact: null,
-          schoolSignature: null,
-          responseDate: null,
-          schoolNotes: null
-        },
+        PART_C: generatePartCData('accepted'),
         
         PART_D: {
-          isRequired: watch('programSchedule'),
-          partDMethod: watch('programSchedule') ? watch('partDMethod') : null,
-          partDResources: watch('programSchedule') ? watch('partDResources') : null,
-          partDEvaluation: watch('programSchedule') ? watch('partDEvaluation') : null,
-          partDFacilities: watch('programSchedule') ? watch('partDFacilities') : null,
-          completedAt: watch('programSchedule') ? new Date().toISOString() : null
+          isRequired: false // Always false - handled by SOLOEducationPlanForm.js
         }
       };
 
@@ -700,10 +756,9 @@ const HomeEducationNotificationFormV2 = ({
         body: [
           ['Legal Surname', student.lastName || ''],
           ['Legal Given Name(s)', student.firstName || ''],
-          ['Birthdate', student.birthday ? new Date(student.birthday).toLocaleDateString() : ''],
+          ['Birthdate', student.birthday ? formatDateForDisplay(student.birthday) : ''],
           ['Gender', student.genderDisplay || ''],
           ['Student Also Known As - Surname', student.alsoKnownAs ? student.lastName : ''],
-          ['Student Also Known As - Given Name(s)', student.alsoKnownAs || ''],
           ['Alberta Student Number (ASN)', student.asn || '(To be provided by the school)'],
           ['Estimated Grade Level', student.estimatedGradeLevel || ''],
           ['Student Phone Number', student.phoneWithFallback || ''],
@@ -882,7 +937,7 @@ const HomeEducationNotificationFormV2 = ({
         yPosition = doc.lastAutoTable.finalY + 15;
       }
 
-      // PART C - School Response (Empty for now)
+      // PART C - Associate School Board Notification of Acceptance
       if (yPosition > pageHeight - 50) {
         doc.addPage();
         yPosition = 20;
@@ -890,19 +945,38 @@ const HomeEducationNotificationFormV2 = ({
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      doc.text('PART C - For School/Board Use Only', 20, yPosition);
-      yPosition += 10;
+      doc.text(REGULATORY_TEXT.PART_C_HEADER, 20, yPosition);
+      yPosition += 8;
+
+      // Add regulatory compliance text
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      const regulatoryText = submissionData.PART_C?.regulatoryCompliance?.responseRequirement || REGULATORY_TEXT.RESPONSE_REQUIREMENT;
+      const splitRegText = doc.splitTextToSize(regulatoryText, pageWidth - 40);
+      doc.text(splitRegText, 20, yPosition);
+      yPosition += (splitRegText.length * 3) + 10;
+
+      // Format acceptance status
+      const acceptanceStatus = submissionData.PART_C?.acceptanceStatus || 'accepted';
+      const acceptanceText = acceptanceStatus === 'accepted' ? '✓ is accepted' : 
+                            acceptanceStatus === 'provisionally_accepted' ? '✓ is provisionally accepted' :
+                            acceptanceStatus === 'not_accepted' ? '✓ is not accepted' : '✓ is accepted';
 
       doc.autoTable({
         startY: yPosition,
-        head: [['School Response Information', 'Details']],
+        head: [['Associate Board/Private School Response', 'Details']],
         body: [
-          ['Acceptance Status', submissionData.PART_C?.acceptanceStatus || 'Pending'],
-          ['School Name', submissionData.PART_C?.schoolName || 'To be completed by school'],
-          ['School Contact', submissionData.PART_C?.schoolContact || 'To be completed by school'],
-          ['Response Date', submissionData.PART_C?.responseDate || 'To be completed by school'],
-          ['School Signature', submissionData.PART_C?.schoolSignature || 'To be completed by school'],
-          ['School Notes', submissionData.PART_C?.schoolNotes || 'To be completed by school']
+          ['Agreement Status', `This agreement ${acceptanceText} by`],
+          ['School Authority', submissionData.PART_C?.schoolFullName || submissionData.PART_C?.schoolName || 'RTD Academy'],
+          ['School Address', submissionData.PART_C?.schoolAddress || '[School Address]'],
+          ['Alberta School Code', submissionData.PART_C?.schoolCode || '2444'],
+          ['Authority Code', submissionData.PART_C?.authorityCode || '0402'],
+          ['Response Message', submissionData.PART_C?.schoolResponse || 'This home education program is accepted for supervision.'],
+          ['Executive Director', submissionData.PART_C?.schoolContact || 'Kyle Brown, Executive Director'],
+          ['Digital Signature', submissionData.PART_C?.schoolSignature || 'Kyle Brown (Digital Signature - Executive Director)'],
+          ['Response Date', submissionData.PART_C?.responseDate || new Date().toLocaleDateString()],
+          ['Approval Notes', submissionData.PART_C?.schoolNotes || 'Program approved in accordance with Alberta Home Education Regulation A.R. 89/2019.'],
+          ['Authenticated By', submissionData.PART_C?.authenticatedUser || 'kyle@rtdacademy.com']
         ],
         styles: { 
           fontSize: 9,
@@ -911,7 +985,7 @@ const HomeEducationNotificationFormV2 = ({
           lineWidth: 0.5
         },
         headStyles: { 
-          fillColor: [240, 240, 240],
+          fillColor: [220, 255, 220],
           textColor: [0, 0, 0],
           fontStyle: 'bold'
         },
@@ -924,51 +998,40 @@ const HomeEducationNotificationFormV2 = ({
 
       yPosition = doc.lastAutoTable.finalY + 15;
 
-      // PART D - Required Descriptions (if applicable)
-      if (partD?.isRequired) {
-        if (yPosition > pageHeight - 50) {
-          doc.addPage();
-          yPosition = 20;
-        }
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('PART D - Required Descriptions for Home Education Program', 20, yPosition);
-        yPosition += 10;
-
-        // Part D Questions Table
-        const partDQuestions = [
-          [PART_D_QUESTIONS.METHOD.title, PART_D_QUESTIONS.METHOD.description, partD.partDMethod || 'Not provided'],
-          [PART_D_QUESTIONS.RESOURCES.title, PART_D_QUESTIONS.RESOURCES.description, partD.partDResources || 'Not provided'],
-          [PART_D_QUESTIONS.EVALUATION.title, PART_D_QUESTIONS.EVALUATION.description, partD.partDEvaluation || 'Not provided'],
-          [PART_D_QUESTIONS.FACILITIES.title, PART_D_QUESTIONS.FACILITIES.description, partD.partDFacilities || 'Not provided']
-        ];
-
-        doc.autoTable({
-          startY: yPosition,
-          head: [['Question', 'Description', 'Response']],
-          body: partDQuestions,
-          styles: { 
-            fontSize: 8,
-            cellPadding: 3,
-            lineColor: [0, 0, 0],
-            lineWidth: 0.5
-          },
-          headStyles: { 
-            fillColor: [230, 230, 230],
-            textColor: [0, 0, 0],
-            fontStyle: 'bold'
-          },
-          columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 40 },
-            1: { cellWidth: 60 },
-            2: { cellWidth: 70 }
-          },
-          margin: { left: 20, right: 20 }
-        });
-
-        yPosition = doc.lastAutoTable.finalY + 10;
+      // PART D - Program Plan Attachment
+      if (yPosition > pageHeight - 50) {
+        doc.addPage();
+        yPosition = 20;
       }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PART D - Required Descriptions for Home Education Program', 20, yPosition);
+      yPosition += 10;
+
+      // Part D Attachment Notice
+      doc.autoTable({
+        startY: yPosition,
+        head: [['Program Plan Attachment']],
+        body: [
+          ['The detailed program descriptions required for Part D (instructional methods, resources, evaluation, and facilities) are provided in the separate Program Plan document attached to this notification form.']
+        ],
+        styles: { 
+          fontSize: 9,
+          cellPadding: 4,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [240, 248, 255],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPosition = doc.lastAutoTable.finalY + 10;
 
       // Footer
       doc.setFontSize(8);
@@ -1015,10 +1078,7 @@ const HomeEducationNotificationFormV2 = ({
       return;
     }
     
-    if (data.programSchedule && (!data.partDMethod || !data.partDEvaluation)) {
-      toast.error('Please complete the required descriptions in Part D for programs following the Schedule.');
-      return;
-    }
+    // Note: PART_D is handled separately by SOLOEducationPlanForm.js
 
     if (data.programAddressDifferent && !data.programAddress) {
       toast.error('Please select the address where the education program will be conducted.');
@@ -1073,25 +1133,10 @@ const HomeEducationNotificationFormV2 = ({
           }
         },
         
-        PART_C: {
-          // For school completion - initially empty
-          acceptanceStatus: null, // 'accepted', 'rejected', 'provisionally_accepted'
-          schoolResponse: null,
-          schoolName: null,
-          schoolContact: null,
-          schoolSignature: null,
-          responseDate: null,
-          schoolNotes: null
-        },
+        PART_C: generatePartCData('accepted'),
         
         PART_D: {
-          // Only populated if programSchedule is true
-          isRequired: data.programSchedule,
-          partDMethod: data.programSchedule ? data.partDMethod : null,
-          partDResources: data.programSchedule ? data.partDResources : null,
-          partDEvaluation: data.programSchedule ? data.partDEvaluation : null,
-          partDFacilities: data.programSchedule ? data.partDFacilities : null,
-          completedAt: data.programSchedule ? new Date().toISOString() : null
+          isRequired: false // Always false - handled by SOLOEducationPlanForm.js
         }
       };
 
@@ -1298,7 +1343,7 @@ const HomeEducationNotificationFormV2 = ({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ReadOnlyField label="Legal Surname" value={student.lastName} />
               <ReadOnlyField label="Legal Given Name(s)" value={student.firstName} />
-              <ReadOnlyField label="Birthdate" value={student.birthday ? new Date(student.birthday).toLocaleDateString() : ''} />
+              <ReadOnlyField label="Birthdate" value={student.birthday ? formatDateForDisplay(student.birthday) : ''} />
               <ReadOnlyField label="Gender" value={student.genderDisplay} />
               <ReadOnlyField label="Student Also Known As" value={student.alsoKnownAs} />
               <ReadOnlyField label="Alberta Student Number (ASN)" value={student.asn} />
@@ -1471,6 +1516,7 @@ const HomeEducationNotificationFormV2 = ({
                 copyOptions={copyOptions.residentSchoolBoard || []}
                 onCopy={handleCopyValue}
                 fieldName="residentSchoolBoard"
+                legalText={LEGAL_TEXT.RESIDENT_SCHOOL_BOARD}
               >
                 <SchoolBoardSelector
                   value={watch('residentSchoolBoard') || ''}
@@ -1543,7 +1589,10 @@ const HomeEducationNotificationFormV2 = ({
                 fieldName="aboriginalDeclaration"
                 legalText={LEGAL_TEXT.ABORIGINAL_DECLARATION}
               >
-                <RadioGroup {...register('aboriginalDeclaration')}>
+                <RadioGroup 
+                  value={watch('aboriginalDeclaration')} 
+                  onValueChange={(value) => setValue('aboriginalDeclaration', value)}
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="status-indian" id="status-indian" />
                     <Label htmlFor="status-indian">Status Indian/First Nations</Label>
@@ -1565,6 +1614,12 @@ const HomeEducationNotificationFormV2 = ({
                     <Label htmlFor="not-applicable">Prefer not to declare</Label>
                   </div>
                 </RadioGroup>
+                {/* Hidden input for form validation */}
+                <input
+                  type="hidden"
+                  {...register('aboriginalDeclaration')}
+                  value={watch('aboriginalDeclaration') || ''}
+                />
               </SmartFormField>
 
               <div className="space-y-4">
@@ -1577,7 +1632,10 @@ const HomeEducationNotificationFormV2 = ({
                   fieldName="francophoneEligible"
                   legalText={LEGAL_TEXT.FRANCOPHONE_EDUCATION}
                 >
-                  <RadioGroup {...register('francophoneEligible')}>
+                  <RadioGroup 
+                    value={watch('francophoneEligible')} 
+                    onValueChange={(value) => setValue('francophoneEligible', value)}
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="yes" id="franco-yes" />
                       <Label htmlFor="franco-yes">Yes</Label>
@@ -1591,6 +1649,12 @@ const HomeEducationNotificationFormV2 = ({
                       <Label htmlFor="franco-unknown">Do not know</Label>
                     </div>
                   </RadioGroup>
+                  {/* Hidden input for form validation */}
+                  <input
+                    type="hidden"
+                    {...register('francophoneEligible')}
+                    value={watch('francophoneEligible') || ''}
+                  />
                 </SmartFormField>
 
                 {watch('francophoneEligible') === 'yes' && (
@@ -1600,7 +1664,10 @@ const HomeEducationNotificationFormV2 = ({
                     onCopy={handleCopyValue}
                     fieldName="francophoneExercise"
                   >
-                    <RadioGroup {...register('francophoneExercise')}>
+                    <RadioGroup 
+                      value={watch('francophoneExercise')} 
+                      onValueChange={(value) => setValue('francophoneExercise', value)}
+                    >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="yes" id="exercise-yes" />
                         <Label htmlFor="exercise-yes">Yes</Label>
@@ -1610,6 +1677,12 @@ const HomeEducationNotificationFormV2 = ({
                         <Label htmlFor="exercise-no">No</Label>
                       </div>
                     </RadioGroup>
+                    {/* Hidden input for form validation */}
+                    <input
+                      type="hidden"
+                      {...register('francophoneExercise')}
+                      value={watch('francophoneExercise') || ''}
+                    />
                   </SmartFormField>
                 )}
               </div>
@@ -1633,23 +1706,63 @@ const HomeEducationNotificationFormV2 = ({
                       <div className="flex items-start space-x-3">
                         <Checkbox 
                           id="programAlberta" 
-                          {...register('programAlberta')}
+                          checked={watch('programAlberta')}
+                          onCheckedChange={(checked) => setValue('programAlberta', checked)}
                           className="mt-1"
                         />
-                        <Label htmlFor="programAlberta" className="text-sm leading-relaxed">
-                          to achieve the outcomes contained in the Alberta Programs of Study.
-                        </Label>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="programAlberta" className="text-sm leading-relaxed">
+                              to achieve the outcomes contained in the Alberta Programs of Study.
+                            </Label>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-5 w-5" 
+                              type="button"
+                              onClick={() => setAlbertaProgramsInfoOpen(true)}
+                            >
+                              <Info className="h-4 w-4 text-gray-400" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-start space-x-3">
                         <Checkbox 
                           id="programSchedule" 
-                          {...register('programSchedule')}
+                          checked={watch('programSchedule')}
+                          onCheckedChange={(checked) => setValue('programSchedule', checked)}
                           className="mt-1"
                         />
-                        <Label htmlFor="programSchedule" className="text-sm leading-relaxed">
-                          to achieve the outcomes contained in the Schedule included in the Home Education Regulation.
-                        </Label>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="programSchedule" className="text-sm leading-relaxed">
+                              to achieve the outcomes contained in the Schedule included in the Home Education Regulation.
+                            </Label>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-5 w-5" 
+                              type="button"
+                              onClick={() => setSoloInfoOpen(true)}
+                            >
+                              <Info className="h-4 w-4 text-gray-400" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Hidden inputs for form validation */}
+                      <input
+                        type="hidden"
+                        {...register('programAlberta')}
+                        value={watch('programAlberta')}
+                      />
+                      <input
+                        type="hidden"
+                        {...register('programSchedule')}
+                        value={watch('programSchedule')}
+                      />
                     </div>
                     
                     <div className="mt-6 space-y-4 text-sm">
@@ -1668,65 +1781,18 @@ const HomeEducationNotificationFormV2 = ({
                 </div>
               </div>
 
+
               {watch('programSchedule') && (
-                <Alert variant="warning" className="my-4">
-                  <AlertCircle className="h-4 w-4" />
+                <Alert className="border-blue-200 bg-blue-50 mt-4">
+                  <Info className="h-4 w-4 text-blue-600" />
                   <AlertDescription>
-                    <p className="font-medium mb-2">Important Notice:</p>
-                    <p className="mb-2">Parents/guardians who provide home education programs acknowledge that there are implications when they choose to use programs different from the Alberta Programs of Study:</p>
-                    <ol className="list-decimal pl-4 mt-2 space-y-1">
-                      <li>Students may not apply to a high school principal for high school credits.</li>
-                      <li>Students may not receive an Alberta High School Diploma.</li>
-                    </ol>
-                    <p className="mt-3">Any student in a home education program may write a high school diploma examination. However, the diploma examination mark achieved will stand alone and will not result in a final course mark unless accompanied by a recommendation for credit by a high school principal. A final course mark requires both a school awarded mark and a diploma examination mark. Arrangements to write diploma examinations should be made well in advance of the writing date by contacting the associate school board or associate private school for assistance or Exam Administration at 780-643-9157.</p>
+                    <p className="font-medium text-blue-800 mb-2">Part D - Program Descriptions</p>
+                    <p className="text-blue-700 text-sm">
+                      The detailed program descriptions required for Part D (instructional methods, resources, evaluation, and facilities) 
+                      are handled through our separate <strong>Program Plan Form</strong>. You do not need to complete Part D here.
+                    </p>
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {watch('programSchedule') && (
-                <div className="space-y-4 border-t pt-4">
-                  <h4 className="font-medium text-gray-900">Part D: Description for components not following Alberta Programs of Study</h4>
-                  
-                  <FormField 
-                    label="Instructional methods and activities"
-                  >
-                    <Textarea
-                      {...register('partDMethod')}
-                      placeholder="Describe methods, activities, and how they achieve outcomes..."
-                      rows={4}
-                    />
-                  </FormField>
-
-                  <FormField 
-                    label="Resource materials"
-                  >
-                    <Textarea
-                      {...register('partDResources')}
-                      placeholder="List any non-standard resource materials..."
-                      rows={3}
-                    />
-                  </FormField>
-
-                  <FormField 
-                    label="Evaluation methods"
-                  >
-                    <Textarea
-                      {...register('partDEvaluation')}
-                      placeholder="Describe evaluation methods, number, and relation to outcomes..."
-                      rows={4}
-                    />
-                  </FormField>
-
-                  <FormField 
-                    label="Facilities and services"
-                  >
-                    <Textarea
-                      {...register('partDFacilities')}
-                      placeholder="List desired facilities and services..."
-                      rows={3}
-                    />
-                  </FormField>
-                </div>
               )}
               
 
@@ -1792,23 +1858,66 @@ const HomeEducationNotificationFormV2 = ({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Submission Status */}
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-sm text-green-800">
-                          {existingSubmission.submissionStatus === 'submitted' ? 'Form Submitted' : 'Form Saved'}
-                        </p>
-                        <p className="text-xs text-green-600">
-                          {existingSubmission.submissionCompletedAt ? 
-                            `Completed: ${new Date(existingSubmission.submissionCompletedAt).toLocaleString()}` :
-                            `Last Updated: ${new Date(existingSubmission.lastUpdated).toLocaleString()}`
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Form Status - with completeness check */}
+                  {(() => {
+                    const formIsComplete = isFormComplete(existingSubmission);
+                    const missingParts = getMissingParts(existingSubmission);
+                    
+                    if (formIsComplete) {
+                      return (
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <div>
+                              <p className="font-medium text-sm text-green-800">
+                                Form Complete & Approved
+                              </p>
+                              <p className="text-xs text-green-600">
+                                {existingSubmission.submissionCompletedAt ? 
+                                  `Completed: ${new Date(existingSubmission.submissionCompletedAt).toLocaleString()}` :
+                                  `Last Updated: ${new Date(existingSubmission.lastUpdated).toLocaleString()}`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                            <div className="flex items-center space-x-2">
+                              <AlertCircle className="w-5 h-5 text-orange-600" />
+                              <div>
+                                <p className="font-medium text-sm text-orange-800">
+                                  Form Needs Updates
+                                </p>
+                                <p className="text-xs text-orange-600">
+                                  Last Updated: {new Date(existingSubmission.lastUpdated).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <Alert className="border-orange-200 bg-orange-50">
+                            <AlertCircle className="h-4 w-4 text-orange-600" />
+                            <AlertDescription>
+                              <p className="font-medium text-orange-800 mb-2">Missing Required Sections:</p>
+                              <ul className="list-disc list-inside text-orange-700 text-sm space-y-1">
+                                {missingParts.map((missing, idx) => (
+                                  <li key={idx}>
+                                    <strong>{missing.part}:</strong> {missing.description}
+                                    <br />
+                                    <span className="text-xs text-orange-600 ml-4">→ {missing.action}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      );
+                    }
+                  })()}
 
                   {/* Download Current PDF */}
                   <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -1885,7 +1994,7 @@ const HomeEducationNotificationFormV2 = ({
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  {existingSubmission?.submissionStatus === 'submitted' ? 'Update Form' : 'Submit Form'}
+                  {isFormComplete(existingSubmission) ? 'Update Form' : 'Complete Form'}
                 </>
               )}
             </Button>
@@ -1902,6 +2011,226 @@ const HomeEducationNotificationFormV2 = ({
           </div>
         </form>
       </SheetContent>
+      
+      {/* Alberta Programs of Study Info Sheet */}
+      <Sheet open={albertaProgramsInfoOpen} onOpenChange={setAlbertaProgramsInfoOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left flex items-center">
+              <GraduationCap className="w-5 h-5 mr-2 text-blue-500" />
+              Alberta Programs of Study
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Detailed information about Alberta's standard curriculum
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg text-gray-900">What are the Alberta Programs of Study?</h3>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                The Alberta Programs of Study are the detailed curriculum guidelines used by public schools across Alberta. 
+                They outline exactly what students should learn at each grade level in every subject.
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-semibold text-blue-900 mb-3">Key Features:</h4>
+              <ul className="space-y-2 text-sm text-blue-800">
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Comprehensive:</strong> Approximately 1,400 specific learning outcomes per grade level</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Structured:</strong> Covers core subjects like English Language Arts, Mathematics, Science, and Social Studies</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Grade-specific:</strong> Learning objectives are organized by grade level from Kindergarten to Grade 12</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <h4 className="font-semibold text-green-900 mb-3">Benefits for Home Education:</h4>
+              <ul className="space-y-2 text-sm text-green-800">
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>High School Credits:</strong> Students can earn official Alberta high school credits</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Alberta High School Diploma:</strong> Students can receive the official Alberta High School Diploma</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>University Preparation:</strong> Follows the same standards as public schools for post-secondary admission</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Clear Structure:</strong> Provides detailed guidance on what to teach and when</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <h4 className="font-semibold text-yellow-900 mb-3">What This Means for You:</h4>
+              <p className="text-sm text-yellow-800 leading-relaxed">
+                If you choose this option, your home education program will follow the same curriculum as Alberta public schools. 
+                You'll need to cover the specific learning outcomes for your child's grade level in each subject area. This provides 
+                a structured approach but requires more adherence to prescribed content and timelines.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-semibold text-gray-900">Official Resources:</h4>
+              <div className="space-y-2">
+                <a 
+                  href="https://www.alberta.ca/programs-of-study" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm hover:underline"
+                >
+                  Alberta Programs of Study - Official Government Page →
+                </a>
+                <br />
+                <a 
+                  href="https://www.learnalberta.ca" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm hover:underline"
+                >
+                  LearnAlberta - Curriculum Resources for Parents →
+                </a>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+      
+      {/* SOLO Info Sheet */}
+      <Sheet open={soloInfoOpen} onOpenChange={setSoloInfoOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-green-500" />
+              Schedule of Learning Outcomes (SOLO)
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Flexible home education option with broad learning goals
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg text-gray-900">What is the Schedule of Learning Outcomes?</h3>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                The Schedule of Learning Outcomes (SOLO) is a flexible alternative to the Alberta Programs of Study. 
+                Instead of following 1,400+ specific outcomes per grade, SOLO provides just 22 broad learning outcomes 
+                that students should achieve by age 20 across their entire K-12 education.
+              </p>
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <h4 className="font-semibold text-green-900 mb-3">Key Features:</h4>
+              <ul className="space-y-2 text-sm text-green-800">
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Simple:</strong> Only 22 general learning outcomes to achieve over 12+ years</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Flexible:</strong> No grade-level requirements - learn at your child's pace</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Personalized:</strong> Focus on your child's interests, strengths, and learning style</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Balanced:</strong> Half academic skills, half personal/social development</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-semibold text-blue-900 mb-3">Benefits for Home Education:</h4>
+              <ul className="space-y-2 text-sm text-blue-800">
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Maximum Freedom:</strong> Choose your own curriculum, methods, and timeline</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Child-Led Learning:</strong> Follow your child's natural interests and curiosity</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Less Pressure:</strong> No grade-level expectations or rigid timelines</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Real-World Focus:</strong> Emphasizes practical life skills and personal development</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <h4 className="font-semibold text-yellow-900 mb-3">Important Considerations:</h4>
+              <ul className="space-y-2 text-sm text-yellow-800">
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>No High School Diploma:</strong> Students cannot receive an Alberta High School Diploma</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>No Course Credits:</strong> Students cannot earn individual high school course credits</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>Diploma Exams Available:</strong> Students can still write Alberta diploma exams, but marks stand alone</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 flex-shrink-0"></span>
+                  <span><strong>University Planning:</strong> May require alternative routes for post-secondary admission</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <h4 className="font-semibold text-purple-900 mb-3">What This Means for You:</h4>
+              <p className="text-sm text-purple-800 leading-relaxed">
+                If you choose SOLO, you have the freedom to create a completely customized education for your child. 
+                You can use any resources, follow any approach, and learn at any pace - as long as you work toward 
+                the 22 broad outcomes by age 20. This is ideal for families who want maximum flexibility and prefer 
+                child-led or alternative educational approaches.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-semibold text-gray-900">Official Resources:</h4>
+              <div className="space-y-2">
+                <a 
+                  href="https://open.alberta.ca/publications/2019_089" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm hover:underline"
+                >
+                  Home Education Regulation - Official Document →
+                </a>
+                <br />
+                <a 
+                  href="https://albertahomeschooling.ca/resources.html" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm hover:underline"
+                >
+                  Alberta Homeschooling Association - SOLO Resources →
+                </a>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Sheet>
   );
 };

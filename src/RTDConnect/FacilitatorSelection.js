@@ -1,0 +1,362 @@
+import React, { useState, useEffect } from 'react';
+import { getAllFacilitators, getFacilitatorById, getFacilitatorProfileUrl } from '../config/facilitators';
+import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
+
+const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) => {
+  const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
+  
+  // Map icon names to components
+  const iconMap = {
+    'Star': Star,
+    'Users': Users,
+    'Clock': Clock,
+    'GraduationCap': GraduationCap
+  };
+
+  return (
+    <div 
+      className={`relative bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl ${
+        isSelected ? 'ring-2 ring-purple-500' : ''
+      }`}
+    >
+      {/* Selected Badge */}
+      {isSelected && (
+        <div className="absolute top-4 right-4 z-10 bg-purple-500 text-white rounded-full p-2">
+          <Check className="w-5 h-5" />
+        </div>
+      )}
+
+      {/* Header with gradient */}
+      <div className={`h-2 bg-gradient-to-r ${gradientClass}`} />
+      
+      <div className="p-6">
+        {/* Profile Section */}
+        <div className="flex items-start space-x-4 mb-4">
+          <div className="relative">
+            <a 
+              href={getFacilitatorProfileUrl(facilitator)} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block hover:opacity-80 transition-opacity cursor-pointer"
+              title={`View ${facilitator.name}'s profile`}
+            >
+              <img 
+                src={facilitator.image} 
+                alt={facilitator.name}
+                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md hover:shadow-lg transition-shadow"
+              />
+            </a>
+            <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-r ${gradientClass} rounded-full flex items-center justify-center`}>
+              <Award className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-gray-900">{facilitator.name}</h3>
+            <p className="text-sm text-gray-600">{facilitator.title}</p>
+            <p className="text-xs text-purple-600 font-medium mt-1">{facilitator.experience}</p>
+          </div>
+        </div>
+
+        {/* Description */}
+        <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+          {facilitator.description}
+        </p>
+
+        {/* Specializations */}
+        <div className="mb-4">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Specializations</h4>
+          <div className="flex flex-wrap gap-2">
+            {facilitator.specializations.slice(0, 3).map((spec, index) => (
+              <span 
+                key={index}
+                className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full"
+              >
+                {spec}
+              </span>
+            ))}
+            {facilitator.specializations.length > 3 && (
+              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                +{facilitator.specializations.length - 3} more
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {facilitator.stats.map((stat, index) => {
+            const IconComponent = iconMap[stat.icon] || Star;
+            return (
+              <div key={index} className="text-center p-2 bg-gray-50 rounded-lg">
+                <IconComponent className="w-4 h-4 mx-auto text-purple-500 mb-1" />
+                <div className="text-sm font-bold text-gray-900">{stat.value}</div>
+                <div className="text-xs text-gray-500">{stat.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onViewDetails(facilitator)}
+            className="flex-1 px-4 py-2 text-sm text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors"
+          >
+            View Full Profile
+          </button>
+          <button
+            onClick={() => onSelect(facilitator)}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              isSelected 
+                ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600'
+            }`}
+          >
+            {isSelected ? 'Selected' : 'Select'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FacilitatorDetailSheet = ({ isOpen, onClose, facilitator }) => {
+  if (!facilitator) return null;
+
+  const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
+  
+  const iconMap = {
+    'Star': Star,
+    'Users': Users,
+    'Clock': Clock,
+    'GraduationCap': GraduationCap
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-full sm:w-[500px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Facilitator Profile</SheetTitle>
+          <SheetDescription>
+            Learn more about {facilitator.name} and their approach to home education support
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-6">
+          {/* Profile Header */}
+          <div className="text-center">
+            <a 
+              href={getFacilitatorProfileUrl(facilitator)} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block hover:opacity-80 transition-opacity cursor-pointer"
+              title={`View ${facilitator.name}'s profile`}
+            >
+              <img 
+                src={facilitator.image} 
+                alt={facilitator.name}
+                className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-200 hover:border-gray-300 transition-colors"
+              />
+            </a>
+            <h2 className="text-2xl font-bold text-gray-900">{facilitator.name}</h2>
+            <p className="text-gray-600">{facilitator.title}</p>
+            <p className="text-purple-600 font-medium mt-1">{facilitator.experience}</p>
+          </div>
+
+          {/* About */}
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-2">About</h3>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {facilitator.description}
+            </p>
+          </div>
+
+          {/* Specializations */}
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-3">Areas of Expertise</h3>
+            <div className="space-y-2">
+              {facilitator.specializations.map((spec, index) => (
+                <div key={index} className="flex items-start space-x-2">
+                  <BookOpen className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">{spec}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-3">Quick Facts</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {facilitator.stats.map((stat, index) => {
+                const IconComponent = iconMap[stat.icon] || Star;
+                return (
+                  <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <IconComponent className="w-5 h-5 text-purple-500" />
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">{stat.value}</div>
+                      <div className="text-xs text-gray-500">{stat.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Grade Focus */}
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-3">Grade Levels Supported</h3>
+            <div className="flex flex-wrap gap-2">
+              {facilitator.gradeFocus.primary.map((grade) => (
+                <span 
+                  key={grade}
+                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium"
+                >
+                  {grade === 'K' ? 'Kindergarten' : `Grade ${grade}`}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Contact */}
+          {facilitator.contact && (
+            <div className="border-t pt-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Contact Information</h3>
+              <div className="space-y-2">
+                {facilitator.contact.email && (
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-700">{facilitator.contact.email}</span>
+                  </div>
+                )}
+                {facilitator.contact.phone && (
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-700">{facilitator.contact.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
+
+const FacilitatorSelection = ({ 
+  selectedFacilitatorId, 
+  onFacilitatorSelect, 
+  showAsStep = false,
+  onContinue = null 
+}) => {
+  const [facilitators, setFacilitators] = useState([]);
+  const [selectedFacilitator, setSelectedFacilitator] = useState(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [viewingFacilitator, setViewingFacilitator] = useState(null);
+
+  useEffect(() => {
+    // Load all facilitators
+    const allFacilitators = getAllFacilitators();
+    setFacilitators(allFacilitators);
+
+    // Set initial selection if provided
+    if (selectedFacilitatorId) {
+      const facilitator = getFacilitatorById(selectedFacilitatorId);
+      if (facilitator) {
+        setSelectedFacilitator(facilitator);
+      }
+    }
+  }, [selectedFacilitatorId]);
+
+  const handleSelect = (facilitator) => {
+    setSelectedFacilitator(facilitator);
+    if (onFacilitatorSelect) {
+      onFacilitatorSelect(facilitator.id, facilitator);
+    }
+  };
+
+  const handleViewDetails = (facilitator) => {
+    setViewingFacilitator(facilitator);
+    setDetailSheetOpen(true);
+  };
+
+  const handleContinue = () => {
+    if (onContinue && selectedFacilitator) {
+      onContinue();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      {showAsStep && (
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Your Facilitator</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Your facilitator will be your primary support throughout your home education journey. 
+            They'll help with curriculum planning, compliance, and provide ongoing guidance.
+          </p>
+        </div>
+      )}
+
+      {/* Why This Matters */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
+          <Heart className="w-5 h-5 mr-2" />
+          Why Your Facilitator Choice Matters
+        </h3>
+        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+          <li>They'll be your main point of contact for questions and support</li>
+          <li>They'll review your education plans and provide feedback</li>
+          <li>They'll conduct regular check-ins to ensure your success</li>
+          <li>They'll help navigate Alberta's home education requirements</li>
+        </ul>
+      </div>
+
+      {/* Facilitator Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {facilitators.map((facilitator) => (
+          <FacilitatorCard
+            key={facilitator.id}
+            facilitator={facilitator}
+            isSelected={selectedFacilitator?.id === facilitator.id}
+            onSelect={handleSelect}
+            onViewDetails={handleViewDetails}
+          />
+        ))}
+      </div>
+
+      {/* Continue Button (if in step mode) */}
+      {showAsStep && (
+        <div className="flex justify-center pt-6">
+          <button
+            onClick={handleContinue}
+            disabled={!selectedFacilitator}
+            className={`px-8 py-3 rounded-lg font-medium flex items-center space-x-2 transition-all ${
+              selectedFacilitator
+                ? 'bg-gradient-to-r from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <span>Continue with {selectedFacilitator?.name || 'Selected Facilitator'}</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Detail Sheet */}
+      <FacilitatorDetailSheet
+        isOpen={detailSheetOpen}
+        onClose={() => setDetailSheetOpen(false)}
+        facilitator={viewingFacilitator}
+      />
+    </div>
+  );
+};
+
+export default FacilitatorSelection;

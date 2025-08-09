@@ -54,7 +54,22 @@ const archiveStudentDataV2 = onValueWritten({
 
     // Fetch related data
     const courseSnapshot = await db.ref(`/students/${studentKey}/courses/${courseId}`).once('value');
-    const courseData = courseSnapshot.val();
+    let courseData = courseSnapshot.val();
+    
+    // If course data exists, exclude the previousCourse subfolder to prevent nesting
+    if (courseData && courseData.previousCourse) {
+      console.log(`Excluding previousCourse subfolder from archive to prevent nesting`);
+      // Create a copy without the previousCourse folder
+      const { previousCourse, hasPreviousEnrollment, ...courseDataWithoutPrevious } = courseData;
+      courseData = courseDataWithoutPrevious;
+      
+      // Store a reference that previous enrollments exist but don't include the actual data
+      courseData.hadPreviousEnrollments = {
+        existed: true,
+        count: hasPreviousEnrollment?.count || Object.keys(previousCourse || {}).length,
+        note: 'Previous enrollment data excluded from archive to prevent nesting'
+      };
+    }
 
     // Fetch messages for this course
     const messagesSnapshot = await db.ref(`/userEmails/${studentKey}`).once('value');
@@ -147,10 +162,26 @@ const archiveStudentDataV2 = onValueWritten({
     // Now that we've verified the upload and updated the summary, delete the original data
     console.log(`Deleting original data...`);
 
-    // Delete course data if it exists
+    // Delete course data if it exists, but preserve previousCourse folder
     if (courseData) {
+      // First, check if there's a previousCourse folder to preserve
+      const fullCourseSnapshot = await db.ref(`/students/${studentKey}/courses/${courseId}/previousCourse`).once('value');
+      const previousCourseData = fullCourseSnapshot.val();
+      const hasPrevEnrollmentSnapshot = await db.ref(`/students/${studentKey}/courses/${courseId}/hasPreviousEnrollment`).once('value');
+      const hasPrevEnrollmentData = hasPrevEnrollmentSnapshot.val();
+      
+      // Delete the entire course
       await db.ref(`/students/${studentKey}/courses/${courseId}`).remove();
       console.log(`Deleted course data for ${studentKey}/${courseId}`);
+      
+      // Restore the previousCourse folder if it existed
+      if (previousCourseData) {
+        await db.ref(`/students/${studentKey}/courses/${courseId}/previousCourse`).set(previousCourseData);
+        if (hasPrevEnrollmentData) {
+          await db.ref(`/students/${studentKey}/courses/${courseId}/hasPreviousEnrollment`).set(hasPrevEnrollmentData);
+        }
+        console.log(`Preserved previousCourse data during archival`);
+      }
     }
 
     // Delete messages for this course
@@ -185,6 +216,62 @@ const archiveStudentDataV2 = onValueWritten({
     throw error;
   }
 });
+
+// Helper function to merge student notes intelligently
+const mergeStudentNotes = (currentNotes, archivedNotes) => {
+  if (!currentNotes && !archivedNotes) return [];
+  if (!currentNotes) return archivedNotes;
+  if (!archivedNotes) return currentNotes;
+  
+  // Create a Map to handle duplicates by ID
+  const noteMap = new Map();
+  
+  // Add archived notes first (older)
+  if (Array.isArray(archivedNotes)) {
+    archivedNotes.forEach(note => {
+      if (note && note.id) {
+        noteMap.set(note.id, note);
+      }
+    });
+  }
+  
+  // Add current notes (may override if same ID exists)
+  if (Array.isArray(currentNotes)) {
+    currentNotes.forEach(note => {
+      if (note && note.id) {
+        noteMap.set(note.id, note);
+      }
+    });
+  }
+  
+  // Convert back to array and sort by timestamp
+  return Array.from(noteMap.values())
+    .sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0);
+      const dateB = new Date(b.timestamp || 0);
+      return dateA - dateB;
+    });
+};
+
+// Helper function to extract school year from course data
+const extractSchoolYear = (courseData) => {
+  if (courseData?.School_x0020_Year?.Value) {
+    return courseData.School_x0020_Year.Value;
+  }
+  // Fallback: try to extract from Created date
+  if (courseData?.Created) {
+    const date = new Date(courseData.Created);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    // School year typically starts in September
+    if (month >= 8) {
+      return `${year % 100}/${(year + 1) % 100}`;
+    } else {
+      return `${(year - 1) % 100}/${year % 100}`;
+    }
+  }
+  return 'Unknown';
+};
 
 // Restoration function
 const restoreStudentDataV2 = onValueWritten({
@@ -241,20 +328,133 @@ const restoreStudentDataV2 = onValueWritten({
     
     const archiveData = JSON.parse(decompressedBuffer.toString());
     
-    // Restore course data
+    // Check if there's already course data (new enrollment)
+    let currentData = null;
+    if (restorationData.coursePath) {
+      const currentDataSnapshot = await db.ref(restorationData.coursePath).once('value');
+      currentData = currentDataSnapshot.val();
+    }
+    
+    // Restore course data with smart logic for re-enrollments
     if (archiveData.courseData && restorationData.courseDataExists) {
-      // Update the ActiveFutureArchived.Value before restoration to prevent triggering archive function
-      if (archiveData.courseData.ActiveFutureArchived) {
-        archiveData.courseData.ActiveFutureArchived.Value = afterValue;
-        console.log(`Updated ActiveFutureArchived.Value to ${afterValue} before restoration`);
-      } else {
-        // If the structure doesn't exist, create it
-        archiveData.courseData.ActiveFutureArchived = { Value: afterValue };
-        console.log(`Created ActiveFutureArchived.Value with ${afterValue} before restoration`);
-      }
       
-      await db.ref(restorationData.coursePath).set(archiveData.courseData);
-      console.log(`Restored course data to ${restorationData.coursePath}`);
+      if (currentData) {
+        // New enrollment exists - preserve it and save old data to previousCourse
+        console.log(`Found existing enrollment, preserving new data and archiving old`);
+        
+        // Generate timestamp for the previous course folder
+        const timestamp = Date.now();
+        const previousCoursePath = `${restorationData.coursePath}/previousCourse/${timestamp}`;
+        
+        // Extract school year from archived data
+        const schoolYear = extractSchoolYear(archiveData.courseData);
+        
+        // Check if archived data contains previousCourse (from old archives) and exclude it
+        let dataToArchive = archiveData.courseData;
+        if (dataToArchive.previousCourse) {
+          console.log(`Removing nested previousCourse from archived data to prevent nesting`);
+          const { previousCourse, hasPreviousEnrollment, hadPreviousEnrollments, ...cleanData } = dataToArchive;
+          dataToArchive = cleanData;
+        }
+        
+        // Prepare the archived course data with metadata
+        const previousCourseData = {
+          ...dataToArchive,
+          archivedMetadata: {
+            schoolYear: schoolYear,
+            archivedFrom: archiveFilePath,
+            restoredAt: timestamp,
+            originalStatus: dataToArchive.Status?.Value || 'Unknown',
+            completionStatus: 'Incomplete', // Since they're re-enrolling
+            originalCreated: dataToArchive.Created,
+            originalScheduleStart: dataToArchive.ScheduleStartDate,
+            originalScheduleEnd: dataToArchive.ScheduleEndDate
+          }
+        };
+        
+        // Save the archived course data to previousCourse folder
+        await db.ref(previousCoursePath).set(previousCourseData);
+        console.log(`Saved previous enrollment to ${previousCoursePath}`);
+        
+        // Get existing previous enrollments to update the count
+        const existingPrevCoursesSnapshot = await db.ref(`${restorationData.coursePath}/previousCourse`).once('value');
+        const existingPrevCourses = existingPrevCoursesSnapshot.val() || {};
+        const allEnrollmentTimestamps = Object.keys(existingPrevCourses).map(ts => parseInt(ts)).sort();
+        
+        // Merge notes if both enrollments have them
+        if (currentData.jsonStudentNotes || archiveData.courseData.jsonStudentNotes) {
+          const mergedNotes = mergeStudentNotes(
+            currentData.jsonStudentNotes,
+            archiveData.courseData.jsonStudentNotes
+          );
+          
+          // Add a system note about the restoration
+          const restorationNote = {
+            id: `note-restoration-${timestamp}`,
+            author: 'System',
+            content: `📂 Previous enrollment data from ${schoolYear} school year has been restored and merged with current enrollment.`,
+            noteType: '📂',
+            timestamp: new Date().toISOString()
+          };
+          mergedNotes.push(restorationNote);
+          
+          // Update only the notes, preserving all other current enrollment data
+          await db.ref(`${restorationData.coursePath}/jsonStudentNotes`).set(mergedNotes);
+          console.log(`Merged ${mergedNotes.length} notes from both enrollments`);
+        }
+        
+        // Update the current enrollment with a reference to all previous enrollments
+        await db.ref(`${restorationData.coursePath}/hasPreviousEnrollment`).set({
+          exists: true,
+          count: allEnrollmentTimestamps.length,
+          enrollmentTimestamps: allEnrollmentTimestamps,
+          latestPreviousPath: previousCoursePath,
+          latestPreviousTimestamp: timestamp,
+          latestPreviousSchoolYear: schoolYear
+        });
+        
+      } else {
+        // No current data - safe to restore normally
+        console.log(`No existing enrollment found, restoring normally`);
+        
+        // Check if the archived data contains previousCourse and handle it separately
+        let dataToRestore = archiveData.courseData;
+        let previousCourseToRestore = null;
+        let hasPreviousEnrollmentToRestore = null;
+        
+        if (dataToRestore.previousCourse) {
+          console.log(`Found previousCourse in archived data, will restore separately to prevent nesting`);
+          previousCourseToRestore = dataToRestore.previousCourse;
+          hasPreviousEnrollmentToRestore = dataToRestore.hasPreviousEnrollment;
+          
+          // Remove previousCourse from main data
+          const { previousCourse, hasPreviousEnrollment, hadPreviousEnrollments, ...cleanData } = dataToRestore;
+          dataToRestore = cleanData;
+        }
+        
+        // Update the ActiveFutureArchived.Value before restoration to prevent triggering archive function
+        if (dataToRestore.ActiveFutureArchived) {
+          dataToRestore.ActiveFutureArchived.Value = afterValue;
+          console.log(`Updated ActiveFutureArchived.Value to ${afterValue} before restoration`);
+        } else {
+          // If the structure doesn't exist, create it
+          dataToRestore.ActiveFutureArchived = { Value: afterValue };
+          console.log(`Created ActiveFutureArchived.Value with ${afterValue} before restoration`);
+        }
+        
+        // Restore the main course data
+        await db.ref(restorationData.coursePath).set(dataToRestore);
+        console.log(`Restored course data to ${restorationData.coursePath}`);
+        
+        // Restore previousCourse data separately if it existed
+        if (previousCourseToRestore) {
+          await db.ref(`${restorationData.coursePath}/previousCourse`).set(previousCourseToRestore);
+          if (hasPreviousEnrollmentToRestore) {
+            await db.ref(`${restorationData.coursePath}/hasPreviousEnrollment`).set(hasPreviousEnrollmentToRestore);
+          }
+          console.log(`Restored previousCourse data separately to maintain flat structure`);
+        }
+      }
     }
     
     // Restore messages
@@ -267,12 +467,23 @@ const restoreStudentDataV2 = onValueWritten({
     }
     
     // Update the studentCourseSummary to reflect restoration
-    await db.ref(`/studentCourseSummaries/${summaryKey}/restorationInfo`).set({
+    const restorationInfo = {
       restoredAt: admin.database.ServerValue.TIMESTAMP,
       restoredFrom: archiveFilePath,
       messageCount: Object.keys(archiveData.courseMessages || {}).length,
       restoredStatus: afterValue
-    });
+    };
+    
+    // Add additional info if data was merged with existing enrollment
+    if (currentData) {
+      restorationInfo.restorationType = 'merged_with_existing';
+      restorationInfo.previousEnrollmentSaved = true;
+      restorationInfo.notesWereMerged = !!(currentData.jsonStudentNotes || archiveData.courseData.jsonStudentNotes);
+    } else {
+      restorationInfo.restorationType = 'full_restoration';
+    }
+    
+    await db.ref(`/studentCourseSummaries/${summaryKey}/restorationInfo`).set(restorationInfo);
     
     await db.ref(`/studentCourseSummaries/${summaryKey}/archiveStatus`).set('Restored');
     

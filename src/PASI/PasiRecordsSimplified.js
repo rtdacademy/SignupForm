@@ -160,7 +160,13 @@ const FILTERABLE_FIELDS = {
   'student.categories': { label: 'Student Categories', type: 'categories' },
   
   // Payment Information
-  payment_status: { label: 'Payment Status', type: 'text' }
+  payment_status: { label: 'Payment Status', type: 'text' },
+  
+  // Continuing Student Information
+  isContinuingStudent: { label: 'Is Continuing Student', type: 'boolean' },
+  continuingFromYear: { label: 'Continuing From Year', type: 'text' },
+  enrollmentType: { label: 'Enrollment Type', type: 'text' },
+  previousEnrollmentCount: { label: 'Previous Enrollment Count', type: 'number' }
 };
 
 // Full field definitions for advanced users (can be enabled later)
@@ -235,7 +241,15 @@ const ALL_FILTERABLE_FIELDS = {
   
   // Special Fields
   current_date: { label: 'Current Date', type: 'current_date' },
-  'student.categories': { label: 'Student Categories', type: 'categories' }
+  'student.categories': { label: 'Student Categories', type: 'categories' },
+  
+  // Continuing Student Information
+  isContinuingStudent: { label: 'Is Continuing Student', type: 'boolean' },
+  continuingFromYear: { label: 'Continuing From Year', type: 'text' },
+  enrollmentType: { label: 'Enrollment Type', type: 'text' },
+  previousEnrollmentCount: { label: 'Previous Enrollment Count', type: 'number' },
+  previousEnrollmentPath: { label: 'Previous Enrollment Path', type: 'text' },
+  previousEnrollmentTimestamp: { label: 'Previous Enrollment Timestamp', type: 'number' }
 };
 
 // Operator definitions

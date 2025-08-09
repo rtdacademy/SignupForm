@@ -109,6 +109,29 @@ I/We understand and agree that the development, administration and management of
 
 Any student in a home education program may write a high school diploma examination. However, the diploma examination mark achieved will stand alone and will not result in a final course mark unless accompanied by a recommendation for credit by a high school principal. A final course mark requires both a school awarded mark and a diploma examination mark. Arrangements to write diploma examinations should be made well in advance of the writing date by contacting the associate school board or associate private school for assistance or Exam Administration at 780-643-9157.`,
 
+  // Resident school board explanation
+  RESIDENT_SCHOOL_BOARD: `What is a Resident School Board?
+
+Your resident school board is the public school division that serves the geographical area where you live. Every address in Alberta falls within the boundaries of a specific school board.
+
+Why is this needed?
+This information is required for official student records and funding purposes, regardless of which board will supervise your home education program.
+
+How to find your resident school board:
+• Based on your home address/postal code
+• Each area of Alberta is served by a specific school board (e.g., Calgary Board of Education for Calgary, Edmonton Public Schools for Edmonton)
+• You can contact Alberta Education at 780-427-6272 (toll-free: 310-0000) if you're unsure
+
+Important distinction:
+Your "resident school board" is different from your "associate board" (the board that will actually supervise your home education program). 
+
+Your options:
+• You can register for home education supervision with any willing board in Alberta
+• This doesn't have to be your resident school board
+• Many families choose specialized home education-friendly boards even if they're located elsewhere in the province
+
+Note: The school board selector below will help you find and select your resident school board from the complete list of Alberta school boards.`,
+
   // Address field descriptions
   ADDRESS_FIELDS: {
     STUDENT: 'The address and telephone number of the student: Street address or legal description (Area code) Telephone number Community Province Postal Code',

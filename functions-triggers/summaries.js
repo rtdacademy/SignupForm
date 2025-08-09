@@ -353,6 +353,95 @@ const updateStudentCourseSummaryResumingDate = createSpecificPathListener('resum
 
 const updateStudentCourseSummaryPaymentStatus = createSpecificPathListener('payment_status/status', 'payment_status');
 
+// Special listener for previousCourse changes
+const updateStudentCourseSummaryPreviousEnrollment = onValueWritten({
+  ref: '/students/{studentId}/courses/{courseId}/previousCourse',
+  region: 'us-central1',
+  memory: '256MiB',
+  concurrency: 100
+}, async (event) => {
+  const studentId = event.params.studentId;
+  const courseId = event.params.courseId;
+  const db = admin.database();
+
+  console.log(`Processing previousCourse update for student ${studentId}, course ${courseId}`);
+
+  try {
+    const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+    const summaryExists = (await summaryRef.once('value')).exists();
+
+    if (!summaryExists) {
+      console.log(`No summary exists for student ${studentId}, course ${courseId} - skipping update`);
+      return null;
+    }
+
+    // Get the current course data to compare school years
+    const courseSnapshot = await db.ref(`students/${studentId}/courses/${courseId}`).once('value');
+    const courseData = courseSnapshot.val();
+    
+    if (!courseData) {
+      console.log(`No course data found for student ${studentId}, course ${courseId}`);
+      return null;
+    }
+
+    const changes = {};
+    
+    if (event.data.after.exists()) {
+      // previousCourse data exists
+      const previousCourseData = event.data.after.val();
+      const previousTimestamps = Object.keys(previousCourseData).map(ts => parseInt(ts)).sort((a, b) => b - a);
+      const latestTimestamp = previousTimestamps[0];
+      
+      if (latestTimestamp) {
+        const latestPreviousPath = `students/${studentId}/courses/${courseId}/previousCourse/${latestTimestamp}`;
+        const previousEnrollmentData = previousCourseData[latestTimestamp];
+        
+        // Add path to previous enrollment
+        changes['previousEnrollmentPath'] = latestPreviousPath;
+        changes['previousEnrollmentTimestamp'] = latestTimestamp;
+        changes['previousEnrollmentCount'] = previousTimestamps.length;
+        
+        // Check if student is continuing from a different school year
+        const currentSchoolYear = courseData.School_x0020_Year?.Value;
+        const previousSchoolYear = previousEnrollmentData.School_x0020_Year?.Value;
+        
+        if (currentSchoolYear && previousSchoolYear) {
+          if (currentSchoolYear === previousSchoolYear) {
+            // Same school year - likely a re-enrollment within the same year
+            changes['isContinuingStudent'] = false;
+            changes['continuingFromYear'] = null;
+            changes['enrollmentType'] = 'ReEnrollment_SameYear';
+          } else {
+            // Different school year - this is a continuing student
+            changes['isContinuingStudent'] = true;
+            changes['continuingFromYear'] = previousSchoolYear;
+            changes['enrollmentType'] = 'Continuing_DifferentYear';
+          }
+        }
+      }
+    } else {
+      // previousCourse data was deleted
+      changes['isContinuingStudent'] = false;
+      changes['previousEnrollmentPath'] = null;
+      changes['previousEnrollmentTimestamp'] = null;
+      changes['previousEnrollmentCount'] = 0;
+      changes['enrollmentType'] = 'New';
+      changes['continuingFromYear'] = null;
+    }
+    
+    // Update the summary with timestamp
+    changes.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+    await summaryRef.update(changes);
+    
+    console.log(`Updated previous enrollment fields for student ${studentId}, course ${courseId}`);
+    
+    return null;
+  } catch (error) {
+    console.error(`Error updating previousCourse summary:`, error.message);
+    throw error;
+  }
+});
+
 // Special listener for ScheduleJSON existence
 const updateStudentCourseSummaryScheduleJSON = onValueWritten({
   ref: '/students/{studentId}/courses/{courseId}/ScheduleJSON',
@@ -557,6 +646,58 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       summaryData['payment_status'] = courseData.payment_status.status;
     } else {
       summaryData['payment_status'] = '';
+    }
+    
+    // Check for previous enrollments and continuing student status
+    if (courseData.previousCourse) {
+      // Get the latest previous enrollment (highest timestamp)
+      const previousTimestamps = Object.keys(courseData.previousCourse).map(ts => parseInt(ts)).sort((a, b) => b - a);
+      const latestTimestamp = previousTimestamps[0];
+      
+      if (latestTimestamp) {
+        const latestPreviousPath = `students/${studentId}/courses/${courseId}/previousCourse/${latestTimestamp}`;
+        const previousEnrollmentData = courseData.previousCourse[latestTimestamp];
+        
+        // Add path to previous enrollment
+        summaryData['previousEnrollmentPath'] = latestPreviousPath;
+        summaryData['previousEnrollmentTimestamp'] = latestTimestamp;
+        
+        // Check if student is continuing from a different school year
+        const currentSchoolYear = courseData.School_x0020_Year?.Value;
+        const previousSchoolYear = previousEnrollmentData.School_x0020_Year?.Value;
+        
+        if (currentSchoolYear && previousSchoolYear) {
+          if (currentSchoolYear === previousSchoolYear) {
+            // Same school year - likely a re-enrollment within the same year
+            summaryData['isContinuingStudent'] = false;
+            summaryData['continuingFromYear'] = null;
+            summaryData['enrollmentType'] = 'ReEnrollment_SameYear';
+          } else {
+            // Different school year - this is a continuing student
+            summaryData['isContinuingStudent'] = true;
+            summaryData['continuingFromYear'] = previousSchoolYear;
+            summaryData['enrollmentType'] = 'Continuing_DifferentYear';
+          }
+        }
+        
+        // Add count of previous enrollments
+        summaryData['previousEnrollmentCount'] = previousTimestamps.length;
+      }
+    } else {
+      // No previous enrollments - this is a new enrollment
+      summaryData['isContinuingStudent'] = false;
+      summaryData['previousEnrollmentPath'] = null;
+      summaryData['previousEnrollmentCount'] = 0;
+      summaryData['enrollmentType'] = 'New';
+    }
+    
+    // Also check hasPreviousEnrollment for additional context
+    if (courseData.hasPreviousEnrollment) {
+      summaryData['hasPreviousEnrollment'] = true;
+      summaryData['previousEnrollmentDetails'] = {
+        count: courseData.hasPreviousEnrollment.count,
+        latestSchoolYear: courseData.hasPreviousEnrollment.latestPreviousSchoolYear
+      };
     }
     
     // Add creation and update timestamps
@@ -840,6 +981,58 @@ const batchSyncStudentDataV2 = onCall({
               summaryData['payment_status'] = '';
             }
             
+            // Check for previous enrollments and continuing student status
+            if (courseData.previousCourse) {
+              // Get the latest previous enrollment (highest timestamp)
+              const previousTimestamps = Object.keys(courseData.previousCourse).map(ts => parseInt(ts)).sort((a, b) => b - a);
+              const latestTimestamp = previousTimestamps[0];
+              
+              if (latestTimestamp) {
+                const latestPreviousPath = `students/${studentKey}/courses/${courseId}/previousCourse/${latestTimestamp}`;
+                const previousEnrollmentData = courseData.previousCourse[latestTimestamp];
+                
+                // Add path to previous enrollment
+                summaryData['previousEnrollmentPath'] = latestPreviousPath;
+                summaryData['previousEnrollmentTimestamp'] = latestTimestamp;
+                
+                // Check if student is continuing from a different school year
+                const currentSchoolYear = courseData.School_x0020_Year?.Value;
+                const previousSchoolYear = previousEnrollmentData.School_x0020_Year?.Value;
+                
+                if (currentSchoolYear && previousSchoolYear) {
+                  if (currentSchoolYear === previousSchoolYear) {
+                    // Same school year - likely a re-enrollment within the same year
+                    summaryData['isContinuingStudent'] = false;
+                    summaryData['continuingFromYear'] = null;
+                    summaryData['enrollmentType'] = 'ReEnrollment_SameYear';
+                  } else {
+                    // Different school year - this is a continuing student
+                    summaryData['isContinuingStudent'] = true;
+                    summaryData['continuingFromYear'] = previousSchoolYear;
+                    summaryData['enrollmentType'] = 'Continuing_DifferentYear';
+                  }
+                }
+                
+                // Add count of previous enrollments
+                summaryData['previousEnrollmentCount'] = previousTimestamps.length;
+              }
+            } else {
+              // No previous enrollments - this is a new enrollment
+              summaryData['isContinuingStudent'] = false;
+              summaryData['previousEnrollmentPath'] = null;
+              summaryData['previousEnrollmentCount'] = 0;
+              summaryData['enrollmentType'] = 'New';
+            }
+            
+            // Also check hasPreviousEnrollment for additional context
+            if (courseData.hasPreviousEnrollment) {
+              summaryData['hasPreviousEnrollment'] = true;
+              summaryData['previousEnrollmentDetails'] = {
+                count: courseData.hasPreviousEnrollment.count,
+                latestSchoolYear: courseData.hasPreviousEnrollment.latestPreviousSchoolYear
+              };
+            }
+            
             // Add timestamps
             summaryData.lastUpdated = Date.now();
             summaryData.profileLastUpdated = Date.now();
@@ -987,6 +1180,7 @@ module.exports = {
   updateStudentCourseSummaryPrimarySchool,
   updateStudentCourseSummaryResumingDate,
   updateStudentCourseSummaryPaymentStatus,
+  updateStudentCourseSummaryPreviousEnrollment,
   updateStudentCourseSummaryScheduleJSON,
   
   createStudentCourseSummaryOnCourseCreateV2,

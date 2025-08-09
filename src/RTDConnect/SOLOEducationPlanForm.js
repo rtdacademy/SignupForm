@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, set, get } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
-import { FileText, CheckCircle2, AlertCircle, AlertTriangle, GraduationCap, Calendar, X, Loader2, ChevronDown, Plus, Download, Save } from 'lucide-react';
+import { FileText, CheckCircle2, AlertCircle, AlertTriangle, GraduationCap, Calendar, X, Loader2, ChevronDown, Plus, Download, Save, BookOpen, Expand } from 'lucide-react';
 import { getFacilitatorDropdownOptions, isValidFacilitator } from '../config/facilitators';
 import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString, toEdmontonDate } from '../utils/timeZoneUtils';
 import { FUNDING_RATES } from '../config/HomeEducation';
@@ -11,6 +11,8 @@ import { getCurrentSchoolYear } from '../config/importantDates';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';
+import AlbertaCourseSelection from '../components/AlbertaCourseSelection';
+import { getAlbertaCourseById } from '../config/albertaCourses';
 
 const FormField = ({ label, error, children, required = false, description = null }) => (
   <div className="space-y-2">
@@ -272,7 +274,7 @@ const getTargetSchoolYear = () => {
   }
 };
 
-const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, schoolYear }) => {
+const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, schoolYear, selectedFacilitator = null }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     studentLastName: '',
@@ -289,6 +291,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     resourcesAndMaterials: [],
     resourceDescriptions: {},
     customResources: [],
+    followAlbertaPrograms: false,
+    selectedAlbertaCourses: {},
+    otherCourses: [],
     acknowledgementRead: false,
     todaysDate: toDateString(new Date())
   });
@@ -479,12 +484,13 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
         ...prev,
         studentLastName: student.lastName || '',
         studentFirstName: student.firstName || '',
-        grade: student.grade || ''
+        grade: student.grade || '',
+        facilitatorName: selectedFacilitator?.name || prev.facilitatorName || ''
       }));
       loadExistingPlan();
       loadFamilyGuardians();
     }
-  }, [student, isOpen]);
+  }, [student, isOpen, selectedFacilitator]);
 
   const loadFamilyGuardians = async () => {
     if (!familyId) return;
@@ -523,11 +529,48 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
 
       if (snapshot.exists()) {
         const existingPlan = snapshot.val();
+        
+        // Data migration: Convert old string format to new structured format
+        let migratedPlan = { ...existingPlan };
+        
+        // Check if otherAlbertaCourses is a string (old format) and migrate it
+        if (typeof existingPlan.otherAlbertaCourses === 'string' && existingPlan.otherAlbertaCourses.trim()) {
+          const otherCoursesText = existingPlan.otherAlbertaCourses.trim();
+          
+          // Convert string to structured format
+          const migratedCourses = otherCoursesText.split('\n')
+            .filter(line => line.trim())
+            .map((line, index) => ({
+              id: `migrated_course_${Date.now()}_${index}`,
+              courseName: line.trim(),
+              courseCode: '',
+              grade: '',
+              credits: '',
+              forCredit: true, // default assumption
+              category: 'Other',
+              description: ''
+            }));
+          
+          migratedPlan.otherCourses = migratedCourses;
+          
+          // Save the migrated data back to Firebase
+          const db = getDatabase();
+          const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${schoolYear.replace('/', '_')}/${student.id}`);
+          await set(planRef, migratedPlan);
+          
+          console.log('Migrated other courses from string to structured format');
+        }
+        
+        // Ensure otherCourses exists and is an array
+        if (!migratedPlan.otherCourses || !Array.isArray(migratedPlan.otherCourses)) {
+          migratedPlan.otherCourses = [];
+        }
+        
         setFormData(prev => ({
           ...prev,
-          ...existingPlan
+          ...migratedPlan
         }));
-        setExistingSubmission(existingPlan);
+        setExistingSubmission(migratedPlan);
       }
     } catch (error) {
       console.error('Error loading existing SOLO plan:', error);
@@ -539,10 +582,13 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.facilitatorName.trim()) {
-      newErrors.facilitatorName = 'Please select a facilitator';
-    } else if (!isValidFacilitator(formData.facilitatorName)) {
-      newErrors.facilitatorName = 'Please select a valid facilitator from the list';
+    // Only validate facilitator if not pre-selected
+    if (!selectedFacilitator) {
+      if (!formData.facilitatorName.trim()) {
+        newErrors.facilitatorName = 'Please select a facilitator';
+      } else if (!isValidFacilitator(formData.facilitatorName)) {
+        newErrors.facilitatorName = 'Please select a valid facilitator from the list';
+      }
     }
 
     if (!formData.conductingPersonName.trim()) {
@@ -610,7 +656,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
       // Document Header
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('SOLO Education Plan', pageWidth / 2, yPosition, { align: 'center' });
+      doc.text('Program Plan', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 8;
       
       doc.setFontSize(12);
@@ -762,6 +808,160 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
         yPosition = 20;
       }
 
+      // Alberta Programs of Study Section (if enabled)
+      if (planData.followAlbertaPrograms && (
+        (planData.selectedAlbertaCourses && Object.keys(planData.selectedAlbertaCourses).length > 0) ||
+        (planData.otherCourses && planData.otherCourses.length > 0)
+      )) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Alberta Programs of Study Course Selections', 20, yPosition);
+        yPosition += 8;
+
+        const albertaCourseData = [];
+        
+        // Add selected courses from each subject
+        if (planData.selectedAlbertaCourses) {
+          Object.entries(planData.selectedAlbertaCourses).forEach(([subjectKey, courseIds]) => {
+            if (courseIds && courseIds.length > 0) {
+              courseIds.forEach(courseId => {
+                const course = getAlbertaCourseById(courseId);
+                if (course) {
+                  albertaCourseData.push([
+                    course.name,
+                    course.code || 'N/A',
+                    course.grade.toString(),
+                    course.credits.toString()
+                  ]);
+                }
+              });
+            }
+          });
+        }
+
+        if (albertaCourseData.length > 0) {
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Course Name', 'Course Code', 'Grade', 'Credits']],
+            body: albertaCourseData,
+            styles: { 
+              fontSize: 8,
+              cellPadding: 3,
+              lineColor: [0, 0, 0],
+              lineWidth: 0.5
+            },
+            headStyles: { 
+              fillColor: [230, 230, 230],
+              textColor: [0, 0, 0],
+              fontStyle: 'bold'
+            },
+            columnStyles: {
+              0: { cellWidth: 80 },
+              1: { cellWidth: 30 },
+              2: { cellWidth: 20 },
+              3: { cellWidth: 20 }
+            },
+            margin: { left: 20, right: 20 }
+          });
+
+          yPosition = doc.lastAutoTable.finalY + 15;
+        }
+
+        // Add other courses if specified
+        if (planData.otherCourses && planData.otherCourses.length > 0) {
+          // Check if we need a new page
+          if (yPosition > pageHeight - 30) {
+            doc.addPage();
+            yPosition = 20;
+          }
+
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Other Courses:', 20, yPosition);
+          yPosition += 8;
+
+          const otherCourseData = planData.otherCourses.map(course => [
+            course.courseName,
+            course.courseCode || 'N/A',
+            course.grade || 'N/A',
+            course.credits || 'N/A',
+            course.forCredit ? 'Yes' : 'No',
+            course.category || 'Other'
+          ]);
+
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Course Name', 'Code', 'Grade', 'Credits', 'For Credit', 'Category']],
+            body: otherCourseData,
+            styles: { 
+              fontSize: 8,
+              cellPadding: 2,
+              lineColor: [0, 0, 0],
+              lineWidth: 0.5
+            },
+            headStyles: { 
+              fillColor: [240, 240, 240],
+              textColor: [0, 0, 0],
+              fontStyle: 'bold'
+            },
+            columnStyles: {
+              0: { cellWidth: 60 },
+              1: { cellWidth: 25 },
+              2: { cellWidth: 20 },
+              3: { cellWidth: 20 },
+              4: { cellWidth: 20 },
+              5: { cellWidth: 25 }
+            },
+            margin: { left: 20, right: 20 }
+          });
+
+          yPosition = doc.lastAutoTable.finalY + 15;
+
+          // Add course descriptions if any courses have descriptions
+          const coursesWithDescriptions = planData.otherCourses.filter(course => 
+            course.description && course.description.trim()
+          );
+          
+          if (coursesWithDescriptions.length > 0) {
+            // Check if we need a new page
+            if (yPosition > pageHeight - 40) {
+              doc.addPage();
+              yPosition = 20;
+            }
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Course Descriptions:', 20, yPosition);
+            yPosition += 6;
+
+            doc.setFont('helvetica', 'normal');
+            coursesWithDescriptions.forEach(course => {
+              if (yPosition > pageHeight - 20) {
+                doc.addPage();
+                yPosition = 20;
+              }
+
+              doc.setFont('helvetica', 'bold');
+              doc.text(`${course.courseName}:`, 20, yPosition);
+              yPosition += 4;
+
+              doc.setFont('helvetica', 'normal');
+              const splitDescription = doc.splitTextToSize(course.description, pageWidth - 40);
+              doc.text(splitDescription, 20, yPosition);
+              yPosition += splitDescription.length * 4 + 6;
+            });
+
+            yPosition += 10;
+          }
+        }
+
+        // Check if we need a new page
+        if (yPosition > pageHeight - 50) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      }
+
       // Resources and Materials Section
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
@@ -857,7 +1057,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
       };
 
       const pdfDoc = await generateSOLOPlanPDF(planData);
-      pdfDoc.save(`SOLO_Education_Plan_${schoolYear}_${student.firstName}_${student.lastName}_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdfDoc.save(`Program_Plan_${schoolYear}_${student.firstName}_${student.lastName}_${new Date().toISOString().split('T')[0]}.pdf`);
       
       toast.success('PDF downloaded successfully!');
       
@@ -918,7 +1118,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
       const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${schoolYear.replace('/', '_')}/${student.id}`);
       await set(planRef, planData);
 
-      toast.success('SOLO Education Plan submitted successfully!', {
+      toast.success('Program Plan submitted successfully!', {
         description: `Plan for ${student.firstName} ${student.lastName} has been completed and saved. You can download the PDF anytime from your dashboard.`
       });
 
@@ -1386,6 +1586,80 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     }
   };
 
+  // Alberta Programs handlers
+  const handleAlbertaCourseSelectionChange = async (subjectKey, courseIds) => {
+    const updatedCourses = {
+      ...formData.selectedAlbertaCourses,
+      [subjectKey]: courseIds
+    };
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      selectedAlbertaCourses: updatedCourses 
+    }));
+    
+    // Auto-save to Firebase
+    if (autoSaveEnabled && student && familyId && schoolYear) {
+      try {
+        const db = getDatabase();
+        const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${schoolYear.replace('/', '_')}/${student.id}`);
+        
+        const updatedData = {
+          ...formData,
+          selectedAlbertaCourses: updatedCourses,
+          studentId: student.id,
+          studentAsn: student.asn,
+          familyId,
+          schoolYear,
+          submissionStatus: 'draft',
+          lastUpdated: getEdmontonTimestamp(),
+          updatedBy: user.uid
+        };
+
+        await set(planRef, updatedData);
+        console.log(`Auto-saved Alberta course selection for ${subjectKey}`);
+      } catch (error) {
+        console.error('Error auto-saving Alberta course selection:', error);
+      }
+    }
+  };
+
+  const handleOtherCoursesChange = async (courses) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      otherCourses: courses 
+    }));
+    
+    // Auto-save to Firebase
+    if (autoSaveEnabled && student && familyId && schoolYear) {
+      try {
+        const db = getDatabase();
+        const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${schoolYear.replace('/', '_')}/${student.id}`);
+        
+        const updatedData = {
+          ...formData,
+          otherCourses: courses,
+          studentId: student.id,
+          studentAsn: student.asn,
+          familyId,
+          schoolYear,
+          submissionStatus: 'draft',
+          lastUpdated: getEdmontonTimestamp(),
+          updatedBy: user.uid
+        };
+
+        await set(planRef, updatedData);
+        console.log('Auto-saved other courses');
+      } catch (error) {
+        console.error('Error auto-saving other courses:', error);
+      }
+    }
+  };
+
+  const handleShowFlowChart = () => {
+    window.open('/prerequisite-flowchart', '_blank');
+  };
+
 
   if (!student) return null;
 
@@ -1413,7 +1687,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           <SheetTitle className="text-left">
             <div className="flex items-center space-x-2">
               <GraduationCap className="w-5 h-5 text-purple-500" />
-              <span>SOLO Education Plan</span>
+              <span>Program Plan</span>
             </div>
           </SheetTitle>
           
@@ -1429,9 +1703,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-            {/* SOLO Program Description */}
+            {/* Program Description */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">SOLO Program Plan Information</h3>
+              <h3 className="font-semibold text-blue-900 mb-2">Program Plan Information</h3>
               <p className="text-sm text-blue-800 mb-3">
                 This is the program plan used if a student is not doing any credits, regardless of age/grade. 
                 Your program plan is an important document. It outlines your child's unique learning goals. 
@@ -1507,42 +1781,68 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               </FormField>
             </div>
 
-            <FormField 
-              label="Choose your facilitator's name" 
-              error={errors.facilitatorName} 
-              required
-              description="Select the facilitator you would like to work with for your home education program."
-            >
-              <div className="relative">
-                <select
-                  value={formData.facilitatorName}
-                  onChange={(e) => handleInputChange('facilitatorName', e.target.value)}
-                  className={`w-full px-3 py-2 pr-10 border ${errors.facilitatorName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none`}
-                >
-                  {getFacilitatorDropdownOptions().map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              
-              {/* Show facilitator description when one is selected */}
-              {formData.facilitatorName && formData.facilitatorName !== '' && (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  {(() => {
-                    const selectedOption = getFacilitatorDropdownOptions()
-                      .find(option => option.value === formData.facilitatorName);
-                    return selectedOption?.description && (
-                      <p className="text-sm text-blue-800">
-                        <strong>{selectedOption.label}:</strong> {selectedOption.description}
-                      </p>
-                    );
-                  })()}
+            {selectedFacilitator ? (
+              // Show read-only facilitator info when pre-selected
+              <FormField 
+                label="Your facilitator" 
+                required
+                description="This is the facilitator you selected during registration."
+              >
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start space-x-4">
+                    <img 
+                      src={selectedFacilitator.image} 
+                      alt={selectedFacilitator.name}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-green-300"
+                    />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-green-900">{selectedFacilitator.name}</h4>
+                      <p className="text-sm text-green-700 mb-2">{selectedFacilitator.title}</p>
+                      <p className="text-xs text-green-600">{selectedFacilitator.experience}</p>
+                      <p className="text-sm text-green-800 mt-2">{selectedFacilitator.description}</p>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </FormField>
+              </FormField>
+            ) : (
+              // Show dropdown if no facilitator pre-selected (fallback)
+              <FormField 
+                label="Choose your facilitator's name" 
+                error={errors.facilitatorName} 
+                required
+                description="Select the facilitator you would like to work with for your home education program."
+              >
+                <div className="relative">
+                  <select
+                    value={formData.facilitatorName}
+                    onChange={(e) => handleInputChange('facilitatorName', e.target.value)}
+                    className={`w-full px-3 py-2 pr-10 border ${errors.facilitatorName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none`}
+                  >
+                    {getFacilitatorDropdownOptions().map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+                
+                {/* Show facilitator description when one is selected */}
+                {formData.facilitatorName && formData.facilitatorName !== '' && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    {(() => {
+                      const selectedOption = getFacilitatorDropdownOptions()
+                        .find(option => option.value === formData.facilitatorName);
+                      return selectedOption?.description && (
+                        <p className="text-sm text-blue-800">
+                          <strong>{selectedOption.label}:</strong> {selectedOption.description}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
+              </FormField>
+            )}
 
             <FormField 
               label="Name of person(s) conducting the home learning program" 
@@ -1610,16 +1910,227 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               )}
             </FormField>
 
-            {/* Activities and Methods */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="font-medium text-yellow-900 mb-2">Alberta Home Education Regulation Requirements</h4>
-              <p className="text-sm text-yellow-800 mb-2">Where a parent is providing a supervised home education program, the parent must provide a description of the program that includes:</p>
-              <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
-                <li>A list of the activities and an explanation as to how those activities will enable the student to achieve the applicable outcomes.</li>
-                <li>The instructional methods and resources to be used.</li>
-                <li>The means of conducting evaluations of the student's progress.</li>
-                <li>The name of the person instructing the home education program, if not the parent.</li>
-              </ul>
+            {/* Step 1: Educational Path Selection */}
+            <div className="space-y-6">
+              <div className="text-center border-t border-gray-200 pt-8">
+                <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
+                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
+                  <span className="font-medium text-gray-900">Choose Your Educational Approach</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* SOLO Only Path */}
+                <div 
+                  className={`relative border-2 rounded-xl p-4 sm:p-6 cursor-pointer transition-all duration-200 ${
+                    !formData.followAlbertaPrograms 
+                      ? 'border-green-500 bg-green-50 shadow-lg sm:scale-105' 
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                  }`}
+                  onClick={() => handleInputChange('followAlbertaPrograms', false)}
+                >
+                  {!formData.followAlbertaPrograms && (
+                    <div className="absolute -top-3 -right-3 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:space-x-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0 mb-3 sm:mb-0">
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-green-900 text-base sm:text-lg mb-2">SOLO Only</h3>
+                      <p className="text-xs sm:text-sm text-green-800 mb-3 sm:mb-4">
+                        Follow the Schedule of Learning Outcomes with complete flexibility. Focus on learning outcomes 
+                        rather than specific courses.
+                      </p>
+                      <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-green-700 leading-tight sm:leading-normal">Maximum flexibility in learning approach</span>
+                        </div>
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-green-700 leading-tight sm:leading-normal">No formal course requirements</span>
+                        </div>
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-green-700 leading-tight sm:leading-normal">Focus on competency-based learning</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-100 rounded-lg">
+                        <p className="text-xs text-green-700 leading-relaxed">
+                          <strong>Best for:</strong> Families wanting complete educational freedom, younger students, 
+                          or those not planning traditional post-secondary education.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 sm:mt-4">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="educationalPath"
+                        checked={!formData.followAlbertaPrograms}
+                        onChange={() => handleInputChange('followAlbertaPrograms', false)}
+                        className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                      />
+                      <span className="text-xs sm:text-sm font-medium text-green-900">Choose SOLO Only</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* SOLO + Alberta Programs Path */}
+                <div 
+                  className={`relative border-2 rounded-xl p-4 sm:p-6 cursor-pointer transition-all duration-200 ${
+                    formData.followAlbertaPrograms 
+                      ? 'border-blue-500 bg-blue-50 shadow-lg sm:scale-105' 
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                  }`}
+                  onClick={() => handleInputChange('followAlbertaPrograms', true)}
+                >
+                  {formData.followAlbertaPrograms && (
+                    <div className="absolute -top-3 -right-3 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:space-x-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mb-3 sm:mb-0">
+                      <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-blue-900 text-base sm:text-lg mb-2">SOLO + Alberta Programs</h3>
+                      <p className="text-xs sm:text-sm text-blue-800 mb-3 sm:mb-4">
+                        Combine SOLO flexibility with structured Alberta high school courses. 
+                        Plan specific courses for credits toward graduation.
+                      </p>
+                      <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-blue-700 leading-tight sm:leading-normal">Structured course progression</span>
+                        </div>
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-blue-700 leading-tight sm:leading-normal">Earn credits toward Alberta diploma</span>
+                        </div>
+                        <div className="flex items-start sm:items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1 sm:mt-0"></div>
+                          <span className="text-blue-700 leading-tight sm:leading-normal">Clear pathway to post-secondary</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-100 rounded-lg">
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          <strong>Best for:</strong> High school students planning university/college, 
+                          families wanting structured progression, or those seeking recognized credentials.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 sm:mt-4">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="educationalPath"
+                        checked={formData.followAlbertaPrograms}
+                        onChange={() => handleInputChange('followAlbertaPrograms', true)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="text-xs sm:text-sm font-medium text-blue-900">Choose SOLO + Alberta Programs</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: High School Course Planning */}
+            {formData.followAlbertaPrograms && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-8 shadow-sm">
+                <div className="text-center mb-8">
+                  <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-blue-200">
+                    <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
+                    <span className="font-medium text-gray-900">Plan Your High School Courses</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 mb-6 border border-blue-200">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <GraduationCap className="w-6 h-6 text-blue-600" />
+                    <h3 className="font-bold text-blue-900 text-xl">High School Course Planning</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm text-blue-800 mb-3">
+                        Now that you've chosen to include Alberta Programs of Study, let's plan which specific 
+                        high school courses your student will work on this school year for credit.
+                      </p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-blue-700">Choose courses for this year only</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-blue-700">Focus on earning specific credits</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-blue-700">Build toward graduation requirements</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <h4 className="font-semibold text-blue-900 mb-2">Course Planning Tips</h4>
+                      <ul className="text-xs text-blue-800 space-y-1">
+                        <li>• Start with core subjects (Math, English, Science, Social)</li>
+                        <li>• Consider prerequisite requirements</li>
+                        <li>• Plan 3-8 courses based on your family's capacity</li>
+                        <li>• You need 100 total credits to receive a high school diploma</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-blue-200">
+                  <AlbertaCourseSelection
+                    selectedCourses={formData.selectedAlbertaCourses}
+                    onCourseSelectionChange={handleAlbertaCourseSelectionChange}
+                    onShowFlowChart={handleShowFlowChart}
+                    otherCourses={formData.otherCourses}
+                    onOtherCoursesChange={handleOtherCoursesChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Learning Activities and Methods */}
+            <div className="space-y-6 pt-8">
+              <div className="text-center border-t border-gray-200 pt-8">
+                <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
+                  <div className="w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-sm font-medium">
+                    {formData.followAlbertaPrograms ? '3' : '2'}
+                  </div>
+                  <span className="font-medium text-gray-900">Plan Learning Activities and Methods</span>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-medium text-yellow-900 mb-2">Alberta Home Education Regulation Requirements</h4>
+                <p className="text-sm text-yellow-800 mb-2">Where a parent is providing a supervised home education program, the parent must provide a description of the program that includes:</p>
+                <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
+                  <li>A list of the activities and an explanation as to how those activities will enable the student to achieve the applicable outcomes.</li>
+                  <li>The instructional methods and resources to be used.</li>
+                  <li>The means of conducting evaluations of the student's progress.</li>
+                  <li>The name of the person instructing the home education program, if not the parent.</li>
+                </ul>
+              </div>
             </div>
 
             <ExpandableActivityGroup
@@ -1648,14 +2159,25 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               </div>
             )}
 
-            {/* Assessment Methods */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Assessment Requirements</h4>
-              <p className="text-sm text-blue-800 mb-2">According to the Alberta Home Education Regulation - A parent providing a home education program to a student:</p>
-              <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
-                <li>(a) must conduct an evaluation of the progress of the student at regular intervals and maintain a record of the methods and dates of those evaluations,</li>
-                <li>(b) must maintain dated samples of student work and a general record of the student's activities.</li>
-              </ul>
+            {/* Step 4: Assessment Methods */}
+            <div className="space-y-6 pt-8">
+              <div className="text-center border-t border-gray-200 pt-8">
+                <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
+                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                    {formData.followAlbertaPrograms ? '4' : '3'}
+                  </div>
+                  <span className="font-medium text-gray-900">Plan Assessment Methods</span>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-2">Assessment Requirements</h4>
+                <p className="text-sm text-blue-800 mb-2">According to the Alberta Home Education Regulation - A parent providing a home education program to a student:</p>
+                <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
+                  <li>(a) must conduct an evaluation of the progress of the student at regular intervals and maintain a record of the methods and dates of those evaluations,</li>
+                  <li>(b) must maintain dated samples of student work and a general record of the student's activities.</li>
+                </ul>
+              </div>
             </div>
 
             <ExpandableActivityGroup
@@ -1684,22 +2206,33 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               </div>
             )}
 
-            {/* Resources and Materials */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-medium text-green-900 mb-2">Resources For Reimbursement</h4>
-              <div className="text-sm text-green-800 space-y-2">
-                <p><strong>READ THE FOLLOWING CAREFULLY:</strong></p>
-                <p>For the {getTargetSchoolYear()} school year, the funding amount for each (funded) home education student is as follows:</p>
-                <ul className="list-disc list-inside ml-4">
-                  <li>Grade 1 to 12: {FUNDING_RATES.GRADES_1_TO_12.formatted} *subject to change as per gov't funding.</li>
-                  <li>Kindergarten: {FUNDING_RATES.KINDERGARTEN.formatted} *subject to change as per gov't funding.</li>
-                </ul>
-                <p>According to the Standards for Home Education Reimbursement - this is based on three conditions:</p>
-                <ol className="list-decimal list-inside ml-4">
-                  <li>Necessary for and related to the student's program.</li>
-                  <li>Supported by receipt or invoice marked PAID.</li>
-                  <li>Not usually paid for by parents of students in a brick-and-mortar school and/or not a form of remuneration to the parent.</li>
-                </ol>
+            {/* Step 5: Resources and Materials */}
+            <div className="space-y-6 pt-8">
+              <div className="text-center border-t border-gray-200 pt-8">
+                <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
+                  <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">
+                    {formData.followAlbertaPrograms ? '5' : '4'}
+                  </div>
+                  <span className="font-medium text-gray-900">Select Resources and Materials</span>
+                </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-900 mb-2">Resources For Reimbursement</h4>
+                <div className="text-sm text-green-800 space-y-2">
+                  <p><strong>READ THE FOLLOWING CAREFULLY:</strong></p>
+                  <p>For the {getTargetSchoolYear()} school year, the funding amount for each (funded) home education student is as follows:</p>
+                  <ul className="list-disc list-inside ml-4">
+                    <li>Grade 1 to 12: {FUNDING_RATES.GRADES_1_TO_12.formatted} *subject to change as per gov't funding.</li>
+                    <li>Kindergarten: {FUNDING_RATES.KINDERGARTEN.formatted} *subject to change as per gov't funding.</li>
+                  </ul>
+                  <p>According to the Standards for Home Education Reimbursement - this is based on three conditions:</p>
+                  <ol className="list-decimal list-inside ml-4">
+                    <li>Necessary for and related to the student's program.</li>
+                    <li>Supported by receipt or invoice marked PAID.</li>
+                    <li>Not usually paid for by parents of students in a brick-and-mortar school and/or not a form of remuneration to the parent.</li>
+                  </ol>
+                </div>
               </div>
             </div>
 
@@ -1878,7 +2411,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {existingSubmission?.submissionStatus === 'submitted' ? 'Update SOLO Education Plan' : 'Submit SOLO Education Plan'}
+                    {existingSubmission?.submissionStatus === 'submitted' ? 'Update Program Plan' : 'Submit Program Plan'}
                   </>
                 )}
               </button>
@@ -1886,6 +2419,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           </form>
         )}
       </SheetContent>
+
     </Sheet>
   );
 };

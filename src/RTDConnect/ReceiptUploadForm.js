@@ -308,9 +308,9 @@ const StudentAllocationCard = ({
             </FormField>
           </div>
 
-          {/* SOLO Plan Categories */}
+          {/* Program Plan Categories */}
           <FormField 
-            label="SOLO Plan Category" 
+            label="Program Plan Category" 
             error={errors.soloCategories}
             required
             description="Select which approved category this purchase falls under for this student"
@@ -334,7 +334,7 @@ const StudentAllocationCard = ({
               ) : (
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-sm text-yellow-800">
-                    No SOLO plan found for this student for the selected school year. They need to complete their SOLO Education Plan first.
+                    No program plan found for this student for the selected school year. They need to complete their Program Plan first.
                   </p>
                 </div>
               )}
@@ -1692,10 +1692,10 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                           <div>
                             <h4 className="font-semibold text-yellow-800 mb-2">
-                              Students Need SOLO Education Plans
+                              Students Need Program Plans
                             </h4>
                             <p className="text-sm text-yellow-700 mb-3">
-                              The following students don't have SOLO Education Plans for the {selectedSchoolYear} school year and cannot be included in reimbursement claims:
+                              The following students don't have Program Plans for the {selectedSchoolYear} school year and cannot be included in reimbursement claims:
                             </p>
                             <ul className="text-sm text-yellow-700 space-y-1">
                               {studentsWithoutSOLO.map((student) => (
@@ -1708,7 +1708,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                               ))}
                             </ul>
                             <p className="text-sm text-yellow-700 mt-3">
-                              Please complete their SOLO Education Plans first before submitting reimbursement claims.
+                              Please complete their Program Plans first before submitting reimbursement claims.
                             </p>
                           </div>
                         </div>

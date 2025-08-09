@@ -135,7 +135,9 @@ export function AuthProvider({ children }) {
     '/about',
     '/bio',
     '/faq',
-    '/funding'
+    '/funding',
+    '/privacy',
+    '/terms'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public

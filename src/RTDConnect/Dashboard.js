@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, get, set, push, onValue, off } from 'firebase/database';
+import { getDatabase, ref, get, set, push, onValue, off, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
-import { toDateString, toEdmontonDate, calculateAge } from '../utils/timeZoneUtils';
+import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
 import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
@@ -13,11 +13,14 @@ import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
+import FacilitatorSelection from './FacilitatorSelection';
 import ReimbursementSubmissionForm from './ReimbursementSubmissionForm';
 import ReceiptUploadForm from './ReceiptUploadForm';
 import StudentBudgetCard from './StudentBudgetCard';
 import FamilyBudgetOverview from './FamilyBudgetOverview';
+import AcceptanceLetterDialog from './AcceptanceLetterDialog';
 import Toast from '../components/Toast';
+import FormCompletionBadge, { CompactFormCompletionBadge } from '../components/FormCompletionBadge';
 import { 
   EmbeddedAccountManagement, 
   EmbeddedNotificationBanner, 
@@ -36,6 +39,35 @@ import {
   getSeptemberCountForYear
 } from '../config/importantDates';
 import { FUNDING_RATES } from '../config/HomeEducation';
+import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl } from '../config/facilitators';
+import { generatePartCData } from '../config/signatures';
+
+// Helper function to check if a form is complete (has all required parts)
+const isFormComplete = (formData) => {
+  return !!(
+    formData?.PART_A && 
+    formData?.PART_B?.declaration && 
+    formData?.PART_C?.acceptanceStatus
+  );
+};
+
+// Helper function to determine form status including completeness
+const determineFormStatus = (formData) => {
+  if (!formData) return 'pending';
+  
+  const isComplete = isFormComplete(formData);
+  const isSubmitted = formData.submissionStatus === 'submitted';
+  
+  if (isSubmitted && isComplete) {
+    return 'submitted';
+  } else if (isSubmitted && !isComplete) {
+    return 'incomplete';
+  } else if (isComplete && !isSubmitted) {
+    return 'draft-complete';
+  } else {
+    return 'draft';
+  }
+};
 
 // Helper function to calculate student budget based on grade
 const calculateStudentBudget = (grade) => {
@@ -73,6 +105,111 @@ const getFundingType = (grade) => {
       formatted: FUNDING_RATES.GRADES_1_TO_12.formatted
     };
   }
+};
+
+// Helper function to check if a student has completed all required forms
+const checkStudentFormCompletion = (student, formStatuses, docStatuses, soloStatuses, activeSchoolYear) => {
+  if (!student?.id) {
+    return {
+      isComplete: false,
+      missing: ['student-data'],
+      completionPercentage: 0
+    };
+  }
+
+  const missing = [];
+  let completed = 0;
+  const totalRequiredForms = 3; // Notification Form, Citizenship Docs, SOLO Plan
+
+  // Check Home Education Notification Form
+  const notificationFormStatus = formStatuses[student.id]?.[activeSchoolYear] || formStatuses[student.id]?.current || 'pending';
+  if (notificationFormStatus !== 'submitted') {
+    missing.push('notification-form');
+  } else {
+    completed++;
+  }
+
+  // Check Citizenship Documents
+  const citizenshipDocsStatus = docStatuses[student.id]?.status || 'pending';
+  if (citizenshipDocsStatus !== 'completed') {
+    missing.push('citizenship-docs');
+  } else {
+    completed++;
+  }
+
+  // Check SOLO Education Plan
+  const soloStatus = soloStatuses[student.id]?.status || 'pending';
+  if (soloStatus !== 'submitted') {
+    missing.push('solo-plan');
+  } else {
+    completed++;
+  }
+
+  return {
+    isComplete: missing.length === 0,
+    missing: missing,
+    completionPercentage: Math.round((completed / totalRequiredForms) * 100),
+    completedForms: completed,
+    totalRequiredForms: totalRequiredForms
+  };
+};
+
+// Helper function to determine payment eligibility for a specific student
+const getStudentPaymentEligibility = (student, formStatuses, docStatuses, soloStatuses, activeSchoolYear) => {
+  const completion = checkStudentFormCompletion(student, formStatuses, docStatuses, soloStatuses, activeSchoolYear);
+  
+  return {
+    ...completion,
+    canAccessPayments: completion.isComplete,
+    restrictionReason: completion.isComplete ? null : 'incomplete-forms',
+    missingForms: completion.missing,
+    studentName: `${student.firstName} ${student.lastName}`
+  };
+};
+
+// Helper function to determine family-level payment access
+const getFamilyPaymentEligibility = (students, formStatuses, docStatuses, soloStatuses, activeSchoolYear) => {
+  if (!students || students.length === 0) {
+    return {
+      canAccessPayments: false,
+      allStudentsComplete: false,
+      restrictionReason: 'no-students',
+      studentsWithAccess: [],
+      studentsWithoutAccess: [],
+      completionPercentage: 0
+    };
+  }
+
+  const eligibilityResults = students.map(student => 
+    getStudentPaymentEligibility(student, formStatuses, docStatuses, soloStatuses, activeSchoolYear)
+  );
+
+  const studentsWithAccess = eligibilityResults.filter(result => result.canAccessPayments);
+  const studentsWithoutAccess = eligibilityResults.filter(result => !result.canAccessPayments);
+  
+  const allStudentsComplete = studentsWithoutAccess.length === 0;
+  const someStudentsComplete = studentsWithAccess.length > 0;
+  
+  // Calculate overall completion percentage
+  const totalForms = eligibilityResults.reduce((sum, result) => sum + result.totalRequiredForms, 0);
+  const completedForms = eligibilityResults.reduce((sum, result) => sum + result.completedForms, 0);
+  const completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
+
+  return {
+    canAccessPayments: allStudentsComplete, // Only allow family-level access if ALL students are complete
+    allStudentsComplete,
+    someStudentsComplete,
+    restrictionReason: allStudentsComplete ? null : 'incomplete-student-forms',
+    studentsWithAccess: studentsWithAccess.map(result => result.studentName),
+    studentsWithoutAccess: studentsWithoutAccess.map(result => ({
+      name: result.studentName,
+      missing: result.missingForms,
+      completionPercentage: result.completionPercentage
+    })),
+    completionPercentage,
+    totalStudents: students.length,
+    completedStudents: studentsWithAccess.length
+  };
 };
 
 // Helper function to determine the target school year for SOLO planning
@@ -337,6 +474,100 @@ const FormField = ({ label, icon: Icon, error, children, required = false }) => 
   </div>
 );
 
+// Under Construction Modal Component
+const UnderConstructionModal = ({ 
+  isOpen, 
+  password, 
+  setPassword, 
+  onSubmit, 
+  error 
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-purple-200">
+        {/* Logo and Header */}
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/connectImages/Connect.png" 
+              alt="RTD Connect Logo"
+              className="h-16 w-auto"
+            />
+          </div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent mb-2">
+            RTD Connect
+          </h1>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-purple-500 to-cyan-500 mx-auto mb-4"></div>
+        </div>
+
+        {/* Under Construction Message */}
+        <div className="text-center mb-6 space-y-4">
+          <div className="w-16 h-16 mx-auto bg-gradient-to-r from-orange-100 to-yellow-100 rounded-full flex items-center justify-center mb-4">
+            <Settings className="w-8 h-8 text-orange-500" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-gray-900">
+            🚧 Portal Under Construction
+          </h2>
+          
+          <div className="space-y-3 text-sm text-gray-600">
+            <p className="leading-relaxed">
+              <strong className="text-gray-800">We apologize for the confusion!</strong>
+            </p>
+            <p className="leading-relaxed">
+              Some families have registered early while we're still putting the finishing touches on the portal. 
+              We're working hard to complete the system and provide you with the best possible experience.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <p className="text-blue-800 font-medium">
+                📅 The portal should be fully operational by Monday.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Password Form */}
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="construction-password" className="block text-sm font-medium text-gray-700 mb-2">
+              Development Access Password
+            </label>
+            <input
+              id="construction-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password to continue"
+              className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+              required
+            />
+            {error && (
+              <div className="mt-2 flex items-center space-x-2 text-sm text-red-600">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200"
+          >
+            Access Portal
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div className="mt-6 text-center text-xs text-gray-500">
+          <p>Thank you for your patience as we complete development.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const RTDConnectDashboard = () => {
   const { user, user_email_key, signOut, isHomeEducationParent, checkAndApplyPendingPermissions: applyPendingFromAuth } = useAuth();
   const navigate = useNavigate();
@@ -396,6 +627,9 @@ const RTDConnectDashboard = () => {
   // Receipt upload form state
   const [showReceiptUploadForm, setShowReceiptUploadForm] = useState(false);
   
+  // Acceptance letter state
+  const [showAcceptanceLetter, setShowAcceptanceLetter] = useState(false);
+  
   // Enhanced budget tracking state
   const [studentBudgets, setStudentBudgets] = useState({});
   
@@ -420,6 +654,21 @@ const RTDConnectDashboard = () => {
   const [soloTargetSchoolYear, setSoloTargetSchoolYear] = useState('');
   const [schoolYearStatus, setSchoolYearStatus] = useState({});
   const [nextSeptemberCount, setNextSeptemberCount] = useState(null);
+  
+  // Facilitator selection state
+  const [hasFacilitatorSelected, setHasFacilitatorSelected] = useState(false);
+  const [selectedFacilitatorId, setSelectedFacilitatorId] = useState(null);
+  const [selectedFacilitator, setSelectedFacilitator] = useState(null);
+  const [showFacilitatorChange, setShowFacilitatorChange] = useState(false);
+
+  // Under construction state
+  const [showUnderConstruction, setShowUnderConstruction] = useState(false);
+  const [constructionPassword, setConstructionPassword] = useState('');
+  const [constructionPasswordError, setConstructionPasswordError] = useState('');
+
+  // Payment eligibility state
+  const [familyPaymentEligibility, setFamilyPaymentEligibility] = useState(null);
+  const [studentPaymentEligibility, setStudentPaymentEligibility] = useState({});
 
   // Initialize school year tracking
   useEffect(() => {
@@ -457,6 +706,23 @@ const RTDConnectDashboard = () => {
       nextSeptemberCount: activeSeptember
     });
   }, []);
+
+  // Check for under construction bypass on component mount
+  useEffect(() => {
+    const checkConstructionBypass = () => {
+      const bypass = localStorage.getItem('rtdConnectBypassPassword');
+      if (bypass === 'connect') {
+        setShowUnderConstruction(false);
+      } else {
+        setShowUnderConstruction(true);
+      }
+    };
+
+    // Only show under construction if user is logged in
+    if (user && !loading) {
+      checkConstructionBypass();
+    }
+  }, [user, loading]);
 
   // Debug effect to log user auth object and custom claims
   useEffect(() => {
@@ -536,6 +802,8 @@ const RTDConnectDashboard = () => {
                              userData.address);
         setHasCompleteProfile(isComplete);
         
+        // User-level facilitator data is no longer used - facilitators are now stored at family level only
+        
         // Pre-fill form if data exists
         if (userData.firstName || userData.lastName || userData.phone || userData.address) {
           setProfileData({
@@ -570,6 +838,51 @@ const RTDConnectDashboard = () => {
     };
   }, [user, user_email_key]);
 
+  // Effect to load facilitator data from family level
+  useEffect(() => {
+    if (!customClaims?.familyId) {
+      return;
+    }
+
+    const db = getDatabase();
+    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+
+    // Set up realtime listener for family facilitator data
+    const unsubscribeFamily = onValue(familyRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const familyData = snapshot.val();
+        
+        // Load facilitator data using email lookup from config
+        if (familyData.facilitatorEmail) {
+          const facilitator = getFacilitatorByEmail(familyData.facilitatorEmail);
+          if (facilitator) {
+            setSelectedFacilitatorId(facilitator.id);
+            setSelectedFacilitator(facilitator);
+            setHasFacilitatorSelected(true);
+            console.log('Loaded facilitator from family email:', facilitator.name, facilitator.contact.email);
+          } else {
+            console.warn('No facilitator found for email:', familyData.facilitatorEmail);
+            setSelectedFacilitatorId(null);
+            setSelectedFacilitator(null);
+            setHasFacilitatorSelected(false);
+          }
+        } else {
+          // No facilitator email in family data
+          setSelectedFacilitatorId(null);
+          setSelectedFacilitator(null);
+          setHasFacilitatorSelected(false);
+        }
+      }
+    }, (error) => {
+      console.log('Error listening to family facilitator data:', error);
+    });
+
+    // Cleanup listener
+    return () => {
+      off(familyRef, 'value', unsubscribeFamily);
+    };
+  }, [customClaims?.familyId]);
+
   // Effect to load student form statuses by school year
   useEffect(() => {
     if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
@@ -595,12 +908,7 @@ const RTDConnectDashboard = () => {
             
             if (snapshot.exists()) {
               const formData = snapshot.val();
-              // Check if form is actually submitted, not just saved
-              if (formData.submissionStatus === 'submitted') {
-                statuses[student.id][schoolYear] = 'submitted';
-              } else {
-                statuses[student.id][schoolYear] = 'draft';
-              }
+              statuses[student.id][schoolYear] = determineFormStatus(formData);
             } else {
               statuses[student.id][schoolYear] = 'pending';
             }
@@ -620,10 +928,10 @@ const RTDConnectDashboard = () => {
           statuses[student.id][schoolYear] === 'submitted'
         );
         const anyStudentSubmitted = familyData.students.some(student => 
-          statuses[student.id][schoolYear] === 'submitted'
+          ['submitted', 'incomplete'].includes(statuses[student.id][schoolYear])
         );
         const anyStudentStarted = familyData.students.some(student => 
-          statuses[student.id][schoolYear] === 'draft'
+          ['draft', 'draft-complete', 'incomplete'].includes(statuses[student.id][schoolYear])
         );
         
         if (allStudentsSubmitted && familyData.students.length > 0) {
@@ -819,6 +1127,39 @@ const RTDConnectDashboard = () => {
     }
   }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
 
+  // Effect to calculate payment eligibility when form statuses change
+  useEffect(() => {
+    if (familyData?.students && activeSchoolYear) {
+      // Calculate family-level payment eligibility
+      const familyEligibility = getFamilyPaymentEligibility(
+        familyData.students,
+        studentFormStatuses,
+        studentDocumentStatuses,
+        studentSOLOPlanStatuses,
+        activeSchoolYear
+      );
+      setFamilyPaymentEligibility(familyEligibility);
+
+      // Calculate individual student payment eligibility
+      const studentEligibilities = {};
+      familyData.students.forEach(student => {
+        studentEligibilities[student.id] = getStudentPaymentEligibility(
+          student,
+          studentFormStatuses,
+          studentDocumentStatuses,
+          studentSOLOPlanStatuses,
+          activeSchoolYear
+        );
+      });
+      setStudentPaymentEligibility(studentEligibilities);
+
+      console.log('Payment eligibility calculated:', {
+        familyEligibility,
+        studentEligibilities
+      });
+    }
+  }, [familyData?.students, studentFormStatuses, studentDocumentStatuses, studentSOLOPlanStatuses, activeSchoolYear]);
+
   // Separate effect for family data based on custom claims
   useEffect(() => {
     console.log('Family data effect triggered. customClaims:', customClaims);
@@ -919,6 +1260,20 @@ const RTDConnectDashboard = () => {
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  // Handle under construction password submission
+  const handleConstructionPasswordSubmit = (e) => {
+    e.preventDefault();
+    setConstructionPasswordError('');
+
+    if (constructionPassword.toLowerCase() === 'connect') {
+      localStorage.setItem('rtdConnectBypassPassword', 'connect');
+      setShowUnderConstruction(false);
+      setConstructionPassword('');
+    } else {
+      setConstructionPasswordError('Incorrect password. Please try again.');
     }
   };
 
@@ -1089,6 +1444,97 @@ const RTDConnectDashboard = () => {
       // Otherwise, manually refresh claims
       console.log('No claims provided, manually refreshing...');
       await refreshCustomClaims();
+    }
+  };
+
+  // Facilitator selection handlers
+  const handleFacilitatorSelect = async (facilitatorId, facilitator) => {
+    setSelectedFacilitatorId(facilitatorId);
+    setSelectedFacilitator(facilitator);
+
+    // Save only facilitator email to family level
+    if (customClaims?.familyId && facilitator?.contact?.email) {
+      try {
+        const db = getDatabase();
+        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+        await update(familyRef, {
+          facilitatorEmail: facilitator.contact.email,
+          facilitatorAssignedAt: new Date().toISOString(),
+          facilitatorAssignedBy: user?.uid,
+          lastUpdated: new Date().toISOString()
+        });
+        
+        setHasFacilitatorSelected(true);
+        console.log('Saving facilitator email to family level:', facilitator.contact.email);
+        
+        setToast({
+          message: `Great choice! ${facilitator.name} will be your facilitator.`,
+          type: 'success'
+        });
+      } catch (error) {
+        console.error('Error saving facilitator selection:', error);
+        setToast({
+          message: 'Error saving facilitator selection. Please try again.',
+          type: 'error'
+        });
+      }
+    } else {
+      console.error('Missing familyId or facilitator email');
+      setToast({
+        message: 'Error: Unable to save facilitator selection.',
+        type: 'error'
+      });
+    }
+  };
+
+  const handleContinueToFamilyCreation = () => {
+    setShowFamilyCreation(true);
+  };
+
+  const handleFacilitatorChange = async (facilitatorId, facilitator) => {
+    const previousFacilitator = selectedFacilitator;
+    
+    setSelectedFacilitatorId(facilitatorId);
+    setSelectedFacilitator(facilitator);
+
+    // Save only facilitator email to family level
+    if (customClaims?.familyId && facilitator?.contact?.email) {
+      try {
+        const db = getDatabase();
+        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+        await update(familyRef, {
+          facilitatorEmail: facilitator.contact.email,
+          facilitatorAssignedAt: new Date().toISOString(),
+          facilitatorChangedFrom: previousFacilitator?.name || null,
+          facilitatorChangedBy: user?.uid,
+          lastUpdated: new Date().toISOString()
+        });
+        
+        setShowFacilitatorChange(false);
+        console.log('Changed facilitator email at family level to:', facilitator.contact.email);
+        
+        setToast({
+          message: `Facilitator changed to ${facilitator.name} successfully!`,
+          type: 'success'
+        });
+      } catch (error) {
+        console.error('Error changing facilitator:', error);
+        
+        // Revert on error
+        setSelectedFacilitatorId(previousFacilitator?.id || null);
+        setSelectedFacilitator(previousFacilitator);
+        
+        setToast({
+          message: 'Error changing facilitator. Please try again.',
+          type: 'error'
+        });
+      }
+    } else {
+      console.error('Missing familyId or facilitator email');
+      setToast({
+        message: 'Error: Unable to change facilitator selection.',
+        type: 'error'
+      });
     }
   };
 
@@ -1567,9 +2013,30 @@ Check console for full details.
   };
 
   const handleOpenReimbursementForm = (student) => {
+    // Check payment eligibility first
+    const studentEligibility = studentPaymentEligibility[student.id];
+    if (!studentEligibility?.canAccessPayments) {
+      const missingFormLabels = {
+        'notification-form': `${activeSchoolYear} Notification Form`,
+        'citizenship-docs': 'Citizenship Documents',
+        'solo-plan': 'Program Plan'
+      };
+      
+      const missingForms = studentEligibility?.missingForms?.map(form => missingFormLabels[form]).join(', ') || 'required forms';
+      
+      setToast({
+        message: `${student.firstName} must complete ${missingForms} before accessing payment features.`,
+        type: 'warning'
+      });
+      return;
+    }
+    
     // Check if Stripe Connect is set up
     if (stripeConnectStatus?.status !== 'completed') {
-      alert('Please complete the Stripe Connect setup using the Account Management button before submitting reimbursements.');
+      setToast({
+        message: 'Please complete the banking setup using the Account Management button before submitting reimbursements.',
+        type: 'warning'
+      });
       return;
     }
     
@@ -1579,6 +2046,25 @@ Check console for full details.
 
   // Handler for new receipt upload form
   const handleOpenReceiptUploadForm = () => {
+    // Check family payment eligibility
+    if (!familyPaymentEligibility?.canAccessPayments) {
+      const incompleteStudents = familyPaymentEligibility?.studentsWithoutAccess || [];
+      
+      if (incompleteStudents.length > 0) {
+        const studentNames = incompleteStudents.map(s => s.name).join(', ');
+        setToast({
+          message: `Complete all required forms first. Students with incomplete forms: ${studentNames}`,
+          type: 'warning'
+        });
+      } else {
+        setToast({
+          message: 'All students must complete their required forms before accessing payment features.',
+          type: 'warning'
+        });
+      }
+      return;
+    }
+    
     setShowReceiptUploadForm(true);
   };
 
@@ -2181,8 +2667,251 @@ Check console for full details.
     );
   }
 
-  // If profile is complete but no family registration, show family setup
-  if (!hasRegisteredFamily && !customClaims?.familyId) {
+  // If profile is complete but no facilitator selected, show facilitator selection
+  if (!hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <RTDConnectLogo />
+              
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              
+              {/* Desktop profile dropdown */}
+              <div className="hidden lg:flex items-center space-x-3">
+                <ProfileDropdown 
+                  userProfile={{ ...userProfile, email: user?.email }}
+                  onEditProfile={() => setShowProfileForm(true)}
+                  onSignOut={handleSignOut}
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content - Facilitator Selection */}
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <FacilitatorSelection 
+            selectedFacilitatorId={selectedFacilitatorId}
+            onFacilitatorSelect={handleFacilitatorSelect}
+            showAsStep={true}
+            onContinue={handleContinueToFamilyCreation}
+          />
+        </main>
+
+        {/* Profile Sheet */}
+        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">
+                <div className="flex items-center space-x-2">
+                  <User className="w-5 h-5 text-purple-500" />
+                  <span>Edit Your Profile</span>
+                </div>
+              </SheetTitle>
+              <SheetDescription className="text-left">
+                Update your basic information and contact details.
+              </SheetDescription>
+            </SheetHeader>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <FormField label="First Name" error={profileErrors.firstName} required>
+                  <input
+                    type="text"
+                    value={profileData.firstName}
+                    onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your first name"
+                  />
+                </FormField>
+
+                <FormField label="Last Name" error={profileErrors.lastName} required>
+                  <input
+                    type="text"
+                    value={profileData.lastName}
+                    onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your last name"
+                  />
+                </FormField>
+
+                <FormField label="Phone Number" error={profileErrors.phone} required>
+                  <input
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handlePhoneChange}
+                    className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="(403) 555-0123"
+                  />
+                </FormField>
+
+                <FormField label="Birthday" error={profileErrors.birthday} required>
+                  <input
+                    type="date"
+                    value={profileData.birthday}
+                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
+                </FormField>
+
+                <FormField label="Address" error={profileErrors.address} required>
+                  <AddressPicker
+                    value={profileData.address}
+                    onAddressSelect={handleAddressSelect}
+                    error={profileErrors.address}
+                    placeholder="Start typing your address..."
+                  />
+                </FormField>
+              </div>
+
+              {profileErrors.submit && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">{profileErrors.submit}</p>
+                </div>
+              )}
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmittingProfile}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    isSubmittingProfile 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
+                >
+                  {isSubmittingProfile ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Save Profile
+                      <CheckCircle2 className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        {/* Mobile Navigation Sheet */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-80 p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                    {userProfile?.firstName && userProfile?.lastName
+                      ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
+                      : (userProfile?.email ? userProfile.email[0].toUpperCase() : 'U')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userProfile?.firstName && userProfile?.lastName 
+                        ? `${userProfile.firstName} ${userProfile.lastName}`
+                        : userProfile?.email || 'User'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {userProfile?.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="flex-1 px-6 py-4 space-y-4">
+                {userProfile?.firstName && (
+                  <div className="pb-4 border-b border-gray-200">
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Profile Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{userProfile.firstName} {userProfile.lastName}</span>
+                      </div>
+                      {userProfile.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">{userProfile.phone}</span>
+                        </div>
+                      )}
+                      {userProfile.address && (
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700 truncate">
+                            {userProfile.address.city}, {userProfile.address.province}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowProfileForm(true);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                    Edit Profile
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3 text-gray-400" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="text-center text-xs text-gray-500">
+                  <p>&copy; {new Date().getFullYear()} RTD Connect</p>
+                  <p>Home Education Portal</p>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Family Creation Sheet - opened from facilitator selection */}
+        <FamilyCreationSheet
+          isOpen={showFamilyCreation}
+          onOpenChange={setShowFamilyCreation}
+          familyKey={hasRegisteredFamily ? familyKey : null}
+          hasRegisteredFamily={hasRegisteredFamily}
+          initialFamilyData={familyData}
+          onFamilyDataChange={handleFamilyDataChange}
+          onComplete={handleFamilyComplete}
+          selectedFacilitator={selectedFacilitator} // Pass facilitator info
+        />
+      </div>
+    );
+  }
+
+  // If facilitator is selected but no family registration, show family setup
+  if (hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
@@ -2476,9 +3205,237 @@ Check console for full details.
     );
   }
 
+  // If family is registered but no facilitator selected, show facilitator selection
+  if (hasRegisteredFamily && !hasFacilitatorSelected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <RTDConnectLogo />
+              
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              
+              {/* Desktop profile dropdown */}
+              <div className="hidden lg:flex items-center space-x-3">
+                <ProfileDropdown 
+                  userProfile={{ ...userProfile, email: user?.email }}
+                  onEditProfile={() => setShowProfileForm(true)}
+                  onSignOut={handleSignOut}
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content - Facilitator Selection for Existing Families */}
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-blue-900 mb-1">Choose Your Facilitator</h3>
+                <p className="text-sm text-blue-800">
+                  Before accessing your full dashboard, please select a facilitator who will guide your family through the home education process.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <FacilitatorSelection 
+            selectedFacilitatorId={selectedFacilitatorId}
+            onFacilitatorSelect={handleFacilitatorSelect}
+            showAsStep={true}
+            onContinue={() => {
+              // Don't need to do anything special - they'll see the dashboard after selection
+            }}
+          />
+        </main>
+
+        {/* Profile Sheet */}
+        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">
+                <div className="flex items-center space-x-2">
+                  <User className="w-5 h-5 text-purple-500" />
+                  <span>Edit Your Profile</span>
+                </div>
+              </SheetTitle>
+              <SheetDescription className="text-left">
+                Update your basic information and contact details.
+              </SheetDescription>
+            </SheetHeader>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <FormField label="First Name" error={profileErrors.firstName} required>
+                  <input
+                    type="text"
+                    value={profileData.firstName}
+                    onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your first name"
+                  />
+                </FormField>
+
+                <FormField label="Last Name" error={profileErrors.lastName} required>
+                  <input
+                    type="text"
+                    value={profileData.lastName}
+                    onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="Enter your last name"
+                  />
+                </FormField>
+
+                <FormField label="Phone Number" error={profileErrors.phone} required>
+                  <input
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handlePhoneChange}
+                    className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    placeholder="(403) 555-0123"
+                  />
+                </FormField>
+
+                <FormField label="Birthday" error={profileErrors.birthday} required>
+                  <input
+                    type="date"
+                    value={profileData.birthday}
+                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                    className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
+                </FormField>
+
+                <FormField label="Address" error={profileErrors.address} required>
+                  <AddressPicker
+                    value={profileData.address}
+                    onAddressSelect={handleAddressSelect}
+                    error={profileErrors.address}
+                    placeholder="Start typing your address..."
+                  />
+                </FormField>
+              </div>
+
+              {profileErrors.submit && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">{profileErrors.submit}</p>
+                </div>
+              )}
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmittingProfile}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    isSubmittingProfile 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
+                >
+                  {isSubmittingProfile ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Save Profile
+                      <CheckCircle2 className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        {/* Mobile Navigation Sheet */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-80 p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                    {userProfile?.firstName && userProfile?.lastName
+                      ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
+                      : (userProfile?.email ? userProfile.email[0].toUpperCase() : 'U')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userProfile?.firstName && userProfile?.lastName 
+                        ? `${userProfile.firstName} ${userProfile.lastName}`
+                        : userProfile?.email || 'User'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {userProfile?.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="flex-1 px-6 py-4 space-y-4">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowProfileForm(true);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                    Edit Profile
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3 text-gray-400" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="text-center text-xs text-gray-500">
+                  <p>&copy; {new Date().getFullYear()} RTD Connect</p>
+                  <p>Home Education Portal</p>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
+
   // If family is registered, show the full dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+      {/* Under Construction Modal */}
+      <UnderConstructionModal
+        isOpen={showUnderConstruction}
+        password={constructionPassword}
+        setPassword={setConstructionPassword}
+        onSubmit={handleConstructionPasswordSubmit}
+        error={constructionPasswordError}
+      />
+      
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -2536,7 +3493,7 @@ Check console for full details.
             onActionClick={() => {
               // Find the first student needing a form and open individual form
               const studentsNeedingForms = familyData.students?.filter(student => 
-                studentFormStatuses[student.id]?.current === 'pending'
+                ['pending', 'incomplete', 'draft'].includes(studentFormStatuses[student.id]?.current)
               ) || [];
               
               if (studentsNeedingForms.length > 0) {
@@ -2554,51 +3511,66 @@ Check console for full details.
           <div className="mb-6">
             <div className="flex-shrink-0">
               {customClaims?.familyRole === 'primary_guardian' ? (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={handleStartRegistration}
-                    className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    <Edit3 className="w-5 h-5" />
-                    <span className="text-sm lg:text-base">Update Family Information</span>
-                  </button>
-                  
-                  {/* Account Management Button - always show for primary guardians */}
-                  {customClaims?.familyRole === 'primary_guardian' && (
+                <div className="space-y-3">
+                  {/* Top Row - Primary Actions */}
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                      onClick={stripeConnectStatus?.accountId ? handleOpenAccountManagement : handleCreateAndOpenAccountManagement}
-                      disabled={sessionLoading}
-                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300 hover:border-gray-400 transition-colors disabled:opacity-50"
+                      onClick={handleStartRegistration}
+                      className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
                     >
-                      <Settings className="w-5 h-5" />
-                      <span className="text-sm lg:text-base">
-                        {stripeConnectStatus?.accountId ? 'Banking Settings' : 'Set Up Banking'}
-                      </span>
+                      <Edit3 className="w-5 h-5" />
+                      <span className="text-sm lg:text-base">Update Family Information</span>
                     </button>
-                  )}
 
+                    {/* Acceptance Letter Button - only show when all students have completed all forms */}
+                    {familyPaymentEligibility?.allStudentsComplete && (
+                      <button
+                        onClick={() => setShowAcceptanceLetter(true)}
+                        className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+                      >
+                        <Download className="w-5 h-5" />
+                        <span className="text-sm lg:text-base">Download Acceptance Letter</span>
+                      </button>
+                    )}
+                  </div>
                   
-                  {/* Submit Expenses Button */}
-                  <button
-                    onClick={handleOpenReceiptUploadForm}
-                    className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                  >
-                    <Upload className="w-5 h-5" />
-                    <span className="text-sm lg:text-base">Submit Expenses</span>
-                  </button>
+                  {/* Bottom Row - Banking/Payment Actions */}
+                  {familyPaymentEligibility?.canAccessPayments && (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {/* Account Management Button */}
+                      <button
+                        onClick={stripeConnectStatus?.accountId ? handleOpenAccountManagement : handleCreateAndOpenAccountManagement}
+                        disabled={sessionLoading}
+                        className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md disabled:opacity-50"
+                      >
+                        <Settings className="w-5 h-5" />
+                        <span className="text-sm lg:text-base">
+                          {stripeConnectStatus?.accountId ? 'Banking Settings' : 'Set Up Banking'}
+                        </span>
+                      </button>
 
-                  {/* Payouts View Button - only if Stripe Connect is set up */}
-                  {stripeConnectStatus?.accountId && (
-                    <button
-                      onClick={handleOpenPayoutsView}
-                      disabled={sessionLoading}
-                      className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      <DollarSign className="w-5 h-5" />
-                      <span className="text-sm lg:text-base">View Payouts</span>
-                    </button>
+                      {/* Submit Expenses Button */}
+                      <button
+                        onClick={handleOpenReceiptUploadForm}
+                        className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+                      >
+                        <Upload className="w-5 h-5" />
+                        <span className="text-sm lg:text-base">Submit Expenses</span>
+                      </button>
+
+                      {/* Payouts View Button - only if Stripe Connect is set up */}
+                      {stripeConnectStatus?.accountId && (
+                        <button
+                          onClick={handleOpenPayoutsView}
+                          disabled={sessionLoading}
+                          className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md disabled:opacity-50"
+                        >
+                          <DollarSign className="w-5 h-5" />
+                          <span className="text-sm lg:text-base">View Payouts</span>
+                        </button>
+                      )}
+                    </div>
                   )}
-                  
                 </div>
               ) : (
                 <div className="w-full lg:w-auto flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gray-50 text-gray-500 rounded-lg border border-gray-200">
@@ -2666,40 +3638,82 @@ Check console for full details.
               </div>
             )}
 
-          {/* Family Status Info */}
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 lg:w-12 h-10 lg:h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 lg:w-6 h-5 lg:h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base lg:text-lg font-semibold text-gray-900">Family Status</h3>
-                  <p className="text-xs lg:text-sm text-green-600 font-medium">Active • Profile Complete</p>
-                </div>
+          {/* Family Status & Facilitator Info */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Family Status */}
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-white" />
               </div>
-              
-              <div className="flex flex-wrap gap-4 text-xs lg:text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <GraduationCap className="w-4 h-4 text-purple-500" />
-                  <span><strong>{familyData.students?.length || 0}</strong> Students</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-blue-500" />
-                  <span><strong>{familyData.guardians?.length || 0}</strong> Guardians</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-blue-500" />
-                  <span>
-                    <strong>
-                      {familyData.students?.filter(student => 
-                        studentFormStatuses[student.id]?.current === 'submitted'
-                      ).length || 0}
-                    </strong> of <strong>{familyData.students?.length || 0}</strong> forms submitted
-                  </span>
-                </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Family Status</h3>
+                <p className="text-sm text-green-600 font-medium">Active • Profile Complete</p>
               </div>
             </div>
+
+            {/* Facilitator Info */}
+            {selectedFacilitator ? (
+              <div className="flex items-center space-x-4">
+                <a 
+                  href={getFacilitatorProfileUrl(selectedFacilitator)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:opacity-80 transition-opacity cursor-pointer"
+                  title={`View ${selectedFacilitator.name}'s profile`}
+                >
+                  <img 
+                    src={selectedFacilitator.image} 
+                    alt={selectedFacilitator.name}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-purple-300 hover:border-purple-400"
+                  />
+                </a>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">Your Facilitator</h3>
+                  <p className="text-sm text-purple-600 font-medium">{selectedFacilitator.name}</p>
+                  <p className="text-xs text-gray-500">{selectedFacilitator.title}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center space-x-4 mb-3">
+                  <AlertTriangle className="w-8 h-8 text-orange-500" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-orange-900">No Facilitator Selected</h3>
+                    <p className="text-xs text-orange-700">Please select a facilitator to continue</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFacilitatorChange(true)}
+                  className="w-full px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-800 text-sm font-medium rounded-md transition-colors flex items-center justify-center space-x-2 border border-orange-300 hover:border-orange-400"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Select Facilitator</span>
+                </button>
+              </div>
+            )}
           </div>
+          
+          <div className="flex flex-wrap gap-4 text-xs lg:text-sm text-gray-600">
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="w-4 h-4 text-purple-500" />
+              <span><strong>{familyData.students?.length || 0}</strong> Students</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Users className="w-4 h-4 text-blue-500" />
+              <span><strong>{familyData.guardians?.length || 0}</strong> Guardians</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-blue-500" />
+              <span>
+                <strong>
+                  {familyData.students?.filter(student => 
+                    studentFormStatuses[student.id]?.current === 'submitted'
+                  ).length || 0}
+                </strong> of <strong>{familyData.students?.length || 0}</strong> forms submitted
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Family Members List */}
         {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
@@ -2712,6 +3726,7 @@ Check console for full details.
               <FamilyBudgetOverview 
                 students={familyData.students}
                 budgetData={studentBudgets}
+                familyPaymentEligibility={familyPaymentEligibility}
               />
             )}
             
@@ -2726,18 +3741,28 @@ Check console for full details.
                     {familyData.students.map((student, index) => {
                       const formStatus = studentFormStatuses[student.id]?.current || 'pending';
                       const docStatus = studentDocumentStatuses[student.id] || { status: 'pending', documentCount: 0 };
+                      const studentEligibility = studentPaymentEligibility[student.id];
                       return (
                         <div key={student.id || index} className="border border-blue-200 rounded-lg p-3 sm:p-4 bg-blue-50">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">
-                              {student.preferredName || student.firstName} {student.lastName}
-                            </h4>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-gray-900">
+                                {student.preferredName || student.firstName} {student.lastName}
+                              </h4>
+                              {studentEligibility && (
+                                <CompactFormCompletionBadge
+                                  completionPercentage={studentEligibility.completionPercentage}
+                                  isComplete={studentEligibility.isComplete}
+                                  canAccessPayments={studentEligibility.canAccessPayments}
+                                />
+                              )}
+                            </div>
                             <div className="mt-2 space-y-1 text-xs sm:text-sm text-gray-600">
                               <p>ASN: {student.asn}</p>
                               <p>Grade: {student.grade}</p>
                               <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender || 'Not specified'}</p>
-                              <p>Birthday: {new Date(student.birthday).toLocaleDateString()}</p>
+                              <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
                               {student.email && <p className="truncate">Email: {student.email}</p>}
                               {student.phone && <p>Phone: {student.phone}</p>}
                             </div>
@@ -2752,7 +3777,9 @@ Check console for full details.
                                   </span>
                                   {formStatus === 'submitted' ? (
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                  ) : formStatus === 'draft' ? (
+                                  ) : formStatus === 'incomplete' ? (
+                                    <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                  ) : ['draft', 'draft-complete'].includes(formStatus) ? (
                                     <Clock className="w-4 h-4 text-blue-500" />
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-orange-500" />
@@ -2760,10 +3787,14 @@ Check console for full details.
                                 </div>
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
                                   formStatus === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' :
+                                  formStatus === 'incomplete' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                  formStatus === 'draft-complete' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                                   formStatus === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                                   'bg-orange-100 text-orange-700 border-orange-300'
                                 }`}>
-                                  {formStatus === 'submitted' ? 'Submitted' :
+                                  {formStatus === 'submitted' ? 'Complete' :
+                                   formStatus === 'incomplete' ? 'Incomplete' :
+                                   formStatus === 'draft-complete' ? 'Ready' :
                                    formStatus === 'draft' ? 'Draft' : 'Required'}
                                 </span>
                               </div>
@@ -2779,12 +3810,16 @@ Check console for full details.
                                     className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
                                       formStatus === 'submitted' ?
                                       'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
-                                      formStatus === 'draft' ?
+                                      formStatus === 'incomplete' ?
+                                      'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border border-yellow-300 hover:border-yellow-400' :
+                                      ['draft', 'draft-complete'].includes(formStatus) ?
                                       'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
                                     {formStatus === 'submitted' ? `Update ${activeSchoolYear} Form` : 
+                                     formStatus === 'incomplete' ? `Complete Missing Parts` :
+                                     formStatus === 'draft-complete' ? `Submit ${activeSchoolYear} Form` :
                                      formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
                                      `Start ${activeSchoolYear} Form`}
                                   </button>
@@ -2836,13 +3871,13 @@ Check console for full details.
                               )}
                             </div>
 
-                            {/* SOLO Education Plan Status */}
+                            {/* Program Plan Status */}
                             <div className="mt-3 pt-3 border-t border-blue-300">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center space-x-2">
                                   <FileText className="w-4 h-4 text-green-500" />
                                   <span className="text-sm font-medium text-gray-700">
-                                    SOLO Education Plan
+                                    Program Plan
                                   </span>
                                   {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? (
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -2862,7 +3897,7 @@ Check console for full details.
                                 </span>
                               </div>
                               
-                              {/* SOLO Plan Button - Only for Primary Guardians */}
+                              {/* Program Plan Button - Only for Primary Guardians */}
                               {customClaims?.familyRole === 'primary_guardian' ? (
                                 <div className="space-y-2">
                                   <button
@@ -2875,8 +3910,8 @@ Check console for full details.
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
-                                    {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'View/Update SOLO Plan' : 
-                                     studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'Continue SOLO Plan' : 'Create SOLO Plan'}
+                                    {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'View/Update Program Plan' : 
+                                     studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'Continue Program Plan' : 'Create Program Plan'}
                                   </button>
                                   
                                   {/* Download Latest PDF Button - Only for submitted plans */}
@@ -2905,14 +3940,27 @@ Check console for full details.
 
                             {/* Budget Information Section */}
                             {studentBudgets[student.id] && (
-                              <div className="mt-3 pt-3 border-t border-blue-300">
-                                <div className="flex items-center justify-between mb-3">
+                              <div className={`mt-3 pt-3 border-t border-blue-300 ${!studentEligibility?.canAccessPayments ? 'relative' : ''}`}>
+                                {/* Payment restriction overlay for budget section */}
+                                {!studentEligibility?.canAccessPayments && (
+                                  <div className="absolute inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center rounded-lg z-10">
+                                    <div className="text-center p-2">
+                                      <Shield className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                                      <p className="text-xs text-red-600 font-medium">Budget Locked</p>
+                                      <p className="text-xs text-gray-500">Complete forms to unlock</p>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                <div className={`flex items-center justify-between mb-3 ${!studentEligibility?.canAccessPayments ? 'opacity-40' : ''}`}>
                                   <div className="flex items-center space-x-2">
                                     <DollarSign className="w-4 h-4 text-purple-500" />
                                     <span className="text-sm font-medium text-gray-700">
                                       Budget Tracking
                                     </span>
-                                    {studentBudgets[student.id].percentageUsed > 95 ? (
+                                    {!studentEligibility?.canAccessPayments ? (
+                                      <Shield className="w-4 h-4 text-red-500" />
+                                    ) : studentBudgets[student.id].percentageUsed > 95 ? (
                                       <AlertTriangle className="w-4 h-4 text-red-500" />
                                     ) : studentBudgets[student.id].percentageUsed > 80 ? (
                                       <Clock className="w-4 h-4 text-yellow-500" />
@@ -2931,10 +3979,11 @@ Check console for full details.
                                 </div>
                                 
                                 {/* Budget Progress Bar */}
-                                <div className="mb-3">
+                                <div className={`mb-3 ${!studentEligibility?.canAccessPayments ? 'opacity-40' : ''}`}>
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-xs font-medium text-gray-600">
-                                      {studentBudgets[student.id].percentageUsed > 95 ? 'Budget nearly exhausted' :
+                                      {!studentEligibility?.canAccessPayments ? 'Access restricted' :
+                                       studentBudgets[student.id].percentageUsed > 95 ? 'Budget nearly exhausted' :
                                        studentBudgets[student.id].percentageUsed > 80 ? 'Budget running low' :
                                        studentBudgets[student.id].percentageUsed > 60 ? 'Good progress' :
                                        'Plenty of budget remaining'}
@@ -2946,6 +3995,7 @@ Check console for full details.
                                   <div className="w-full bg-gray-200 rounded-full h-2">
                                     <div 
                                       className={`h-2 rounded-full transition-all duration-500 ${
+                                        !studentEligibility?.canAccessPayments ? 'bg-gray-400' :
                                         studentBudgets[student.id].percentageUsed > 95 ? 'bg-red-500' :
                                         studentBudgets[student.id].percentageUsed > 80 ? 'bg-yellow-500' :
                                         studentBudgets[student.id].percentageUsed > 60 ? 'bg-blue-500' :
@@ -2957,7 +4007,7 @@ Check console for full details.
                                 </div>
                                 
                                 {/* Budget Breakdown */}
-                                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                <div className={`grid grid-cols-3 gap-2 text-center text-xs ${!studentEligibility?.canAccessPayments ? 'opacity-40' : ''}`}>
                                   <div className="p-2 bg-green-50 rounded">
                                     <div className="font-medium text-green-600">
                                       ${studentBudgets[student.id].remaining.toFixed(2)}
@@ -2980,7 +4030,7 @@ Check console for full details.
                                 
                                 {/* Latest Activity */}
                                 {studentReimbursementStatuses[student.id]?.latestSubmission && (
-                                  <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <div className={`mt-2 pt-2 border-t border-gray-200 ${!studentEligibility?.canAccessPayments ? 'opacity-40' : ''}`}>
                                     <div className="text-xs text-gray-500">
                                       Latest: {new Date(studentReimbursementStatuses[student.id].latestSubmission.submittedAt).toLocaleDateString()}
                                       {studentReimbursementStatuses[student.id].latestSubmission.studentAllocation && (
@@ -3057,6 +4107,11 @@ Check console for full details.
           <div className="text-center text-sm text-gray-500">
             <p>&copy; {new Date().getFullYear()} RTD Connect - Home Education Portal. All rights reserved.</p>
             <p className="mt-1">Need help? Contact us at support@rtdacademy.com</p>
+            <div className="mt-3 space-x-4">
+              <a href="/privacy" className="text-blue-600 hover:text-blue-800 underline">Privacy Statement</a>
+              <span>|</span>
+              <a href="/terms" className="text-blue-600 hover:text-blue-800 underline">Terms & Conditions</a>
+            </div>
           </div>
         </div>
       </footer>
@@ -3125,6 +4180,52 @@ Check console for full details.
                   placeholder="Start typing your address..."
                 />
               </FormField>
+
+              {/* Facilitator Management Section */}
+              {hasFacilitatorSelected && selectedFacilitator && (
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Your Family's Facilitator
+                    </label>
+                    <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <a 
+                          href={getFacilitatorProfileUrl(selectedFacilitator)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="hover:opacity-80 transition-opacity cursor-pointer"
+                          title={`View ${selectedFacilitator.name}'s profile`}
+                        >
+                          <img 
+                            src={selectedFacilitator.image} 
+                            alt={selectedFacilitator.name}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-purple-300 hover:border-purple-400"
+                          />
+                        </a>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{selectedFacilitator.name}</p>
+                          <p className="text-xs text-gray-600">{selectedFacilitator.title}</p>
+                          <p className="text-xs text-purple-600 mt-1">{selectedFacilitator.experience}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-purple-200">
+                        <button
+                          type="button"
+                          onClick={() => setShowFacilitatorChange(true)}
+                          className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center space-x-1"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>Change Facilitator</span>
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Your facilitator provides ongoing support and guidance for your family's home education journey.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {profileErrors.submit && (
@@ -3206,7 +4307,7 @@ Check console for full details.
         />
       )}
 
-      {/* SOLO Education Plan Form - Only for Primary Guardians */}
+      {/* Program Plan Form - Only for Primary Guardians */}
       {customClaims?.familyRole === 'primary_guardian' && showSOLOPlanForm && (
         <SOLOEducationPlanForm
           isOpen={showSOLOPlanForm}
@@ -3214,6 +4315,23 @@ Check console for full details.
           student={selectedStudentForSOLO}
           familyId={customClaims?.familyId}
           schoolYear={soloTargetSchoolYear}
+          selectedFacilitator={selectedFacilitator}
+        />
+      )}
+
+      {/* Acceptance Letter Dialog */}
+      {showAcceptanceLetter && (
+        <AcceptanceLetterDialog
+          isOpen={showAcceptanceLetter}
+          onOpenChange={(open) => {
+            setShowAcceptanceLetter(open);
+          }}
+          familyData={familyData}
+          activeSchoolYear={activeSchoolYear}
+          parentName={userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : ''}
+          onPrint={() => {
+            console.log('Acceptance letter printed');
+          }}
         />
       )}
 
@@ -3245,6 +4363,9 @@ Check console for full details.
                 }}
                 isSubmitting={isSubmittingReimbursement}
                 error={reimbursementError}
+                isEligible={studentPaymentEligibility[selectedStudentForReimbursement?.id]?.canAccessPayments || false}
+                eligibilityMessage={studentPaymentEligibility[selectedStudentForReimbursement?.id]?.canAccessPayments ? null : 
+                  `${selectedStudentForReimbursement.firstName} must complete all required forms before accessing payment features.`}
               />
             )}
           </div>
@@ -3438,6 +4559,47 @@ Check console for full details.
         </SheetContent>
       </Sheet>
       
+      {/* Facilitator Change Modal */}
+      <Sheet open={showFacilitatorChange} onOpenChange={setShowFacilitatorChange}>
+        <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-purple-500" />
+                <span>Change Family Facilitator</span>
+              </div>
+            </SheetTitle>
+            <SheetDescription className="text-left">
+              Select a different facilitator to guide your family's home education journey. This change will affect your entire family.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6">
+            {selectedFacilitator && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Info className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-blue-800">
+                      <strong>Current facilitator:</strong> {selectedFacilitator.name}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Choose a new facilitator below to make the change.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <FacilitatorSelection 
+              selectedFacilitatorId={selectedFacilitatorId}
+              onFacilitatorSelect={handleFacilitatorChange}
+              showAsStep={false}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Toast notifications */}
       {toast && (
         <Toast

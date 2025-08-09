@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, DollarSign, FileText, AlertCircle, CheckCircle2, Camera, File } from 'lucide-react';
+import { Upload, X, DollarSign, FileText, AlertCircle, CheckCircle2, Camera, File, Shield } from 'lucide-react';
 
 const ReimbursementSubmissionForm = ({ 
   student,
   onSubmit,
   onCancel,
   isSubmitting = false,
-  error = null 
+  error = null,
+  isEligible = true,
+  eligibilityMessage = null
 }) => {
   const [formData, setFormData] = useState({
     amount: '',
@@ -210,6 +212,62 @@ const ReimbursementSubmissionForm = ({
       )}
     </div>
   );
+
+  // If not eligible, show restriction message
+  if (!isEligible) {
+    return (
+      <div className="bg-white rounded-lg p-6 border border-gray-200 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gray-50 bg-opacity-95 flex items-center justify-center z-10">
+          <div className="text-center p-6 max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Reimbursement Submission Locked
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {eligibilityMessage || `${student.firstName} must complete all required forms before submitting reimbursement requests.`}
+            </p>
+            <div className="text-xs text-gray-500 bg-white px-3 py-2 rounded-lg border flex items-center justify-center space-x-2">
+              <Shield className="w-4 h-4 text-blue-500" />
+              <span>Complete forms to unlock payments</span>
+            </div>
+            <button
+              onClick={onCancel}
+              className="mt-4 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        {/* Dimmed form content */}
+        <div className="opacity-20">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Submit Reimbursement Request
+              </h3>
+              <p className="text-sm text-gray-600">
+                Request reimbursement for {student.firstName} {student.lastName}'s educational expenses
+              </p>
+            </div>
+          </div>
+          
+          {/* Simplified form preview */}
+          <div className="space-y-4">
+            <div className="h-10 bg-gray-100 rounded"></div>
+            <div className="h-10 bg-gray-100 rounded"></div>
+            <div className="h-20 bg-gray-100 rounded"></div>
+            <div className="h-32 bg-gray-100 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg p-6 border border-gray-200">

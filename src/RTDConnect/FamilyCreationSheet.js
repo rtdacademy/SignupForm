@@ -3,6 +3,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { toEdmontonDate, formatDateForDisplay, formatDateForInput } from '../utils/timeZoneUtils';
 import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
@@ -39,7 +40,7 @@ const StudentCard = ({ student, index, onEdit, onRemove, userProfile }) => (
           <p>ASN: {student.asn}</p>
           <p>Grade: {student.grade}</p>
           <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender}</p>
-          <p>Birthday: {new Date(student.birthday).toLocaleDateString()}</p>
+          <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
           {student.email && <p>Email: {student.email}</p>}
           {student.phone && <p>Phone: {student.phone}</p>}
           {student.usePrimaryAddress ? (
@@ -491,7 +492,10 @@ const FamilyCreationSheet = ({
 
   const handleEditStudent = (index) => {
     const student = familyData.students[index];
-    setStudentFormData(student);
+    setStudentFormData({
+      ...student,
+      birthday: formatDateForInput(student.birthday)
+    });
     setEditingStudentIndex(index);
     setShowStudentForm(true);
   };

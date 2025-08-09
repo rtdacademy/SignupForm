@@ -1,36 +1,40 @@
 // Centralized Facilitator Configuration
 // This file contains all facilitator information used across the RTD Connect platform
 
+// Base URL for facilitator profiles
+const FACILITATOR_BASE_URL = 'https://rtd-connect.com';
+
 export const FACILITATORS = [
   {
     id: 'golda-david',
     name: 'Golda David',
     title: 'Senior Home Education Facilitator',
-    experience: '10+ years experience',
-    description: 'Specializes in elementary and middle school curriculum planning, learning differences support, and helping families navigate SOLO compliance with confidence.',
-    image: '/connectImages/FakeFacil2.png',
+    experience: '20+ years experience',
+    description: 'With over 20 years of experience in education, including years spent home educating (unschooling) her own son, Golda specializes in supporting families in a holistic, non-judgemental format while ensuring all families meet the needs of their children and can move forward with confidence.',
+    image: '/connectImages/Golda.jpg',
     specializations: [
-      'Elementary & Middle School Expert',
-      'Learning Differences Support', 
-      'SOLO Compliance & Assessment'
+      'Student-Led Learning & Unschooling',
+      'Support for Children with Exceptionalities', 
+      'High School Support (Credit or Non-Credit)',
+      'Parental Support & Resource Sourcing'
     ],
     stats: [
-      { icon: 'Star', value: '10+', label: 'Years Experience' },
-      { icon: 'Users', value: '120+', label: 'Families Supported' },
-      { icon: 'Clock', value: '24hr', label: 'Response Time' }
+      { icon: 'Star', value: '20+', label: 'Years Experience' },
+      { icon: 'Users', value: '300+', label: 'Families Supported' },
+      { icon: 'GraduationCap', value: 'Since 2004', label: 'Educator' }
     ],
     contact: {
-      email: 'golda@rtd-connect.com',
-      phone: '(403) 555-0124'
+      email: 'golda@rtd-connect.com'
     },
+    profilePath: '/facilitator/golda-david',
     gradients: {
       card: 'from-purple-500 to-blue-500',
       border: 'border-purple-100'
     },
     // Grade focus for assignment recommendations
     gradeFocus: {
-      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8'],
-      secondary: ['9'] // Can handle some Grade 9
+      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      secondary: [] // Handles all grades equally well
     }
   },
   {
@@ -52,8 +56,9 @@ export const FACILITATORS = [
       { icon: 'Users', value: '20+', label: 'Years Homeschooling' }
     ],
     contact: {
-      email: 'grace-anne@rtdconnect.com'
+      email: 'grace-anne@rtd-connect.com'
     },
+    profilePath: '/facilitator/grace-anne-post',
     gradients: {
       card: 'from-green-500 to-teal-500',
       border: 'border-green-100'
@@ -85,6 +90,7 @@ export const FACILITATORS = [
       email: 'marian@rtd-connect.com',
       phone: '(403) 555-0125'
     },
+    profilePath: '/facilitator/marian-johnson',
     gradients: {
       card: 'from-blue-500 to-cyan-500',
       border: 'border-blue-100'
@@ -123,6 +129,25 @@ export const getFacilitatorById = (facilitatorId) => {
  */
 export const getFacilitatorByName = (facilitatorName) => {
   return FACILITATORS.find(facilitator => facilitator.name === facilitatorName) || null;
+};
+
+/**
+ * Get facilitator by email
+ * @param {string} facilitatorEmail - The facilitator's email address
+ * @returns {Object|null} Facilitator object or null if not found
+ */
+export const getFacilitatorByEmail = (facilitatorEmail) => {
+  return FACILITATORS.find(facilitator => facilitator.contact?.email === facilitatorEmail) || null;
+};
+
+/**
+ * Get full profile URL for a facilitator
+ * @param {Object} facilitator - The facilitator object
+ * @returns {string} Full URL to the facilitator's profile page
+ */
+export const getFacilitatorProfileUrl = (facilitator) => {
+  if (!facilitator?.profilePath) return null;
+  return `${FACILITATOR_BASE_URL}${facilitator.profilePath}`;
 };
 
 /**
@@ -203,6 +228,8 @@ export default {
   getAllFacilitators,
   getFacilitatorById,
   getFacilitatorByName,
+  getFacilitatorByEmail,
+  getFacilitatorProfileUrl,
   getFacilitatorsForGrade,
   getRecommendedFacilitator,
   getFacilitatorDropdownOptions,

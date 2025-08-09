@@ -28,6 +28,7 @@ import {
   formatImportantDate,
   getAllSeptemberCountDates
 } from '../config/importantDates';
+import { formatDateForDisplay } from '../utils/timeZoneUtils';
 
 // Family Card Component
 const FamilyCard = ({ family, familyId, onViewDetails }) => {
@@ -239,7 +240,7 @@ const FamilyDetailsModal = ({ family, familyId, isOpen, onClose }) => {
                             <div>ASN: {student.asn}</div>
                             <div>Grade: {student.grade}</div>
                             <div>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender}</div>
-                            <div>Birthday: {new Date(student.birthday).toLocaleDateString()}</div>
+                            <div>Birthday: {formatDateForDisplay(student.birthday)}</div>
                             {student.email && <div>Email: {student.email}</div>}
                             {student.phone && <div>Phone: {student.phone}</div>}
                           </div>
