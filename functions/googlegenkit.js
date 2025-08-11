@@ -136,7 +136,17 @@ const ReceiptAnalysisSchema = z.object({
   educationComplianceScore: z.number().default(0).describe('Score 0-100 for how well the purchase aligns with Alberta Education reimbursement standards'),
   educationCategory: z.string().default('unclear').describe('Category: recommended, not-recommended, requires-review, or unclear'),
   educationReasoning: z.string().default('').describe('Detailed explanation of compliance score and category assignment'),
-  reimbursementEligibility: z.string().default('requires-review').describe('Eligibility: likely-eligible, requires-review, or not-eligible')
+  reimbursementEligibility: z.string().default('requires-review').describe('Eligibility: likely-eligible, requires-review, or not-eligible'),
+  
+  // AI-suggested category allocations for students
+  suggestedAllocations: z.array(z.object({
+    studentId: z.string().describe('ID of the student this suggestion is for'),
+    studentName: z.string().describe('Name of the student'),
+    suggestedCategory: z.string().nullable().describe('Suggested program plan category key that best matches this purchase'),
+    categoryMatchReasoning: z.string().describe('Explanation of why this category was suggested'),
+    confidence: z.number().describe('Confidence score 0-1 for this category match'),
+    suggestedJustification: z.string().describe('Auto-generated justification for how this purchase benefits the student\'s education')
+  })).optional().describe('AI-suggested category allocations for each student based on their program plans')
 });
 
 /**
@@ -231,7 +241,18 @@ const MixedReceiptAnalysisSchema = z.object({
     amount: z.number().optional().describe('Confidence 0-1 for total amount extraction'),
     vendor: z.number().optional().describe('Confidence 0-1 for vendor extraction'),
     itemBreakdown: z.number().optional().describe('Confidence 0-1 for item-level breakdown accuracy')
-  }).optional().describe('Confidence scores for extracted fields')
+  }).optional().describe('Confidence scores for extracted fields'),
+  
+  // AI-suggested category allocations for students
+  suggestedAllocations: z.array(z.object({
+    studentId: z.string().describe('ID of the student this suggestion is for'),
+    studentName: z.string().describe('Name of the student'),
+    suggestedCategory: z.string().nullable().describe('Suggested program plan category key that best matches this purchase'),
+    categoryMatchReasoning: z.string().describe('Explanation of why this category was suggested based on the items'),
+    confidence: z.number().describe('Confidence score 0-1 for this category match'),
+    suggestedJustification: z.string().describe('Auto-generated justification for how these items benefit the student\'s education'),
+    relevantItems: z.array(z.string()).optional().describe('List of item descriptions from the receipt that match this category')
+  })).optional().describe('AI-suggested category allocations for each student based on their program plans and receipt items')
 });
 
 /**
@@ -302,6 +323,19 @@ In addition to extracting receipt information, you must evaluate this purchase a
 ${ALBERTA_EDUCATION_STANDARDS}
 
 ${EDUCATION_COMPLIANCE_PROMPT}
+
+CRITICAL COMPLIANCE OVERRIDE FOR STUDENT PLANS:
+When student program plans are provided, you MUST:
+1. First check if the purchase category exists in ANY student's approved categories
+2. If NO student has the matching category (e.g., "technology" for computer repair):
+   - Set educationComplianceScore to 30 or below
+   - Set educationCategory to "not-recommended"
+   - Set reimbursementEligibility to "not-eligible"
+   - Explain in educationReasoning that the category is NOT in the approved program plans
+3. Alberta Education standards are secondary - the student's approved categories take priority
+4. DO NOT recommend items just because Alberta generally allows them - they must match the student's plan
+
+Example: Computer repair may be allowed by Alberta, but if no student has "technology" approved, it's NOT eligible.
 
 CRITICAL: You must provide both receipt analysis AND education compliance evaluation. All fields including educationComplianceScore, educationCategory, educationReasoning, and reimbursementEligibility are required.
 
@@ -379,7 +413,32 @@ OUTPUT REQUIREMENTS:
 - MUST provide reasoning for each classification
 - Handle partial/unclear receipts gracefully with appropriate confidence scores
 
-Return a complete JSON object with all required fields, even if some items cannot be clearly classified.`;
+Return a complete JSON object with all required fields, even if some items cannot be clearly classified.
+
+STUDENT PROGRAM PLAN CATEGORY MATCHING FOR MIXED RECEIPTS:
+
+If student SOLO plan information is provided:
+1. For each educational item identified, determine which SOLO plan category it best matches
+2. Consider grouping similar educational items under the same category
+3. Generate student-specific justifications based on the educational items and their grade level
+4. Provide confidence scores for each category suggestion
+
+Mixed Receipt Category Allocation Strategy:
+- If all educational items fit one category → suggest that category for all selected students
+- If items span multiple categories → suggest the most prominent category or the one with highest total value
+- Consider the specific items when generating justifications
+- Factor in grade-appropriate usage (e.g., advanced materials for higher grades)
+
+Example Allocations:
+- Art supplies + craft materials → "art_supplies" for all students
+- Books + workbooks → prioritize "books" or "workbooks" based on majority
+- Mixed school supplies → "games_puzzles" or most appropriate general category
+- Science kit + lab supplies → "science_supplies" with grade-appropriate justification
+
+Generate justifications that specifically mention:
+- The actual items purchased (from the educational items list)
+- How they support the student's grade-level curriculum
+- The educational benefit for home education`;
 
 /**
  * Cloud function to analyze receipt images/PDFs using AI
@@ -404,7 +463,7 @@ const analyzeReceipt = onCall({
       fileUrlLength: data.fileUrl ? data.fileUrl.length : 0
     });
     
-    const { fileUrl, fileName, mimeType } = data;
+    const { fileUrl, fileName, mimeType, studentPlans } = data;
 
     if (!fileUrl) {
       throw new Error('File URL is required');
@@ -415,6 +474,12 @@ const analyzeReceipt = onCall({
     const contentType = mimeType || getContentType(null, fileName);
     
     console.log('Building prompt with content type:', contentType);
+    console.log('Student plans provided:', studentPlans ? studentPlans.length : 0);
+    
+    // Log detailed student plan information
+    if (studentPlans && studentPlans.length > 0) {
+      console.log('Detailed student plans:', JSON.stringify(studentPlans, null, 2));
+    }
     
     const prompt = [
       {
@@ -447,7 +512,74 @@ Pay special attention to:
 
 CRITICAL: You must provide a validationScore between 0-100. Return all fields even if some are null.
 
-IMPORTANT: You must return a complete JSON object with all required fields. Do not return null or undefined.`
+${studentPlans && studentPlans.length > 0 ? `
+STUDENT PROGRAM PLANS PROVIDED:
+${studentPlans.map(student => `
+Student: ${student.studentName} (Grade ${student.grade})
+Student ID: ${student.studentId}
+Approved Categories:
+${student.approvedCategories.map(cat => `- ${cat.key}: ${cat.name}${cat.hasFundingLimit ? ` (max ${cat.fundingLimitPercentage}% of funding)` : ''}`).join('\n')}
+`).join('\n')}
+
+Based on the receipt items and the students' approved categories above, YOU MUST suggest the best matching category for EACH student listed above. 
+For EACH student, include in suggestedAllocations:
+- studentId: The student's ID
+- studentName: The student's name  
+- suggestedCategory: The best matching category key from their approved list (e.g., "technology" for computer services)
+- categoryMatchReasoning: Why this category matches the purchase
+- confidence: A score between 0 and 1 (e.g., 0.9 for high confidence)
+- suggestedJustification: Educational justification for this student's grade level
+
+CRITICAL CATEGORY MATCHING RULES:
+- ONLY suggest categories that ACTUALLY EXIST in the student's approved list
+- If the purchase doesn't match ANY approved category, mark it as NOT ELIGIBLE
+- DO NOT try to force-fit purchases into unrelated categories (e.g., computer repair is NOT "internet")
+- Computer/tech repairs ONLY match if student has "technology" category approved
+- Internet category is ONLY for internet service fees, NOT hardware or repairs
+- Be strict: if no clear match exists, the purchase should NOT be recommended
+
+For each student:
+- If a good category match exists: confidence 0.7-1.0, mark as recommended
+- If no category matches: confidence 0.0-0.3, mark as NOT recommended, suggest category as null
+- ALWAYS include an entry in suggestedAllocations for EACH student` : ''}
+
+IMPORTANT: You must return a complete JSON object with all required fields. Do not return null or undefined.
+
+STUDENT PROGRAM PLAN CATEGORY MATCHING (REQUIRED IF STUDENT PLANS PROVIDED):
+
+If student SOLO plan information is provided, YOU MUST analyze each student's approved resource categories and:
+1. Match the purchased items to the most appropriate approved category for each student
+2. Consider the category descriptions to find the best fit
+3. Generate a specific educational justification explaining how this purchase benefits the student's education
+4. Provide a confidence score (0-1) for the match
+
+Category Matching Guidelines:
+- Books/novels → "books" category
+- Art supplies (markers, paper, paints, craft materials) → "art_supplies" category
+- Science equipment (microscopes, kits, lab materials) → "science_supplies" category
+- Educational games/puzzles → "games_puzzles" category
+- Online subscriptions/courses → "online_courses_resource" category
+- Field trip tickets/admissions → "field_trips" category (max 50% funding)
+- Musical instruments → "instruments" category
+- Sports/PE equipment → "pe_equipment" category
+- Tutoring services → "tutoring" category
+- Textbooks/workbooks/curriculum → "workbooks" category
+- Technology (computers, tablets, printers) → "technology" category
+- Internet service → "internet" category (50% of monthly fee)
+- Home economics supplies (cooking/baking for education) → "home_ec" category
+- Music/swimming/language lessons → "lessons" category
+
+Confidence Scoring for Category Matches (STRICT):
+- 0.9-1.0: Perfect match - item clearly fits an APPROVED category in student's plan
+- 0.7-0.89: Good match - item fits an APPROVED category with minor ambiguity
+- 0.3-0.69: ONLY use if trying to match within approved categories but unclear which one
+- 0.0-0.29: NO MATCH - category does NOT exist in student's approved list
+- IMPORTANT: If the category doesn't exist in the plan (e.g., no "technology"), use 0.0-0.2
+
+If a purchase could match multiple categories, choose the most specific one.
+Generate educational justifications that are specific to the student's grade level and the actual items purchased.
+
+CRITICAL: The suggestedAllocations array MUST contain one entry for EACH student whose plan was provided, even if you cannot find a perfect category match.`
       }
     ];
     
@@ -514,10 +646,18 @@ IMPORTANT: You must return a complete JSON object with all required fields. Do n
       validationScore: response.output?.validationScore,
       hasDate: !!response.output?.purchaseDate,
       hasAmount: !!response.output?.totalAmount,
-      hasVendor: !!response.output?.vendor
+      hasVendor: !!response.output?.vendor,
+      hasSuggestedAllocations: !!(response.output?.suggestedAllocations && response.output.suggestedAllocations.length > 0)
     });
     
     console.log('Full AI response output:', JSON.stringify(response.output, null, 2));
+    
+    // Specifically log suggested allocations
+    if (response.output?.suggestedAllocations) {
+      console.log('AI Suggested Allocations:', JSON.stringify(response.output.suggestedAllocations, null, 2));
+    } else {
+      console.log('No suggested allocations returned by AI');
+    }
 
     // Handle null or incomplete responses
     if (!response.output) {
@@ -549,13 +689,39 @@ IMPORTANT: You must return a complete JSON object with all required fields. Do n
           educationComplianceScore: 0,
           educationCategory: 'unclear',
           educationReasoning: 'Document could not be processed for education compliance assessment',
-          reimbursementEligibility: 'requires-review'
+          reimbursementEligibility: 'requires-review',
+          // AI-suggested allocations
+          suggestedAllocations: []
         }
       };
     }
     
     // Return the structured output with proper fallbacks for missing fields
     const analysisResult = response.output;
+    
+    // Adjust compliance score if no categories match
+    let adjustedComplianceScore = analysisResult.educationComplianceScore || 0;
+    let adjustedCategory = analysisResult.educationCategory || 'unclear';
+    let adjustedReasoning = analysisResult.educationReasoning || '';
+    let adjustedEligibility = analysisResult.reimbursementEligibility || 'requires-review';
+    let adjustedPriority = analysisResult.reviewPriority || 'medium';
+    let categoryMismatchWarning = null;
+    
+    if (analysisResult.suggestedAllocations && analysisResult.suggestedAllocations.length > 0) {
+      const hasAnyMatch = analysisResult.suggestedAllocations.some(
+        allocation => allocation.suggestedCategory && allocation.suggestedCategory !== 'null' && allocation.suggestedCategory !== null
+      );
+      
+      if (!hasAnyMatch && studentPlans && studentPlans.length > 0) {
+        // No categories match - reduce compliance score, mark as not eligible, and set high priority
+        adjustedComplianceScore = Math.min(adjustedComplianceScore, 30);
+        adjustedCategory = 'requires-review';
+        adjustedEligibility = 'not-eligible'; // Change to not-eligible since no categories match
+        adjustedPriority = 'high'; // High priority for category mismatches
+        categoryMismatchWarning = 'WARNING: This purchase does not match any approved categories in the students\' program plans. This claim will likely be REJECTED unless you add the appropriate category to your program plan.';
+        adjustedReasoning = categoryMismatchWarning + ' ' + adjustedReasoning;
+      }
+    }
     
     return {
       success: true,
@@ -571,7 +737,7 @@ IMPORTANT: You must return a complete JSON object with all required fields. Do n
         validationScore: analysisResult.validationScore || 0,
         validationIssues: analysisResult.validationIssues || ['Receipt analysis completed with partial data'],
         requiresManualReview: analysisResult.requiresManualReview !== undefined ? analysisResult.requiresManualReview : true,
-        reviewPriority: analysisResult.reviewPriority || 'medium',
+        reviewPriority: adjustedPriority,
         items: analysisResult.items || [],
         confidence: {
           date: analysisResult.confidence?.date || 0,
@@ -581,10 +747,13 @@ IMPORTANT: You must return a complete JSON object with all required fields. Do n
           tax: analysisResult.confidence?.tax || 0
         },
         // Alberta Education Standards Compliance
-        educationComplianceScore: analysisResult.educationComplianceScore || 0,
-        educationCategory: analysisResult.educationCategory || 'unclear',
-        educationReasoning: analysisResult.educationReasoning || 'Education compliance assessment not completed',
-        reimbursementEligibility: analysisResult.reimbursementEligibility || 'requires-review'
+        educationComplianceScore: adjustedComplianceScore,
+        educationCategory: adjustedCategory,
+        educationReasoning: adjustedReasoning,
+        reimbursementEligibility: adjustedEligibility,
+        categoryMismatchWarning: categoryMismatchWarning,
+        // AI-suggested allocations
+        suggestedAllocations: analysisResult.suggestedAllocations || []
       }
     };
   } catch (error) {
@@ -626,7 +795,9 @@ IMPORTANT: You must return a complete JSON object with all required fields. Do n
         educationComplianceScore: 0,
         educationCategory: 'unclear',
         educationReasoning: 'Analysis failed - education compliance could not be assessed',
-        reimbursementEligibility: 'requires-review'
+        reimbursementEligibility: 'requires-review',
+        // AI-suggested allocations
+        suggestedAllocations: []
       }
     };
   }
@@ -655,7 +826,7 @@ const analyzeMixedReceipt = onCall({
       fileUrlLength: data.fileUrl ? data.fileUrl.length : 0
     });
     
-    const { fileUrl, fileName, mimeType } = data;
+    const { fileUrl, fileName, mimeType, studentPlans } = data;
 
     if (!fileUrl) {
       throw new Error('File URL is required');
@@ -664,6 +835,12 @@ const analyzeMixedReceipt = onCall({
     const contentType = mimeType || getContentType(null, fileName);
     
     console.log('Building mixed receipt prompt with content type:', contentType);
+    console.log('Student plans provided for mixed receipt:', studentPlans ? studentPlans.length : 0);
+    
+    // Log detailed student plan information for mixed receipt
+    if (studentPlans && studentPlans.length > 0) {
+      console.log('Detailed student plans for mixed receipt:', JSON.stringify(studentPlans, null, 2));
+    }
     
     const prompt = [
       {
@@ -699,6 +876,18 @@ PAY SPECIAL ATTENTION TO:
 - Providing clear reasoning for each classification
 - Ensuring totals add up correctly
 
+${studentPlans && studentPlans.length > 0 ? `
+STUDENT PROGRAM PLANS PROVIDED:
+${studentPlans.map(student => `
+Student: ${student.studentName} (Grade ${student.grade})
+Student ID: ${student.studentId}
+Approved Categories:
+${student.approvedCategories.map(cat => `- ${cat.key}: ${cat.name}${cat.hasFundingLimit ? ` (max ${cat.fundingLimitPercentage}% of funding)` : ''}`).join('\n')}
+`).join('\n')}
+
+Based on the educational items found and the students' approved categories above, suggest the best matching category for each student. 
+Consider which educational items match which categories and generate appropriate educational justifications.` : ''}
+
 EXAMPLE OUTPUT STRUCTURE:
 {
   "items": [
@@ -728,6 +917,225 @@ EXAMPLE OUTPUT STRUCTURE:
 IMPORTANT: You must return a complete JSON object with ALL required fields including item-level breakdown.`
       }
     ];
+
+    
+    console.log('Using direct URL for mixed receipt file:', {
+      fileName,
+      mimeType: mimeType || getContentType(null, fileName),
+      urlLength: fileUrl.length
+    });
+
+    // Generate structured output using the mixed receipt schema
+    let response;
+    try {
+      response = await ai.generate({
+        model: googleAI.model(AI_MODELS.GEMINI.FLASH), // Using FLASH model for faster analysis
+        prompt: prompt,
+        output: { schema: MixedReceiptAnalysisSchema },
+        config: {
+          temperature: 0.1, // Low temperature for consistent extraction
+          maxOutputTokens: 6000 // Increased for item-level analysis
+        }
+      });
+    } catch (schemaError) {
+      console.error('Mixed receipt schema validation failed, trying fallback approach:', schemaError.message);
+      
+      // If structured output fails, try without schema and parse manually
+      try {
+        const fallbackResponse = await ai.generate({
+          model: googleAI.model(AI_MODELS.GEMINI.FLASH),
+          prompt: prompt,
+          config: {
+            temperature: 0.1,
+            maxOutputTokens: 6000
+          }
+        });
+        
+        console.log('Mixed receipt fallback response received:', fallbackResponse.text ? 'has text' : 'no text');
+        
+        // Try to extract JSON from the text response
+        let parsedOutput = null;
+        if (fallbackResponse.text) {
+          try {
+            // Look for JSON in the response
+            const jsonMatch = fallbackResponse.text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              parsedOutput = JSON.parse(jsonMatch[0]);
+              console.log('Successfully parsed JSON from mixed receipt fallback response');
+            }
+          } catch (parseError) {
+            console.error('Could not parse JSON from mixed receipt fallback response:', parseError.message);
+          }
+        }
+        
+        // Set response with parsed output or null
+        response = { output: parsedOutput };
+      } catch (fallbackError) {
+        console.error('Mixed receipt fallback generation also failed:', fallbackError.message);
+        // Set response to null to trigger error handling below
+        response = { output: null };
+      }
+    }
+
+    console.log('Mixed receipt analysis complete:', {
+      isValid: response.output?.isValid,
+      validationScore: response.output?.validationScore,
+      hasDate: !!response.output?.purchaseDate,
+      hasAmount: !!response.output?.totalAmount,
+      hasVendor: !!response.output?.vendor,
+      itemCount: response.output?.items?.length || 0,
+      educationalTotal: response.output?.educationalTotal,
+      nonEducationalTotal: response.output?.nonEducationalTotal
+    });
+    
+    console.log('Full mixed receipt AI response output:', JSON.stringify(response.output, null, 2));
+    
+    // Specifically log suggested allocations for mixed receipt
+    if (response.output?.suggestedAllocations) {
+      console.log('Mixed Receipt AI Suggested Allocations:', JSON.stringify(response.output.suggestedAllocations, null, 2));
+    } else {
+      console.log('No suggested allocations returned by AI for mixed receipt');
+    }
+
+    // Handle null or incomplete responses
+    if (!response.output) {
+      console.log('AI model returned null for mixed receipt - document likely cannot be processed');
+      return {
+        success: true,
+        analysis: {
+          purchaseDate: null,
+          totalAmount: null,
+          subtotalAmount: null,
+          taxAmount: null,
+          vendor: null,
+          documentType: 'other',
+          isValid: false,
+          validationScore: 0,
+          validationIssues: ['Mixed receipt could not be processed by AI - please upload a clearer image or enter details manually'],
+          requiresManualReview: true,
+          reviewPriority: 'high',
+          items: [],
+          educationalTotal: 0,
+          nonEducationalTotal: 0,
+          overallEducationComplianceScore: 0,
+          recommendedClaimAmount: 0,
+          confidence: {
+            date: 0,
+            amount: 0,
+            vendor: 0,
+            itemBreakdown: 0
+          },
+          suggestedAllocations: []
+        }
+      };
+    }
+    
+    // Return the structured output with proper fallbacks for missing fields
+    const analysisResult = response.output;
+    
+    // Adjust compliance score if no categories match
+    let adjustedComplianceScore = analysisResult.overallEducationComplianceScore || 0;
+    let adjustedPriority = analysisResult.reviewPriority || 'medium';
+    let categoryMismatchWarning = null;
+    
+    if (analysisResult.suggestedAllocations && analysisResult.suggestedAllocations.length > 0) {
+      const hasAnyMatch = analysisResult.suggestedAllocations.some(
+        allocation => allocation.suggestedCategory && allocation.suggestedCategory !== 'null' && allocation.suggestedCategory !== null
+      );
+      
+      if (!hasAnyMatch && studentPlans && studentPlans.length > 0) {
+        // No categories match - reduce compliance score significantly and set high priority
+        adjustedComplianceScore = Math.min(adjustedComplianceScore, 30);
+        adjustedPriority = 'high'; // High priority for category mismatches
+        categoryMismatchWarning = 'WARNING: These educational items do not match any approved categories in the students\' program plans. Special approval may be required.';
+      }
+    }
+    
+    // Ensure items array is properly structured
+    const items = (analysisResult.items || []).map(item => ({
+      description: item.description || 'Unknown item',
+      amount: item.amount || 0,
+      quantity: item.quantity || null,
+      isEducational: item.isEducational || false,
+      educationCategory: item.educationCategory || null,
+      complianceScore: item.complianceScore || 0,
+      complianceReasoning: item.complianceReasoning || 'No reasoning provided',
+      confidence: item.confidence || 0
+    }));
+    
+    return {
+      success: true,
+      analysis: {
+        purchaseDate: analysisResult.purchaseDate || null,
+        totalAmount: analysisResult.totalAmount || null,
+        subtotalAmount: analysisResult.subtotalAmount || null,
+        taxAmount: analysisResult.taxAmount || null,
+        vendor: analysisResult.vendor || null,
+        documentType: analysisResult.documentType || 'other',
+        isValid: analysisResult.isValid || false,
+        validationScore: analysisResult.validationScore || 0,
+        validationIssues: analysisResult.validationIssues || ['Mixed receipt analysis completed with partial data'],
+        requiresManualReview: analysisResult.requiresManualReview !== undefined ? analysisResult.requiresManualReview : true,
+        reviewPriority: adjustedPriority,
+        items: items,
+        educationalTotal: analysisResult.educationalTotal || 0,
+        nonEducationalTotal: analysisResult.nonEducationalTotal || 0,
+        overallEducationComplianceScore: adjustedComplianceScore,
+        recommendedClaimAmount: analysisResult.recommendedClaimAmount || analysisResult.educationalTotal || 0,
+        categoryMismatchWarning: categoryMismatchWarning,
+        confidence: {
+          date: analysisResult.confidence?.date || 0,
+          amount: analysisResult.confidence?.amount || 0,
+          vendor: analysisResult.confidence?.vendor || 0,
+          itemBreakdown: analysisResult.confidence?.itemBreakdown || 0
+        },
+        // AI-suggested allocations
+        suggestedAllocations: analysisResult.suggestedAllocations || []
+      }
+    };
+  } catch (error) {
+    console.error('Error analyzing mixed receipt:', error);
+    
+    // Check if this is likely an AI-generated image rejection
+    let errorMessage = error.message;
+    let validationIssues = ['Mixed receipt analysis failed: ' + error.message];
+    
+    if (error.message.includes('Provided image is not valid') || 
+        error.message.includes('Unable to process input image')) {
+      errorMessage = 'Image could not be processed. This may occur with AI-generated images or screenshots. Please upload a photo or scan of an actual receipt.';
+      validationIssues = [
+        'Image processing failed',
+        'Ensure the image is a photo or scan of a real receipt',
+        'AI-generated or synthetic images may be rejected'
+      ];
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      analysis: {
+        purchaseDate: null,
+        totalAmount: null,
+        subtotalAmount: null,
+        taxAmount: null,
+        vendor: null,
+        documentType: 'other',
+        isValid: false,
+        validationScore: 0,
+        validationIssues: validationIssues,
+        requiresManualReview: true,
+        reviewPriority: 'high',
+        items: [],
+        educationalTotal: 0,
+        nonEducationalTotal: 0,
+        overallEducationComplianceScore: 0,
+        recommendedClaimAmount: 0,
+        confidence: { date: 0, amount: 0, vendor: 0, itemBreakdown: 0 },
+        suggestedAllocations: []
+      }
+    };
+  }
+});
 
 /**
  * System prompt for citizenship document analysis and student verification
@@ -831,194 +1239,6 @@ CONFIDENCE SCORING (0-1 scale):
 IMPORTANT: You will receive the expected student name and document type. Your job is to verify the document matches these expectations. Always provide detailed reasoning for your assessments, especially when flagging concerns.
 
 Return complete analysis with all verification fields populated, even if some information cannot be determined with certainty.`;
-    
-    console.log('Using direct URL for mixed receipt file:', {
-      fileName,
-      mimeType: mimeType || getContentType(null, fileName),
-      urlLength: fileUrl.length
-    });
-
-    // Generate structured output using the mixed receipt schema
-    let response;
-    try {
-      response = await ai.generate({
-        model: googleAI.model(AI_MODELS.GEMINI.FLASH), // Using FLASH model for faster analysis
-        prompt: prompt,
-        output: { schema: MixedReceiptAnalysisSchema },
-        config: {
-          temperature: 0.1, // Low temperature for consistent extraction
-          maxOutputTokens: 6000 // Increased for item-level analysis
-        }
-      });
-    } catch (schemaError) {
-      console.error('Mixed receipt schema validation failed, trying fallback approach:', schemaError.message);
-      
-      // If structured output fails, try without schema and parse manually
-      try {
-        const fallbackResponse = await ai.generate({
-          model: googleAI.model(AI_MODELS.GEMINI.FLASH),
-          prompt: prompt,
-          config: {
-            temperature: 0.1,
-            maxOutputTokens: 6000
-          }
-        });
-        
-        console.log('Mixed receipt fallback response received:', fallbackResponse.text ? 'has text' : 'no text');
-        
-        // Try to extract JSON from the text response
-        let parsedOutput = null;
-        if (fallbackResponse.text) {
-          try {
-            // Look for JSON in the response
-            const jsonMatch = fallbackResponse.text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              parsedOutput = JSON.parse(jsonMatch[0]);
-              console.log('Successfully parsed JSON from mixed receipt fallback response');
-            }
-          } catch (parseError) {
-            console.error('Could not parse JSON from mixed receipt fallback response:', parseError.message);
-          }
-        }
-        
-        // Set response with parsed output or null
-        response = { output: parsedOutput };
-      } catch (fallbackError) {
-        console.error('Mixed receipt fallback generation also failed:', fallbackError.message);
-        // Set response to null to trigger error handling below
-        response = { output: null };
-      }
-    }
-
-    console.log('Mixed receipt analysis complete:', {
-      isValid: response.output?.isValid,
-      validationScore: response.output?.validationScore,
-      hasDate: !!response.output?.purchaseDate,
-      hasAmount: !!response.output?.totalAmount,
-      hasVendor: !!response.output?.vendor,
-      itemCount: response.output?.items?.length || 0,
-      educationalTotal: response.output?.educationalTotal,
-      nonEducationalTotal: response.output?.nonEducationalTotal
-    });
-    
-    console.log('Full mixed receipt AI response output:', JSON.stringify(response.output, null, 2));
-
-    // Handle null or incomplete responses
-    if (!response.output) {
-      console.log('AI model returned null for mixed receipt - document likely cannot be processed');
-      return {
-        success: true,
-        analysis: {
-          purchaseDate: null,
-          totalAmount: null,
-          subtotalAmount: null,
-          taxAmount: null,
-          vendor: null,
-          documentType: 'other',
-          isValid: false,
-          validationScore: 0,
-          validationIssues: ['Mixed receipt could not be processed by AI - please upload a clearer image or enter details manually'],
-          requiresManualReview: true,
-          reviewPriority: 'high',
-          items: [],
-          educationalTotal: 0,
-          nonEducationalTotal: 0,
-          overallEducationComplianceScore: 0,
-          recommendedClaimAmount: 0,
-          confidence: {
-            date: 0,
-            amount: 0,
-            vendor: 0,
-            itemBreakdown: 0
-          }
-        }
-      };
-    }
-    
-    // Return the structured output with proper fallbacks for missing fields
-    const analysisResult = response.output;
-    
-    // Ensure items array is properly structured
-    const items = (analysisResult.items || []).map(item => ({
-      description: item.description || 'Unknown item',
-      amount: item.amount || 0,
-      quantity: item.quantity || null,
-      isEducational: item.isEducational || false,
-      educationCategory: item.educationCategory || null,
-      complianceScore: item.complianceScore || 0,
-      complianceReasoning: item.complianceReasoning || 'No reasoning provided',
-      confidence: item.confidence || 0
-    }));
-    
-    return {
-      success: true,
-      analysis: {
-        purchaseDate: analysisResult.purchaseDate || null,
-        totalAmount: analysisResult.totalAmount || null,
-        subtotalAmount: analysisResult.subtotalAmount || null,
-        taxAmount: analysisResult.taxAmount || null,
-        vendor: analysisResult.vendor || null,
-        documentType: analysisResult.documentType || 'other',
-        isValid: analysisResult.isValid || false,
-        validationScore: analysisResult.validationScore || 0,
-        validationIssues: analysisResult.validationIssues || ['Mixed receipt analysis completed with partial data'],
-        requiresManualReview: analysisResult.requiresManualReview !== undefined ? analysisResult.requiresManualReview : true,
-        reviewPriority: analysisResult.reviewPriority || 'medium',
-        items: items,
-        educationalTotal: analysisResult.educationalTotal || 0,
-        nonEducationalTotal: analysisResult.nonEducationalTotal || 0,
-        overallEducationComplianceScore: analysisResult.overallEducationComplianceScore || 0,
-        recommendedClaimAmount: analysisResult.recommendedClaimAmount || analysisResult.educationalTotal || 0,
-        confidence: {
-          date: analysisResult.confidence?.date || 0,
-          amount: analysisResult.confidence?.amount || 0,
-          vendor: analysisResult.confidence?.vendor || 0,
-          itemBreakdown: analysisResult.confidence?.itemBreakdown || 0
-        }
-      }
-    };
-  } catch (error) {
-    console.error('Error analyzing mixed receipt:', error);
-    
-    // Check if this is likely an AI-generated image rejection
-    let errorMessage = error.message;
-    let validationIssues = ['Mixed receipt analysis failed: ' + error.message];
-    
-    if (error.message.includes('Provided image is not valid') || 
-        error.message.includes('Unable to process input image')) {
-      errorMessage = 'Image could not be processed. This may occur with AI-generated images or screenshots. Please upload a photo or scan of an actual receipt.';
-      validationIssues = [
-        'Image processing failed',
-        'Ensure the image is a photo or scan of a real receipt',
-        'AI-generated or synthetic images may be rejected'
-      ];
-    }
-    
-    return {
-      success: false,
-      error: errorMessage,
-      analysis: {
-        purchaseDate: null,
-        totalAmount: null,
-        subtotalAmount: null,
-        taxAmount: null,
-        vendor: null,
-        documentType: 'other',
-        isValid: false,
-        validationScore: 0,
-        validationIssues: validationIssues,
-        requiresManualReview: true,
-        reviewPriority: 'high',
-        items: [],
-        educationalTotal: 0,
-        nonEducationalTotal: 0,
-        overallEducationComplianceScore: 0,
-        recommendedClaimAmount: 0,
-        confidence: { date: 0, amount: 0, vendor: 0, itemBreakdown: 0 }
-      }
-    };
-  }
-});
 
 /**
  * Cloud function to analyze citizenship documents and verify student identity

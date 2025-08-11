@@ -44,7 +44,8 @@ const ExpandableActivityGroup = ({
   onAddCustomActivity,
   onRemoveCustomActivity,
   required = false, 
-  description = null 
+  description = null,
+  readOnly = false 
 }) => {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customActivityName, setCustomActivityName] = useState('');
@@ -86,6 +87,7 @@ const ExpandableActivityGroup = ({
                     }
                   }}
                   className="mt-0.5 h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  disabled={readOnly}
                 />
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">{option.label}</span>
@@ -101,7 +103,9 @@ const ExpandableActivityGroup = ({
                   <textarea
                     value={activityDescriptions[option.value] || ''}
                     onChange={(e) => onDescriptionChange(option.value, e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    readOnly={readOnly}
+                    disabled={readOnly}
                     rows={4}
                     placeholder="Describe how this activity will support learning..."
                   />
@@ -135,18 +139,21 @@ const ExpandableActivityGroup = ({
                     }
                   }}
                   className="mt-0.5 h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  disabled={readOnly}
                 />
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">{customActivity.name}</span>
                   <span className="text-xs text-purple-600 ml-2">(Custom)</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onRemoveCustomActivity(customActivity.key)}
-                  className="text-red-500 hover:text-red-700 text-xs"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveCustomActivity(customActivity.key)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </label>
               
               {/* Expandable description textarea for custom activities */}
@@ -158,7 +165,9 @@ const ExpandableActivityGroup = ({
                   <textarea
                     value={activityDescriptions[customActivity.key] || ''}
                     onChange={(e) => onDescriptionChange(customActivity.key, e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    readOnly={readOnly}
+                    disabled={readOnly}
                     rows={4}
                     placeholder="Describe how this custom activity will support learning..."
                   />
@@ -172,7 +181,7 @@ const ExpandableActivityGroup = ({
         })}
 
         {/* Add custom activity section */}
-        {!showCustomInput ? (
+        {!readOnly && !showCustomInput ? (
           <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center">
             <button
               type="button"
@@ -183,7 +192,7 @@ const ExpandableActivityGroup = ({
               <span>Add Custom Activity</span>
             </button>
           </div>
-        ) : (
+        ) : !readOnly ? (
           <div className="border border-purple-300 rounded-lg p-3 bg-purple-50">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Add Your Own Activity or Method
@@ -220,7 +229,7 @@ const ExpandableActivityGroup = ({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </FormField>
   );
@@ -274,7 +283,7 @@ const getTargetSchoolYear = () => {
   }
 };
 
-const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, schoolYear, selectedFacilitator = null }) => {
+const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, schoolYear, selectedFacilitator = null, readOnly = false, staffMode = false }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     studentLastName: '',
@@ -1688,11 +1697,20 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
             <div className="flex items-center space-x-2">
               <GraduationCap className="w-5 h-5 text-purple-500" />
               <span>Program Plan</span>
+              {staffMode && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <FileText className="w-3 h-3 mr-1" />
+                  Staff View (Read-Only)
+                </span>
+              )}
             </div>
           </SheetTitle>
           
           <SheetDescription className="text-left">
-            Complete the Schedule of Learning Outcomes (SOLO) program plan for {student.firstName} {student.lastName} - {schoolYear} school year
+            {staffMode ? 
+              `Viewing the Schedule of Learning Outcomes (SOLO) program plan for ${student.firstName} ${student.lastName} - ${schoolYear} school year` :
+              `Complete the Schedule of Learning Outcomes (SOLO) program plan for ${student.firstName} ${student.lastName} - ${schoolYear} school year`
+            }
           </SheetDescription>
         </SheetHeader>
 
@@ -1816,7 +1834,8 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                   <select
                     value={formData.facilitatorName}
                     onChange={(e) => handleInputChange('facilitatorName', e.target.value)}
-                    className={`w-full px-3 py-2 pr-10 border ${errors.facilitatorName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none`}
+                    className={`w-full px-3 py-2 pr-10 border ${errors.facilitatorName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    disabled={readOnly}
                   >
                     {getFacilitatorDropdownOptions().map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1856,7 +1875,8 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                     <select
                       value={formData.conductingPersonName}
                       onChange={(e) => handleConductingPersonChange(e.target.value)}
-                      className={`w-full px-3 py-2 pr-10 border ${errors.conductingPersonName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none`}
+                      className={`w-full px-3 py-2 pr-10 border ${errors.conductingPersonName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white appearance-none ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                      disabled={readOnly}
                     >
                       <option value="">Select a family guardian</option>
                       {familyGuardians.map((guardian) => (
@@ -1927,7 +1947,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                       ? 'border-green-500 bg-green-50 shadow-lg sm:scale-105' 
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
                   }`}
-                  onClick={() => handleInputChange('followAlbertaPrograms', false)}
+                  onClick={() => !readOnly && handleInputChange('followAlbertaPrograms', false)}
                 >
                   {!formData.followAlbertaPrograms && (
                     <div className="absolute -top-3 -right-3 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center">
@@ -1976,8 +1996,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                         type="radio"
                         name="educationalPath"
                         checked={!formData.followAlbertaPrograms}
-                        onChange={() => handleInputChange('followAlbertaPrograms', false)}
+                        onChange={() => !readOnly && handleInputChange('followAlbertaPrograms', false)}
                         className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                        disabled={readOnly}
                       />
                       <span className="text-xs sm:text-sm font-medium text-green-900">Choose SOLO Only</span>
                     </label>
@@ -1991,7 +2012,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                       ? 'border-blue-500 bg-blue-50 shadow-lg sm:scale-105' 
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
                   }`}
-                  onClick={() => handleInputChange('followAlbertaPrograms', true)}
+                  onClick={() => !readOnly && handleInputChange('followAlbertaPrograms', true)}
                 >
                   {formData.followAlbertaPrograms && (
                     <div className="absolute -top-3 -right-3 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center">
@@ -2040,8 +2061,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                         type="radio"
                         name="educationalPath"
                         checked={formData.followAlbertaPrograms}
-                        onChange={() => handleInputChange('followAlbertaPrograms', true)}
+                        onChange={() => !readOnly && handleInputChange('followAlbertaPrograms', true)}
                         className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        disabled={readOnly}
                       />
                       <span className="text-xs sm:text-sm font-medium text-blue-900">Choose SOLO + Alberta Programs</span>
                     </label>
@@ -2105,6 +2127,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                     onShowFlowChart={handleShowFlowChart}
                     otherCourses={formData.otherCourses}
                     onOtherCoursesChange={handleOtherCoursesChange}
+                    readOnly={readOnly}
                   />
                 </div>
               </div>
@@ -2145,6 +2168,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               onRemoveCustomActivity={handleRemoveCustomActivity}
               required
               description="Select all activities you plan to use. For each selected activity, describe how it will support your child's learning."
+              readOnly={readOnly}
             />
             {errors.activitiesAndMethods && (
               <div className="flex items-center space-x-2 text-sm text-red-600">
@@ -2192,6 +2216,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               onRemoveCustomActivity={handleRemoveCustomAssessment}
               required
               description="Please keep these items to guide the discussion with your facilitator during your visits. For each selected method, describe how you will use it to assess your child's progress."
+              readOnly={readOnly}
             />
             {errors.assessmentMethods && (
               <div className="flex items-center space-x-2 text-sm text-red-600">
@@ -2261,6 +2286,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               onRemoveCustomActivity={handleRemoveCustomResource}
               required
               description="Select the resources you plan to use in your home education program. Detailed descriptions help ensure faster approval and processing."
+              readOnly={readOnly}
             />
             {errors.resourcesAndMaterials && (
               <div className="flex items-center space-x-2 text-sm text-red-600">
@@ -2283,8 +2309,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                     <input
                       type="checkbox"
                       checked={formData.acknowledgementRead}
-                      onChange={(e) => handleInputChange('acknowledgementRead', e.target.checked)}
+                      onChange={(e) => !readOnly && handleInputChange('acknowledgementRead', e.target.checked)}
                       className="mt-0.5 h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                      disabled={readOnly}
                     />
                     <span className="text-sm text-gray-900">
                       I have thoroughly read and understand the above resource claim information. If I have any questions I will reach out to my facilitator for clarification.
@@ -2297,8 +2324,9 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                 <input
                   type="date"
                   value={formData.todaysDate}
-                  onChange={(e) => handleInputChange('todaysDate', e.target.value)}
-                  className={`w-full px-3 py-2 border ${errors.todaysDate ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  onChange={(e) => !readOnly && handleInputChange('todaysDate', e.target.value)}
+                  className={`w-full px-3 py-2 border ${errors.todaysDate ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                  disabled={readOnly}
                 />
               </FormField>
             </div>
@@ -2392,29 +2420,56 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Action Buttons */}
             <div className="pt-6 border-t border-gray-200">
-              <button
-                type="submit"
-                disabled={isSubmitting || generatingPDF}
-                className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                  isSubmitting || generatingPDF
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
-              >
-                {isSubmitting || generatingPDF ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    {generatingPDF ? 'Generating PDF...' : 'Submitting Education Plan...'}
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {existingSubmission?.submissionStatus === 'submitted' ? 'Update Program Plan' : 'Submit Program Plan'}
-                  </>
-                )}
-              </button>
+              {staffMode ? (
+                // Staff mode: Show PDF download button
+                <button
+                  type="button"
+                  onClick={handleDownloadPDF}
+                  disabled={generatingPDF}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    generatingPDF
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center justify-center`}
+                >
+                  {generatingPDF ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Program Plan PDF
+                    </>
+                  )}
+                </button>
+              ) : (
+                // Regular mode: Show submit button
+                <button
+                  type="submit"
+                  disabled={isSubmitting || generatingPDF}
+                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
+                    isSubmitting || generatingPDF
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
+                >
+                  {isSubmitting || generatingPDF ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      {generatingPDF ? 'Generating PDF...' : 'Submitting Education Plan...'}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {existingSubmission?.submissionStatus === 'submitted' ? 'Update Program Plan' : 'Submit Program Plan'}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </form>
         )}

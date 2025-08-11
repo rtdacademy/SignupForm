@@ -73,8 +73,8 @@ const StudentCitizenshipDocuments = ({
     // If AI analysis is enabled, analyze new documents
     if (aiAnalyze && newDocuments.length > 0) {
       // Find newly added documents
-      const existingFileUrls = new Set(documents.map(doc => doc.fileUrl));
-      const newDocs = newDocuments.filter(doc => !existingFileUrls.has(doc.fileUrl));
+      const existingFileUrls = new Set(documents.map(doc => doc.url));
+      const newDocs = newDocuments.filter(doc => !existingFileUrls.has(doc.url));
       
       // Analyze each new document
       newDocs.forEach(doc => {
@@ -86,7 +86,10 @@ const StudentCitizenshipDocuments = ({
   const analyzeDocumentWithAI = async (document) => {
     if (!aiAnalyze || !student || !document) return;
 
-    const docId = document.fileId || document.fileName;
+    // Use timestamp as unique key to avoid Firebase key restrictions
+    const docId = Date.now().toString();
+    // Store the analysis ID in the document for later lookup
+    document._analysisId = docId;
     
     // Clear previous analysis for this document
     setAnalysisResults(prev => ({ ...prev, [docId]: null }));
@@ -101,15 +104,32 @@ const StudentCitizenshipDocuments = ({
       const functions = getFunctions();
       const analyzeFunc = httpsCallable(functions, 'analyzeCitizenshipDocument');
 
-      console.log('Analyzing citizenship document:', document.fileName);
+      console.log('Analyzing citizenship document:', document.name);
+
+      // Determine actual MIME type from file extension
+      const getActualMimeType = (fileName) => {
+        if (!fileName) return 'application/octet-stream';
+        const extension = fileName.split('.').pop().toLowerCase();
+        const mimeTypeMap = {
+          'pdf': 'application/pdf',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'heic': 'image/heic',
+          'heif': 'image/heif'
+        };
+        return mimeTypeMap[extension] || 'application/octet-stream';
+      };
 
       const result = await analyzeFunc({
-        fileUrl: document.fileUrl,
-        fileName: document.fileName,
-        mimeType: document.fileType,
+        fileUrl: document.url,
+        fileName: document.name,
+        mimeType: getActualMimeType(document.name),
         studentName: `${student.firstName} ${student.lastName}`,
         studentBirthDate: student.birthDate || null,
-        expectedDocumentType: document.documentType || null // From CitizenshipDocuments component
+        expectedDocumentType: document.type || null // From CitizenshipDocuments component
       });
 
       if (result.data.success) {
@@ -184,10 +204,10 @@ const StudentCitizenshipDocuments = ({
     }
   };
 
-  const handleManualOverride = (docId, overrideData) => {
+  const handleManualOverride = (analysisId, overrideData) => {
     setManualOverrides(prev => ({
       ...prev,
-      [docId]: overrideData
+      [analysisId]: overrideData
     }));
 
     toast.success('Manual verification recorded', {
@@ -195,9 +215,91 @@ const StudentCitizenshipDocuments = ({
     });
   };
 
+  // Helper function to check if all AI failed documents have manual overrides
+  const checkAllFailedDocumentsConfirmed = () => {
+    if (!aiAnalyze || documents.length === 0) return true;
+    
+    for (const document of documents) {
+      const analysisId = document._analysisId;
+      if (!analysisId) continue; // Skip documents without analysis
+      
+      const analysis = analysisResults[analysisId];
+      const error = analysisErrors[analysisId];
+      const override = manualOverrides[analysisId];
+      
+      // If there's an AI analysis error or very low score, require manual confirmation
+      const hasAnalysisFailure = error || (analysis && analysis.overallScore < 50);
+      const requiresManualConfirmation = hasAnalysisFailure || (analysis && analysis.requiresManualReview);
+      
+      // If this document requires manual confirmation but doesn't have an override, return false
+      if (requiresManualConfirmation && !override?.studentNameConfirmed && !override?.documentTypeConfirmed) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  // Helper function to determine if any documents will require staff review
+  const hasDocumentsRequiringStaffReview = () => {
+    if (!aiAnalyze || documents.length === 0) return false;
+    
+    for (const document of documents) {
+      const analysisId = document._analysisId;
+      if (!analysisId) continue; // Skip documents without analysis
+      
+      const analysis = analysisResults[analysisId];
+      const error = analysisErrors[analysisId];
+      
+      // Documents with analysis errors or low scores will need staff review
+      if (error || (analysis && analysis.overallScore < 70)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Helper functions to get only active analysis results (for current documents)
+  const getActiveAnalysisResults = () => {
+    const activeResults = {};
+    documents.forEach(doc => {
+      if (doc._analysisId && analysisResults[doc._analysisId]) {
+        activeResults[doc._analysisId] = analysisResults[doc._analysisId];
+      }
+    });
+    return activeResults;
+  };
+
+  const getActiveAnalysisErrors = () => {
+    const activeErrors = {};
+    documents.forEach(doc => {
+      if (doc._analysisId && analysisErrors[doc._analysisId]) {
+        activeErrors[doc._analysisId] = analysisErrors[doc._analysisId];
+      }
+    });
+    return activeErrors;
+  };
+
+  const getActiveManualOverrides = () => {
+    const activeOverrides = {};
+    documents.forEach(doc => {
+      if (doc._analysisId && manualOverrides[doc._analysisId]) {
+        activeOverrides[doc._analysisId] = manualOverrides[doc._analysisId];
+      }
+    });
+    return activeOverrides;
+  };
+
   const handleSaveDocuments = async () => {
     if (documents.length === 0) {
       toast.error('Please upload at least one citizenship document');
+      return;
+    }
+
+    // Check if all failed documents have been manually confirmed
+    if (!checkAllFailedDocumentsConfirmed()) {
+      toast.error('Please confirm all documents with failed AI verification by clicking the "Confirm Valid" button');
       return;
     }
 
@@ -208,9 +310,9 @@ const StudentCitizenshipDocuments = ({
       
       // Add AI validation status to each document
       const documentsWithValidation = documents.map(doc => {
-        const docId = doc.fileId || doc.fileName;
-        const analysis = analysisResults[docId];
-        const override = manualOverrides[docId];
+        const analysisId = doc._analysisId;
+        const analysis = analysisId ? analysisResults[analysisId] : null;
+        const override = analysisId ? manualOverrides[analysisId] : null;
         
         // Determine if document is AI validated based on analysis or manual override
         let aiValidated = false;
@@ -238,17 +340,27 @@ const StudentCitizenshipDocuments = ({
       const hasValidatedDocument = documentsWithValidation.some(doc => doc.aiValidated === true);
       const overallCompletionStatus = hasValidatedDocument ? 'completed' : 'pending';
       
+      // Check if any documents require staff review
+      const requiresStaffReview = hasDocumentsRequiringStaffReview();
+      
       const documentData = {
         studentId: student.id,
         studentName: `${student.firstName} ${student.lastName}`,
         documents: documentsWithValidation,
         completionStatus: overallCompletionStatus,
         lastUpdated: new Date().toISOString(),
-        // Include AI analysis results if available
+        // Staff review flag for documents with AI analysis failures
+        requiresStaffReview: requiresStaffReview,
+        ...(requiresStaffReview && {
+          staffReviewReason: 'AI document analysis failed or returned low confidence scores',
+          staffReviewRequired: true,
+          reviewPriority: 'high'
+        }),
+        // Include AI analysis results if available (only for current documents)
         ...(aiAnalyze && {
-          aiAnalysisResults: analysisResults,
-          analysisErrors: analysisErrors,
-          manualOverrides: manualOverrides,
+          aiAnalysisResults: getActiveAnalysisResults(),
+          analysisErrors: getActiveAnalysisErrors(),
+          manualOverrides: getActiveManualOverrides(),
           aiAnalysisEnabled: true
         })
       };
@@ -348,19 +460,6 @@ const StudentCitizenshipDocuments = ({
             </div>
           </Alert>
 
-          {/* Document Information */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">Accepted Documents</h3>
-            <p className="text-sm text-blue-800 mb-2">Upload ONE of the following documents for school registration:</p>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc pl-5">
-              <li><strong>Birth Certificate:</strong> Canadian birth certificate</li>
-              <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized citizens</li>
-              <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
-              <li><strong>Status Card (Indigenous):</strong> Secure Certificate of Indian Status for First Nations people registered under the Indian Act</li>
-              <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other legal status documents</li>
-            </ul>
-          </div>
-
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
@@ -384,18 +483,18 @@ const StudentCitizenshipDocuments = ({
                   </h3>
                   
                   {documents.map(document => {
-                    const docId = document.fileId || document.fileName;
-                    const analysis = analysisResults[docId];
-                    const isAnalyzing = analyzingDocuments[docId];
-                    const error = analysisErrors[docId];
-                    const override = manualOverrides[docId];
+                    const analysisId = document._analysisId;
+                    const analysis = analysisId ? analysisResults[analysisId] : null;
+                    const isAnalyzing = analysisId ? analyzingDocuments[analysisId] : false;
+                    const error = analysisId ? analysisErrors[analysisId] : null;
+                    const override = analysisId ? manualOverrides[analysisId] : null;
 
                     return (
-                      <div key={docId} className="border border-gray-200 rounded-lg p-4 bg-white">
+                      <div key={document.id || document.name || analysisId} className="border border-gray-200 rounded-lg p-4 bg-white">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 truncate">{document.fileName}</h4>
-                            <p className="text-sm text-gray-500">{document.fileType}</p>
+                            <h4 className="font-medium text-gray-900 truncate">{document.name}</h4>
+                            <p className="text-sm text-gray-500">{document.type}</p>
                           </div>
                           
                           {/* Analysis Status Badge */}
@@ -521,7 +620,7 @@ const StudentCitizenshipDocuments = ({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleManualOverride(docId, {
+                                    onClick={() => handleManualOverride(analysisId, {
                                       studentNameConfirmed: true,
                                       documentTypeConfirmed: true,
                                       reasoning: 'Manual override by parent/guardian'
@@ -579,7 +678,7 @@ const StudentCitizenshipDocuments = ({
               <div className="flex gap-4 pt-6 border-t">
                 <Button
                   onClick={handleSaveDocuments}
-                  disabled={saving || documents.length === 0}
+                  disabled={saving || documents.length === 0 || !checkAllFailedDocumentsConfirmed()}
                   className="flex-1"
                 >
                   {saving ? (

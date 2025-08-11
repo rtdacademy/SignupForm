@@ -4,6 +4,7 @@ import { getDatabase, ref, set, get, push } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { 
   Upload, 
@@ -20,9 +21,11 @@ import {
   Calculator,
   Sparkles,
   Info,
+  Minus,
   Eye,
   Maximize2,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString } from '../utils/timeZoneUtils';
 import { FUNDING_RATES, REIMBURSEMENT_SETTINGS } from '../config/HomeEducation';
@@ -269,32 +272,113 @@ const StudentAllocationCard = ({
       {/* Allocation Details (only show if selected) */}
       {isSelected && (
         <div className="space-y-4 border-t border-purple-200 pt-4">
-          {/* Percentage Input */}
+          {/* AI Suggestion Badge */}
+          {allocation.isAISuggested && (
+            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center space-x-2 text-xs">
+                <Sparkles className="w-3 h-3 text-blue-600" />
+                <span className="text-blue-800 font-medium">
+                  AI Suggested Category ({Math.round((allocation.aiConfidence || 0) * 100)}% confidence)
+                </span>
+              </div>
+              {allocation.relevantItems && allocation.relevantItems.length > 0 && (
+                <p className="text-xs text-blue-700 mt-1">
+                  Based on: {allocation.relevantItems.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* No Matching Category Warning */}
+          {allocation.isAISuggested && allocation.aiConfidence === 0 && !allocation.soloCategories?.length && (
+            <div className="mb-3 p-2 bg-orange-50 border border-orange-300 rounded-md">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-orange-800">
+                    No Matching Category Available
+                  </p>
+                  <p className="text-xs text-orange-700 mt-1">
+                    This purchase doesn't match any categories in this student's program plan. 
+                    You'll need to select "Other" or update the program plan to include an appropriate category.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Percentage Input with Quick Actions */}
           <div className="grid grid-cols-2 gap-4">
             <FormField 
               label="Percentage" 
               error={errors.percentage}
               required
             >
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={allocation.percentage || ''}
-                  onChange={(e) => handlePercentageChange(e.target.value)}
-                  disabled={analyzingReceipt}
-                  className={`w-full px-3 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    analyzingReceipt 
-                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                      : errors.percentage 
-                        ? 'border-red-300' 
-                        : 'border-gray-300'
-                  }`}
-                  placeholder={analyzingReceipt ? "Wait..." : "0"}
-                />
-                <span className={`absolute right-3 top-2 ${analyzingReceipt ? 'text-gray-400' : 'text-gray-500'}`}>%</span>
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={allocation.percentage || ''}
+                    onChange={(e) => handlePercentageChange(e.target.value)}
+                    disabled={analyzingReceipt}
+                    className={`w-full px-3 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      analyzingReceipt 
+                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                        : errors.percentage 
+                          ? 'border-red-300' 
+                          : 'border-gray-300'
+                    }`}
+                    placeholder={analyzingReceipt ? "Wait..." : "0"}
+                  />
+                  <span className={`absolute right-3 top-2 ${analyzingReceipt ? 'text-gray-400' : 'text-gray-500'}`}>%</span>
+                </div>
+                {/* Quick Action Buttons */}
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handlePercentageChange('100')}
+                    disabled={analyzingReceipt}
+                    className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      analyzingReceipt
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    }`}
+                  >
+                    100%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(allocation.percentage) || 0;
+                      handlePercentageChange(Math.min(100, current + 10).toString());
+                    }}
+                    disabled={analyzingReceipt}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      analyzingReceipt
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    +10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(allocation.percentage) || 0;
+                      handlePercentageChange(Math.max(0, current - 10).toString());
+                    }}
+                    disabled={analyzingReceipt}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      analyzingReceipt
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    -10%
+                  </button>
+                </div>
               </div>
             </FormField>
 
@@ -327,25 +411,36 @@ const StudentAllocationCard = ({
           >
             <div className="space-y-2">
               {studentSOLOCategories.length > 0 ? (
-                <select
+                <Select
                   value={allocation.soloCategories?.[0] || ''}
-                  onChange={(e) => handleCategoryChange(e.target.value ? [e.target.value] : [])}
+                  onValueChange={(value) => handleCategoryChange(value ? [value] : [])}
                   disabled={analyzingReceipt}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    analyzingReceipt 
-                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                      : errors.soloCategories 
-                        ? 'border-red-300' 
-                        : 'border-gray-300'
-                  }`}
                 >
-                  <option value="">Select a category...</option>
-                  {studentSOLOCategories.map((category) => (
-                    <option key={category.key} value={category.key}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger 
+                    className={`w-full ${
+                      analyzingReceipt 
+                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                        : errors.soloCategories 
+                          ? 'border-red-300 focus:ring-red-500' 
+                          : 'border-gray-300 focus:ring-purple-500'
+                    }`}
+                  >
+                    <SelectValue placeholder="Select a category..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[500px]">
+                    {studentSOLOCategories.map((category) => (
+                      <SelectItem 
+                        key={category.key} 
+                        value={category.key}
+                        className="cursor-pointer"
+                      >
+                        <span className="block truncate pr-2" title={category.name}>
+                          {category.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-sm text-yellow-800">
@@ -402,7 +497,7 @@ const StudentAllocationCard = ({
   );
 };
 
-const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, customClaims, onClaimSubmitted }) => {
+const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, familyId, customClaims, onClaimSubmitted }) => {
   const { user } = useAuth();
   
   // Auto-determine school year based on deadline
@@ -410,10 +505,9 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
   const selectedSchoolYear = schoolYearInfo.schoolYear;
   
   const [formData, setFormData] = useState({
-    purchaseDate: toDateString(new Date()),
+    purchaseDate: '',
     vendor: '',
     totalAmount: '',
-    taxAmount: '',
     description: '',
     receipts: [],
     manualValidationNotes: ''
@@ -439,9 +533,13 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
     purchaseDate: false,
     vendor: false,
     totalAmount: false,
-    taxAmount: false,
     description: false
   });
+  
+  // Manual entry state
+  const [manualEntryEnabled, setManualEntryEnabled] = useState(false);
+  const [manualEntryReason, setManualEntryReason] = useState('');
+  const [showManualEntryModal, setShowManualEntryModal] = useState(false);
   
   // Preview state
   const [previewReceipt, setPreviewReceipt] = useState(null);
@@ -454,13 +552,13 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
 
   // Load student data when form opens
   useEffect(() => {
-    if (isOpen && familyData?.students && customClaims?.familyId) {
+    if (isOpen && familyData?.students && familyId) {
       loadStudentData();
     }
-  }, [isOpen, familyData?.students, customClaims?.familyId]);
+  }, [isOpen, familyData?.students, familyId]);
 
   const loadStudentData = async () => {
-    if (!familyData?.students || !customClaims?.familyId) return;
+    if (!familyData?.students || !familyId) return;
 
     try {
       const db = getDatabase();
@@ -468,19 +566,19 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       const budgets = {};
 
       for (const student of familyData.students) {
-        // Load SOLO plan categories
+        // Load program plan categories
         try {
           const dbSchoolYear = formatSchoolYearForDatabase(selectedSchoolYear);
-          console.log(`Loading SOLO plan for student ${student.id}, school year: ${selectedSchoolYear} -> ${dbSchoolYear}`);
-          const soloRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
+          console.log(`Loading program plan for student ${student.id}, school year: ${selectedSchoolYear} -> ${dbSchoolYear}`);
+          const soloRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
           const soloSnapshot = await get(soloRef);
           
           if (soloSnapshot.exists()) {
             const soloData = soloSnapshot.val();
-            console.log(`✅ Found SOLO plan for student ${student.id}:`, soloData);
+            console.log(`✅ Found program plan for student ${student.id}:`, soloData);
             const categories = [];
             
-            // Extract resource categories from SOLO plan
+            // Extract resource categories from program plan
             if (soloData.resourcesAndMaterials && soloData.resourceDescriptions) {
               soloData.resourcesAndMaterials.forEach(resourceKey => {
                 const description = soloData.resourceDescriptions[resourceKey];
@@ -521,11 +619,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
             soloPlans[student.id] = categories;
             console.log(`✅ Processed ${categories.length} categories for student ${student.id}:`, categories);
           } else {
-            console.log(`❌ No SOLO plan found for student ${student.id} at path: homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
+            console.log(`❌ No program plan found for student ${student.id} at path: homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
             soloPlans[student.id] = [];
           }
         } catch (error) {
-          console.error(`Error loading SOLO plan for student ${student.id}:`, error);
+          console.error(`Error loading program plan for student ${student.id}:`, error);
           soloPlans[student.id] = [];
         }
 
@@ -533,7 +631,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
         try {
           const dbSchoolYear = formatSchoolYearForDatabase(selectedSchoolYear);
           console.log(`Loading budget for student ${student.id}, school year: ${selectedSchoolYear} -> ${dbSchoolYear}`);
-          const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${dbSchoolYear}`);
+          const reimbursementRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/REIMBURSEMENT_CLAIMS/${dbSchoolYear}`);
           const reimbursementSnapshot = await get(reimbursementRef);
           
           let spentAmount = 0;
@@ -593,7 +691,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Track user overrides for purchase info fields
-    if (isUserInput && ['purchaseDate', 'vendor', 'totalAmount', 'taxAmount', 'description'].includes(field)) {
+    if (isUserInput && ['purchaseDate', 'vendor', 'totalAmount', 'description'].includes(field)) {
       setUserHasOverridden(prev => ({ ...prev, [field]: true }));
     }
     
@@ -643,7 +741,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       
       const storage = getStorage();
       const dbSchoolYear = formatSchoolYearForDatabase(selectedSchoolYear);
-      const fileRef = storageRef(storage, `rtdAcademy/reimbursementReceipts/${customClaims.familyId}/${dbSchoolYear}/${fileName}`);
+      const fileRef = storageRef(storage, `rtdAcademy/reimbursementReceipts/${familyId}/${dbSchoolYear}/${fileName}`);
       
       const snapshot = await uploadBytes(fileRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
@@ -713,6 +811,25 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
     try {
       const functions = getFunctions();
       
+      // Prepare student plan data for AI
+      const studentPlanData = familyData.students
+        .filter(student => studentSOLOPlans[student.id]?.length > 0)
+        .map(student => ({
+          studentId: student.id,
+          studentName: `${student.firstName} ${student.lastName}`,
+          grade: student.grade,
+          approvedCategories: studentSOLOPlans[student.id].map(cat => ({
+            key: cat.key,
+            name: cat.name,
+            description: cat.description,
+            hasFundingLimit: cat.hasFundingLimit || false,
+            fundingLimitPercentage: cat.fundingLimitPercentage || null
+          }))
+        }));
+      
+      console.log('Sending student plans to AI:', studentPlanData.length, 'students with program plans');
+      console.log('Student plan data being sent:', studentPlanData);
+      
       // Choose the appropriate cloud function based on receipt type
       const analyzeFunc = isMixedReceipt 
         ? httpsCallable(functions, 'analyzeMixedReceipt')
@@ -723,11 +840,16 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       const result = await analyzeFunc({
         fileUrl: receipt.fileUrl,
         fileName: receipt.fileName,
-        mimeType: receipt.fileType
+        mimeType: receipt.fileType,
+        studentPlans: studentPlanData
       });
       
       if (result.data.success) {
         const analysis = result.data.analysis;
+        
+        // Log the full AI response to see if suggestedAllocations is present
+        console.log('Full AI analysis response:', analysis);
+        console.log('Suggested allocations from AI:', analysis.suggestedAllocations);
         
         if (isMixedReceipt) {
           // Handle mixed receipt results
@@ -752,16 +874,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
           }
           
           // Auto-populate common fields
-          if (analysis.purchaseDate && !formData.purchaseDate && !userHasOverridden.purchaseDate) {
+          console.log('Mixed receipt - AI analysis purchaseDate:', analysis.purchaseDate, 'Current formData.purchaseDate:', formData.purchaseDate, 'User overridden:', userHasOverridden.purchaseDate);
+          if (analysis.purchaseDate && !userHasOverridden.purchaseDate) {
+            console.log('Mixed receipt - Setting purchaseDate from AI analysis:', analysis.purchaseDate);
             handleInputChange('purchaseDate', analysis.purchaseDate, false);
           }
           
           if (analysis.vendor && !formData.vendor && !userHasOverridden.vendor) {
             handleInputChange('vendor', analysis.vendor, false);
-          }
-          
-          if (analysis.taxAmount && !formData.taxAmount && !userHasOverridden.taxAmount) {
-            handleInputChange('taxAmount', analysis.taxAmount.toString(), false);
           }
           
           // For mixed receipts, generate description from educational items
@@ -772,6 +892,45 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                 .map(item => item.description)
                 .join(', ');
               handleInputChange('description', description, false);
+            }
+          }
+          
+          // Auto-populate category suggestions for mixed receipts if available
+          if (analysis.suggestedAllocations && analysis.suggestedAllocations.length > 0) {
+            const newAllocations = {};
+            const newSelectedStudents = new Set();
+
+            analysis.suggestedAllocations.forEach(suggestion => {
+              // Only apply high-confidence suggestions automatically (70% or higher)
+              if (suggestion.confidence >= 0.7) {
+                newSelectedStudents.add(suggestion.studentId);
+
+                newAllocations[suggestion.studentId] = {
+                  studentId: suggestion.studentId,
+                  studentName: suggestion.studentName,
+                  percentage: 0, // User still needs to set percentage
+                  amount: 0,
+                  totalAmount: analysis.recommendedClaimAmount || analysis.educationalTotal || 0,
+                  soloCategories: suggestion.suggestedCategory ? [suggestion.suggestedCategory] : [],
+                  categoryJustification: suggestion.suggestedJustification || '',
+                  isAISuggested: true,
+                  aiConfidence: suggestion.confidence,
+                  relevantItems: suggestion.relevantItems || []
+                };
+              }
+            });
+
+            // Update state with suggestions
+            if (Object.keys(newAllocations).length > 0) {
+              setSelectedStudents(newSelectedStudents);
+              setStudentAllocations(prev => ({
+                ...prev,
+                ...newAllocations
+              }));
+
+              toast.info(`AI suggested categories for ${Object.keys(newAllocations).length} students based on educational items`, {
+                description: 'Review and adjust percentages as needed'
+              });
             }
           }
           
@@ -792,16 +951,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
           });
           
           // Auto-populate form fields ONLY if data was extracted AND user hasn't overridden
-          if (analysis.purchaseDate && !formData.purchaseDate && !userHasOverridden.purchaseDate) {
+          console.log('Standard receipt - AI analysis purchaseDate:', analysis.purchaseDate, 'Current formData.purchaseDate:', formData.purchaseDate, 'User overridden:', userHasOverridden.purchaseDate);
+          if (analysis.purchaseDate && !userHasOverridden.purchaseDate) {
+            console.log('Standard receipt - Setting purchaseDate from AI analysis:', analysis.purchaseDate);
             handleInputChange('purchaseDate', analysis.purchaseDate, false); // false = not user input
           }
           
           if (analysis.totalAmount && !formData.totalAmount && !userHasOverridden.totalAmount) {
             handleInputChange('totalAmount', analysis.totalAmount.toString(), false);
-          }
-          
-          if (analysis.taxAmount && !formData.taxAmount && !userHasOverridden.taxAmount) {
-            handleInputChange('taxAmount', analysis.taxAmount.toString(), false);
           }
           
           if (analysis.vendor && !formData.vendor && !userHasOverridden.vendor) {
@@ -812,11 +969,68 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
             handleInputChange('description', analysis.purchaseDescription, false);
           }
           
+          // Check for category mismatch warning
+          if (analysis.categoryMismatchWarning) {
+            console.warn('Category mismatch warning:', analysis.categoryMismatchWarning);
+          }
+          
+          // Auto-populate category suggestions if available
+          if (analysis.suggestedAllocations && analysis.suggestedAllocations.length > 0) {
+            console.log('Processing AI suggestions for standard receipt:', analysis.suggestedAllocations);
+            const newAllocations = {};
+            const newSelectedStudents = new Set();
+            let hasNoCategoryMatches = true;
+
+            analysis.suggestedAllocations.forEach(suggestion => {
+              console.log('Processing suggestion:', suggestion);
+              // Only apply suggestions with a valid category and confidence >= 0.7
+              if (suggestion.suggestedCategory && suggestion.suggestedCategory !== 'null' && suggestion.confidence >= 0.7) {
+                hasNoCategoryMatches = false;
+                console.log('High confidence suggestion accepted for student:', suggestion.studentId);
+                newSelectedStudents.add(suggestion.studentId);
+
+                newAllocations[suggestion.studentId] = {
+                  studentId: suggestion.studentId,
+                  studentName: suggestion.studentName,
+                  percentage: 0, // User still needs to set percentage
+                  amount: 0,
+                  totalAmount: parseFloat(formData.totalAmount) || 0,
+                  soloCategories: [suggestion.suggestedCategory],
+                  categoryJustification: suggestion.suggestedJustification || '',
+                  isAISuggested: true,
+                  aiConfidence: suggestion.confidence
+                };
+              } else if (!suggestion.suggestedCategory) {
+                console.log('No matching category found for student:', suggestion.studentId, '- Reason:', suggestion.categoryMatchReasoning);
+              } else {
+                console.log('Low confidence suggestion for student:', suggestion.studentId, '- Confidence:', suggestion.confidence);
+              }
+            });
+
+            // Update state with suggestions
+            if (Object.keys(newAllocations).length > 0) {
+              setSelectedStudents(newSelectedStudents);
+              setStudentAllocations(prev => ({
+                ...prev,
+                ...newAllocations
+              }));
+
+              toast.info(`AI suggested categories for ${Object.keys(newAllocations).length} students`, {
+                description: 'Review and adjust percentages as needed'
+              });
+            } else if (hasNoCategoryMatches) {
+              // No categories matched - show warning toast
+              toast.warning('No matching categories found in program plans', {
+                description: 'This purchase doesn\'t match any approved categories. Consider updating your program plan or this claim may be rejected.',
+                duration: 8000
+              });
+            }
+          }
+          
           // Show standard success toast with extracted info
           const extractedFields = [];
           if (analysis.vendor) extractedFields.push('vendor');
           if (analysis.totalAmount) extractedFields.push('amount');
-          if (analysis.taxAmount) extractedFields.push('tax');
           if (analysis.purchaseDate) extractedFields.push('date');
           if (analysis.purchaseDescription) extractedFields.push('description');
           
@@ -967,7 +1181,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       }
 
       if (!allocation.soloCategories?.length) {
-        studentErrors.soloCategories = 'A SOLO plan category is required';
+        studentErrors.soloCategories = 'A program plan category is required';
       }
 
       if (!allocation.categoryJustification?.trim()) {
@@ -1022,18 +1236,17 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
       const db = getDatabase();
       const dbSchoolYear = formatSchoolYearForDatabase(selectedSchoolYear);
       console.log(`Submitting claim for school year: ${selectedSchoolYear} -> ${dbSchoolYear}`);
-      const claimRef = push(ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${dbSchoolYear}`));
+      const claimRef = push(ref(db, `homeEducationFamilies/familyInformation/${familyId}/REIMBURSEMENT_CLAIMS/${dbSchoolYear}`));
       
       const claimData = {
         claimId: claimRef.key,
-        familyId: customClaims.familyId,
+        familyId: familyId,
         schoolYear: selectedSchoolYear,
         
         purchaseInfo: {
           date: formData.purchaseDate,
           vendor: formData.vendor,
           totalAmount: parseFloat(formData.totalAmount),
-          taxAmount: formData.taxAmount ? parseFloat(formData.taxAmount) : null,
           description: formData.description
         },
         
@@ -1046,8 +1259,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
         manualValidationNotes: formData.manualValidationNotes?.trim() || null,
         
         // Review flags for staff
-        requiresManualReview: receiptAnalysis?.requiresManualReview || receiptAnalysis?.validationScore < 50 || false,
-        reviewPriority: receiptAnalysis?.reviewPriority || (receiptAnalysis?.validationScore < 30 ? 'high' : receiptAnalysis?.validationScore < 70 ? 'medium' : 'low'),
+        requiresManualReview: receiptAnalysis?.requiresManualReview || receiptAnalysis?.validationScore < 50 || manualEntryEnabled || receiptAnalysis?.categoryMismatchWarning || false,
+        reviewPriority: manualEntryEnabled ? 'high' : 
+                       receiptAnalysis?.categoryMismatchWarning ? 'high' : // High priority if no categories match
+                       (receiptAnalysis?.reviewPriority || (receiptAnalysis?.validationScore < 30 ? 'high' : receiptAnalysis?.validationScore < 70 ? 'medium' : 'low')),
+        
+        // Manual entry information
+        hasManualOverrides: manualEntryEnabled,
+        manualEntryReason: manualEntryEnabled ? manualEntryReason : null,
         
         studentAllocations: Object.values(studentAllocations).map(allocation => ({
           ...allocation,
@@ -1069,10 +1288,9 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
 
       // Reset form
       setFormData({
-        purchaseDate: toDateString(new Date()),
+        purchaseDate: '',
         vendor: '',
         totalAmount: '',
-        taxAmount: '',
         description: '',
         receipts: [],
         manualValidationNotes: ''
@@ -1086,12 +1304,16 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
         purchaseDate: false,
         vendor: false,
         totalAmount: false,
-        taxAmount: false,
         description: false
       });
       setReceiptAnalysis(null);
       setShowAnalysisResults(false);
       setAiAnalysisFailed(false);
+      
+      // Reset manual entry states
+      setManualEntryEnabled(false);
+      setManualEntryReason('');
+      setShowManualEntryModal(false);
       
       // Reset mixed receipt states
       setIsMixedReceipt(false);
@@ -1114,50 +1336,23 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
   }, 0);
 
   const isPercentageValid = Math.abs(totalAllocatedPercentage - 100) < 0.01;
+  
+  // Step completion logic
+  const isStep1Complete = hasUploadedReceipt;
+  const isStep2Complete = hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults);
+  const canProceedToStep3 = isStep1Complete && isStep2Complete;
 
-  // Validation Score Indicator Component
-  const ValidationScoreIndicator = ({ score, issues = [] }) => {
-    const getScoreColor = (score) => {
-      if (score >= 80) return 'text-green-600 bg-green-50 border-green-200';
-      if (score >= 50) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      return 'text-red-600 bg-red-50 border-red-200';
-    };
-    
-    const getScoreIcon = (score) => {
-      if (score >= 80) return <CheckCircle2 className="w-4 h-4" />;
-      if (score >= 50) return <AlertCircle className="w-4 h-4" />;
-      return <X className="w-4 h-4" />;
-    };
-    
-    const getScoreMessage = (score) => {
-      if (score >= 80) return 'High quality receipt - all information extracted';
-      if (score >= 50) return 'Partial extraction - please verify details';
-      return 'Poor quality - manual entry recommended';
-    };
-    
-    return (
-      <div className={`p-3 rounded-lg border ${getScoreColor(score)}`}>
-        <div className="flex items-start space-x-2">
-          {getScoreIcon(score)}
-          <div className="flex-1">
-            <p className="text-sm font-medium flex items-center">
-              Receipt Quality: {score}%
-            </p>
-            <p className="text-xs mt-1">{getScoreMessage(score)}</p>
-            {issues.length > 0 && (
-              <ul className="text-xs mt-2 space-y-1">
-                {issues.map((issue, idx) => (
-                  <li key={idx} className="flex items-start">
-                    <span className="mr-1">•</span>
-                    <span>{issue}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  // Helper function for receipt quality
+  const getScoreMessage = (score) => {
+    if (score >= 80) return 'High quality receipt - all information extracted';
+    if (score >= 50) return 'Partial extraction - please verify details';
+    return 'Poor quality - manual entry recommended';
+  };
+  
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 50) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   // Check if any allocations exceed funding limits
@@ -1185,6 +1380,26 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
 
   const hasViolations = hasFundingLimitViolations();
 
+  // Check if all required student fields are filled
+  const areStudentFieldsComplete = () => {
+    // If no students selected, fields are not complete
+    if (selectedStudents.size === 0) return false;
+    
+    // Check each selected student
+    for (const studentId of selectedStudents) {
+      const allocation = studentAllocations[studentId];
+      
+      // Check if allocation exists and has required fields
+      if (!allocation) return false;
+      if (!allocation.percentage || allocation.percentage <= 0) return false;
+      if (!allocation.soloCategories || allocation.soloCategories.length === 0) return false;
+      if (!allocation.categoryJustification || allocation.categoryJustification.trim() === '') return false;
+    }
+    
+    return true;
+  };
+
+  const studentFieldsComplete = areStudentFieldsComplete();
 
   // Receipt Thumbnail Component
   const ReceiptThumbnail = ({ receipt }) => {
@@ -1277,7 +1492,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                     ? 'bg-green-500 text-white' 
                     : 'bg-purple-500 text-white'
                 }`}>
-                  {hasUploadedReceipt ? '✓' : '1'}
+                  {hasUploadedReceipt ? <CheckCircle2 className="w-4 h-4" /> : '1'}
                 </div>
                 <div className="text-center mt-2">
                   <p className={`text-sm font-medium ${hasUploadedReceipt ? 'text-green-700' : 'text-purple-700'}`}>
@@ -1295,30 +1510,30 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
               {/* Step 2: Review Details */}
               <div className="flex flex-col items-center flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  hasUploadedReceipt 
-                    ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
-                      ? 'bg-green-500 text-white'
-                      : 'bg-purple-500 text-white'
-                    : 'bg-gray-300 text-gray-500'
+                  isStep2Complete
+                    ? 'bg-green-500 text-white'
+                    : isStep1Complete
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-300 text-gray-500'
                 }`}>
-                  {(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)) ? '✓' : '2'}
+                  {isStep2Complete ? <CheckCircle2 className="w-4 h-4" /> : '2'}
                 </div>
                 <div className="text-center mt-2">
                   <p className={`text-sm font-medium ${
-                    hasUploadedReceipt 
-                      ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults) 
-                        ? 'text-green-700' 
-                        : 'text-purple-700'
-                      : 'text-gray-500'
+                    isStep2Complete 
+                      ? 'text-green-700' 
+                      : isStep1Complete
+                        ? 'text-purple-700'
+                        : 'text-gray-500'
                   }`}>
                     Review Details
                   </p>
                   <p className="text-xs text-gray-600">
-                    {!hasUploadedReceipt 
-                      ? 'Complete step 1 first'
+                    {!isStep1Complete 
+                      ? 'Waiting...'
                       : analyzingReceipt 
                         ? 'AI is analyzing...'
-                        : (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                        : isStep2Complete
                           ? 'Details ready!'
                           : 'Fill in details'
                     }
@@ -1332,27 +1547,27 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
               {/* Step 3: Allocate to Students */}
               <div className="flex flex-col items-center flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  selectedStudents.size > 0 && isPercentageValid
+                  selectedStudents.size > 0 && isPercentageValid && canProceedToStep3
                     ? 'bg-green-500 text-white'
-                    : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                    : canProceedToStep3
                       ? 'bg-purple-500 text-white'
                       : 'bg-gray-300 text-gray-500'
                 }`}>
-                  {(selectedStudents.size > 0 && isPercentageValid) ? '✓' : '3'}
+                  {(selectedStudents.size > 0 && isPercentageValid && canProceedToStep3) ? <CheckCircle2 className="w-4 h-4" /> : '3'}
                 </div>
                 <div className="text-center mt-2">
                   <p className={`text-sm font-medium ${
-                    selectedStudents.size > 0 && isPercentageValid
+                    selectedStudents.size > 0 && isPercentageValid && canProceedToStep3
                       ? 'text-green-700'
-                      : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                      : canProceedToStep3
                         ? 'text-purple-700'
                         : 'text-gray-500'
                   }`}>
                     Allocate to Students
                   </p>
                   <p className="text-xs text-gray-600">
-                    {!(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults))
-                      ? 'Complete step 2 first'
+                    {!canProceedToStep3
+                      ? 'Waiting...'
                       : selectedStudents.size > 0 && isPercentageValid
                         ? 'Ready to submit!'
                         : 'Select students'
@@ -1369,7 +1584,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
                 hasUploadedReceipt ? 'bg-green-500 text-white' : 'bg-purple-500 text-white'
               }`}>
-                {hasUploadedReceipt ? '✓' : '1'}
+                {hasUploadedReceipt ? <CheckCircle2 className="w-4 h-4" /> : '1'}
               </div>
               <Upload className="w-5 h-5 mr-2" />
               Step 1: Upload Your Receipt
@@ -1377,59 +1592,97 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
             
             <FormField label="Upload Receipt" error={errors.receipts} required>
               <div className="space-y-4">
-                {/* File Input - Only show if no receipt is uploaded */}
-                {formData.receipts.length === 0 && (
-                  <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors bg-white">
-                    <input
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.webp,.pdf"
-                      onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-                      className="hidden"
-                      id="receipt-upload"
-                      disabled={uploadingFiles}
-                    />
-                    <label htmlFor="receipt-upload" className="cursor-pointer">
-                      <Upload className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                      <p className="text-sm text-purple-700 mb-1 font-medium">
-                        {uploadingFiles ? 'Uploading...' : 'Click to upload your receipt'}
-                      </p>
-                      <p className="text-xs text-purple-600">
-                        JPG, PNG, WEBP, or PDF up to 10MB
-                      </p>
-                    </label>
-                    {uploadingFiles && (
-                      <div className="mt-2">
-                        <Loader2 className="w-4 h-4 animate-spin mx-auto text-purple-600" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Uploaded Receipt */}
+                {/* Uploaded Receipt - Show at top when uploaded */}
                 {formData.receipts.length > 0 && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-purple-800">Your Receipt:</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({ ...prev, receipts: [] }));
-                          setReceiptAnalysis(null);
-                          setShowAnalysisResults(false);
-                          // Reset mixed receipt states
-                          setMixedReceiptAnalysis(null);
-                          setSelectedEducationalItems(new Set());
-                          setHasUploadedReceipt(false);
-                        }}
-                        className="text-xs text-purple-600 hover:text-purple-800 underline flex items-center"
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Upload different receipt
-                      </button>
-                    </div>
+                    {/* Receipt Card - Show first */}
+                    {formData.receipts.map((receipt) => (
+                      <div key={receipt.fileId} className="flex items-start space-x-3 p-3 bg-white border border-purple-200 rounded-lg">
+                        {/* Receipt Thumbnail */}
+                        <ReceiptThumbnail receipt={receipt} />
+                        
+                        {/* Receipt Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-purple-800 truncate">{receipt.fileName}</p>
+                              <p className="text-xs text-purple-600 mt-0.5">
+                                {receipt.fileType} • {formatFileSize(receipt.fileSize)}
+                              </p>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPreviewReceipt(receipt);
+                                    setShowPreviewModal(true);
+                                  }}
+                                  className="text-xs text-purple-600 hover:text-purple-800 underline flex items-center"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Preview
+                                </button>
+                                <span className="text-xs text-gray-400">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Clear all receipt-related data
+                                    setFormData(prev => ({ 
+                                      ...prev, 
+                                      receipts: [],
+                                      purchaseDate: '',
+                                      vendor: '',
+                                      totalAmount: '',
+                                      description: ''
+                                    }));
+                                    setReceiptAnalysis(null);
+                                    setShowAnalysisResults(false);
+                                    setHasUploadedReceipt(false);
+                                    setSelectedStudentId('');
+                                    setStudentAllocations({});
+                                    setMixedReceiptAnalysis(null);
+                                    setSelectedEducationalItems(new Set());
+                                    setIsMixedReceipt(false);
+                                    setManualEntryEnabled(false);
+                                    setManualEntryReason('');
+                                    setShowManualEntryModal(false);
+                                    setAiAnalysisFailed(false);
+                                    setUserHasOverridden({
+                                      purchaseDate: false,
+                                      vendor: false,
+                                      totalAmount: false,
+                                      description: false
+                                    });
+                                  }}
+                                  className="text-xs text-gray-500 hover:text-red-600 underline flex items-center"
+                                  title="Clear receipt and start over"
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* AI Analysis Status Badge */}
+                            <div className="flex items-center space-x-2 ml-3">
+                              {analyzingReceipt && receiptAnalysis?.receiptId === receipt.fileId ? (
+                                <div className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Analyzing...</span>
+                                </div>
+                              ) : receiptAnalysis && receiptAnalysis.receiptId === receipt.fileId ? (
+                                <div className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span>AI Analyzed</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                     
-                    {/* Receipt Type Selector */}
-                    {!analyzingReceipt && (
+                    {/* Receipt Type Selector - Only show before AI analysis */}
+                    {!analyzingReceipt && !showAnalysisResults && (
                       <div className="bg-white border border-purple-200 rounded-lg p-4">
                         <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
                           <Info className="w-4 h-4 mr-2" />
@@ -1490,87 +1743,268 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                             </p>
                           </div>
                         )}
-                        
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // Start analysis with the selected receipt type
-                              if (formData.receipts.length > 0) {
-                                analyzeReceiptWithAI(formData.receipts[0]);
-                              }
-                            }}
-                            disabled={formData.receipts.length === 0 || analyzingReceipt}
-                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                              formData.receipts.length === 0 || analyzingReceipt
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500'
-                            }`}
-                          >
-                            {analyzingReceipt ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                Analyze with AI
-                              </>
-                            )}
-                          </button>
-                        </div>
                       </div>
                     )}
-                    {formData.receipts.map((receipt) => (
-                      <div key={receipt.fileId} className="flex items-start space-x-3 p-3 bg-white border border-purple-200 rounded-lg">
-                        {/* Receipt Thumbnail */}
-                        <ReceiptThumbnail receipt={receipt} />
-                        
-                        {/* Receipt Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-purple-800 truncate">{receipt.fileName}</p>
-                              <p className="text-xs text-purple-600 mt-0.5">
-                                {receipt.fileType} • {formatFileSize(receipt.fileSize)}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPreviewReceipt(receipt);
-                                  setShowPreviewModal(true);
-                                }}
-                                className="text-xs text-purple-600 hover:text-purple-800 underline mt-1 flex items-center"
-                              >
-                                <Eye className="w-3 h-3 mr-1" />
-                                Click to preview
-                              </button>
-                            </div>
-                            
-                            {/* AI Analysis Status Badge */}
-                            <div className="flex items-center space-x-2 ml-3">
-                              {analyzingReceipt && receiptAnalysis?.receiptId === receipt.fileId ? (
-                                <div className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700">
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                  <span>Analyzing...</span>
-                                </div>
-                              ) : receiptAnalysis && receiptAnalysis.receiptId === receipt.fileId ? (
-                                <div className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>AI Analyzed</span>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
+                    
+                    {/* Analyze with AI Button - Full Width */}
+                    {!analyzingReceipt && !showAnalysisResults && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Start analysis with the selected receipt type
+                            if (formData.receipts.length > 0) {
+                              analyzeReceiptWithAI(formData.receipts[0]);
+                            }
+                          }}
+                          disabled={formData.receipts.length === 0 || analyzingReceipt}
+                          className={`w-full px-4 py-3 text-sm font-medium rounded-md transition-colors flex items-center justify-center ${
+                            formData.receipts.length === 0 || analyzingReceipt
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500'
+                          }`}
+                        >
+                          {analyzingReceipt ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Analyze with AI
+                            </>
+                          )}
+                        </button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
                 
-                {/* Mixed Receipt Analysis Results */}
-                {showAnalysisResults && mixedReceiptAnalysis && isMixedReceipt && (
+                {/* File Input - Only show if no receipt is uploaded */}
+                {formData.receipts.length === 0 && (
+                  <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors bg-white">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,.pdf"
+                      onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+                      className="hidden"
+                      id="receipt-upload"
+                      disabled={uploadingFiles}
+                    />
+                    <label htmlFor="receipt-upload" className="cursor-pointer">
+                      <Upload className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                      <p className="text-sm text-purple-700 mb-1 font-medium">
+                        {uploadingFiles ? 'Uploading...' : 'Click to upload your receipt'}
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        JPG, PNG, WEBP, or PDF up to 10MB
+                      </p>
+                    </label>
+                    {uploadingFiles && (
+                      <div className="mt-2">
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto text-purple-600" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </FormField>
+          </div>
+
+          {/* Step 2: Purchase Information */}
+          <div className={`border rounded-lg p-4 ${
+            isStep1Complete 
+              ? 'bg-purple-50 border-purple-200' 
+              : 'bg-gray-50 border-gray-200 opacity-60'
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-base font-semibold flex items-center ${
+                isStep1Complete ? 'text-purple-900' : 'text-gray-600'
+              }`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
+                  isStep2Complete 
+                    ? 'bg-green-500 text-white'
+                    : isStep1Complete
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-300 text-gray-500'
+                }`}>
+                  {isStep2Complete ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+                </div>
+                <FileText className="w-5 h-5 mr-2" />
+                Step 2: Purchase Information
+                {(analyzingReceipt || !isStep1Complete) && (
+                  <span className="ml-2 text-sm font-normal">
+                    {analyzingReceipt 
+                      ? '(AI is analyzing...)' 
+                      : '(Upload receipt first)'
+                    }
+                  </span>
+                )}
+              </h3>
+              {analyzingReceipt && (
+                <div className="flex items-center space-x-2 text-sm text-purple-700">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>AI is extracting data...</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Step 2 Content */}
+            {!isStep1Complete ? (
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-gray-600 mb-2">Purchase Information Locked</h4>
+                  <p className="text-sm text-gray-500">
+                    Upload a receipt in Step 1 to continue
+                  </p>
+                </div>
+                <div className="space-y-2 text-xs text-gray-500">
+                  <div className={`flex items-center justify-center ${isStep1Complete ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isStep1Complete ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <span className="w-6 h-4 flex items-center justify-center mr-2">1.</span>}
+                    Upload receipt to continue
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {analyzingReceipt && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <Info className="w-4 h-4 inline mr-2" />
+                      AI is analyzing your receipt and extracting purchase information...
+                    </p>
+                  </div>
+                )}
+                
+                {aiAnalysisFailed && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-800 mb-2">
+                          {errors.aiAnalysis}
+                        </p>
+                        <div className="text-xs text-red-700">
+                          <p className="mb-1"><strong>What to do:</strong></p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>You can continue filling out the form manually</li>
+                            <li>Try uploading a clearer photo of your receipt</li>
+                            <li>Make sure the receipt shows all key information clearly</li>
+                            <li>Contact support if the problem persists</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Purchase Date and Vendor Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Purchase Date" error={errors.purchaseDate} required>
+                    <input
+                      type="date"
+                      value={formData.purchaseDate}
+                      onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
+                      disabled={!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        (!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled))
+                          ? 'bg-gray-100 cursor-not-allowed'
+                          : ''
+                      } ${
+                        errors.purchaseDate 
+                          ? 'border-red-300' 
+                          : userHasOverridden.purchaseDate
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300'
+                      }`}
+                      placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "Select date"}
+                    />
+                  </FormField>
+
+                  <FormField label="Vendor/Store" error={errors.vendor} required>
+                    <input
+                      type="text"
+                      value={formData.vendor}
+                      onChange={(e) => handleInputChange('vendor', e.target.value)}
+                      disabled={!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        (!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled))
+                          ? 'bg-gray-100 cursor-not-allowed'
+                          : ''
+                      } ${
+                        errors.vendor 
+                          ? 'border-red-300' 
+                          : userHasOverridden.vendor
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300'
+                      }`}
+                      placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Amazon, Staples, Local Bookstore"}
+                    />
+                  </FormField>
+
+                  <FormField label="Total Amount" error={errors.totalAmount} required>
+                    <div className="relative">
+                      <span className={`absolute left-3 top-2 ${(!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled)) ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.totalAmount}
+                        onChange={(e) => handleInputChange('totalAmount', e.target.value)}
+                        disabled={!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled)}
+                        className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                          (!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled))
+                            ? 'bg-gray-100 cursor-not-allowed'
+                            : ''
+                        } ${
+                          errors.totalAmount 
+                            ? 'border-red-300' 
+                            : userHasOverridden.totalAmount
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-300'
+                        }`}
+                        placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "0.00"}
+                      />
+                    </div>
+                  </FormField>
+                </div>
+                
+                {/* Description field - full width below other fields */}
+                <div className="mt-4">
+                  <FormField 
+                    label="Description" 
+                    error={errors.description} 
+                    required
+                    description="Brief description of what was purchased (you can edit this after AI analysis)"
+                  >
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      disabled={!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        (!hasUploadedReceipt || analyzingReceipt || (hasUploadedReceipt && !manualEntryEnabled))
+                          ? 'bg-gray-100 cursor-not-allowed'
+                          : ''
+                      } ${
+                        errors.description 
+                          ? 'border-red-300' 
+                          : userHasOverridden.description
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300'
+                      }`}
+                      rows={3}
+                      placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Science equipment and art supplies for Grade 5 curriculum. Includes beakers, test tubes, watercolor paints, and sketch pads."}
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Mixed Receipt Analysis Results */}
+          {showAnalysisResults && mixedReceiptAnalysis && isMixedReceipt && (
                   <div className="mt-4 space-y-4">
                     {/* Header */}
                     <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
@@ -1771,54 +2205,32 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                 {/* Standard Receipt Analysis Results */}
                 {showAnalysisResults && receiptAnalysis && !isMixedReceipt && (
                   <div className="mt-4 space-y-3">
-                    <ValidationScoreIndicator 
-                      score={receiptAnalysis.validationScore} 
-                      issues={receiptAnalysis.validationIssues}
-                    />
-                    
-                    {/* Review Priority Indicator */}
-                    <div className={`p-3 rounded-lg border ${
-                      receiptAnalysis.reviewPriority === 'high' || receiptAnalysis.validationScore < 30
-                        ? 'bg-red-50 border-red-200' 
-                        : receiptAnalysis.reviewPriority === 'medium' || receiptAnalysis.validationScore < 70
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-green-50 border-green-200'
-                    }`}>
-                      <div className="flex items-center space-x-2">
-                        <div className={`px-2 py-1 rounded text-xs font-medium ${
-                          receiptAnalysis.reviewPriority === 'high' || receiptAnalysis.validationScore < 30
-                            ? 'bg-red-100 text-red-800' 
-                            : receiptAnalysis.reviewPriority === 'medium' || receiptAnalysis.validationScore < 70
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {receiptAnalysis.reviewPriority?.toUpperCase() || 
-                           (receiptAnalysis.validationScore < 30 ? 'HIGH' : 
-                            receiptAnalysis.validationScore < 70 ? 'MEDIUM' : 'LOW')} PRIORITY
-                        </div>
-                        <span className={`text-sm font-medium ${
-                          receiptAnalysis.reviewPriority === 'high' || receiptAnalysis.validationScore < 30
-                            ? 'text-red-700' 
-                            : receiptAnalysis.reviewPriority === 'medium' || receiptAnalysis.validationScore < 70
-                            ? 'text-yellow-700'
-                            : 'text-green-700'
-                        }`}>
-                          {receiptAnalysis.reviewPriority === 'high' || receiptAnalysis.validationScore < 30
-                            ? 'Will be reviewed first by staff due to quality concerns'
-                            : receiptAnalysis.reviewPriority === 'medium' || receiptAnalysis.validationScore < 70
-                            ? 'Standard review process - may require staff verification'
-                            : 'Low priority review - likely to be approved quickly'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                    
                     {/* Detailed Extraction Results */}
                     <div className="p-4 bg-white border border-purple-200 rounded-lg">
-                      <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
-                        <Info className="w-4 h-4 mr-2" />
-                        Receipt Analysis Results
-                      </h4>
+                      <div className="flex items-start justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-purple-900 flex items-center">
+                          <Info className="w-4 h-4 mr-2" />
+                          Receipt Analysis Results
+                        </h4>
+                        <p className={`text-xs font-medium ${getScoreColor(receiptAnalysis.validationScore)}`}>
+                          {getScoreMessage(receiptAnalysis.validationScore)}
+                        </p>
+                      </div>
+                      
+                      {/* Validation Issues if any */}
+                      {receiptAnalysis.validationIssues && receiptAnalysis.validationIssues.length > 0 && (
+                        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-xs font-medium text-yellow-800 mb-1">Quality issues detected:</p>
+                          <ul className="text-xs text-yellow-700 space-y-0.5">
+                            {receiptAnalysis.validationIssues.map((issue, idx) => (
+                              <li key={idx} className="flex items-start">
+                                <span className="mr-1">•</span>
+                                <span>{issue}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       
                       {/* Analysis Items List */}
                       <div className="space-y-3">
@@ -1830,12 +2242,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           </span>
                           <div className="text-right">
                             {receiptAnalysis.vendor ? (
-                              <span className="text-green-700 font-semibold">
-                                {receiptAnalysis.vendor} ✓
+                              <span className="text-green-700 font-semibold flex items-center">
+                                {receiptAnalysis.vendor}
+                                <CheckCircle2 className="w-4 h-4 ml-1" />
                               </span>
                             ) : (
-                              <span className="text-red-600 font-semibold">
-                                Not found ✗
+                              <span className="text-red-600 font-semibold flex items-center">
+                                Not found
+                                <X className="w-4 h-4 ml-1" />
                               </span>
                             )}
                             {receiptAnalysis.confidence && (
@@ -1854,41 +2268,19 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           </span>
                           <div className="text-right">
                             {receiptAnalysis.totalAmount !== null ? (
-                              <span className="text-green-700 font-semibold">
-                                ${receiptAnalysis.totalAmount.toFixed(2)} ✓
+                              <span className="text-green-700 font-semibold flex items-center">
+                                ${receiptAnalysis.totalAmount.toFixed(2)}
+                                <CheckCircle2 className="w-4 h-4 ml-1" />
                               </span>
                             ) : (
-                              <span className="text-red-600 font-semibold">
-                                Not found ✗
+                              <span className="text-red-600 font-semibold flex items-center">
+                                Not found
+                                <X className="w-4 h-4 ml-1" />
                               </span>
                             )}
                             {receiptAnalysis.confidence && (
                               <p className="text-xs text-gray-500 mt-0.5">
                                 {Math.round(receiptAnalysis.confidence.amount * 100)}% confident
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Tax Amount */}
-                        <div className="flex items-start justify-between text-sm">
-                          <span className="text-purple-700 flex items-center font-medium">
-                            <DollarSign className="w-3 h-3 mr-1" />
-                            Tax Amount:
-                          </span>
-                          <div className="text-right">
-                            {receiptAnalysis.taxAmount !== null ? (
-                              <span className="text-green-700 font-semibold">
-                                ${receiptAnalysis.taxAmount.toFixed(2)} ✓
-                              </span>
-                            ) : (
-                              <span className="text-red-600 font-semibold">
-                                Not found ✗
-                              </span>
-                            )}
-                            {receiptAnalysis.confidence?.tax !== undefined && (
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {Math.round(receiptAnalysis.confidence.tax * 100)}% confident
                               </p>
                             )}
                           </div>
@@ -1902,12 +2294,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           </span>
                           <div className="text-right">
                             {receiptAnalysis.purchaseDate ? (
-                              <span className="text-green-700 font-semibold">
-                                {receiptAnalysis.purchaseDate} ✓
+                              <span className="text-green-700 font-semibold flex items-center">
+                                {receiptAnalysis.purchaseDate}
+                                <CheckCircle2 className="w-4 h-4 ml-1" />
                               </span>
                             ) : (
-                              <span className="text-red-600 font-semibold">
-                                Not found ✗
+                              <span className="text-red-600 font-semibold flex items-center">
+                                Not found
+                                <X className="w-4 h-4 ml-1" />
                               </span>
                             )}
                             {receiptAnalysis.confidence && (
@@ -1926,12 +2320,14 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                           </span>
                           <div className="text-right max-w-xs">
                             {receiptAnalysis.purchaseDescription ? (
-                              <span className="text-green-700 font-semibold">
-                                {receiptAnalysis.purchaseDescription} ✓
+                              <span className="text-green-700 font-semibold flex items-center">
+                                {receiptAnalysis.purchaseDescription}
+                                <CheckCircle2 className="w-4 h-4 ml-1" />
                               </span>
                             ) : (
-                              <span className="text-red-600 font-semibold">
-                                Not detected ✗
+                              <span className="text-red-600 font-semibold flex items-center">
+                                Not detected
+                                <X className="w-4 h-4 ml-1" />
                               </span>
                             )}
                             {receiptAnalysis.confidence?.description !== undefined && (
@@ -1951,7 +2347,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                             {receiptAnalysis.items.slice(0, 5).map((item, idx) => (
                               <li key={idx} className="flex items-start">
                                 <span className="mr-2 text-purple-400">•</span>
-                                <span>{item}</span>
+                                <span>
+                                  {typeof item === 'string' ? item : 
+                                   item.description ? `${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''}${item.lineTotal ? ` - $${item.lineTotal}` : ''}` : 
+                                   'Unknown item'}
+                                </span>
                               </li>
                             ))}
                             {receiptAnalysis.items.length > 5 && (
@@ -1969,54 +2369,10 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                         Alberta Education Standards Compliance
                       </h4>
                       
-                      {/* Compliance Score */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-green-700">Compliance Score</span>
-                            <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              receiptAnalysis.educationComplianceScore >= 80 ? 'bg-green-100 text-green-800' :
-                              receiptAnalysis.educationComplianceScore >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {receiptAnalysis.educationComplianceScore || 0}/100
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                receiptAnalysis.educationComplianceScore >= 80 ? 'bg-green-500' :
-                                receiptAnalysis.educationComplianceScore >= 50 ? 'bg-yellow-500' :
-                                'bg-red-500'
-                              }`}
-                              style={{ width: `${receiptAnalysis.educationComplianceScore || 0}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium text-green-700">Reimbursement Status</span>
-                          <div className={`px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center ${
-                            receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'bg-green-100 text-green-800' :
-                            receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            <div className={`w-2 h-2 rounded-full mr-2 ${
-                              receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'bg-green-500' :
-                              receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'bg-yellow-500' :
-                              'bg-red-500'
-                            }`}></div>
-                            {receiptAnalysis.reimbursementEligibility === 'likely-eligible' ? 'Likely Eligible' :
-                             receiptAnalysis.reimbursementEligibility === 'requires-review' ? 'Requires Review' :
-                             'Not Eligible'}
-                          </div>
-                        </div>
-                      </div>
-                      
                       {/* Category */}
                       <div className="mb-3">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-700">Category:</span>
+                         
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             receiptAnalysis.educationCategory === 'recommended' ? 'bg-green-100 text-green-700' :
                             receiptAnalysis.educationCategory === 'not-recommended' ? 'bg-red-100 text-red-700' :
@@ -2039,6 +2395,50 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                         </div>
                       )}
                     </div>
+                    
+                    {/* Manual Entry Button */}
+                    {showAnalysisResults && !manualEntryEnabled && (
+                      <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-orange-900 mb-1">
+                              Need to correct AI-extracted information?
+                            </h4>
+                            <p className="text-sm text-orange-700">
+                              The AI has extracted purchase details. If any information is incorrect, you can enable manual editing.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowManualEntryModal(true)}
+                            className="ml-4 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 flex items-center whitespace-nowrap"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Edit Manually
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Manual Entry Active Banner */}
+                    {manualEntryEnabled && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start space-x-3">
+                          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                              Manual Entry Mode Active
+                            </h4>
+                            <p className="text-sm text-blue-700 mb-2">
+                              You can now edit the purchase information. This claim will be flagged for staff review.
+                            </p>
+                            <div className="bg-blue-100 p-2 rounded text-sm text-blue-800">
+                              <strong>Reason:</strong> {manualEntryReason}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* User Override Indicators */}
                     {showAnalysisResults && Object.values(userHasOverridden).some(Boolean) && (
@@ -2065,11 +2465,6 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                                 Total Amount
                               </span>
                             )}
-                            {userHasOverridden.taxAmount && (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                                Tax Amount
-                              </span>
-                            )}
                             {userHasOverridden.description && (
                               <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
                                 Description
@@ -2085,48 +2480,6 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                   </div>
                 )}
                 
-                {/* Manual Entry Mode Option */}
-                {hasUploadedReceipt && (showAnalysisResults || aiAnalysisFailed) && (
-                  <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
-                          Need to start over?
-                        </h4>
-                        <p className="text-xs text-gray-600">
-                          Clear AI analysis and fill in all details manually
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReceiptAnalysis(null);
-                          setShowAnalysisResults(false);
-                          setAiAnalysisFailed(false);
-                          setUserHasOverridden({
-                            purchaseDate: true,
-                            vendor: true,
-                            totalAmount: true,
-                            taxAmount: true,
-                            description: true
-                          });
-                          // Clear form fields to let user start fresh
-                          setFormData(prev => ({
-                            ...prev,
-                            purchaseDate: toDateString(new Date()),
-                            vendor: '',
-                            totalAmount: '',
-                            taxAmount: '',
-                            description: ''
-                          }));
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                      >
-                        Clear AI & Start Manual
-                      </button>
-                    </div>
-                  </div>
-                )}
                 
                 {/* Manual Validation Required */}
                 {showAnalysisResults && receiptAnalysis && receiptAnalysis.validationScore < 50 && (
@@ -2198,201 +2551,43 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                     </div>
                   </div>
                 )}
-              </div>
-            </FormField>
-          </div>
-          {/* Purchase Information */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-purple-900 flex items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
-                  hasUploadedReceipt 
-                    ? (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
-                      ? 'bg-green-500 text-white'
-                      : 'bg-purple-500 text-white'
-                    : 'bg-gray-300 text-gray-500'
-                }`}>
-                  {(hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)) ? '✓' : '2'}
-                </div>
-                <FileText className="w-5 h-5 mr-2" />
-                Step 2: Purchase Information
-              </h3>
-              {analyzingReceipt && (
-                <div className="flex items-center space-x-2 text-sm text-purple-700">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>AI is extracting data...</span>
-                </div>
-              )}
-            </div>
-            
-            {!hasUploadedReceipt && (
-              <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
-                <p className="text-sm text-purple-800">
-                  <Info className="w-4 h-4 inline mr-2" />
-                  Please upload a receipt first. AI will automatically extract purchase details to pre-fill these fields.
-                </p>
-              </div>
-            )}
-            
-            {analyzingReceipt && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-800">
-                  <Info className="w-4 h-4 inline mr-2" />
-                  AI is analyzing your receipt and extracting purchase information...
-                </p>
-              </div>
-            )}
-            
-            {aiAnalysisFailed && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-800">
-                  <AlertCircle className="w-4 h-4 inline mr-2" />
-                  AI analysis failed, but you can continue by filling in the details manually.
-                </p>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Purchase Date" error={errors.purchaseDate} required>
-                <input
-                  type="date"
-                  value={formData.purchaseDate}
-                  onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
-                  disabled={!hasUploadedReceipt || analyzingReceipt}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    (!hasUploadedReceipt || analyzingReceipt)
-                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                      : errors.purchaseDate 
-                        ? 'border-red-300' 
-                        : userHasOverridden.purchaseDate
-                          ? 'border-green-300 bg-green-50'
-                          : 'border-gray-300'
-                  }`}
-                />
-              </FormField>
-
-              <FormField label="Vendor/Store" error={errors.vendor} required>
-                <input
-                  type="text"
-                  value={formData.vendor}
-                  onChange={(e) => handleInputChange('vendor', e.target.value)}
-                  disabled={!hasUploadedReceipt || analyzingReceipt}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    (!hasUploadedReceipt || analyzingReceipt)
-                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                      : errors.vendor 
-                        ? 'border-red-300' 
-                        : userHasOverridden.vendor
-                          ? 'border-green-300 bg-green-50'
-                          : 'border-gray-300'
-                  }`}
-                  placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Amazon, Staples, Local Bookstore"}
-                />
-              </FormField>
-
-              <FormField label="Total Amount" error={errors.totalAmount} required>
-                <div className="relative">
-                  <span className={`absolute left-3 top-2 ${(!hasUploadedReceipt || analyzingReceipt) ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.totalAmount}
-                    onChange={(e) => handleInputChange('totalAmount', e.target.value)}
-                    disabled={!hasUploadedReceipt || analyzingReceipt}
-                    className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                      (!hasUploadedReceipt || analyzingReceipt)
-                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                        : errors.totalAmount 
-                          ? 'border-red-300' 
-                          : userHasOverridden.totalAmount
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-300'
-                    }`}
-                    placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "0.00"}
-                  />
-                </div>
-              </FormField>
-
-              <FormField 
-                label="Tax Amount" 
-                error={errors.taxAmount}
-                description="Tax portion of the purchase (GST, HST, PST, etc.)"
-              >
-                <div className="relative">
-                  <span className={`absolute left-3 top-2 ${(!hasUploadedReceipt || analyzingReceipt) ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.taxAmount}
-                    onChange={(e) => handleInputChange('taxAmount', e.target.value)}
-                    disabled={!hasUploadedReceipt || analyzingReceipt}
-                    className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                      (!hasUploadedReceipt || analyzingReceipt)
-                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                        : errors.taxAmount 
-                          ? 'border-red-300' 
-                          : userHasOverridden.taxAmount
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-300'
-                    }`}
-                    placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "Analyzing..." : "0.00"}
-                  />
-                </div>
-              </FormField>
-
-              <FormField 
-                label="Description" 
-                error={errors.description} 
-                required
-                description="Brief description of what was purchased"
-              >
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  disabled={!hasUploadedReceipt || analyzingReceipt}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    (!hasUploadedReceipt || analyzingReceipt)
-                      ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
-                      : errors.description 
-                        ? 'border-red-300' 
-                        : userHasOverridden.description
-                          ? 'border-green-300 bg-green-50'
-                          : 'border-gray-300'
-                  }`}
-                  placeholder={!hasUploadedReceipt ? "Upload receipt first" : analyzingReceipt ? "AI is analyzing..." : "e.g., Science equipment and art supplies"}
-                />
-              </FormField>
-            </div>
-          </div>
 
 
           {/* Student Allocation */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className={`border rounded-lg p-4 ${
+            canProceedToStep3 
+              ? 'bg-purple-50 border-purple-200' 
+              : 'bg-gray-50 border-gray-200 opacity-60'
+          }`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-purple-900 flex items-center">
+              <h3 className={`font-semibold flex items-center ${
+                canProceedToStep3 ? 'text-purple-900' : 'text-gray-600'
+              }`}>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
-                  selectedStudents.size > 0 && isPercentageValid
+                  selectedStudents.size > 0 && isPercentageValid && canProceedToStep3
                     ? 'bg-green-500 text-white'
-                    : hasUploadedReceipt && (Object.values(userHasOverridden).some(Boolean) || showAnalysisResults)
+                    : canProceedToStep3
                       ? 'bg-purple-500 text-white'
                       : 'bg-gray-300 text-gray-500'
                 }`}>
-                  {(selectedStudents.size > 0 && isPercentageValid) ? '✓' : '3'}
+                  {(selectedStudents.size > 0 && isPercentageValid && canProceedToStep3) ? <CheckCircle2 className="w-4 h-4" /> : '3'}
                 </div>
                 <Calculator className="w-5 h-5 mr-2" />
                 Step 3: Student Allocation
-                {analyzingReceipt && (
-                  <span className="ml-2 text-sm text-purple-600 font-normal">(Disabled during AI analysis)</span>
+                {(analyzingReceipt || !canProceedToStep3) && (
+                  <span className="ml-2 text-sm font-normal">
+                    {analyzingReceipt 
+                      ? '(Disabled during AI analysis)' 
+                      : '(Locked)'
+                    }
+                  </span>
                 )}
               </h3>
               <div className={`text-sm font-medium ${
                 isPercentageValid ? 'text-green-600' : 'text-red-600'
               }`}>
                 Total: {totalAllocatedPercentage.toFixed(1)}%
-                {isPercentageValid ? ' ✓' : ` (needs to be 100%)`}
+                {isPercentageValid && <CheckCircle2 className="w-4 h-4 ml-1 inline" />} {!isPercentageValid && ' (needs to be 100%)'}
               </div>
             </div>
 
@@ -2408,38 +2603,123 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
               </div>
             )}
 
-            <div className="space-y-4">
-              {(() => {
-                // Filter students who have SOLO plans for this school year
-                const studentsWithSOLO = familyData?.students?.filter(student => 
-                  studentSOLOPlans[student.id] && studentSOLOPlans[student.id].length > 0
-                ) || [];
-                
-                const studentsWithoutSOLO = familyData?.students?.filter(student => 
-                  !studentSOLOPlans[student.id] || studentSOLOPlans[student.id].length === 0
-                ) || [];
+            {/* Step 3 Content */}
+            {!canProceedToStep3 ? (
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <Calculator className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-gray-600 mb-2">Student Allocation Locked</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Complete the previous steps before allocating funds to students.
+                  </p>
+                </div>
+                <div className="space-y-2 text-xs text-gray-500">
+                  <div className={`flex items-center justify-center ${isStep1Complete ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isStep1Complete ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <span className="w-6 h-4 flex items-center justify-center mr-2">1.</span>}
+                    Upload receipt
+                  </div>
+                  <div className={`flex items-center justify-center ${isStep2Complete ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isStep2Complete ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <span className="w-6 h-4 flex items-center justify-center mr-2">2.</span>}
+                    Complete purchase information (via AI analysis or manual entry)
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  // Filter students who have program plans for this school year
+                  const studentsWithSOLO = familyData?.students?.filter(student => 
+                    studentSOLOPlans[student.id] && studentSOLOPlans[student.id].length > 0
+                  ) || [];
+                  
+                  const studentsWithoutSOLO = familyData?.students?.filter(student => 
+                    !studentSOLOPlans[student.id] || studentSOLOPlans[student.id].length === 0
+                  ) || [];
 
-                return (
-                  <>
-                    {studentsWithSOLO.length > 0 && (
-                      <>
-                        {studentsWithSOLO.map((student) => (
-                          <StudentAllocationCard
-                            key={student.id}
-                            student={student}
-                            allocation={studentAllocations[student.id] || {}}
-                            onAllocationChange={handleAllocationChange}
-                            onToggleStudent={handleStudentToggle}
-                            isSelected={selectedStudents.has(student.id)}
-                            studentSOLOCategories={studentSOLOPlans[student.id] || []}
-                            errors={errors[`student_${student.id}`] || {}}
-                            remainingBudget={studentBudgets[student.id]?.remaining || 901.00}
-                            budgetInfo={studentBudgets[student.id]}
-                            analyzingReceipt={analyzingReceipt}
-                          />
-                        ))}
-                      </>
-                    )}
+                  // Handler for distribute evenly button
+                  const handleDistributeEvenly = () => {
+                    if (studentsWithSOLO.length === 0 || analyzingReceipt) return;
+                    
+                    const equalPercentage = (100 / studentsWithSOLO.length).toFixed(1);
+                    const totalAmount = parseFloat(formData.totalAmount) || 0;
+                    
+                    // Create new set with all student IDs
+                    const allStudentIds = new Set(studentsWithSOLO.map(s => s.id));
+                    setSelectedStudents(allStudentIds);
+                    
+                    // Create allocations for all students
+                    const newAllocations = {};
+                    studentsWithSOLO.forEach((student) => {
+                      newAllocations[student.id] = {
+                        studentId: student.id,
+                        studentName: `${student.firstName} ${student.lastName}`,
+                        percentage: parseFloat(equalPercentage),
+                        amount: (parseFloat(equalPercentage) / 100) * totalAmount,
+                        totalAmount: totalAmount,
+                        soloCategories: studentAllocations[student.id]?.soloCategories || [],
+                        categoryJustification: studentAllocations[student.id]?.categoryJustification || ''
+                      };
+                    });
+                    
+                    // Update all allocations at once
+                    setStudentAllocations(prev => ({
+                      ...prev,
+                      ...newAllocations
+                    }));
+                    
+                    toast.success(`Distributed evenly among ${studentsWithSOLO.length} students (${equalPercentage}% each)`);
+                  };
+
+                  return (
+                    <>
+                      {studentsWithSOLO.length > 0 && (
+                        <>
+                          {/* Distribute Evenly Toolbar */}
+                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Calculator className="w-4 h-4 text-purple-600" />
+                                <span className="text-sm font-medium text-purple-900">Quick Actions</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleDistributeEvenly}
+                                disabled={analyzingReceipt || !formData.totalAmount || studentsWithSOLO.length === 0}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-2 ${
+                                  analyzingReceipt || !formData.totalAmount || studentsWithSOLO.length === 0
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                                }`}
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                <span>Distribute Evenly ({studentsWithSOLO.length} students)</span>
+                              </button>
+                            </div>
+                            {!formData.totalAmount && (
+                              <p className="text-xs text-orange-600 mt-2">
+                                <AlertCircle className="w-3 h-3 inline mr-1" />
+                                Enter the total amount first to use this feature
+                              </p>
+                            )}
+                          </div>
+                          
+                          {studentsWithSOLO.map((student) => (
+                            <StudentAllocationCard
+                              key={student.id}
+                              student={student}
+                              allocation={studentAllocations[student.id] || {}}
+                              onAllocationChange={handleAllocationChange}
+                              onToggleStudent={handleStudentToggle}
+                              isSelected={selectedStudents.has(student.id)}
+                              studentSOLOCategories={studentSOLOPlans[student.id] || []}
+                              errors={errors[`student_${student.id}`] || {}}
+                              remainingBudget={studentBudgets[student.id]?.remaining || 901.00}
+                              budgetInfo={studentBudgets[student.id]}
+                              analyzingReceipt={analyzingReceipt}
+                            />
+                          ))}
+                        </>
+                      )}
                     
                     {studentsWithoutSOLO.length > 0 && (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -2469,16 +2749,17 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
                         </div>
                       </div>
                     )}
-                    
-                    {studentsWithSOLO.length === 0 && studentsWithoutSOLO.length === 0 && (
-                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-                        <p className="text-gray-600">No students found for this family.</p>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+                      
+                      {studentsWithSOLO.length === 0 && studentsWithoutSOLO.length === 0 && (
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                          <p className="text-gray-600">No students found for this family.</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Submit */}
@@ -2496,12 +2777,20 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
             </div>
           )}
 
+          {!studentFieldsComplete && selectedStudents.size > 0 && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                <strong>Incomplete Student Information:</strong> Please fill in all required fields (percentage, category, and justification) for each selected student.
+              </p>
+            </div>
+          )}
+
           <div className="pt-6 border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting || uploadingFiles || !isPercentageValid || hasViolations}
+              disabled={isSubmitting || uploadingFiles || !isPercentageValid || hasViolations || !studentFieldsComplete}
               className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                isSubmitting || uploadingFiles || !isPercentageValid || hasViolations
+                isSubmitting || uploadingFiles || !isPercentageValid || hasViolations || !studentFieldsComplete
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
@@ -2623,6 +2912,84 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, custo
               );
             }
           })()}
+        </div>
+      </SheetContent>
+    </Sheet>
+
+    {/* Manual Entry Confirmation Modal */}
+    <Sheet open={showManualEntryModal} onOpenChange={setShowManualEntryModal}>
+      <SheetContent side="right" className="w-full sm:w-[500px]">
+        <SheetHeader>
+          <SheetTitle className="text-left">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              <span>Enable Manual Entry</span>
+            </div>
+          </SheetTitle>
+          <SheetDescription className="text-left">
+            Manual changes will flag your claim for staff review and may delay processing.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-4">
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-yellow-800 mb-2">Important Notice</h4>
+                <ul className="text-sm text-yellow-700 space-y-1">
+                  <li>• Manual changes will be reviewed by staff before approval</li>
+                  <li>• This may increase processing time for your claim</li>
+                  <li>• Only edit if the AI extracted incorrect information</li>
+                  <li>• You must provide a reason for the changes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <FormField 
+            label="Reason for Manual Changes" 
+            error="" 
+            required
+            description="Please explain why you need to modify the AI-extracted information"
+          >
+            <textarea
+              value={manualEntryReason}
+              onChange={(e) => setManualEntryReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              rows={4}
+              placeholder="e.g., AI incorrectly read the date as 2023 but it's actually 2024, or AI missed the tax amount..."
+            />
+          </FormField>
+
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowManualEntryModal(false);
+                setManualEntryReason('');
+              }}
+              className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (manualEntryReason.trim().length >= 10) {
+                  setManualEntryEnabled(true);
+                  setShowManualEntryModal(false);
+                } else {
+                  // Could add error handling here
+                  alert('Please provide a detailed reason (at least 10 characters)');
+                }
+              }}
+              disabled={manualEntryReason.trim().length < 10}
+              className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Enable Manual Entry
+            </button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

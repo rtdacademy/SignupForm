@@ -59,7 +59,7 @@ const StaffLogin = () => {
           console.log("Signed in staff:", user.displayName, "with permissions:", staffClaims.staffPermissions);
           
           // Navigate to appropriate dashboard based on email domain
-          const finalRedirectTo = (user.email.endsWith('@rtd-connect.com') || user.email === 'kyle@rtdacademy.com') 
+          const finalRedirectTo = user.email.endsWith('@rtd-connect.com')
             ? '/home-education-staff' 
             : redirectTo;
             

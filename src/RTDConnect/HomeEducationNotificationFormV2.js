@@ -74,7 +74,8 @@ import {
   Clock,
   RefreshCw,
   Info,
-  MapPin
+  MapPin,
+  Eye
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import { Button } from '../components/ui/button';
@@ -203,7 +204,8 @@ const SmartFormField = ({
   copyOptions = [],
   onCopy,
   fieldName,
-  legalText
+  legalText,
+  readOnly = false
 }) => {
   const [infoSheetOpen, setInfoSheetOpen] = React.useState(false);
   
@@ -237,7 +239,7 @@ const SmartFormField = ({
         )}
       </div>
       
-      {copyOptions.length > 0 && (
+      {copyOptions.length > 0 && !readOnly && (
         <div className="flex items-center space-x-1">
           <span className="text-xs text-gray-500">Copy from:</span>
           {copyOptions.map((option, index) => (
@@ -269,7 +271,9 @@ const HomeEducationNotificationFormV2 = ({
   familyId, 
   familyData,
   selectedStudent,
-  schoolYear
+  schoolYear,
+  readOnly = false,
+  staffMode = false
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -1212,10 +1216,19 @@ const HomeEducationNotificationFormV2 = ({
               <FileText className="w-5 h-5 text-purple-500" />
               <span>Home Education Notification Form</span>
               <span className="text-sm text-gray-600">- {selectedStudent.firstName} {selectedStudent.lastName} ({schoolYear})</span>
+              {staffMode && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Staff View (Read-Only)
+                </span>
+              )}
             </div>
           </SheetTitle>
           <SheetDescription className="text-left">
-            Complete the official Alberta Home Education Notification Form for {selectedStudent?.firstName} {selectedStudent?.lastName} for the {schoolYear} school year. Use the copy buttons to quickly fill fields from other family members or previous years. Hover over info icons for full legal wording.
+            {staffMode ? 
+              `Viewing the Alberta Home Education Notification Form for ${selectedStudent?.firstName} ${selectedStudent?.lastName} for the ${schoolYear} school year.` :
+              `Complete the official Alberta Home Education Notification Form for ${selectedStudent?.firstName} ${selectedStudent?.lastName} for the {schoolYear} school year. Use the copy buttons to quickly fill fields from other family members or previous years. Hover over info icons for full legal wording.`
+            }
           </SheetDescription>
         </SheetHeader>
 
@@ -1313,15 +1326,16 @@ const HomeEducationNotificationFormV2 = ({
               >
                 <RadioGroup 
                   value={watch('formType')} 
-                  onValueChange={(value) => setValue('formType', value)}
+                  onValueChange={(value) => !readOnly && setValue('formType', value)}
+                  disabled={readOnly}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="new" id="new" />
-                    <Label htmlFor="new">New notification with a new associate board or private school</Label>
+                    <RadioGroupItem value="new" id="new" disabled={readOnly} />
+                    <Label htmlFor="new" className={readOnly ? 'text-gray-500' : ''}>New notification with a new associate board or private school</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="renewal" id="renewal" />
-                    <Label htmlFor="renewal">Renewal with the same associate board or private school</Label>
+                    <RadioGroupItem value="renewal" id="renewal" disabled={readOnly} />
+                    <Label htmlFor="renewal" className={readOnly ? 'text-gray-500' : ''}>Renewal with the same associate board or private school</Label>
                   </div>
                 </RadioGroup>
                 <input
@@ -1415,8 +1429,9 @@ const HomeEducationNotificationFormV2 = ({
                     <Checkbox 
                       id="programAddressDifferent" 
                       checked={watch('programAddressDifferent')}
-                      onCheckedChange={(checked) => setValue('programAddressDifferent', checked)}
+                      onCheckedChange={(checked) => !readOnly && setValue('programAddressDifferent', checked)}
                       className="mt-1"
+                      disabled={readOnly}
                     />
                     <div className="flex-1">
                       <Label htmlFor="programAddressDifferent" className="text-sm font-medium text-gray-900">
@@ -1441,14 +1456,17 @@ const HomeEducationNotificationFormV2 = ({
                       <AddressPicker
                         value={watch('programAddress')}
                         onAddressSelect={(address) => {
-                          setValue('programAddress', address);
-                          // Clear any validation errors when address is selected
-                          if (address) {
-                            setValue('programAddress', address, { shouldValidate: true });
+                          if (!readOnly) {
+                            setValue('programAddress', address);
+                            // Clear any validation errors when address is selected
+                            if (address) {
+                              setValue('programAddress', address, { shouldValidate: true });
+                            }
                           }
                         }}
                         placeholder="Start typing the education program location address..."
                         error={errors.programAddress?.message}
+                        disabled={readOnly}
                       />
                       
                       <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
@@ -1501,11 +1519,15 @@ const HomeEducationNotificationFormV2 = ({
                 onCopy={handleCopyValue}
                 fieldName="citizenship"
                 legalText={LEGAL_TEXT.CITIZENSHIP}
+                readOnly={readOnly}
               >
                 <Textarea
-                  {...register('citizenship', { required: 'Citizenship information is required' })}
+                  {...register('citizenship', { required: !readOnly && 'Citizenship information is required' })}
                   placeholder="e.g., Canadian citizen, or Permanent resident (expires: MM/DD/YYYY)"
                   rows={3}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  className={readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
               </SmartFormField>
 
@@ -1518,13 +1540,19 @@ const HomeEducationNotificationFormV2 = ({
                 fieldName="residentSchoolBoard"
                 legalText={LEGAL_TEXT.RESIDENT_SCHOOL_BOARD}
               >
-                <SchoolBoardSelector
-                  value={watch('residentSchoolBoard') || ''}
-                  onChange={(value) => setValue('residentSchoolBoard', value)}
-                  error={errors.residentSchoolBoard?.message}
-                  placeholder="Search by school board name or code (e.g. 2245)..."
-                  required
-                />
+                {readOnly ? (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                    {watch('residentSchoolBoard') || 'Not specified'}
+                  </div>
+                ) : (
+                  <SchoolBoardSelector
+                    value={watch('residentSchoolBoard') || ''}
+                    onChange={(value) => setValue('residentSchoolBoard', value)}
+                    error={errors.residentSchoolBoard?.message}
+                    placeholder="Search by school board name or code (e.g. 2245)..."
+                    required
+                  />
+                )}
                 <input
                   type="hidden"
                   {...register('residentSchoolBoard', { required: 'Resident school board is required' })}
@@ -1542,6 +1570,9 @@ const HomeEducationNotificationFormV2 = ({
                   {...register('previousSchoolProgram')}
                   placeholder="Enter previous school or program (if applicable)"
                   rows={2}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  className={readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
               </SmartFormField>
 
@@ -1550,8 +1581,9 @@ const HomeEducationNotificationFormV2 = ({
                   <Checkbox
                     id="assistanceRequired"
                     {...register('assistanceRequired')}
+                    disabled={readOnly}
                   />
-                  <Label htmlFor="assistanceRequired">Do you need help preparing the home education program plan?</Label>
+                  <Label htmlFor="assistanceRequired" className={readOnly ? 'text-gray-500' : ''}>Do you need help preparing the home education program plan?</Label>
                 </div>
                 
                 {copyOptions.assistanceRequired?.length > 0 && (
@@ -1579,6 +1611,9 @@ const HomeEducationNotificationFormV2 = ({
                   {...register('additionalInstructor')}
                   placeholder="If someone other than the parent/guardian will be providing instruction, provide their name(s) here"
                   rows={3}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  className={readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
               </SmartFormField>
 
@@ -1591,27 +1626,28 @@ const HomeEducationNotificationFormV2 = ({
               >
                 <RadioGroup 
                   value={watch('aboriginalDeclaration')} 
-                  onValueChange={(value) => setValue('aboriginalDeclaration', value)}
+                  onValueChange={(value) => !readOnly && setValue('aboriginalDeclaration', value)}
+                  disabled={readOnly}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="status-indian" id="status-indian" />
-                    <Label htmlFor="status-indian">Status Indian/First Nations</Label>
+                    <RadioGroupItem value="status-indian" id="status-indian" disabled={readOnly} />
+                    <Label htmlFor="status-indian" className={readOnly ? 'text-gray-500' : ''}>Status Indian/First Nations</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="non-status-indian" id="non-status-indian" />
-                    <Label htmlFor="non-status-indian">Non-Status Indian/First Nations</Label>
+                    <RadioGroupItem value="non-status-indian" id="non-status-indian" disabled={readOnly} />
+                    <Label htmlFor="non-status-indian" className={readOnly ? 'text-gray-500' : ''}>Non-Status Indian/First Nations</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="metis" id="metis" />
-                    <Label htmlFor="metis">Métis</Label>
+                    <RadioGroupItem value="metis" id="metis" disabled={readOnly} />
+                    <Label htmlFor="metis" className={readOnly ? 'text-gray-500' : ''}>Métis</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="inuit" id="inuit" />
-                    <Label htmlFor="inuit">Inuit</Label>
+                    <RadioGroupItem value="inuit" id="inuit" disabled={readOnly} />
+                    <Label htmlFor="inuit" className={readOnly ? 'text-gray-500' : ''}>Inuit</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="not-applicable" id="not-applicable" />
-                    <Label htmlFor="not-applicable">Prefer not to declare</Label>
+                    <RadioGroupItem value="not-applicable" id="not-applicable" disabled={readOnly} />
+                    <Label htmlFor="not-applicable" className={readOnly ? 'text-gray-500' : ''}>Prefer not to declare</Label>
                   </div>
                 </RadioGroup>
                 {/* Hidden input for form validation */}
@@ -1634,19 +1670,20 @@ const HomeEducationNotificationFormV2 = ({
                 >
                   <RadioGroup 
                     value={watch('francophoneEligible')} 
-                    onValueChange={(value) => setValue('francophoneEligible', value)}
+                    onValueChange={(value) => !readOnly && setValue('francophoneEligible', value)}
+                    disabled={readOnly}
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="franco-yes" />
-                      <Label htmlFor="franco-yes">Yes</Label>
+                      <RadioGroupItem value="yes" id="franco-yes" disabled={readOnly} />
+                      <Label htmlFor="franco-yes" className={readOnly ? 'text-gray-500' : ''}>Yes</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="franco-no" />
-                      <Label htmlFor="franco-no">No</Label>
+                      <RadioGroupItem value="no" id="franco-no" disabled={readOnly} />
+                      <Label htmlFor="franco-no" className={readOnly ? 'text-gray-500' : ''}>No</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="unknown" id="franco-unknown" />
-                      <Label htmlFor="franco-unknown">Do not know</Label>
+                      <RadioGroupItem value="unknown" id="franco-unknown" disabled={readOnly} />
+                      <Label htmlFor="franco-unknown" className={readOnly ? 'text-gray-500' : ''}>Do not know</Label>
                     </div>
                   </RadioGroup>
                   {/* Hidden input for form validation */}
@@ -1666,15 +1703,16 @@ const HomeEducationNotificationFormV2 = ({
                   >
                     <RadioGroup 
                       value={watch('francophoneExercise')} 
-                      onValueChange={(value) => setValue('francophoneExercise', value)}
+                      onValueChange={(value) => !readOnly && setValue('francophoneExercise', value)}
+                      disabled={readOnly}
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="yes" id="exercise-yes" />
-                        <Label htmlFor="exercise-yes">Yes</Label>
+                        <RadioGroupItem value="yes" id="exercise-yes" disabled={readOnly} />
+                        <Label htmlFor="exercise-yes" className={readOnly ? 'text-gray-500' : ''}>Yes</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="no" id="exercise-no" />
-                        <Label htmlFor="exercise-no">No</Label>
+                        <RadioGroupItem value="no" id="exercise-no" disabled={readOnly} />
+                        <Label htmlFor="exercise-no" className={readOnly ? 'text-gray-500' : ''}>No</Label>
                       </div>
                     </RadioGroup>
                     {/* Hidden input for form validation */}
@@ -1707,8 +1745,9 @@ const HomeEducationNotificationFormV2 = ({
                         <Checkbox 
                           id="programAlberta" 
                           checked={watch('programAlberta')}
-                          onCheckedChange={(checked) => setValue('programAlberta', checked)}
+                          onCheckedChange={(checked) => !readOnly && setValue('programAlberta', checked)}
                           className="mt-1"
+                          disabled={readOnly}
                         />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
@@ -1731,8 +1770,9 @@ const HomeEducationNotificationFormV2 = ({
                         <Checkbox 
                           id="programSchedule" 
                           checked={watch('programSchedule')}
-                          onCheckedChange={(checked) => setValue('programSchedule', checked)}
+                          onCheckedChange={(checked) => !readOnly && setValue('programSchedule', checked)}
                           className="mt-1"
+                          disabled={readOnly}
                         />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
@@ -1822,8 +1862,9 @@ const HomeEducationNotificationFormV2 = ({
                       <Checkbox
                         id="signatureAgreed"
                         checked={watch('signatureAgreed')}
-                        onCheckedChange={(checked) => setValue('signatureAgreed', checked)}
+                        onCheckedChange={(checked) => !readOnly && setValue('signatureAgreed', checked)}
                         className="mt-1"
+                        disabled={readOnly}
                       />
                       <Label htmlFor="signatureAgreed" className="text-sm leading-relaxed">
                         By checking this box, I hereby provide my digital signature and certify that I am the parent/guardian named above. 
@@ -1979,25 +2020,48 @@ const HomeEducationNotificationFormV2 = ({
             </Card>
           )}
 
-          {/* Submit Button */}
+          {/* Action Buttons */}
           <div className="flex gap-4 pt-6 border-t">
-            <Button
-              type="submit"
-              disabled={saving || generatingPDF}
-              className="flex-1"
-            >
-              {saving || generatingPDF ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {generatingPDF ? 'Generating PDF...' : 'Saving...'}
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  {isFormComplete(existingSubmission) ? 'Update Form' : 'Complete Form'}
-                </>
-              )}
-            </Button>
+            {staffMode ? (
+              // Staff mode: Show PDF download button
+              <Button
+                type="button"
+                onClick={generatePDF}
+                disabled={generatingPDF}
+                className="flex-1"
+              >
+                {generatingPDF ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Form PDF
+                  </>
+                )}
+              </Button>
+            ) : (
+              // Regular mode: Show save button
+              <Button
+                type="submit"
+                disabled={saving || generatingPDF}
+                className="flex-1"
+              >
+                {saving || generatingPDF ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {generatingPDF ? 'Generating PDF...' : 'Saving...'}
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {isFormComplete(existingSubmission) ? 'Update Form' : 'Complete Form'}
+                  </>
+                )}
+              </Button>
+            )}
             
             <Button
               type="button"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDatabase, ref, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
+import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { 
@@ -37,18 +37,25 @@ import {
   AlertTriangle,
   StarIcon as Star,
   Loader2,
-  Table as TableIcon,
-  Grid3X3 as Grid3X3Icon
+  Maximize2,
+  Minimize2,
+  PanelRightOpen,
+  CreditCard,
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
   getActiveSeptemberCount, 
   formatImportantDate,
-  getAllSeptemberCountDates
+  getAllSeptemberCountDates,
+  getOpenRegistrationSchoolYear,
+  getAllOpenRegistrationSchoolYears
 } from '../config/importantDates';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
+import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
 import {
   Table,
@@ -59,13 +66,391 @@ import {
   TableRow
 } from '../components/ui/table';
 import { ScrollArea } from '../components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription
+} from '../components/ui/sheet';
+
+// Comprehensive Status Badge Component
+const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'submitted':
+      case 'active':
+        return 'text-green-600 bg-green-100';
+      case 'partial':
+      case 'in_progress':
+      case 'pending_review':
+      case 'pending_setup':
+        return 'text-orange-600 bg-orange-100';
+      case 'pending':
+      case 'not_started':
+      default:
+        return 'text-red-600 bg-red-100';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'submitted':
+      case 'active':
+        return <CheckCircle2 className="w-3.5 h-3.5" />;
+      case 'partial':
+      case 'in_progress':
+      case 'pending_review':
+      case 'pending_setup':
+        return <Clock className="w-3.5 h-3.5" />;
+      case 'pending':
+      case 'not_started':
+      default:
+        return <X className="w-3.5 h-3.5" />;
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <div className="flex items-center gap-1">
+        {/* Notification Form Status */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`p-1 rounded relative ${getStatusColor(statuses.notificationForm)}`}>
+              <FileText className="w-3.5 h-3.5" />
+              {assistanceRequired && (
+                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                  <HelpCircle className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">Notification Form</p>
+            <p className="text-xs capitalize">{statuses.notificationForm.replace('_', ' ')}</p>
+            {assistanceRequired && (
+              <p className="text-xs text-yellow-600 font-medium mt-1">⚠️ Assistance Requested</p>
+            )}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Program Plan Status */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`p-1 rounded ${getStatusColor(statuses.programPlan)}`}>
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">Program Plan</p>
+            <p className="text-xs capitalize">{statuses.programPlan.replace('_', ' ')}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Citizenship Docs Status */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`p-1 rounded ${getStatusColor(statuses.citizenshipDocs)}`}>
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">Citizenship Docs</p>
+            <p className="text-xs capitalize">{statuses.citizenshipDocs.replace('_', ' ')}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Payment Setup Status */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`p-1 rounded ${getStatusColor(statuses.paymentSetup)}`}>
+              <CreditCard className="w-3.5 h-3.5" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">Payment Setup</p>
+            <p className="text-xs capitalize">{statuses.paymentSetup.replace('_', ' ')}</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
+  );
+};
+
+// Dashboard Sheet Component - Displays family dashboard in a resizable sheet
+const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
+  const [sheetSize, setSheetSize] = useState('preview');
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Check if mobile on mount and window resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640); // sm breakpoint
+      if (window.innerWidth < 640) {
+        setSheetSize('full'); // Force full width on mobile
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const toggleSize = () => {
+    setSheetSize(prev => prev === 'preview' ? 'full' : 'preview');
+  };
+
+  if (!family) return null;
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent 
+        side="right" 
+        size={sheetSize}
+        className="flex flex-col p-0 gap-0"
+      >
+        <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <SheetTitle className="text-xl font-semibold">
+                {family.familyName || 'Family Dashboard'}
+              </SheetTitle>
+              <SheetDescription className="mt-1">
+                Viewing family dashboard for {family.familyName}
+              </SheetDescription>
+            </div>
+            {!isMobile && (
+              <button
+                onClick={toggleSize}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                title={sheetSize === 'preview' ? 'Expand to full width' : 'Collapse to preview'}
+              >
+                {sheetSize === 'preview' ? (
+                  <>
+                    <Maximize2 className="w-4 h-4" />
+                    <span>Full Width</span>
+                  </>
+                ) : (
+                  <>
+                    <Minimize2 className="w-4 h-4" />
+                    <span>Preview</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </SheetHeader>
+        
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-6">
+
+              {/* Dashboard Content */}
+              <div className="border rounded-lg overflow-hidden bg-white">
+                <RTDConnectDashboard 
+                  staffView={true}
+                  familyId={familyId}
+                  familyData={family}
+                />
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 // Family Table Component
-const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEmail, impersonatedEmail }) => {
+const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEmail, impersonatedEmail, isAdmin }) => {
   const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [familyStatuses, setFamilyStatuses] = useState({});
+  const [loadingStatuses, setLoadingStatuses] = useState(true);
+  
+  // Determine active school year
   const currentYear = getCurrentSchoolYear();
+  const openRegistrationYear = getOpenRegistrationSchoolYear();
+  const activeSchoolYear = openRegistrationYear || currentYear;
+  const dbSchoolYear = activeSchoolYear.replace('/', '_'); // Convert 25/26 to 25_26
+  
   const effectiveEmail = impersonatedEmail || currentUserEmail;
+
+  // Fetch comprehensive status data for all families
+  useEffect(() => {
+    const fetchFamilyStatuses = async () => {
+      setLoadingStatuses(true);
+      const db = getDatabase();
+      const statuses = {};
+
+      for (const [familyId, family] of Object.entries(families)) {
+        const students = family.students ? Object.values(family.students) : [];
+        
+        // Initialize status object
+        statuses[familyId] = {
+          notificationForm: 'pending',
+          programPlan: 'pending',
+          citizenshipDocs: 'pending',
+          paymentSetup: 'not_started',
+          assistanceRequired: false
+        };
+
+        // Check Notification Forms for all students
+        let allFormsSubmitted = true;
+        let anyFormStarted = false;
+        let anyAssistanceRequired = false;
+        
+        for (const student of students) {
+          try {
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`);
+            const formSnapshot = await get(formRef);
+            
+            if (formSnapshot.exists()) {
+              const formData = formSnapshot.val();
+              if (formData.submissionStatus === 'submitted') {
+                anyFormStarted = true;
+              } else {
+                allFormsSubmitted = false;
+                anyFormStarted = true;
+              }
+              
+              // Check if assistance is required
+              if (formData.PART_A?.editableFields?.assistanceRequired === true) {
+                anyAssistanceRequired = true;
+              }
+            } else {
+              allFormsSubmitted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching notification form for student ${student.id}:`, error);
+            allFormsSubmitted = false;
+          }
+        }
+        
+        // Set assistance required status
+        if (anyAssistanceRequired) {
+          statuses[familyId].assistanceRequired = true;
+        }
+        
+        if (students.length > 0) {
+          if (allFormsSubmitted) {
+            statuses[familyId].notificationForm = 'submitted';
+          } else if (anyFormStarted) {
+            statuses[familyId].notificationForm = 'partial';
+          }
+        }
+
+        // Check Program Plans (SOLO) for all students
+        let allPlansSubmitted = true;
+        let anyPlanStarted = false;
+        
+        for (const student of students) {
+          try {
+            const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
+            const planSnapshot = await get(planRef);
+            
+            if (planSnapshot.exists()) {
+              const planData = planSnapshot.val();
+              if (planData.submissionStatus === 'submitted') {
+                anyPlanStarted = true;
+              } else {
+                allPlansSubmitted = false;
+                anyPlanStarted = true;
+              }
+            } else {
+              allPlansSubmitted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching program plan for student ${student.id}:`, error);
+            allPlansSubmitted = false;
+          }
+        }
+        
+        if (students.length > 0) {
+          if (allPlansSubmitted) {
+            statuses[familyId].programPlan = 'submitted';
+          } else if (anyPlanStarted) {
+            statuses[familyId].programPlan = 'in_progress';
+          }
+        }
+
+        // Check Citizenship Docs for all students
+        let allDocsCompleted = true;
+        let anyDocsStarted = false;
+        let anyPendingReview = false;
+        
+        for (const student of students) {
+          try {
+            const docsRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+            const docsSnapshot = await get(docsRef);
+            
+            if (docsSnapshot.exists()) {
+              const docsData = docsSnapshot.val();
+              anyDocsStarted = true;
+              
+              if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview) {
+                // Document is complete
+              } else if (docsData.requiresStaffReview || docsData.staffReviewRequired) {
+                anyPendingReview = true;
+                allDocsCompleted = false;
+              } else {
+                allDocsCompleted = false;
+              }
+            } else {
+              allDocsCompleted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching citizenship docs for student ${student.id}:`, error);
+            allDocsCompleted = false;
+          }
+        }
+        
+        if (students.length > 0) {
+          if (allDocsCompleted && !anyPendingReview) {
+            statuses[familyId].citizenshipDocs = 'completed';
+          } else if (anyPendingReview) {
+            statuses[familyId].citizenshipDocs = 'pending_review';
+          } else if (anyDocsStarted) {
+            statuses[familyId].citizenshipDocs = 'in_progress';
+          }
+        }
+
+        // Check Stripe Connect (Payment Setup)
+        try {
+          const stripeRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STRIPE_CONNECT`);
+          const stripeSnapshot = await get(stripeRef);
+          
+          if (stripeSnapshot.exists()) {
+            const stripeData = stripeSnapshot.val();
+            if (stripeData.status === 'active' || stripeData.status === 'complete') {
+              statuses[familyId].paymentSetup = 'active';
+            } else if (stripeData.status === 'pending') {
+              statuses[familyId].paymentSetup = 'pending_setup';
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching Stripe status for family ${familyId}:`, error);
+        }
+      }
+
+      setFamilyStatuses(statuses);
+      setLoadingStatuses(false);
+    };
+
+    if (Object.keys(families).length > 0) {
+      fetchFamilyStatuses();
+    } else {
+      setLoadingStatuses(false);
+    }
+  }, [families, dbSchoolYear]);
 
   // Process families data for table display
   const familyRows = useMemo(() => {
@@ -73,19 +458,21 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
       const students = family.students ? Object.values(family.students) : [];
       const guardians = family.guardians ? Object.values(family.guardians) : [];
       const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
-      const forms = family.NOTIFICATION_FORMS?.[currentYear] || {};
-      
-      // Calculate registration status
-      const hasFormsForAllStudents = students.length > 0 && students.every(student => 
-        forms[student.id] && forms[student.id].submissionStatus === 'submitted'
-      );
-      const hasAnyForms = Object.keys(forms).length > 0;
       
       // Get grade range
       const grades = students.map(s => s.grade).filter(Boolean);
       const gradeRange = grades.length > 0 ? 
         (grades.length === 1 ? `Grade ${grades[0]}` : `Grades ${Math.min(...grades)}-${Math.max(...grades)}`) : 
         'No grades';
+
+      // Get comprehensive status for this family
+      const comprehensiveStatus = familyStatuses[familyId] || {
+        notificationForm: 'pending',
+        programPlan: 'pending',
+        citizenshipDocs: 'pending',
+        paymentSetup: 'not_started',
+        assistanceRequired: false
+      };
 
       return {
         familyId,
@@ -97,13 +484,13 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         gradeRange,
         facilitatorEmail: family.facilitatorEmail || '',
         isMyFamily: family.facilitatorEmail === effectiveEmail,
-        registrationStatus: hasFormsForAllStudents ? 'Completed' : hasAnyForms ? 'Partial' : 'Pending',
+        comprehensiveStatus,
         lastUpdated: family.lastUpdated || family.createdAt,
         city: primaryGuardian?.address?.city || '',
         rawFamily: family
       };
     });
-  }, [families, currentYear, effectiveEmail]);
+  }, [families, effectiveEmail, familyStatuses]);
 
   // Sort functionality
   const sortedRows = useMemo(() => {
@@ -127,48 +514,11 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   };
 
   const handleViewDashboard = (familyId, family) => {
-    // Navigate to Dashboard with family context
-    navigate('/rtd-connect/dashboard', {
-      state: {
-        staffView: true,
-        familyId: familyId,
-        familyData: family,
-        viewingAs: currentUserEmail
-      }
-    });
+    // Call the parent's onViewDashboard to open the sheet
+    onViewDashboard(familyId, family);
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      'Completed': 'bg-green-100 text-green-800 border-green-200',
-      'Partial': 'bg-orange-100 text-orange-800 border-orange-200',
-      'Pending': 'bg-red-100 text-red-800 border-red-200'
-    };
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${styles[status]}`}>
-        {status}
-      </span>
-    );
-  };
 
-  const getFacilitatorBadge = (email, isMyFamily) => {
-    if (!email) {
-      return <span className="text-xs text-gray-500 italic">Unassigned</span>;
-    }
-    
-    const facilitator = getFacilitatorByEmail(email);
-    const name = facilitator?.name || email;
-    
-    if (isMyFamily) {
-      return (
-        <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-          {name} (Me)
-        </span>
-      );
-    }
-    
-    return <span className="text-xs text-gray-600">{name}</span>;
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -210,16 +560,8 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                 )}
               </div>
             </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('registrationStatus')}
-            >
-              <div className="flex items-center space-x-1">
-                <span>Registration</span>
-                {sortConfig.key === 'registrationStatus' && (
-                  <ChevronDown className={`w-4 h-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                )}
-              </div>
+            <TableHead>
+              <span>Status</span>
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-gray-100"
@@ -267,8 +609,25 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                   </div>
                 </TableCell>
                 <TableCell className="text-sm">{row.gradeRange}</TableCell>
-                <TableCell>{getFacilitatorBadge(row.facilitatorEmail, row.isMyFamily)}</TableCell>
-                <TableCell>{getStatusBadge(row.registrationStatus)}</TableCell>
+                <TableCell>
+                  <FacilitatorSelector
+                    family={row.rawFamily}
+                    familyId={row.familyId}
+                    isAdmin={isAdmin}
+                    currentUserEmail={effectiveEmail}
+                    isMyFamily={row.isMyFamily}
+                  />
+                </TableCell>
+                <TableCell>
+                  {loadingStatuses ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  ) : (
+                    <ComprehensiveStatusBadge 
+                      statuses={row.comprehensiveStatus} 
+                      assistanceRequired={row.comprehensiveStatus.assistanceRequired}
+                    />
+                  )}
+                </TableCell>
                 <TableCell className="text-sm text-gray-500">
                   {row.lastUpdated ? new Date(row.lastUpdated).toLocaleDateString() : 'N/A'}
                 </TableCell>
@@ -277,9 +636,9 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                     <button
                       onClick={() => handleViewDashboard(row.familyId, row.rawFamily)}
                       className="p-1 text-purple-600 hover:bg-purple-50 rounded"
-                      title="View as Family"
+                      title="View Dashboard"
                     >
-                      <Home className="w-4 h-4" />
+                      <PanelRightOpen className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onManageFamily(row.familyId, row.rawFamily)}
@@ -295,158 +654,6 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
           )}
         </TableBody>
       </Table>
-    </div>
-  );
-};
-
-// Family Card Component
-const FamilyCard = ({ family, familyId, onViewDetails, onViewDashboard, onManageFamily }) => {
-  const [studentCount, setStudentCount] = useState(0);
-  const [guardianCount, setGuardianCount] = useState(0);
-  const [registrationStatus, setRegistrationStatus] = useState('unknown');
-  const [lastUpdated, setLastUpdated] = useState(null);
-  
-  useEffect(() => {
-    if (family) {
-      // Count students and guardians
-      const students = family.students ? Object.values(family.students) : [];
-      const guardians = family.guardians ? Object.values(family.guardians) : [];
-      
-      setStudentCount(students.length);
-      setGuardianCount(guardians.length);
-      
-      // Determine registration status for current school year
-      const currentYear = getCurrentSchoolYear();
-      const forms = family.NOTIFICATION_FORMS?.[currentYear] || {};
-      const hasFormsForAllStudents = students.length > 0 && students.every(student => 
-        forms[student.id] && forms[student.id].status === 'submitted'
-      );
-      
-      if (hasFormsForAllStudents) {
-        setRegistrationStatus('completed');
-      } else if (Object.keys(forms).length > 0) {
-        setRegistrationStatus('partial');
-      } else {
-        setRegistrationStatus('pending');
-      }
-      
-      // Get last updated timestamp
-      if (family.lastUpdated) {
-        setLastUpdated(new Date(family.lastUpdated));
-      } else if (family.createdAt) {
-        setLastUpdated(new Date(family.createdAt));
-      }
-    }
-  }, [family]);
-
-  const getStatusIcon = () => {
-    switch (registrationStatus) {
-      case 'completed':
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'partial':
-        return <Clock className="w-5 h-5 text-orange-500" />;
-      default:
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (registrationStatus) {
-      case 'completed':
-        return 'Registered';
-      case 'partial':
-        return 'Partial';
-      default:
-        return 'Pending';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (registrationStatus) {
-      case 'completed':
-        return 'bg-green-50 text-green-700 border-green-200';
-      case 'partial':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      default:
-        return 'bg-red-50 text-red-700 border-red-200';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {family.familyName || 'Unnamed Family'}
-          </h3>
-          
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="flex items-center space-x-2">
-              <GraduationCap className="w-4 h-4 text-blue-500" />
-              <span className="text-sm text-gray-600">
-                {studentCount} Student{studentCount !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4 text-purple-500" />
-              <span className="text-sm text-gray-600">
-                {guardianCount} Guardian{guardianCount !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-
-          {/* Facilitator Info */}
-          {family.facilitatorEmail && (
-            <div className="mb-4 p-2 bg-indigo-50 border border-indigo-200 rounded-md">
-              <div className="flex items-center space-x-2">
-                <UserCheck className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm text-indigo-700 font-medium">
-                  Facilitator: {family.facilitatorEmail}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {getStatusIcon()}
-              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor()}`}>
-                {getStatusText()}
-              </span>
-            </div>
-            
-            {lastUpdated && (
-              <span className="text-xs text-gray-500">
-                Updated {lastUpdated.toLocaleDateString()}
-              </span>
-            )}
-          </div>
-        </div>
-        
-        <div className="ml-4 flex flex-col space-y-2">
-          <button
-            onClick={() => onViewDetails(familyId, family)}
-            className="flex items-center space-x-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            <span>View Details</span>
-          </button>
-          <button
-            onClick={() => onViewDashboard(familyId, family)}
-            className="flex items-center space-x-2 px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
-          >
-            <Home className="w-4 h-4" />
-            <span>View Dashboard</span>
-          </button>
-          <button
-            onClick={() => onManageFamily(familyId, family)}
-            className="flex items-center space-x-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50 rounded-md transition-colors"
-          >
-            <Settings className="w-4 h-4" />
-            <span>Manage</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
@@ -523,22 +730,6 @@ const FamilyDashboardModal = ({ family, familyId, isOpen, onClose }) => {
           </div>
 
           <div className="p-6">
-            {/* Warning Banner */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <Eye className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="text-sm font-medium text-blue-800">Staff View Mode</h3>
-                  <p className="text-sm text-blue-700 mt-1">
-                    You are viewing this family's dashboard as they would see it. 
-                    All data and functionality reflects their current state.
-                  </p>
-                  <div className="text-xs text-blue-600 mt-2">
-                    <strong>Viewing as:</strong> {familyUser.email} | <strong>Family ID:</strong> {familyId}
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Dashboard Component */}
             <div className="border rounded-lg overflow-hidden">
@@ -585,31 +776,68 @@ const FamilyManagementModal = ({ family, familyId, isOpen, onClose, action }) =>
   const [facilitatorEmail, setFacilitatorEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [priority, setPriority] = useState(false);
+  const [assistanceHandled, setAssistanceHandled] = useState(false);
+  const [hasAssistanceRequest, setHasAssistanceRequest] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen && family) {
+    if (isOpen && family && familyId) {
       setFacilitatorEmail(family.facilitatorEmail || '');
       setNotes(family.staffNotes || '');
       setPriority(family.priority || false);
+      
+      // Check if family has assistance requests
+      const checkAssistanceRequests = async () => {
+        const db = getDatabase();
+        const currentYear = getCurrentSchoolYear();
+        const dbSchoolYear = currentYear.replace('/', '_');
+        const students = family.students ? Object.values(family.students) : [];
+        
+        for (const student of students) {
+          const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`);
+          const snapshot = await get(formRef);
+          if (snapshot.exists()) {
+            const formData = snapshot.val();
+            if (formData.PART_A?.editableFields?.assistanceRequired === true) {
+              setHasAssistanceRequest(true);
+              break;
+            }
+          }
+        }
+      };
+      
+      checkAssistanceRequests();
     }
-  }, [isOpen, family]);
+  }, [isOpen, family, familyId]);
 
   const handleSave = async () => {
     if (!family || !familyId) return;
     
     setSaving(true);
     try {
-      // Here you would update the Firebase database
-      console.log('Saving changes:', {
-        familyId,
-        facilitatorEmail,
-        notes,
-        priority
-      });
+      const db = getDatabase();
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update family information
+      const familyRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}`);
+      const updates = {
+        facilitatorEmail: facilitatorEmail || null,
+        staffNotes: notes || null,
+        priority: priority,
+        lastUpdated: Date.now()
+      };
+      await update(familyRef, updates);
+      
+      // If assistance was marked as handled, clear the assistance request
+      if (assistanceHandled && hasAssistanceRequest) {
+        const currentYear = getCurrentSchoolYear();
+        const dbSchoolYear = currentYear.replace('/', '_');
+        const students = family.students ? Object.values(family.students) : [];
+        
+        for (const student of students) {
+          const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}/PART_A/editableFields`);
+          await update(formRef, { assistanceRequired: false });
+        }
+      }
       
       onClose();
     } catch (error) {
@@ -677,6 +905,25 @@ const FamilyManagementModal = ({ family, familyId, isOpen, onClose, action }) =>
                 </span>
               </label>
             </div>
+
+            {/* Assistance Handled */}
+            {hasAssistanceRequest && (
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistanceHandled"
+                  checked={assistanceHandled}
+                  onChange={(e) => setAssistanceHandled(e.target.checked)}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="assistanceHandled" className="flex items-center space-x-2">
+                  <HelpCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    Mark assistance request as handled
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Staff Notes */}
             <div>
@@ -911,15 +1158,21 @@ const HomeEducationStaffDashboard = ({
   const [selectedFamilyId, setSelectedFamilyId] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
+  const [showDashboardSheet, setShowDashboardSheet] = useState(false);
+  const [dashboardSheetFamily, setDashboardSheetFamily] = useState(null);
+  const [dashboardSheetFamilyId, setDashboardSheetFamilyId] = useState(null);
   const [showManagementModal, setShowManagementModal] = useState(false);
   const [managementAction, setManagementAction] = useState(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [viewType, setViewType] = useState('table'); // 'table' or 'cards'
+  const [familyStatuses, setFamilyStatuses] = useState({});
+  const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [activeSchoolYear, setActiveSchoolYear] = useState('');
   const [filters, setFilters] = useState({
     registrationStatus: 'all', // all, completed, partial, pending
     gradeLevel: 'all', // all, k, elementary, middle, high
     location: 'all', // all, specific provinces/cities
-    facilitatorAssigned: 'all' // all, assigned, unassigned
+    facilitatorAssigned: 'all', // all, assigned, unassigned
+    assistanceRequired: 'all' // all, yes, no
   });
   const [stats, setStats] = useState({
     totalFamilies: 0,
@@ -931,6 +1184,186 @@ const HomeEducationStaffDashboard = ({
     myFamilies: 0,
     myRegisteredFamilies: 0
   });
+
+  // Initialize active school year
+  useEffect(() => {
+    const currentYear = getCurrentSchoolYear();
+    const openRegistrationYear = getOpenRegistrationSchoolYear();
+    const targetSchoolYear = openRegistrationYear || currentYear;
+    setActiveSchoolYear(targetSchoolYear);
+    console.log('Active school year set to:', targetSchoolYear);
+  }, []);
+
+  // Fetch comprehensive status data for all families
+  useEffect(() => {
+    const fetchFamilyStatuses = async () => {
+      if (!activeSchoolYear || Object.keys(families).length === 0) {
+        setLoadingStatuses(false);
+        return;
+      }
+
+      setLoadingStatuses(true);
+      const db = getDatabase();
+      const statuses = {};
+      const dbSchoolYear = activeSchoolYear.replace('/', '_'); // Convert 25/26 to 25_26
+
+      for (const [familyId, family] of Object.entries(families)) {
+        const students = family.students ? Object.values(family.students) : [];
+        
+        // Initialize status object
+        statuses[familyId] = {
+          notificationForm: 'pending',
+          programPlan: 'pending',
+          citizenshipDocs: 'pending',
+          paymentSetup: 'not_started',
+          assistanceRequired: false
+        };
+
+        // Check Notification Forms for all students
+        let allFormsSubmitted = true;
+        let anyFormStarted = false;
+        let anyAssistanceRequired = false;
+        
+        for (const student of students) {
+          try {
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`);
+            const formSnapshot = await get(formRef);
+            
+            if (formSnapshot.exists()) {
+              const formData = formSnapshot.val();
+              if (formData.submissionStatus === 'submitted') {
+                anyFormStarted = true;
+              } else {
+                allFormsSubmitted = false;
+                anyFormStarted = true;
+              }
+              
+              // Check if assistance is required
+              if (formData.PART_A?.editableFields?.assistanceRequired === true) {
+                anyAssistanceRequired = true;
+              }
+            } else {
+              allFormsSubmitted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching notification form for student ${student.id}:`, error);
+            allFormsSubmitted = false;
+          }
+        }
+        
+        // Set assistance required status
+        if (anyAssistanceRequired) {
+          statuses[familyId].assistanceRequired = true;
+        }
+        
+        if (students.length > 0) {
+          if (allFormsSubmitted) {
+            statuses[familyId].notificationForm = 'submitted';
+          } else if (anyFormStarted) {
+            statuses[familyId].notificationForm = 'partial';
+          }
+        }
+
+        // Check Program Plans (SOLO) for all students
+        let allPlansSubmitted = true;
+        let anyPlanStarted = false;
+        
+        for (const student of students) {
+          try {
+            const planRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
+            const planSnapshot = await get(planRef);
+            
+            if (planSnapshot.exists()) {
+              const planData = planSnapshot.val();
+              if (planData.submissionStatus === 'submitted') {
+                anyPlanStarted = true;
+              } else {
+                allPlansSubmitted = false;
+                anyPlanStarted = true;
+              }
+            } else {
+              allPlansSubmitted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching program plan for student ${student.id}:`, error);
+            allPlansSubmitted = false;
+          }
+        }
+        
+        if (students.length > 0) {
+          if (allPlansSubmitted) {
+            statuses[familyId].programPlan = 'submitted';
+          } else if (anyPlanStarted) {
+            statuses[familyId].programPlan = 'in_progress';
+          }
+        }
+
+        // Check Citizenship Docs for all students
+        let allDocsCompleted = true;
+        let anyDocsStarted = false;
+        let anyPendingReview = false;
+        
+        for (const student of students) {
+          try {
+            const docsRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+            const docsSnapshot = await get(docsRef);
+            
+            if (docsSnapshot.exists()) {
+              const docsData = docsSnapshot.val();
+              anyDocsStarted = true;
+              
+              if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview) {
+                // Document is complete
+              } else if (docsData.requiresStaffReview || docsData.staffReviewRequired) {
+                anyPendingReview = true;
+                allDocsCompleted = false;
+              } else {
+                allDocsCompleted = false;
+              }
+            } else {
+              allDocsCompleted = false;
+            }
+          } catch (error) {
+            console.error(`Error fetching citizenship docs for student ${student.id}:`, error);
+            allDocsCompleted = false;
+          }
+        }
+        
+        if (students.length > 0) {
+          if (allDocsCompleted && !anyPendingReview) {
+            statuses[familyId].citizenshipDocs = 'completed';
+          } else if (anyPendingReview) {
+            statuses[familyId].citizenshipDocs = 'pending_review';
+          } else if (anyDocsStarted) {
+            statuses[familyId].citizenshipDocs = 'in_progress';
+          }
+        }
+
+        // Check Stripe Connect (Payment Setup)
+        try {
+          const stripeRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STRIPE_CONNECT`);
+          const stripeSnapshot = await get(stripeRef);
+          
+          if (stripeSnapshot.exists()) {
+            const stripeData = stripeSnapshot.val();
+            if (stripeData.status === 'active' || stripeData.status === 'complete') {
+              statuses[familyId].paymentSetup = 'active';
+            } else if (stripeData.status === 'pending') {
+              statuses[familyId].paymentSetup = 'pending_setup';
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching Stripe status for family ${familyId}:`, error);
+        }
+      }
+
+      setFamilyStatuses(statuses);
+      setLoadingStatuses(false);
+      console.log('Family statuses loaded:', statuses);
+    };
+
+    fetchFamilyStatuses();
+  }, [families, activeSchoolYear]);
 
   // Load families data
   useEffect(() => {
@@ -1095,6 +1528,14 @@ const HomeEducationStaffDashboard = ({
           if (filters.facilitatorAssigned === 'unassigned' && hasAssignedFacilitator) return false;
         }
 
+        // Assistance Required Filter
+        if (filters.assistanceRequired !== 'all') {
+          const familyStatus = familyStatuses[familyId];
+          const hasAssistanceRequired = familyStatus?.assistanceRequired || false;
+          if (filters.assistanceRequired === 'yes' && !hasAssistanceRequired) return false;
+          if (filters.assistanceRequired === 'no' && hasAssistanceRequired) return false;
+        }
+
         return true;
       })
     );
@@ -1145,9 +1586,9 @@ const HomeEducationStaffDashboard = ({
   };
 
   const handleViewDashboard = (familyId, family) => {
-    setSelectedFamilyId(familyId);
-    setSelectedFamily(family);
-    setShowDashboardModal(true);
+    setDashboardSheetFamilyId(familyId);
+    setDashboardSheetFamily(family);
+    setShowDashboardSheet(true);
   };
 
   const handleCloseModal = () => {
@@ -1160,6 +1601,12 @@ const HomeEducationStaffDashboard = ({
     setSelectedFamily(null);
     setSelectedFamilyId(null);
     setShowDashboardModal(false);
+  };
+
+  const handleCloseDashboardSheet = () => {
+    setDashboardSheetFamily(null);
+    setDashboardSheetFamilyId(null);
+    setShowDashboardSheet(false);
   };
 
   const handleManageFamily = (familyId, family) => {
@@ -1189,7 +1636,8 @@ const HomeEducationStaffDashboard = ({
       registrationStatus: 'all',
       gradeLevel: 'all',
       location: 'all',
-      facilitatorAssigned: 'all'
+      facilitatorAssigned: 'all',
+      assistanceRequired: 'all'
     });
     setSearchTerm('');
   };
@@ -1199,21 +1647,19 @@ const HomeEducationStaffDashboard = ({
   // Export functionality
   const handleExportFamilies = () => {
     const familyEntries = Object.entries(filteredFamilies);
-    const currentYear = getCurrentSchoolYear();
     
     const csvData = familyEntries.map(([familyId, family]) => {
       const students = family.students ? Object.values(family.students) : [];
       const guardians = family.guardians ? Object.values(family.guardians) : [];
       const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
       
-      // Calculate registration status
-      const forms = family.NOTIFICATION_FORMS?.[currentYear] || {};
-      const hasFormsForAllStudents = students.length > 0 && students.every(student => 
-        forms[student.id] && forms[student.id].submissionStatus === 'submitted'
-      );
-      const hasAnyForms = Object.keys(forms).length > 0;
-      const registrationStatus = hasFormsForAllStudents ? 'Completed' : 
-                                hasAnyForms ? 'Partial' : 'Pending';
+      // Get comprehensive status
+      const status = familyStatuses[familyId] || {
+        notificationForm: 'pending',
+        programPlan: 'pending',
+        citizenshipDocs: 'pending',
+        paymentSetup: 'not_started'
+      };
 
       return {
         'Family ID': familyId,
@@ -1226,7 +1672,10 @@ const HomeEducationStaffDashboard = ({
         'Student Count': students.length,
         'Guardian Count': guardians.length,
         'Facilitator Email': family.facilitatorEmail || 'Unassigned',
-        'Registration Status': registrationStatus,
+        'Notification Form': status.notificationForm,
+        'Program Plan': status.programPlan,
+        'Citizenship Docs': status.citizenshipDocs,
+        'Payment Setup': status.paymentSetup,
         'Last Updated': family.lastUpdated ? new Date(family.lastUpdated).toLocaleDateString() : '',
         'Created Date': family.createdAt ? new Date(family.createdAt).toLocaleDateString() : ''
       };
@@ -1241,9 +1690,10 @@ const HomeEducationStaffDashboard = ({
       ...csvData.map(row => 
         headers.map(header => {
           const value = row[header] || '';
-          // Escape quotes and wrap in quotes if contains comma
-          return value.includes(',') || value.includes('"') ? 
-            `"${value.replace(/"/g, '""')}"` : value;
+          // Convert to string and escape quotes and wrap in quotes if contains comma
+          const stringValue = String(value);
+          return stringValue.includes(',') || stringValue.includes('"') ? 
+            `"${stringValue.replace(/"/g, '""')}"` : stringValue;
         }).join(',')
       )
     ].join('\n');
@@ -1479,6 +1929,20 @@ const HomeEducationStaffDashboard = ({
                   </select>
                 </div>
 
+                {/* Assistance Required Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assistance Required</label>
+                  <select
+                    value={filters.assistanceRequired}
+                    onChange={(e) => handleFilterChange('assistanceRequired', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="all">All Families</option>
+                    <option value="yes">Needs Assistance</option>
+                    <option value="no">No Assistance Needed</option>
+                  </select>
+                </div>
+
                 {/* Location Filter Placeholder */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -1540,62 +2004,15 @@ const HomeEducationStaffDashboard = ({
         </p>
       </div>
 
-      {/* View Type Toggle */}
-      <div className="mb-4 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-700">View as:</span>
-          <button
-            onClick={() => setViewType('table')}
-            className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              viewType === 'table' 
-                ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
-            }`}
-          >
-            <div className="flex items-center space-x-1">
-              <TableIcon className="w-4 h-4" />
-              <span>Table</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setViewType('cards')}
-            className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              viewType === 'cards' 
-                ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
-            }`}
-          >
-            <div className="flex items-center space-x-1">
-              <Grid3X3Icon className="w-4 h-4" />
-              <span>Cards</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* Families Display */}
-      {viewType === 'table' ? (
-        <FamilyTable
-          families={filteredFamilies}
-          onViewDashboard={handleViewDashboard}
-          onManageFamily={handleManageFamily}
-          currentUserEmail={user?.email}
-          impersonatedEmail={impersonatingFacilitator?.contact?.email}
-        />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {Object.entries(filteredFamilies).map(([familyId, family]) => (
-            <FamilyCard
-              key={familyId}
-              family={family}
-              familyId={familyId}
-              onViewDetails={handleViewDetails}
-              onViewDashboard={handleViewDashboard}
-              onManageFamily={handleManageFamily}
-            />
-          ))}
-        </div>
-      )}
+      <FamilyTable
+        families={filteredFamilies}
+        onViewDashboard={handleViewDashboard}
+        onManageFamily={handleManageFamily}
+        currentUserEmail={user?.email}
+        impersonatedEmail={impersonatingFacilitator?.contact?.email}
+        isAdmin={isAdmin}
+      />
 
       {/* Empty State */}
       {Object.keys(filteredFamilies).length === 0 && !loading && (
@@ -1621,12 +2038,20 @@ const HomeEducationStaffDashboard = ({
         onClose={handleCloseModal}
       />
 
-      {/* Family Dashboard View Modal */}
+      {/* Family Dashboard View Modal (kept for compatibility) */}
       <FamilyDashboardModal
         family={selectedFamily}
         familyId={selectedFamilyId}
         isOpen={showDashboardModal}
         onClose={handleCloseDashboardModal}
+      />
+
+      {/* Dashboard Sheet - New resizable sheet implementation */}
+      <DashboardSheet
+        family={dashboardSheetFamily}
+        familyId={dashboardSheetFamilyId}
+        isOpen={showDashboardSheet}
+        onClose={handleCloseDashboardSheet}
       />
 
       {/* Family Management Modal */}

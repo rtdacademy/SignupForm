@@ -182,6 +182,8 @@ exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 
 // Google Genkit functions
 exports.analyzeReceipt = googleGenkitFunctions.analyzeReceipt;
+exports.analyzeMixedReceipt = googleGenkitFunctions.analyzeMixedReceipt;
+exports.analyzeCitizenshipDocument = googleGenkitFunctions.analyzeCitizenshipDocument;
 //exports.terminalChat = tempFunctions.terminalChat;
 
 // Notification functions

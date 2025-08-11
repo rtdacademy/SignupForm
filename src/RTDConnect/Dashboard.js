@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { getDatabase, ref, get, set, push, onValue, off, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
 import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
-import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download } from 'lucide-react';
+import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import AddressPicker from '../components/AddressPicker';
 import FamilyCreationSheet from './FamilyCreationSheet';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
@@ -128,9 +130,9 @@ const checkStudentFormCompletion = (student, formStatuses, docStatuses, soloStat
     completed++;
   }
 
-  // Check Citizenship Documents
-  const citizenshipDocsStatus = docStatuses[student.id]?.status || 'pending';
-  if (citizenshipDocsStatus !== 'completed') {
+  // Check Citizenship Documents - only count as completed if no staff review required
+  const docStatusData = docStatuses[student.id] || { status: 'pending', requiresStaffReview: false };
+  if (docStatusData.status !== 'completed' || docStatusData.requiresStaffReview) {
     missing.push('citizenship-docs');
   } else {
     completed++;
@@ -157,12 +159,22 @@ const checkStudentFormCompletion = (student, formStatuses, docStatuses, soloStat
 const getStudentPaymentEligibility = (student, formStatuses, docStatuses, soloStatuses, activeSchoolYear) => {
   const completion = checkStudentFormCompletion(student, formStatuses, docStatuses, soloStatuses, activeSchoolYear);
   
+  // Check if staff review is blocking completion
+  const docStatusData = docStatuses[student.id] || { status: 'pending', requiresStaffReview: false };
+  const hasStaffReviewPending = docStatusData.requiresStaffReview && docStatusData.status === 'pending-review';
+  
+  let restrictionReason = null;
+  if (!completion.isComplete) {
+    restrictionReason = hasStaffReviewPending ? 'staff-review-required' : 'incomplete-forms';
+  }
+  
   return {
     ...completion,
     canAccessPayments: completion.isComplete,
-    restrictionReason: completion.isComplete ? null : 'incomplete-forms',
+    restrictionReason: restrictionReason,
     missingForms: completion.missing,
-    studentName: `${student.firstName} ${student.lastName}`
+    studentName: `${student.firstName} ${student.lastName}`,
+    hasStaffReviewPending: hasStaffReviewPending
   };
 };
 
@@ -194,17 +206,23 @@ const getFamilyPaymentEligibility = (students, formStatuses, docStatuses, soloSt
   const completedForms = eligibilityResults.reduce((sum, result) => sum + result.completedForms, 0);
   const completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
 
+  // Check if any students have staff review pending
+  const studentsWithStaffReview = eligibilityResults.filter(result => result.hasStaffReviewPending);
+  const hasStaffReviewPending = studentsWithStaffReview.length > 0;
+
   return {
     canAccessPayments: allStudentsComplete, // Only allow family-level access if ALL students are complete
     allStudentsComplete,
     someStudentsComplete,
-    restrictionReason: allStudentsComplete ? null : 'incomplete-student-forms',
+    restrictionReason: allStudentsComplete ? null : hasStaffReviewPending ? 'staff-review-required' : 'incomplete-student-forms',
     studentsWithAccess: studentsWithAccess.map(result => result.studentName),
     studentsWithoutAccess: studentsWithoutAccess.map(result => ({
       name: result.studentName,
       missing: result.missingForms,
-      completionPercentage: result.completionPercentage
+      completionPercentage: result.completionPercentage,
+      hasStaffReviewPending: result.hasStaffReviewPending
     })),
+    studentsWithStaffReview: studentsWithStaffReview.map(result => result.studentName),
     completionPercentage,
     totalStudents: students.length,
     completedStudents: studentsWithAccess.length
@@ -567,8 +585,13 @@ const UnderConstructionModal = ({
   );
 };
 
-const RTDConnectDashboard = () => {
+const RTDConnectDashboard = ({ 
+  staffView = false, 
+  familyId: propFamilyId = null, 
+  familyData: propFamilyData = null 
+}) => {
   const { user, user_email_key, signOut, isHomeEducationParent, checkAndApplyPendingPermissions: applyPendingFromAuth } = useAuth();
+  const { isStaff, hasPermission } = useStaffClaims();
   const navigate = useNavigate();
   const [familyProfile, setFamilyProfile] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -608,6 +631,14 @@ const RTDConnectDashboard = () => {
   const [showCitizenshipDocs, setShowCitizenshipDocs] = useState(false);
   const [selectedStudentForDocs, setSelectedStudentForDocs] = useState(null);
   const [studentDocumentStatuses, setStudentDocumentStatuses] = useState({});
+  
+  // Document Preview state
+  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
+  const [previewDocuments, setPreviewDocuments] = useState([]);
+  const [previewStudentName, setPreviewStudentName] = useState('');
+  const [previewStudent, setPreviewStudent] = useState(null);
+  const [staffComment, setStaffComment] = useState(null);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   
   // SOLO Education Plan state
   const [showSOLOPlanForm, setShowSOLOPlanForm] = useState(false);
@@ -664,6 +695,11 @@ const RTDConnectDashboard = () => {
   // Payment eligibility state
   const [familyPaymentEligibility, setFamilyPaymentEligibility] = useState(null);
   const [studentPaymentEligibility, setStudentPaymentEligibility] = useState({});
+
+  // Staff mode detection
+  const isStaffViewing = staffView || false;
+  const effectiveFamilyId = isStaffViewing && propFamilyId ? propFamilyId : customClaims?.familyId;
+  const shouldBypassProfileCheck = isStaff() || isStaffViewing;
 
   // Initialize school year tracking
   useEffect(() => {
@@ -835,12 +871,12 @@ const RTDConnectDashboard = () => {
 
   // Effect to load facilitator data from family level
   useEffect(() => {
-    if (!customClaims?.familyId) {
+    if (!effectiveFamilyId) {
       return;
     }
 
     const db = getDatabase();
-    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}`);
 
     // Set up realtime listener for family facilitator data
     const unsubscribeFamily = onValue(familyRef, (snapshot) => {
@@ -876,11 +912,11 @@ const RTDConnectDashboard = () => {
     return () => {
       off(familyRef, 'value', unsubscribeFamily);
     };
-  }, [customClaims?.familyId]);
+  }, [effectiveFamilyId]);
 
   // Effect to load student form statuses by school year
   useEffect(() => {
-    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+    if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
       return;
     }
 
@@ -898,7 +934,7 @@ const RTDConnectDashboard = () => {
         // Check each school year for this student
         for (const {schoolYear} of allSchoolYears) {
           try {
-            const formRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${student.id}`);
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${student.id}`);
             const snapshot = await get(formRef);
             
             if (snapshot.exists()) {
@@ -946,11 +982,11 @@ const RTDConnectDashboard = () => {
     };
 
     loadStudentFormStatuses();
-  }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
+  }, [effectiveFamilyId, familyData?.students, activeSchoolYear]);
 
   // Effect to load student citizenship document statuses
   useEffect(() => {
-    if (!customClaims?.familyId || !familyData?.students) {
+    if (!effectiveFamilyId || !familyData?.students) {
       return;
     }
 
@@ -960,21 +996,52 @@ const RTDConnectDashboard = () => {
       
       for (const student of familyData.students) {
         try {
-          const docsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+          const docsRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
           const snapshot = await get(docsRef);
           
           if (snapshot.exists()) {
             const docData = snapshot.val();
+            // Check if staff review is required and documents are uploaded
+            const hasDocuments = docData.documents?.length > 0;
+            const requiresStaffReview = docData.staffReviewRequired || docData.requiresStaffReview;
+            
+            // Determine status based on staff review requirements and staff approval
+            let finalStatus = docData.completionStatus || 'pending';
+            const isStaffApproved = docData.staffApproval?.isApproved === true;
+            
+            if (isStaffApproved) {
+              finalStatus = 'completed'; // Staff approved = completed regardless of AI flags
+            } else if (hasDocuments && requiresStaffReview) {
+              finalStatus = 'pending-review'; // Documents uploaded but need staff review
+            } else if (hasDocuments && !requiresStaffReview && docData.completionStatus === 'completed') {
+              finalStatus = 'completed'; // Truly verified by AI
+            }
+            
             statuses[student.id] = {
-              status: docData.completionStatus || 'pending',
+              status: finalStatus,
               documentCount: docData.documents?.length || 0,
-              lastUpdated: docData.lastUpdated
+              lastUpdated: docData.lastUpdated,
+              requiresStaffReview: requiresStaffReview || false,
+              staffReviewReason: docData.staffReviewReason || null,
+              documents: docData.documents || [],
+              staffApproval: docData.staffApproval || null,
+              // Load AI analysis results and manual overrides from Firebase
+              aiAnalysisResults: docData.aiAnalysisResults || {},
+              manualOverrides: docData.manualOverrides || {},
+              studentName: docData.studentName || `${student.firstName} ${student.lastName}`
             };
           } else {
             statuses[student.id] = {
               status: 'pending',
               documentCount: 0,
-              lastUpdated: null
+              lastUpdated: null,
+              requiresStaffReview: false,
+              staffReviewReason: null,
+              documents: [],
+              staffApproval: null,
+              aiAnalysisResults: {},
+              manualOverrides: {},
+              studentName: `${student.firstName} ${student.lastName}`
             };
           }
         } catch (error) {
@@ -982,21 +1049,36 @@ const RTDConnectDashboard = () => {
           statuses[student.id] = {
             status: 'pending',
             documentCount: 0,
-            lastUpdated: null
+            lastUpdated: null,
+            requiresStaffReview: false,
+            staffReviewReason: null,
+            documents: [],
+            staffApproval: null,
+            aiAnalysisResults: {},
+            manualOverrides: {},
+            studentName: `${student.firstName} ${student.lastName}`
           };
         }
       }
       
       setStudentDocumentStatuses(statuses);
       console.log('Student document statuses loaded:', statuses);
+      
+      // Debug AI analysis data loading
+      Object.entries(statuses).forEach(([studentId, status]) => {
+        if (status.aiAnalysisResults && Object.keys(status.aiAnalysisResults).length > 0) {
+          console.log(`AI Analysis Results for student ${studentId}:`, status.aiAnalysisResults);
+          console.log(`Manual Overrides for student ${studentId}:`, status.manualOverrides);
+        }
+      });
     };
 
     loadStudentDocumentStatuses();
-  }, [customClaims?.familyId, familyData?.students]);
+  }, [effectiveFamilyId, familyData?.students]);
 
   // Effect to load student SOLO plan statuses
   useEffect(() => {
-    if (!customClaims?.familyId || !familyData?.students || !soloTargetSchoolYear) {
+    if (!effectiveFamilyId || !familyData?.students || !soloTargetSchoolYear) {
       return;
     }
 
@@ -1006,7 +1088,7 @@ const RTDConnectDashboard = () => {
       
       for (const student of familyData.students) {
         try {
-          const planRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
+          const planRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
           const snapshot = await get(planRef);
           
           if (snapshot.exists()) {
@@ -1038,11 +1120,11 @@ const RTDConnectDashboard = () => {
     };
 
     loadStudentSOLOPlanStatuses();
-  }, [customClaims?.familyId, familyData?.students, soloTargetSchoolYear]);
+  }, [effectiveFamilyId, familyData?.students, soloTargetSchoolYear]);
 
   // Effect to load Stripe Connect status
   useEffect(() => {
-    if (customClaims?.familyId && user?.uid && customClaims?.familyRole === 'primary_guardian') {
+    if (effectiveFamilyId && user?.uid && (customClaims?.familyRole === 'primary_guardian' || isStaffViewing)) {
       // Reset all sessions when Stripe status changes
       setSessionStates({});
       setAccountSession(null);
@@ -1051,7 +1133,7 @@ const RTDConnectDashboard = () => {
       setPayoutsSession(null);
       loadStripeConnectStatus();
     }
-  }, [customClaims?.familyId, user?.uid, customClaims?.familyRole]);
+  }, [effectiveFamilyId, user?.uid, customClaims?.familyRole, isStaffViewing]);
 
   // Effect to create account session for notification banner when Stripe account exists
   useEffect(() => {
@@ -1116,11 +1198,11 @@ const RTDConnectDashboard = () => {
 
   // Effect to load reimbursement statuses and budgets
   useEffect(() => {
-    if (customClaims?.familyId && familyData?.students && activeSchoolYear) {
+    if (effectiveFamilyId && familyData?.students && activeSchoolYear) {
       loadReimbursementStatuses();
       loadStudentBudgets();
     }
-  }, [customClaims?.familyId, familyData?.students, activeSchoolYear]);
+  }, [effectiveFamilyId, familyData?.students, activeSchoolYear]);
 
   // Effect to calculate payment eligibility when form statuses change
   useEffect(() => {
@@ -1155,21 +1237,56 @@ const RTDConnectDashboard = () => {
     }
   }, [familyData?.students, studentFormStatuses, studentDocumentStatuses, studentSOLOPlanStatuses, activeSchoolYear]);
 
-  // Separate effect for family data based on custom claims
+  // Separate effect for family data based on custom claims or staff view
   useEffect(() => {
-    console.log('Family data effect triggered. customClaims:', customClaims);
+    console.log('Family data effect triggered. effectiveFamilyId:', effectiveFamilyId);
     
-    if (!customClaims?.familyId) {
-      console.log('No familyId in customClaims, setting hasRegisteredFamily to false');
+    // If staff is viewing, use provided family data
+    if (isStaffViewing && propFamilyData) {
+      console.log('Staff viewing mode - using provided family data');
+      const convertedFamilyData = {
+        familyName: propFamilyData.familyName || '',
+        students: propFamilyData.students ? Object.values(propFamilyData.students).map(student => ({
+          ...student,
+          grade: student.grade || '',
+          birthday: student.birthday || '',
+          preferredName: student.preferredName || '',
+          email: student.email || '',
+          gender: student.gender || ''
+        })) : [],
+        guardians: propFamilyData.guardians ? Object.values(propFamilyData.guardians).map(guardian => ({
+          ...guardian,
+          permissions: guardian.permissions || {
+            canEditFamily: true,
+            canViewReports: true,
+            canSubmitReimbursements: true
+          }
+        })) : []
+      };
+      
+      setFamilyProfile(propFamilyData);
+      setFamilyData(convertedFamilyData);
+      setFamilyKey(effectiveFamilyId);
+      setHasRegisteredFamily(true);
+      
+      // For staff viewing, bypass profile check
+      if (isStaff()) {
+        setHasCompleteProfile(true);
+      }
+      return;
+    }
+    
+    if (!effectiveFamilyId) {
+      console.log('No familyId available, setting hasRegisteredFamily to false');
       setHasRegisteredFamily(false);
       setFamilyProfile(null);
       return;
     }
 
-    console.log('Found familyId in customClaims:', customClaims.familyId);
+    console.log('Found familyId:', effectiveFamilyId);
 
     const db = getDatabase();
-    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+    const familyRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}`);
 
     // Set up realtime listener for family registration
     const unsubscribeFamily = onValue(familyRef, (snapshot) => {
@@ -1220,7 +1337,7 @@ const RTDConnectDashboard = () => {
     return () => {
       off(familyRef, 'value', unsubscribeFamily);
     };
-  }, [customClaims?.familyId]);
+  }, [effectiveFamilyId, isStaffViewing, propFamilyData, isStaff]);
 
   // Enhanced permission checking when user logs in
   useEffect(() => {
@@ -1389,7 +1506,8 @@ const RTDConnectDashboard = () => {
     // Allow family creation/editing in two scenarios:
     // 1. User is a primary guardian (for existing families)
     // 2. User has no family yet (for new family creation)
-    if (customClaims?.familyRole !== 'primary_guardian' && hasRegisteredFamily) {
+    // 3. User is staff (can edit any family)
+    if (customClaims?.familyRole !== 'primary_guardian' && hasRegisteredFamily && !isStaff()) {
       console.log('Access denied: Only primary guardians can edit existing family data');
       return;
     }
@@ -1448,10 +1566,10 @@ const RTDConnectDashboard = () => {
     setSelectedFacilitator(facilitator);
 
     // Save only facilitator email to family level
-    if (customClaims?.familyId && facilitator?.contact?.email) {
+    if (effectiveFamilyId && facilitator?.contact?.email) {
       try {
         const db = getDatabase();
-        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}`);
         await update(familyRef, {
           facilitatorEmail: facilitator.contact.email,
           facilitatorAssignedAt: new Date().toISOString(),
@@ -1493,10 +1611,10 @@ const RTDConnectDashboard = () => {
     setSelectedFacilitator(facilitator);
 
     // Save only facilitator email to family level
-    if (customClaims?.familyId && facilitator?.contact?.email) {
+    if (effectiveFamilyId && facilitator?.contact?.email) {
       try {
         const db = getDatabase();
-        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}`);
+        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}`);
         await update(familyRef, {
           facilitatorEmail: facilitator.contact.email,
           facilitatorAssignedAt: new Date().toISOString(),
@@ -1554,7 +1672,7 @@ const RTDConnectDashboard = () => {
     if (currentStatus === 'completed') {
       return {
         status: 'completed',
-        message: `✅ Registered for ${activeSchoolYear} school year`,
+        message: `Registered for ${activeSchoolYear} school year`,
         actionNeeded: false,
         schoolYear: activeSchoolYear,
         deadline: null,
@@ -1650,6 +1768,96 @@ const RTDConnectDashboard = () => {
     setShowCitizenshipDocs(true);
   };
 
+  // Handle opening document preview
+  const handlePreviewDocuments = (student) => {
+    const docStatus = studentDocumentStatuses[student.id];
+    if (docStatus && docStatus.documents && docStatus.documents.length > 0) {
+      setPreviewDocuments(docStatus.documents);
+      setPreviewStudentName(`${student.firstName} ${student.lastName}`);
+      setPreviewStudent(student);
+      setStaffComment(null); // Reset comment
+      setShowAIAnalysis(false); // Reset AI analysis accordion
+      setShowDocumentPreview(true);
+    }
+  };
+
+  // Helper function to get current staff information
+  const getStaffInfo = () => {
+    if (!isStaff() || !user) return null;
+    
+    return {
+      uid: user.uid,
+      email: user.email,
+      name: userProfile?.firstName && userProfile?.lastName 
+        ? `${userProfile.firstName} ${userProfile.lastName}` 
+        : user.email,
+      role: 'staff'
+    };
+  };
+
+  // Handle staff approval of documents
+  const handleStaffApproval = async (student, comment = '') => {
+    if (!isStaff()) {
+      setToast({
+        message: 'Only staff members can approve documents',
+        type: 'error'
+      });
+      return;
+    }
+
+    try {
+      const staffInfo = getStaffInfo();
+      if (!staffInfo) {
+        throw new Error('Unable to verify staff credentials');
+      }
+
+      const db = getDatabase();
+      const docsRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+      
+      const approvalData = {
+        staffReviewRequired: false,
+        requiresStaffReview: false,
+        staffApproval: {
+          isApproved: true,
+          approvedBy: staffInfo,
+          approvedAt: new Date().toISOString(),
+          comment: comment || null,
+          previousStatus: 'pending-review'
+        },
+        completionStatus: 'completed',
+        lastUpdated: new Date().toISOString()
+      };
+
+      await update(docsRef, approvalData);
+
+      // Update local state
+      setStudentDocumentStatuses(prev => ({
+        ...prev,
+        [student.id]: {
+          ...prev[student.id],
+          status: 'completed',
+          requiresStaffReview: false,
+          staffApproval: approvalData.staffApproval
+        }
+      }));
+
+      setToast({
+        message: `Documents approved for ${student.firstName} ${student.lastName}`,
+        type: 'success'
+      });
+
+      // Close the preview modal
+      setShowDocumentPreview(false);
+
+    } catch (error) {
+      console.error('Error approving documents:', error);
+      setToast({
+        message: `Failed to approve documents: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
   // Handle citizenship documents update
   const handleDocumentsUpdated = (studentId, documents) => {
     // Update local state
@@ -1682,7 +1890,7 @@ const RTDConnectDashboard = () => {
         
         for (const student of familyData.students) {
           try {
-            const planRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
+            const planRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/SOLO_EDUCATION_PLANS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
             const snapshot = await get(planRef);
             
             if (snapshot.exists()) {
@@ -1743,7 +1951,7 @@ const RTDConnectDashboard = () => {
 
   // Debug function to check Stripe account status
   const handleDebugStripeAccount = async () => {
-    if (!customClaims?.familyId) {
+    if (!effectiveFamilyId) {
       alert('No family ID found');
       return;
     }
@@ -1752,9 +1960,9 @@ const RTDConnectDashboard = () => {
       const functions = getFunctions();
       const debugStripeAccount = httpsCallable(functions, 'debugStripeAccount');
       
-      console.log('Calling debugStripeAccount for family:', customClaims.familyId);
+      console.log('Calling debugStripeAccount for family:', effectiveFamilyId);
       const result = await debugStripeAccount({
-        familyId: customClaims.familyId
+        familyId: effectiveFamilyId
       });
       
       console.log('Debug Stripe Account Result:', result.data);
@@ -1794,7 +2002,7 @@ Check console for full details.
   
   // Function to update/fix Stripe account with proper prefilling
   const handleUpdateStripeAccount = async () => {
-    if (!customClaims?.familyId) {
+    if (!effectiveFamilyId) {
       setToast({
         message: 'No family ID found',
         type: 'error'
@@ -1812,7 +2020,7 @@ Check console for full details.
       });
       
       const result = await updateStripeAccount({
-        familyId: customClaims.familyId
+        familyId: effectiveFamilyId
       });
       
       if (result.data.success) {
@@ -1837,7 +2045,7 @@ Check console for full details.
 
   // Function to delete Stripe account (for testing)
   const handleDeleteStripeAccount = async () => {
-    if (!customClaims?.familyId) {
+    if (!effectiveFamilyId) {
       setToast({
         message: 'No family ID found',
         type: 'error'
@@ -1862,7 +2070,7 @@ Check console for full details.
       });
       
       const result = await deleteStripeAccount({
-        familyId: customClaims.familyId
+        familyId: effectiveFamilyId
       });
       
       if (result.data.success) {
@@ -1887,7 +2095,7 @@ Check console for full details.
 
   // Function to manually clean up invalid Stripe data
   const handleCleanupStripeData = async () => {
-    if (!customClaims?.familyId) {
+    if (!effectiveFamilyId) {
       setToast({
         message: 'No family ID found',
         type: 'error'
@@ -1903,7 +2111,7 @@ Check console for full details.
 
     try {
       const db = getDatabase();
-      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STRIPE_CONNECT`);
+      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/STRIPE_CONNECT`);
       
       setToast({
         message: 'Cleaning up invalid banking data...',
@@ -1938,8 +2146,15 @@ Check console for full details.
     // Check family payment eligibility
     if (!familyPaymentEligibility?.canAccessPayments) {
       const incompleteStudents = familyPaymentEligibility?.studentsWithoutAccess || [];
+      const studentsWithStaffReview = familyPaymentEligibility?.studentsWithStaffReview || [];
       
-      if (incompleteStudents.length > 0) {
+      if (familyPaymentEligibility?.restrictionReason === 'staff-review-required') {
+        const studentNames = studentsWithStaffReview.join(', ');
+        setToast({
+          message: `Staff review required before accessing payments. Students pending review: ${studentNames}`,
+          type: 'warning'
+        });
+      } else if (incompleteStudents.length > 0) {
         const studentNames = incompleteStudents.map(s => s.name).join(', ');
         setToast({
           message: `Complete all required forms first. Students with incomplete forms: ${studentNames}`,
@@ -1985,7 +2200,7 @@ Check console for full details.
 
   // Create account and immediately open account management (the working flow)
   const handleCreateAndOpenAccountManagement = async () => {
-    if (!customClaims?.familyId || !userProfile) {
+    if (!effectiveFamilyId || !userProfile) {
       setToast({
         message: 'Missing family or user profile information',
         type: 'error'
@@ -2004,7 +2219,7 @@ Check console for full details.
       
       // Create the account with improved pre-filling
       const result = await createStripeConnectAccount({
-        familyId: customClaims.familyId,
+        familyId: effectiveFamilyId,
         userProfile: userProfile
       });
 
@@ -2059,7 +2274,7 @@ Check console for full details.
   };
 
   const loadStudentBudgets = async () => {
-    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+    if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
       return;
     }
 
@@ -2068,7 +2283,7 @@ Check console for full details.
       const budgets = {};
       
       // Load claims to calculate spent amounts
-      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
+      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
       const claimsSnapshot = await get(claimsRef);
       
       for (const student of familyData.students) {
@@ -2110,7 +2325,7 @@ Check console for full details.
   };
 
   const loadReimbursementStatuses = async () => {
-    if (!customClaims?.familyId || !familyData?.students || !activeSchoolYear) {
+    if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
       return;
     }
 
@@ -2131,7 +2346,7 @@ Check console for full details.
       }
       
       // Load claims from new REIMBURSEMENT_CLAIMS structure
-      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
+      const claimsRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/REIMBURSEMENT_CLAIMS/${activeSchoolYear.replace('/', '_')}`);
       const claimsSnapshot = await get(claimsRef);
       
       if (claimsSnapshot.exists()) {
@@ -2185,13 +2400,13 @@ Check console for full details.
   };
 
   const loadStripeConnectStatus = async () => {
-    if (!customClaims?.familyId || !user?.uid) {
+    if (!effectiveFamilyId || !user?.uid) {
       return;
     }
 
     try {
       const db = getDatabase();
-      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${customClaims.familyId}/STRIPE_CONNECT`);
+      const stripeDataRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/STRIPE_CONNECT`);
       const snapshot = await get(stripeDataRef);
       
       if (snapshot.exists()) {
@@ -2213,7 +2428,7 @@ Check console for full details.
 
   // Create account session for specific embedded components
   const createAccountSession = async (components = ['notification_banner'], sessionType = 'notification') => {
-    if (!customClaims?.familyId || sessionLoading) {
+    if (!effectiveFamilyId || sessionLoading) {
       return null;
     }
 
@@ -2243,7 +2458,7 @@ Check console for full details.
       const createSession = httpsCallable(functions, 'createAccountSession');
       
       const result = await createSession({
-        familyId: customClaims.familyId,
+        familyId: effectiveFamilyId,
         components: components
       });
 
@@ -2323,8 +2538,8 @@ Check console for full details.
     );
   }
 
-  // Show profile completion first if incomplete
-  if (!hasCompleteProfile) {
+  // Show profile completion first if incomplete (but bypass for staff users)
+  if (!shouldBypassProfileCheck && !hasCompleteProfile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
@@ -2479,7 +2694,7 @@ Check console for full details.
                   type="submit"
                   disabled={isSubmittingProfile}
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                    isSubmittingProfile 
+                    isSubmittingProfile
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
@@ -2673,7 +2888,7 @@ Check console for full details.
                   type="submit"
                   disabled={isSubmittingProfile}
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                    isSubmittingProfile 
+                    isSubmittingProfile
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
@@ -2969,7 +3184,7 @@ Check console for full details.
                   type="submit"
                   disabled={isSubmittingProfile}
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                    isSubmittingProfile 
+                    isSubmittingProfile
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
@@ -3225,7 +3440,7 @@ Check console for full details.
                   type="submit"
                   disabled={isSubmittingProfile}
                   className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                    isSubmittingProfile 
+                    isSubmittingProfile
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
                   } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
@@ -3316,17 +3531,20 @@ Check console for full details.
   // If family is registered, show the full dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
-      {/* Under Construction Modal */}
-      <UnderConstructionModal
-        isOpen={showUnderConstruction}
-        password={constructionPassword}
-        setPassword={setConstructionPassword}
-        onSubmit={handleConstructionPasswordSubmit}
-        error={constructionPasswordError}
-      />
+      {/* Under Construction Modal - Only show for non-staff users */}
+      {!isStaffViewing && (
+        <UnderConstructionModal
+          isOpen={showUnderConstruction}
+          password={constructionPassword}
+          setPassword={setConstructionPassword}
+          onSubmit={handleConstructionPasswordSubmit}
+          error={constructionPasswordError}
+        />
+      )}
       
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-purple-100">
+      {/* Header - Only show for non-staff users */}
+      {!isStaffViewing && (
+        <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3 sm:space-x-6">
@@ -3354,12 +3572,13 @@ Check console for full details.
             </div>
           </div>
         </div>
-      </header>
+        </header>
+      )}
 
       {/* Main Content - Family Dashboard */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Embedded Notification Banner - shows compliance alerts */}
-        {stripeConnectStatus?.accountId && accountSession?.clientSecret && 
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isStaffViewing ? 'py-4' : 'py-8'}`}>
+        {/* Embedded Notification Banner - shows compliance alerts - Only for non-staff */}
+        {!isStaffViewing && stripeConnectStatus?.accountId && accountSession?.clientSecret && 
          sessionStates[`${stripeConnectStatus.accountId}-notification`]?.created && 
          !sessionStates[`${stripeConnectStatus.accountId}-notification`]?.claimed && (
           <div className="mb-6" key={`notification-${stripeConnectStatus.accountId}-${accountSession.clientSecret.slice(-8)}`}>
@@ -3394,12 +3613,13 @@ Check console for full details.
           />
         </div>
 
+
         {/* Quick Actions & Family Status */}
         <div className="bg-white rounded-lg shadow-md p-4 lg:p-6 border border-gray-100">
           {/* Action Buttons Row */}
           <div className="mb-6">
             <div className="flex-shrink-0">
-              {customClaims?.familyRole === 'primary_guardian' ? (
+              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
                 <div className="space-y-3">
                   {/* Top Row - Primary Actions */}
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -3592,15 +3812,21 @@ Check console for full details.
               <span><strong>{familyData.guardians?.length || 0}</strong> Guardians</span>
             </div>
             <div className="flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-blue-500" />
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
               <span>
                 <strong>
-                  {familyData.students?.filter(student => 
-                    studentFormStatuses[student.id]?.current === 'submitted'
-                  ).length || 0}
-                </strong> of <strong>{familyData.students?.length || 0}</strong> forms submitted
+                  {familyPaymentEligibility?.completedStudents || 0}
+                </strong> of <strong>{familyData.students?.length || 0}</strong> students verified
               </span>
             </div>
+            {familyPaymentEligibility?.studentsWithStaffReview?.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <Eye className="w-4 h-4 text-orange-500" />
+                <span>
+                  <strong>{familyPaymentEligibility.studentsWithStaffReview.length}</strong> pending staff review
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -3688,8 +3914,8 @@ Check console for full details.
                                 </span>
                               </div>
                               
-                              {/* Form Access Button - Only for Primary Guardians */}
-                              {customClaims?.familyRole === 'primary_guardian' ? (
+                              {/* Form Access Button - Primary Guardians and Staff */}
+                              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
                                 <div className="space-y-2">
                                   <button
                                     onClick={() => {
@@ -3706,11 +3932,16 @@ Check console for full details.
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
-                                    {formStatus === 'submitted' ? `Update ${activeSchoolYear} Form` : 
-                                     formStatus === 'incomplete' ? `Complete Missing Parts` :
-                                     formStatus === 'draft-complete' ? `Submit ${activeSchoolYear} Form` :
-                                     formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
-                                     `Start ${activeSchoolYear} Form`}
+                                    {isStaff() ? 
+                                      (formStatus === 'submitted' || formStatus === 'incomplete' || ['draft', 'draft-complete'].includes(formStatus) ? 
+                                        `View ${activeSchoolYear} Registration` : 
+                                        `View ${activeSchoolYear} Registration`) :
+                                      (formStatus === 'submitted' ? `Update ${activeSchoolYear} Form` : 
+                                       formStatus === 'incomplete' ? `Complete Missing Parts` :
+                                       formStatus === 'draft-complete' ? `Submit ${activeSchoolYear} Form` :
+                                       formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
+                                       `Start ${activeSchoolYear} Form`)
+                                    }
                                   </button>
                                 </div>
                               ) : (
@@ -3730,32 +3961,149 @@ Check console for full details.
                                   </span>
                                   {docStatus.status === 'completed' ? (
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : docStatus.status === 'pending-review' ? (
+                                    <Eye className="w-4 h-4 text-orange-500" />
                                   ) : (
-                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                    <AlertCircle className="w-4 h-4 text-red-500" />
                                   )}
                                 </div>
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
-                                  docStatus.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-orange-100 text-orange-700 border-orange-300'
-                                }`}>
-                                  {docStatus.status === 'completed' ? `${docStatus.documentCount} uploaded` : 'Required'}
-                                </span>
+                                {docStatus.status === 'completed' && docStatus.staffApproval ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button className="inline-flex items-center space-x-1 text-xs px-2 py-1 rounded-full font-medium shadow-sm border bg-green-100 text-green-700 border-green-300 hover:bg-green-200 transition-colors cursor-pointer">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>Staff Verified</span>
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-64 p-3">
+                                      <div className="space-y-2">
+                                        <div className="flex items-center space-x-2">
+                                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                          <span className="font-medium text-green-900">Staff Approved</span>
+                                        </div>
+                                        <div className="text-sm text-gray-700">
+                                          <p><strong>Approved by:</strong> {docStatus.staffApproval.approvedBy.email}</p>
+                                          <p><strong>Date:</strong> {new Date(docStatus.staffApproval.approvedAt).toLocaleDateString()}</p>
+                                          {docStatus.staffApproval.comment && (
+                                            <div className="mt-2">
+                                              <p><strong>Comment:</strong></p>
+                                              <p className="text-xs text-gray-600 italic">"{docStatus.staffApproval.comment}"</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                    docStatus.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : 
+                                    docStatus.status === 'pending-review' ? 'bg-orange-100 text-orange-700 border-orange-300' : 
+                                    'bg-red-100 text-red-700 border-red-300'
+                                  }`}>
+                                    {docStatus.status === 'completed' ? 'Verified' : 
+                                     docStatus.status === 'pending-review' ? 'Review Required' : 
+                                     'Required'}
+                                  </span>
+                                )}
                               </div>
                               
-                              {/* Document Upload Button - Only for Primary Guardians */}
-                              {customClaims?.familyRole === 'primary_guardian' ? (
-                                <button
-                                  onClick={() => handleOpenCitizenshipDocs(student)}
-                                  className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
-                                    docStatus.status === 'completed' ?
-                                    'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
-                                    'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
-                                  }`}
-                                >
-                                  {docStatus.status === 'completed' ? 'View/Update Documents' : 'Upload Documents'}
-                                </button>
+                              {/* Staff Review Status */}
+                              {!docStatus.staffApproval && docStatus.requiresStaffReview && docStatus.status === 'pending-review' && (
+                                <div className="mb-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                                  <div className="flex items-center space-x-2">
+                                    <Eye className="w-4 h-4 text-orange-600" />
+                                    <span className="text-xs text-orange-800">
+                                      Documents uploaded but require staff verification
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Document Action Buttons */}
+                              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => handleOpenCitizenshipDocs(student)}
+                                    className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                      docStatus.status === 'completed' ?
+                                      'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                      docStatus.status === 'pending-review' ?
+                                      'bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300 hover:border-orange-400' :
+                                      'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
+                                    }`}
+                                  >
+                                    {docStatus.status === 'completed' ? 'View/Update Documents' : 
+                                     docStatus.status === 'pending-review' ? 'View Documents (Review Required)' : 
+                                     'Upload Documents'}
+                                  </button>
+                                  
+                                  {/* Review/Preview Button - only show if documents exist */}
+                                  {docStatus.documentCount > 0 && (
+                                    <button
+                                      onClick={() => handlePreviewDocuments(student)}
+                                      className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2 ${
+                                        isStaff() && docStatus.requiresStaffReview && !docStatus.staffApproval
+                                          ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 hover:border-red-400 font-medium'
+                                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      {isStaff() ? (
+                                        docStatus.requiresStaffReview && !docStatus.staffApproval ? (
+                                          <>
+                                            <AlertTriangle className="w-4 h-4" />
+                                            <span>Review Required ({docStatus.documentCount})</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Eye className="w-4 h-4" />
+                                            <span>Review Documents ({docStatus.documentCount})</span>
+                                          </>
+                                        )
+                                      ) : (
+                                        <>
+                                          <Eye className="w-4 h-4" />
+                                          <span>Preview Documents ({docStatus.documentCount})</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
-                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
-                                  Contact Primary Guardian
+                                <div className="space-y-2">
+                                  <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                    Contact Primary Guardian
+                                  </div>
+                                  
+                                  {/* Review/Preview Button for non-primary guardians - only show if documents exist */}
+                                  {docStatus.documentCount > 0 && (
+                                    <button
+                                      onClick={() => handlePreviewDocuments(student)}
+                                      className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2 ${
+                                        isStaff() && docStatus.requiresStaffReview && !docStatus.staffApproval
+                                          ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 hover:border-red-400 font-medium'
+                                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      {isStaff() ? (
+                                        docStatus.requiresStaffReview && !docStatus.staffApproval ? (
+                                          <>
+                                            <AlertTriangle className="w-4 h-4" />
+                                            <span>Review Required ({docStatus.documentCount})</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Eye className="w-4 h-4" />
+                                            <span>Review Documents ({docStatus.documentCount})</span>
+                                          </>
+                                        )
+                                      ) : (
+                                        <>
+                                          <Eye className="w-4 h-4" />
+                                          <span>Preview Documents ({docStatus.documentCount})</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3786,8 +4134,8 @@ Check console for full details.
                                 </span>
                               </div>
                               
-                              {/* Program Plan Button - Only for Primary Guardians */}
-                              {customClaims?.familyRole === 'primary_guardian' ? (
+                              {/* Program Plan Button - Primary Guardians and Staff */}
+                              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
                                 <div className="space-y-2">
                                   <button
                                     onClick={() => handleOpenSOLOPlan(student)}
@@ -3799,8 +4147,11 @@ Check console for full details.
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
-                                    {studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'View/Update Program Plan' : 
-                                     studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'Continue Program Plan' : 'Create Program Plan'}
+                                    {isStaff() ? 
+                                      'View Program Plan' :
+                                      (studentSOLOPlanStatuses[student.id]?.status === 'submitted' ? 'View/Update Program Plan' : 
+                                       studentSOLOPlanStatuses[student.id]?.status === 'draft' ? 'Continue Program Plan' : 'Create Program Plan')
+                                    }
                                   </button>
                                   
                                   {/* Download Latest PDF Button - Only for submitted plans */}
@@ -4005,8 +4356,9 @@ Check console for full details.
         </div>
       </footer>
 
-      {/* Profile Sheet */}
-      <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+      {/* Profile Sheet - Only for non-staff users */}
+      {!isStaffViewing && (
+        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-left">
@@ -4148,7 +4500,8 @@ Check console for full details.
             </div>
           </form>
         </SheetContent>
-      </Sheet>
+        </Sheet>
+      )}
 
       {/* Family Creation Sheet - Only for Primary Guardians */}
       {customClaims?.familyRole === 'primary_guardian' && (
@@ -4163,8 +4516,8 @@ Check console for full details.
         />
       )}
 
-      {/* Home Education Notification Form - Only for Primary Guardians */}
-      {customClaims?.familyRole === 'primary_guardian' && showNotificationForm && (
+      {/* Home Education Notification Form - Primary Guardians and Staff */}
+      {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && showNotificationForm && (
         <HomeEducationNotificationFormV2
           isOpen={showNotificationForm}
           onOpenChange={(open) => {
@@ -4173,15 +4526,17 @@ Check console for full details.
               setSelectedStudent(null);
             }
           }}
-          familyId={customClaims?.familyId}
+          familyId={effectiveFamilyId}
           familyData={familyData}
           selectedStudent={selectedStudent}
           schoolYear={activeSchoolYear}
+          readOnly={isStaff()}
+          staffMode={isStaff()}
         />
       )}
 
-      {/* Student Citizenship Documents Modal - Only for Primary Guardians */}
-      {customClaims?.familyRole === 'primary_guardian' && showCitizenshipDocs && (
+      {/* Student Citizenship Documents Modal - For Primary Guardians and Staff */}
+      {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && showCitizenshipDocs && (
         <StudentCitizenshipDocuments
           isOpen={showCitizenshipDocs}
           onOpenChange={(open) => {
@@ -4191,21 +4546,359 @@ Check console for full details.
             }
           }}
           student={selectedStudentForDocs}
-          familyId={customClaims?.familyId}
+          familyId={effectiveFamilyId}
           onDocumentsUpdated={handleDocumentsUpdated}
           aiAnalyze={true}
         />
       )}
 
-      {/* Program Plan Form - Only for Primary Guardians */}
-      {customClaims?.familyRole === 'primary_guardian' && showSOLOPlanForm && (
+      {/* Document Preview Modal */}
+      {showDocumentPreview && (
+        <Sheet open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
+          <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">
+                <div className="flex items-center space-x-2">
+                  <Eye className="w-5 h-5 text-blue-500" />
+                  <span>Document Preview - {previewStudentName}</span>
+                </div>
+              </SheetTitle>
+              <SheetDescription className="text-left">
+                Preview uploaded citizenship documents for {previewStudentName}.
+              </SheetDescription>
+            </SheetHeader>
+
+            {/* Staff Approval Section - Only visible to staff */}
+            {isStaff() && previewStudent && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-blue-900">Staff Review</h3>
+                  </div>
+                  {studentDocumentStatuses[previewStudent.id]?.staffApproval && (
+                    <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                      ✓ Already Approved
+                    </div>
+                  )}
+                </div>
+
+                {/* Show existing approval if present */}
+                {studentDocumentStatuses[previewStudent.id]?.staffApproval ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span className="font-medium text-green-900">Approved by Staff</span>
+                      </div>
+                      <div className="text-sm text-green-800">
+                        <p><strong>Approved by:</strong> {studentDocumentStatuses[previewStudent.id].staffApproval.approvedBy.email}</p>
+                        <p><strong>Date:</strong> {new Date(studentDocumentStatuses[previewStudent.id].staffApproval.approvedAt).toLocaleString()}</p>
+                        {studentDocumentStatuses[previewStudent.id].staffApproval.comment && (
+                          <p><strong>Comment:</strong> {studentDocumentStatuses[previewStudent.id].staffApproval.comment}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Show approval form if not yet approved */
+                  <div className="space-y-4">
+
+                    {/* AI Analysis Details Accordion */}
+                    {(() => {
+                      const docStatus = studentDocumentStatuses[previewStudent.id];
+                      const hasAIAnalysis = docStatus?.aiAnalysisResults && Object.keys(docStatus.aiAnalysisResults).length > 0;
+                      const hasManualOverrides = docStatus?.manualOverrides && Object.keys(docStatus.manualOverrides).length > 0;
+                      
+                      if (!hasAIAnalysis) return null;
+                      
+                      return (
+                        <div className="border border-gray-200 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => setShowAIAnalysis(prev => !prev)}
+                            className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <Info className="w-5 h-5 text-blue-600" />
+                              <span className="font-medium text-gray-900">AI Analysis Results - Why These Documents Need Review</span>
+                            </div>
+                            <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showAIAnalysis ? 'transform rotate-180' : ''}`} />
+                          </button>
+                          
+                          {showAIAnalysis && (
+                            <div className="p-4 border-t border-gray-200 space-y-3">
+                          
+                          {Object.entries(docStatus.aiAnalysisResults).map(([analysisId, analysis]) => {
+                            const matchingDocument = docStatus.documents?.find(doc => doc._analysisId === analysisId);
+                            const override = docStatus.manualOverrides?.[analysisId];
+                            
+                            return (
+                              <div key={analysisId} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div>
+                                    <h5 className="font-medium text-red-900">
+                                      {matchingDocument?.name || 'Document'}
+                                    </h5>
+                                    <div className="flex items-center space-x-4 text-sm text-red-700 mt-1">
+                                      <span>Overall Score: <strong>{analysis.overallScore}%</strong></span>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        analysis.overallScore < 50 ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'
+                                      }`}>
+                                        {analysis.reviewPriority?.toUpperCase() || 'HIGH'} PRIORITY
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Main Issues */}
+                                <div className="space-y-3">
+                                  {/* Student Name Mismatch */}
+                                  {!analysis.studentNameMatch && (
+                                    <div className="p-3 bg-white border border-red-300 rounded">
+                                      <div className="flex items-start space-x-2">
+                                        <X className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1">
+                                          <h6 className="font-medium text-red-900">Student Name Mismatch</h6>
+                                          <div className="text-sm text-red-800 mt-1 space-y-1">
+                                            <p><strong>Expected:</strong> {docStatus.studentName}</p>
+                                            <p><strong>Found on Document:</strong> {analysis.detectedName || 'Not detected'}</p>
+                                            <p><strong>Confidence:</strong> {Math.round((analysis.nameMatchConfidence || 0) * 100)}%</p>
+                                            {analysis.nameMatchReasoning && (
+                                              <p><strong>AI Reasoning:</strong> {analysis.nameMatchReasoning}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Document Type Issues */}
+                                  {(!analysis.documentTypeMatch || (analysis.documentTypeConfidence || 0) < 0.8) && (
+                                    <div className="p-3 bg-white border border-yellow-300 rounded">
+                                      <div className="flex items-start space-x-2">
+                                        <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1">
+                                          <h6 className="font-medium text-yellow-900">Document Type Concern</h6>
+                                          <div className="text-sm text-yellow-800 mt-1 space-y-1">
+                                            <p><strong>Detected Type:</strong> {analysis.detectedDocumentType?.replace(/_/g, ' ')?.replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}</p>
+                                            <p><strong>Type Confidence:</strong> {Math.round((analysis.documentTypeConfidence || 0) * 100)}%</p>
+                                            {analysis.typeMatchReasoning && (
+                                              <p><strong>AI Reasoning:</strong> {analysis.typeMatchReasoning}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Validation Issues */}
+                                  {analysis.validationIssues && analysis.validationIssues.length > 0 && (
+                                    <div className="p-3 bg-white border border-orange-300 rounded">
+                                      <div className="flex items-start space-x-2">
+                                        <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1">
+                                          <h6 className="font-medium text-orange-900">Additional Issues Detected</h6>
+                                          <ul className="text-sm text-orange-800 mt-1 space-y-1">
+                                            {analysis.validationIssues.map((issue, idx) => (
+                                              <li key={idx} className="flex items-start space-x-1">
+                                                <span className="text-orange-600 mt-1">•</span>
+                                                <span>{issue}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Detailed Confidence Scores */}
+                                  {analysis.confidence && (
+                                    <div className="p-3 bg-white border border-gray-300 rounded">
+                                      <h6 className="font-medium text-gray-900 mb-2">Detailed Confidence Scores</h6>
+                                      <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                          <span className="text-gray-600">Document Authenticity:</span>
+                                          <span className={`ml-2 font-medium ${(analysis.confidence.documentAuthenticity || 0) > 0.7 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {Math.round((analysis.confidence.documentAuthenticity || 0) * 100)}%
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Name Extraction:</span>
+                                          <span className={`ml-2 font-medium ${(analysis.confidence.nameExtraction || 0) > 0.7 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {Math.round((analysis.confidence.nameExtraction || 0) * 100)}%
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Document Type:</span>
+                                          <span className={`ml-2 font-medium ${(analysis.confidence.documentType || 0) > 0.7 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {Math.round((analysis.confidence.documentType || 0) * 100)}%
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Student Match:</span>
+                                          <span className={`ml-2 font-medium ${(analysis.confidence.studentMatch || 0) > 0.7 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {Math.round((analysis.confidence.studentMatch || 0) * 100)}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Document Details */}
+                                  {(analysis.detectedBirthDate || analysis.documentNumber || analysis.issuingAuthority) && (
+                                    <div className="p-3 bg-gray-50 border border-gray-300 rounded">
+                                      <h6 className="font-medium text-gray-900 mb-2">Extracted Document Information</h6>
+                                      <div className="text-sm text-gray-700 space-y-1">
+                                        {analysis.detectedBirthDate && (
+                                          <p><strong>Birth Date:</strong> {analysis.detectedBirthDate}</p>
+                                        )}
+                                        {analysis.documentNumber && (
+                                          <p><strong>Document Number:</strong> {analysis.documentNumber}</p>
+                                        )}
+                                        {analysis.issuingAuthority && (
+                                          <p><strong>Issuing Authority:</strong> {analysis.issuingAuthority}</p>
+                                        )}
+                                        {analysis.issueDate && (
+                                          <p><strong>Issue Date:</strong> {analysis.issueDate}</p>
+                                        )}
+                                        {analysis.expiryDate && (
+                                          <p><strong>Expiry Date:</strong> {analysis.expiryDate}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Manual Override Status */}
+                                  {override && (
+                                    <div className="p-3 bg-blue-50 border border-blue-300 rounded">
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <Info className="w-4 h-4 text-blue-600" />
+                                        <h6 className="font-medium text-blue-900">Parent/Guardian Override</h6>
+                                      </div>
+                                      <p className="text-sm text-blue-800">
+                                        The parent/guardian has manually confirmed this document is valid despite AI concerns.
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Collapsible Comment Section */}
+                    <div className="border border-gray-200 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setStaffComment(prev => prev === null ? '' : null)}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="font-medium text-gray-700">Add Staff Comment (Optional)</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${staffComment !== null ? 'transform rotate-180' : ''}`} />
+                      </button>
+                      
+                      {staffComment !== null && (
+                        <div className="p-3 border-t border-gray-200">
+                          <textarea
+                            id="staff-comment"
+                            value={staffComment}
+                            onChange={(e) => setStaffComment(e.target.value)}
+                            rows={3}
+                            className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="Add any notes about the document verification..."
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Approval button */}
+                    <button
+                      onClick={() => handleStaffApproval(previewStudent, staffComment || '')}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Approve Documents</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 space-y-6">
+              {previewDocuments.map((document, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{document.name}</h3>
+                      <p className="text-sm text-gray-500">{document.typeLabel || document.type}</p>
+                      {document.uploadedAt && (
+                        <p className="text-xs text-gray-400">
+                          Uploaded: {new Date(document.uploadedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => window.open(document.url, '_blank')}
+                      className="flex items-center justify-center p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-md transition-colors border border-blue-300 hover:border-blue-400"
+                      title="Open in full screen"
+                    >
+                      <ExternalLink className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="w-full">
+                    {document.name?.toLowerCase().endsWith('.pdf') ? (
+                      <div className="aspect-[8.5/11] w-full border border-gray-300 rounded-lg overflow-hidden">
+                        <iframe
+                          src={document.url}
+                          className="w-full h-full"
+                          title={`PDF Preview: ${document.name}`}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex justify-center">
+                        <img
+                          src={document.url}
+                          alt={`Document: ${document.name}`}
+                          className="max-w-full max-h-96 object-contain rounded-lg border border-gray-300"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                        <div 
+                          className="hidden p-8 bg-gray-50 border border-gray-300 rounded-lg text-center"
+                        >
+                          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-600">Unable to preview this file</p>
+                          <p className="text-sm text-gray-500">Click the external link icon to view</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Program Plan Form - Primary Guardians and Staff */}
+      {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && showSOLOPlanForm && (
         <SOLOEducationPlanForm
           isOpen={showSOLOPlanForm}
           onOpenChange={handleSOLOPlanClose}
           student={selectedStudentForSOLO}
-          familyId={customClaims?.familyId}
+          familyId={effectiveFamilyId}
           schoolYear={soloTargetSchoolYear}
           selectedFacilitator={selectedFacilitator}
+          readOnly={isStaff()}
+          staffMode={isStaff()}
         />
       )}
 
@@ -4233,6 +4926,7 @@ Check console for full details.
         onOpenChange={setShowReceiptUploadForm}
         familyData={familyData}
         schoolYear={activeSchoolYear}
+        familyId={effectiveFamilyId}
         customClaims={customClaims}
         onClaimSubmitted={handleClaimSubmitted}
       />
@@ -4318,8 +5012,9 @@ Check console for full details.
         </SheetContent>
       </Sheet>
 
-      {/* Mobile Navigation Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      {/* Mobile Navigation Sheet - Only for non-staff users */}
+      {!isStaffViewing && (
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="w-80 p-0">
           <div className="flex flex-col h-full">
             {/* Header */}
@@ -4412,7 +5107,8 @@ Check console for full details.
             </div>
           </div>
         </SheetContent>
-      </Sheet>
+        </Sheet>
+      )}
       
       {/* Facilitator Change Modal */}
       <Sheet open={showFacilitatorChange} onOpenChange={setShowFacilitatorChange}>
