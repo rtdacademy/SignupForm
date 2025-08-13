@@ -19,37 +19,20 @@ import { EmailChangeDialog } from './EmailChangeDialog';
 import ProfileHistory from './ProfileHistory';
 import { useAuth } from '../context/AuthContext';
 import PaymentInfo from './PaymentInfo';
+import { useStaffClaims } from '../customClaims/useStaffClaims';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const { user } = useAuth();
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
-  const [userClaims, setUserClaims] = useState(null);
   const [courseEnrollmentData, setCourseEnrollmentData] = useState({});
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
   
-  // Fetch user claims
-  useEffect(() => {
-    const fetchUserClaims = async () => {
-      if (user) {
-        try {
-          const tokenResult = await user.getIdTokenResult();
-          setUserClaims(tokenResult.claims);
-        } catch (error) {
-          console.error('Error fetching user claims:', error);
-          setUserClaims(null);
-        }
-      } else {
-        setUserClaims(null);
-      }
-    };
-    
-    fetchUserClaims();
-  }, [user]);
+  // Use staff claims hook to get permissions
+  const { isStaff, loading: claimsLoading } = useStaffClaims({ readOnly: true });
   
-  // Check if user has admin permissions
-  const isAdminUser = userClaims?.isAdminUser === true;
-  const isTeacher = userClaims?.isTeacher === true;
+  // Check if user has staff permissions
+  const hasEditPermission = isStaff();
 
   const GENDER_OPTIONS = [
     { value: 'male', label: 'Male' },
@@ -175,9 +158,8 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
   };
 
   const renderEditableField = (label, field, options, readOnly = false) => {
-    // Make field read-only if user is not admin (with exception for teachers editing diploma month)
-    const isDiplomaMonthField = field === 'DiplomaMonthChoices_Value';
-    const isFieldReadOnly = readOnly || (!isAdminUser && !(isTeacher && isDiplomaMonthField));
+    // Make field read-only if user is not a staff member
+    const isFieldReadOnly = readOnly || !hasEditPermission;
     let value;
 
     if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
@@ -291,7 +273,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                   <GuardianManager 
                     studentKey={studentKey}
                     onUpdate={onUpdate}
-                    readOnly={!isAdminUser}
+                    readOnly={!hasEditPermission}
                   />
                 </CardContent>
               </Card>
@@ -328,7 +310,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
               courseId={courseId}
               paymentStatus={courseEnrollmentData.payment_status?.status}
               paymentDetails={courseEnrollmentData.paymentDetails}
-              readOnly={!isAdminUser}
+              readOnly={!hasEditPermission}
               onPaymentStatusUpdate={handlePaymentStatusUpdate}
             />
           </ScrollArea>

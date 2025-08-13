@@ -109,7 +109,7 @@ const periodOptions = [
   { value: 'PM', label: 'PM' }
 ];
 
-function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
+function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, courseIsEditing }) {
   const handleDateChange = (e) => {
     const localDate = e.target.value;
     const { date, displayDate, timezone } = formatDateForDatabase(localDate);
@@ -232,7 +232,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             <label className="text-sm">Confirmed</label>
           </div>
 
-          {isEditing && (
+          {courseIsEditing && (
             <Button
               variant="destructive"
               size="sm"
@@ -248,7 +248,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
   );
 }
 
-function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
+function DiplomaTimes({ courseId, diplomaTimes, courseIsEditing }) {
   const [times, setTimes] = useState(diplomaTimes || []);
 
   useEffect(() => {
@@ -256,7 +256,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
   }, [diplomaTimes]);
 
   const handleAdd = () => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const today = new Date();
     const localDate = today.toLocaleDateString('en-CA', {
@@ -286,7 +286,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
   };
 
   const handleChange = (index, updatedTime) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedTimes = times.map((time, i) => 
       i === index ? updatedTime : time
@@ -296,7 +296,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
   };
 
   const handleDelete = (index) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedTimes = times.filter((_, i) => i !== index);
     setTimes(updatedTimes);
@@ -321,7 +321,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold">Diploma Times</h3>
-        {isEditing && (
+        {courseIsEditing && (
           <Button 
             onClick={handleAdd}
             type="button"
@@ -342,7 +342,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
               diplomaTime={time}
               onChange={(updatedTime) => handleChange(index, updatedTime)}
               onDelete={() => handleDelete(index)}
-              isEditing={courseIsEditing}
+              courseIsEditing={courseIsEditing}
             />
           ))
         )}
@@ -352,7 +352,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
 }
 
 // Component for managing individual lesson progression overrides
-function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLessonIdChange, isEditing, availableLessons = [], existingOverrides = {} }) {
+function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLessonIdChange, courseIsEditing, availableLessons = [], existingOverrides = {} }) {
   const handlePercentageChange = (e) => {
     const value = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
     onChange({
@@ -403,7 +403,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
             <Select
               value={lessonId}
               onValueChange={handleLessonIdChange}
-              disabled={!isEditing}
+              disabled={!courseIsEditing}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a lesson">
@@ -482,7 +482,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
               </SelectContent>
             </Select>
           </div>
-          {isEditing && (
+          {courseIsEditing && (
             <Button
               variant="destructive"
               size="sm"
@@ -515,7 +515,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
                       max="100"
                       value={override.minimumPercentage || 0}
                       onChange={handlePercentageChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className="flex-1"
                     />
                     <FaPercentage className="text-gray-400" />
@@ -526,7 +526,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
                   <Switch
                     checked={override.requireAllQuestions || false}
                     onCheckedChange={handleRequireAllChange}
-                    disabled={!isEditing}
+                    disabled={!courseIsEditing}
                   />
                   <label className="text-sm font-medium text-gray-700">
                     Require All Questions
@@ -548,7 +548,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
                       max="5"
                       value={override.sessionsRequired || 1}
                       onChange={handleSessionsRequiredChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className="flex-1"
                     />
                     <span className="text-sm text-gray-500">sessions</span>
@@ -566,7 +566,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
                   <Switch
                     checked={override.requiresSubmission || false}
                     onCheckedChange={handleRequiresSubmissionChange}
-                    disabled={!isEditing}
+                    disabled={!courseIsEditing}
                   />
                   <label className="text-sm font-medium text-gray-700">
                     Requires Submission
@@ -584,7 +584,7 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
 }
 
 // Component for managing course progression requirements
-function ProgressionRequirementsManager({ courseId, progressionRequirements, isEditing }) {
+function ProgressionRequirementsManager({ courseId, progressionRequirements, courseIsEditing }) {
   const [requirements, setRequirements] = useState(progressionRequirements || {
     enabled: false,
     defaultCriteria: {
@@ -804,7 +804,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   };
 
   const handleAddOverride = () => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     // Find the first lesson that doesn't already have an override
     const existingOverrideIds = Object.keys(requirements.lessonOverrides || {});
@@ -852,7 +852,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   };
 
   const handleOverrideChange = (oldLessonId, newLessonId, override) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedOverrides = { ...requirements.lessonOverrides };
     
@@ -873,7 +873,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
   };
 
   const handleDeleteOverride = (lessonId) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedOverrides = { ...requirements.lessonOverrides };
     delete updatedOverrides[lessonId];
@@ -899,13 +899,13 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
           <Switch
             checked={requirements.enabled || false}
             onCheckedChange={handleEnabledChange}
-            disabled={!isEditing}
+            disabled={!courseIsEditing}
           />
           <label className="text-sm font-medium text-gray-700">
             Enable Progression Requirements
           </label>
         </div>
-        {isEditing && requirements.enabled && (
+        {courseIsEditing && requirements.enabled && (
           <Button
             onClick={handleResetToDefaults}
             variant="outline"
@@ -948,7 +948,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                               max="100"
                               value={requirements.defaultCriteria?.lesson?.minimumPercentage || 50}
                               onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                              disabled={!isEditing}
+                              disabled={!courseIsEditing}
                               className="flex-1"
                             />
                             <FaPercentage className="text-gray-400" />
@@ -959,7 +959,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                           <Switch
                             checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
                             onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
-                            disabled={!isEditing}
+                            disabled={!courseIsEditing}
                           />
                           <label className="text-sm font-medium text-gray-700">
                             Require All Questions
@@ -982,7 +982,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                             max="5"
                             value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
                             onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!isEditing}
+                            disabled={!courseIsEditing}
                             className="flex-1"
                           />
                           <span className="text-sm text-gray-500">sessions</span>
@@ -1004,7 +1004,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                             max="5"
                             value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
                             onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!isEditing}
+                            disabled={!courseIsEditing}
                             className="flex-1"
                           />
                           <span className="text-sm text-gray-500">sessions</span>
@@ -1026,7 +1026,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                             max="5"
                             value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
                             onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!isEditing}
+                            disabled={!courseIsEditing}
                             className="flex-1"
                           />
                           <span className="text-sm text-gray-500">sessions</span>
@@ -1041,7 +1041,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                         <Switch
                           checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
                           onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
-                          disabled={!isEditing}
+                          disabled={!courseIsEditing}
                         />
                         <label className="text-sm font-medium text-gray-700">
                           Requires Submission
@@ -1070,7 +1070,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
               <AccordionContent>
                 <div className="space-y-4">
                   <div className="flex justify-end">
-                    {isEditing && (
+                    {courseIsEditing && (
                       <Button 
                         onClick={handleAddOverride}
                         type="button"
@@ -1103,7 +1103,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                           onChange={(newOverride) => handleOverrideChange(lessonId, lessonId, newOverride)}
                           onLessonIdChange={(newLessonId) => handleOverrideChange(lessonId, newLessonId, override)}
                           onDelete={() => handleDeleteOverride(lessonId)}
-                          isEditing={isEditing}
+                          courseIsEditing={courseIsEditing}
                           availableLessons={availableLessons}
                           existingOverrides={requirements.lessonOverrides || {}}
                         />
@@ -1191,7 +1191,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
                               <Select
                                 value={currentVisibility}
                                 onValueChange={(value) => handleVisibilityChange(lesson.itemId, value)}
-                                disabled={!isEditing}
+                                disabled={!courseIsEditing}
                               >
                                 <SelectTrigger className="w-[140px]">
                                   <SelectValue />
@@ -1242,7 +1242,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, isE
 }
 
 // Component for displaying and managing Firebase course configuration from database
-function DatabaseCourseConfig({ courseId, isEditing }) {
+function DatabaseCourseConfig({ courseId, courseIsEditing }) {
   const [config, setConfig] = useState(null);
   const [versionControl, setVersionControl] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
@@ -1544,11 +1544,9 @@ function Courses({
   selectedCourseId,
   courseData,
   courseWeights,
-  isEditing,
   onCourseSelect,
   onCourseUpdate,
-  onWeightsUpdate,
-  toggleEditing
+  onWeightsUpdate
 }) {
   const { user, isStaff, hasSuperAdminAccess } = useAuth();
   // Always enable editing for courses
@@ -2095,7 +2093,7 @@ function Courses({
                       alert('An error occurred while preparing the updates: ' + error.message);
                     }
                   }}
-                  isEditing={courseIsEditing}
+                  courseIsEditing={courseIsEditing}
                 />
   )}
               </div>
@@ -2130,7 +2128,7 @@ function Courses({
                     <ImprovedEmailManager
                       courseId={selectedCourseId}
                       allowedEmails={courseData.allowedEmails || []}
-                      isEditing={courseIsEditing}
+                      courseIsEditing={courseIsEditing}
                       onUpdate={handleAllowedEmailsUpdate}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -2313,7 +2311,7 @@ function Courses({
                                 <DiplomaTimes
                                   courseId={selectedCourseId}
                                   diplomaTimes={courseData.diplomaTimes || []}
-                                  isEditing={courseIsEditing}
+                                  courseIsEditing={courseIsEditing}
                                 />
                               </div>
                             </ScrollArea>
@@ -2501,7 +2499,7 @@ function Courses({
                     <ImprovedEmailManager
                       courseId={selectedCourseId}
                       allowedEmails={courseData.allowedEmails || []}
-                      isEditing={courseIsEditing}
+                      courseIsEditing={courseIsEditing}
                       onUpdate={handleAllowedEmailsUpdate}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -2788,7 +2786,7 @@ function Courses({
                                 <DiplomaTimes
                                   courseId={selectedCourseId}
                                   diplomaTimes={courseData.diplomaTimes || []}
-                                  isEditing={courseIsEditing}
+                                  courseIsEditing={courseIsEditing}
                                 />
                               </div>
                             </ScrollArea>
@@ -2953,7 +2951,7 @@ function Courses({
                       <FirebaseCourseConfigEditor 
                         courseId={selectedCourseId} 
                         courseData={courseData}
-                        isEditing={courseIsEditing} 
+                        courseIsEditing={courseIsEditing} 
                       />
                     </div>
                     
@@ -2966,7 +2964,7 @@ function Courses({
                           <ProgressionRequirementsManager 
                             courseId={selectedCourseId}
                             progressionRequirements={courseData.progressionRequirements}
-                            isEditing={courseIsEditing}
+                            courseIsEditing={courseIsEditing}
                           />
                         </AccordionContent>
                       </AccordionItem>
@@ -2978,7 +2976,7 @@ function Courses({
                     courseId={selectedCourseId}
                     units={courseData.units || []}
                     onUnitsChange={handleUnitsChange}
-                    isEditing={courseIsEditing}
+                    courseIsEditing={courseIsEditing}
                   />
                 )}
               </div>

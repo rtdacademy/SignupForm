@@ -32,7 +32,6 @@ function CoursesWithSheet() {
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [courseData, setCourseData] = useState({});
   const [courseWeights, setCourseWeights] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
   // State for active notifications count
   const [activeNotificationsCount, setActiveNotificationsCount] = useState(0);
   // State for categories
@@ -118,7 +117,7 @@ function CoursesWithSheet() {
       const data = snapshot.val();
       if (data) {
         setCourses(data);
-        if (selectedCourseId && !isEditing) {
+        if (selectedCourseId) {
           setCourseData(data[selectedCourseId]);
           // Set course weights if they exist; otherwise, use default values
           setCourseWeights(
@@ -131,10 +130,8 @@ function CoursesWithSheet() {
         }
       } else {
         setCourses({});
-        if (!isEditing) {
-          setCourseData({});
-          setCourseWeights(null);
-        }
+        setCourseData({});
+        setCourseWeights(null);
       }
     });
 
@@ -179,12 +176,11 @@ function CoursesWithSheet() {
       unsubscribeStaff();
       unsubscribeNotifications();
     };
-  }, [user, isStaff, navigate, selectedCourseId, isEditing]);
+  }, [user, isStaff, navigate, selectedCourseId]);
 
   // Handler functions to update state
   const handleCourseSelect = (courseId) => {
     setSelectedCourseId(courseId);
-    setIsEditing(false);
     if (courses[courseId]) {
       setCourseData(courses[courseId]);
       setCourseWeights(
@@ -205,13 +201,6 @@ function CoursesWithSheet() {
     setCourseWeights(weights);
   };
 
-  const toggleEditing = (value) => {
-    // Only allow super admins to toggle editing mode
-    if (value && !hasSuperAdminAccess()) {
-      return;
-    }
-    setIsEditing(value);
-  };
 
   // Menu configuration with icons, labels, and descriptions
   const menuItems = [
@@ -256,11 +245,9 @@ function CoursesWithSheet() {
             selectedCourseId={selectedCourseId}
             courseData={courseData}
             courseWeights={courseWeights}
-            isEditing={isEditing}
             onCourseSelect={handleCourseSelect}
             onCourseUpdate={handleCourseUpdate}
             onWeightsUpdate={handleWeightsUpdate}
-            toggleEditing={toggleEditing}
           />
         );
       case 'important-dates':

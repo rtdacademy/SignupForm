@@ -184,22 +184,6 @@ const DateRangeFilter = ({
   );
 };
 
-// Migration Status Option and Options
-
-const MigrationStatusOption = ({ data, children, ...props }) => {
-  const iconColor = data?.color || '#6B7280';
-  return (
-    <components.Option {...props}>
-      <div className="flex items-center">
-        <div
-          className="w-3 h-3 rounded-full mr-2"
-          style={{ backgroundColor: iconColor }}
-        />
-        {children}
-      </div>
-    </components.Option>
-  );
-};
 
 const RecordTypeOption = ({ data, children, ...props }) => {
   const option = RECORD_TYPE_OPTIONS.find((opt) => opt.value === data.value) || data;
@@ -218,10 +202,6 @@ const RecordTypeOption = ({ data, children, ...props }) => {
   );
 };
 
-const MIGRATION_STATUS_OPTIONS = [
-  { value: 'migrated', label: 'Migrated', color: '#10B981' },
-  { value: 'not-migrated', label: 'Not Migrated', color: '#EF4444' },
-];
 
 const RECORD_TYPE_OPTIONS = [
   { value: 'yourway', label: 'YourWay Records', color: '#3B82F6', description: '(Default)', icon: Circle },
@@ -313,11 +293,10 @@ const AdvancedFilters = ({
     if (dateFilters.created && Object.keys(dateFilters.created).length) count++;
     if (dateFilters.scheduleStart && Object.keys(dateFilters.scheduleStart).length) count++;
     if (dateFilters.scheduleEnd && Object.keys(dateFilters.scheduleEnd).length) count++;
-    if (currentFilters.hasSchedule?.length > 0) count++;
     // Count record type filter (only count when it's not 'yourway' which is the default)
     if (recordTypeFilter && recordTypeFilter !== 'yourway') count++;
     Object.keys(currentFilters).forEach((key) => {
-      if (key !== 'dateFilters' && key !== 'hasSchedule') {
+      if (key !== 'dateFilters') {
         if (Array.isArray(currentFilters[key]) && currentFilters[key].length > 0) {
           count++;
         }
@@ -340,9 +319,8 @@ const AdvancedFilters = ({
     const clearedFilters = {
       ...currentFilters,
       dateFilters: {},
-      hasSchedule: [],
       ...Object.keys(currentFilters).reduce((acc, key) => {
-        if (key !== 'dateFilters' && key !== 'hasSchedule') {
+        if (key !== 'dateFilters') {
           acc[key] = [];
         }
         return acc;
@@ -353,29 +331,6 @@ const AdvancedFilters = ({
     onRecordTypeFilterChange('yourway');
   };
 
-  const getCurrentMigrationStatus = () => {
-    if (!currentFilters.hasSchedule?.length) return [];
-    return MIGRATION_STATUS_OPTIONS.filter((option) => {
-      if (option.value === 'migrated') return currentFilters.hasSchedule.includes(true);
-      if (option.value === 'not-migrated')
-        return currentFilters.hasSchedule.includes(false);
-      return false;
-    });
-  };
-
-  const handleMigrationStatusChange = (selectedOptions) => {
-    let hasSchedule = [];
-    if (selectedOptions && selectedOptions.length > 0) {
-      const values = selectedOptions.map((option) => option.value);
-      if (values.includes('migrated')) hasSchedule.push(true);
-      if (values.includes('not-migrated')) hasSchedule.push(false);
-    }
-    const newFilters = {
-      ...currentFilters,
-      hasSchedule,
-    };
-    handleFiltersUpdate(newFilters);
-  };
 
   const getCurrentRecordType = () => {
     if (!recordTypeFilter) return [];
@@ -545,33 +500,6 @@ const AdvancedFilters = ({
     );
   };
 
-  // Migration Status styles configuration with null checks for state.data
-  const migrationStatusStyles = {
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isSelected
-        ? `${state.data?.color || '#6B7280'}15`
-        : state.isFocused
-        ? `${state.data?.color || '#6B7280'}10`
-        : provided.backgroundColor,
-    }),
-    multiValue: (provided, state) => ({
-      ...provided,
-      backgroundColor: `${state.data?.color || '#6B7280'}15`,
-    }),
-    multiValueLabel: (provided, state) => ({
-      ...provided,
-      color: state.data?.color || '#6B7280',
-    }),
-    multiValueRemove: (provided, state) => ({
-      ...provided,
-      color: state.data?.color || '#6B7280',
-      ':hover': {
-        backgroundColor: `${state.data?.color || '#6B7280'}25`,
-        color: state.data?.color || '#6B7280',
-      },
-    }),
-  };
 
   return (
     <Sheet>
@@ -641,23 +569,6 @@ const AdvancedFilters = ({
                         color: '#374151', // Use a dark gray color for better visibility
                       }),
                     }}
-                  />
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  <Label className="font-medium text-gray-700 min-w-[120px]">
-                    Migration Status
-                  </Label>
-                  <Select
-                    isMulti
-                    options={MIGRATION_STATUS_OPTIONS}
-                    components={{ Option: MigrationStatusOption }}
-                    value={getCurrentMigrationStatus()}
-                    onChange={handleMigrationStatusChange}
-                    className="flex-1"
-                    classNamePrefix="select"
-                    placeholder="Select migration status"
-                    styles={migrationStatusStyles}
                   />
                 </div>
 
