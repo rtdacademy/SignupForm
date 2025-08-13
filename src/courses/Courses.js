@@ -2261,27 +2261,66 @@ function Courses({
                   </div>
 
                   {/* Diploma Course */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="block text-sm font-medium text-gray-700">
+                  <div className="w-full px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Diploma Course
                     </label>
-                    <Select
-                      name="DiplomaCourse"
-                      value={courseData.DiplomaCourse}
-                      onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
-                      disabled={!courseIsEditing}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select Diploma Course" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {diplomaCourseOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex space-x-4 items-start">
+                      <div className="w-1/3">
+                        <Select
+                          name="DiplomaCourse"
+                          value={courseData.DiplomaCourse}
+                          onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
+                          disabled={!courseIsEditing}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Diploma Course" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {diplomaCourseOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {courseData.DiplomaCourse === 'Yes' && (
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              type="button"
+                              disabled={!courseIsEditing}
+                              className="flex-shrink-0"
+                            >
+                              <FaClock className="mr-2" /> Manage Diploma Times
+                            </Button>
+                          </SheetTrigger>
+                          <SheetContent 
+                            side="right" 
+                            className="w-[400px] sm:w-[540px]"
+                            description="Manage diploma exam times for this course"
+                          >
+                            <SheetHeader>
+                              <SheetTitle>Diploma Times Management</SheetTitle>
+                              <SheetDescription>
+                                Add and manage diploma exam times for this course. Each time can have a specific date, time, month, and confirmation status.
+                              </SheetDescription>
+                            </SheetHeader>
+                            <ScrollArea className="h-[calc(100vh-200px)] mt-6">
+                              <div className="pr-4">
+                                <DiplomaTimes
+                                  courseId={selectedCourseId}
+                                  diplomaTimes={courseData.diplomaTimes || []}
+                                  isEditing={courseIsEditing}
+                                />
+                              </div>
+                            </ScrollArea>
+                          </SheetContent>
+                        </Sheet>
+                      )}
+                    </div>
                   </div>
 
                   {/* Course Type */}

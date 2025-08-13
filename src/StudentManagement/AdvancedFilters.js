@@ -243,61 +243,6 @@ const AdvancedFilters = ({
 }) => {
   const { updateFilterPreferences } = useUserPreferences();
   const [courseTitles, setCourseTitles] = useState({});
-  const [dynamicOptions, setDynamicOptions] = useState({});
-
-  // Extract unique values for filters (except CourseID)
-  useEffect(() => {
-    const extractUniqueValues = () => {
-      const options = {};
-      availableFilters.forEach(({ key }) => {
-        if (key === 'CourseID') return; // CourseID handled separately
-        const values = new Set(studentSummaries.map((student) => student[key] || ''));
-        let predefinedOptions;
-        switch (key) {
-          case 'Status_Value':
-            predefinedOptions = STATUS_OPTIONS;
-            break;
-          case 'StudentType_Value':
-            predefinedOptions = STUDENT_TYPE_OPTIONS;
-            break;
-          case 'ActiveFutureArchived_Value':
-            predefinedOptions = ACTIVE_FUTURE_ARCHIVED_OPTIONS;
-            break;
-          case 'DiplomaMonthChoices_Value':
-            predefinedOptions = DIPLOMA_MONTH_OPTIONS;
-            break;
-          case 'School_x0020_Year_Value':
-            predefinedOptions = getSchoolYearOptions();
-            break;
-          default:
-            predefinedOptions = [];
-        }
-        options[key] = Array.from(values)
-          .map((value) => {
-            const predefinedOption = predefinedOptions.find((opt) => opt.value === value);
-            return {
-              value: value,
-              label:
-                value === null || value === undefined || value === ''
-                  ? '(Empty)'
-                  : String(value),
-              ...(predefinedOption && {
-                color: predefinedOption.color,
-                icon: predefinedOption.icon,
-              }),
-            };
-          })
-          .sort((a, b) => {
-            if (a.label === '(Empty)' && b.label !== '(Empty)') return -1;
-            if (b.label === '(Empty)' && a.label !== '(Empty)') return 1;
-            return String(a.label).localeCompare(String(b.label));
-          });
-      });
-      setDynamicOptions(options);
-    };
-
-    extractUniqueValues();
-  }, [studentSummaries, availableFilters]);
 
   // Fetch course titles from the database
   useEffect(() => {
@@ -451,8 +396,49 @@ const AdvancedFilters = ({
       return null;
     }
 
+    // Get the appropriate predefined options based on the key
+    let options = [];
+    switch (key) {
+      case 'Status_Value':
+        options = STATUS_OPTIONS.map(opt => ({
+          value: opt.value,
+          label: opt.value,
+          color: opt.color,
+          icon: opt.icon
+        }));
+        break;
+      case 'StudentType_Value':
+        options = STUDENT_TYPE_OPTIONS.map(opt => ({
+          value: opt.value,
+          label: opt.value,
+          color: opt.color,
+          icon: opt.icon
+        }));
+        break;
+      case 'ActiveFutureArchived_Value':
+        options = ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(opt => ({
+          value: opt.value,
+          label: opt.value,
+          color: opt.color
+        }));
+        break;
+      case 'DiplomaMonthChoices_Value':
+        options = DIPLOMA_MONTH_OPTIONS.map(opt => ({
+          value: opt.value,
+          label: opt.label,
+          color: opt.color
+        }));
+        break;
+      case 'CourseID':
+        // CourseID is handled separately below
+        break;
+      default:
+        // For any other fields, return null as we don't have predefined options
+        return null;
+    }
+
     let selectConfig = {
-      options: dynamicOptions[key] || [],
+      options: options,
       components: {},
       styles: {
         option: (provided, state) => ({
