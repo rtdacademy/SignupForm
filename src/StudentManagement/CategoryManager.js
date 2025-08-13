@@ -37,7 +37,33 @@ import {
   Grid2X2,
   ListFilter,
   ChartNoAxesGantt,
-  UserPlus
+  UserPlus,
+  // Seasonal icons
+  Snowflake,
+  Flower,
+  Sun,
+  Leaf,
+  // Student Management icons
+  Award,
+  Flag,
+  Star,
+  Zap,
+  Pause,
+  Play,
+  AlertOctagon,
+  Heart,
+  Sparkles,
+  ShieldAlert,
+  Rocket,
+  Hourglass,
+  MapPin,
+  Palette,
+  Calculator,
+  Globe,
+  Home,
+  School,
+  Video,
+  Headphones
 } from 'lucide-react';
 import { getDatabase, ref, set, onValue, update, remove, push, serverTimestamp } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -66,6 +92,32 @@ const iconOptions = [
   { value: 'presentation', label: 'Lecture', icon: Presentation },
   { value: 'file-text', label: 'Assignment', icon: FileText },
   { value: 'bookmark', label: 'Important', icon: Bookmark },
+  // Seasonal icons
+  { value: 'snowflake', label: 'Winter', icon: Snowflake },
+  { value: 'flower', label: 'Spring', icon: Flower },
+  { value: 'sun', label: 'Summer', icon: Sun },
+  { value: 'leaf', label: 'Fall', icon: Leaf },
+  // Student Management icons
+  { value: 'award', label: 'Award', icon: Award },
+  { value: 'flag', label: 'Flagged', icon: Flag },
+  { value: 'star', label: 'Star Student', icon: Star },
+  { value: 'zap', label: 'Fast Track', icon: Zap },
+  { value: 'pause', label: 'Paused', icon: Pause },
+  { value: 'play', label: 'Active', icon: Play },
+  { value: 'alert-octagon', label: 'Critical', icon: AlertOctagon },
+  { value: 'heart', label: 'Special Care', icon: Heart },
+  { value: 'sparkles', label: 'Gifted', icon: Sparkles },
+  { value: 'shield-alert', label: 'At Risk', icon: ShieldAlert },
+  { value: 'rocket', label: 'Advanced', icon: Rocket },
+  { value: 'hourglass', label: 'Deadline', icon: Hourglass },
+  { value: 'map-pin', label: 'Location', icon: MapPin },
+  { value: 'palette', label: 'Arts', icon: Palette },
+  { value: 'calculator', label: 'STEM', icon: Calculator },
+  { value: 'globe', label: 'International', icon: Globe },
+  { value: 'home', label: 'Homeschool', icon: Home },
+  { value: 'school', label: 'Traditional', icon: School },
+  { value: 'video', label: 'Online', icon: Video },
+  { value: 'headphones', label: 'Audio Learner', icon: Headphones },
 ];
 
 const colorOptions = [
@@ -378,8 +430,7 @@ const CategoryManager = ({ onCategoryChange }) => {
     const filteredCategories = categories.filter((cat) => cat.archived === archived);
 
     return (
-      <ScrollArea className="max-h-[60vh] pr-4">
-        <div className="space-y-4">
+      <div className="space-y-4">
           {/* Categories with types */}
           {categoryTypes.map((type) => {
             const typeCategories = filteredCategories.filter((cat) => cat.type === type.id);
@@ -444,8 +495,7 @@ const CategoryManager = ({ onCategoryChange }) => {
               {renderCategoryList(archived, filteredCategories.filter((cat) => !cat.type))}
             </div>
           )}
-        </div>
-      </ScrollArea>
+      </div>
     );
   };
 
@@ -595,8 +645,7 @@ const CategoryManager = ({ onCategoryChange }) => {
 
   const renderAllCategoriesList = () => {
     return (
-      <ScrollArea className="max-h-[60vh] pr-4">
-        <div className="space-y-2">
+      <div className="space-y-2">
           {allCategories.map((category) => (
             <div key={`${category.teacherKey}-${category.id}`} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
@@ -731,8 +780,7 @@ const CategoryManager = ({ onCategoryChange }) => {
               )}
             </div>
           ))}
-        </div>
-      </ScrollArea>
+      </div>
     );
   };
 
@@ -750,9 +798,8 @@ const CategoryManager = ({ onCategoryChange }) => {
     }, {});
 
     return (
-      <ScrollArea className="max-h-[60vh] pr-4">
-        <div className="space-y-4">
-          {categoryTypes.map((type) => {
+      <div className="space-y-4">
+        {categoryTypes.map((type) => {
             const typeCategories = grouped[type.id];
             if (!typeCategories || typeCategories.length === 0) return null;
 
@@ -782,8 +829,7 @@ const CategoryManager = ({ onCategoryChange }) => {
               {renderAllCategoriesListByType(grouped['uncategorized'])}
             </div>
           )}
-        </div>
-      </ScrollArea>
+      </div>
     );
   };
 
@@ -1115,8 +1161,7 @@ const CategoryManager = ({ onCategoryChange }) => {
             <div className="text-sm text-gray-500 mb-4">
               Note: Category types can only be deleted if they are not being used by any categories.
             </div>
-            <ScrollArea className="max-h-[60vh] pr-4">
-              <div className="space-y-2">
+            <div className="space-y-2">
                 {categoryTypes.map((type) => {
                   const isInUse = [...categories, ...allCategories].some((cat) => cat.type === type.id);
 
@@ -1165,8 +1210,7 @@ const CategoryManager = ({ onCategoryChange }) => {
                     No category types found. Create one to get started.
                   </div>
                 )}
-              </div>
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
 

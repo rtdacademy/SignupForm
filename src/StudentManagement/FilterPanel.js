@@ -11,7 +11,12 @@ import {
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
   MessageCircle, Users, Presentation, FileText, Filter, Loader2, 
-  Grid2X2, FilterX
+  Grid2X2, FilterX,
+  // Seasonal icons
+  Snowflake, Flower, Sun, Leaf,
+  // Student Management icons
+  Award, Zap, Pause, Play, AlertOctagon, Heart, Sparkles, ShieldAlert,
+  Rocket, Hourglass, MapPin, Palette, Calculator, Globe, Home, School, Video, Headphones
 } from "lucide-react";
 import CategoryManager from './CategoryManager';
 import AdvancedFilters from './AdvancedFilters';
@@ -51,6 +56,30 @@ const iconMap = {
   'star': Star,
   'flag': Flag,
   'grid-2x2': Grid2X2, // Added Grid2X2 to iconMap
+  // Seasonal icons
+  'snowflake': Snowflake,
+  'flower': Flower,
+  'sun': Sun,
+  'leaf': Leaf,
+  // Student Management icons
+  'award': Award,
+  'zap': Zap,
+  'pause': Pause,
+  'play': Play,
+  'alert-octagon': AlertOctagon,
+  'heart': Heart,
+  'sparkles': Sparkles,
+  'shield-alert': ShieldAlert,
+  'rocket': Rocket,
+  'hourglass': Hourglass,
+  'map-pin': MapPin,
+  'palette': Palette,
+  'calculator': Calculator,
+  'globe': Globe,
+  'home': Home,
+  'school': School,
+  'video': Video,
+  'headphones': Headphones,
 };
 
 

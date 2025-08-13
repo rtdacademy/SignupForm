@@ -911,37 +911,18 @@ const MessageBubble = ({
   
   // Helper function to detect and render visualizations from tool calls
   const renderVisualizations = () => {
-    console.log('🎨 renderVisualizations called for message:', message.id);
-    console.log('🎨 Message visualizations:', message.visualizations);
-    console.log('🎨 JSXGraph loaded:', jsxGraphLoaded);
-    console.log('🎨 JSXGraph error:', jsxGraphError);
-    console.log('🎨 Is streaming:', isStreaming);
-    console.log('🎨 Message sender:', message.sender);
-    console.log('🎨 Visualization array check:', {
-      hasVisualizations: !!message.visualizations,
-      isArray: Array.isArray(message.visualizations),
-      visualizationCount: message.visualizations?.length || 0
-    });
-    
     // Don't render visualizations during streaming to avoid parsing incomplete data
     if (isStreaming) {
-      console.log('🎨 Skipping visualization rendering during streaming');
       return null;
     }
     
     if (!message.visualizations || !Array.isArray(message.visualizations)) {
-      console.log('🎨 No visualizations found or not array');
       return null;
     }
     
-    console.log('🎨 About to render', message.visualizations.length, 'visualizations');
-    
     return (
       <div className="space-y-3 mt-3">
-        {message.visualizations.map((viz, index) => {
-          console.log('🎨 Rendering visualization', index, ':', viz.title);
-          console.log('🎨 Visualization data:', viz);
-          return (
+        {message.visualizations.map((viz, index) => (
             <div key={index} className="w-full">
               {jsxGraphLoaded ? (
                 <JSXGraphVisualization 
@@ -973,8 +954,8 @@ const MessageBubble = ({
                 </div>
               )}
             </div>
-          );
-        })}
+          )
+        )}
       </div>
     );
   };
@@ -1351,10 +1332,7 @@ const MessageBubble = ({
           {renderMessageContent()}
           
           {/* Render visualizations if present */}
-          {!isUser && (() => {
-            console.log('🎨 About to call renderVisualizations for message:', message.id, 'isUser:', isUser);
-            return renderVisualizations();
-          })()}
+          {!isUser && renderVisualizations()}
         </div>
         
         <div className="text-xs text-gray-400 mt-1">
@@ -1367,10 +1345,6 @@ const MessageBubble = ({
 
 // Helper function to extract visualizations from text (tool call results)
 const extractVisualizationsFromText = (text) => {
-  console.log('🔍 extractVisualizationsFromText called with text length:', text?.length || 0);
-  console.log('🔍 Text preview (first 500 chars):', text?.substring(0, 500) || 'no text');
-  console.log('🔍 Text preview (last 500 chars):', text?.substring(Math.max(0, text.length - 500)) || 'no text');
-  console.log('🔍 Full text for debugging:', text);
   
   if (!text) return { cleanText: text, visualizations: [] };
   
@@ -1382,17 +1356,11 @@ const extractVisualizationsFromText = (text) => {
   let match;
   while ((match = vizPattern1.exec(text)) !== null) {
     try {
-      console.log('🔍 Found visualization markdown block, content preview:', match[1].substring(0, 500));
-      console.log('🔍 Full JSON length:', match[1].length);
       const vizData = JSON.parse(match[1]);
-      console.log('🎨 Parsed visualization data successfully:', vizData);
-      
       if (vizData.visualization) {
-        console.log('🎨 Adding visualization to list:', vizData.visualization.title);
         visualizations.push(vizData.visualization);
         cleanText = cleanText.replace(match[0], '');
       } else {
-        console.warn('🎨 Visualization data missing "visualization" property:', Object.keys(vizData));
       }
     } catch (parseError) {
       console.warn('Failed to parse visualization JSON from markdown block:', parseError);
@@ -1406,17 +1374,14 @@ const extractVisualizationsFromText = (text) => {
   try {
     // Try to parse the entire response as JSON (for tool call results)
     if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
-      console.log('🔍 Attempting to parse response as JSON tool result');
       const jsonResult = JSON.parse(text);
       
       if (jsonResult.success && jsonResult.visualization && jsonResult.generatedBy === 'jsxGraphAgent') {
-        console.log('🎨 Found JSXGraph tool result:', jsonResult);
         visualizations.push(jsonResult.visualization);
       }
     }
   } catch (jsonParseError) {
     // Not a JSON response, continue with other patterns
-    console.log('🔍 Response is not JSON format, continuing with other patterns');
   }
   
   // Pattern 3: Tool call result blocks (if Genkit formats them specially)
@@ -1427,7 +1392,6 @@ const extractVisualizationsFromText = (text) => {
       if (vizData.visualization) {
         visualizations.push(vizData.visualization);
         cleanText = cleanText.replace(match[0], '');
-        console.log('🎨 Found visualization in tool result format');
       }
     } catch (parseError) {
       console.warn('Failed to parse visualization JSON from tool result:', parseError);
@@ -1439,16 +1403,11 @@ const extractVisualizationsFromText = (text) => {
   match = endPattern.exec(cleanText);
   if (match) {
     try {
-      console.log('🔍 Found visualization at end of response, content preview:', match[1].substring(0, 500));
       const vizData = JSON.parse(match[1]);
-      console.log('🎨 Parsed end visualization data successfully:', vizData);
-      
       if (vizData.visualization) {
-        console.log('🎨 Adding end visualization to list:', vizData.visualization.title);
         visualizations.push(vizData.visualization);
         cleanText = cleanText.replace(match[0], '');
       } else if (vizData.success && vizData.visualization) {
-        console.log('🎨 Adding end visualization (success format) to list:', vizData.visualization.title);
         visualizations.push(vizData.visualization);
         cleanText = cleanText.replace(match[0], '');
       }
@@ -1461,27 +1420,22 @@ const extractVisualizationsFromText = (text) => {
   const jsonBlockPattern = /```json\n([\s\S]*?)\n```/g;
   while ((match = jsonBlockPattern.exec(text)) !== null) {
     try {
-      console.log('🔍 Found JSON block, checking for visualization data');
       const jsonData = JSON.parse(match[1]);
       if (jsonData.title && jsonData.boardConfig && jsonData.elements) {
         // This looks like a direct visualization object
-        console.log('🎨 Found direct visualization in JSON block:', jsonData.title);
         visualizations.push(jsonData);
         cleanText = cleanText.replace(match[0], '');
       } else if (jsonData.visualization && jsonData.visualization.title) {
         // This is wrapped in a result object
-        console.log('🎨 Found wrapped visualization in JSON block:', jsonData.visualization.title);
         visualizations.push(jsonData.visualization);
         cleanText = cleanText.replace(match[0], '');
       }
     } catch (parseError) {
-      console.log('🔍 JSON block was not visualization data, skipping');
     }
   }
   
   // Debug logging
   if (visualizations.length > 0) {
-    console.log(`🎨 Extracted ${visualizations.length} visualization(s) from response`);
   }
   
   return { cleanText: cleanText.trim(), visualizations };
@@ -1584,61 +1538,6 @@ const GoogleAIChatApp = ({
   }, [instructions, conversationHistory, dynamicContext]);
 
 
-  // Development logging - show complete AI chat configuration
-  if (process.env.NODE_ENV === 'development') {
-    console.group('🤖 AI CHAT CONFIGURATION (Updated Conversation History Structure)');
-    
-    console.log('📋 Component Props:', {
-      hasInstructions: !!instructions,
-      conversationHistoryLength: conversationHistory.length,
-      instructionsLength: instructions?.length || 0,
-      sessionIdentifier,
-      showYouTube,
-      showUpload,
-      allowContentRemoval,
-      showResourcesAtTop,
-      aiModel,
-      aiTemperature,
-      aiMaxTokens,
-      forceNewSession
-    });
-    
-    console.log('💬 CONVERSATION HISTORY:', conversationHistory.map((msg, index) => ({
-      index,
-      sender: msg.sender,
-      textPreview: msg.text?.substring(0, 100) + (msg.text?.length > 100 ? '...' : ''),
-      timestamp: msg.timestamp,
-      hasMedia: !!msg.media
-    })));
-    
-    console.log('🎯 AI Context:', {
-      aiChatContext: aiChatContext,
-      lessonQuestionsCount: aiChatContext?.lessonQuestions ? Object.keys(aiChatContext.lessonQuestions).length : 0,
-      contextKeywordsCount: aiChatContext?.contextKeywords?.length || 0,
-      dynamicContext: dynamicContext
-    });
-    
-    if (instructions) {
-      console.log('📜 SYSTEM INSTRUCTIONS (length: ' + instructions.length + ' chars):');
-      console.log(instructions.substring(0, 500) + (instructions.length > 500 ? '...' : ''));
-    }
-    
-    if (aiChatContext?.lessonQuestions && Object.keys(aiChatContext.lessonQuestions).length > 0) {
-      console.log('📚 LESSON QUESTIONS BREAKDOWN:');
-      Object.entries(aiChatContext.lessonQuestions).forEach(([questionId, questionData]) => {
-        console.log(`${questionId}:`, {
-          question: questionData.questionText?.substring(0, 80) + '...',
-          attempts: questionData.attempts,
-          status: questionData.status,
-          hasLastSubmission: !!questionData.lastSubmission,
-          lastAnswer: questionData.lastSubmission?.answer,
-          wasCorrect: questionData.lastSubmission?.isCorrect
-        });
-      });
-    }
-    
-    console.groupEnd();
-  }
 
   const [inputMessage, setInputMessage] = useState(initialMessage || '');
   const inputRef = useRef(null);
@@ -1688,12 +1587,6 @@ const GoogleAIChatApp = ({
   // JSXGraph library loading state
   const { isLoaded: jsxGraphLoaded, error: jsxGraphError } = useJSXGraph();
   
-  // Debug JSXGraph loading state
-  useEffect(() => {
-    console.log('🔧 JSXGraph loading state changed:', { jsxGraphLoaded, jsxGraphError });
-    console.log('🔧 Window.JXG available:', !!window.JXG);
-    console.log('🔧 Window.JXG.JSXGraph available:', !!(window.JXG && window.JXG.JSXGraph));
-  }, [jsxGraphLoaded, jsxGraphError]);
   // Removed sessionId state since we're using stateless generate() approach
   const scrollAreaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -2356,35 +2249,9 @@ const GoogleAIChatApp = ({
     );
     const conversationHistory = convertMessagesToConversationHistory(currentMessages);
     
-    // Development logging for message sending
-    if (process.env.NODE_ENV === 'development') {
-      console.group('🚀 SENDING MESSAGE TO AI (Stable Generate API)');
-      
-      console.log("📤 Message Details:", {
-        userMessage: messageToSend,
-        conversationHistoryLength: conversationHistory.length,
-        hasSystemInstruction: !!systemMessage
-      });
-      
-      console.log("💬 Conversation History:", conversationHistory);
-      
-      console.log("🎯 Current AI Context:", {
-        aiChatContext: aiChatContext,
-        lessonQuestions: aiChatContext?.lessonQuestions ? Object.keys(aiChatContext.lessonQuestions).length : 0,
-        contextKeywords: aiChatContext?.contextKeywords?.length || 0
-      });
-      
-      console.log("📜 COMPLETE SYSTEM INSTRUCTION:");
-      console.log(systemMessage);
-      
-      console.groupEnd();
-    }
     
     // Extract visualizations from the response and process the message
     const processMessageResponse = (response) => {
-      console.log('🔧 processMessageResponse called with response length:', response?.length || 0);
-      console.log('🔧 processMessageResponse - First 200 chars:', response?.substring(0, 200));
-      console.log('🔧 processMessageResponse - Last 200 chars:', response?.substring(Math.max(0, response.length - 200)));
       const { cleanText, visualizations } = extractVisualizationsFromText(response);
       
       const messageUpdate = {
@@ -2393,17 +2260,9 @@ const GoogleAIChatApp = ({
       };
       
       if (visualizations.length > 0) {
-        console.log(`🎨 Found ${visualizations.length} visualization(s) in response`);
-        console.log('🎨 Visualization titles:', visualizations.map(v => v.title));
       } else {
-        console.log('🎨 No visualizations found in final response');
       }
       
-      console.log('🔧 processMessageResponse returning:', {
-        textLength: messageUpdate.text?.length,
-        hasVisualizations: !!messageUpdate.visualizations,
-        visualizationCount: messageUpdate.visualizations?.length || 0
-      });
       
       return messageUpdate;
     };
@@ -2413,7 +2272,6 @@ const GoogleAIChatApp = ({
     let fallbackUsed = false;
     
     try {
-      console.log('🚀 Attempting Firebase v2 streaming...');
       
       // Try using the correct Firebase streaming API
       let streamingSupported = false;
@@ -2460,10 +2318,6 @@ const GoogleAIChatApp = ({
           
           // Get the complete response (with injected tool results)
           const completeResponse = await data;
-          console.log('📋 Complete response received:', completeResponse);
-          console.log('📋 Complete response structure:', Object.keys(completeResponse || {}));
-          console.log('📋 Streamed response length:', modelResponse.length);
-          console.log('📋 FULL STREAMED RESPONSE TEXT:', modelResponse);
           
           // The backend injects tool results AFTER streaming, so we need the complete response
           if (completeResponse && completeResponse.data && completeResponse.data.text) {
@@ -2483,19 +2337,13 @@ const GoogleAIChatApp = ({
           }
 
           // Process the final response for visualizations after streaming is complete
-          console.log('🎨 Streaming complete, now processing visualizations from final response');
-          console.log('🎨 Final response length:', modelResponse.length);
-          console.log('🎨 Model response preview (last 500 chars):', modelResponse.substring(Math.max(0, modelResponse.length - 500)));
           
           const finalMessageUpdate = processMessageResponse(modelResponse);
-          console.log('🎨 Final message update:', finalMessageUpdate);
-          console.log('🎨 Visualizations found:', finalMessageUpdate.visualizations);
           
           setMessages(prev => {
             const updated = prev.map(msg =>
               msg.id === modelMessageId ? { ...msg, ...finalMessageUpdate } : msg
             );
-            console.log('🎨 Updated message:', updated.find(m => m.id === modelMessageId));
             return updated;
           });
           

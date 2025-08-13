@@ -168,12 +168,6 @@ const Dashboard = () => {
     if (!selectedCourseId) return null;
     
     const course = courses.find(course => course.CourseID === selectedCourseId || course.id === selectedCourseId);
-    console.log('🔍 Dashboard: selectedCourse memoized', { 
-      selectedCourseId, 
-      found: !!course,
-      hasValidConfig: !!course?.courseDetails?.['course-config']?.courseStructure,
-      courseConfigExists: !!course?.courseDetails?.['course-config']
-    });
     
     return course;
   }, [selectedCourseId, courses]);

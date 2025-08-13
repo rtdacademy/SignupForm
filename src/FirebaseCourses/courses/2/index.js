@@ -115,15 +115,6 @@ const Course2 = ({
                    course?.Gradebook?.courseStructure?.units || 
                    [];
 
-  // Debug logging to help identify course object structure issues
-  if (!structure || structure.length === 0) {
-    console.log('🔍 Course2 Debug - course object:', course);
-    console.log('🔍 Course2 Debug - structure paths:');
-    console.log('  - course.courseDetails:', course?.courseDetails);
-    console.log('  - course["course-config"]:', course?.['course-config']);
-    console.log('  - course.courseStructure:', course?.courseStructure);
-    console.log('  - course.Gradebook?.courseStructure:', course?.Gradebook?.courseStructure);
-  }
 
 
   // Use external or internal active item ID

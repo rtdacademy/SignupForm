@@ -200,12 +200,6 @@ const SlideshowKnowledgeCheck = ({
 
   // Helper function to get assessment data from course prop
   const getQuestionAssessmentData = (questionId) => {
-    console.log(`🔎 Getting assessment data for ${questionId}:`, {
-      hasCourse: !!course,
-      hasAssessments: !!course?.Assessments,
-      questionId,
-      assessmentKeys: course?.Assessments ? Object.keys(course.Assessments).slice(0, 5) : 'none'
-    });
     
     if (!course?.Assessments || !questionId) {
       console.log(`⚠️ Missing course.Assessments or questionId`);
@@ -213,7 +207,6 @@ const SlideshowKnowledgeCheck = ({
     }
     
     const data = course.Assessments[questionId];
-    console.log(`✅ Found assessment data:`, data ? { attempts: data.attempts, status: data.status } : 'not found');
     return data || null;
   };
 
@@ -279,12 +272,6 @@ const SlideshowKnowledgeCheck = ({
     // Get assessment data first (contains attempt info)
     const assessmentData = getQuestionAssessmentData(questionId);
     
-    // Debug: Log what getQuestionAssessmentData returns
-    console.log(`🔍 getQuestionAssessmentData for ${questionId}:`, {
-      assessmentData,
-      courseAssessments: course?.Assessments ? Object.keys(course.Assessments).includes(questionId) : false,
-      directAccess: course?.Assessments?.[questionId]?.attempts
-    });
     
     // Get actual grade from Grades if available
     const actualGrade = course?.Grades?.assessments?.[questionId];
@@ -297,13 +284,6 @@ const SlideshowKnowledgeCheck = ({
     // Get the number of attempts
     const attempts = assessmentData?.attempts || 0;
     
-    console.log(`📊 Status calculation for ${questionId}:`, {
-      assessmentDataAttempts: assessmentData?.attempts,
-      actualGrade,
-      attempted,
-      attempts,
-      correctOverall: assessmentData?.correctOverall
-    });
     
     // For points, just use what's in the assessment data or default to 1
     const questionPoints = assessmentData?.pointsValue || assessmentData?.points || 1;
@@ -347,19 +327,9 @@ const SlideshowKnowledgeCheck = ({
     const loadProgressFromCourse = () => {
       setLoadingProgress(true);
       
-      // Debug logging
-      console.log('🔍 SlideshowKnowledgeCheck - Loading progress:', {
-        hasCourse: !!course,
-        hasAssessments: !!course?.Assessments,
-        hasGrades: !!course?.Grades,
-        hasCourseDetails: !!course?.courseDetails,
-        assessmentKeys: course?.Assessments ? Object.keys(course.Assessments).slice(0, 3) : 'none',
-        gradesKeys: course?.Grades?.assessments ? Object.keys(course.Grades.assessments).slice(0, 3) : 'none'
-      });
       
       try {
         if (!course || !questions || questions.length === 0) {
-          console.log('⚠️ SlideshowKnowledgeCheck - Missing course or questions');
           setLoadingProgress(false);
           return;
         }
@@ -372,19 +342,6 @@ const SlideshowKnowledgeCheck = ({
           const questionId = question.questionId || generateQuestionId(index);
           const status = getQuestionStatus(questionId);
           
-          // Debug log for first question
-          if (index === 0) {
-            console.log(`📊 Status for ${questionId}:`, {
-              questionId,
-              status,
-              assessmentData: course?.Assessments?.[questionId] ? {
-                attempts: course.Assessments[questionId].attempts,
-                correctOverall: course.Assessments[questionId].correctOverall,
-                status: course.Assessments[questionId].status
-              } : 'not found',
-              gradeData: course?.Grades?.assessments?.[questionId]
-            });
-          }
           
           if (status.attempted) {
             newQuestionsCompleted[`question${questionNumber}`] = true;

@@ -34,16 +34,6 @@ const IntroductionToLight = ({ course, courseId = '2', AIAccordion, onAIAccordio
     course?.id || 
     '2';
   
-  // Debug logging
-  useEffect(() => {
-    console.log("🔥 Rendering IntroductionToLight component with:", {
-      course,
-      courseId: effectiveCourseId,
-      currentUser,
-      loading,
-      error
-    });
-  }, [course, effectiveCourseId, currentUser, loading, error]);
 
   useEffect(() => {
     // Simulate loading completion

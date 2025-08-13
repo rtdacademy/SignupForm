@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X, Minimize2, RotateCcw } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle, FileText, Folder, Bot, MessageCircle, X, Minimize2, RotateCcw, Maximize2, Monitor, Tablet, Smartphone } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +20,6 @@ import {
   getLessonScore 
 } from './utils/courseProgressUtils';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { useDraggableResizable } from './hooks/useDraggableResizable';
 //import LessonInfoPanel from './components/navigation/LessonInfoPanel';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
 import CourseOutline from './components/CourseOutline';
@@ -30,6 +29,7 @@ import {
   GradebookDashboard
 } from './components/gradebook';
 import { Skeleton } from '../components/ui/skeleton';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
 import { AIAccordion } from '../components/ui/AIAccordion';
 
@@ -111,7 +111,6 @@ const FirebaseCourseWrapperContent = ({
         currentUserEmail === userEmail && 
         currentCourseId === courseId &&
         currentUserEmail && currentCourseId) {
-      console.log('🔧 Using cached developer authorization to prevent flickering');
       return true;
     }
     
@@ -154,7 +153,6 @@ const FirebaseCourseWrapperContent = ({
     
     // During initial loading period, show loading state instead of error
     if (isInitialLoading) {
-      console.log("⏳ Course configuration not yet available, but still in initial loading period");
       return {
         title: 'Loading Course...',
         structure: [],
@@ -247,7 +245,6 @@ const FirebaseCourseWrapperContent = ({
     if (courseId) {
       const storageKey = `lastLesson_${courseId}`;
       const lessonFromStorage = localStorage.getItem(storageKey);
-      console.log('🔍 Wrapper initializing from localStorage:', lessonFromStorage);
       return lessonFromStorage || null;
     }
     
@@ -264,10 +261,22 @@ const FirebaseCourseWrapperContent = ({
   const [isCourseOutlineOpen, setIsCourseOutlineOpen] = useState(false);
   const [isResourcesOpen, setIsResourcesOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isChatMinimized, setIsChatMinimized] = useState(false);
+  const [chatSheetSize, setChatSheetSize] = useState(() => {
+    // On mobile, always use full width
+    if (window.innerWidth < 768) {
+      return 'full';
+    }
+    // Load preferred size from localStorage for desktop
+    const courseId = course?.CourseID || course?.courseId;
+    const savedSize = courseId ? localStorage.getItem(`chatSheetSize_${courseId}`) : null;
+    // Only allow 'sm' (compact) or 'full' (fullscreen)
+    if (savedSize === 'sm' || savedSize === 'full') {
+      return savedSize;
+    }
+    return 'sm'; // Default to compact mode
+  });
   const [currentAIPrompt, setCurrentAIPrompt] = useState(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
-  const [chatAnimationState, setChatAnimationState] = useState('closed'); // 'closed', 'opening', 'open', 'closing'
   // Simplified AI state - just prepopulated message for chat input
   const [prepopulatedMessage, setPrepopulatedMessage] = useState('');
   // State for realtime grades updates
@@ -300,7 +309,6 @@ const FirebaseCourseWrapperContent = ({
   // Clear loading state early if course configuration becomes available
   useEffect(() => {
     if (course?.courseDetails?.['course-config']?.courseStructure && isInitialLoading) {
-      console.log("✅ Course configuration loaded, clearing initial loading state");
       setIsInitialLoading(false);
     }
   }, [course?.courseDetails]); // Remove isInitialLoading from dependencies to prevent loop
@@ -521,7 +529,6 @@ const FirebaseCourseWrapperContent = ({
   useEffect(() => {
     // Check if we have valid gradebook data from cloud functions
     if (!hasValidGradebookData(course) || !allCourseItems.length) {
-      console.log('📊 Gradebook data not available yet or no course items');
       setProgress({});
       return;
     }
@@ -530,14 +537,8 @@ const FirebaseCourseWrapperContent = ({
     const navigationProgress = getNavigationProgress(course, allCourseItems);
     setProgress(navigationProgress);
     
-    console.log('📊 Progress calculated using cloud function data:', Object.keys(navigationProgress).length, 'completed items');
   
   // DEBUG: Log activeItemId and gradebook path for troubleshooting
-  console.log('🔍 DEBUG - ActiveItemId:', activeItemId);
-  console.log('🔍 DEBUG - Current user email:', currentUser?.email);
-  console.log('🔍 DEBUG - Sanitized email:', sanitizeEmail(currentUser?.email || ''));
-  console.log('🔍 DEBUG - Course Gradebook items keys:', Object.keys(course?.Gradebook?.items || {}));
-  console.log('🔍 DEBUG - Looking for gradebook item:', activeItemId, '- Found:', !!course?.Gradebook?.items?.[activeItemId]);
   }, [course?.Gradebook, allCourseItems, realtimeGradebook, dataUpdateTrigger]);
 
   // Realtime listener for grades updates
@@ -550,21 +551,17 @@ const FirebaseCourseWrapperContent = ({
       return;
     }
     
-    console.log('🔍 DEBUG - Setting up grades listener for user email:', userEmail);
     
     // Use the correct student key format from the profile if available
     let studentKey;
     if (profile?.StudentKey) {
       studentKey = profile.StudentKey;
-      console.log('🔍 DEBUG - Using profile StudentKey:', studentKey);
     } else {
       // Fallback to sanitizing the email
       studentKey = sanitizeEmail(userEmail);
-      console.log('🔍 DEBUG - Using sanitized email as StudentKey:', studentKey);
     }
     const gradesPath = `students/${studentKey}/courses/${courseId}/Grades/assessments`;
     
-    console.log('🔄 Setting up realtime grades listener for:', gradesPath);
     
     // Create database reference
     const db = getDatabase();
@@ -573,7 +570,6 @@ const FirebaseCourseWrapperContent = ({
     // Set up the listener
     const unsubscribe = onValue(gradesRef, (snapshot) => {
       const gradesData = snapshot.val();
-      console.log('📊 Realtime grades update received:', gradesData ? 'Data present' : 'No data');
       
       // Update the realtime grades state
       setRealtimeGrades(gradesData || {});
@@ -591,7 +587,6 @@ const FirebaseCourseWrapperContent = ({
     
     // Cleanup function
     return () => {
-      console.log('🔚 Cleaning up grades listener');
       off(gradesRef, 'value');
     };
   }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
@@ -618,7 +613,6 @@ const FirebaseCourseWrapperContent = ({
     // Listen to the student's specific exam sessions path
     const examSessionsPath = `students/${studentKey}/courses/${courseId}/ExamSessions`;
     
-    console.log('🔄 Setting up realtime ExamSessions listener for:', examSessionsPath);
     
     // Create database reference
     const db = getDatabase();
@@ -627,7 +621,6 @@ const FirebaseCourseWrapperContent = ({
     // Set up the listener
     const unsubscribe = onValue(examSessionsRef, (snapshot) => {
       const sessionsData = snapshot.val();
-      console.log('📊 Realtime ExamSessions update received:', sessionsData ? 'Data present' : 'No data');
       
       // Update the realtime exam sessions state
       setRealtimeExamSessions(sessionsData || {});
@@ -645,7 +638,6 @@ const FirebaseCourseWrapperContent = ({
     
     // Cleanup function
     return () => {
-      console.log('🔚 Cleaning up ExamSessions listener');
       off(examSessionsRef, 'value');
     };
   }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
@@ -672,7 +664,6 @@ const FirebaseCourseWrapperContent = ({
     // Listen to the student's specific gradebook path
     const gradebookPath = `students/${studentKey}/courses/${courseId}/Gradebook`;
     
-    console.log('🔄 Setting up realtime Gradebook listener for:', gradebookPath);
     
     // Create database reference
     const db = getDatabase();
@@ -681,7 +672,6 @@ const FirebaseCourseWrapperContent = ({
     // Set up the listener
     const unsubscribe = onValue(gradebookRef, (snapshot) => {
       const gradebookData = snapshot.val();
-      console.log('📊 Realtime Gradebook update received:', gradebookData ? 'Data present' : 'No data');
       
       // Update the realtime gradebook state
       setRealtimeGradebook(gradebookData || {});
@@ -699,7 +689,6 @@ const FirebaseCourseWrapperContent = ({
     
     // Cleanup function
     return () => {
-      console.log('🔚 Cleaning up Gradebook listener');
       off(gradebookRef, 'value');
     };
   }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
@@ -733,68 +722,41 @@ const FirebaseCourseWrapperContent = ({
     }
   }, [course]);
 
-  // Handle AI chat toggle with animations
-  const handleChatToggle = useCallback(() => {
-    if (chatAnimationState === 'closed') {
-      // Opening animation
-      setChatAnimationState('opening');
-      setIsChatOpen(true);
-      setIsChatMinimized(false);
-      // After a brief delay, set to fully open
-      setTimeout(() => setChatAnimationState('open'), 300);
-    } else if (chatAnimationState === 'open') {
-      // Closing animation
-      setChatAnimationState('closing');
-      // Clear content context when closing
-      setContentContextData(null);
-      // After animation completes, fully close
-      setTimeout(() => {
-        setIsChatOpen(false);
-        setIsChatMinimized(false);
-        setChatAnimationState('closed');
-      }, 300);
+  // Handle AI chat sheet size change
+  const handleChatSizeChange = useCallback((newSize) => {
+    setChatSheetSize(newSize);
+    // Save preference to localStorage
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      localStorage.setItem(`chatSheetSize_${courseId}`, newSize);
     }
-  }, [chatAnimationState]);
-
-  // Handle chat minimize/restore
-  const handleChatMinimize = useCallback(() => {
-    setIsChatMinimized(!isChatMinimized);
-    // When restoring from minimized state, reset to default size if needed
-    if (isChatMinimized) {
-      // Chat is currently minimized and being restored
-      // The useDraggableResizable hook will handle the size restoration
-    }
-  }, [isChatMinimized]);
+  }, [course]);
 
   // Handle message prepopulation from child components
   const handlePrepopulateMessage = useCallback((message) => {
     setPrepopulatedMessage(message);
     
-    // If chat is closed, open it; if minimized, restore it
-    if (chatAnimationState === 'closed') {
-      handleChatToggle();
-    } else if (isChatMinimized) {
-      setIsChatMinimized(false);
+    // If chat is closed, open it
+    if (!isChatOpen) {
+      setIsChatOpen(true);
     }
     
     // Clear prepopulated message after a delay to allow chat to use it
     setTimeout(() => {
       setPrepopulatedMessage('');
     }, 500);
-  }, [chatAnimationState, handleChatToggle, isChatMinimized]);
+  }, [isChatOpen]);
 
   // Handle AI accordion content selection
   const handleAIAccordionContent = useCallback((extractedContent) => {
     // Set the content context data for the AI chat
     setContentContextData(extractedContent);
     
-    // If chat is closed, open it; if minimized, restore it
-    if (chatAnimationState === 'closed') {
-      handleChatToggle();
-    } else if (isChatMinimized) {
-      setIsChatMinimized(false);
+    // If chat is closed, open it
+    if (!isChatOpen) {
+      setIsChatOpen(true);
     }
-  }, [chatAnimationState, handleChatToggle, isChatMinimized]);
+  }, [isChatOpen]);
 
   // Helper function to create "Ask AI about this question/example" buttons
   const createAskAIButton = useCallback((questionTextOrNumber, userQuestion = null, buttonText = null) => {
@@ -877,7 +839,6 @@ const FirebaseCourseWrapperContent = ({
     if (courseId) {
       const storageKey = `lastLesson_${courseId}`;
       localStorage.setItem(storageKey, itemId);
-      console.log('🔍 Saved to localStorage:', storageKey, '=', itemId);
     }
     
     // Scroll to top when selecting a new item
@@ -970,29 +931,7 @@ const FirebaseCourseWrapperContent = ({
     );
   }, [unitsList, activeItemId]);
   
-  // Draggable and resizable functionality for AI chat
-  const {
-    position: chatPosition,
-    size: chatSize,
-    isDragging,
-    isResizing,
-    handleDragStart,
-    handleResizeStart,
-    resetToDefault: resetChatPosition
-  } = useDraggableResizable({
-    defaultPosition: { x: window.innerWidth - 644, y: 24 }, // 620px width + 24px margin
-    defaultSize: { width: 620, height: 600 }, // More reasonable initial height
-    minSize: { width: 320, height: 400 },
-    maxSize: { width: 1000, height: Math.min(900, window.innerHeight - 48) },
-    storageKey: `ai-chat-state-course-${course?.CourseID}`,
-    disabled: isMobile
-  });
-  
-  // Debug: Log course prop value
-  console.log('🔍 Course prop value:', course);
-  console.log('🔍 Profile prop value:', profile);
-  console.log('🔍 Profile StudentKey:', profile?.StudentKey);
-  console.log('🔍 Profile StudentEmail:', profile?.StudentEmail);
+  // Course and profile data available for component logic
   
   // Now that all hooks are declared, we can do conditional returns
   // Show loading state if course is temporarily unavailable during transitions
@@ -1053,7 +992,6 @@ const FirebaseCourseWrapperContent = ({
       }
       
       try {
-        console.log('🔍 Validating gradebook structure and syncing course config...');
         
         const functions = getFunctions();
         const validateGradebookStructure = httpsCallable(functions, 'validateGradebookStructure');
@@ -1067,16 +1005,13 @@ const FirebaseCourseWrapperContent = ({
           const { configSynced, configChanges, wasRebuilt } = result.data;
           
           if (configSynced && configChanges?.length > 0) {
-            console.log('✅ Course config changes detected and synced:', configChanges);
             
             // If significant changes were made, we might want to refresh the course data
             // For now, just log the changes - the realtime listener will pick up updates
             if (wasRebuilt) {
-              console.log('🔄 Gradebook was rebuilt due to structure changes');
               // Could trigger a course data refresh here if needed
             }
           } else if (configSynced) {
-            console.log('✅ Course config validation completed - no changes needed');
           }
         }
       } catch (error) {
@@ -1293,12 +1228,8 @@ const FirebaseCourseWrapperContent = ({
                 const lessonScore = getLessonScore(currentActiveItem.itemId, course);
                 
                 // DEBUG: Log lesson score data for troubleshooting
-                console.log('🔍 DEBUG - Progress bar check for lesson:', currentActiveItem.itemId);
-                console.log('🔍 DEBUG - Lesson score data:', lessonScore);
-                console.log('🔍 DEBUG - Item type:', currentActiveItem.type);
                 
                 if (!lessonScore.valid || lessonScore.totalQuestions === 0) {
-                  console.log('🔍 DEBUG - Progress bars hidden because:', !lessonScore.valid ? 'invalid score' : 'no questions');
                   return null;
                 }
                 
@@ -1571,200 +1502,92 @@ const FirebaseCourseWrapperContent = ({
         onClose={() => setIsResourcesOpen(false)}
       />
       
-      {/* Floating AI Assistant Button - Show when chat is closed or when minimized */}
-      {(chatAnimationState === 'closed' || isChatMinimized) && (
-        <button
-          onClick={isChatMinimized ? handleChatMinimize : handleChatToggle}
-          disabled={chatAnimationState === 'opening' || chatAnimationState === 'closing'}
-          className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group ${
-            chatAnimationState === 'opening'
-              ? 'scale-0 opacity-0' 
-              : 'scale-100 opacity-100 hover:scale-110'
-          }`}
-          style={{ 
-            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-            transformOrigin: 'center'
-          }}
-          aria-label={isChatMinimized ? "Restore AI Assistant" : "Open AI Assistant"}
+      {/* AI Chat Assistant Sheet */}
+      <Sheet open={isChatOpen} onOpenChange={setIsChatOpen}>
+        {/* Floating AI Assistant Button - Trigger */}
+        <SheetTrigger asChild>
+          <button
+            className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-110"
+            aria-label="Open AI Assistant"
+          >
+            <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
+            {/* Pulse animation ring */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
+            
+            {/* Tooltip */}
+            <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              AI Physics Assistant
+              <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+            </div>
+          </button>
+        </SheetTrigger>
+        
+        {/* Sheet Content with AI Chat */}
+        <SheetContent 
+          side="right" 
+          size={chatSheetSize}
+          className="flex flex-col p-0 gap-0 [&>button]:hidden"
         >
-          {isChatMinimized ? (
-            <>
-              <MessageCircle className="w-7 h-7 transition-transform group-hover:scale-110" />
-              {/* Active conversation indicator - small dot */}
-              <div className="absolute top-1 right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-            </>
-          ) : (
-            <>
-              <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
-              {/* Pulse animation ring */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
-            </>
-          )}
-          
-          {/* Tooltip */}
-          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            {isChatMinimized ? 'Resume conversation' : 'AI Physics Assistant'}
-            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-          </div>
-        </button>
-      )}
-
-      {/* AI Chat Assistant - Draggable & Resizable Panel */}
-      {(isChatOpen || chatAnimationState !== 'closed') && !isChatMinimized && (
-        <div 
-          className={`fixed bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
-            isMobile 
-              ? 'inset-0 rounded-none' // Full screen on mobile
-              : 'rounded-2xl'
-          } ${isDragging ? 'cursor-grabbing' : ''} ${isResizing ? 'select-none' : ''}`}
-          style={isMobile ? { zIndex: 9999 } : {
-            zIndex: 9999,
-            left: chatPosition.x,
-            top: chatPosition.y,
-            width: chatSize.width,
-            height: chatSize.height,
-            transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-            transformOrigin: 'bottom right',
-            transform: chatAnimationState === 'open' 
-              ? 'scale(1)' 
-              : chatAnimationState === 'opening'
-              ? 'scale(0.95)'
-              : 'scale(0.9)',
-            opacity: chatAnimationState === 'open' ? 1 : 
-                    chatAnimationState === 'opening' ? 0.9 : 0.7
-          }}
-        >
-          {/* Resize Handles - Only on desktop */}
-          {!isMobile && (
-            <>
-              {/* Corner handles - More visible */}
-              <div 
-                className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-10 bg-gradient-to-br from-purple-400/30 to-transparent rounded-br-md opacity-60 hover:opacity-100 transition-opacity"
-                onMouseDown={(e) => handleResizeStart(e, 'nw')}
-                onTouchStart={(e) => handleResizeStart(e, 'nw')}
-              />
-              <div 
-                className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize z-10 bg-gradient-to-bl from-purple-400/30 to-transparent rounded-bl-md opacity-60 hover:opacity-100 transition-opacity"
-                onMouseDown={(e) => handleResizeStart(e, 'ne')}
-                onTouchStart={(e) => handleResizeStart(e, 'ne')}
-              />
-              <div 
-                className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize z-10 bg-gradient-to-tr from-purple-400/30 to-transparent rounded-tr-md opacity-60 hover:opacity-100 transition-opacity"
-                onMouseDown={(e) => handleResizeStart(e, 'sw')}
-                onTouchStart={(e) => handleResizeStart(e, 'sw')}
-              />
-              <div 
-                className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10 bg-gradient-to-tl from-purple-400/40 to-transparent rounded-tl-md opacity-70 hover:opacity-100 transition-opacity group"
-                onMouseDown={(e) => handleResizeStart(e, 'se')}
-                onTouchStart={(e) => handleResizeStart(e, 'se')}
-              >
-                {/* Visual resize indicator on bottom-right corner */}
-                <div className="absolute bottom-0.5 right-0.5 w-2 h-2">
-                  <div className="absolute bottom-0 right-0 w-1 h-1 bg-purple-500/60 rounded-full"></div>
-                  <div className="absolute bottom-0.5 right-1 w-0.5 h-0.5 bg-purple-500/40 rounded-full"></div>
-                  <div className="absolute bottom-1 right-0.5 w-0.5 h-0.5 bg-purple-500/40 rounded-full"></div>
-                </div>
-              </div>
-              
-              {/* Edge handles - Subtle resize bars that appear on hover */}
-              {/* Top edge - vertical resize (full width, avoiding corners) */}
-              <div 
-                className="absolute top-0 left-4 right-4 h-2 cursor-n-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
-                onMouseDown={(e) => handleResizeStart(e, 'n')}
-                onTouchStart={(e) => handleResizeStart(e, 'n')}
-              >
-                {/* Visual indicator - only visible on hover */}
-                <div className="absolute top-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-              
-              {/* Bottom edge - vertical resize (full width, avoiding corners) */}
-              <div 
-                className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
-                onMouseDown={(e) => handleResizeStart(e, 's')}
-                onTouchStart={(e) => handleResizeStart(e, 's')}
-              >
-                {/* Visual indicator - only visible on hover */}
-                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-              
-              {/* Left edge - horizontal resize (full height, avoiding corners) */}
-              <div 
-                className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
-                onMouseDown={(e) => handleResizeStart(e, 'w')}
-                onTouchStart={(e) => handleResizeStart(e, 'w')}
-              >
-                {/* Visual indicator - only visible on hover */}
-                <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-              
-              {/* Right edge - horizontal resize (full height, avoiding corners) */}
-              <div 
-                className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize hover:bg-purple-400/25 transition-all duration-300 opacity-0 hover:opacity-100 z-20 group"
-                onMouseDown={(e) => handleResizeStart(e, 'e')}
-                onTouchStart={(e) => handleResizeStart(e, 'e')}
-              >
-                {/* Visual indicator - only visible on hover */}
-                <div className="absolute right-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-purple-500/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-            </>
-          )}
-
-              {/* Chat Header - Draggable */}
-              <div 
-                className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3 flex items-center justify-between ${
-                  !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
-                }`}
-                onMouseDown={!isMobile ? handleDragStart : undefined}
-                onTouchStart={!isMobile ? handleDragStart : undefined}
-              >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Bot className="w-6 h-6 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">AI Physics Assistant</span>
-                  {currentActiveItem && (
-                    <>
-                      <span className="text-white/60">•</span>
-                      <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse flex-shrink-0"></div>
-                        <span className="text-sm font-medium truncate text-white/90">
-                          {currentActiveItem.title}
-                        </span>
-                      </div>
-                    </>
+          {/* Custom Chat Header with Width Controls */}
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Bot className="w-6 h-6 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">AI Physics Assistant</span>
+                    {currentActiveItem && (
+                      <>
+                        <span className="text-white/60">•</span>
+                        <div className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse flex-shrink-0"></div>
+                          <span className="text-sm font-medium truncate text-white/90">
+                            {currentActiveItem.title}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {isLoadingPrompt && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Loader className="w-3 h-3 animate-spin" />
+                      <span className="text-xs opacity-90">Loading context...</span>
+                    </div>
                   )}
                 </div>
-                {isLoadingPrompt && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <Loader className="w-3 h-3 animate-spin" />
-                    <span className="text-xs opacity-90">Loading context...</span>
-                  </div>
-                )}
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Minimize button */}
-              <button
-                onClick={handleChatMinimize}
-                className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
-                title="Minimize chat"
-              >
-                <Minimize2 className="w-4 h-4" />
-              </button>
               
-              <button
-                onClick={handleChatToggle}
-                className="hover:bg-white/20 rounded-full p-2 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Control Buttons - Close and Width Toggle */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Width toggle button - only show on desktop */}
+                {!isMobile && (
+                  <button
+                    onClick={() => handleChatSizeChange(chatSheetSize === 'sm' ? 'full' : 'sm')}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    title={chatSheetSize === 'sm' ? 'Expand to fullscreen' : 'Compact view'}
+                  >
+                    {chatSheetSize === 'sm' ? (
+                      <Maximize2 className="w-5 h-5 text-white" />
+                    ) : (
+                      <Minimize2 className="w-5 h-5 text-white" />
+                    )}
+                  </button>
+                )}
+                
+                {/* Custom close button */}
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Close chat"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
             </div>
           </div>
           
           {/* Chat Component */}
-          <div className={`flex-1 overflow-hidden transition-all duration-300 ${
-            isChatMinimized ? 'h-0 opacity-0' : 'opacity-100'
-          }`} style={{ margin: '0 3px 3px 3px' }}>
+          <div className="flex-1 overflow-hidden">
             {currentAIPrompt && !isLoadingPrompt ? (
               <GoogleAIChatApp
                 firebaseApp={undefined} // Will use default app
@@ -1833,8 +1656,8 @@ const FirebaseCourseWrapperContent = ({
               </div>
             )}
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

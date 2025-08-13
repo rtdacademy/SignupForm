@@ -99,14 +99,11 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     const unsubscribeCourseStructure = onValue(courseStructureRef, (snapshot) => {
       const data = snapshot.exists() ? snapshot.val() : null;
       if (data && data.units) {
-        console.log('🔍 CourseStructure listener update: Loaded', data.units.length, 'units');
         // Log first unit for debugging
         if (data.units.length > 0 && data.units[0].items) {
           const firstItem = data.units[0].items[0];
-          console.log('🔍 First item has questions:', firstItem?.questions?.length || 0);
         }
       } else {
-        console.log('🔍 CourseStructure listener update: No data found');
       }
       setRealtimeCourseStructure(data);
     }, (error) => handleError(error, 'courseStructure'));
@@ -181,15 +178,12 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     }
     
     const unitsList = getCourseUnitsList(enrichedCourse);
-    console.log('🔍 GradebookDashboardRealtime: Units list found:', unitsList?.length || 0, 'units');
     
     const enrichedItems = createEnrichedCourseItems(enrichedCourse, unitsList);
-    console.log('🔍 GradebookDashboardRealtime: Enriched items created:', enrichedItems?.length || 0, 'items');
     
     // Debug: Check if first few items have questions
     if (enrichedItems.length > 0) {
       const firstItem = enrichedItems[0];
-      console.log('🔍 GradebookDashboardRealtime: First item questions:', firstItem?.questions?.length || 0, 'questions');
     }
     
     return enrichedItems;

@@ -414,7 +414,6 @@ function RTDConnectApp() {
 function App() {
   // Check which site we're running
   const siteType = process.env.REACT_APP_SITE;
-  console.log('Site Type:', siteType || 'main', process.env.REACT_APP_SITE);
   
   if (siteType === 'second') {
     return <EdBotzApp />;

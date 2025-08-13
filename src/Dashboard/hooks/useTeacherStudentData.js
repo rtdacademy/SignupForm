@@ -1205,13 +1205,6 @@ export const useTeacherStudentData = (studentEmailKey, teacherPermissions = {}) 
     });
   };
 
-  // Debug: Log what we're returning
-  console.log('🔍 Teacher view: Returning student data:', {
-    hasProfile: !!studentData.profile,
-    profileEmail: studentData.profile?.StudentEmail,
-    loading: studentData.loading,
-    coursesCount: studentData.courses?.length || 0
-  });
 
   // Return the data with teacher-specific flags
   return {

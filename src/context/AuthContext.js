@@ -533,12 +533,10 @@ export function AuthProvider({ children }) {
     if (!user?.email) return null;
     
     try {
-      console.log('Checking for pending permissions for user:', user.email);
       
       // First, check if user already has familyId in claims
       const currentTokenResult = await user.getIdTokenResult();
       if (currentTokenResult.claims.familyId) {
-        console.log('User already has familyId in claims:', currentTokenResult.claims.familyId);
         return null; // No need to apply pending permissions
       }
       
@@ -726,10 +724,6 @@ export function AuthProvider({ children }) {
       const tokenResult = await user.getIdTokenResult();
       const currentClaims = tokenResult.claims;
       
-      console.log('Checking temp password requirement:', {
-        tempPasswordRequired: currentClaims.tempPasswordRequired,
-        userEmail: user.email
-      });
       
       return currentClaims.tempPasswordRequired === true;
     } catch (error) {
@@ -1001,7 +995,6 @@ export function AuthProvider({ children }) {
           let dataCreated = false;
           if (staffStatus) {
             // First validate if staff claims need updating
-            console.log('Validating staff claims for:', currentUser.email);
             const claimsValidation = await validateStaffClaims(currentUser);
             
             if (claimsValidation.needsUpdate) {
@@ -1025,7 +1018,7 @@ export function AuthProvider({ children }) {
                 console.error('Error setting basic staff claim:', error);
               }
             } else {
-              console.log('Basic staff claim exists, skipping cloud function call');
+              // Basic staff claim exists, skipping cloud function call
             }
             
             // Fetch admin emails first for staff users

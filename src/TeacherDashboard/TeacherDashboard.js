@@ -209,16 +209,9 @@ function TeacherDashboard() {
         const auth = getAuth();
         if (auth.currentUser) {
           const result = await auth.currentUser.getIdTokenResult();
-          console.log('🔍 Teacher Dashboard - Custom claims:', result.claims);
-          console.log('📧 User email:', user.email);
-          console.log('🆔 User UID:', user.uid);
-          
           // Log specific staff permissions if they exist
           if (result.claims.staffPermissions) {
-            console.log('👨‍🏫 Staff permissions:', result.claims.staffPermissions);
-            console.log('🎭 Staff role:', result.claims.staffRole);
-            console.log('📅 Last permission update:', result.claims.lastPermissionUpdate);
-            console.log('📍 Permission source:', result.claims.permissionSource);
+            // Staff permissions found - no need to apply claims
           } else {
             console.log('⚠️ No staff permissions found in claims');
             
@@ -232,12 +225,6 @@ function TeacherDashboard() {
             }
           }
           
-          // Also log from the hook state
-          console.log('🎯 Hook state - hasStaffClaims:', hasStaffClaims);
-          console.log('🎯 Hook state - staffPermissions:', staffPermissions);
-          console.log('🎯 Hook state - staffRole:', staffRole);
-          console.log('🎯 Hook state - claimsLoading:', claimsLoading);
-          console.log('🎯 Hook state - claimsError:', claimsError);
         }
       } catch (error) {
         console.error('❌ Error getting custom claims:', error);

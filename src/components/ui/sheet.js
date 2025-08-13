@@ -51,7 +51,7 @@ const SheetContent = React.forwardRef(({ side = "right", size = "default", class
   // For top/bottom sheets, always use full screen dimensions
   const sizeClasses = {
     default: isVertical ? "h-full w-full max-h-none max-w-none" : "w-3/4 sm:max-w-3xl",
-    sm: isVertical ? "h-full w-full max-h-none max-w-none" : "w-1/3 sm:max-w-sm", 
+    sm: isVertical ? "h-full w-full max-h-none max-w-none" : "w-full sm:w-2/5 lg:w-1/3 sm:max-w-2xl", 
     md: isVertical ? "h-full w-full max-h-none max-w-none" : "w-1/2 sm:max-w-md",
     lg: isVertical ? "h-full w-full max-h-none max-w-none" : "w-2/3 sm:max-w-lg",
     xl: isVertical ? "h-full w-full max-h-none max-w-none" : "w-5/6 sm:max-w-xl",

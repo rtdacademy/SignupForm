@@ -1812,7 +1812,6 @@ const updateGradebookItemDirectly = async (studentKey, courseId, questionId, new
     // Extract lesson ID from question ID (e.g., "course2_01_physics_20_review_question1" → "01-physics-20-review")
     const lessonId = questionId.replace(/^course\d+_/, '').replace(/_question\d+$/, '').replace(/_/g, '-');
     
-    console.log('🔧 Direct gradebook update:', { studentKey, courseId, lessonId, questionId, newGrade, maxPoints });
     
     // Get current gradebook item to preserve other data
     const gradebookItemRef = ref(getDatabase(), `students/${studentKey}/courses/${courseId}/Gradebook/items/${lessonId}`);
@@ -1885,11 +1884,9 @@ const updateGradebookItemDirectly = async (studentKey, courseId, questionId, new
 const updateSessionFinalResultsDirectly = async (sessionConfig, updatedGrade, maxPoints) => {
   try {
     if (!sessionConfig.studentKey || !sessionConfig.courseId || !sessionConfig.sessionId) {
-      console.log('⚠️ Skipping session finalResults update - missing session config');
       return;
     }
     
-    console.log('🔧 Direct session finalResults update:', { sessionConfig, updatedGrade, maxPoints });
     
     // Get current session data to recalculate totals
     const sessionRef = ref(getDatabase(), `students/${sessionConfig.studentKey}/courses/${sessionConfig.courseId}/ExamSessions/${sessionConfig.sessionId}`);
@@ -1897,7 +1894,6 @@ const updateSessionFinalResultsDirectly = async (sessionConfig, updatedGrade, ma
     const sessionData = sessionSnapshot.val();
     
     if (!sessionData) {
-      console.log('⚠️ Session data not found for finalResults update');
       return;
     }
     
@@ -2252,28 +2248,14 @@ const SessionGradeEditor = ({
   // Set up real-time listener for the grade value
   useEffect(() => {
     if (!pointsPath) {
-      console.log('🔍 SessionGradeEditor: No pointsPath available', { 
-        studentKey: sessionConfig.studentKey, 
-        courseId: sessionConfig.courseId, 
-        sessionId: sessionConfig.sessionId, 
-        questionIndex: sessionConfig.questionIndex 
-      });
       return;
     }
     
-    console.log('🔍 SessionGradeEditor: Setting up listener for path:', pointsPath);
     
     const pointsRef = ref(database, pointsPath);
     const unsubscribe = onValue(pointsRef, (snapshot) => {
       const points = snapshot.val();
       const gradeStr = points !== null && points !== undefined ? points.toString() : '0';
-      
-      console.log('🔍 SessionGradeEditor: Firebase listener received data:', {
-        path: pointsPath,
-        rawValue: points,
-        gradeStr,
-        questionIndex
-      });
       
       setCurrentGrade(gradeStr);
       setEditedGrade(gradeStr);
@@ -2287,7 +2269,6 @@ const SessionGradeEditor = ({
     });
 
     return () => {
-      console.log('🔍 SessionGradeEditor: Cleaning up listener for path:', pointsPath);
       unsubscribe();
     };
   }, [pointsPath, database]);

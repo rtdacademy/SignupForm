@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity,
+  // Seasonal icons
+  Snowflake, Flower, Sun, Leaf,
+  // Student Management icons
+  Award, Flag, Star, Pause, Play, AlertOctagon, Heart, Sparkles, ShieldAlert, Rocket, Hourglass, MapPin, Palette, Calculator, Globe, Home, School, Video, Headphones
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -92,6 +97,32 @@ const iconMap = {
   'presentation': Presentation,
   'file-text': FileText,
   'bookmark': Bookmark,
+  // Seasonal icons
+  'snowflake': Snowflake,
+  'flower': Flower,
+  'sun': Sun,
+  'leaf': Leaf,
+  // Student Management icons
+  'award': Award,
+  'flag': Flag,
+  'star': Star,
+  'zap': Zap,
+  'pause': Pause,
+  'play': Play,
+  'alert-octagon': AlertOctagon,
+  'heart': Heart,
+  'sparkles': Sparkles,
+  'shield-alert': ShieldAlert,
+  'rocket': Rocket,
+  'hourglass': Hourglass,
+  'map-pin': MapPin,
+  'palette': Palette,
+  'calculator': Calculator,
+  'globe': Globe,
+  'home': Home,
+  'school': School,
+  'video': Video,
+  'headphones': Headphones,
 };
 
 // Define color palette outside the component
@@ -411,6 +442,9 @@ const StudentCard = React.memo(({
 
   // New state variable for removal dialog
   const [isRemovalDialogOpen, setIsRemovalDialogOpen] = useState(false);
+  
+  // State for showing/hiding tracking categories
+  const [showTrackingCategories, setShowTrackingCategories] = useState(false);
 
   // Add state for restoring from cold storage
   const [isRestoring, setIsRestoring] = useState(false);
@@ -1239,7 +1273,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
   const lastWeekStatus = getSafeValue(student.StatusCompare);
   const lastWeekColor = getStatusColor(lastWeekStatus);
 
-  // Compute selectedCategories from student.categories
+  // Compute selectedCategories from student.categories (excluding tracking type)
   const selectedCategories = useMemo(() => {
     if (!student.categories) return [];
   
@@ -1255,15 +1289,47 @@ const handleStatusChange = useCallback(async (newStatus) => {
               // Find the category in groupedTeacherCategories
               const categoryData = groupedTeacherCategories[teacherEmailKey]?.find(c => c.id === categoryId);
               
-              // Only include categories that we can find the data for
-              if (categoryData) {
+              // Only include categories that we can find the data for AND are not tracking type
+              if (categoryData && categoryData.type !== 'tracking') {
                 return {
                   id: categoryId,
                   teacherEmailKey,
                   category: categoryData
                 };
               }
-              return null; // Skip categories we can't find data for
+              return null; // Skip categories we can't find data for or are tracking type
+            }
+            return null;
+          })
+      )
+      .filter(Boolean);
+  }, [student.categories, groupedTeacherCategories]);
+  
+  // Compute tracking categories separately
+  const trackingCategories = useMemo(() => {
+    if (!student.categories) return [];
+  
+    const trackingCategoriesSet = new Set();
+    return Object.entries(student.categories)
+      .flatMap(([teacherEmailKey, categories]) =>
+        Object.entries(categories)
+          .filter(([_, value]) => value === true)
+          .map(([categoryId]) => {
+            const uniqueKey = `${categoryId}-${teacherEmailKey}`;
+            if (!trackingCategoriesSet.has(uniqueKey)) {
+              trackingCategoriesSet.add(uniqueKey);
+              // Find the category in groupedTeacherCategories
+              const categoryData = groupedTeacherCategories[teacherEmailKey]?.find(c => c.id === categoryId);
+              
+              // Only include categories that are tracking type
+              if (categoryData && categoryData.type === 'tracking') {
+                return {
+                  id: categoryId,
+                  teacherEmailKey,
+                  category: categoryData
+                };
+              }
+              return null; // Skip categories that are not tracking type
             }
             return null;
           })
@@ -1853,7 +1919,64 @@ const handleStatusChange = useCallback(async (newStatus) => {
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Tracking Categories Button */}
+          {trackingCategories.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs font-normal ml-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTrackingCategories(!showTrackingCategories);
+              }}
+            >
+              <Activity className="h-4 w-4 mr-1" />
+              Tracking
+              <Badge className="ml-1 px-1 h-4 text-[10px]" variant="secondary">
+                {trackingCategories.length}
+              </Badge>
+              <ChevronDown 
+                className={`h-3 w-3 ml-1 opacity-50 transition-transform ${showTrackingCategories ? 'rotate-180' : ''}`} 
+              />
+            </Button>
+          )}
         </div>
+        
+        {/* Tracking Categories List */}
+        {showTrackingCategories && trackingCategories.length > 0 && (
+          <div className="mt-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+            <div className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+              <Activity className="h-3 w-3 mr-1" />
+              Tracking Data
+            </div>
+            <div className="space-y-1">
+              {trackingCategories.map(({ id, teacherEmailKey, category }) => (
+                <div 
+                  key={`tracking-${id}-${teacherEmailKey}-${student.id}`}
+                  className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-100"
+                >
+                  <span className="text-xs flex items-center">
+                    {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                      size: 12, 
+                      className: 'mr-1.5',
+                      style: { color: category.color }
+                    })}
+                    <span style={{ color: category.color }}>{category.name}</span>
+                  </span>
+                  <X
+                    className="cursor-pointer text-gray-400 hover:text-gray-600"
+                    size={12}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveCategory(id, teacherEmailKey);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
           {/* Display selected categories */}
           <div className="flex flex-wrap mt-2">

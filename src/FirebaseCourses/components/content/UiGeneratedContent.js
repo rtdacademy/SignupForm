@@ -438,7 +438,6 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
     // Cleanup function
     return () => {
       if (listenerRef.current && typeof listenerRef.current === 'function') {
-        console.log('🧹 Cleaning up Firebase real-time listener');
         listenerRef.current(); // Call unsubscribe function
         listenerRef.current = null;
       }

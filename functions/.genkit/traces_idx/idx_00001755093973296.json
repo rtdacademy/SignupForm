@@ -1,0 +1,9 @@
+{"id":"f8e3b0d7e4390cff59f8008af9f8d288","type":"flow","start":1747485932026,"name":"menuSuggestionStreamingFlow","end":1747485939390.2349,"status":0}
+{"id":"de657c197210fed98ffa2e4752eefd5e","type":"util","start":1747490190717,"name":"generate","end":1747490191394.7134,"status":0}
+{"id":"b8871d1b8755c4bddea48bc2ecca936a","type":"flow","start":1747486238977,"name":"complexMenuSuggestionFlow","end":1747486256813.2852,"status":0}
+{"id":"b6063264f4a92306a66e95c972ddee40","type":"flow","start":1747485335830,"name":"pirateResponseFlow","end":1747485336885.0315,"status":0}
+{"id":"a7a3ae26a04d3c9730e3826efc9e30d8","type":"flow","start":1747485843088,"name":"storyStreamingFlow","end":1747485847732.8948,"status":0}
+{"id":"81642e4404247d2b2faded5524e05a1e","type":"flow","start":1747485467304,"name":"menuSuggestionFlowWithSchema","end":1747485468167.2505,"status":0}
+{"id":"808f38730642b7ca8b9c4e1a5d16e9a1","type":"flow","start":1747485887924,"name":"storyStreamingFlow","end":1747485892023.3044,"status":0}
+{"id":"55fcd148dc5a98f78513b419dfdc1b0d","type":"util","start":1747484624820,"name":"generate","end":1747484625565.393,"status":0}
+{"id":"3b41edb0c1cd1ebc1a8a0fc072e3f353","type":"flow","start":1747485520733,"name":"menuSuggestionFlowMarkdown","end":1747485521795.5896,"status":0}

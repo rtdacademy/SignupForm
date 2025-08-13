@@ -123,13 +123,6 @@ export const useStudentData = (userEmailKey) => {
         const courseData = snapshot.exists() ? snapshot.val() : null;
 
         if (courseData) {
-          // Debug: Check if course-config is present
-          console.log(`📚 Course ${courseId} data loaded:`, {
-            hasCourseConfig: !!courseData['course-config'],
-            hasCourseStructure: !!courseData['course-config']?.courseStructure,
-            courseConfigKeys: courseData['course-config'] ? Object.keys(courseData['course-config']) : 'none'
-          });
-          
           // Enhance with resolved staff members
           const teachers = await fetchStaffMembers(courseData.Teachers || []);
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
@@ -1048,15 +1041,6 @@ export const useStudentData = (userEmailKey) => {
     //   ).length || 0
     // });
 
-    // Development-only raw data logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 RAW STUDENT DATA:', {
-        courses: studentData.courses,
-        profile: studentData.profile,
-        importantDates: studentData.importantDates,
-        allNotifications: studentData.allNotifications
-      });
-    }
   }
   
 

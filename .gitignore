@@ -18,3 +18,4 @@ ui-debug.log
 functions/.cache/
 functions/.puppeteerrc.cjs
 stripe-sample-code/
+genkit

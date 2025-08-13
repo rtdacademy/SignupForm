@@ -671,12 +671,6 @@ const StandardMultipleChoiceQuestion = ({
         difficulty: difficultyFromData
       };
 
-      console.log('DEBUG - Generate operation props:', {
-        cloudFunctionName,
-        assessmentId,
-        finalAssessmentId,
-        functionParams
-      });
 
 
       const result = await assessmentFunction(functionParams);
@@ -782,12 +776,6 @@ const StandardMultipleChoiceQuestion = ({
         difficulty: difficultyFromData
       };
 
-      console.log('DEBUG - Submit operation props:', {
-        cloudFunctionName,
-        assessmentId,
-        finalAssessmentId,
-        functionParams
-      });
 
 
       const response = await assessmentFunction(functionParams);
