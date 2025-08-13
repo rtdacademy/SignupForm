@@ -5,7 +5,6 @@ import { useSchoolYear } from '../context/SchoolYearContext';
 import { useCourse } from '../context/CourseContext';
 import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { getAllCourseItems } from '../FirebaseCourses/utils/gradeCalculations';
 import { getLessonAccessibility } from '../FirebaseCourses/utils/lessonAccess';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
@@ -580,9 +579,6 @@ function StudentManagement({
       }
       
       if (targetCourse) {
-        // Calculate required props for GradebookDashboard
-        const allCourseItems = getAllCourseItems(targetCourse);
-        
         // Calculate actual student lesson accessibility based on their progress
         // This shows the real accessibility status that the student experiences
         const courseStructure = targetCourse.Gradebook?.courseConfig?.courseStructure || 
@@ -608,7 +604,6 @@ function StudentManagement({
         detailComponent = (
           <GradebookDashboard 
             course={targetCourse}
-            allCourseItems={allCourseItems}
             profile={memoizedFirebaseProfile}
             lessonAccessibility={lessonAccessibility}
             showHeader={false}

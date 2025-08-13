@@ -504,6 +504,11 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, famil
   const schoolYearInfo = determineReceiptSchoolYear();
   const selectedSchoolYear = schoolYearInfo.schoolYear;
   
+  // Password protection state
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const UNLOCK_PASSWORD = 'connect';
+  
   const [formData, setFormData] = useState({
     purchaseDate: '',
     vendor: '',
@@ -1462,24 +1467,102 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, famil
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          {/* School Year Info Banner */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3">
-              <Info className="w-5 h-5 text-purple-600 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-purple-900">
-                  Submitting for {selectedSchoolYear} School Year
-                </h3>
-                <p className="text-sm text-purple-700 mt-1">
-                  {schoolYearInfo.isNextYear 
-                    ? `Since we're past the ${schoolYearInfo.deadline} deadline, you're submitting receipts for the upcoming school year.`
-                    : `Submit receipts for the current school year until ${schoolYearInfo.deadline}.`
-                  }
+        {/* Under Construction Notice or Form */}
+        {!isUnlocked ? (
+          <div className="mt-6 space-y-6">
+            {/* Under Construction Message */}
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-8 text-center">
+              <div className="mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-4">
+                  <AlertCircle className="w-8 h-8 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-amber-900 mb-3">
+                  Receipt Upload System Under Construction
+                </h2>
+                <p className="text-lg text-amber-800 mb-4">
+                  We're excited to announce that receipt uploads will be available soon!
+                </p>
+                <div className="bg-white border border-amber-200 rounded-lg p-4 mb-4 max-w-2xl mx-auto">
+                  <h3 className="font-semibold text-amber-900 mb-2">Important Information:</h3>
+                  <ul className="text-left space-y-2 text-amber-700">
+                    <li className="flex items-start">
+                      <Calendar className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-amber-600" />
+                      <span>Receipt upload functionality will be ready in the coming weeks</span>
+                    </li>
+                    <li className="flex items-start">
+                      <DollarSign className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-amber-600" />
+                      <span><strong>Reimbursement payments cannot be issued until after October 31st</strong> when we receive funding from Alberta Education</span>
+                    </li>
+                    <li className="flex items-start">
+                      <Info className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-amber-600" />
+                      <span>Please save your receipts - you'll be able to upload them once the system is ready</span>
+                    </li>
+                  </ul>
+                </div>
+                <p className="text-sm text-amber-600 italic">
+                  Thank you for your patience as we prepare this feature for you!
                 </p>
               </div>
             </div>
+
+            {/* Developer Access (Hidden Password Field) */}
+            <div className="mt-8 pt-8 border-t border-gray-200">
+              <div className="max-w-xs mx-auto">
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && passwordInput === UNLOCK_PASSWORD) {
+                        setIsUnlocked(true);
+                      }
+                    }}
+                    placeholder="Developer access"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  {passwordInput === UNLOCK_PASSWORD && (
+                    <button
+                      type="button"
+                      onClick={() => setIsUnlocked(true)}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700"
+                    >
+                      Unlock
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+            {/* Developer Mode Banner */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <p className="text-sm text-red-800 font-medium">
+                  Developer Mode - Testing Environment Only
+                </p>
+              </div>
+            </div>
+
+            {/* School Year Info Banner */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <Info className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-purple-900">
+                    Submitting for {selectedSchoolYear} School Year
+                  </h3>
+                  <p className="text-sm text-purple-700 mt-1">
+                    {schoolYearInfo.isNextYear 
+                      ? `Since we're past the ${schoolYearInfo.deadline} deadline, you're submitting receipts for the upcoming school year.`
+                      : `Submit receipts for the current school year until ${schoolYearInfo.deadline}.`
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
 
           {/* Workflow Steps Indicator */}
           <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
@@ -2820,6 +2903,7 @@ const ReceiptUploadForm = ({ isOpen, onOpenChange, familyData, schoolYear, famil
             )}
           </div>
         </form>
+        )}
         
       </SheetContent>
     </Sheet>

@@ -3,47 +3,138 @@ import { TrendingUp, TrendingDown, Award, Target } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
 import { formatScore } from '../../utils/gradeUtils';
 import { useAuth } from '../../../context/AuthContext';
-import { createAllCourseItems } from '../../utils/courseItemsUtils';
 import { 
   calculateCourseProgress,
   hasValidGradebookData 
 } from '../../utils/courseProgressUtils';
 
-const GradebookSummary = ({ course, profile }) => {
+const GradebookSummary = ({ course, profile, enrichedCourseItems }) => {
   const { currentUser } = useAuth();
   
-  // Create allCourseItems using utility function
-  const allCourseItems = useMemo(() => {
-    return createAllCourseItems(course);
-  }, [course]);
+  // Use enriched course items passed from parent component
+  const allCourseItems = enrichedCourseItems || [];
   
-  // Calculate actual item counts from course structure
+  // Calculate actual item counts from enriched course items
   const actualItemCounts = useMemo(() => {
     const counts = {};
-    const courseStructure = course?.courseDetails?.['course-config']?.courseStructure;
     
-    if (courseStructure?.units) {
-      courseStructure.units.forEach(unit => {
-        if (unit.items) {
-          unit.items.forEach(item => {
-            const type = item.type;
-            if (type) {
-              counts[type] = (counts[type] || 0) + 1;
-            }
-          });
-        }
-      });
-    }
+    allCourseItems.forEach(item => {
+      const type = item.type || 'lesson';
+      counts[type] = (counts[type] || 0) + 1;
+    });
     
-    console.log('Actual item counts from course structure:', counts);
     return counts;
-  }, [course]);
+  }, [allCourseItems]);
+  
+  // Calculate category stats from enrichedCourseItems as fallback
+  const calculateFallbackStats = useMemo(() => {
+    const categoryStats = {};
+    
+    // Group items by type and calculate scores
+    allCourseItems.forEach(item => {
+      const type = item.type || 'lesson';
+      
+      if (!categoryStats[type]) {
+        categoryStats[type] = {
+          score: 0,
+          total: 0,
+          attempted: 0,
+          itemCount: 0,
+          completedCount: 0,
+          attemptedCount: 0
+        };
+      }
+      
+      categoryStats[type].itemCount++;
+      categoryStats[type].score += item.score || 0;
+      categoryStats[type].total += item.total || 0;
+      
+      if (item.attempted > 0 || item.score > 0) {
+        categoryStats[type].attemptedCount++;
+        categoryStats[type].attempted += item.attempted || 0;
+      }
+      
+      // Check if item is completed (has score or attempted all questions)
+      if ((item.total > 0 && item.attempted >= item.total) || 
+          (item.score > 0 && item.percentage >= 50)) {
+        categoryStats[type].completedCount++;
+      }
+    });
+    
+    // Calculate percentages for each category
+    Object.keys(categoryStats).forEach(type => {
+      const cat = categoryStats[type];
+      cat.percentage = cat.total > 0 ? (cat.score / cat.total) * 100 : 0;
+      cat.completionPercentage = cat.itemCount > 0 ? 
+        (cat.completedCount / cat.itemCount) * 100 : 0;
+    });
+    
+    return categoryStats;
+  }, [allCourseItems]);
+  
+  // Calculate overall stats from enrichedCourseItems
+  const calculateOverallStats = useMemo(() => {
+    const weights = course?.courseDetails?.['course-config']?.weights || {
+      lesson: 0.2,
+      assignment: 0.4,
+      exam: 0.4,
+      lab: 0,
+      project: 0
+    };
+    
+    let totalWeightedScore = 0;
+    let totalWeightedMax = 0;
+    let totalWeight = 0;
+    let hasAttemptedWork = false;
+    
+    Object.entries(calculateFallbackStats).forEach(([type, stats]) => {
+      const weight = weights[type] || 0;
+      if (weight > 0 && stats.total > 0) {
+        totalWeightedScore += stats.score * weight;
+        totalWeightedMax += stats.total * weight;
+        totalWeight += weight;
+        
+        if (stats.attemptedCount > 0) {
+          hasAttemptedWork = true;
+        }
+      }
+    });
+    
+    const currentPerformance = totalWeightedMax > 0 ? 
+      (totalWeightedScore / totalWeightedMax) * 100 : 0;
+    
+    // For projected final, assume 0% on incomplete work
+    const projectedFinal = totalWeight > 0 ?
+      (totalWeightedScore / totalWeight) * (1 / 100) * 100 : 0;
+    
+    return {
+      score: totalWeightedScore,
+      total: totalWeightedMax,
+      percentage: currentPerformance,
+      currentPerformance,
+      projectedFinal,
+      hasAttemptedWork,
+      isWeighted: totalWeight > 0
+    };
+  }, [calculateFallbackStats, course])
   
   // Check if server-calculated gradebook data is available
   const gradebook = course?.Gradebook;
   const hasGradebookData = hasValidGradebookData(course);
+  const usingFallback = !hasGradebookData && allCourseItems.length > 0
+
+  // Get student email for completion checking
+  const studentEmail = profile?.StudentEmail || currentUser?.email;
+
+  // Use server-calculated data if available, otherwise use fallback calculations
+  const categoryStats = hasGradebookData ? gradebook.categories : calculateFallbackStats;
+  const overallStats = hasGradebookData ? {
+    ...gradebook.overall,
+    hasAttemptedWork: Object.values(gradebook.items).some(item => item.attempted > 0)
+  } : calculateOverallStats;
   
-  if (!hasGradebookData) {
+  // Show loading only if we have no data at all
+  if (!hasGradebookData && allCourseItems.length === 0) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
         <p className="text-yellow-700 font-medium">Gradebook Loading</p>
@@ -53,16 +144,6 @@ const GradebookSummary = ({ course, profile }) => {
       </div>
     );
   }
-
-  // Get student email for completion checking
-  const studentEmail = profile?.StudentEmail || currentUser?.email;
-
-  // Use server-calculated data directly
-  const categoryStats = gradebook.categories;
-  const overallStats = {
-    ...gradebook.overall,
-    hasAttemptedWork: Object.values(gradebook.items).some(item => item.attempted > 0)
-  };
 
   // Get weights from course config for display
   const weights = course?.courseDetails?.['course-config']?.weights || {};

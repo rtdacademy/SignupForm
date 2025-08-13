@@ -335,6 +335,9 @@ const StandardMultipleChoiceQuestion = ({
   
   // Ref for content extraction (following AIAccordion pattern)
   const contentRef = useRef(null);
+  
+  // Ref for the main component container (for scrolling)
+  const componentRef = useRef(null);
 
   // Firebase references
   const functions = getFunctions();
@@ -361,11 +364,9 @@ const StandardMultipleChoiceQuestion = ({
   // Keep legacy theme colors for border compatibility
   const themeColors = getThemeColors(activeTheme);
 
-  // Track if we're currently waiting for a new question during regeneration
-  const [expectingNewQuestion, setExpectingNewQuestion] = useState(false);
-  // Track the last question ID to detect when a new question arrives
+  // Track the last question timestamp for comparison
   const [lastQuestionTimestamp, setLastQuestionTimestamp] = useState(null);
-  // Add a safety timeout ref to exit loading state if stuck
+  // Add a safety timeout ref to exit loading state if stuck (kept for backward compatibility)
   const safetyTimeoutRef = useRef(null);
 
   // Add cleanup effect
@@ -396,44 +397,23 @@ const StandardMultipleChoiceQuestion = ({
     }
   }, [skipInitialGeneration, loading, question, finalAssessmentId]);
   
-  // Effect to handle safety timeouts for loading state
+  // Effect to handle safety timeouts for loading state (simplified)
   useEffect(() => {
-    // Define loadAssessment function here to avoid dependency issues
-    const attemptReload = async () => {
-      try {
-        setLoading(true);
-        
-        // After a safety timeout, we rely on the database listener to refresh data
-        // Just reset the component state and allow the database listener to update
-        
-        // Reset state but don't clear the question to avoid UI flicker
-        if (question) {
-          setLastQuestionTimestamp(question.timestamp || 0);
-        }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error("Error in safety reload:", err);
-        setLoading(false);
-      }
-    };
-    
-    // If we're regenerating and expecting a new question, set a safety timeout
-    if (regenerating && expectingNewQuestion) {
+    // If we're regenerating, set a safety timeout as a fallback
+    if (regenerating) {
       // Clear any existing safety timeout
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
       }
       
-      // Set a new safety timeout (30 seconds)
+      // Set a new safety timeout (10 seconds - should never be needed with direct response)
       safetyTimeoutRef.current = setTimeout(() => {
+        console.warn("Safety timeout triggered - regeneration took too long");
         setRegenerating(false);
-        setExpectingNewQuestion(false);
-        // Try to reload with current data
-        attemptReload();
-      }, 30000);
-    } else if (!regenerating || !expectingNewQuestion) {
-      // Clear the safety timeout if we're no longer in regeneration state
+        setLoading(false);
+      }, 10000);
+    } else {
+      // Clear the safety timeout if we're no longer regenerating
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
@@ -446,7 +426,7 @@ const StandardMultipleChoiceQuestion = ({
         clearTimeout(safetyTimeoutRef.current);
       }
     };
-  }, [regenerating, expectingNewQuestion, finalAssessmentId]);
+  }, [regenerating]);
   
   useEffect(() => {
     if (!currentUser || !currentUser.email) {
@@ -503,108 +483,37 @@ const StandardMultipleChoiceQuestion = ({
               attemptsExhausted
             };
             
-            // If we're expecting a new question during regeneration
-            if (expectingNewQuestion) {
-              // Check if this is a new question using more relaxed criteria
-              const newTimestamp = data.timestamp || 0;
-              const oldTimestamp = lastQuestionTimestamp || 0;
-              const newQuestionText = data.questionText || '';
-              const oldQuestionText = question?.questionText || '';
-              
-              // Log what we're comparing
-              
-              // Check various conditions that might indicate a new question
-              const isNewTimestamp = newTimestamp > oldTimestamp;
-              const isNewQuestionText = newQuestionText !== oldQuestionText && newQuestionText.length > 0;
-              
-              // Also check if options have changed, which is a strong indicator of a new question
-              const hasNewOptions = data.options && question?.options && 
-                JSON.stringify(data.options) !== JSON.stringify(question.options);
-              
-              // Add a timeout to prevent infinite loading
-              const regenerationTimeoutExpired = Date.now() - lastGeneratedTimeRef.current > 10000; // 10 seconds
-              
-              // Accept if EITHER timestamp is newer OR question text has changed OR options have changed
-              // OR if we've been waiting too long (safety timeout)
-              if (isNewTimestamp || isNewQuestionText || hasNewOptions || regenerationTimeoutExpired) {
-                // This is a new question, update the UI
-                // New question detected! Criteria matched: [criteria list]
-                
-                setQuestion(enhancedData);
-                setLastQuestionTimestamp(newTimestamp);
-                setExpectingNewQuestion(false);
-                setRegenerating(false);
-                
-                // Update selectedDifficulty to match the new question's difficulty
-                // This ensures the UI shows the actual difficulty that was generated
-                if (enhancedData.difficulty) {
-                  setSelectedDifficulty(enhancedData.difficulty);
-                }
-                
-                // Reset result if present
-                if (data.lastSubmission) {
-                  setResult(data.lastSubmission);
-                  // In exam mode, use currentSavedAnswer prop if provided, otherwise use lastSubmission
-                  if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
-                    setSelectedAnswer(currentSavedAnswer);
-                  } else {
-                    // Preselect the last submitted answer for non-exam mode
-                    setSelectedAnswer(data.lastSubmission.answer || '');
-                  }
-                } else {
-                  setResult(null);
-                  // In exam mode, use currentSavedAnswer even if no lastSubmission
-                  if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
-                    setSelectedAnswer(currentSavedAnswer);
-                  } else {
-                    setSelectedAnswer('');
-                  }
-                }
-              } else {
-                // Log that we're still waiting for a truly new question
-                setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
-                
-                // Safety measure: If we've been waiting for more than 15 seconds, force-accept this as a new question
-                if (Date.now() - lastGeneratedTimeRef.current > 15000) {
-                  setQuestion(enhancedData);
-                  setExpectingNewQuestion(false);
-                  setRegenerating(false);
-                  setResult(null);
-                  setSelectedAnswer('');
-                }
-              }
-            } else {
-              // Normal case, update question data
-              setQuestion(enhancedData);
-              setLastQuestionTimestamp(data.timestamp || 0);
-              
-              // Set selectedDifficulty to match the question's difficulty
-              // This ensures consistency when the component first loads
-              if (enhancedData.difficulty && !selectedDifficulty) {
-                setSelectedDifficulty(enhancedData.difficulty);
-              }
-              
-              // If there's a last submission, set the result and preselect the answer
-              if (data.lastSubmission) {
-                setResult(data.lastSubmission);
-                // In exam mode, use currentSavedAnswer prop if provided, otherwise use lastSubmission
-                if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
-                  setSelectedAnswer(currentSavedAnswer);
-                } else {
-                  // Preselect the last submitted answer for non-exam mode
-                  setSelectedAnswer(data.lastSubmission.answer || '');
-                }
-              } else if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
-                // In exam mode, even without lastSubmission, use currentSavedAnswer if provided
+            // Simplified: Just update the question data from the database
+            // The direct response from cloud function handles regeneration now
+            setQuestion(enhancedData);
+            setLastQuestionTimestamp(data.timestamp || 0);
+            
+            // Set selectedDifficulty to match the question's difficulty
+            // This ensures consistency when the component first loads
+            if (enhancedData.difficulty && !selectedDifficulty) {
+              setSelectedDifficulty(enhancedData.difficulty);
+            }
+            
+            // If there's a last submission, set the result and preselect the answer
+            if (data.lastSubmission) {
+              setResult(data.lastSubmission);
+              // In exam mode, use currentSavedAnswer prop if provided, otherwise use lastSubmission
+              if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
                 setSelectedAnswer(currentSavedAnswer);
+              } else {
+                // Preselect the last submitted answer for non-exam mode
+                setSelectedAnswer(data.lastSubmission.answer || '');
               }
-              
-              // If max attempts reached, show appropriate message (but not in exam mode)
-              if (maxAttemptsReached && !isExamMode) {
-                // Only set the error if there's not already a result showing (to avoid confusion)
-                if (!data.lastSubmission) {
-                  setError("You've reached the maximum number of attempts for this question.");
-                }
+            } else if (isExamMode && currentSavedAnswer !== null && currentSavedAnswer !== undefined) {
+              // In exam mode, even without lastSubmission, use currentSavedAnswer if provided
+              setSelectedAnswer(currentSavedAnswer);
+            }
+            
+            // If max attempts reached, show appropriate message (but not in exam mode)
+            if (maxAttemptsReached && !isExamMode) {
+              // Only set the error if there's not already a result showing (to avoid confusion)
+              if (!data.lastSubmission) {
+                setError("You've reached the maximum number of attempts for this question.");
               }
             }
           } else {
@@ -617,9 +526,14 @@ const StandardMultipleChoiceQuestion = ({
               return;
             }
             
-            // Only generate question if skipInitialGeneration is false
-            if (!skipInitialGeneration) {
-              generateQuestion();
+            // Only generate question if skipInitialGeneration is false and we haven't already tried
+            if (!skipInitialGeneration && !isGeneratingRef.current) {
+              // Add a small delay to prevent rapid-fire generation attempts
+              setTimeout(() => {
+                if (!question && !isGeneratingRef.current) {
+                  generateQuestion();
+                }
+              }, 500);
             } else {
               // If we're skipping initial generation, just stop loading
               // The question should already be pre-loaded by the parent component
@@ -657,6 +571,29 @@ const StandardMultipleChoiceQuestion = ({
       }
     };
   }, [currentUser, courseId, finalAssessmentId, db, skipInitialGeneration]);
+
+  // Effect to scroll to top when question changes after regeneration
+  useEffect(() => {
+    if (question && !regenerating && !loading && componentRef.current) {
+      // Only scroll if we just finished regenerating (timestamp changed)
+      if (lastQuestionTimestamp && question.timestamp && question.timestamp > lastQuestionTimestamp) {
+        // Small delay to ensure DOM is fully updated
+        setTimeout(() => {
+          if (componentRef.current) {
+            // Get the position of the component
+            const elementPosition = componentRef.current.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - 100; // Offset by 100px to scroll higher
+            
+            // Custom smooth scroll for slower animation
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth'
+            });
+          }
+        }, 100);
+      }
+    }
+  }, [question?.timestamp, regenerating, loading, lastQuestionTimestamp]);
 
   // Effect to handle currentSavedAnswer prop changes in exam mode
   useEffect(() => {
@@ -744,13 +681,39 @@ const StandardMultipleChoiceQuestion = ({
 
       const result = await assessmentFunction(functionParams);
 
-      // The cloud function will update the assessment in the database
-      // Our database listener will pick up the changes automatically
-      // We should NOT reset regenerating flag here - wait for the listener to update
-      
-      // If we're not in regeneration mode, we can clear the regenerating flag
-      if (!expectingNewQuestion) {
+      // The cloud function now returns the question data directly
+      // Use it immediately instead of waiting for database listener
+      if (result.data?.questionData) {
+        const questionData = result.data.questionData;
+        
+        // Update question state immediately with the returned data
+        setQuestion({
+          ...questionData,
+          maxAttemptsReached: false,
+          attemptsExhausted: false
+        });
+        
+        // Update other state
+        setLastQuestionTimestamp(questionData.timestamp || Date.now());
         setRegenerating(false);
+        setResult(null);
+        setSelectedAnswer('');
+        
+        // Update selectedDifficulty to match the new question's difficulty
+        if (questionData.difficulty) {
+          setSelectedDifficulty(questionData.difficulty);
+        }
+        
+        // Clear any safety timeouts
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+      } else {
+        // Fallback: if backend doesn't return questionData, 
+        // wait for database listener (backward compatibility)
+        console.warn("Backend didn't return questionData - falling back to database listener");
+        // Don't clear regenerating flag - let the database listener handle it
       }
     } catch (err) {
       console.error("Error generating standard question:", err);
@@ -780,7 +743,6 @@ const StandardMultipleChoiceQuestion = ({
       
       // Reset all state flags on error
       setRegenerating(false);
-      setExpectingNewQuestion(false);
     } finally {
       // Reset generating flag
       isGeneratingRef.current = false;
@@ -828,19 +790,32 @@ const StandardMultipleChoiceQuestion = ({
       });
 
 
-      const result = await assessmentFunction(functionParams);
+      const response = await assessmentFunction(functionParams);
 
-      // Trigger callback
-      onAttempt(result.data?.result?.isCorrect || false);
-
-      if (result.data?.result?.isCorrect) {
-        onCorrectAnswer();
+      // Immediately update UI with the cloud function response
+      if (response.data?.result) {
+        // Update result state immediately for instant feedback
+        setResult(response.data.result);
+        
+        // Also update the question state with attempts info
+        if (question && response.data?.attemptsMade) {
+          setQuestion(prev => ({
+            ...prev,
+            attempts: response.data.attemptsMade,
+            lastSubmission: {
+              ...response.data.result,
+              answer: selectedAnswer,
+              timestamp: Date.now()
+            }
+          }));
+        }
       }
 
-      // The database listener will pick up the submitted answer and update the UI
-      // But we can also handle the result directly from the response for immediate feedback
-      if (result.data?.result) {
-        setResult(result.data.result);
+      // Trigger callbacks
+      onAttempt(response.data?.result?.isCorrect || false);
+
+      if (response.data?.result?.isCorrect) {
+        onCorrectAnswer();
       }
     } catch (err) {
       console.error("Error submitting answer:", err);
@@ -905,6 +880,19 @@ const StandardMultipleChoiceQuestion = ({
 
   // Handle regeneration of the question with debounce protection
   const handleRegenerate = (customDifficulty = null) => {
+    // Scroll to top of component when regenerating
+    if (componentRef.current) {
+      // Get the position of the component
+      const elementPosition = componentRef.current.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - 100; // Offset by 100px to scroll higher
+      
+      // Custom smooth scroll for slower animation
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+    
     // If we're already generating, don't trigger again
     if (isGeneratingRef.current || regenerating) {
       return;
@@ -926,22 +914,20 @@ const StandardMultipleChoiceQuestion = ({
     setRegenerating(true);
     setError(null); // Clear any previous errors
     
-    // Mark that we're expecting a new question to arrive via database listener
-    setExpectingNewQuestion(true);
+    // No longer need to set expectingNewQuestion since we'll handle the response directly
+    // setExpectingNewQuestion(true);
 
     // If a custom difficulty was provided, set it persistently
     if (customDifficulty) {
       setSelectedDifficulty(customDifficulty);
     }
 
-    // Call the cloud function directly, which will handle incrementing the attempts
-    // and update the database, which will trigger our database listener
+    // Call the cloud function directly
     try {
       console.log("Requesting question regeneration while preserving attempt count");
       generateQuestion().catch(error => {
         // Handle async errors
         console.error("Error during question regeneration:", error);
-        setExpectingNewQuestion(false);
         setRegenerating(false);
         isGeneratingRef.current = false;
         setError("Failed to regenerate question: " + (error.message || error));
@@ -949,7 +935,6 @@ const StandardMultipleChoiceQuestion = ({
     } catch (error) {
       // Handle immediate errors
       console.error("Error during regeneration:", error);
-      setExpectingNewQuestion(false);
       setRegenerating(false);
       isGeneratingRef.current = false;
       setError("Failed to regenerate question: " + (error.message || error));
@@ -1353,7 +1338,7 @@ This student answered correctly! Reinforce their understanding and help them con
 
   return (
     <>
-    <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName} bg-white/75 backdrop-blur-sm border-${themeConfig.border}`}>
+    <div ref={componentRef} className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName} bg-white/75 backdrop-blur-sm border-${themeConfig.border}`}>
       {/* Header */}
       <div className={`px-4 py-3 border-b bg-gradient-to-r ${themeConfig.gradient} bg-opacity-75 border-${themeConfig.border}`}>
         <div className="flex items-center justify-between mb-1">

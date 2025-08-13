@@ -453,6 +453,7 @@ const Unit4Review = ({ course, courseId = 'default', AIAccordion, onAIAccordionC
           
           {/* SlideshowKnowledgeCheck Component */}
           <SlideshowKnowledgeCheck
+        course={course}
             lessonPath="47-unit-4-review"
             questions={[
               {

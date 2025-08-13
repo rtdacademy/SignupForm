@@ -338,10 +338,12 @@ const StudentCitizenshipDocuments = ({
       
       // Overall completion status: completed if at least one document is AI validated
       const hasValidatedDocument = documentsWithValidation.some(doc => doc.aiValidated === true);
-      const overallCompletionStatus = hasValidatedDocument ? 'completed' : 'pending';
       
       // Check if any documents require staff review
       const requiresStaffReview = hasDocumentsRequiringStaffReview();
+      
+      // If staff review is required, mark as pending-review instead of completed
+      const overallCompletionStatus = requiresStaffReview ? 'pending-review' : (hasValidatedDocument ? 'completed' : 'pending');
       
       const documentData = {
         studentId: student.id,
@@ -370,9 +372,9 @@ const StudentCitizenshipDocuments = ({
       toast.success('Documents saved successfully!');
       setHasExistingDocs(true);
       
-      // Notify parent component of update
+      // Notify parent component of update with the correct status
       if (onDocumentsUpdated) {
-        onDocumentsUpdated(student.id, documents);
+        onDocumentsUpdated(student.id, documents, overallCompletionStatus, requiresStaffReview);
       }
       
       onOpenChange(false);

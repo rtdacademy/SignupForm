@@ -30,9 +30,9 @@ const sheetVariants = cva(
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        top: "inset-x-0 top-0 h-full border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
-          "inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          "inset-x-0 bottom-0 h-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         left: "inset-y-0 left-0 h-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
         right:
           "inset-y-0 right-0 h-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
@@ -45,16 +45,19 @@ const sheetVariants = cva(
 )
 
 const SheetContent = React.forwardRef(({ side = "right", size = "default", className, children, ...props }, ref) => {
-  // Handle size classes based on the size prop
+  // Handle size classes based on the size prop and side
+  const isVertical = side === "top" || side === "bottom";
+  
+  // For top/bottom sheets, always use full screen dimensions
   const sizeClasses = {
-    default: "w-3/4 sm:max-w-3xl",
-    sm: "w-1/3 sm:max-w-sm", 
-    md: "w-1/2 sm:max-w-md",
-    lg: "w-2/3 sm:max-w-lg",
-    xl: "w-5/6 sm:max-w-xl",
-    full: "w-full sm:w-[95%]",
-    preview: "w-full sm:w-1/2",
-    content: "w-auto",
+    default: isVertical ? "h-full w-full max-h-none max-w-none" : "w-3/4 sm:max-w-3xl",
+    sm: isVertical ? "h-full w-full max-h-none max-w-none" : "w-1/3 sm:max-w-sm", 
+    md: isVertical ? "h-full w-full max-h-none max-w-none" : "w-1/2 sm:max-w-md",
+    lg: isVertical ? "h-full w-full max-h-none max-w-none" : "w-2/3 sm:max-w-lg",
+    xl: isVertical ? "h-full w-full max-h-none max-w-none" : "w-5/6 sm:max-w-xl",
+    full: isVertical ? "h-full w-full max-h-none max-w-none" : "w-full sm:w-[95%]",
+    preview: isVertical ? "h-full w-full max-h-none max-w-none" : "w-full sm:w-1/2",
+    content: isVertical ? "h-full w-full max-h-none max-w-none" : "w-auto",
   };
 
   const sizeClass = sizeClasses[size] || sizeClasses.default;

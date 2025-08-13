@@ -178,7 +178,7 @@ const FirebaseCourseWrapperContent = ({
     };
   };
 
-  const courseData = getCourseData();
+  const courseData = useMemo(() => getCourseData(), [course, isInitialLoading]);
   const courseTitle = courseData.title;
   const unitsList = courseData.structure;
   const courseWeights = courseData.courseWeights;
@@ -303,7 +303,7 @@ const FirebaseCourseWrapperContent = ({
       console.log("✅ Course configuration loaded, clearing initial loading state");
       setIsInitialLoading(false);
     }
-  }, [course?.courseDetails, isInitialLoading]);
+  }, [course?.courseDetails]); // Remove isInitialLoading from dependencies to prevent loop
   
   // Clear developer authorization cache when user logs out
   useEffect(() => {

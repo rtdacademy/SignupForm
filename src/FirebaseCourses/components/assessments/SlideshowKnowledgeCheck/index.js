@@ -200,30 +200,48 @@ const SlideshowKnowledgeCheck = ({
 
   // Helper function to get assessment data from course prop
   const getQuestionAssessmentData = (questionId) => {
+    console.log(`🔎 Getting assessment data for ${questionId}:`, {
+      hasCourse: !!course,
+      hasAssessments: !!course?.Assessments,
+      questionId,
+      assessmentKeys: course?.Assessments ? Object.keys(course.Assessments).slice(0, 5) : 'none'
+    });
+    
     if (!course?.Assessments || !questionId) {
+      console.log(`⚠️ Missing course.Assessments or questionId`);
       return null;
     }
-    return course.Assessments[questionId] || null;
+    
+    const data = course.Assessments[questionId];
+    console.log(`✅ Found assessment data:`, data ? { attempts: data.attempts, status: data.status } : 'not found');
+    return data || null;
   };
 
   // Helper function to check if student has full score for a question using reliable data
   const hasFullScore = (questionId) => {
-    if (!course?.courseDetails?.['course-config']?.gradebook?.itemStructure || !course?.Grades?.assessments) {
+    if (!course) {
       return false;
     }
 
-    // Find the question in the course config to get the points
+    // Find the question in the course structure to get the points
     let questionPoints = null;
-    const itemStructure = course.courseDetails['course-config'].gradebook.itemStructure;
+    const courseStructure = course.courseDetails['course-config'].courseStructure;
     
-    for (const itemKey in itemStructure) {
-      const item = itemStructure[itemKey];
-      if (item.questions) {
-        const question = item.questions.find(q => q.questionId === questionId);
-        if (question) {
-          questionPoints = question.points;
-          break;
+    // Search through units and lessons for the question
+    if (courseStructure.units) {
+      for (const unit of courseStructure.units) {
+        if (unit.lessons) {
+          for (const lesson of unit.lessons) {
+            if (lesson.questions) {
+              const question = lesson.questions.find(q => q.questionId === questionId);
+              if (question) {
+                questionPoints = question.points || 1; // Default to 1 point if not specified
+                break;
+              }
+            }
+          }
         }
+        if (questionPoints !== null) break;
       }
     }
 
@@ -231,69 +249,76 @@ const SlideshowKnowledgeCheck = ({
       return false;
     }
 
-    // Get the student's actual score from reliable source
-    const studentScore = course.Grades.assessments[questionId];
+    // Get assessment data
+    const assessmentData = course?.Assessments?.[questionId];
     
-    // Check if student has full score
-    return studentScore >= questionPoints;
+    // Get the student's actual score from Grades or assessment data
+    const studentScore = course?.Grades?.assessments?.[questionId] !== undefined 
+                        ? course.Grades.assessments[questionId]
+                        : (assessmentData?.correctOverall ? questionPoints : 0);
+    
+    // Check if student has full score or has correctOverall flag
+    return studentScore >= questionPoints || assessmentData?.correctOverall === true;
   };
 
   // Helper function to determine question attempt status using reliable data sources
   const getQuestionStatus = (questionId) => {
-    if (!course?.courseDetails?.['course-config']?.gradebook?.itemStructure || !course?.Grades?.assessments) {
+    // We need either Assessments data OR Grades data to determine status
+    if (!course) {
+      console.log(`❌ No course object for ${questionId}`);
       return { 
         attempted: false, 
         correct: null, 
         attempts: 0, 
         hasFullScore: false,
         score: 0,
-        maxPoints: 0
+        maxPoints: 1
       };
     }
 
-    // Get question points from course config
-    let questionPoints = null;
-    const itemStructure = course.courseDetails['course-config'].gradebook.itemStructure;
-    
-    for (const itemKey in itemStructure) {
-      const item = itemStructure[itemKey];
-      if (item.questions) {
-        const question = item.questions.find(q => q.questionId === questionId);
-        if (question) {
-          questionPoints = question.points;
-          break;
-        }
-      }
-    }
-
-    if (questionPoints === null) {
-      return { 
-        attempted: false, 
-        correct: null, 
-        attempts: 0, 
-        hasFullScore: false,
-        score: 0,
-        maxPoints: 0
-      };
-    }
-
-    // Get actual grade from reliable source
-    const actualGrade = course.Grades.assessments[questionId];
-    
-    // Determine attempt status based on new grade system:
-    // - If grade exists in assessments: student has attempted
-    // - If grade is 0: student got it wrong (but attempted)
-    // - If grade > 0: student got it right
-    // - If grade === undefined: student has not attempted
-    
-    const attempted = actualGrade !== undefined;
-    const score = actualGrade || 0;
-    const correct = attempted ? (score > 0) : null;
-    const hasFullScoreForQuestion = score >= questionPoints;
-    
-    // Get attempts from Assessment data if available (for display purposes)
+    // Get assessment data first (contains attempt info)
     const assessmentData = getQuestionAssessmentData(questionId);
-    const attempts = assessmentData?.attempts || (attempted ? 1 : 0);
+    
+    // Debug: Log what getQuestionAssessmentData returns
+    console.log(`🔍 getQuestionAssessmentData for ${questionId}:`, {
+      assessmentData,
+      courseAssessments: course?.Assessments ? Object.keys(course.Assessments).includes(questionId) : false,
+      directAccess: course?.Assessments?.[questionId]?.attempts
+    });
+    
+    // Get actual grade from Grades if available
+    const actualGrade = course?.Grades?.assessments?.[questionId];
+    
+    // Determine attempt status from EITHER source:
+    // 1. If assessmentData exists and has attempts > 0: student has attempted
+    // 2. If actualGrade exists: student has attempted
+    const attempted = (assessmentData?.attempts > 0) || (actualGrade !== undefined);
+    
+    // Get the number of attempts
+    const attempts = assessmentData?.attempts || 0;
+    
+    console.log(`📊 Status calculation for ${questionId}:`, {
+      assessmentDataAttempts: assessmentData?.attempts,
+      actualGrade,
+      attempted,
+      attempts,
+      correctOverall: assessmentData?.correctOverall
+    });
+    
+    // For points, just use what's in the assessment data or default to 1
+    const questionPoints = assessmentData?.pointsValue || assessmentData?.points || 1;
+    
+    // Get score from Grades (more reliable) or from assessment status
+    const score = actualGrade !== undefined ? actualGrade : 
+                  (assessmentData?.correctOverall ? questionPoints : 0);
+    
+    // Determine if correct based on available data
+    const correct = attempted ? 
+                   (assessmentData?.correctOverall === true || 
+                    assessmentData?.status === 'completed' ||
+                    actualGrade > 0) : null;
+    
+    const hasFullScoreForQuestion = (assessmentData?.correctOverall === true) || (score >= questionPoints);
     
     return {
       attempted,
@@ -322,8 +347,19 @@ const SlideshowKnowledgeCheck = ({
     const loadProgressFromCourse = () => {
       setLoadingProgress(true);
       
+      // Debug logging
+      console.log('🔍 SlideshowKnowledgeCheck - Loading progress:', {
+        hasCourse: !!course,
+        hasAssessments: !!course?.Assessments,
+        hasGrades: !!course?.Grades,
+        hasCourseDetails: !!course?.courseDetails,
+        assessmentKeys: course?.Assessments ? Object.keys(course.Assessments).slice(0, 3) : 'none',
+        gradesKeys: course?.Grades?.assessments ? Object.keys(course.Grades.assessments).slice(0, 3) : 'none'
+      });
+      
       try {
-        if (!course?.Assessments || !questions || questions.length === 0) {
+        if (!course || !questions || questions.length === 0) {
+          console.log('⚠️ SlideshowKnowledgeCheck - Missing course or questions');
           setLoadingProgress(false);
           return;
         }
@@ -335,6 +371,20 @@ const SlideshowKnowledgeCheck = ({
           const questionNumber = index + 1;
           const questionId = question.questionId || generateQuestionId(index);
           const status = getQuestionStatus(questionId);
+          
+          // Debug log for first question
+          if (index === 0) {
+            console.log(`📊 Status for ${questionId}:`, {
+              questionId,
+              status,
+              assessmentData: course?.Assessments?.[questionId] ? {
+                attempts: course.Assessments[questionId].attempts,
+                correctOverall: course.Assessments[questionId].correctOverall,
+                status: course.Assessments[questionId].status
+              } : 'not found',
+              gradeData: course?.Grades?.assessments?.[questionId]
+            });
+          }
           
           if (status.attempted) {
             newQuestionsCompleted[`question${questionNumber}`] = true;

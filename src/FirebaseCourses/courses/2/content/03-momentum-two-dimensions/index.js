@@ -891,6 +891,7 @@ const MomentumTwoDimensions = ({ course, courseId = '2', AIAccordion, onAIAccord
         <SlideshowKnowledgeCheck
           courseId="2"
           lessonPath="03-momentum-two-dimensions"
+          course={course}
           onAIAccordionContent={onAIAccordionContent}
           questions={[
             {
@@ -1386,8 +1387,10 @@ const MomentumTwoDimensions = ({ course, courseId = '2', AIAccordion, onAIAccord
       {/* Advanced Practice Problems */}
       
         <SlideshowKnowledgeCheck
+       
           courseId="2"
           lessonPath="03-momentum-two-dimensions-advanced"
+          course={course}
           onAIAccordionContent={onAIAccordionContent}
           questions={[
             {

@@ -575,6 +575,86 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           migratedPlan.otherCourses = [];
         }
         
+        // Ensure customResources exists and is an array
+        if (!migratedPlan.customResources || !Array.isArray(migratedPlan.customResources)) {
+          migratedPlan.customResources = [];
+        }
+        
+        // Ensure customActivities exists and is an array
+        if (!migratedPlan.customActivities || !Array.isArray(migratedPlan.customActivities)) {
+          migratedPlan.customActivities = [];
+        }
+        
+        // Ensure customAssessments exists and is an array
+        if (!migratedPlan.customAssessments || !Array.isArray(migratedPlan.customAssessments)) {
+          migratedPlan.customAssessments = [];
+        }
+        
+        // Ensure acknowledgementRead is preserved (default to false if not set)
+        if (typeof migratedPlan.acknowledgementRead === 'undefined') {
+          migratedPlan.acknowledgementRead = false;
+        }
+        
+        // Ensure todaysDate is preserved (default to today if not set)
+        if (!migratedPlan.todaysDate) {
+          migratedPlan.todaysDate = toDateString(new Date());
+        }
+        
+        // Clean up orphaned custom selections
+        // Get all valid custom keys
+        const validCustomActivityKeys = (migratedPlan.customActivities || []).map(item => item.key);
+        const validCustomAssessmentKeys = (migratedPlan.customAssessments || []).map(item => item.key);
+        const validCustomResourceKeys = (migratedPlan.customResources || []).map(item => item.key);
+        
+        // Clean up activitiesAndMethods - remove any custom items that don't exist
+        if (migratedPlan.activitiesAndMethods) {
+          migratedPlan.activitiesAndMethods = migratedPlan.activitiesAndMethods.filter(activity => {
+            // Keep non-custom activities or custom activities that exist
+            return !activity.startsWith('custom_') || validCustomActivityKeys.includes(activity);
+          });
+        }
+        
+        // Clean up assessmentMethods - remove any custom items that don't exist
+        if (migratedPlan.assessmentMethods) {
+          migratedPlan.assessmentMethods = migratedPlan.assessmentMethods.filter(assessment => {
+            // Keep non-custom assessments or custom assessments that exist
+            return !assessment.startsWith('custom_') || validCustomAssessmentKeys.includes(assessment);
+          });
+        }
+        
+        // Clean up resourcesAndMaterials - remove any custom items that don't exist
+        if (migratedPlan.resourcesAndMaterials) {
+          migratedPlan.resourcesAndMaterials = migratedPlan.resourcesAndMaterials.filter(resource => {
+            // Keep non-custom resources or custom resources that exist
+            return !resource.startsWith('custom_') || validCustomResourceKeys.includes(resource);
+          });
+        }
+        
+        // Clean up descriptions for removed custom items
+        if (migratedPlan.activityDescriptions) {
+          Object.keys(migratedPlan.activityDescriptions).forEach(key => {
+            if (key.startsWith('custom_') && !validCustomActivityKeys.includes(key)) {
+              delete migratedPlan.activityDescriptions[key];
+            }
+          });
+        }
+        
+        if (migratedPlan.assessmentDescriptions) {
+          Object.keys(migratedPlan.assessmentDescriptions).forEach(key => {
+            if (key.startsWith('custom_') && !validCustomAssessmentKeys.includes(key)) {
+              delete migratedPlan.assessmentDescriptions[key];
+            }
+          });
+        }
+        
+        if (migratedPlan.resourceDescriptions) {
+          Object.keys(migratedPlan.resourceDescriptions).forEach(key => {
+            if (key.startsWith('custom_') && !validCustomResourceKeys.includes(key)) {
+              delete migratedPlan.resourceDescriptions[key];
+            }
+          });
+        }
+        
         setFormData(prev => ({
           ...prev,
           ...migratedPlan
@@ -609,9 +689,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     }
 
     // Validate that selected activities have descriptions
-    const missingDescriptions = formData.activitiesAndMethods.filter(activity => 
-      !formData.activityDescriptions[activity] || !formData.activityDescriptions[activity].trim()
-    );
+    // Only check for activities that actually exist (not orphaned)
+    const validActivityKeys = [
+      ...activityOptions.map(opt => opt.value),
+      ...(formData.customActivities || []).map(ca => ca.key)
+    ];
+    const missingDescriptions = formData.activitiesAndMethods.filter(activity => {
+      // Only validate if the activity actually exists
+      if (!validActivityKeys.includes(activity)) return false;
+      return !formData.activityDescriptions[activity] || !formData.activityDescriptions[activity].trim();
+    });
     
     if (missingDescriptions.length > 0) {
       newErrors.activityDescriptions = 'Please provide descriptions for all selected activities';
@@ -622,9 +709,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     }
 
     // Validate that selected assessments have descriptions
-    const missingAssessmentDescriptions = formData.assessmentMethods.filter(assessment => 
-      !formData.assessmentDescriptions[assessment] || !formData.assessmentDescriptions[assessment].trim()
-    );
+    // Only check for assessments that actually exist (not orphaned)
+    const validAssessmentKeys = [
+      ...assessmentOptions.map(opt => opt.value),
+      ...(formData.customAssessments || []).map(ca => ca.key)
+    ];
+    const missingAssessmentDescriptions = formData.assessmentMethods.filter(assessment => {
+      // Only validate if the assessment actually exists
+      if (!validAssessmentKeys.includes(assessment)) return false;
+      return !formData.assessmentDescriptions[assessment] || !formData.assessmentDescriptions[assessment].trim();
+    });
     
     if (missingAssessmentDescriptions.length > 0) {
       newErrors.assessmentDescriptions = 'Please provide descriptions for all selected assessment methods';
@@ -635,9 +729,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     }
 
     // Validate that selected resources have descriptions
-    const missingResourceDescriptions = formData.resourcesAndMaterials.filter(resource => 
-      !formData.resourceDescriptions[resource] || !formData.resourceDescriptions[resource].trim()
-    );
+    // Only check for resources that actually exist (not orphaned)
+    const validResourceKeys = [
+      ...resourceOptions.map(opt => opt.value),
+      ...(formData.customResources || []).map(cr => cr.key)
+    ];
+    const missingResourceDescriptions = formData.resourcesAndMaterials.filter(resource => {
+      // Only validate if the resource actually exists
+      if (!validResourceKeys.includes(resource)) return false;
+      return !formData.resourceDescriptions[resource] || !formData.resourceDescriptions[resource].trim();
+    });
     
     if (missingResourceDescriptions.length > 0) {
       newErrors.resourceDescriptions = 'Please provide descriptions for all selected resources';
@@ -1084,6 +1185,30 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      
+      // Show a toast with the validation errors
+      const errorMessages = [];
+      if (validationErrors.facilitatorName) errorMessages.push('Facilitator selection');
+      if (validationErrors.conductingPersonName) errorMessages.push('Person conducting program');
+      if (validationErrors.activitiesAndMethods) errorMessages.push('Activities and methods');
+      if (validationErrors.activityDescriptions) errorMessages.push('Activity descriptions');
+      if (validationErrors.assessmentMethods) errorMessages.push('Assessment methods');
+      if (validationErrors.assessmentDescriptions) errorMessages.push('Assessment descriptions');
+      if (validationErrors.resourcesAndMaterials) errorMessages.push('Resources and materials');
+      if (validationErrors.resourceDescriptions) errorMessages.push('Resource descriptions');
+      if (validationErrors.acknowledgementRead) errorMessages.push('Confirmation checkbox');
+      if (validationErrors.todaysDate) errorMessages.push("Today's date");
+      
+      toast.error('Please complete the following required fields:', {
+        description: errorMessages.join(', ')
+      });
+      
+      // Scroll to the top of the form where errors might be
+      const sheetContent = document.querySelector('[data-radix-scroll-area-viewport]');
+      if (sheetContent) {
+        sheetContent.scrollTop = 0;
+      }
+      
       return;
     }
 
@@ -1233,9 +1358,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     
     const updatedCustomActivities = [...formData.customActivities, newCustomActivity];
     
+    // Initialize description for the new custom activity
+    const updatedActivityDescriptions = {
+      ...formData.activityDescriptions,
+      [customKey]: `We will use ${activityName.toLowerCase()} to support our child's learning. This activity will help develop specific skills and knowledge relevant to our educational goals.`
+    };
+    
     setFormData(prev => ({
       ...prev,
-      customActivities: updatedCustomActivities
+      customActivities: updatedCustomActivities,
+      activityDescriptions: updatedActivityDescriptions
     }));
     
     // Auto-save to Firebase
@@ -1247,6 +1379,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
         const updatedData = {
           ...formData,
           customActivities: updatedCustomActivities,
+          activityDescriptions: updatedActivityDescriptions,
           studentId: student.id,
           studentAsn: student.asn,
           familyId,
@@ -1401,9 +1534,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     
     const updatedCustomAssessments = [...formData.customAssessments, newCustomAssessment];
     
+    // Initialize description for the new custom assessment
+    const updatedAssessmentDescriptions = {
+      ...formData.assessmentDescriptions,
+      [customKey]: `We will use ${assessmentName.toLowerCase()} to assess our child's learning progress. This assessment method will help us track understanding and skill development throughout the year.`
+    };
+    
     setFormData(prev => ({
       ...prev,
-      customAssessments: updatedCustomAssessments
+      customAssessments: updatedCustomAssessments,
+      assessmentDescriptions: updatedAssessmentDescriptions
     }));
     
     // Auto-save to Firebase
@@ -1415,6 +1555,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
         const updatedData = {
           ...formData,
           customAssessments: updatedCustomAssessments,
+          assessmentDescriptions: updatedAssessmentDescriptions,
           studentId: student.id,
           studentAsn: student.asn,
           familyId,
@@ -1523,9 +1664,16 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
     
     const updatedCustomResources = [...formData.customResources, newCustomResource];
     
+    // Initialize description for the new custom resource
+    const updatedResourceDescriptions = {
+      ...formData.resourceDescriptions,
+      [customKey]: `We will use ${resourceName.toLowerCase()} to enhance our child's learning. This resource will support our educational goals and provide valuable learning opportunities.`
+    };
+    
     setFormData(prev => ({
       ...prev,
-      customResources: updatedCustomResources
+      customResources: updatedCustomResources,
+      resourceDescriptions: updatedResourceDescriptions
     }));
     
     // Auto-save to Firebase
@@ -1537,6 +1685,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
         const updatedData = {
           ...formData,
           customResources: updatedCustomResources,
+          resourceDescriptions: updatedResourceDescriptions,
           studentId: student.id,
           studentAsn: student.asn,
           familyId,

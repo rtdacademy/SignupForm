@@ -27,6 +27,9 @@ export const useStudentData = (userEmailKey) => {
   
   // Track active course listeners for cleanup
   const courseListenersRef = useRef({});
+  
+  // Keep a ref to the latest courseDetails to avoid stale closures
+  const courseDetailsRef = useRef({});
 
   const fetchStaffMember = async (emailKey) => {
     try {
@@ -132,21 +135,22 @@ export const useStudentData = (userEmailKey) => {
           const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
 
           // Update course details state with all course data including course-config
-          setCourseDetails(prev => ({
-            ...prev,
+          const newDetails = {
+            ...courseDetailsRef.current,
             [courseId]: {
               ...courseData,  // Include all original course data (including course-config)
               teachers,       // Add resolved teacher objects
               supportStaff    // Add resolved support staff objects
             }
-          }));
+          };
+          courseDetailsRef.current = newDetails;
+          setCourseDetails(newDetails);
         } else {
           // Remove course details if course no longer exists
-          setCourseDetails(prev => {
-            const updated = { ...prev };
-            delete updated[courseId];
-            return updated;
-          });
+          const updated = { ...courseDetailsRef.current };
+          delete updated[courseId];
+          courseDetailsRef.current = updated;
+          setCourseDetails(updated);
         }
       } catch (error) {
         console.error(`Error processing course data for ${courseId}:`, error);
@@ -181,11 +185,10 @@ export const useStudentData = (userEmailKey) => {
         delete courseListenersRef.current[courseId];
         
         // Remove from course details state
-        setCourseDetails(prev => {
-          const updated = { ...prev };
-          delete updated[courseId];
-          return updated;
-        });
+        const updated = { ...courseDetailsRef.current };
+        delete updated[courseId];
+        courseDetailsRef.current = updated;
+        setCourseDetails(updated);
       }
     });
     
@@ -359,7 +362,8 @@ export const useStudentData = (userEmailKey) => {
       const coursesWithDetails = await Promise.all(
         courseEntries.map(async ([id, studentCourse]) => {
           // Get course details from real-time state (may be null if not loaded yet)
-          const realtimeCourseDetails = courseDetails[id] || null;
+          // Use ref to get the latest value and avoid stale closures
+          const realtimeCourseDetails = courseDetailsRef.current[id] || null;
           
           // Debug log for course details merging
           if (realtimeCourseDetails) {
@@ -402,7 +406,8 @@ export const useStudentData = (userEmailKey) => {
 
         if (!isDuplicate) {
           // Get real-time course details if available
-          const realtimeCourseDetails = courseDetails[requiredCourse.id] || requiredCourse.courseDetails;
+          // Use ref to get the latest value and avoid stale closures
+          const realtimeCourseDetails = courseDetailsRef.current[requiredCourse.id] || requiredCourse.courseDetails;
           
           // Update required course with real-time details (course config will come from courseDetails)
           const enhancedRequiredCourse = {
@@ -685,12 +690,13 @@ export const useStudentData = (userEmailKey) => {
 
         // Helper function to set up listeners for a specific course
         const setupCourseListeners = (courseId) => {
-          // Define the specific paths we want to listen to (excluding Assessments)
+          // Define the specific paths we want to listen to
           const pathsToListen = [
             'ActiveFutureArchived/Value',
             'DiplomaMonthChoices/Value', 
             'Grades/assessments',
             'Gradebook/items',
+            'Assessments',  // Add this to track attempt counts and assessment data
             'School_x0020_Year/Value',
             'Status/Value',
             'StudentType/Value',
@@ -756,6 +762,10 @@ export const useStudentData = (userEmailKey) => {
           Object.entries(courseDataAccumulator).forEach(([id, data]) => {
             reconstructedCoursesData[id] = { ...reconstructedCoursesData[id], ...data };
           });
+          
+          // IMPORTANT: Ensure we preserve courseDetails (which includes course-config) during processing
+          // The courseDetails state is maintained by separate listeners and contains the full course data
+          // We pass it through processCourses which will merge it properly
           
           // Process courses with the updated data
           const processedCourses = await processCourses(reconstructedCoursesData);
@@ -1016,7 +1026,8 @@ export const useStudentData = (userEmailKey) => {
       });
       courseListenersRef.current = {};
       
-      // Clear course details state
+      // Clear course details state and ref
+      courseDetailsRef.current = {};
       setCourseDetails({});
     };
   }, [userEmailKey, isEmulating]);

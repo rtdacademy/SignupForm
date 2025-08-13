@@ -50,6 +50,7 @@ import RTDConnectLandingPage from './RTDConnect/LandingPage';
 import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
 import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
 import FacilitatorProfile3 from './RTDConnect/FacilitatorProfile3';
+import FacilitatorProfile4 from './RTDConnect/FacilitatorProfile4';
 import AboutPage from './RTDConnect/pages/AboutPage';
 import FAQPage from './RTDConnect/pages/FAQPage';
 import FundingPage from './RTDConnect/pages/FundingPage';
@@ -240,7 +241,11 @@ function MainApp() {
           ) : <Navigate to="/login" />
         } />
         <Route path="/staff-login" element={
-          user ? <Navigate to="/teacher-dashboard" /> : <StaffLogin />
+          user ? (
+            user.email?.endsWith('@rtd-connect.com') ? 
+              <Navigate to="/home-education-staff" /> : 
+              <Navigate to="/teacher-dashboard" />
+          ) : <StaffLogin />
         } />
         <Route path="/teacher-dashboard" element={
           user && isStaff(user) ? <Layout><TeacherDashboard /></Layout> : <Navigate to="/staff-login" />
@@ -377,6 +382,7 @@ function RTDConnectApp() {
         <Route path="/facilitator/golda-david" element={<FacilitatorProfile1 />} />
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
+        <Route path="/facilitator/elise" element={<FacilitatorProfile4 />} />
         
         {/* Legal pages */}
         <Route path="/privacy" element={<PrivacyStatement />} />

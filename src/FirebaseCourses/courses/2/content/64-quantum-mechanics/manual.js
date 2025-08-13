@@ -717,7 +717,8 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
 
       {/* Slideshow Knowledge Check */}
       <div className="my-8">
-        <SlideshowKnowledgeCheck 
+        <SlideshowKnowledgeCheck
+        course={course} 
           courseId={2}
           lessonPath="64-quantum-mechanics"
           questions={[

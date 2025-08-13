@@ -72,23 +72,24 @@ export const FACILITATORS = [
   {
     id: 'marian-johnson',
     name: 'Marian Johnson',
-    title: 'High School & Transition Specialist',
-    experience: '8+ years experience',
-    description: 'Dedicated to helping teens succeed in high school home education, diploma exam preparation, and planning for post-secondary education and career success.',
-    image: '/connectImages/FakeFacil1.png',
+    title: 'Home Education Facilitator | Community Connector | Experiential Learning Advocate',
+    experience: 'Facilitator since 2020 | M.Ed in progress',
+    description: 'Marian Johnson is a dynamic Home Education Facilitator dedicated to supporting homeschooling families across rural Alberta since 2020. With a strong background in student-centered learning and virtual education, Marian supports families navigating the complexities of home-based education by providing personalized guidance, curriculum planning, and access to academic and emotional support resources.',
+    image: '/connectImages/marian.jpg',
     specializations: [
-      'High School Course Planning',
-      'Diploma Exam Preparation',
-      'University Admission Guidance'
+      'Experiential Learning & Global Citizenship',
+      'Rural Home Education Support',
+      'Curriculum Planning & Personalized Learning',
+      'Community Engagement & Parent Education'
     ],
     stats: [
-      { icon: 'Star', value: '8+', label: 'Years Experience' },
-      { icon: 'Users', value: '85+', label: 'Students Graduated' },
-      { icon: 'Clock', value: 'Same Day', label: 'Response Time' }
+      { icon: 'GraduationCap', value: 'Since 2020', label: 'Facilitator' },
+      { icon: 'Award', value: 'M.Ed', label: 'In Progress' },
+      { icon: 'Star', value: 'Certified', label: 'AB Teacher' }
     ],
     contact: {
       email: 'marian@rtd-connect.com',
-      phone: '(403) 555-0125'
+      phone: '780-777-1608'
     },
     profilePath: '/facilitator/marian-johnson',
     gradients: {
@@ -97,8 +98,40 @@ export const FACILITATORS = [
     },
     // Grade focus for assignment recommendations
     gradeFocus: {
-      primary: ['9', '10', '11', '12'],
-      secondary: ['8'] // Can handle some Grade 8
+      primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      secondary: []
+    }
+  },
+  {
+    id: 'elise',
+    name: 'Elise',
+    title: 'Alternative Learning & Literacy Specialist',
+    experience: 'B.Ed, B.A, NAMC Montessori',
+    description: 'Elise is passionate about alternative learning styles and finding ways to help each family and child flourish. She is excited to learn alongside them! With her B.A in English and Creative Writing from the University of Alberta, she loves helping children unlock their love of reading and writing.',
+    image: '/connectImages/Elise.jpg',
+    specializations: [
+      'Reading and Creative Writing',
+      'Montessori and Child-Led Learning',
+      'Elementary Education',
+      'Alternative Learning Styles'
+    ],
+    stats: [
+      { icon: 'GraduationCap', value: 'B.Ed, B.A', label: 'Qualifications' },
+      { icon: 'BookOpen', value: 'NAMC', label: 'Montessori Certified' },
+      { icon: 'Heart', value: 'Elementary', label: 'Focus Ages' }
+    ],
+    contact: {
+      email: 'elise@rtd-connect.com'
+    },
+    profilePath: '/facilitator/elise',
+    gradients: {
+      card: 'from-pink-500 to-purple-500',
+      border: 'border-pink-100'
+    },
+    // Grade focus for assignment recommendations - Elementary ages
+    gradeFocus: {
+      primary: ['K', '1', '2', '3', '4', '5', '6'],
+      secondary: ['7', '8'] // Can support some middle school
     }
   }
 ];

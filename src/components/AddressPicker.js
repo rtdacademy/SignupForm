@@ -35,7 +35,6 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
 
   const countries = [
     { code: 'CA', name: 'Canada' },
-    { code: 'US', name: 'United States' },
     { code: 'OTHER', name: 'Other' }
   ];
 
@@ -203,7 +202,11 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
       errors.push('Province is required for Canadian addresses');
     }
     
-    if (!manualAddressData.city.trim()) errors.push('City/Town is required');
+    // City is only required for Canadian addresses
+    if (manualAddressData.country === 'CA' && !manualAddressData.city.trim()) {
+      errors.push('City/Town is required');
+    }
+    
     if (!manualAddressData.address.trim()) errors.push('Address is required');
     if (manualAddressData.address.trim().length < 10) errors.push('Please provide a more complete address');
     
@@ -234,8 +237,8 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
     
     const addressDetails = {
       streetAddress: '', // Empty for manual entries
-      city: manualAddressData.city.trim(),
-      province: manualAddressData.province,
+      city: manualAddressData.country === 'CA' ? manualAddressData.city.trim() : '', // City only for Canada
+      province: manualAddressData.country === 'CA' ? manualAddressData.province : '', // Province only for Canada
       country: manualAddressData.country,
       countryLong: selectedCountry?.name || manualAddressData.country,
       postalCode: '', // Empty for manual entries
@@ -375,35 +378,23 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
               </div>
             )}
 
-            {/* State/Province field for non-Canadian addresses */}
-            {manualAddressData.country !== 'CA' && (
+            {/* No state/province field for Other countries - users will include this in their address */}
+
+            {/* City/Town - Only for Canadian addresses */}
+            {manualAddressData.country === 'CA' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  State/Province
+                  City/Town *
                 </label>
                 <input
                   type="text"
-                  value={manualAddressData.province}
-                  onChange={(e) => handleManualInputChange('province', e.target.value)}
-                  placeholder="Enter state or province (optional)"
+                  value={manualAddressData.city}
+                  onChange={(e) => handleManualInputChange('city', e.target.value)}
+                  placeholder="Enter the city or town closest to you"
                   className="w-full border border-input rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm"
                 />
               </div>
             )}
-
-            {/* City/Town */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                City/Town *
-              </label>
-              <input
-                type="text"
-                value={manualAddressData.city}
-                onChange={(e) => handleManualInputChange('city', e.target.value)}
-                placeholder="Enter the city or town closest to you"
-                className="w-full border border-input rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm"
-              />
-            </div>
 
             {/* Address Type */}
             <div>
@@ -437,20 +428,27 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
             {/* Address Text Area */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Your Address *
+                {manualAddressData.country === 'CA' ? 'Your Address *' : 'Complete Address (including city, state/province) *'}
               </label>
               <textarea
                 value={manualAddressData.address}
                 onChange={(e) => handleManualInputChange('address', e.target.value)}
-                rows={3}
-                placeholder={manualAddressData.addressType === 'rural' ? 
-                  "Example: Box 247, RR#3, Legal Land Description SW-25-24-1-W5" :
-                  "Example: 123 Main Street, Unit 4B"
+                rows={manualAddressData.country === 'CA' ? 3 : 4}
+                placeholder={
+                  manualAddressData.country === 'CA' ? (
+                    manualAddressData.addressType === 'rural' ? 
+                    "Example: Box 247, RR#3, Legal Land Description SW-25-24-1-W5" :
+                    "Example: 123 Main Street, Unit 4B"
+                  ) : (
+                    "Example: 123 Main Street, Unit 4B\nNew York, NY 10001\nUnited States"
+                  )
                 }
                 className="w-full border border-input rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Enter your complete address as you would write it on mail or packages.
+                {manualAddressData.country === 'CA' 
+                  ? 'Enter your complete address as you would write it on mail or packages.'
+                  : 'Please include the full address including street, city, state/province, postal code, and country.'}
               </p>
             </div>
 

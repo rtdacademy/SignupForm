@@ -376,15 +376,31 @@ albertaStudentNumber: {
             return "Country or complete address is required";
           }
         } else {
-          // Basic requirements for other student types - need city and country/province
-          if (!value.city) return "City is required";
-          if (!value.province && !value.country) return "Province/State or Country is required";
+          // Basic requirements for other student types
+          // Accept manual entries with fullAddress OR autocomplete entries with city/province
+          if (value.fullAddress && value.isManualEntry) {
+            // Manual entry is valid if it has fullAddress and city
+            if (!value.city) return "City is required";
+            // Province is checked later for Alberta requirement
+          } else {
+            // For autocomplete entries - need city and country/province
+            if (!value.city) return "City is required";
+            if (!value.province && !value.country) return "Province/State or Country is required";
+          }
         }
         
         // For non-international/adult students, require more complete addresses
+        // Accept either streetAddress/postalCode OR fullAddress (for manual entries)
         if (!isFlexibleAddressType) {
-          if (!value.streetAddress) return "Street address is required";
-          if (!value.postalCode) return "Postal/ZIP code is required";
+          // Check if it's a manual entry with fullAddress
+          if (value.fullAddress && value.isManualEntry) {
+            // Manual entry is valid if it has fullAddress
+            // No need for streetAddress/postalCode validation
+          } else {
+            // For autocomplete entries, require streetAddress and postalCode
+            if (!value.streetAddress) return "Street address is required";
+            if (!value.postalCode) return "Postal/ZIP code is required";
+          }
         }
         
         // For students other than International and Adult, ensure it's in Alberta

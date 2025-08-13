@@ -1148,6 +1148,7 @@ AIAccordion, onAIAccordionContent }) => {
 
       {/* Practice Questions Slideshow */}
       <SlideshowKnowledgeCheck
+        course={course}
         courseId={effectiveCourseId}
         lessonPath="14-optics-lenses"
         questions={[

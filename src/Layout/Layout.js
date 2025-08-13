@@ -17,9 +17,10 @@ const Layout = React.memo(({ children }) => {
   const [hasParentAccount, setHasParentAccount] = useState(false);
   
   // Home Education Header state
-  const [showMyFamiliesOnly, setShowMyFamiliesOnly] = useState(false);
+  const [showMyFamiliesOnly, setShowMyFamiliesOnly] = useState(true); // Default to My Families
   const [impersonatingFacilitator, setImpersonatingFacilitator] = useState(null);
   const [showImpersonationDropdown, setShowImpersonationDropdown] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('active'); // Default to active families
   const [homeEducationStats, setHomeEducationStats] = useState({
     totalFamilies: 0,
     myFamilies: 0
@@ -124,6 +125,8 @@ const Layout = React.memo(({ children }) => {
             setImpersonatingFacilitator,
             showImpersonationDropdown,
             setShowImpersonationDropdown,
+            statusFilter,
+            setStatusFilter,
             homeEducationStats,
             setHomeEducationStats
           });
@@ -135,7 +138,7 @@ const Layout = React.memo(({ children }) => {
     });
   }, [
     user, isSidebarOpen, handleSidebarToggle, studentData, isFullScreen, handleFullScreenToggle, 
-    children, isHomeEducationRoute, showMyFamiliesOnly, impersonatingFacilitator, showImpersonationDropdown, homeEducationStats
+    children, isHomeEducationRoute, showMyFamiliesOnly, impersonatingFacilitator, showImpersonationDropdown, statusFilter, homeEducationStats
   ]);
 
   const headerProps = useMemo(() => ({
@@ -161,10 +164,12 @@ const Layout = React.memo(({ children }) => {
     setImpersonatingFacilitator,
     showImpersonationDropdown,
     setShowImpersonationDropdown,
+    statusFilter,
+    setStatusFilter,
     stats: homeEducationStats
   }), [
     user, handleLogout, showMyFamiliesOnly, impersonatingFacilitator, 
-    showImpersonationDropdown, homeEducationStats
+    showImpersonationDropdown, statusFilter, homeEducationStats
   ]);
 
   return (

@@ -1902,6 +1902,7 @@ const CurvedMirrors = ({ course, courseId = '2', AIAccordion, onAIAccordionConte
 
         {/* Curved Mirrors Practice Questions */}
         <SlideshowKnowledgeCheck
+        course={course}
           courseId={effectiveCourseId}
           lessonPath="11-curved-mirrors"
           questions={[
@@ -2040,6 +2041,7 @@ const CurvedMirrors = ({ course, courseId = '2', AIAccordion, onAIAccordionConte
 
         {/* Slideshow Knowledge Check - Additional Practice Questions */}
         <SlideshowKnowledgeCheck
+        course={course}
           courseId={effectiveCourseId}
           lessonPath="11-curved-mirrors"
           title="Curved Mirrors Practice - Questions 7-17"

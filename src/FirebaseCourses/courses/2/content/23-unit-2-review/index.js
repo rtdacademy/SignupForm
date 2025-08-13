@@ -303,6 +303,7 @@ const Unit2Review = ({ courseId = 'default', AIAccordion, onAIAccordionContent }
       </TextSection>
 
       <SlideshowKnowledgeCheck
+        course={course}
         title="Unit 2 Review - Optics and Light Practice"
         questions={[
           {

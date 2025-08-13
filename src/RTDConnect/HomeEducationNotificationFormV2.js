@@ -1084,7 +1084,7 @@ const HomeEducationNotificationFormV2 = ({
     
     // Note: PART_D is handled separately by SOLOEducationPlanForm.js
 
-    if (data.programAddressDifferent && !data.programAddress) {
+    if (data.programAddressDifferent && (!data.programAddress || !data.programAddress.fullAddress)) {
       toast.error('Please select the address where the education program will be conducted.');
       return;
     }
@@ -1489,7 +1489,7 @@ const HomeEducationNotificationFormV2 = ({
                       type="hidden"
                       {...register('programAddress', {
                         validate: (value) => {
-                          if (watch('programAddressDifferent') && !value) {
+                          if (watch('programAddressDifferent') && (!value || !value.fullAddress)) {
                             return 'Please select the address where the education program will be conducted';
                           }
                           return true;
@@ -1580,7 +1580,8 @@ const HomeEducationNotificationFormV2 = ({
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="assistanceRequired"
-                    {...register('assistanceRequired')}
+                    checked={watch('assistanceRequired')}
+                    onCheckedChange={(checked) => !readOnly && setValue('assistanceRequired', checked)}
                     disabled={readOnly}
                   />
                   <Label htmlFor="assistanceRequired" className={readOnly ? 'text-gray-500' : ''}>Do you need help preparing the home education program plan?</Label>

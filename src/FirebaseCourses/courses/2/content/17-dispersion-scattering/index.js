@@ -1467,6 +1467,7 @@ AIAccordion, onAIAccordionContent }) => {
 
       <TextSection>
         <SlideshowKnowledgeCheck
+        course={course}
           courseId={courseId}
           lessonPath="17-dispersion-scattering"
           questions={[

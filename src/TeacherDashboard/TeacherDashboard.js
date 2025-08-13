@@ -30,7 +30,8 @@ import {
   FolderOpen,
   Home,
   Activity,
-  UserCog
+  UserCog,
+  Archive
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -51,6 +52,7 @@ import ParentStudentManagement from './ParentStudentManagement';
 import StaffPermissionsManager from './StaffPermissionsManager';
 import AuthActivityDashboard from './AuthActivityDashboard';
 import AdminUserManagement from './AdminUserManagement';
+import ArchiveManagement from './ArchiveManagement';
 
 
 function TeacherDashboard() {
@@ -77,6 +79,14 @@ function TeacherDashboard() {
   
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Redirect rtd-connect.com users to home education dashboard
+  useEffect(() => {
+    if (user && user.email?.endsWith('@rtd-connect.com')) {
+      console.log('RTD Connect user detected, redirecting to home education dashboard');
+      navigate('/home-education-staff');
+    }
+  }, [user, navigate]);
 
   // Check for URL parameters on component mount and when URL changes
   useEffect(() => {
@@ -269,6 +279,7 @@ function TeacherDashboard() {
         { icon: UserCog, label: 'User Management', key: 'user-management' },
         { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
         { icon: Activity, label: 'Auth Activity', key: 'auth-activity' },
+        { icon: Archive, label: 'Archive Recovery', key: 'archive-recovery' },
       ];
 
       // Add super admin only items
@@ -291,7 +302,7 @@ function TeacherDashboard() {
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing']; 
+    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
     }
@@ -343,13 +354,15 @@ function TeacherDashboard() {
         return <StaffPermissionsManager />;
       case 'auth-activity':
         return <AuthActivityDashboard />;
+      case 'archive-recovery':
+        return <ArchiveManagement />;
       default:
         return null;
     }
   };
 
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing'];
+    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery'];
     const superAdminOnlySections = ['staff-permissions'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {

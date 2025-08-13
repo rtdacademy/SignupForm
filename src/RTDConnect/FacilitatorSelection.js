@@ -5,13 +5,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 
 const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) => {
   const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
+  const isComingSoon = facilitator.experience === 'Profile Coming Soon';
   
   // Map icon names to components
   const iconMap = {
     'Star': Star,
     'Users': Users,
     'Clock': Clock,
-    'GraduationCap': GraduationCap
+    'GraduationCap': GraduationCap,
+    'BookOpen': BookOpen,
+    'Heart': Heart
   };
 
   return (
@@ -20,6 +23,14 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
         isSelected ? 'ring-2 ring-purple-500' : ''
       }`}
     >
+      {/* Coming Soon Badge */}
+      {isComingSoon && (
+        <div className="absolute top-4 left-4 z-10 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+          <Clock className="w-3 h-3 mr-1" />
+          Coming Soon
+        </div>
+      )}
+      
       {/* Selected Badge */}
       {isSelected && (
         <div className="absolute top-4 right-4 z-10 bg-purple-500 text-white rounded-full p-2">
@@ -34,22 +45,30 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
         {/* Profile Section */}
         <div className="flex items-start space-x-4 mb-4">
           <div className="relative">
-            <a 
-              href={getFacilitatorProfileUrl(facilitator)} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="block hover:opacity-80 transition-opacity cursor-pointer"
-              title={`View ${facilitator.name}'s profile`}
-            >
-              <img 
-                src={facilitator.image} 
-                alt={facilitator.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md hover:shadow-lg transition-shadow"
-              />
-            </a>
-            <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-r ${gradientClass} rounded-full flex items-center justify-center`}>
-              <Award className="w-4 h-4 text-white" />
-            </div>
+            {facilitator.image ? (
+              <a 
+                href={getFacilitatorProfileUrl(facilitator)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block hover:opacity-80 transition-opacity cursor-pointer"
+                title={`View ${facilitator.name}'s profile`}
+              >
+                <img 
+                  src={facilitator.image} 
+                  alt={facilitator.name}
+                  className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md hover:shadow-lg transition-shadow"
+                />
+              </a>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-white shadow-md flex items-center justify-center">
+                <Users className="w-10 h-10 text-gray-400" />
+              </div>
+            )}
+            {!isComingSoon && (
+              <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-r ${gradientClass} rounded-full flex items-center justify-center`}>
+                <Award className="w-4 h-4 text-white" />
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900">{facilitator.name}</h3>
@@ -125,12 +144,15 @@ const FacilitatorDetailSheet = ({ isOpen, onClose, facilitator }) => {
   if (!facilitator) return null;
 
   const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
+  const isComingSoon = facilitator.experience === 'Profile Coming Soon';
   
   const iconMap = {
     'Star': Star,
     'Users': Users,
     'Clock': Clock,
-    'GraduationCap': GraduationCap
+    'GraduationCap': GraduationCap,
+    'BookOpen': BookOpen,
+    'Heart': Heart
   };
 
   return (
@@ -146,22 +168,34 @@ const FacilitatorDetailSheet = ({ isOpen, onClose, facilitator }) => {
         <div className="mt-6 space-y-6">
           {/* Profile Header */}
           <div className="text-center">
-            <a 
-              href={getFacilitatorProfileUrl(facilitator)} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-block hover:opacity-80 transition-opacity cursor-pointer"
-              title={`View ${facilitator.name}'s profile`}
-            >
-              <img 
-                src={facilitator.image} 
-                alt={facilitator.name}
-                className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-200 hover:border-gray-300 transition-colors"
-              />
-            </a>
+            {facilitator.image ? (
+              <a 
+                href={getFacilitatorProfileUrl(facilitator)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block hover:opacity-80 transition-opacity cursor-pointer"
+                title={`View ${facilitator.name}'s profile`}
+              >
+                <img 
+                  src={facilitator.image} 
+                  alt={facilitator.name}
+                  className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-200 hover:border-gray-300 transition-colors"
+                />
+              </a>
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 mx-auto mb-4 border-4 border-gray-200 flex items-center justify-center">
+                <Users className="w-16 h-16 text-gray-400" />
+              </div>
+            )}
             <h2 className="text-2xl font-bold text-gray-900">{facilitator.name}</h2>
             <p className="text-gray-600">{facilitator.title}</p>
             <p className="text-purple-600 font-medium mt-1">{facilitator.experience}</p>
+            {isComingSoon && (
+              <div className="inline-flex items-center px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full mt-2">
+                <Clock className="w-3 h-3 text-yellow-600 mr-1" />
+                <span className="text-xs font-medium text-yellow-800">Full Profile Coming Soon</span>
+              </div>
+            )}
           </div>
 
           {/* About */}

@@ -456,16 +456,18 @@ const ProfileDropdown = ({ userProfile, onEditProfile, onSignOut }) => {
                 <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
                 Edit Profile
               </button>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  onSignOut();
-                }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <ArrowRight className="w-4 h-4 mr-3 text-gray-400 rotate-180" />
-                Sign Out
-              </button>
+              {onSignOut && (
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    onSignOut();
+                  }}
+                  className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <ArrowRight className="w-4 h-4 mr-3 text-gray-400 rotate-180" />
+                  Sign Out
+                </button>
+              )}
             </div>
           </div>
         </>
@@ -491,107 +493,16 @@ const FormField = ({ label, icon: Icon, error, children, required = false }) => 
   </div>
 );
 
-// Under Construction Modal Component
-const UnderConstructionModal = ({ 
-  isOpen, 
-  password, 
-  setPassword, 
-  onSubmit, 
-  error 
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-purple-200">
-        {/* Logo and Header */}
-        <div className="text-center mb-6">
-          <div className="flex justify-center mb-4">
-            <img 
-              src="/connectImages/Connect.png" 
-              alt="RTD Connect Logo"
-              className="h-16 w-auto"
-            />
-          </div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent mb-2">
-            RTD Connect
-          </h1>
-          <div className="w-16 h-0.5 bg-gradient-to-r from-purple-500 to-cyan-500 mx-auto mb-4"></div>
-        </div>
-
-        {/* Under Construction Message */}
-        <div className="text-center mb-6 space-y-4">
-          <div className="w-16 h-16 mx-auto bg-gradient-to-r from-orange-100 to-yellow-100 rounded-full flex items-center justify-center mb-4">
-            <Settings className="w-8 h-8 text-orange-500" />
-          </div>
-          
-          <h2 className="text-xl font-bold text-gray-900">
-            🚧 Portal Under Construction
-          </h2>
-          
-          <div className="space-y-3 text-sm text-gray-600">
-            <p className="leading-relaxed">
-              <strong className="text-gray-800">We apologize for the confusion!</strong>
-            </p>
-            <p className="leading-relaxed">
-              Some families have registered early while we're still putting the finishing touches on the portal. 
-              We're working hard to complete the system and provide you with the best possible experience.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-              <p className="text-blue-800 font-medium">
-                📅 The portal should be fully operational by Monday.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Password Form */}
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="construction-password" className="block text-sm font-medium text-gray-700 mb-2">
-              Development Access Password
-            </label>
-            <input
-              id="construction-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password to continue"
-              className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
-              required
-            />
-            {error && (
-              <div className="mt-2 flex items-center space-x-2 text-sm text-red-600">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200"
-          >
-            Access Portal
-          </button>
-        </form>
-
-        {/* Footer */}
-        <div className="mt-6 text-center text-xs text-gray-500">
-          <p>Thank you for your patience as we complete development.</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const RTDConnectDashboard = ({ 
   staffView = false, 
   familyId: propFamilyId = null, 
   familyData: propFamilyData = null 
 }) => {
   const { user, user_email_key, signOut, isHomeEducationParent, checkAndApplyPendingPermissions: applyPendingFromAuth } = useAuth();
-  const { isStaff, hasPermission } = useStaffClaims();
+  
+  // Use staff claims in read-only mode - just read existing claims, never apply them
+  const { isStaff, hasPermission } = useStaffClaims({ readOnly: true });
+  
   const navigate = useNavigate();
   const [familyProfile, setFamilyProfile] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -687,11 +598,6 @@ const RTDConnectDashboard = ({
   const [selectedFacilitator, setSelectedFacilitator] = useState(null);
   const [showFacilitatorChange, setShowFacilitatorChange] = useState(false);
 
-  // Under construction state
-  const [showUnderConstruction, setShowUnderConstruction] = useState(false);
-  const [constructionPassword, setConstructionPassword] = useState('');
-  const [constructionPasswordError, setConstructionPasswordError] = useState('');
-
   // Payment eligibility state
   const [familyPaymentEligibility, setFamilyPaymentEligibility] = useState(null);
   const [studentPaymentEligibility, setStudentPaymentEligibility] = useState({});
@@ -700,6 +606,9 @@ const RTDConnectDashboard = ({
   const isStaffViewing = staffView || false;
   const effectiveFamilyId = isStaffViewing && propFamilyId ? propFamilyId : customClaims?.familyId;
   const shouldBypassProfileCheck = isStaff() || isStaffViewing;
+  
+  // Target user UID for staff mode profile editing
+  const [targetUserUid, setTargetUserUid] = useState(null);
 
   // Initialize school year tracking
   useEffect(() => {
@@ -737,23 +646,6 @@ const RTDConnectDashboard = ({
       nextSeptemberCount: activeSeptember
     });
   }, []);
-
-  // Check for under construction bypass on component mount
-  useEffect(() => {
-    const checkConstructionBypass = () => {
-      const bypass = localStorage.getItem('rtdConnectBypassPassword');
-      if (bypass === 'connect') {
-        setShowUnderConstruction(false);
-      } else {
-        setShowUnderConstruction(true);
-      }
-    };
-
-    // Only show under construction if user is logged in
-    if (user && !loading) {
-      checkConstructionBypass();
-    }
-  }, [user, loading]);
 
   // Debug effect to log user auth object and custom claims
   useEffect(() => {
@@ -868,6 +760,63 @@ const RTDConnectDashboard = ({
       off(userRef, 'value', unsubscribeUser);
     };
   }, [user, user_email_key]);
+
+  // Effect to load primary guardian's profile when in staff mode
+  useEffect(() => {
+    if (!isStaffViewing || !familyProfile?.createdBy) {
+      return;
+    }
+
+    const db = getDatabase();
+    const targetUid = familyProfile.createdBy;
+    setTargetUserUid(targetUid);
+    
+    const targetUserRef = ref(db, `users/${targetUid}`);
+
+    // Set up realtime listener for target user profile
+    const unsubscribeTargetUser = onValue(targetUserRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        setUserProfile(userData);
+        
+        // Check if profile is complete
+        const isComplete = !!(userData.firstName && 
+                             userData.lastName && 
+                             userData.phone && 
+                             userData.address);
+        setHasCompleteProfile(isComplete);
+        
+        // Pre-fill form if data exists
+        if (userData.firstName || userData.lastName || userData.phone || userData.address) {
+          setProfileData({
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            phone: userData.phone || '',
+            address: userData.address || null,
+            birthday: userData.birthday ? toDateString(toEdmontonDate(userData.birthday)) : ''
+          });
+        }
+      } else {
+        setUserProfile(null);
+        setHasCompleteProfile(false);
+        setProfileData({
+          firstName: '',
+          lastName: '',
+          phone: '',
+          address: null,
+          birthday: ''
+        });
+      }
+    }, (error) => {
+      console.log('Error loading target user profile in staff mode:', error);
+      setHasCompleteProfile(false);
+    });
+
+    // Cleanup listener
+    return () => {
+      off(targetUserRef, 'value', unsubscribeTargetUser);
+    };
+  }, [isStaffViewing, familyProfile?.createdBy]);
 
   // Effect to load facilitator data from family level
   useEffect(() => {
@@ -1337,7 +1286,7 @@ const RTDConnectDashboard = ({
     return () => {
       off(familyRef, 'value', unsubscribeFamily);
     };
-  }, [effectiveFamilyId, isStaffViewing, propFamilyData, isStaff]);
+  }, [effectiveFamilyId, isStaffViewing, propFamilyData]);
 
   // Enhanced permission checking when user logs in
   useEffect(() => {
@@ -1372,20 +1321,6 @@ const RTDConnectDashboard = ({
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-    }
-  };
-
-  // Handle under construction password submission
-  const handleConstructionPasswordSubmit = (e) => {
-    e.preventDefault();
-    setConstructionPasswordError('');
-
-    if (constructionPassword.toLowerCase() === 'connect') {
-      localStorage.setItem('rtdConnectBypassPassword', 'connect');
-      setShowUnderConstruction(false);
-      setConstructionPassword('');
-    } else {
-      setConstructionPasswordError('Incorrect password. Please try again.');
     }
   };
 
@@ -1484,16 +1419,30 @@ const RTDConnectDashboard = ({
 
     try {
       const db = getDatabase();
-      const userRef = ref(db, `users/${user.uid}`);
+      // Use target UID if in staff mode, otherwise use current user's UID
+      const saveUid = isStaffViewing && targetUserUid ? targetUserUid : user.uid;
+      const userRef = ref(db, `users/${saveUid}`);
+      
+      // When staff is editing, use the target user's email from userProfile
+      const emailToSave = isStaffViewing ? userProfile?.email : user.email;
       
       await set(userRef, {
         ...profileData,
-        email: user.email,
-        lastUpdated: new Date().toISOString()
+        email: emailToSave,
+        lastUpdated: new Date().toISOString(),
+        ...(isStaffViewing && { lastUpdatedByStaff: user.uid }) // Track who made the update
       });
 
       setShowProfileForm(false);
-      console.log('Profile saved successfully!');
+      console.log(`Profile saved successfully for user ${saveUid}!`);
+      
+      // Show success toast
+      setToast({
+        message: isStaffViewing 
+          ? 'Successfully updated user profile' 
+          : 'Profile saved successfully!',
+        type: 'success'
+      });
     } catch (error) {
       console.error('Error saving profile:', error);
       setProfileErrors({ submit: 'Failed to save profile. Please try again.' });
@@ -1859,14 +1808,16 @@ const RTDConnectDashboard = ({
   };
 
   // Handle citizenship documents update
-  const handleDocumentsUpdated = (studentId, documents) => {
-    // Update local state
+  const handleDocumentsUpdated = (studentId, documents, completionStatus, requiresStaffReview) => {
+    // Update local state with the actual status from the save operation
     setStudentDocumentStatuses(prev => ({
       ...prev,
       [studentId]: {
-        status: documents.length > 0 ? 'completed' : 'pending',
+        status: completionStatus || (documents.length > 0 ? 'completed' : 'pending'),
         documentCount: documents.length,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        requiresStaffReview: requiresStaffReview || false,
+        staffReviewReason: requiresStaffReview ? 'AI document analysis failed or returned low confidence scores' : null
       }
     }));
   };
@@ -3009,6 +2960,8 @@ Check console for full details.
           onFamilyDataChange={handleFamilyDataChange}
           onComplete={handleFamilyComplete}
           selectedFacilitator={selectedFacilitator} // Pass facilitator info
+          staffMode={isStaff()}
+          isStaffViewing={isStaffViewing}
         />
       </div>
     );
@@ -3215,6 +3168,8 @@ Check console for full details.
           initialFamilyData={familyData}
           onFamilyDataChange={handleFamilyDataChange}
           onComplete={handleFamilyComplete}
+          staffMode={isStaff()}
+          isStaffViewing={isStaffViewing}
         />
 
         {/* Mobile Navigation Sheet */}
@@ -3531,49 +3486,45 @@ Check console for full details.
   // If family is registered, show the full dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
-      {/* Under Construction Modal - Only show for non-staff users */}
-      {!isStaffViewing && (
-        <UnderConstructionModal
-          isOpen={showUnderConstruction}
-          password={constructionPassword}
-          setPassword={setConstructionPassword}
-          onSubmit={handleConstructionPasswordSubmit}
-          error={constructionPasswordError}
-        />
-      )}
-      
-      {/* Header - Only show for non-staff users */}
-      {!isStaffViewing && (
-        <header className="bg-white shadow-sm border-b border-purple-100">
+      {/* Header - Show for all users including staff */}
+      <header className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3 sm:space-x-6">
               <RTDConnectLogo />
-              <div className="hidden lg:block">
-                <UserTypeBadge customClaims={customClaims} />
-              </div>
+              {!isStaffViewing && (
+                <div className="hidden lg:block">
+                  <UserTypeBadge customClaims={customClaims} />
+                </div>
+              )}
             </div>
             
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            {/* Mobile menu button - hide in staff mode */}
+            {!isStaffViewing && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
             
             {/* Desktop profile dropdown */}
             <div className="hidden lg:flex items-center space-x-3">
+              {isStaffViewing && userProfile && (
+                <div className="text-sm text-gray-600 mr-3">
+                  Viewing: <span className="font-medium">{userProfile.firstName} {userProfile.lastName}</span>
+                </div>
+              )}
               <ProfileDropdown 
-                userProfile={{ ...userProfile, email: user?.email }}
+                userProfile={isStaffViewing && userProfile ? userProfile : { ...userProfile, email: user?.email }}
                 onEditProfile={() => setShowProfileForm(true)}
-                onSignOut={handleSignOut}
+                onSignOut={isStaffViewing ? null : handleSignOut}
               />
             </div>
           </div>
         </div>
-        </header>
-      )}
+      </header>
 
       {/* Main Content - Family Dashboard */}
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isStaffViewing ? 'py-4' : 'py-8'}`}>
@@ -4356,19 +4307,28 @@ Check console for full details.
         </div>
       </footer>
 
-      {/* Profile Sheet - Only for non-staff users */}
-      {!isStaffViewing && (
-        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
+      {/* Profile Sheet - Available for all users */}
+      <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-left">
               <div className="flex items-center space-x-2">
                 <User className="w-5 h-5 text-purple-500" />
-                <span>Edit Your Profile</span>
+                <span>{isStaffViewing ? 'Edit User Profile' : 'Edit Your Profile'}</span>
               </div>
             </SheetTitle>
             <SheetDescription className="text-left">
-              Update your basic information and contact details.
+              {isStaffViewing ? (
+                <div className="space-y-2">
+                  <div>Update basic information and contact details for this user.</div>
+                  <div className="flex items-center space-x-2 text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                    <Info className="w-4 h-4" />
+                    <span className="text-sm font-medium">Staff Mode: Editing {userProfile?.firstName} {userProfile?.lastName}'s profile</span>
+                  </div>
+                </div>
+              ) : (
+                'Update your basic information and contact details.'
+              )}
             </SheetDescription>
           </SheetHeader>
 
@@ -4500,11 +4460,10 @@ Check console for full details.
             </div>
           </form>
         </SheetContent>
-        </Sheet>
-      )}
+      </Sheet>
 
-      {/* Family Creation Sheet - Only for Primary Guardians */}
-      {customClaims?.familyRole === 'primary_guardian' && (
+      {/* Family Creation Sheet - Primary Guardians and Staff */}
+      {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && (
         <FamilyCreationSheet
           isOpen={showFamilyCreation}
           onOpenChange={setShowFamilyCreation}
@@ -4513,6 +4472,8 @@ Check console for full details.
           initialFamilyData={familyData}
           onFamilyDataChange={handleFamilyDataChange}
           onComplete={handleFamilyComplete}
+          staffMode={isStaff()}
+          isStaffViewing={isStaffViewing}
         />
       )}
 

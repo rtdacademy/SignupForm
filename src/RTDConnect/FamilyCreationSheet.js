@@ -7,7 +7,7 @@ import { toEdmontonDate, formatDateForDisplay, formatDateForInput } from '../uti
 import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
-import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail } from 'lucide-react';
+import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye } from 'lucide-react';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -178,7 +178,9 @@ const FamilyCreationSheet = ({
   hasRegisteredFamily,
   initialFamilyData = { familyName: '', students: [], guardians: [] },
   onFamilyDataChange,
-  onComplete
+  onComplete,
+  staffMode = false,
+  isStaffViewing = false
 }) => {
   const { user } = useAuth();
   
@@ -381,7 +383,7 @@ const FamilyCreationSheet = ({
     }
 
     // Address validation
-    if (!studentFormData.usePrimaryAddress && !studentFormData.address) {
+    if (!studentFormData.usePrimaryAddress && (!studentFormData.address || !studentFormData.address.fullAddress)) {
       errors.address = 'Address is required. Please select an address or use primary guardian address.';
     }
 
@@ -579,7 +581,7 @@ const FamilyCreationSheet = ({
     }
 
     // Address validation
-    if (!guardianFormData.usePrimaryAddress && !guardianFormData.address) {
+    if (!guardianFormData.usePrimaryAddress && (!guardianFormData.address || !guardianFormData.address.fullAddress)) {
       errors.address = 'Address is required. Please select an address or use primary guardian address.';
     }
 
@@ -885,19 +887,41 @@ const FamilyCreationSheet = ({
       <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-left">
-            <div className="flex items-center space-x-2">
-              <Users className="w-5 h-5 text-purple-500" />
-              <span>{hasRegisteredFamily ? 'Update Your Family' : 'Create Your Family'}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-purple-500" />
+                <span>{hasRegisteredFamily ? (staffMode ? 'Update Family Information' : 'Update Your Family') : 'Create Your Family'}</span>
+              </div>
+              {staffMode && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Staff Mode
+                </span>
+              )}
             </div>
           </SheetTitle>
           <SheetDescription className="text-left">
-            {hasRegisteredFamily 
-              ? 'Update your family name, students, and family members.'
-              : 'Add your students and family members to complete your family profile.'}
+            {staffMode 
+              ? 'Updating family information as staff member.'
+              : (hasRegisteredFamily 
+                ? 'Update your family name, students, and family members.'
+                : 'Add your students and family members to complete your family profile.')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="mt-6">
+          {/* Staff Mode Notification */}
+          {staffMode && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <p className="text-sm text-amber-800">
+                  <strong>Staff Mode:</strong> You are editing this family's information as a staff member. All changes will be saved to the family's account.
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Restored Data Notification */}
           {restoredFromSession && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">

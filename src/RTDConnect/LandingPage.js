@@ -19,8 +19,7 @@ import {
 // Import configuration
 import { 
   TAGLINE,
-  FUNDING_RATES, 
-  CONTACT_INFO
+  FUNDING_RATES
 } from '../config/HomeEducation';
 import { 
   getCurrentSchoolYear,
@@ -118,7 +117,8 @@ const RTDConnectLandingPage = () => {
   };
 
   const handleContactClick = () => {
-    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    // Contact section removed - redirect to funding page
+    navigate('/funding');
     setIsMenuOpen(false);
   };
 
@@ -166,12 +166,6 @@ const RTDConnectLandingPage = () => {
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
                 Funding
-              </button>
-              <button
-                onClick={handleContactClick}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Contact
               </button>
               <button
                 onClick={handleGetStarted}
@@ -224,12 +218,6 @@ const RTDConnectLandingPage = () => {
                   className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
                 >
                   Funding
-                </button>
-                <button
-                  onClick={handleContactClick}
-                  className="text-gray-600 hover:text-gray-900 py-2 transition-colors text-left"
-                >
-                  Contact
                 </button>
                 <button
                   onClick={handleGetStartedClick}
@@ -392,20 +380,6 @@ const RTDConnectLandingPage = () => {
             </div>
           </div>
 
-          {/* Stats Section */}
-          <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-8 border border-white/50">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <DollarSign className="w-10 h-10 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Alberta Home Education Funding</h3>
-              <p className="text-gray-600 mb-6">Government funding to support your educational journey</p>
-              <div className="text-4xl font-bold text-purple-600 mb-2">{FUNDING_RATES.GRADES_1_TO_12.formatted}</div>
-              <div className="text-lg text-gray-600 font-medium mb-2">Per Student (Grades 1-12)</div>
-              <div className="text-2xl font-semibold text-blue-600">{FUNDING_RATES.KINDERGARTEN.formatted}</div>
-              <div className="text-sm text-gray-600">Kindergarten Funding</div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -513,69 +487,11 @@ const RTDConnectLandingPage = () => {
                 View All Facilitators
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
-              <button
-                onClick={handleContactClick}
-                className="inline-flex items-center px-8 py-4 border border-gray-300 text-base sm:text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-              >
-                Contact Our Team
-              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section id="contact" className="py-12 sm:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              We're Here for You
-            </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-              Questions about starting home education or our platform? Our team is dedicated to supporting your family's success.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-8 sm:mb-12">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Phone className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Phone Support</h3>
-              <p className="text-gray-600">Get quick help from our experts</p>
-              <p className="text-purple-600 font-medium mt-2">{CONTACT_INFO.MAIN.phone}</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Us</h3>
-              <p className="text-gray-600">Detailed responses within 24 hours</p>
-              <p className="text-purple-600 font-medium mt-2">{CONTACT_INFO.MAIN.email}</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Our Location</h3>
-              <p className="text-gray-600">Schedule a visit</p>
-              <p className="text-purple-600 font-medium mt-2">{CONTACT_INFO.MAIN.location}</p>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <button
-              onClick={handleGetStarted}
-              className="inline-flex items-center px-8 py-4 border border-transparent text-base sm:text-lg font-medium rounded-lg text-white bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-            >
-              Launch Your Home Education
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </button>
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 sm:py-12">
@@ -608,21 +524,12 @@ const RTDConnectLandingPage = () => {
                 <li><button onClick={() => navigate('/faq')} className="hover:text-white transition-colors">FAQ</button></li>
                 <li><button onClick={() => navigate('/funding')} className="hover:text-white transition-colors">Funding</button></li>
                 <li><button onClick={handleGetStarted} className="hover:text-white transition-colors">Get Started</button></li>
-                <li><button onClick={handleContactClick} className="hover:text-white transition-colors">Contact Us</button></li>
                 <li><a href="https://rtdacademy.com" className="hover:text-white transition-colors">RTD Academy</a></li>
                 <li><button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">Privacy Statement</button></li>
                 <li><button onClick={() => navigate('/terms')} className="hover:text-white transition-colors">Terms & Conditions</button></li>
               </ul>
             </div>
 
-            <div>
-              <h4 className="text-base sm:text-lg font-semibold mb-4">Contact Details</h4>
-              <div className="space-y-2 text-gray-400 text-sm">
-                <p>{CONTACT_INFO.MAIN.email}</p>
-                <p>{CONTACT_INFO.MAIN.phone}</p>
-                <p>{CONTACT_INFO.MAIN.location}</p>
-              </div>
-            </div>
           </div>
 
           <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-gray-400 text-sm">

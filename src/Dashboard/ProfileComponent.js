@@ -4,12 +4,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, FileText, AlertTriangle } from 'lucide-react';
 import PhoneInput from 'react-phone-input-2';
 import "react-phone-input-2/lib/style.css";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { toDateString, toEdmontonDate, calculateAge } from '../utils/timeZoneUtils';
+import RestrictedDocumentsEditor from '../Registration/studentProperties/RestrictedDocumentsEditor';
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -20,11 +21,13 @@ const GENDER_OPTIONS = [
 const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender', 'birthday'];
 
 const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) => {
-  const { current_user_email_key } = useAuth();
+  const { current_user_email_key, user } = useAuth();
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [showDocumentsEditor, setShowDocumentsEditor] = useState(false);
+  const [studentData, setStudentData] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -43,6 +46,12 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
   // Initialize form data when profile changes
   useEffect(() => {
     if (profile) {
+      // Prepare student data for DocumentsEditor
+      setStudentData({
+        studentKey: current_user_email_key,
+        profile: profile,
+        studentType: { Value: profile.studentType || 'Non-Primary' }
+      });
       const data = {
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
@@ -258,6 +267,55 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
               </div>
             </div>
 
+            {/* Documents Section - Only show for non-international students */}
+            {profile && profile.studentType !== 'International Student' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Documents</h3>
+                
+                {/* Check if citizenship documents are missing */}
+                {(!profile.citizenshipDocuments || profile.citizenshipDocuments.length === 0) && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      <p className="font-medium mb-1">Missing Citizenship Documentation</p>
+                      <p>Please upload citizenship documents to complete your profile.</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* Display existing citizenship documents */}
+                {profile.citizenshipDocuments && profile.citizenshipDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Citizenship Documents</label>
+                    <div className="space-y-2">
+                      {profile.citizenshipDocuments.map((doc, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">{doc.typeLabel || doc.type || `Document ${index + 1}`}</span>
+                          {doc.fromProfile && (
+                            <span className="text-xs text-gray-500">(Original)</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Button to open documents editor - only if documents are missing */}
+                {(!profile.citizenshipDocuments || profile.citizenshipDocuments.length === 0) && !readOnly && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowDocumentsEditor(true)}
+                    className="w-full"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Upload Citizenship Documents
+                  </Button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-500">Parent/Guardian Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -304,6 +362,24 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
           </SheetClose>
         </SheetFooter>
       </SheetContent>
+      
+      {/* Documents Editor Modal */}
+      {showDocumentsEditor && studentData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-white rounded-lg p-4">
+            <RestrictedDocumentsEditor
+              studentData={studentData}
+              onUpdate={(updatedData) => {
+                // Update the profile with new data
+                setStudentData(updatedData);
+                // Force refresh of parent component if needed
+                window.location.reload();
+              }}
+              onCancel={() => setShowDocumentsEditor(false)}
+            />
+          </div>
+        </div>
+      )}
     </Sheet>
   );
 };

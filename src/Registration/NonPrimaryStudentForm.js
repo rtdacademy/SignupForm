@@ -1218,6 +1218,8 @@ const NonPrimaryStudentForm = forwardRef(({
                   value: toDateString(safeEndDate)
                 }
               });
+              // Mark end date as touched to trigger validation
+              handleBlur('endDate');
             }
           }
         } else {
@@ -1239,6 +1241,8 @@ const NonPrimaryStudentForm = forwardRef(({
                 value: toDateString(effectiveEndDate)
               }
             });
+            // Mark end date as touched to trigger validation
+            handleBlur('endDate');
           }
         }
       }
@@ -1255,6 +1259,8 @@ const NonPrimaryStudentForm = forwardRef(({
           value: toDateString(maxEndDate || diplomaDate)
         }
       });
+      // Mark end date as touched to trigger validation
+      handleBlur('endDate');
     }
   };
 
@@ -1832,6 +1838,8 @@ const NonPrimaryStudentForm = forwardRef(({
             value: toDateString(maxEndDate)
           }
         });
+        // Mark end date as touched to trigger validation
+        handleBlur('endDate');
       }
       
       // Check if there's a minimum completion period that would create a conflict
@@ -2072,6 +2080,9 @@ const NonPrimaryStudentForm = forwardRef(({
           }
         });
         
+        // Mark end date as touched to trigger validation
+        handleBlur('endDate');
+        
         // For diploma dates, don't show error message since info is shown elsewhere
         setDateErrors(prev => ({
           ...prev,
@@ -2084,6 +2095,9 @@ const NonPrimaryStudentForm = forwardRef(({
             value: toDateString(diplomaDate)
           }
         });
+        
+        // Mark end date as touched to trigger validation
+        handleBlur('endDate');
       }
       
       // Clear the no-valid-dates flag if we've found a valid date
@@ -2112,12 +2126,12 @@ const NonPrimaryStudentForm = forwardRef(({
     }
 
     if (!formData.startDate) {
-      newDateErrors.startDate = 'Start date is required';
+      // Don't show inline message, just mark as invalid
       valid = false;
     }
 
     if (!formData.endDate) {
-      newDateErrors.endDate = 'End date is required';
+      // Don't show inline message, just mark as invalid
       valid = false;
     }
 
@@ -2805,12 +2819,6 @@ const NonPrimaryStudentForm = forwardRef(({
                     studentType={studentType}
                     disabled={noValidDatesAvailable}
                   />
-                  {(touched.startDate || formData.startDate) && !dateErrors.startDate && (
-                    <ValidationFeedback
-                      isValid={!errors.startDate}
-                      message={errors.startDate || validationRules.startDate?.successMessage}
-                    />
-                  )}
 
                   <DatePickerWithInfo
                     label="Completion Date"
@@ -2883,12 +2891,6 @@ const NonPrimaryStudentForm = forwardRef(({
                     alreadyWroteDiploma={alreadyWroteDiploma}
                     selectedDiplomaDate={selectedDiplomaDate}
                   />
-                  {(touched.endDate || formData.endDate) && !dateErrors.endDate && (
-                    <ValidationFeedback
-                      isValid={!errors.endDate}
-                      message={errors.endDate || validationRules.endDate?.successMessage}
-                    />
-                  )}
                 </div>
 
         

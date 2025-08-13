@@ -268,6 +268,7 @@ const Unit1Review = ({ courseId = 'default', AIAccordion, onAIAccordionContent }
       </TextSection>
 
       <SlideshowKnowledgeCheck
+        course={course}
         title="Unit 1 Review - Momentum and Impulse Practice"
         questions={[
           {

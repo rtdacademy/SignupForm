@@ -13,8 +13,11 @@ import {
 /**
  * Custom hook for managing staff custom claims
  * Handles checking existing claims, applying new claims, and providing permission utilities
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.readOnly - If true, only reads claims without trying to apply them (default: false)
  */
-export const useStaffClaims = () => {
+export const useStaffClaims = (options = {}) => {
+  const { readOnly = false } = options;
   const [claims, setClaims] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -108,6 +111,11 @@ export const useStaffClaims = () => {
 
     const currentClaims = await readCurrentClaims();
     
+    // In read-only mode, never try to apply claims
+    if (readOnly) {
+      return currentClaims;
+    }
+    
     // Check if user needs staff claims applied
     const needsClaims = !currentClaims?.staffPermissions || 
                        currentClaims.staffPermissions.length === 0;
@@ -118,7 +126,7 @@ export const useStaffClaims = () => {
     }
     
     return currentClaims;
-  }, [auth.currentUser, readCurrentClaims, applyStaffClaims]);
+  }, [auth.currentUser, readCurrentClaims, applyStaffClaims, readOnly]);
 
   /**
    * Manually refresh claims (force token refresh and re-read)
@@ -218,7 +226,13 @@ export const useStaffClaims = () => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        await checkAndApplyStaffClaims();
+        if (readOnly) {
+          // In read-only mode, just read the current claims
+          await readCurrentClaims();
+        } else {
+          // In normal mode, check and apply if needed
+          await checkAndApplyStaffClaims();
+        }
       } else {
         setClaims(null);
         setLoading(false);
@@ -237,7 +251,7 @@ export const useStaffClaims = () => {
       unsubscribe();
       window.removeEventListener('tokenRefreshed', handleTokenRefresh);
     };
-  }, [auth, checkAndApplyStaffClaims, readCurrentClaims]);
+  }, [auth, checkAndApplyStaffClaims, readCurrentClaims, readOnly]);
 
   return {
     // Claims data

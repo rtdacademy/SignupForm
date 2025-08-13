@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit3, Trash2, Save, X, BookOpen, GraduationCap } from 'lucide-react';
+import { Input } from './ui/input';
 
 const OtherCoursesManager = ({ courses = [], onCoursesChange }) => {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -106,7 +107,8 @@ const OtherCoursesManager = ({ courses = [], onCoursesChange }) => {
     setEditingCourse(null);
   };
 
-  const CourseForm = () => (
+  // CourseForm component moved outside and converted to a regular function component
+  const renderCourseForm = () => (
     <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
       <h4 className="font-semibold text-gray-900 mb-4">
         {editingCourse ? 'Edit Course' : 'Add New Course'}
@@ -118,11 +120,10 @@ const OtherCoursesManager = ({ courses = [], onCoursesChange }) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Course Name <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="text"
             value={formData.courseName}
             onChange={(e) => setFormData(prev => ({ ...prev, courseName: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="e.g., Photography 1, Foods 1010, Special Projects"
           />
         </div>
@@ -132,11 +133,10 @@ const OtherCoursesManager = ({ courses = [], onCoursesChange }) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Course Code (Optional)
           </label>
-          <input
+          <Input
             type="text"
             value={formData.courseCode}
             onChange={(e) => setFormData(prev => ({ ...prev, courseCode: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="e.g., ART1070, FOD1010"
           />
         </div>
@@ -341,7 +341,7 @@ const OtherCoursesManager = ({ courses = [], onCoursesChange }) => {
       </div>
 
       {/* Add/Edit Form */}
-      {showAddForm && <CourseForm />}
+      {showAddForm && renderCourseForm()}
 
       {/* Course List */}
       {courses.length > 0 ? (

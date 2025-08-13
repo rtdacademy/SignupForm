@@ -193,6 +193,7 @@ const Activities = ({ courseId }) => {
           <div>
             <h3 className="text-lg font-medium mb-4">Answer the Questions</h3>
             <SlideshowKnowledgeCheck
+        course={course}
               courseId={courseId}
               lessonPath="41-activities"
               questions={currentStation.questions}

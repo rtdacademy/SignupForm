@@ -258,7 +258,11 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <GradebookSummary course={enrichedCourse} profile={profile} />
+          <GradebookSummary 
+            course={enrichedCourse} 
+            profile={profile} 
+            enrichedCourseItems={enrichedCourseItems}
+          />
         </TabsContent>
 
         <TabsContent value="assessments" className="space-y-6">

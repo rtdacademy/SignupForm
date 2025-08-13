@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -31,6 +32,14 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { ScrollArea } from "../components/ui/scroll-area";
 import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
@@ -405,6 +414,12 @@ const StudentCard = React.memo(({
 
   // Add state for restoring from cold storage
   const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreOptionsModal, setRestoreOptionsModal] = useState(null);
+  const [archiveOptionsDialog, setArchiveOptionsDialog] = useState(false);
+  const [archiveData, setArchiveData] = useState(null);
+  const [loadingArchiveData, setLoadingArchiveData] = useState(false);
+  const [archiveDataViewModal, setArchiveDataViewModal] = useState(null);
+  const [expandedSections, setExpandedSections] = useState(new Set(['stats']));
 
   // Access the logged-in teacher's info
   const { user, isAdminUser } = useAuth();
@@ -821,42 +836,330 @@ const handleStatusChange = useCallback(async (newStatus) => {
     }
   }, [student.id, getStudentInfo.fullName, student.Course_Value, onCourseRemoved]);
 
-  const handleRestoreFromColdStorage = useCallback(async (e) => {
+  // Get safe Active Future Archived value
+  const safeActiveFutureArchivedValue = getSafeValue(student?.ActiveFutureArchived_Value);
+  const isColdStorage = safeActiveFutureArchivedValue === 'Archived';
+  
+  // Check if archive data is available for restoration (could be archived or re-enrolled)
+  const hasArchiveData = student?.archiveInfo?.archiveFilePath;
+  const canRestore = hasArchiveData; // Archive data available regardless of current status
+
+  const handleOpenArchiveOptions = useCallback(async (e) => {
     e.stopPropagation(); // Prevent card click
-    setIsRestoring(true);
+    setArchiveOptionsDialog(true);
     
-    const db = getDatabase();
-    // Get the student key consistently with how categories are handled
+    // Check current enrollment status
     const rawEmail = student.StudentEmail;
-  if (!rawEmail) {
-    console.error('StudentEmail is missing for student:', student);
-    toast.error('Cannot update: Student email is missing');
-    return;
-  }
-    const studentKey = sanitizeEmail(rawEmail);
-    const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
-    const summaryKey = `${studentKey}_${courseId}`;
+    if (!rawEmail) {
+      console.error('StudentEmail is missing for student:', student);
+      toast.error('Cannot manage archive: Student email is missing');
+      return;
+    }
     
+    const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
+    
+    setLoadingArchiveData(true);
     try {
-      // Update the ActiveFutureArchived_Value to 'Active' in the studentCourseSummaries
-      const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}/ActiveFutureArchived_Value`);
-      await set(summaryRef, 'Active');
+      const functions = getFunctions();
+      const restoreArchivedStudent = httpsCallable(functions, 'restoreArchivedStudent');
       
-      // Show success message
-      toast.success('Student is being restored from Archived', {
-        description: 'This may take a few moments to complete.',
-        duration: 5000
+      // Check if there's existing data
+      const checkResult = await restoreArchivedStudent({
+        studentEmail: rawEmail,
+        courseId: courseId,
+        mode: 'check'
+      });
+      
+      setArchiveData({
+        studentEmail: rawEmail,
+        courseId: courseId,
+        studentName: getStudentInfo.fullName,
+        courseName: getSafeValue(student.Course_Value),
+        hasExistingData: checkResult.data.hasExistingData,
+        existingDataInfo: checkResult.data.existingDataInfo,
+        archiveInfo: student.archiveInfo,
+        isArchived: isColdStorage,
+        archiveFilePath: student.archiveInfo?.archiveFilePath || checkResult.data.archiveFilePath
       });
     } catch (error) {
-      console.error('Error restoring student from archived:', error);
-      toast.error('Failed to restore student', {
-        description: error.message,
-        duration: 3000
+      console.error('Error checking archive status:', error);
+      // Still show dialog with limited info
+      setArchiveData({
+        studentEmail: rawEmail,
+        courseId: courseId,
+        studentName: getStudentInfo.fullName,
+        courseName: getSafeValue(student.Course_Value),
+        archiveInfo: student.archiveInfo,
+        isArchived: isColdStorage,
+        archiveFilePath: student.archiveInfo?.archiveFilePath,
+        error: error.message
+      });
+    } finally {
+      setLoadingArchiveData(false);
+    }
+  }, [student, getStudentInfo.fullName, isColdStorage]);
+  
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
+  };
+
+  const copyToClipboard = (data) => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    toast.success('JSON data copied to clipboard', { duration: 3000 });
+  };
+
+  const renderJsonSection = (title, data, sectionKey) => {
+    const isExpanded = expandedSections.has(sectionKey);
+    const hasData = data && Object.keys(data).length > 0;
+    
+    return (
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection(sectionKey)}
+          className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+        >
+          <div className="flex items-center space-x-2">
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            )}
+            <span className="font-medium text-gray-900">{title}</span>
+            {hasData && (
+              <span className="text-sm text-gray-500">
+                ({Object.keys(data).length} {Object.keys(data).length === 1 ? 'field' : 'fields'})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {hasData && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(data);
+                }}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="Copy to clipboard"
+              >
+                <Copy className="w-4 h-4 text-gray-600" />
+              </button>
+            )}
+          </div>
+        </button>
+        
+        {isExpanded && hasData && (
+          <div className="border-t border-gray-200">
+            <div className="max-h-96 overflow-auto bg-gray-900 p-4">
+              <pre className="text-xs text-gray-200 font-mono whitespace-pre-wrap break-all">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+        
+        {isExpanded && !hasData && (
+          <div className="p-4 text-gray-500 text-sm">No data available</div>
+        )}
+      </div>
+    );
+  };
+
+  const handleArchiveAction = useCallback(async (action) => {
+    if (!archiveData) return;
+    
+    const { studentEmail, courseId } = archiveData;
+    setIsRestoring(true);
+    setArchiveOptionsDialog(false);
+    
+    try {
+      const functions = getFunctions();
+      
+      if (action === 'view') {
+        // Call viewArchivedData function
+        const viewArchivedData = httpsCallable(functions, 'viewArchivedData');
+        toast.info('Loading archive data...');
+        
+        const result = await viewArchivedData({
+          studentEmail: studentEmail,
+          courseId: courseId
+        });
+        
+        if (result.data.success) {
+          // Show data in modal viewer
+          setArchiveDataViewModal({
+            studentName: archiveData.studentName,
+            courseName: archiveData.courseName,
+            data: result.data.data,
+            stats: result.data.stats,
+            currentSummaryData: result.data.currentSummaryData
+          });
+          setExpandedSections(new Set(['stats']));
+          toast.success('Archive data loaded');
+        } else {
+          toast.error('Failed to load archive data');
+        }
+      } else {
+        // Handle restore actions
+        const restoreArchivedStudent = httpsCallable(functions, 'restoreArchivedStudent');
+        
+        let mode = action;
+        if (action === 'restore') {
+          mode = 'full_restore';
+        }
+        
+        toast.info('Processing restoration...', {
+          description: `Applying ${mode === 'merge_notes' ? 'note merge' : mode === 'archive_current' ? 'archive and restore' : 'full restore'}...`,
+          duration: 3000
+        });
+        
+        const result = await restoreArchivedStudent({
+          studentEmail: studentEmail,
+          courseId: courseId,
+          mode: mode
+        });
+        
+        if (result.data.success) {
+          let message = '';
+          let description = '';
+          
+          switch(mode) {
+            case 'merge_notes':
+              message = 'Notes successfully merged';
+              description = result.data.message || `Merged historical notes with current enrollment.`;
+              break;
+            case 'full_restore':
+              message = 'Student fully restored';
+              description = `Restored all course data and ${result.data.messagesRestored || 0} messages.`;
+              break;
+            case 'archive_current':
+              message = 'Archive swap completed';
+              description = `Current enrollment archived, previous enrollment restored.`;
+              break;
+            default:
+              message = 'Operation completed';
+              description = result.data.message;
+          }
+          
+          toast.success(message, {
+            description: description,
+            duration: 5000
+          });
+          
+          // Only refresh for full restore or archive swap actions
+          // Don't refresh for merge_notes or view
+          if (mode === 'full_restore' || mode === 'archive_current') {
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          }
+        } else {
+          toast.error('Operation failed', {
+            description: result.data.message || 'An error occurred.',
+            duration: 5000
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error during archive operation:', error);
+      toast.error('Operation failed', {
+        description: error.message || 'An unexpected error occurred.',
+        duration: 5000
       });
     } finally {
       setIsRestoring(false);
     }
-  }, [student.id]);
+  }, [archiveData]);
+  
+  // Handle restore option selection from modal
+  const handleRestoreOption = useCallback(async (mode) => {
+    if (!restoreOptionsModal) return;
+    
+    const { studentEmail, courseId, studentName, courseName } = restoreOptionsModal;
+    
+    // Close the modal
+    setRestoreOptionsModal(null);
+    setIsRestoring(true);
+    
+    try {
+      const functions = getFunctions();
+      const restoreArchivedStudent = httpsCallable(functions, 'restoreArchivedStudent');
+      
+      toast.info('Processing restoration...', {
+        description: `Applying ${mode === 'merge_notes' ? 'note merge' : mode === 'archive_current' ? 'archive and restore' : 'full restore'}...`,
+        duration: 3000
+      });
+      
+      const result = await restoreArchivedStudent({
+        studentEmail: studentEmail,
+        courseId: courseId,
+        mode: mode
+      });
+      
+      if (result.data.success) {
+        let message = '';
+        let description = '';
+        
+        switch(mode) {
+          case 'merge_notes':
+            message = 'Notes successfully merged';
+            description = result.data.message || `Merged historical notes with current enrollment.`;
+            break;
+          case 'full_restore':
+            message = 'Student fully restored';
+            description = `Overwrote existing enrollment with archived data.`;
+            break;
+          case 'archive_current':
+            message = 'Archive swap completed';
+            description = `Current enrollment archived, previous enrollment restored.`;
+            break;
+          default:
+            message = 'Restoration completed';
+            description = result.data.message;
+        }
+        
+        toast.success(message, {
+          description: description,
+          duration: 5000
+        });
+        
+        // Refresh for full restore or archive swap
+        if (mode !== 'merge_notes') {
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }
+      } else {
+        toast.error('Restoration failed', {
+          description: result.data.message || 'An error occurred during restoration.',
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      console.error('Error during restoration:', error);
+      toast.error('Failed to restore', {
+        description: error.message || 'An unexpected error occurred.',
+        duration: 5000
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [restoreOptionsModal]);
 
   const groupedTeacherCategories = useMemo(() => {
     if (!teacherCategories || typeof teacherCategories !== 'object') {
@@ -904,8 +1207,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
   }, [teacherCategories, student.categories]);
 
   const handleCardClick = useCallback(() => {
-    console.log('Selected student object:', student); 
+    if (!isMobile) {
+      console.log('Selected student object:', student); 
       onStudentSelect(student);
+    }
   }, [isMobile, onStudentSelect, student]);
 
   const handleSelectClick = useCallback((event) => {
@@ -1045,10 +1350,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
   
   // Add a debugging section to help identify problematic students
   const hasObjectStatusValue = typeof student.Status_Value === 'object' && student.Status_Value !== null;
-
-  // Get safe Active Future Archived value
-  const safeActiveFutureArchivedValue = getSafeValue(student?.ActiveFutureArchived_Value);
-  const isColdStorage = safeActiveFutureArchivedValue === 'Archived';
 
   return (
     <>
@@ -1595,7 +1896,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
               (hasProfileHistory ? 1 : 0) +
               1 + // Emulate is always visible
               (isAdminUser ? 1 : 0) +
-              (isColdStorage ? 1 : 0);
+              (canRestore ? 1 : 0);
             
             // Three size tiers based on button count
             const sizeMode = buttonCount > 4 ? 'small' : buttonCount === 4 ? 'medium' : 'normal';
@@ -1717,17 +2018,27 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   </Tooltip>
                 )}
 
-                {isColdStorage && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`${buttonClass} text-green-600 hover:text-green-700`}
-                    onClick={handleRestoreFromColdStorage}
-                    disabled={isRestoring}
-                  >
-                    <ArchiveRestore className={iconClass} />
-                    {isRestoring ? 'Restoring...' : 'Restore'}
-                  </Button>
+                {canRestore && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`${buttonClass} text-blue-600 hover:text-blue-700`}
+                        onClick={handleOpenArchiveOptions}
+                        disabled={isRestoring}
+                      >
+                        <ArchiveRestore className={iconClass} />
+                        Archive Options
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <div className="text-xs">
+                        <div className="font-semibold">Archive Management</div>
+                        <div>View and manage archived student data</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             );
@@ -1911,6 +2222,279 @@ const handleStatusChange = useCallback(async (newStatus) => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Archive Options Sheet */}
+      <Sheet open={archiveOptionsDialog} onOpenChange={setArchiveOptionsDialog}>
+        <SheetContent className="w-full sm:max-w-md flex flex-col h-full p-0">
+          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+            <SheetTitle className="flex items-center space-x-2">
+              <ArchiveRestore className="w-5 h-5 text-blue-600" />
+              <span>Archive Management</span>
+            </SheetTitle>
+            <SheetDescription>
+              View and manage archived student data
+            </SheetDescription>
+          </SheetHeader>
+          
+          <ScrollArea className="flex-1 px-6 pb-6">
+            <div className="space-y-4">
+            {loadingArchiveData ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-sm text-gray-600">Loading archive information...</p>
+                </div>
+              </div>
+            ) : archiveData ? (
+              <>
+              {/* Archive Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-medium text-gray-900 mb-3">Archive Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Student:</span>
+                    <span className="font-medium">{archiveData.studentName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Course:</span>
+                    <span className="font-medium">{archiveData.courseName}</span>
+                  </div>
+                  {archiveData.archiveInfo?.archivedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Archived Date:</span>
+                      <span className="font-medium">
+                        {format(new Date(archiveData.archiveInfo.archivedAt), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    </div>
+                  )}
+                  {archiveData.archiveInfo?.restorationInfo?.restoredAt && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Last Restored:</span>
+                      <span className="font-medium text-green-600">
+                        {format(new Date(archiveData.archiveInfo.restorationInfo.restoredAt), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Current Status:</span>
+                    <span className={`font-medium ${
+                      archiveData.isArchived ? 'text-cyan-600' : 'text-green-600'
+                    }`}>
+                      {archiveData.isArchived ? 'Archived' : 'Active'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Current Enrollment Info (if exists) */}
+              {archiveData.hasExistingData && archiveData.existingDataInfo && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-2 flex items-center">
+                    <AlertCircle className="w-4 h-4 text-yellow-600 mr-2" />
+                    Current Enrollment Detected
+                  </h3>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li>• School Year: {archiveData.existingDataInfo.schoolYear}</li>
+                    <li>• Status: {archiveData.existingDataInfo.status}</li>
+                    <li>• Enrollment Date: {archiveData.existingDataInfo.enrollmentDate ? 
+                      format(new Date(archiveData.existingDataInfo.enrollmentDate), 'MMM d, yyyy') : 'Unknown'}</li>
+                    {archiveData.existingDataInfo.hasNotes && (
+                      <li>• Current Notes: {archiveData.existingDataInfo.noteCount} existing notes</li>
+                    )}
+                    {archiveData.existingDataInfo.totalArchivedNotes > 0 && (
+                      <li>• Archive Notes: {archiveData.existingDataInfo.totalArchivedNotes} notes ({archiveData.existingDataInfo.uniqueArchivedNotes} unique)</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Error Message */}
+              {archiveData.error && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-700">
+                    {archiveData.error}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <h3 className="font-medium text-gray-900 mb-2">Available Actions</h3>
+                
+                {/* View Archive Data - Always available if archive exists */}
+                {archiveData.archiveFilePath && (
+                  <Button
+                    onClick={() => handleArchiveAction('view')}
+                    className="w-full justify-between bg-gray-600 hover:bg-gray-700 text-white"
+                    disabled={isRestoring}
+                  >
+                    <div className="text-left">
+                      <div className="font-medium">View Archive Data</div>
+                      <div className="text-xs opacity-90">Inspect the archived data without making changes</div>
+                    </div>
+                    <Eye className="w-5 h-5" />
+                  </Button>
+                )}
+                
+                {/* Restore Options based on current state */}
+                {archiveData.isArchived && !archiveData.hasExistingData && (
+                  <Button
+                    onClick={() => handleArchiveAction('restore')}
+                    className="w-full justify-between bg-green-600 hover:bg-green-700 text-white"
+                    disabled={isRestoring}
+                  >
+                    <div className="text-left">
+                      <div className="font-medium">Restore from Archive</div>
+                      <div className="text-xs opacity-90">Restore all student data from cold storage</div>
+                    </div>
+                    <RefreshCw className="w-5 h-5" />
+                  </Button>
+                )}
+                
+                {/* Show merge/replace options if:
+                   1. Student is archived with existing data OR
+                   2. Student is active with archive data available (already restored but can re-apply) */}
+                {(archiveData.hasExistingData || (!archiveData.isArchived && archiveData.archiveFilePath)) && (
+                  <>
+                    {/* Only show merge notes button if there are unique notes to merge */}
+                    {archiveData.existingDataInfo?.canMergeNotes && (
+                      <Button
+                        onClick={() => handleArchiveAction('merge_notes')}
+                        className="w-full justify-between bg-blue-600 hover:bg-blue-700 text-white"
+                        disabled={isRestoring}
+                      >
+                        <div className="text-left">
+                          <div className="font-medium">Merge Notes Only</div>
+                          <div className="text-xs opacity-90">
+                            Add {archiveData.existingDataInfo.uniqueArchivedNotes} unique historical note{archiveData.existingDataInfo.uniqueArchivedNotes !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <MessageSquare className="w-5 h-5" />
+                      </Button>
+                    )}
+                    
+                    {/* Show info message if no unique notes to merge */}
+                    {archiveData.existingDataInfo && !archiveData.existingDataInfo.canMergeNotes && archiveData.existingDataInfo.totalArchivedNotes > 0 && (
+                      <div className="w-full p-3 bg-gray-100 rounded-lg">
+                        <div className="text-sm text-gray-600 flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <span>All archived notes already exist in current enrollment</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button
+                      onClick={() => handleArchiveAction('archive_current')}
+                      className="w-full justify-between bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={isRestoring}
+                    >
+                      <div className="text-left">
+                        <div className="font-medium">Swap with Archive</div>
+                        <div className="text-xs opacity-90">Save current enrollment & restore archived</div>
+                      </div>
+                      <ChevronRight className="w-5 h-5" />
+                    </Button>
+                    
+                  </>
+                )}
+              </div>
+              
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No archive information available</p>
+              </div>
+            )}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+      
+      {/* Archive Data Viewer Modal */}
+      {archiveDataViewModal && (
+        <Dialog open={!!archiveDataViewModal} onOpenChange={(open) => !open && setArchiveDataViewModal(null)}>
+          <DialogContent className="max-w-6xl w-[90vw] h-[85vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileJson className="w-6 h-6 text-blue-600" />
+                  <div>
+                    <DialogTitle>Archive Data Viewer</DialogTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {archiveDataViewModal.courseName} - {archiveDataViewModal.studentName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-auto p-4">
+              {/* Statistics */}
+              {archiveDataViewModal.stats && (
+                <div className="mb-6">
+                  {renderJsonSection('Archive Statistics', {
+                    'File Size (Compressed)': formatBytes(archiveDataViewModal.stats.compressedSize),
+                    'File Size (Decompressed)': formatBytes(archiveDataViewModal.stats.decompressedSize),
+                    'Compression Ratio': archiveDataViewModal.stats.compressionRatio,
+                    'Message Count': archiveDataViewModal.stats.messageCount,
+                    'Student Notes': archiveDataViewModal.stats.noteCount,
+                    'Has Previous Enrollments': archiveDataViewModal.stats.hasPreviousEnrollments ? 'Yes' : 'No',
+                    'Archive Date': archiveDataViewModal.stats.archiveDate ? format(new Date(archiveDataViewModal.stats.archiveDate), 'MMM d, yyyy h:mm a') : 'Unknown',
+                    'Archive File Path': archiveDataViewModal.stats.filePath
+                  }, 'stats')}
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                {/* Archive Metadata */}
+                {renderJsonSection('Archive Metadata', archiveDataViewModal.data.archiveMetadata, 'archiveMetadata')}
+                
+                {/* Student Course Summary */}
+                {renderJsonSection('Student Course Summary', archiveDataViewModal.data.studentCourseSummary, 'studentCourseSummary')}
+                
+                {/* Course Data */}
+                {renderJsonSection('Course Data', archiveDataViewModal.data.courseData, 'courseData')}
+                
+                {/* Course Messages */}
+                {renderJsonSection(
+                  `Course Messages (${Object.keys(archiveDataViewModal.data.courseMessages || {}).length})`, 
+                  archiveDataViewModal.data.courseMessages, 
+                  'courseMessages'
+                )}
+                
+                {/* Current Summary Data */}
+                {archiveDataViewModal.currentSummaryData && 
+                  renderJsonSection('Current Summary Info', archiveDataViewModal.currentSummaryData, 'currentSummaryData')
+                }
+              </div>
+            </div>
+            
+            <div className="flex-shrink-0 px-4 py-3 bg-gray-50 border-t flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Click arrows to expand/collapse sections
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button
+                  onClick={() => copyToClipboard(archiveDataViewModal.data)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>Copy All Data</span>
+                </Button>
+                <Button
+                  onClick={() => setArchiveDataViewModal(null)}
+                  size="sm"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 });

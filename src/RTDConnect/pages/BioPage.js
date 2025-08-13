@@ -13,7 +13,10 @@ import {
   BookOpen,
   Menu,
   Heart,
-  Award
+  Award,
+  UserCircle,
+  Copy,
+  Check
 } from 'lucide-react';
 
 // Import configuration
@@ -43,6 +46,7 @@ const RTDConnectLogo = () => (
 const BioPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(null);
 
   const handleHomeClick = () => {
     navigate('/');
@@ -73,8 +77,10 @@ const BioPage = () => {
     window.location.href = `mailto:${email}`;
   };
 
-  const handleContactPhone = (phone) => {
-    window.location.href = `tel:${phone}`;
+  const handleCopyPhone = (phone, facilitatorId) => {
+    navigator.clipboard.writeText(phone);
+    setCopiedPhone(facilitatorId);
+    setTimeout(() => setCopiedPhone(null), 3000);
   };
 
   return (
@@ -211,14 +217,27 @@ const BioPage = () => {
                     {/* Profile Image - Alternate sides */}
                     <div className={`md:col-span-3 ${index % 2 === 1 ? 'md:order-2' : ''}`}>
                       <div className="relative">
-                        <img 
-                          src={facilitator.image} 
-                          alt={facilitator.name}
-                          className={`w-48 h-48 mx-auto rounded-full object-cover border-4 ${facilitator.gradients.border} shadow-xl`}
-                        />
-                        <div className={`absolute bottom-0 right-1/4 w-12 h-12 bg-gradient-to-r ${facilitator.gradients.card} rounded-full flex items-center justify-center shadow-lg`}>
-                          <Award className="w-6 h-6 text-white" />
-                        </div>
+                        {facilitator.image ? (
+                          <img 
+                            src={facilitator.image} 
+                            alt={facilitator.name}
+                            className={`w-48 h-48 mx-auto rounded-full object-cover border-4 ${facilitator.gradients.border} shadow-xl`}
+                          />
+                        ) : (
+                          <div className={`w-48 h-48 mx-auto rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-gray-300 shadow-xl flex items-center justify-center`}>
+                            <UserCircle className="w-24 h-24 text-gray-400" />
+                          </div>
+                        )}
+                        {facilitator.experience !== 'Profile Coming Soon' ? (
+                          <div className={`absolute bottom-0 right-1/4 w-12 h-12 bg-gradient-to-r ${facilitator.gradients.card} rounded-full flex items-center justify-center shadow-lg`}>
+                            <Award className="w-6 h-6 text-white" />
+                          </div>
+                        ) : (
+                          <div className="absolute bottom-0 right-1/4 w-auto px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full flex items-center shadow-lg">
+                            <Clock className="w-4 h-4 text-yellow-600 mr-1" />
+                            <span className="text-xs font-medium text-yellow-800">Coming Soon</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -249,7 +268,7 @@ const BioPage = () => {
                         {/* Stats */}
                         <div className="grid grid-cols-3 gap-4 mb-8">
                           {facilitator.stats.map((stat, statIndex) => {
-                            const iconMap = { Star, Users, Clock, GraduationCap };
+                            const iconMap = { Star, Users, Clock, GraduationCap, BookOpen, Heart };
                             const IconComponent = iconMap[stat.icon] || Star;
                             return (
                               <div key={statIndex} className="text-center bg-white rounded-lg p-4 shadow-md">
@@ -271,13 +290,49 @@ const BioPage = () => {
                             <ArrowRight className="w-4 h-4 ml-2" />
                           </button>
                           
-                          <button
-                            onClick={() => handleContactEmail(facilitator.contact.email)}
-                            className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-md"
-                          >
-                            <Mail className="w-4 h-4 mr-2" />
-                            Email {facilitator.name.split(' ')[0]}
-                          </button>
+                          {facilitator.experience !== 'Profile Coming Soon' ? (
+                            <>
+                              <button
+                                onClick={() => handleContactEmail(facilitator.contact.email)}
+                                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-md"
+                              >
+                                <Mail className="w-4 h-4 mr-2" />
+                                Email {facilitator.name.split(' ')[0]}
+                              </button>
+                              
+                              {facilitator.contact.phone && (
+                                <button
+                                  onClick={() => handleCopyPhone(facilitator.contact.phone, facilitator.id)}
+                                  className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-md relative"
+                                >
+                                  {copiedPhone === facilitator.id ? (
+                                    <>
+                                      <Check className="w-4 h-4 mr-2 text-green-600" />
+                                      <span className="text-green-600">Phone Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Phone className="w-4 h-4 mr-2" />
+                                      <span>Text/Call {facilitator.contact.phone}</span>
+                                    </>
+                                  )}
+                                  {copiedPhone === facilitator.id && (
+                                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-sm px-3 py-1 rounded-md whitespace-nowrap">
+                                      Phone number copied to clipboard!
+                                    </div>
+                                  )}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleContactEmail('golda@rtd-connect.com')}
+                              className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-md"
+                            >
+                              <Mail className="w-4 h-4 mr-2" />
+                              Contact for Info
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

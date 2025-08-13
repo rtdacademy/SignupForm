@@ -395,7 +395,9 @@ class StandardMultipleChoiceCore {
       questionGenerated: true,
       assessmentId: params.assessmentId,
       generatedBy: 'standard',
-      selectedQuestionIndex: question.originalIndex
+      selectedQuestionIndex: question.originalIndex,
+      // Return the full question data to avoid timing issues with database listeners
+      questionData: questionData
     };
   }
 
@@ -447,10 +449,53 @@ class StandardMultipleChoiceCore {
     // Get the secure data
     const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
     const secureSnapshot = await secureRef.once('value');
-    const secureData = secureSnapshot.val();
+    let secureData = secureSnapshot.val();
 
     if (!secureData || !secureData.correctOptionId) {
-      throw new Error('Secure assessment data not found');
+      // Check if we need to regenerate secure data for a retry attempt
+      // This handles the case where frontend shows a new question without calling generate
+      
+      if (this.config.questions && this.config.questions.length > 0) {
+        console.log(`Secure data missing for ${params.assessmentId}, regenerating from config...`);
+        
+        // Determine which question to use
+        let selectedQuestion;
+        let selectedIndex;
+        
+        // Check if we should randomize or use a specific question
+        if (this.config.randomizeOptions !== false && this.config.questions.length > 1) {
+          // Get the current attempt number to seed the selection
+          const currentAttempt = assessmentData.attempts || 0;
+          
+          // Use a deterministic selection based on attempt number
+          // This ensures consistency within an attempt but changes between attempts
+          selectedIndex = currentAttempt % this.config.questions.length;
+          selectedQuestion = this.config.questions[selectedIndex];
+        } else {
+          // Use the first question for non-randomized assessments
+          selectedIndex = 0;
+          selectedQuestion = this.config.questions[0];
+        }
+        
+        // Create secure data from the selected question
+        secureData = {
+          correctOptionId: selectedQuestion.correctOptionId,
+          explanation: selectedQuestion.explanation,
+          optionFeedback: selectedQuestion.options.reduce((obj, opt) => {
+            obj[opt.id] = opt.feedback || "";
+            return obj;
+          }, {}),
+          selectedQuestionIndex: selectedIndex,
+          timestamp: getServerTimestamp()
+        };
+        
+        // Save it for this attempt
+        await secureRef.set(secureData);
+        
+        console.log(`Created secure data for attempt ${currentAttempt + 1} of ${params.assessmentId}`);
+      } else {
+        throw new Error('Secure assessment data not found and cannot be regenerated');
+      }
     }
 
     // Reconstruct the complete question for evaluation

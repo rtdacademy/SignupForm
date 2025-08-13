@@ -949,6 +949,7 @@ const RefractionOfLight = ({ course, courseId = 'default', AIAccordion, onAIAcco
 
       {/* Refraction Knowledge Check */}
       <SlideshowKnowledgeCheck
+        course={course}
         courseId={courseId}
         lessonPath="13-refraction-of-light"
         questions={[
@@ -1371,6 +1372,7 @@ const RefractionOfLight = ({ course, courseId = 'default', AIAccordion, onAIAcco
 
       {/* Slideshow Knowledge Check after Example 7 */}
       <SlideshowKnowledgeCheck
+        course={course}
         courseId={courseId}
         lessonPath="13-refraction-of-light"
         questions={[
@@ -1794,6 +1796,7 @@ const RefractionOfLight = ({ course, courseId = 'default', AIAccordion, onAIAcco
 
       {/* Critical Angle Slideshow Knowledge Check after Example 9 */}
       <SlideshowKnowledgeCheck
+        course={course}
         courseId={courseId}
         lessonPath="13-refraction-of-light"
         questions={[

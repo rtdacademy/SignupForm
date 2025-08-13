@@ -57,6 +57,8 @@ import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
 import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
+import FamilyNotesModal from './FamilyNotes/FamilyNotesModal';
+import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
 import {
   Table,
   TableBody,
@@ -79,9 +81,34 @@ import {
   SheetTitle,
   SheetDescription
 } from '../components/ui/sheet';
+import { Checkbox } from '../components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 // Comprehensive Status Badge Component
-const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false }) => {
+const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, familyId, onToggleAssistance }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
@@ -124,10 +151,15 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false }) => {
         {/* Notification Form Status */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`p-1 rounded relative ${getStatusColor(statuses.notificationForm)}`}>
+            <div 
+              className={`p-1 rounded relative ${getStatusColor(statuses.notificationForm)} ${
+                assistanceRequired && onToggleAssistance ? 'cursor-pointer hover:ring-2 hover:ring-yellow-400 transition-all' : ''
+              }`}
+              onClick={assistanceRequired && onToggleAssistance ? () => onToggleAssistance(familyId, false) : undefined}
+            >
               <FileText className="w-3.5 h-3.5" />
               {assistanceRequired && (
-                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5 animate-pulse">
                   <HelpCircle className="w-2.5 h-2.5 text-white" />
                 </div>
               )}
@@ -137,7 +169,12 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false }) => {
             <p className="font-semibold">Notification Form</p>
             <p className="text-xs capitalize">{statuses.notificationForm.replace('_', ' ')}</p>
             {assistanceRequired && (
-              <p className="text-xs text-yellow-600 font-medium mt-1">⚠️ Assistance Requested</p>
+              <>
+                <p className="text-xs text-yellow-600 font-medium mt-1">⚠️ Assistance Requested</p>
+                {onToggleAssistance && (
+                  <p className="text-xs text-gray-600 mt-1">🖱️ Click to mark as handled</p>
+                )}
+              </>
             )}
           </TooltipContent>
         </Tooltip>
@@ -158,13 +195,21 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false }) => {
         {/* Citizenship Docs Status */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`p-1 rounded ${getStatusColor(statuses.citizenshipDocs)}`}>
+            <div className={`p-1 rounded relative ${getStatusColor(statuses.citizenshipDocs)}`}>
               <UserCheck className="w-3.5 h-3.5" />
+              {statuses.citizenshipDocs === 'pending_review' && (
+                <div className="absolute -top-1 -right-1 bg-orange-500 rounded-full p-0.5">
+                  <Eye className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
             </div>
           </TooltipTrigger>
           <TooltipContent>
             <p className="font-semibold">Citizenship Docs</p>
             <p className="text-xs capitalize">{statuses.citizenshipDocs.replace('_', ' ')}</p>
+            {statuses.citizenshipDocs === 'pending_review' && (
+              <p className="text-xs text-orange-600 font-medium mt-1">🔍 Staff Review Required</p>
+            )}
           </TooltipContent>
         </Tooltip>
 
@@ -275,6 +320,18 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [familyStatuses, setFamilyStatuses] = useState({});
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [notesModalOpen, setNotesModalOpen] = useState(false);
+  const [selectedNotesFamily, setSelectedNotesFamily] = useState(null);
+  const [selectedNotesFamilyId, setSelectedNotesFamilyId] = useState(null);
+  const [togglingAssistance, setTogglingAssistance] = useState({});
+  
+  // Bulk selection state
+  const [selectedFamilies, setSelectedFamilies] = useState(new Set());
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [showBulkConfirmDialog, setShowBulkConfirmDialog] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState('active');
   
   // Determine active school year
   const currentYear = getCurrentSchoolYear();
@@ -513,18 +570,308 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }));
   };
 
+  // Bulk selection handlers
+  const handleSelectFamily = (familyId) => {
+    const newSelection = new Set(selectedFamilies);
+    if (newSelection.has(familyId)) {
+      newSelection.delete(familyId);
+    } else {
+      newSelection.add(familyId);
+    }
+    setSelectedFamilies(newSelection);
+    
+    // Update "select all" state if needed
+    if (newSelection.size === 0) {
+      setIsAllSelected(false);
+    } else if (newSelection.size === sortedRows.length) {
+      setIsAllSelected(true);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      // Deselect all
+      setSelectedFamilies(new Set());
+      setIsAllSelected(false);
+    } else {
+      // Select all visible families
+      const allFamilyIds = sortedRows.map(row => row.familyId);
+      setSelectedFamilies(new Set(allFamilyIds));
+      setIsAllSelected(true);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedFamilies(new Set());
+    setIsAllSelected(false);
+  };
+
+  // Bulk action handlers
+  const handleBulkSetAssistance = (value) => {
+    setPendingBulkAction({ type: 'setAssistance', value });
+    setShowBulkConfirmDialog(true);
+  };
+
+  const handleBulkSetStatus = (status) => {
+    setPendingBulkAction({ type: 'setStatus', status });
+    setShowBulkConfirmDialog(true);
+  };
+
+  const executeBulkAction = async () => {
+    if (!pendingBulkAction || selectedFamilies.size === 0) return;
+    
+    setBulkActionLoading(true);
+    setShowBulkConfirmDialog(false);
+    
+    try {
+      const db = getDatabase();
+      const dbSchoolYear = activeSchoolYear.replace('/', '_');
+      
+      if (pendingBulkAction.type === 'setStatus') {
+        // Update family status (active/inactive)
+        const updatePromises = [];
+        
+        for (const familyId of selectedFamilies) {
+          const familyRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}`);
+          updatePromises.push(update(familyRef, { 
+            status: pendingBulkAction.status,
+            lastUpdated: Date.now()
+          }));
+        }
+        
+        // Execute all updates in parallel
+        await Promise.all(updatePromises);
+        
+        // Clear selection after successful update
+        clearSelection();
+        console.log(`Successfully updated status to ${pendingBulkAction.status} for ${selectedFamilies.size} families`);
+        
+        // Reload the page to reflect the status changes
+        window.location.reload();
+        
+      } else if (pendingBulkAction.type === 'setAssistance') {
+        // Prepare all update promises
+        const updatePromises = [];
+        
+        for (const familyId of selectedFamilies) {
+          const family = families[familyId];
+          if (family && family.students) {
+            const students = Object.values(family.students);
+            
+            // Update assistance required for all students in each selected family
+            students.forEach(student => {
+              const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}/PART_A/editableFields`);
+              updatePromises.push(update(formRef, { assistanceRequired: pendingBulkAction.value }));
+            });
+          }
+        }
+        
+        // Execute all updates in parallel
+        await Promise.all(updatePromises);
+        
+        // Update local state for all affected families
+        setFamilyStatuses(prev => {
+          const newStatuses = { ...prev };
+          selectedFamilies.forEach(familyId => {
+            if (newStatuses[familyId]) {
+              newStatuses[familyId] = {
+                ...newStatuses[familyId],
+                assistanceRequired: pendingBulkAction.value
+              };
+            }
+          });
+          return newStatuses;
+        });
+        
+        // Clear selection after successful update
+        clearSelection();
+        console.log(`Successfully updated assistance status for ${selectedFamilies.size} families`);
+      }
+    } catch (error) {
+      console.error('Error executing bulk action:', error);
+      alert('An error occurred while updating families. Please try again.');
+    } finally {
+      setBulkActionLoading(false);
+      setPendingBulkAction(null);
+    }
+  };
+
   const handleViewDashboard = (familyId, family) => {
     // Call the parent's onViewDashboard to open the sheet
     onViewDashboard(familyId, family);
   };
 
+  const handleOpenNotes = (familyId, family) => {
+    setSelectedNotesFamilyId(familyId);
+    setSelectedNotesFamily(family);
+    setNotesModalOpen(true);
+  };
 
+  // Handle toggling assistance required status
+  const handleToggleAssistance = async (familyId, newValue) => {
+    setTogglingAssistance(prev => ({ ...prev, [familyId]: true }));
+    
+    try {
+      const db = getDatabase();
+      const family = families[familyId];
+      
+      if (family && family.students) {
+        const students = Object.values(family.students);
+        
+        // Update assistance required for all students in the family
+        const updatePromises = students.map(async (student) => {
+          const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}/PART_A/editableFields`);
+          return update(formRef, { assistanceRequired: newValue });
+        });
+        
+        await Promise.all(updatePromises);
+        
+        // Update local state
+        setFamilyStatuses(prev => ({
+          ...prev,
+          [familyId]: {
+            ...prev[familyId],
+            assistanceRequired: newValue
+          }
+        }));
+        
+        // Show success feedback (you might want to add a toast here)
+        console.log(`Assistance ${newValue ? 'requested' : 'marked as handled'} for family ${familyId}`);
+      }
+    } catch (error) {
+      console.error('Error toggling assistance status:', error);
+    } finally {
+      setTogglingAssistance(prev => ({ ...prev, [familyId]: false }));
+    }
+  };
+
+
+
+  // Bulk Actions Toolbar Component
+  const BulkActionsToolbar = () => {
+    if (selectedFamilies.size === 0) return null;
+    
+    return (
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-lg transform transition-transform duration-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm font-medium text-gray-700">
+                {selectedFamilies.size} {selectedFamilies.size === 1 ? 'family' : 'families'} selected
+              </span>
+              <button
+                onClick={clearSelection}
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear selection
+              </button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    disabled={bulkActionLoading}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bulkActionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Settings className="w-4 h-4" />
+                    )}
+                    <span>Bulk Actions</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-4">
+                  <div className="space-y-4">
+                    {/* Status Update Section */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 flex items-center">
+                        <ToggleRight className="w-4 h-4 mr-2 text-gray-500" />
+                        Set Family Status
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">
+                              <span className="flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                                Active
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="inactive">
+                              <span className="flex items-center">
+                                <span className="w-2 h-2 bg-gray-500 rounded-full mr-2" />
+                                Inactive
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <button
+                          onClick={() => handleBulkSetStatus(selectedStatus)}
+                          className="px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <DropdownMenuSeparator />
+                    
+                    {/* Assistance Required Section */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Assistance Required
+                      </label>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => handleBulkSetAssistance(true)}
+                          className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                        >
+                          <HelpCircle className="w-4 h-4 mr-2 text-yellow-500" />
+                          Set Assistance Required
+                        </button>
+                        <button
+                          onClick={() => handleBulkSetAssistance(false)}
+                          className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
+                          Clear Assistance Required
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <Table>
+    <>
+      <BulkActionsToolbar />
+      
+      {/* Add spacing when toolbar is visible */}
+      {selectedFamilies.size > 0 && <div className="h-14" />}
+      
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            <TableHead className="w-12">
+              <Checkbox
+                checked={isAllSelected}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all families"
+              />
+            </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-gray-100"
               onClick={() => handleSort('familyName')}
@@ -580,17 +927,32 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         <TableBody>
           {sortedRows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                 No families found
               </TableCell>
             </TableRow>
           ) : (
-            sortedRows.map((row) => (
-              <TableRow 
-                key={row.familyId}
-                className={row.isMyFamily ? 'bg-purple-50 hover:bg-purple-100' : 'hover:bg-gray-50'}
-              >
-                <TableCell className="font-medium">
+            sortedRows.map((row) => {
+              const isSelected = selectedFamilies.has(row.familyId);
+              return (
+                <TableRow 
+                  key={row.familyId}
+                  className={`${
+                    isSelected 
+                      ? 'bg-blue-50 hover:bg-blue-100' 
+                      : row.isMyFamily 
+                        ? 'bg-purple-50 hover:bg-purple-100' 
+                        : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => handleSelectFamily(row.familyId)}
+                      aria-label={`Select ${row.familyName}`}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">
                   {row.familyName}
                   {row.isMyFamily && (
                     <span className="ml-2 text-xs text-purple-600">(My Family)</span>
@@ -621,10 +983,14 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                 <TableCell>
                   {loadingStatuses ? (
                     <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  ) : togglingAssistance[row.familyId] ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
                   ) : (
                     <ComprehensiveStatusBadge 
                       statuses={row.comprehensiveStatus} 
                       assistanceRequired={row.comprehensiveStatus.assistanceRequired}
+                      familyId={row.familyId}
+                      onToggleAssistance={handleToggleAssistance}
                     />
                   )}
                 </TableCell>
@@ -640,21 +1006,74 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                     >
                       <PanelRightOpen className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => onManageFamily(row.familyId, row.rawFamily)}
-                      className="p-1 text-green-600 hover:bg-green-50 rounded"
-                      title="Manage Family"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </button>
+                    <FamilyNotesIcon
+                      familyId={row.familyId}
+                      onClick={() => handleOpenNotes(row.familyId, row.rawFamily)}
+                    />
                   </div>
                 </TableCell>
               </TableRow>
-            ))
+              );
+            })
           )}
         </TableBody>
       </Table>
     </div>
+      
+    {/* Family Notes Modal */}
+    <FamilyNotesModal
+      isOpen={notesModalOpen}
+      onClose={() => setNotesModalOpen(false)}
+      family={selectedNotesFamily}
+      familyId={selectedNotesFamilyId}
+    />
+    
+    {/* Bulk Action Confirmation Dialog */}
+    <AlertDialog open={showBulkConfirmDialog} onOpenChange={setShowBulkConfirmDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Bulk Action</AlertDialogTitle>
+          <AlertDialogDescription>
+            {pendingBulkAction?.type === 'setStatus' && (
+              <>
+                You are about to set the status to <strong>{pendingBulkAction.status}</strong> for{' '}
+                <strong>{selectedFamilies.size} {selectedFamilies.size === 1 ? 'family' : 'families'}</strong>.
+                {pendingBulkAction.status === 'inactive' && (
+                  <span className="block mt-2 text-orange-600">
+                    Warning: Setting families to inactive will remove them from the active view.
+                  </span>
+                )}
+              </>
+            )}
+            {pendingBulkAction?.type === 'setAssistance' && (
+              <>
+                You are about to {pendingBulkAction.value ? 'set' : 'clear'} assistance required for{' '}
+                <strong>{selectedFamilies.size} {selectedFamilies.size === 1 ? 'family' : 'families'}</strong>.
+                This will update all students in {selectedFamilies.size === 1 ? 'this family' : 'these families'}.
+              </>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={bulkActionLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={executeBulkAction}
+            disabled={bulkActionLoading}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {bulkActionLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Confirm'
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
 
@@ -1145,6 +1564,8 @@ const HomeEducationStaffDashboard = ({
   setImpersonatingFacilitator = () => {},
   showImpersonationDropdown = false,
   setShowImpersonationDropdown = () => {},
+  statusFilter = 'active',
+  setStatusFilter = () => {},
   homeEducationStats = { totalFamilies: 0, myFamilies: 0 },
   setHomeEducationStats = () => {}
 }) => {
@@ -1370,7 +1791,13 @@ const HomeEducationStaffDashboard = ({
     if (!user || claimsLoading) return;
 
     const db = getDatabase();
-    const familiesRef = ref(db, 'homeEducationFamilies/familyInformation');
+    
+    // Always use a query to filter by status - never load all families
+    const familiesRef = query(
+      ref(db, 'homeEducationFamilies/familyInformation'),
+      orderByChild('status'),
+      equalTo(statusFilter)
+    );
 
     const unsubscribe = onValue(familiesRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -1472,7 +1899,7 @@ const HomeEducationStaffDashboard = ({
     return () => {
       off(familiesRef, 'value', unsubscribe);
     };
-  }, [user, claimsLoading, impersonatingFacilitator]);
+  }, [user, claimsLoading, impersonatingFacilitator, statusFilter]);
 
   // Filter families based on all criteria
   const filteredFamilies = useMemo(() => {
@@ -1745,32 +2172,22 @@ const HomeEducationStaffDashboard = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Current school year info */}
-      <div className="mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-          <div className="flex items-center justify-between">
+      {/* Current facilitator info */}
+      {showMyFamiliesOnly && (
+        <div className="mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <div className="flex items-center space-x-2">
-              <Calendar className="w-5 h-5 text-blue-500" />
-              <span className="text-sm font-medium text-blue-900">
-                Current School Year: {getCurrentSchoolYear()}
+              <UserCheck className="w-4 h-4 text-blue-500" />
+              <span className="text-sm text-blue-700">
+                Facilitator: {impersonatingFacilitator?.contact?.email || user?.email}
               </span>
-            </div>
-            <div className="flex items-center space-x-4">
-              {showMyFamiliesOnly && (
-                <div className="flex items-center space-x-2">
-                  <UserCheck className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm text-blue-700">
-                    Facilitator: {impersonatingFacilitator?.contact?.email || user?.email}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Notifications & Alerts */}
-      {(stats.pendingFamilies > 0 || stats.partialFamilies > 0) && (
+      {stats.partialFamilies > 0 && (
         <div className="mb-6">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center space-x-3">
@@ -1778,56 +2195,15 @@ const HomeEducationStaffDashboard = ({
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-yellow-800">Attention Required</h3>
                 <div className="mt-1 text-sm text-yellow-700">
-                  {stats.pendingFamilies > 0 && (
-                    <span className="block">
-                      {stats.pendingFamilies} famil{stats.pendingFamilies === 1 ? 'y' : 'ies'} haven't started registration
-                    </span>
-                  )}
-                  {stats.partialFamilies > 0 && (
-                    <span className="block">
-                      {stats.partialFamilies} famil{stats.partialFamilies === 1 ? 'y' : 'ies'} have incomplete registrations
-                    </span>
-                  )}
+                  <span className="block">
+                    {stats.partialFamilies} famil{stats.partialFamilies === 1 ? 'y' : 'ies'} have incomplete registrations
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title={showMyFamiliesOnly ? "My Families" : "Total Families"}
-          value={showMyFamiliesOnly ? stats.myFamilies : stats.totalFamilies}
-          icon={showMyFamiliesOnly ? UserCheck : Users}
-          color="purple"
-          subtitle={showMyFamiliesOnly ? "Assigned to me" : "All families"}
-        />
-        <StatsCard
-          title="Total Students"
-          value={stats.totalStudents}
-          icon={GraduationCap}
-          color="blue"
-        />
-        <StatsCard
-          title="Registered Families"
-          value={showMyFamiliesOnly ? stats.myRegisteredFamilies : stats.registeredFamilies}
-          icon={CheckCircle2}
-          color="green"
-          subtitle={showMyFamiliesOnly 
-            ? `${stats.myFamilies > 0 ? Math.round((stats.myRegisteredFamilies / stats.myFamilies) * 100) : 0}% of my families`
-            : `${stats.totalFamilies > 0 ? Math.round((stats.registeredFamilies / stats.totalFamilies) * 100) : 0}% complete`
-          }
-        />
-        <StatsCard
-          title="Filtered Results"
-          value={Object.keys(filteredFamilies).length}
-          icon={Filter}
-          color="indigo"
-          subtitle={hasActiveFilters ? "Filters active" : "No filters applied"}
-        />
-      </div>
 
       {/* Search and Filters */}
       <div className="mb-6">
@@ -2000,7 +2376,12 @@ const HomeEducationStaffDashboard = ({
       {/* Results Count */}
       <div className="mb-4">
         <p className="text-sm text-gray-600">
-          Showing {Object.keys(filteredFamilies).length} of {stats.totalFamilies} families
+          Showing {Object.keys(filteredFamilies).length} of {stats.totalFamilies} families ({
+            Object.values(filteredFamilies).reduce((total, family) => {
+              const students = family.students ? Object.values(family.students) : [];
+              return total + students.length;
+            }, 0)
+          } students)
         </p>
       </div>
 

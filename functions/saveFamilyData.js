@@ -290,8 +290,8 @@ familyDataToSave.students = studentsById;
     
     console.log(`Family summary: ${familyDataToSave.studentCount} students, ${familyDataToSave.guardianCount} guardians, ${familyDataToSave.totalMembers} total members`);
     
-    // Save the family data
-    await db.ref(`homeEducationFamilies/familyInformation/${familyId}`).set(familyDataToSave);
+    // Save the family data - use update to merge with existing data
+    await db.ref(`homeEducationFamilies/familyInformation/${familyId}`).update(familyDataToSave);
     
     // Handle permission syncing
     await syncFamilyPermissions(
