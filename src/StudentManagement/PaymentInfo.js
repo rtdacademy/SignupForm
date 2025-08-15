@@ -8,6 +8,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Checkbox } from '../components/ui/checkbox';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -54,6 +55,7 @@ const PaymentInfo = ({
   const [currentStatus, setCurrentStatus] = useState(paymentStatus);
   const [copiedInvoiceId, setCopiedInvoiceId] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [isManual, setIsManual] = useState(false);
 
   // Format date helper
   const formatDate = (timestamp) => {
@@ -100,6 +102,20 @@ const PaymentInfo = ({
         if (paymentSnapshot.exists()) {
           const data = paymentSnapshot.val();
           setPaymentData(data);
+          // Check for manual flag
+          if (data.manual !== undefined) {
+            setIsManual(data.manual);
+          }
+        }
+        
+        // Also check the student path for manual flag if no payment data
+        const statusRef = ref(db, `students/${studentKey}/courses/${courseId}/payment_status`);
+        const statusSnapshot = await get(statusRef);
+        if (statusSnapshot.exists()) {
+          const statusData = statusSnapshot.val();
+          if (statusData.manual !== undefined) {
+            setIsManual(statusData.manual);
+          }
         }
       } catch (error) {
         console.error('Error fetching payment data:', error);
@@ -112,26 +128,29 @@ const PaymentInfo = ({
     fetchPaymentData();
   }, [studentKey, courseId]);
 
-  // Set up realtime listener for payment status
+  // Set up realtime listener for payment status and manual flag
   useEffect(() => {
     if (!studentKey || !courseId) return;
 
     const db = getDatabase();
-    const statusRef = ref(db, `students/${studentKey}/courses/${courseId}/payment_status/status`);
+    const paymentStatusRef = ref(db, `students/${studentKey}/courses/${courseId}/payment_status`);
     
-    // Set up realtime listener
-    const unsubscribe = onValue(statusRef, (snapshot) => {
+    // Set up realtime listener for entire payment_status node
+    const unsubscribe = onValue(paymentStatusRef, (snapshot) => {
       if (snapshot.exists()) {
-        const status = snapshot.val();
-        setCurrentStatus(status);
+        const data = snapshot.val();
+        setCurrentStatus(data.status || paymentStatus || 'unpaid');
+        setIsManual(data.manual === true);
       } else {
         // If no status exists, use the prop or default to 'unpaid'
         setCurrentStatus(paymentStatus || 'unpaid');
+        setIsManual(false);
       }
     }, (error) => {
       console.error('Error listening to payment status:', error);
       // Fallback to prop value if listener fails
       setCurrentStatus(paymentStatus || 'unpaid');
+      setIsManual(false);
     });
 
     // Cleanup listener on unmount
@@ -165,6 +184,16 @@ const PaymentInfo = ({
       [`payments/${studentKey}/courses/${courseId}/last_updated`]: Date.now()
     };
     
+    // Set manual flag when status is 'paid'
+    if (newStatus === 'paid') {
+      updates[`students/${studentKey}/courses/${courseId}/payment_status/manual`] = true;
+      updates[`payments/${studentKey}/courses/${courseId}/manual`] = true;
+    } else {
+      // Remove manual flag for other statuses
+      updates[`students/${studentKey}/courses/${courseId}/payment_status/manual`] = null;
+      updates[`payments/${studentKey}/courses/${courseId}/manual`] = null;
+    }
+    
     try {
       await update(ref(db, '/'), updates);
       // Status will be updated via the realtime listener
@@ -175,6 +204,26 @@ const PaymentInfo = ({
     } catch (error) {
       console.error('Error updating payment status:', error);
       toast.error('Failed to update payment status');
+    }
+  };
+
+  // Handle manual flag toggle
+  const handleManualToggle = async (checked) => {
+    const db = getDatabase();
+    const updates = {
+      [`students/${studentKey}/courses/${courseId}/payment_status/manual`]: checked ? true : null,
+      [`payments/${studentKey}/courses/${courseId}/manual`]: checked ? true : null,
+      [`students/${studentKey}/courses/${courseId}/payment_status/last_updated`]: Date.now(),
+      [`payments/${studentKey}/courses/${courseId}/last_updated`]: Date.now()
+    };
+    
+    try {
+      await update(ref(db, '/'), updates);
+      // State will be updated via the realtime listener
+      toast.success(`Payment marked as ${checked ? 'manual' : 'automatic'}`);
+    } catch (error) {
+      console.error('Error updating manual flag:', error);
+      toast.error('Failed to update manual flag');
     }
   };
 
@@ -305,7 +354,7 @@ const PaymentInfo = ({
           </div>
           
           <div className="flex items-center gap-2">
-            {!readOnly && (
+            {!readOnly && !isManual && (
               <Button
                 onClick={handleSyncWithStripe}
                 disabled={syncing}
@@ -371,6 +420,32 @@ const PaymentInfo = ({
             )}
           </div>
         </div>
+        
+        {/* Manual Payment Checkbox - only show if manual flag exists in database */}
+        {isManual && (
+          <div className="space-y-2 mt-3 px-1">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="manual-payment"
+                checked={isManual}
+                onCheckedChange={handleManualToggle}
+                disabled={readOnly}
+              />
+              <label 
+                htmlFor="manual-payment" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Manual payment override
+              </label>
+              <Badge variant="outline" className="ml-2 text-xs">
+                Sync disabled
+              </Badge>
+            </div>
+            <p className="text-xs text-gray-500 pl-6">
+              Stripe data will not be automatically updated. Any additional payments for this course will not be reflected here unless you uncheck this option.
+            </p>
+          </div>
+        )}
 
         {/* Payment Data Display */}
         {paymentData ? (
@@ -397,17 +472,35 @@ const PaymentInfo = ({
                         <>
                           <p className="text-sm text-gray-600">Subscription Progress</p>
                           <p className="text-2xl font-bold text-gray-900">
-                            {paymentData.payment_count || 0} of {paymentData.final_payment_count || '?'} payments
+                            {paymentData.payment_count || 0} of {paymentData.final_payment_count || paymentData.paymentType === 'subscription_3_month' ? 3 : 3} payments
                           </p>
-                          {paymentData.canceled_at && paymentData.cancellation_reason !== 'completed_3_payments' && (
-                            <p className="text-sm text-orange-600 mt-1">
-                              Canceled on {formatDate(paymentData.canceled_at)}
-                              {paymentData.cancellation_reason && (
-                                <span className="text-xs block">
-                                  Reason: {paymentData.cancellation_reason.replace(/_/g, ' ')}
-                                </span>
-                              )}
-                            </p>
+                          
+                          {/* Show warning if there are unpaid invoices */}
+                          {paymentData.invoices && paymentData.invoices.some(inv => inv.status === 'open') && (
+                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                              <p className="text-sm text-red-700 font-medium">
+                                ⚠️ Outstanding Payment Required
+                              </p>
+                              {paymentData.invoices
+                                .filter(inv => inv.status === 'open')
+                                .map(invoice => (
+                                  <div key={invoice.id} className="mt-1">
+                                    <p className="text-xs text-red-600">
+                                      {formatCurrency(invoice.amount_due || invoice.amount_paid)} due
+                                    </p>
+                                    {invoice.hosted_invoice_url && (
+                                      <Button
+                                        onClick={() => window.open(invoice.hosted_invoice_url, '_blank')}
+                                        className="mt-1 bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
+                                        size="sm"
+                                      >
+                                        <FaCreditCard className="h-3 w-3 mr-1" />
+                                        Pay Now
+                                      </Button>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
                           )}
                         </>
                       )}
@@ -435,21 +528,38 @@ const PaymentInfo = ({
                     />
                   </div>
 
-                  {/* Period Dates */}
-                  {paymentData.current_period_start && (
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                  {/* Payment Details */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {/* Show last payment date */}
+                    {paymentData.latest_invoice && (
                       <div>
-                        <p className="text-gray-500">Current Period</p>
+                        <p className="text-gray-500">Last Payment</p>
                         <p className="font-medium">
-                          {formatDate(paymentData.current_period_start)} - {formatDate(paymentData.current_period_end)}
+                          {formatDate(paymentData.latest_invoice.paid_at * 1000)}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatCurrency(paymentData.latest_invoice.amount_paid)}
                         </p>
                       </div>
-                      {paymentData.subscription_id && (
-                        <div>
-                          <p className="text-gray-500">Subscription ID</p>
-                          <p className="font-mono text-xs">{paymentData.subscription_id}</p>
-                        </div>
-                      )}
+                    )}
+                    
+                    {/* Show next/final charge date */}
+                    {paymentData.current_period_end && paymentData.current_period_end > Date.now() && (
+                      <div>
+                        <p className="text-gray-500">
+                          {paymentData.canceled_at ? 'Final Charge' : 'Next Charge'}
+                        </p>
+                        <p className="font-medium">
+                          {formatDate(paymentData.current_period_end)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Subscription ID at the bottom */}
+                  {paymentData.subscription_id && (
+                    <div className="text-xs text-gray-400 border-t pt-2">
+                      Subscription ID: <span className="font-mono">{paymentData.subscription_id}</span>
                     </div>
                   )}
                 </div>
@@ -541,9 +651,14 @@ const PaymentInfo = ({
                   </div>
                   <div className="space-y-2">
                     {paymentData.invoices
-                      .sort((a, b) => (b.paid_at || 0) - (a.paid_at || 0))
+                      .sort((a, b) => {
+                        // Sort unpaid invoices first, then by date
+                        if (a.status === 'open' && b.status !== 'open') return -1;
+                        if (a.status !== 'open' && b.status === 'open') return 1;
+                        return (b.paid_at || b.created || 0) - (a.paid_at || a.created || 0);
+                      })
                       .map((invoice, index) => (
-                        <Card key={invoice.id || index} className="p-3">
+                        <Card key={invoice.id || index} className={`p-3 ${invoice.status === 'open' ? 'border-red-300 bg-red-50' : ''}`}>
                           <div className="flex justify-between items-center">
                             <div>
                               <div className="flex items-center gap-2">
@@ -581,6 +696,19 @@ const PaymentInfo = ({
                                 >
                                   <FaStripe className="h-4 w-4 mr-1" />
                                   Dashboard
+                                </Button>
+                              )}
+                              {/* Pay Now button for open invoices */}
+                              {invoice.status === 'open' && invoice.hosted_invoice_url && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => window.open(invoice.hosted_invoice_url, '_blank')}
+                                  title="Pay this invoice"
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  <FaCreditCard className="h-4 w-4 mr-1" />
+                                  Pay Now
                                 </Button>
                               )}
                               {/* Copy customer invoice link */}

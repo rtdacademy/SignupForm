@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity,
+import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getPaymentStatusInfo } from '../config/DropdownOptions';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity, DollarSign,
   // Seasonal icons
   Snowflake, Flower, Sun, Leaf,
   // Student Management icons
@@ -53,6 +53,7 @@ import PermissionIndicator from '../context/PermissionIndicator';
 import ProfileHistory from './ProfileHistory';
 import PasiActionButtons from '../components/PasiActionButtons';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import PaymentInfo from './PaymentInfo';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -184,6 +185,47 @@ const GenderBadge = ({ gender }) => {
         </TooltipTrigger>
         <TooltipContent>
           Gender: {config.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+// PaymentStatusBadge Component
+const PaymentStatusBadge = ({ paymentStatus, onClick }) => {
+  if (!paymentStatus) return null;
+
+  const paymentInfo = getPaymentStatusInfo(paymentStatus);
+  const IconComponent = paymentInfo.icon;
+
+  const handleClick = (e) => {
+    e.stopPropagation(); // Prevent card click
+    if (onClick) {
+      onClick();
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <Badge 
+            className="inline-flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded w-auto cursor-pointer hover:opacity-80 transition-opacity"
+            style={{
+              backgroundColor: `${paymentInfo.color}15`,
+              color: paymentInfo.color
+            }}
+            onClick={handleClick}
+          >
+            <IconComponent className="w-3 h-3 flex-shrink-0" />
+            <span>Payment</span>
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div className="text-xs">
+            <div>{paymentInfo.tooltip}</div>
+            <div className="text-gray-400 mt-1">Click to view details</div>
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -445,6 +487,9 @@ const StudentCard = React.memo(({
   
   // State for showing/hiding tracking categories
   const [showTrackingCategories, setShowTrackingCategories] = useState(false);
+  
+  // State for payment info sheet
+  const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
 
   // Add state for restoring from cold storage
   const [isRestoring, setIsRestoring] = useState(false);
@@ -1463,12 +1508,19 @@ const handleStatusChange = useCallback(async (newStatus) => {
                 </Button>
               </div>
 
-             {(!student.hasSchedule || student.inOldSharePoint !== false) && (
-              <div className="mt-1 space-y-1">
-                <div className="inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Needs Migration
-                </div>
+             {/* Payment Status Badge in header */}
+             {(student.payment_status || 
+              (getSafeValue(student.StudentType_Value) === "Adult Student") || 
+              (getSafeValue(student.StudentType_Value) === "International Student")) && (
+              <div className="mt-1 inline-block">
+                <PaymentStatusBadge 
+                  paymentStatus={
+                    student.payment_status || 
+                    ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
+                      getSafeValue(student.StudentType_Value) === "International Student") ? "unpaid" : null)
+                  }
+                  onClick={() => setIsPaymentSheetOpen(true)}
+                />
               </div>
             )}
 
@@ -2618,6 +2670,39 @@ const handleStatusChange = useCallback(async (newStatus) => {
           </DialogContent>
         </Dialog>
       )}
+      
+      {/* Payment Info Sheet */}
+      <Sheet open={isPaymentSheetOpen} onOpenChange={setIsPaymentSheetOpen}>
+        <SheetContent className="w-full sm:max-w-md flex flex-col h-full p-0">
+          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+            <SheetTitle className="flex items-center space-x-2">
+              <DollarSign className="w-5 h-5 text-blue-600" />
+              <span>Payment Information</span>
+            </SheetTitle>
+            <SheetDescription>
+              View and manage payment status for {getStudentInfo.fullName}
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="flex-1 px-6 pb-6 overflow-hidden">
+            <PaymentInfo
+              studentKey={student.StudentEmail ? sanitizeEmail(student.StudentEmail) : null}
+              courseId={student.CourseID || student.courseId || student.id?.slice(student.id.lastIndexOf('_') + 1)}
+              paymentStatus={
+                student.payment_status || 
+                ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
+                  getSafeValue(student.StudentType_Value) === "International Student") ? "unpaid" : null)
+              }
+              readOnly={false}
+              onPaymentStatusUpdate={(newStatus) => {
+                // The status will be updated via realtime listener in PaymentInfo component
+                // This callback is optional for additional handling if needed
+                console.log('Payment status updated to:', newStatus);
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 });

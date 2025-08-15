@@ -100,6 +100,20 @@ async function addPaymentNote(userEmail, courseId, paymentData, metadata) {
 async function updatePaymentStatus(userEmail, courseId, paymentData, eventType) {
   const sanitizedEmail = sanitizeEmail(userEmail);
   
+  // Check if manual payment override is active - if so, skip all updates
+  const manualCheckRef = admin.database()
+    .ref(`payments/${sanitizedEmail}/courses/${courseId}/manual`);
+  const manualSnapshot = await manualCheckRef.once('value');
+  
+  if (manualSnapshot.exists() && manualSnapshot.val() === true) {
+    console.log(`Skipping payment update for ${sanitizedEmail} course ${courseId} - manual payment override active`);
+    return { 
+      success: true, 
+      skipped: true, 
+      reason: 'manual_override_active' 
+    };
+  }
+  
   // Use a transaction for the main payment record
   const paymentRef = admin.database()
     .ref(`payments/${sanitizedEmail}/courses/${courseId}`);
@@ -113,6 +127,9 @@ async function updatePaymentStatus(userEmail, courseId, paymentData, eventType) 
         all_subscription_ids: paymentData.subscription_id ? [paymentData.subscription_id] : []
       };
     }
+    
+    // Check if this is a sync from Stripe (has synced_from_stripe flag)
+    const isSyncFromStripe = paymentData.synced_from_stripe === true;
     
     // Preserve existing fields while updating with new data
     const mergedData = {...currentData, ...paymentData};
@@ -135,19 +152,44 @@ async function updatePaymentStatus(userEmail, courseId, paymentData, eventType) 
       mergedData.canceled_at = currentData.canceled_at;
     }
     
-    // Keep the invoice history intact
-    if (currentData.invoices && paymentData.invoices) {
-      // Ensure no duplicates when merging invoice arrays
-      const existingIds = new Set(currentData.invoices.map(inv => inv.id));
-      const newInvoices = paymentData.invoices.filter(inv => !existingIds.has(inv.id));
-      mergedData.invoices = [...newInvoices, ...currentData.invoices];
+    // Invoice handling: If syncing from Stripe, REPLACE invoice data completely
+    if (isSyncFromStripe && paymentData.invoices) {
+      // When syncing from Stripe, trust Stripe's invoice data completely
+      mergedData.invoices = paymentData.invoices;
+      console.log(`Replacing invoice data with ${paymentData.invoices.length} invoices from Stripe sync`);
+    } else if (currentData.invoices && paymentData.invoices) {
+      // For webhook events, merge invoices to avoid losing data
+      const invoiceMap = new Map();
+      
+      // Add existing invoices to map
+      currentData.invoices.forEach(inv => {
+        invoiceMap.set(inv.id, inv);
+      });
+      
+      // Update or add new invoices (newer data overwrites older)
+      paymentData.invoices.forEach(inv => {
+        invoiceMap.set(inv.id, inv);
+      });
+      
+      // Convert back to array, sorted by creation/payment date
+      mergedData.invoices = Array.from(invoiceMap.values()).sort((a, b) => {
+        const aDate = a.paid_at || a.created || 0;
+        const bDate = b.paid_at || b.created || 0;
+        return bDate - aDate; // Most recent first
+      });
     }
     
     // Preserve successful_invoice_ids array
     if (paymentData.successful_invoice_ids) {
-      const existingInvoiceIds = new Set(currentData.successful_invoice_ids || []);
-      paymentData.successful_invoice_ids.forEach(id => existingInvoiceIds.add(id));
-      mergedData.successful_invoice_ids = Array.from(existingInvoiceIds);
+      if (isSyncFromStripe) {
+        // For sync, replace with fresh data from Stripe
+        mergedData.successful_invoice_ids = paymentData.successful_invoice_ids;
+      } else {
+        // For webhooks, merge the arrays
+        const existingInvoiceIds = new Set(currentData.successful_invoice_ids || []);
+        paymentData.successful_invoice_ids.forEach(id => existingInvoiceIds.add(id));
+        mergedData.successful_invoice_ids = Array.from(existingInvoiceIds);
+      }
     }
     
     return mergedData;
@@ -201,13 +243,19 @@ async function updatePaymentStatus(userEmail, courseId, paymentData, eventType) 
     .ref(`students/${sanitizedEmail}/courses/${courseId}/payment_status`);
   await statusRef.set(statusData);
   
+  // Also update in studentCourseSummaries path
+  const summaryKey = `${sanitizedEmail}_${courseId}`;
+  const summaryRef = admin.database()
+    .ref(`studentCourseSummaries/${summaryKey}/payment_status`);
+  await summaryRef.set(paymentData.status);
+  
   // Add payment note (already uses transactions)
   await addPaymentNote(userEmail, courseId, paymentData, {
     courseName: paymentData.courseName,
     eventType: eventType
   });
   
-  console.log('Payment status and notes updated for user:', sanitizedEmail, 'course:', courseId, 'event:', eventType);
+  console.log('Payment status and notes updated for user:', sanitizedEmail, 'course:', courseId, 'event:', eventType, 'summary:', summaryKey);
 }
 
 // Helper function to get or create customer payment record
@@ -236,61 +284,79 @@ async function getOrCreateCustomerPaymentRecord(userEmail, stripeCustomerId) {
 // NEW: Helper function to count successful payments for a subscription directly from Stripe
 async function countSuccessfulPaymentsForSubscription(stripe, subscriptionId, courseId, customerId = null) {
   try {
-    console.log(`Counting payments for subscription ${subscriptionId}, course ${courseId}`);
+    console.log(`Counting payments for subscription ${subscriptionId}, course ${courseId}, customer ${customerId}`);
     
-    // Query all paid invoices for this subscription
-    let invoices = await stripe.invoices.list({
+    // First, try to get ALL invoices for this subscription (not just paid ones)
+    let allSubscriptionInvoices = await stripe.invoices.list({
       subscription: subscriptionId,
-      status: 'paid',
-      limit: 100 // Should be more than enough for 3 payments
+      limit: 100 // Should be more than enough for any subscription
     });
     
-    // If no invoices found by subscription, try by customer (for edge cases)
-    if (invoices.data.length === 0 && customerId) {
-      console.log(`No invoices found for subscription ${subscriptionId}, checking by customer ${customerId}`);
+    console.log(`Found ${allSubscriptionInvoices.data.length} total invoices for subscription ${subscriptionId}`);
+    
+    // Filter to only paid invoices
+    let paidInvoices = allSubscriptionInvoices.data.filter(inv => inv.status === 'paid');
+    console.log(`Found ${paidInvoices.length} paid invoices for subscription ${subscriptionId}`);
+    
+    // If no paid invoices found by subscription, try by customer (for edge cases)
+    if (paidInvoices.length === 0 && customerId) {
+      console.log(`No paid invoices found for subscription ${subscriptionId}, checking by customer ${customerId}`);
       const customerInvoices = await stripe.invoices.list({
         customer: customerId,
         status: 'paid',
         limit: 100
       });
       
-      // Filter to only invoices for this subscription
-      invoices = {
-        data: customerInvoices.data.filter(inv => {
-          // Check if this invoice is for our subscription
-          const isForSubscription = inv.subscription === subscriptionId ||
-                                   inv.lines?.data?.some(line => 
-                                     line.parent?.subscription_item_details?.subscription === subscriptionId
-                                   );
-          
-          // Also check metadata to be sure
-          const hasCorrectMetadata = inv.lines?.data?.some(line => 
-            String(line.metadata?.courseId) === String(courseId)
-          );
-          
-          console.log(`Invoice ${inv.id}: subscription_match=${isForSubscription}, metadata_match=${hasCorrectMetadata}`);
-          
-          return isForSubscription || hasCorrectMetadata;
-        })
-      };
+      console.log(`Found ${customerInvoices.data.length} paid invoices for customer ${customerId}`);
+      
+      // Filter to only invoices for this subscription or course
+      paidInvoices = customerInvoices.data.filter(inv => {
+        // Check if this invoice is for our subscription
+        const isForSubscription = inv.subscription === subscriptionId;
+        
+        // Also check if invoice has line items for this subscription
+        const hasSubscriptionLineItem = inv.lines?.data?.some(line => 
+          line.subscription === subscriptionId ||
+          line.subscription_item === subscriptionId
+        );
+        
+        // Check metadata for course ID (as fallback)
+        const hasCorrectMetadata = inv.lines?.data?.some(line => 
+          String(line.metadata?.courseId) === String(courseId)
+        ) || String(inv.metadata?.courseId) === String(courseId);
+        
+        const matches = isForSubscription || hasSubscriptionLineItem || hasCorrectMetadata;
+        
+        if (matches) {
+          console.log(`Invoice ${inv.id}: subscription_match=${isForSubscription}, line_item_match=${hasSubscriptionLineItem}, metadata_match=${hasCorrectMetadata}`);
+        }
+        
+        return matches;
+      });
+      
+      console.log(`Found ${paidInvoices.length} matching paid invoices after filtering`);
     }
     
     // Filter invoices to ensure they:
     // 1. Are actually paid
     // 2. Have payment amount > 0 (not a trial or $0 invoice)
-    // For sync function, we trust that all invoices for this subscription are for the correct course
-    // since we already verified the subscription metadata has the correct courseId
-    const validPayments = invoices.data.filter(invoice => {
-      // Log debug info for each invoice
-      console.log(`Invoice ${invoice.id}: status=${invoice.status}, amount_paid=${invoice.amount_paid}`);
+    const validPayments = paidInvoices.filter(invoice => {
+      const isValid = invoice.status === 'paid' && invoice.amount_paid > 0;
       
-      return (
-        invoice.status === 'paid' &&
-        invoice.amount_paid > 0
-      );
+      // Log details for debugging
+      console.log(`Invoice ${invoice.id}: status=${invoice.status}, amount_paid=${invoice.amount_paid}, valid=${isValid}`);
+      
+      return isValid;
     });
     
     console.log(`Found ${validPayments.length} valid payments for subscription ${subscriptionId}`);
+    
+    // Sort by payment date (most recent first)
+    validPayments.sort((a, b) => {
+      const aDate = a.status_transitions?.paid_at || a.created || 0;
+      const bDate = b.status_transitions?.paid_at || b.created || 0;
+      return bDate - aDate;
+    });
     
     // Return both count and full invoice details including public URLs
     return {
@@ -298,7 +364,7 @@ async function countSuccessfulPaymentsForSubscription(stripe, subscriptionId, co
       invoices: validPayments.map(inv => ({
         id: inv.id,
         amount_paid: inv.amount_paid,
-        paid_at: inv.status_transitions?.paid_at,
+        paid_at: inv.status_transitions?.paid_at || inv.created,
         period_start: inv.period_start,
         period_end: inv.period_end,
         // Include public URLs from the invoice object
@@ -317,6 +383,19 @@ async function countSuccessfulPaymentsForSubscription(stripe, subscriptionId, co
 async function handleInvoicePaid(stripe, invoice) {
   try {
     console.log('Processing invoice.paid event:', invoice.id);
+    
+    // If invoice doesn't have complete metadata, fetch it from Stripe
+    if (!invoice.subscription_details?.metadata && invoice.subscription) {
+      console.log('Invoice missing subscription_details, fetching subscription metadata');
+      try {
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+        if (subscription.metadata) {
+          invoice.subscription_details = { metadata: subscription.metadata };
+        }
+      } catch (error) {
+        console.error('Error fetching subscription metadata:', error);
+      }
+    }
     
     // Extract metadata from the invoice
     const metadata = invoice.subscription_details?.metadata || {};
@@ -499,11 +578,26 @@ async function handleSubscriptionUpdate(stripe, data, eventType = 'subscription.
     }
 
     const userEmail = metadata.userEmail;
+    const courseId = metadata.courseId;
     
     // Ensure customer payment record exists
     await getOrCreateCustomerPaymentRecord(userEmail, subscription.customer);
 
-    // Build basic subscription status update with dashboard links
+    // Count successful payments for this subscription
+    let paymentInfo = { count: 0, invoices: [] };
+    try {
+      paymentInfo = await countSuccessfulPaymentsForSubscription(
+        stripe, 
+        subscription.id, 
+        courseId,
+        subscription.customer
+      );
+      console.log(`Subscription ${subscription.id} has ${paymentInfo.count} successful payments`);
+    } catch (error) {
+      console.error('Error counting payments in subscription update:', error);
+    }
+
+    // Build comprehensive subscription status update with payment info
     const paymentData = {
       status: subscription.status,
       type: 'subscription',
@@ -515,12 +609,33 @@ async function handleSubscriptionUpdate(stripe, data, eventType = 'subscription.
       cancel_at: subscription.cancel_at ? subscription.cancel_at * 1000 : null,
       canceled_at: subscription.canceled_at ? subscription.canceled_at * 1000 : null,
       courseName: metadata.courseName,
+      payment_count: paymentInfo.count,
+      // Include invoice history
+      invoices: paymentInfo.invoices.map(inv => ({
+        id: inv.id,
+        amount_paid: inv.amount_paid,
+        paid_at: inv.paid_at,
+        period_start: inv.period_start,
+        period_end: inv.period_end,
+        hosted_invoice_url: inv.hosted_invoice_url || null,
+        invoice_pdf: inv.invoice_pdf || null,
+        status: inv.status || 'paid',
+        stripe_dashboard_url: `https://dashboard.stripe.com/invoices/${inv.id}`
+      })),
+      successful_invoice_ids: paymentInfo.invoices.map(inv => inv.id),
       // Add Stripe dashboard links
       stripe_links: {
         customer: `https://dashboard.stripe.com/customers/${subscription.customer}`,
         subscription: `https://dashboard.stripe.com/subscriptions/${subscription.id}`
       }
     };
+
+    // Check if this is a completed 3-payment subscription
+    if (metadata.paymentType === 'subscription_3_month' && paymentInfo.count >= 3) {
+      paymentData.status = 'paid';
+      paymentData.final_payment_count = paymentInfo.count;
+      paymentData.cancellation_reason = 'completed_3_payments';
+    }
 
     await updatePaymentStatus(userEmail, metadata.courseId, paymentData, eventType);
     return { success: true };
@@ -727,23 +842,24 @@ const handleStripeWebhookV2 = onRequest({
       case 'customer.subscription.updated':
         // SECONDARY HANDLER for subscription status changes
         const subscription = event.data.object;
-        console.log('Subscription event:', event.type, subscription.id);
+        console.log('Subscription event:', event.type, subscription.id, 'Status:', subscription.status);
         
-        // Since Stripe extension handles subscription creation, we only need minimal tracking
         // Skip if no metadata (means it wasn't created with our metadata)
         if (!subscription.metadata?.userEmail || !subscription.metadata?.courseId) {
           console.log('Skipping subscription event - no metadata');
           break;
         }
         
-        // Only track critical status changes, not every update
-        const criticalStatuses = ['canceled', 'past_due', 'unpaid', 'incomplete_expired'];
-        if (event.type === 'customer.subscription.updated' && 
-            !criticalStatuses.includes(subscription.status)) {
-          console.log(`Skipping non-critical subscription status: ${subscription.status}`);
+        // For subscription.created, ALWAYS process it
+        if (event.type === 'customer.subscription.created') {
+          console.log('Processing subscription creation for:', subscription.id);
+          await handleSubscriptionUpdate(stripe, { subscription }, event.type);
           break;
         }
         
+        // For subscription.updated, process all events to ensure we capture payment counts
+        // and subscription changes properly
+        console.log(`Processing subscription update for ${subscription.id} with status: ${subscription.status}`);
         await handleSubscriptionUpdate(stripe, { subscription }, event.type);
         break;
         
@@ -927,9 +1043,77 @@ const syncStripePaymentStatusV2 = onCall({
     });
     
     if (customers.data.length === 0) {
+      // No Stripe customer found, try to find payment in database directly
+      console.log(`No Stripe customer found for ${userEmail}, searching database directly`);
+      
+      // First try with the student's email
+      const paymentRef = admin.database()
+        .ref(`payments/${sanitizedEmail}/courses/${courseId}`);
+      const paymentSnapshot = await paymentRef.once('value');
+      
+      if (paymentSnapshot.exists()) {
+        console.log(`Found payment data in database for ${sanitizedEmail}, course ${courseId}`);
+        const dbPaymentData = paymentSnapshot.val();
+        
+        // Return the database payment data with indicator that it's from database
+        return {
+          success: true,
+          message: 'Payment data found in database (no Stripe record)',
+          paymentType: dbPaymentData.type || 'unknown',
+          hasStripeData: false,
+          data_source: 'firebase_database',
+          paymentData: {
+            ...dbPaymentData,
+            synced_from_stripe: false,
+            data_source: 'firebase_database',
+            sync_timestamp: Date.now()
+          }
+        };
+      }
+      
+      // If not found with student email, try parent email
+      console.log(`No payment found for student email, checking parent email`);
+      const studentProfileRef = admin.database()
+        .ref(`students/${sanitizedEmail}/profile/ParentEmail`);
+      const parentEmailSnapshot = await studentProfileRef.once('value');
+      
+      if (parentEmailSnapshot.exists()) {
+        const parentEmail = parentEmailSnapshot.val();
+        const sanitizedParentEmail = sanitizeEmail(parentEmail);
+        
+        console.log(`Checking payments under parent email: ${parentEmail}`);
+        
+        const parentPaymentRef = admin.database()
+          .ref(`payments/${sanitizedParentEmail}/courses/${courseId}`);
+        const parentPaymentSnapshot = await parentPaymentRef.once('value');
+        
+        if (parentPaymentSnapshot.exists()) {
+          console.log(`Found payment data under parent email ${sanitizedParentEmail}, course ${courseId}`);
+          const dbPaymentData = parentPaymentSnapshot.val();
+          
+          // Return the database payment data with indicator that it's from parent's payment
+          return {
+            success: true,
+            message: 'Payment data found in database under parent email (no Stripe record)',
+            paymentType: dbPaymentData.type || 'unknown',
+            hasStripeData: false,
+            data_source: 'firebase_database',
+            parent_payment: true,
+            paymentData: {
+              ...dbPaymentData,
+              synced_from_stripe: false,
+              data_source: 'firebase_database',
+              parent_payment: true,
+              sync_timestamp: Date.now()
+            }
+          };
+        }
+      }
+      
+      // No payment found anywhere
       return {
         success: false,
-        message: 'No Stripe customer found for this email',
+        message: 'No Stripe customer found for this email and no payment record in database',
         hasStripeData: false
       };
     }
@@ -1047,9 +1231,76 @@ const syncStripePaymentStatusV2 = onCall({
         };
       }
       
+      // No Stripe payments found, try database fallback
+      console.log(`No Stripe payments found for course ${courseId}, searching database directly`);
+      
+      // First try with the student's email
+      const dbPaymentRef = admin.database()
+        .ref(`payments/${sanitizedEmail}/courses/${courseId}`);
+      const dbPaymentSnapshot = await dbPaymentRef.once('value');
+      
+      if (dbPaymentSnapshot.exists()) {
+        console.log(`Found payment data in database for ${sanitizedEmail}, course ${courseId}`);
+        const dbPaymentData = dbPaymentSnapshot.val();
+        
+        // Return the database payment data
+        return {
+          success: true,
+          message: 'Payment data found in database (no Stripe payment record)',
+          paymentType: dbPaymentData.type || 'unknown',
+          hasStripeData: false,
+          data_source: 'firebase_database',
+          paymentData: {
+            ...dbPaymentData,
+            synced_from_stripe: false,
+            data_source: 'firebase_database',
+            sync_timestamp: Date.now()
+          }
+        };
+      }
+      
+      // If not found with student email, try parent email
+      console.log(`No payment found for student email in database, checking parent email`);
+      const studentProfileRef = admin.database()
+        .ref(`students/${sanitizedEmail}/profile/ParentEmail`);
+      const parentEmailSnapshot = await studentProfileRef.once('value');
+      
+      if (parentEmailSnapshot.exists()) {
+        const parentEmail = parentEmailSnapshot.val();
+        const sanitizedParentEmail = sanitizeEmail(parentEmail);
+        
+        console.log(`Checking database payments under parent email: ${parentEmail}`);
+        
+        const parentPaymentRef = admin.database()
+          .ref(`payments/${sanitizedParentEmail}/courses/${courseId}`);
+        const parentPaymentSnapshot = await parentPaymentRef.once('value');
+        
+        if (parentPaymentSnapshot.exists()) {
+          console.log(`Found payment data under parent email ${sanitizedParentEmail}, course ${courseId}`);
+          const dbPaymentData = parentPaymentSnapshot.val();
+          
+          // Return the database payment data
+          return {
+            success: true,
+            message: 'Payment data found in database under parent email (no Stripe payment record)',
+            paymentType: dbPaymentData.type || 'unknown',
+            hasStripeData: false,
+            data_source: 'firebase_database',
+            parent_payment: true,
+            paymentData: {
+              ...dbPaymentData,
+              synced_from_stripe: false,
+              data_source: 'firebase_database',
+              parent_payment: true,
+              sync_timestamp: Date.now()
+            }
+          };
+        }
+      }
+      
       return {
         success: false,
-        message: 'No payments found for this course',
+        message: 'No payments found for this course in Stripe or database',
         hasStripeData: false
       };
     }
@@ -1058,7 +1309,7 @@ const syncStripePaymentStatusV2 = onCall({
     const subscription = courseSubscriptions[0];
     const paymentType = subscription.metadata?.paymentType || 'subscription';
     
-    // Count successful payments
+    // Count successful payments - always pass the customer ID
     let paymentInfo = { count: 0, invoices: [] };
     
     try {
@@ -1066,10 +1317,21 @@ const syncStripePaymentStatusV2 = onCall({
         stripe, 
         subscription.id, 
         courseId,
-        customerId
+        subscription.customer || customerId // Use subscription's customer or fallback to customerId
       );
     } catch (error) {
       console.error('Error counting payments:', error);
+      // Try without customer ID as fallback
+      try {
+        paymentInfo = await countSuccessfulPaymentsForSubscription(
+          stripe, 
+          subscription.id, 
+          courseId,
+          null
+        );
+      } catch (error2) {
+        console.error('Error counting payments (second attempt):', error2);
+      }
     }
     
     console.log(`Subscription ${subscription.id} has ${paymentInfo.count} successful payments`);

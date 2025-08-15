@@ -2,12 +2,21 @@ import React, { useState } from 'react';
 import { getDatabase, ref, get, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { Search, Archive, RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2, Eye, X, Copy, ChevronDown, ChevronRight, FileJson, Wrench } from 'lucide-react';
+import { Search, Archive, RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2, Eye, X, Copy, ChevronDown, ChevronRight, FileJson, Wrench, BookOpen } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
 const ArchiveManagement = () => {
   const [searchEmail, setSearchEmail] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -26,6 +35,11 @@ const ArchiveManagement = () => {
       return;
     }
 
+    if (!selectedCourse) {
+      setError('Please select a course');
+      return;
+    }
+
     setSearching(true);
     setError(null);
     setSuccessMessage(null);
@@ -35,46 +49,65 @@ const ArchiveManagement = () => {
       const db = getDatabase();
       const sanitizedEmail = sanitizeEmail(searchEmail.trim());
       
-      // Query all studentCourseSummaries
-      const summariesRef = ref(db, 'studentCourseSummaries');
-      const snapshot = await get(summariesRef);
+      // Find the selected course info
+      const courseInfo = COURSE_OPTIONS.find(c => c.value === selectedCourse);
+      if (!courseInfo || !courseInfo.courseId) {
+        setError('Invalid course selected');
+        setSearching(false);
+        return;
+      }
+      
+      // Construct the summaryKey
+      const summaryKey = `${sanitizedEmail}_${courseInfo.courseId}`;
+      
+      console.log(`Searching for summaryKey: ${summaryKey}`);
+      
+      // Query the specific studentCourseSummary
+      const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}`);
+      const snapshot = await get(summaryRef);
       
       if (!snapshot.exists()) {
-        setError('No student course summaries found');
+        setError(`No enrollment found for ${searchEmail} in ${courseInfo.label}`);
         setSearching(false);
         return;
       }
 
-      const allSummaries = snapshot.val();
-      const archivedCourses = [];
+      const summary = snapshot.val();
+      const status = summary.ActiveFutureArchived_Value || 'Unknown';
+      
+      // Check if archive info exists, regardless of status
+      const hasArchiveInfo = summary.archiveInfo && summary.archiveInfo.archiveFilePath;
+      
+      // Determine if this should be treated as archived
+      // Either the status is Archived OR archive info exists (handling out-of-sync cases)
+      const shouldShowArchiveActions = status === 'Archived' || hasArchiveInfo;
+      
+      // Create result object
+      const courseResult = {
+        summaryKey: summaryKey,
+        studentEmail: summary.StudentEmail || summary.originalEmail || searchEmail,
+        courseId: courseInfo.courseId,
+        courseName: courseInfo.label,
+        studentName: `${summary.firstName || summary.FirstName || ''} ${summary.lastName || summary.LastName || ''}`.trim() || 'Unknown',
+        asn: summary.asn || 'N/A',
+        status: status,
+        archiveInfo: summary.archiveInfo || {},
+        archiveStatus: summary.archiveStatus || 'Unknown',
+        archivedAt: summary.archiveInfo?.archivedAt || null,
+        isArchived: shouldShowArchiveActions,
+        hasArchiveInfo: hasArchiveInfo,
+        isOutOfSync: hasArchiveInfo && status !== 'Archived', // Flag for out-of-sync status
+        summaryData: summary // Include full data for reference
+      };
 
-      // Filter for this student's archived courses
-      Object.entries(allSummaries).forEach(([key, summary]) => {
-        // Check if this summary belongs to the searched student
-        if (key.startsWith(`${sanitizedEmail}_`)) {
-          // Check if it's archived
-          if (summary.ActiveFutureArchived_Value === 'Archived') {
-            const courseId = key.replace(`${sanitizedEmail}_`, '');
-            archivedCourses.push({
-              summaryKey: key,
-              studentEmail: summary.StudentEmail || searchEmail,
-              courseId: courseId,
-              courseName: summary.CourseName || `Course ${courseId}`,
-              studentName: `${summary.FirstName || ''} ${summary.LastName || ''}`.trim() || 'Unknown',
-              asn: summary.asn || 'N/A',
-              archiveInfo: summary.archiveInfo || {},
-              archiveStatus: summary.archiveStatus || 'Unknown',
-              archivedAt: summary.archiveInfo?.archivedAt || null
-            });
-          }
-        }
-      });
-
-      if (archivedCourses.length === 0) {
-        setError(`No archived courses found for ${searchEmail}`);
+      setSearchResults([courseResult]);
+      
+      if (courseResult.isOutOfSync) {
+        setSuccessMessage(`Found ${status} enrollment with archive data for ${searchEmail} in ${courseInfo.label} (Status may be out of sync)`);
+      } else if (courseResult.isArchived) {
+        setSuccessMessage(`Found archived enrollment for ${searchEmail} in ${courseInfo.label}`);
       } else {
-        setSearchResults(archivedCourses);
-        setSuccessMessage(`Found ${archivedCourses.length} archived course(s) for ${searchEmail}`);
+        setSuccessMessage(`Found ${status} enrollment for ${searchEmail} in ${courseInfo.label}`);
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -426,14 +459,14 @@ const ArchiveManagement = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Archive Recovery Tool</h1>
-        <p className="text-gray-600">Search for and restore archived student course data</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Student Course Data Management</h1>
+        <p className="text-gray-600">Search for student course enrollments and manage archived data</p>
       </div>
 
       {/* Search Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Student Email Address
             </label>
@@ -448,25 +481,52 @@ const ArchiveManagement = () => {
               disabled={searching}
             />
           </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleSearch}
-              disabled={searching || !searchEmail.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+          
+          <div>
+            <label htmlFor="course" className="block text-sm font-medium text-gray-700 mb-2">
+              Select Course
+            </label>
+            <Select
+              value={selectedCourse}
+              onValueChange={setSelectedCourse}
+              disabled={searching}
             >
-              {searching ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Searching...</span>
-                </>
-              ) : (
-                <>
-                  <Search className="w-5 h-5" />
-                  <span>Search</span>
-                </>
-              )}
-            </button>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {COURSE_OPTIONS.map((course) => (
+                  <SelectItem key={course.courseId} value={course.value}>
+                    <div className="flex items-center space-x-2">
+                      {course.icon && <course.icon className="w-4 h-4" style={{ color: course.color }} />}
+                      <span>{course.label}</span>
+                      <span className="text-xs text-gray-500">(ID: {course.courseId})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <button
+            onClick={handleSearch}
+            disabled={searching || !searchEmail.trim() || !selectedCourse}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {searching ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Searching...</span>
+              </>
+            ) : (
+              <>
+                <Search className="w-5 h-5" />
+                <span>Search</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Status Messages */}
@@ -489,7 +549,7 @@ const ArchiveManagement = () => {
       {searchResults.length > 0 && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Archived Courses</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Search Results</h2>
           </div>
           
           <div className="divide-y divide-gray-200">
@@ -499,15 +559,36 @@ const ArchiveManagement = () => {
               const isViewing = viewingData.has(courseKey);
               const isFixing = fixingCourses.has(courseKey);
               
+              // Determine status color
+              const getStatusColor = (status) => {
+                // Special case for out-of-sync
+                if (course.isOutOfSync) {
+                  return 'text-yellow-600 bg-yellow-50';
+                }
+                switch(status) {
+                  case 'Active': return 'text-green-600 bg-green-50';
+                  case 'Archived': return 'text-gray-600 bg-gray-50';
+                  case 'Pending': return 'text-yellow-600 bg-yellow-50';
+                  default: return 'text-gray-600 bg-gray-50';
+                }
+              };
+              
               return (
                 <div key={courseKey} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <Archive className="w-5 h-5 text-gray-400" />
+                        {course.isArchived ? (
+                          <Archive className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <BookOpen className="w-5 h-5 text-blue-400" />
+                        )}
                         <h3 className="text-lg font-medium text-gray-900">
                           {course.courseName}
                         </h3>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(course.status)}`}>
+                          {course.status}
+                        </span>
                       </div>
                       
                       <div className="space-y-1 text-sm text-gray-600">
@@ -515,8 +596,27 @@ const ArchiveManagement = () => {
                         <p><span className="font-medium">Email:</span> {course.studentEmail}</p>
                         <p><span className="font-medium">ASN:</span> {course.asn}</p>
                         <p><span className="font-medium">Course ID:</span> {course.courseId}</p>
-                        <p><span className="font-medium">Archive Status:</span> {course.archiveStatus}</p>
-                        <p><span className="font-medium">Archived:</span> {formatDate(course.archivedAt)}</p>
+                        
+                        {course.isArchived && (
+                          <>
+                            <p><span className="font-medium">Archive Status:</span> {course.archiveStatus}</p>
+                            <p><span className="font-medium">Archived:</span> {formatDate(course.archivedAt)}</p>
+                          </>
+                        )}
+                        
+                        {!course.isArchived && course.summaryData && (
+                          <>
+                            {course.summaryData.ScheduleStartDate && (
+                              <p><span className="font-medium">Start Date:</span> {course.summaryData.ScheduleStartDate}</p>
+                            )}
+                            {course.summaryData.ScheduleEndDate && (
+                              <p><span className="font-medium">End Date:</span> {course.summaryData.ScheduleEndDate}</p>
+                            )}
+                            {course.summaryData.PercentCompleteGradebook !== undefined && (
+                              <p><span className="font-medium">Progress:</span> {course.summaryData.PercentCompleteGradebook}%</p>
+                            )}
+                          </>
+                        )}
                         
                         {course.archiveInfo?.fileName && (
                           <p className="text-xs text-gray-500 mt-2">
@@ -527,64 +627,85 @@ const ArchiveManagement = () => {
                     </div>
                     
                     <div className="ml-4 space-y-2">
-                      <button
-                        onClick={() => handleViewData(course)}
-                        disabled={isViewing}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                      >
-                        {isViewing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Loading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="w-4 h-4" />
-                            <span>View Data</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Only show archive-specific actions for archived courses */}
+                      {course.isArchived && (
+                        <>
+                          <button
+                            onClick={() => handleViewData(course)}
+                            disabled={isViewing}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                          >
+                            {isViewing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4" />
+                                <span>View Data</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleRestore(course)}
+                            disabled={isRestoring}
+                            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                          >
+                            {isRestoring ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Restoring...</span>
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4" />
+                                <span>Restore</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleFixData(course)}
+                            disabled={isFixing}
+                            className="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                            title="Fix data incorrectly restored to previousCourse folder"
+                          >
+                            {isFixing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Fixing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wrench className="w-4 h-4" />
+                                <span>Fix Data</span>
+                              </>
+                            )}
+                          </button>
+                        </>
+                      )}
                       
-                      <button
-                        onClick={() => handleRestore(course)}
-                        disabled={isRestoring}
-                        className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                      >
-                        {isRestoring ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Restoring...</span>
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="w-4 h-4" />
-                            <span>Restore</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Show warning for out-of-sync courses */}
+                      {course.isOutOfSync && (
+                        <div className="p-3 bg-yellow-50 rounded-md mb-2">
+                          <p className="text-sm text-yellow-700 font-medium">⚠️ Status Out of Sync</p>
+                          <p className="text-xs text-yellow-600 mt-1">Status shows {course.status} but archive data exists</p>
+                        </div>
+                      )}
                       
-                      <button
-                        onClick={() => handleFixData(course)}
-                        disabled={isFixing}
-                        className="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                        title="Fix data incorrectly restored to previousCourse folder"
-                      >
-                        {isFixing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Fixing...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wrench className="w-4 h-4" />
-                            <span>Fix Data</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Show informational message for active courses without archive data */}
+                      {!course.isArchived && !course.hasArchiveInfo && (
+                        <div className="p-3 bg-green-50 rounded-md">
+                          <p className="text-sm text-green-700 font-medium">Course is currently active</p>
+                          <p className="text-xs text-green-600 mt-1">No archive actions available</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {course.archiveInfo?.restorationData && (
+                  {course.isArchived && course.archiveInfo?.restorationData && (
                     <div className="mt-4 p-3 bg-blue-50 rounded-md">
                       <div className="flex items-start space-x-2">
                         <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -604,11 +725,11 @@ const ArchiveManagement = () => {
       )}
 
       {/* Empty State */}
-      {!searching && searchResults.length === 0 && searchEmail && !error && (
+      {!searching && searchResults.length === 0 && searchEmail && selectedCourse && !error && (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <Archive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No archived courses found</p>
-          <p className="text-sm text-gray-500 mt-2">Try searching with a different email address</p>
+          <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">No enrollment found</p>
+          <p className="text-sm text-gray-500 mt-2">Try searching with a different email or course combination</p>
         </div>
       )}
 

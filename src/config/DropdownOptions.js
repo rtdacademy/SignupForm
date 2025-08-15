@@ -25,20 +25,53 @@ import {
   CalendarDays,    // for Term 2
   CalendarClock,   // for Full Year
   Umbrella,         // for Summer
-  Ban
+  Ban,
+  CreditCard,      // for Payment Active
+  BanknoteIcon     // for Payment Unpaid
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
-  { value: "paid", color: "#10B981" },     // Green for paid
-  { value: "active", color: "#3B82F6" },   // Blue for active
-  { value: "unpaid", color: "#EF4444" },   // Red for unpaid
-  { value: "not-required", color: "#9CA3AF" }  // Gray for not required
+  { 
+    value: "paid", 
+    color: "#10B981",     // Green for paid
+    icon: CheckCircle2,
+    tooltip: "Payment received - Course access granted"
+  },
+  { 
+    value: "active", 
+    color: "#3B82F6",   // Blue for active
+    icon: CreditCard,
+    tooltip: "Payment plan in good standing - Student is making payments"
+  },
+  { 
+    value: "unpaid", 
+    color: "#EF4444",   // Red for unpaid
+    icon: BanknoteIcon,
+    tooltip: "Payment required - Course access restricted"
+  },
+  { 
+    value: "not-required", 
+    color: "#9CA3AF",  // Gray for not required
+    icon: MinusCircle,
+    tooltip: "No payment required for this course"
+  }
 ];
 
 // Add the helper function for payment status colors
 export const getPaymentStatusColor = (status) => {
   const option = PAYMENT_STATUS_OPTIONS.find(opt => opt.value === status);
   return option ? option.color : "#6B7280";  // Default to gray if status not found
+};
+
+// Helper function to get full payment status info including icon
+export const getPaymentStatusInfo = (status) => {
+  const option = PAYMENT_STATUS_OPTIONS.find(opt => opt.value === status);
+  return {
+    color: option ? option.color : "#6B7280",
+    icon: option ? option.icon : MinusCircle,
+    tooltip: option ? option.tooltip : "Unknown payment status",
+    value: option ? option.value : status
+  };
 };
 
 export const ALERT_LEVELS = {

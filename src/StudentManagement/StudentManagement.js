@@ -561,6 +561,34 @@ function StudentManagement({
       );
     }
 
+    // Check if student is missing critical data
+    if (selectedStudent.archiveStatus === "Completed") {
+      return (
+        <Card className="h-full bg-white shadow-md">
+          <CardContent className="h-full p-4 overflow-auto">
+            <div className="flex flex-col items-center justify-center h-full">
+              <User className="h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">Limited Student Information Available</h3>
+              <p className="text-gray-500 text-center mb-4">This student's profile is incomplete. Some features may not be available.</p>
+              {(selectedStudent.firstName || selectedStudent.lastName || selectedStudent.StudentEmail) && (
+                <div className="text-sm text-gray-600 mt-4 p-4 bg-gray-50 rounded-lg">
+                  {selectedStudent.firstName && selectedStudent.lastName && (
+                    <p><strong>Name:</strong> {selectedStudent.firstName} {selectedStudent.lastName}</p>
+                  )}
+                  {selectedStudent.StudentEmail && (
+                    <p><strong>Email:</strong> {selectedStudent.StudentEmail}</p>
+                  )}
+                  {selectedStudent.CourseID && (
+                    <p><strong>Course ID:</strong> {selectedStudent.CourseID}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
     // Determine which component to render
     let detailComponent;
 
@@ -722,8 +750,8 @@ function StudentManagement({
                   )}
                 </AnimatePresence>
                 
-                {/* Action Buttons - when student is selected */}
-                {selectedStudent && (
+                {/* Action Buttons - when student is selected and has complete data */}
+                {selectedStudent && selectedStudent.archiveStatus !== "Completed" && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
