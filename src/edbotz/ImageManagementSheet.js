@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Upload, Image as ImageIcon, Trash2, Loader, Plus, X, Info } from 'lucide-react';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { getDatabase, ref as dbRef, push, set, remove, get } from 'firebase/database';
-import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
 import { useAuth } from '../context/AuthContext';
 import {
   Sheet,
@@ -405,6 +406,24 @@ const ImageManagementSheet = ({
   };
 
   const analyzeImageWithAI = async (imagePart, context, imageName) => {  // Add imageName parameter
+    // VERTEX AI DISABLED - Return placeholder analysis
+    console.log('Vertex AI disabled - Image analysis temporarily unavailable');
+    return {
+      candidates: [{
+        content: {
+          role: 'model',
+          parts: [{
+            text: `Image Analysis Temporarily Disabled\n\nImage Name: ${imageName}\n\nContext: ${context}\n\nNote: AI image analysis is temporarily disabled for maintenance. The image has been uploaded successfully and will be available for reference once the AI features are restored.`
+          }]
+        },
+        finishReason: 'STOP',
+        index: 0
+      }],
+      modelVersion: 'disabled',
+      createTime: new Date().toISOString()
+    };
+    
+    /* DISABLED CODE - DO NOT REMOVE YET
     try {
       const vertexAI = getVertexAI(firebaseApp);
       const model = getGenerativeModel(vertexAI, {
@@ -431,6 +450,7 @@ const ImageManagementSheet = ({
       console.error('Error analyzing image:', error);
       throw error;
     }
+    */
   };
 
   const uploadImage = useCallback(async (file, context, imageName) => {

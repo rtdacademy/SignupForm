@@ -3,7 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Loader2 } from 'lucide-react';
-import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
 
 const GeminiChat = ({ firebaseApp }) => {
   const [prompt, setPrompt] = useState('');
@@ -13,21 +14,20 @@ const GeminiChat = ({ firebaseApp }) => {
   const [model, setModel] = useState(null);
 
   useEffect(() => {
-    // Initialize the generative model
-    try {
-      const vertexAI = getVertexAI(firebaseApp);
-      const geminiModel = getGenerativeModel(vertexAI, { 
-        model: "gemini-1.5-flash"
-      });
-      setModel(geminiModel);
-    } catch (err) {
-      setError('Error initializing model: ' + err.message);
-      console.error('Model initialization error:', err);
-    }
+    // VERTEX AI DISABLED - Show disabled message
+    setError('Gemini Chat via Vertex AI is temporarily disabled for maintenance. Please use the Gemini API chat component instead.');
+    console.log('Vertex AI disabled in GeminiChat - cost optimization in progress');
+    setModel(null);
   }, [firebaseApp]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // VERTEX AI DISABLED - Prevent any submissions
+    setError('Gemini Chat via Vertex AI is temporarily disabled. Please use the Gemini API chat component instead.');
+    return;
+
+    /* DISABLED CODE - DO NOT REMOVE YET
     if (!prompt.trim() || !model) return;
 
     setLoading(true);
@@ -44,6 +44,7 @@ const GeminiChat = ({ firebaseApp }) => {
     } finally {
       setLoading(false);
     }
+    */
   };
 
   return (

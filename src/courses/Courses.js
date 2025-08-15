@@ -121,6 +121,24 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, courseIsEditing }) 
     });
   };
 
+  const handleRegistrationDeadlineChange = (e) => {
+    const localDate = e.target.value;
+    if (!localDate) {
+      // If the date is cleared, remove the deadline fields
+      const updated = { ...diplomaTime };
+      delete updated.registrationDeadline;
+      delete updated.registrationDeadlineDisplayDate;
+      onChange(updated);
+    } else {
+      const { date, displayDate, timezone } = formatDateForDatabase(localDate);
+      onChange({
+        ...diplomaTime,
+        registrationDeadline: date,
+        registrationDeadlineDisplayDate: displayDate
+      });
+    }
+  };
+
   const handleTimeChange = (selected, { name }) => {
     onChange({
       ...diplomaTime,
@@ -132,13 +150,29 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, courseIsEditing }) 
     <div className="rounded-lg border p-4">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Date</label>
+          <label className="block text-sm font-medium mb-1">Diploma Exam Date</label>
           <Input
             type="date"
             value={diplomaTime.displayDate || formatDateForDisplay(diplomaTime.date) || ''}
             onChange={handleDateChange}
             disabled={!courseIsEditing}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Registration Deadline (Optional)
+          </label>
+          <Input
+            type="date"
+            value={diplomaTime.registrationDeadlineDisplayDate || formatDateForDisplay(diplomaTime.registrationDeadline) || ''}
+            onChange={handleRegistrationDeadlineChange}
+            disabled={!courseIsEditing}
+            placeholder="No deadline set"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            If set, students must start their course by this date to be eligible for this diploma exam
+          </p>
         </div>
 
         <div className="flex space-x-2">

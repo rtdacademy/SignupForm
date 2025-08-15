@@ -22,7 +22,8 @@ import 'katex/dist/katex.min.css';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { useAuth } from '../context/AuthContext';
-import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { ScrollArea } from "../components/ui/scroll-area";
 import useEnhancedChatHandler from "./components/useEnhancedChatHandler";
@@ -548,12 +549,19 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     setInputMessage('');
   }, [setMessages]);
 
-  // Initialize AI function
+  // Initialize AI function - DISABLED DUE TO VERTEX AI COSTS
   const initializeAI = useCallback(async (assistantConfig) => {
     if (!assistantConfig) return;
   
     setIsInitializing(true);
+    
+    // VERTEX AI DISABLED - Show error message
+    setError('AI Chat is temporarily disabled for maintenance. Please use the Gemini chat component instead.');
+    setIsInitializing(false);
+    console.log('Vertex AI disabled - cost optimization in progress');
+    return;
   
+    /* DISABLED CODE - DO NOT REMOVE YET
     try {
       // Basic delay to prevent rapid initialization
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -701,6 +709,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     } finally {
       setIsInitializing(false);
     }
+    */
   }, [firebaseApp, setMessages, initializeChat]);
 
   // Simplified reset handler that directly manages the chat state

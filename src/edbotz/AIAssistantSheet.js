@@ -46,7 +46,8 @@ import {
   AccordionTrigger,
 } from "../components/ui/accordion";
 import  FileManagementSheet from './FileManagementSheet';
-import { getVertexAI, getGenerativeModel, Schema } from "firebase/vertexai";
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel, Schema } from "firebase/vertexai";
 import FileManagementInfoSheet from './documents/FileManagementInfoSheet';
 import ImageManagementSheet from './ImageManagementSheet';
 import QuickCreateControls from './QuickCreateControls';
@@ -298,9 +299,10 @@ const calculateImageCount = (firebaseImages = {}, localImageIds = []) => {
 
 
 
-/// Vertex AI ////
+/// Vertex AI - DISABLED ////
 
-const assistantSchema = Schema.object({
+// VERTEX AI DISABLED - Using placeholder schema
+const assistantSchema = null; /* Schema.object({
   properties: {
     assistantName: Schema.string(),
     instructions: Schema.string(),
@@ -309,10 +311,15 @@ const assistantSchema = Schema.object({
       items: Schema.string()
     })
   }
-});
+}); */
 
-// Updated generation function
+// Updated generation function - DISABLED
 const generateAssistantConfig = async (description) => {
+  // VERTEX AI DISABLED - Return error
+  console.log('Vertex AI disabled - Quick Create with AI temporarily unavailable');
+  throw new Error('Quick Create with AI is temporarily disabled for maintenance. Please configure your assistant manually.');
+  
+  /* DISABLED CODE - DO NOT REMOVE YET
   try {
     const vertexAI = getVertexAI(firebaseApp);
     const model = getGenerativeModel(vertexAI, {
@@ -365,26 +372,32 @@ const generateAssistantConfig = async (description) => {
     console.error('Error generating assistant config:', error);
     throw error;
   }
+  */
 };
 
-// Updated handler
+// Updated handler - DISABLED
 const handleGenerate = async () => {
   if (!assistantDescription.trim()) return;
   
   setIsGenerating(true);
   try {
+    // VERTEX AI DISABLED - Show error message
+    alert('Quick Create with AI is temporarily disabled for maintenance. Please configure your assistant manually.');
+    console.log('Vertex AI disabled - cannot generate assistant config');
+    
+    /* DISABLED CODE
     const config = await generateAssistantConfig(assistantDescription);
     console.log('Generated config:', config);
     
-  
     setAssistantName(config.assistantName);
     setInstructions(config.instructions);
     setFirstMessage(config.firstMessage);
     setMessageStarters(config.messageStarters || ['']);
-  
+    */
     
   } catch (error) {
     console.error('Error:', error);
+    alert('Quick Create with AI is temporarily disabled. Please configure your assistant manually.');
   } finally {
     setIsGenerating(false);
   }

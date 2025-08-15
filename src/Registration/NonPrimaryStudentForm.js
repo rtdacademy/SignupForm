@@ -1271,6 +1271,10 @@ const NonPrimaryStudentForm = forwardRef(({
       return;
     }
     
+    // Initialize validation flag
+    let hasValidationError = false;
+    let validationMessage = '';
+    
     // Calculate the minimum end date based on course requirements
     const courseMinEndDate = formData.startDate && minCompletionMonths ? 
       getMinCompletionDate(formData.startDate, minCompletionMonths) : 
@@ -1285,58 +1289,43 @@ const NonPrimaryStudentForm = forwardRef(({
         `End date must be at least ${minCompletionMonths} months after start date` : 
         'End date must be at least 1 month after start date';
       
-      setDateErrors(prev => ({
-        ...prev,
-        endDate: message
-      }));
-      return;
+      hasValidationError = true;
+      validationMessage = message;
     }
     
     // Check completionBegins constraint from registration settings
-    const endDateIsNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
-    const endDateTimeSection = getTimeSection(endDateIsNextYear);
-    if (endDateTimeSection) {
-      const { min: completionBeginsDate } = getDateConstraints(endDateTimeSection, false);
-      if (completionBeginsDate && date < completionBeginsDate) {
-        setDateErrors(prev => ({
-          ...prev,
-          endDate: `End date must be on or after ${formatDateForDisplay(completionBeginsDate)} based on registration period constraints`
-        }));
-        return;
+    if (!hasValidationError) {
+      const endDateIsNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+      const endDateTimeSection = getTimeSection(endDateIsNextYear);
+      if (endDateTimeSection) {
+        const { min: completionBeginsDate } = getDateConstraints(endDateTimeSection, false);
+        if (completionBeginsDate && date < completionBeginsDate) {
+          hasValidationError = true;
+          validationMessage = `End date must be on or after ${formatDateForDisplay(completionBeginsDate)} based on registration period constraints`;
+        }
       }
     }
   
     // Get maximum end date from multiple constraints
-    const maxEnd = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
-    
-    // Handle maximum end date constraints with specific error messages
-    if (maxEnd && date > maxEnd) {
-      let errorMessage = '';
+    if (!hasValidationError) {
+      const maxEnd = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
       
-      // Determine the appropriate error message based on the constraint type
-      if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate && 
-          date > toEdmontonDate(selectedDiplomaDate.displayDate)) {
-        errorMessage = `End date must be exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`;
-      } else {
-        errorMessage = `End date must be on or before ${formatDateForDisplay(maxEnd)} based on registration period constraints`;
+      // Handle maximum end date constraints with specific error messages
+      if (maxEnd && date > maxEnd) {
+        // Determine the appropriate error message based on the constraint type
+        if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate && 
+            date > toEdmontonDate(selectedDiplomaDate.displayDate)) {
+          validationMessage = `End date must be exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`;
+        } else {
+          validationMessage = `End date must be on or before ${formatDateForDisplay(maxEnd)} based on registration period constraints`;
+        }
+        hasValidationError = true;
       }
-      
-      setDateErrors(prev => ({ ...prev, endDate: errorMessage }));
-      return;
     }
     
-    // Remove special Summer School validation - rely on registration settings instead
+    // School year boundary validation removed - not needed with proper registration settings
   
-    // School year boundary validation
-    if (formData.startDate && crossesSchoolYearBoundary(formData.startDate, date)) {
-      setDateErrors(prev => ({
-        ...prev,
-        endDate: 'For courses starting in summer and ending after August, please select the next school year'
-      }));
-      return;
-    }
-  
-    // If all validations pass, update the end date
+    // Always update the end date, regardless of validation
     handleFormChange({
       target: {
         name: 'endDate',
@@ -1347,7 +1336,12 @@ const NonPrimaryStudentForm = forwardRef(({
     // Mark field as touched for validation
     handleBlur('endDate');
     
-    setDateErrors(prev => ({ ...prev, endDate: '' }));
+    // Set or clear the validation error message
+    if (hasValidationError) {
+      setDateErrors(prev => ({ ...prev, endDate: validationMessage }));
+    } else {
+      setDateErrors(prev => ({ ...prev, endDate: '' }));
+    }
     
     // Get term from the active time section and add it to form data
     const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
@@ -2187,11 +2181,7 @@ const NonPrimaryStudentForm = forwardRef(({
       }
     }
 
-    // Check if dates cross school year boundary
-    if (formData.startDate && formData.endDate && crossesSchoolYearBoundary(formData.startDate, formData.endDate)) {
-      newDateErrors.endDate = 'For courses starting in summer and ending after August, please select the next school year';
-      valid = false;
-    }
+    // School year boundary validation removed - not needed with proper registration settings
 
     setDateErrors(prev => ({ ...prev, ...newDateErrors }));
     return valid;
@@ -2743,57 +2733,7 @@ const NonPrimaryStudentForm = forwardRef(({
               <div className="space-y-4">
                 <h4 className="font-medium">Course Schedule</h4>
                 
-                {/* Display time section message */}
-                {formData.enrollmentYear && (
-                  <>
-                    {/* Show message from the selected time section */}
-                
-                    {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()) && (
-  <Alert className="bg-blue-50 border-blue-200">
-    <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
-    <AlertDescription className="text-blue-700">
-      {/* Display term if available */}
-      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term && (
-        <div className="flex items-center mb-2">
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
-            style={{ 
-              backgroundColor: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#dbeafe' :
-                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#ede9fe' :
-                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#d1fae5' : 
-                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#fef3c7' : '#f3f4f6',
-              color: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#1e40af' :
-                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#5b21b6' :
-                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#047857' : 
-                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#b45309' : '#374151',
-              border: '1px solid',
-              borderColor: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#bfdbfe' :
-                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#ddd6fe' :
-                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#a7f3d0' : 
-                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#fde68a' : '#e5e7eb'
-            }}
-          >
-            {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term}
-          </span>
-        </div>
-      )}
-      
-      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message ? (
-        <div 
-          className="prose prose-sm max-w-none prose-blue"
-          dangerouslySetInnerHTML={{ 
-            __html: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message 
-          }}
-        />
-      ) : (
-        <span className="text-sm">
-          Please select dates within the {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear())?.title || 'registration period'}.
-        </span>
-      )}
-    </AlertDescription>
-  </Alert>
-)}
-                  </>
-                )}
+                {/* Time section message removed per request */}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <DatePickerWithInfo

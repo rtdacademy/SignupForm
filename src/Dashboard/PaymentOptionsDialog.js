@@ -20,7 +20,9 @@ import {
   doc
 } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { firestore } from '../firebase'; // Import the firestore instance from your firebase.js
+import { firestore, database } from '../firebase'; // Import both firestore and database
+import { ref, get } from 'firebase/database';
+import { sanitizeEmail } from '../utils/sanitizeEmail'; // Use the standard sanitization
 
 // Loading Overlay Component
 const LoadingOverlay = ({ isVisible }) => {
@@ -121,6 +123,50 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
       }
 
       const isSubscription = selectedOption === 'subscription';
+      
+      // Check for existing subscriptions for this course before creating a new one
+      if (isSubscription) {
+        const sanitizedEmail = sanitizeEmail(user.email);
+        const paymentRef = ref(database, `payments/${sanitizedEmail}/courses/${course.CourseID}`);
+        
+        try {
+          const snapshot = await get(paymentRef);
+          
+          if (snapshot.exists()) {
+            const existingPayment = snapshot.val();
+            
+            // Check if there's an active subscription for this course
+            if (existingPayment.subscription_id && 
+                (existingPayment.status === 'active' || 
+                 existingPayment.status === 'paid' || 
+                 existingPayment.status === 'trialing')) {
+              
+              // Check if it's not canceled or if canceled_at is in the future
+              const now = Date.now();
+              const isCanceled = existingPayment.canceled_at && existingPayment.canceled_at < now;
+              
+              if (!isCanceled) {
+                // Check for multiple subscription IDs
+                const subscriptionIds = existingPayment.all_subscription_ids || [existingPayment.subscription_id];
+                const activeCount = subscriptionIds.length;
+                
+                setPaymentError(`You already have an active subscription for ${course.Course?.Value || 'this course'}. Please contact support if you believe this is an error.`);
+                setIsRedirecting(false);
+                setPaymentLoading(false);
+                
+                toast.error('Active subscription already exists for this course', {
+                  description: activeCount > 1 ? `Note: ${activeCount} subscription records found` : undefined
+                });
+                
+                return;
+              }
+            }
+          }
+        } catch (dbError) {
+          console.warn('Could not check for existing subscriptions:', dbError);
+          // Continue with checkout if check fails (fail-safe)
+        }
+      }
       
       // Base metadata for all payment types
       const baseMetadata = {

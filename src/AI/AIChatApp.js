@@ -6,7 +6,8 @@ import 'katex/dist/katex.min.css';
 import MathModal from '../chat/MathModal';
 import { Textarea } from '../components/ui/textarea';
 import { useAuth } from '../context/AuthContext';
-import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 
 // Helper function to process text and convert LaTeX delimiters to JSX components
 const processText = (text) => {
@@ -90,60 +91,11 @@ const AIChatApp = ({ firebaseApp, mode = 'full' }) => {
   const inputRef = useRef(null);
   const messageContainerRef = useRef(null);
 
-  // Initialize the AI Model and Chat
+  // VERTEX AI DISABLED - Show disabled message
   useEffect(() => {
-    const initializeAI = async () => {
-      try {
-        const vertexAI = getVertexAI(firebaseApp);
-        const geminiModel = getGenerativeModel(vertexAI, {
-          model: "gemini-1.5-flash",
-          generationConfig: {
-            maxOutputTokens: 8192,
-            temperature: 1,
-            topP: 0.95,
-          },
-          safetySettings: [
-            {
-              category: 'HARM_CATEGORY_HATE_SPEECH',
-              threshold: 'OFF',
-            },
-            {
-              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-              threshold: 'OFF',
-            },
-            {
-              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-              threshold: 'OFF',
-            },
-            {
-              category: 'HARM_CATEGORY_HARASSMENT',
-              threshold: 'OFF',
-            }
-          ],
-        });
-
-        // Convert existing messages to chat history format
-        const history = messages.map(msg => ({
-          role: msg.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.text }]
-        }));
-
-        // Initialize chat with system prompt and history
-        const initialChat = await geminiModel.startChat({
-          history,
-          systemPrompt: "You are a helpful AI assistant. Be concise and clear in your responses."
-        });
-        setChat(initialChat);
-        setModel(geminiModel);
-        console.log('AI model and chat initialized');
-      } catch (err) {
-        setError('Error initializing model: ' + err.message);
-        console.error('Model initialization error:', err);
-      }
-    };
-
-    initializeAI();
-  }, [firebaseApp, messages]); 
+    setError('AI Chat is temporarily disabled for maintenance. Please use the Gemini chat component instead.');
+    console.log('Vertex AI disabled - cost optimization in progress');
+  }, []); 
 
   // Scroll handler
   const scrollToBottom = useCallback(() => {

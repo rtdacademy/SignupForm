@@ -121,7 +121,8 @@ export const calculateAge = (birthDate, referenceDate = new Date()) => {
 };
 
 /**
- * Check if two dates cross a school year boundary (July/August to September)
+ * Check if two dates cross a school year boundary (September 1st)
+ * School years run from September 1 to August 31
  *
  * @param {string|Date} startDate - Start date string in YYYY-MM-DD format or Date object
  * @param {string|Date} endDate - End date string in YYYY-MM-DD format or Date object
@@ -134,10 +135,17 @@ export const crossesSchoolYearBoundary = (startDate, endDate) => {
   const startDateObj = typeof startDate === 'string' ? toEdmontonDate(startDate) : startDate;
   const endDateObj = typeof endDate === 'string' ? toEdmontonDate(endDate) : endDate;
   
-  // If start date is in summer (July or August)
-  if (startDateObj.getMonth() === 6 || startDateObj.getMonth() === 7) {
-    // And end date is in September or later of the same calendar year
-    if (endDateObj.getMonth() >= 8 && endDateObj.getFullYear() === startDateObj.getFullYear()) {
+  // Get the year of the start date
+  const startYear = startDateObj.getFullYear();
+  const endYear = endDateObj.getFullYear();
+  
+  // School year boundary is September 1st
+  // Check each potential September 1st between start and end dates
+  for (let year = startYear; year <= endYear; year++) {
+    const september1st = new Date(year, 8, 1); // Month 8 = September (0-indexed)
+    
+    // Check if September 1st falls between start and end dates (exclusive of start, inclusive of end)
+    if (startDateObj < september1st && endDateObj >= september1st) {
       return true;
     }
   }

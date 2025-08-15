@@ -22,7 +22,8 @@ import {
   remove,
   get,
 } from 'firebase/database';
-import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 import {
   Sheet,
   SheetContent,
@@ -350,8 +351,26 @@ const FileManagementSheet = ({
     setTotalSize(total);
   }, [files]);
 
-  // Generates an AI summary for the uploaded PDF (including file name and context)
+  // Generates an AI summary for the uploaded PDF - DISABLED
   const generateDocumentSummary = async (fileUrl, mimeType, fileName, context) => {
+    // VERTEX AI DISABLED - Return placeholder summary
+    console.log('Vertex AI disabled - File analysis temporarily unavailable');
+    return {
+      candidates: [{
+        content: {
+          role: 'model',
+          parts: [{
+            text: `File Analysis Temporarily Disabled\n\nFile Name: ${fileName}\n\nContext: ${context}\n\nNote: AI document analysis is temporarily disabled for maintenance. The file has been uploaded successfully and will be available for reference once the AI features are restored.`
+          }]
+        },
+        finishReason: 'STOP',
+        index: 0
+      }],
+      modelVersion: 'disabled',
+      createTime: new Date().toISOString()
+    };
+    
+    /* DISABLED CODE - DO NOT REMOVE YET
     try {
       const vertexAI = getVertexAI(firebaseApp);
       // Always use the advanced model as defined in the settings
@@ -427,6 +446,7 @@ const FileManagementSheet = ({
       console.error('Error generating summary:', error);
       throw error;
     }
+    */
   };
   // Handles uploading the file to storage, analyzing it with AI, and saving its data
   const uploadFile = useCallback(

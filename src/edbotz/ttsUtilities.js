@@ -1,4 +1,5 @@
-import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
+// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
+// import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { AI_MODEL_MAPPING } from './utils/settings';
 import normalizeTextForTTS from './utils/textNormalization';
@@ -36,12 +37,17 @@ export const getFallbackStreamTTSUrl = () => {
 };
 
 /**
- * Preprocesses text using Vertex AI to optimize for TTS readability
+ * Preprocesses text using Vertex AI to optimize for TTS readability - DISABLED
  * @param {Object} firebaseApp - Firebase app instance
  * @param {string} text - Text to normalize
  * @returns {Promise<string>} - Normalized text
  */
 export const preprocessTextWithAI = async (firebaseApp, text) => {
+  // VERTEX AI DISABLED - Just return normalized text
+  console.log('Vertex AI disabled - Skipping AI preprocessing, using basic normalization only');
+  return normalizeTextForTTS(text);
+  
+  /* DISABLED CODE - DO NOT REMOVE YET
   try {
     console.log('Preprocessing text with AI:', text.substring(0, 50) + '...');
     
@@ -127,6 +133,7 @@ export const preprocessTextWithAI = async (firebaseApp, text) => {
       return normalizeTextForTTS(text);
     }
   }
+  */
 };
 
 /**
