@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getFirestore,
   collection,
@@ -15,13 +15,18 @@ import {
   getDoc,
   setDoc
 } from 'firebase/firestore';
+import { getDatabase, ref, onValue, off, get } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
+import { sanitizeEmail } from '../../utils/sanitizeEmail';
 
 export const useFamilyNotes = (familyId) => {
   const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [emailTracking, setEmailTracking] = useState({});
+  const [emailContents, setEmailContents] = useState({});
+  const unsubscribeMapRef = useRef({});
 
   // Subscribe to notes for this family
   useEffect(() => {
@@ -68,6 +73,81 @@ export const useFamilyNotes = (familyId) => {
 
     return () => unsubscribe();
   }, [familyId, user]);
+
+  // Subscribe to email tracking for email notes
+  useEffect(() => {
+    if (!familyId) return;
+
+    const db = getDatabase();
+
+    // For each note that's an email, attach a listener for tracking
+    notes.forEach((note) => {
+      if (note.metadata?.type === 'email' && note.metadata?.emailId) {
+        const emailId = note.metadata.emailId;
+
+        // Only attach a listener if we haven't done so yet
+        if (!unsubscribeMapRef.current[emailId]) {
+          const trackingRef = ref(db, `homeEducationFamilies/emailTracking/${familyId}/emails/${emailId}`);
+
+          const handleValueChange = (snapshot) => {
+            if (snapshot.exists()) {
+              setEmailTracking((prev) => ({
+                ...prev,
+                [emailId]: snapshot.val()
+              }));
+            }
+          };
+
+          // Attach the listener
+          onValue(trackingRef, handleValueChange);
+
+          // Store the unsubscribe function
+          unsubscribeMapRef.current[emailId] = () => {
+            off(trackingRef, 'value', handleValueChange);
+          };
+        }
+      }
+    });
+
+    // Cleanup when notes array changes or component unmounts
+    return () => {
+      Object.values(unsubscribeMapRef.current).forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribeMapRef.current = {};
+    };
+  }, [notes, familyId]);
+
+  // Function to fetch email content when needed
+  const fetchEmailContent = useCallback(async (emailId, recipientEmail) => {
+    if (!emailId || emailContents[emailId]) return;
+
+    const db = getDatabase();
+    const emailRef = ref(db, `userEmails/${sanitizeEmail(recipientEmail)}/${emailId}`);
+    
+    try {
+      const snapshot = await get(emailRef);
+      if (snapshot.exists()) {
+        setEmailContents((prev) => ({
+          ...prev,
+          [emailId]: snapshot.val()
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching email content:', error);
+    }
+  }, [emailContents]);
+
+  // Automatically fetch email content for email notes
+  useEffect(() => {
+    notes.forEach(note => {
+      if (note.metadata?.type === 'email' && note.metadata?.emailId && note.metadata?.recipientEmail) {
+        fetchEmailContent(note.metadata.emailId, note.metadata.recipientEmail);
+      }
+    });
+  }, [notes, fetchEmailContent]);
 
   // Create a new note
   const createNote = useCallback(async (noteData) => {
@@ -226,7 +306,10 @@ export const useFamilyNotes = (familyId) => {
     getUnreadCount,
     getNotesByCategory,
     getImportantNotes,
-    searchNotes
+    searchNotes,
+    emailTracking,
+    emailContents,
+    fetchEmailContent
   };
 };
 

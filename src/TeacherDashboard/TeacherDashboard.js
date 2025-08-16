@@ -8,6 +8,7 @@ import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Button } from "../components/ui/button";
+import { TooltipProvider } from "../components/ui/tooltip";
 import {
   Users,
   BookOpen,
@@ -494,32 +495,33 @@ function TeacherDashboard() {
   }
 
   return (
-    <div className="flex h-full">
-      {!isFullScreen && (
-        <aside
-          className={`hidden lg:flex flex-shrink-0 border-r border-border transition-all duration-300 ${
-            isSidebarExpanded ? 'w-64' : 'w-15'
-          }`}
-        >
-          <div className="flex flex-col h-full">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="self-end m-2 hover:bg-accent hover:text-accent-foreground"
-            >
-              {isSidebarExpanded ? (
-                <ChevronLeft className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
-            <ScrollArea className="flex-grow">
-              {navContent(isSidebarExpanded)}
-            </ScrollArea>
-          </div>
-        </aside>
-      )}
+    <TooltipProvider>
+      <div className="flex h-full">
+        {!isFullScreen && (
+          <aside
+            className={`hidden lg:flex flex-shrink-0 border-r border-border transition-all duration-300 ${
+              isSidebarExpanded ? 'w-64' : 'w-15'
+            }`}
+          >
+            <div className="flex flex-col h-full">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="self-end m-2 hover:bg-accent hover:text-accent-foreground"
+              >
+                {isSidebarExpanded ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+              <ScrollArea className="flex-grow">
+                {navContent(isSidebarExpanded)}
+              </ScrollArea>
+            </div>
+          </aside>
+        )}
   
       <div className="flex-grow flex flex-col h-full">
         <div className={`flex-grow ${activeSection === 'courses' ? 'flex flex-col' : 'overflow-auto'} p-4`}>
@@ -543,7 +545,8 @@ function TeacherDashboard() {
           </SheetContent>
         </Sheet>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
 

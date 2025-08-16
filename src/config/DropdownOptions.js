@@ -420,7 +420,7 @@ export const COURSE_OPTIONS = [
     grade: 10,
     color: "#3B82F6",
     icon: Code,
-    courseId: 1,
+    courseId: 4,
     pasiCode: "COM1255"
   },
 ];

@@ -826,32 +826,24 @@ const handleStatusChange = useCallback(async (newStatus) => {
     const courseId = student.CourseID || student.courseId;
     const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
     const summaryKey = `${studentKey}_${courseId}`;
+    const summaryCategoryRef = ref(db, `studentCourseSummaries/${summaryKey}/categories/${teacherEmailKey}/${categoryId}`);
     const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}`);
 
     try {
-      // Check if the category already exists
-      const snapshot = await get(categoryRef);
-      const currentValue = snapshot.exists() ? snapshot.val() : null;
+      // Update both locations simultaneously to ensure sync
+      const updates = {};
       
       // Set the category to true in the student record
-      await set(categoryRef, true);
+      updates[`students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`] = true;
       
-      // If the category was already true, also update the summary directly
-      // This handles the case where the cloud function might not detect a change
-      if (currentValue === true) {
-        // Get the current categories from the summary
-        const summarySnapshot = await get(summaryRef.child('categories'));
-        const summaryCategories = summarySnapshot.exists() ? summarySnapshot.val() : {};
-        
-        // Update the summary categories
-        if (!summaryCategories[teacherEmailKey]) {
-          summaryCategories[teacherEmailKey] = {};
-        }
-        summaryCategories[teacherEmailKey][categoryId] = true;
-        
-        // Set the updated categories in the summary
-        await set(summaryRef.child('categories'), summaryCategories);
-      }
+      // Also update the studentCourseSummaries directly to ensure sync
+      updates[`studentCourseSummaries/${summaryKey}/categories/${teacherEmailKey}/${categoryId}`] = true;
+      
+      // Update lastUpdated timestamp in summary
+      updates[`studentCourseSummaries/${summaryKey}/lastUpdated`] = Date.now();
+      
+      // Perform all updates atomically
+      await update(ref(db), updates);
       
       // If this is part of a multi-select, update other selected students
       if (isPartOfMultiSelect) {
@@ -859,6 +851,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
       }
     } catch (error) {
       console.error("Error adding category:", error);
+      toast.error('Failed to add category');
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
@@ -873,17 +866,30 @@ const handleStatusChange = useCallback(async (newStatus) => {
   }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId;
-    const categoriesRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}`);
+    const summaryKey = `${studentKey}_${courseId}`;
     
     try {
-      // Use update to set specific category to false
-      await update(categoriesRef, { [categoryId]: false });
+      // Update both locations simultaneously to ensure sync
+      const updates = {};
+      
+      // Set specific category to false in the student record
+      updates[`students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`] = false;
+      
+      // Also update the studentCourseSummaries directly to ensure sync
+      updates[`studentCourseSummaries/${summaryKey}/categories/${teacherEmailKey}/${categoryId}`] = false;
+      
+      // Update lastUpdated timestamp in summary
+      updates[`studentCourseSummaries/${summaryKey}/lastUpdated`] = Date.now();
+      
+      // Perform all updates atomically
+      await update(ref(db), updates);
       
       if (isPartOfMultiSelect) {
         onBulkCategoryChange(categoryId, teacherEmailKey, student.id, false);
       }
     } catch (error) {
-      console.error("Error updating category:", error);
+      console.error("Error removing category:", error);
+      toast.error('Failed to remove category');
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 

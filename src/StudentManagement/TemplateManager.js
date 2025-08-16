@@ -110,7 +110,8 @@ const DEFAULT_TEMPLATE_TYPES = [
   { id: 'welcome', name: 'Welcome Messages', description: 'New student welcome emails', icon: 'mail', color: '#315369' }
 ];
 
-const PLACEHOLDERS = [
+// Student-specific placeholders for regular RTD Academy use
+const STUDENT_PLACEHOLDERS = [
   { id: 'firstName', label: 'Prefered Name', token: '[firstName]' },
   { id: 'lastName', label: 'Last Name', token: '[lastName]' },
   { id: 'courseName', label: 'Course Name', token: '[courseName]' },
@@ -118,6 +119,13 @@ const PLACEHOLDERS = [
   { id: 'endDate', label: 'End Date', token: '[endDate]' },
   { id: 'status', label: 'Status', token: '[status]' },
   { id: 'studentType', label: 'Student Type', token: '[studentType]' }
+];
+
+// Family/Guardian placeholders for Home Education facilitators
+const FAMILY_PLACEHOLDERS = [
+  { id: 'firstName', label: 'Guardian First Name', token: '[firstName]' },
+  { id: 'lastName', label: 'Guardian Last Name', token: '[lastName]' },
+  { id: 'phone', label: 'Guardian Phone', token: '[phone]' }
 ];
 
 const colorOptions = [
@@ -203,7 +211,7 @@ const extractTemplateContent = (template) => {
   }
 };
 
-function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, defaultOpen = false }) {
+function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, defaultOpen = false, directOpen = false, onClose = () => {}, context = 'student' }) {
   
   const [templates, setTemplates] = useState([]);
   const [newTemplate, setNewTemplate] = useState({
@@ -212,7 +220,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
     content: '',
     color: ''
   });
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(directOpen || defaultOpen);
   const [activeTab, setActiveTab] = useState('create');
   const [templateToDelete, setTemplateToDelete] = useState(null);
   const [notification, setNotification] = useState({ message: '', type: '' });
@@ -220,6 +228,9 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
   const quillRef = useRef(null);
 
   const { user_email_key } = useAuth();
+  
+  // Determine which placeholders to use based on context
+  const PLACEHOLDERS = context === 'family' ? FAMILY_PLACEHOLDERS : STUDENT_PLACEHOLDERS;
 
 
 
@@ -1004,6 +1015,208 @@ const renderTemplatesTab = () => (
   </div>
 );
 
+  // If directOpen is true, only render the Sheet without the button
+  if (directOpen) {
+    return (
+      <Sheet open={isOpen} onOpenChange={(open) => { 
+        setIsOpen(open); 
+        if (!open) { 
+          setIsEditing(false); 
+          setCurrentTemplateId(null);
+          onClose(); // Call the onClose callback when closing
+        } 
+      }}>
+        <SheetContent side="right" className="overflow-y-auto w-full max-w-[90vw] sm:max-w-[600px] md:max-w-[800px]">
+        <SheetHeader className="mb-6">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <SheetTitle>{context === 'family' ? 'Family Email Templates' : 'Message Templates'}</SheetTitle>
+      <TutorialButton tutorialId="template-manager" tooltipText="Learn about templates" />
+    </div>
+  </div>
+  <SheetDescription>
+    {context === 'family' 
+      ? 'Create and manage email templates for communicating with families. Available fields: Guardian First Name, Guardian Last Name, and Guardian Phone.'
+      : 'Create and manage your message templates for quick access while messaging students.'}
+  </SheetDescription>
+</SheetHeader>
+
+          {notification.message && (
+            <div
+              className={`p-2 rounded ${
+                notification.type === 'error'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-green-100 text-green-700'
+              }`}
+            >
+              {notification.message}
+            </div>
+          )}
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="create" className="text-xs sm:text-sm">{isEditing ? 'Edit Template' : 'Create New'}</TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
+              <TabsTrigger value="archived" className="text-xs sm:text-sm">Archived</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="create" className="w-full">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Template Name"
+                    value={newTemplate.name}
+                    onChange={(e) =>
+                      setNewTemplate({ ...newTemplate, name: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Subject (optional)"
+                    value={newTemplate.subject}
+                    onChange={(e) =>
+                      setNewTemplate({ ...newTemplate, subject: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderTemplateTypeSelect()}
+                  <Select
+                    value={newTemplate.color}
+                    onValueChange={(value) =>
+                      setNewTemplate({ ...newTemplate, color: value })
+                    }
+                  >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a color" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {colorOptions.map((color) => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center">
+                          <div
+                            className="w-4 h-4 rounded-full mr-2"
+                            style={{ backgroundColor: color.value }}
+                          />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-sm font-medium">Message</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 text-xs sm:text-sm">
+                          <PlusCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                          Insert Field
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 p-2">
+                        <div className="space-y-1">
+                          {PLACEHOLDERS.map((placeholder) => (
+                            <Button
+                              key={placeholder.id}
+                              variant="ghost"
+                              className="w-full justify-start text-sm"
+                              onClick={() => insertPlaceholder(placeholder)}
+                            >
+                              {placeholder.label}
+                              <span className="ml-auto text-xs text-gray-500">
+                                {placeholder.token}
+                              </span>
+                            </Button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="relative quill-container">
+  <div className="h-[40vh] min-h-[250px] max-h-[400px] overflow-hidden">
+    <div className="h-full">
+      <ReactQuill
+        theme="snow"
+        value={newTemplate.content}
+        onChange={(content) => {
+          setNewTemplate({
+            ...newTemplate,
+            content
+          });
+        }}
+        modules={modules}
+        formats={formats}
+        ref={quillRef}
+        bounds="body" // Use the full document body
+        className="h-[calc(100%-42px)]" // 42px accounts for the toolbar height
+      />
+    </div>
+  </div>
+</div>
+                </div>
+
+                <Button
+                  onClick={handleAddTemplate}
+                  disabled={!newTemplate.name || !newTemplate.content || !newTemplate.color || !selectedType}
+                  className="w-full mt-4"
+                >
+                  <Save className="mr-1 sm:mr-2 h-4 w-4" /> {isEditing ? 'Update Template' : 'Save Template'}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="templates" className="w-full">
+              {renderTemplatesTab()}
+            </TabsContent>
+
+            <TabsContent value="archived" className="w-full">
+              <ScrollArea className="h-[calc(70vh-120px)] min-h-[300px]">
+                <div className="pr-4 pb-4">
+                  {renderTemplateList(true)}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+
+          {/* Preview Dialog */}
+          {previewTemplate && (
+            <AlertDialog open={true} onOpenChange={() => setPreviewTemplate(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{previewTemplate.name}</AlertDialogTitle>
+                </AlertDialogHeader>
+                {previewTemplate.subject && (
+                  <div className="font-medium mb-2">
+                    Subject: {previewTemplate.subject}
+                  </div>
+                )}
+                {(() => {
+                  // Use our helper function instead of creating a Quill instance
+                  return (
+                    <div
+                      className="ql-editor"
+                      dangerouslySetInnerHTML={{
+                        __html: extractTemplateContent(previewTemplate)
+                      }}
+                    />
+                  );
+                })()}
+                <AlertDialogFooter>
+                  <AlertDialogAction onClick={() => setPreviewTemplate(null)}>
+                    Close
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Original return with button for non-direct mode
   return (
     <>
       <Button variant="outline" size="sm" onClick={openDialog}>
@@ -1015,12 +1228,14 @@ const renderTemplatesTab = () => (
         <SheetHeader className="mb-6">
   <div className="flex items-center justify-between">
     <div className="flex items-center gap-2">
-      <SheetTitle>Message Templates</SheetTitle>
+      <SheetTitle>{context === 'family' ? 'Family Email Templates' : 'Message Templates'}</SheetTitle>
       <TutorialButton tutorialId="template-manager" tooltipText="Learn about templates" />
     </div>
   </div>
   <SheetDescription>
-    Create and manage your message templates for quick access while messaging students.
+    {context === 'family' 
+      ? 'Create and manage email templates for communicating with families. Available fields: Guardian First Name, Guardian Last Name, and Guardian Phone.'
+      : 'Create and manage your message templates for quick access while messaging students.'}
   </SheetDescription>
 </SheetHeader>
 

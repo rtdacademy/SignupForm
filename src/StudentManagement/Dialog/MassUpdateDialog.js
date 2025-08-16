@@ -257,6 +257,11 @@ const MassUpdateDialog = ({
           const categoryPath = `${basePath}/categories/${selectedTeacherKey}/${selectedCategory.id}`;
           updates[categoryPath] = isCategoryEnabled;
           
+          // Also update the studentCourseSummaries directly to ensure sync
+          const summaryKey = `${studentKey}_${student.CourseID}`;
+          const summaryCategoryPath = `/studentCourseSummaries/${summaryKey}/categories/${selectedTeacherKey}/${selectedCategory.id}`;
+          updates[summaryCategoryPath] = isCategoryEnabled;
+          
           // Add lastChange tracking for category updates
           updates[`${basePath}/enrollmentHistory/lastChange`] = {
             userEmail: user?.email || 'unknown',
@@ -269,6 +274,9 @@ const MassUpdateDialog = ({
               action: isCategoryEnabled ? 'added' : 'removed'
             }
           };
+          
+          // Also update lastUpdated timestamp in summary
+          updates[`/studentCourseSummaries/${summaryKey}/lastUpdated`] = Date.now();
         } else {
           const propertyInfo = PROPERTY_OPTIONS.find(p => p.value === selectedProperty);
           if (propertyInfo) {

@@ -616,13 +616,6 @@ if (checkboxRef.current) {
 }
 }, [selectedStudents, sortedStudents]);
 
-// Auto-open accordion when students are selected, but don't override if user manually closed it
-useEffect(() => {
-if (selectedStudents.size > 0 && accordionValue === "" && !userClickedAccordion) {
-  setAccordionValue("batch-actions");
-}
-}, [selectedStudents, accordionValue, userClickedAccordion]);
-
 // Handle accordion toggle by user
 const handleAccordionChange = (value) => {
 setUserClickedAccordion(true);

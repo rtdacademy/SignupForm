@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, update } from 'firebase/database';
+import { TableVirtuoso } from 'react-virtuoso';
 import { useAuth } from '../context/AuthContext';
 import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { 
@@ -59,6 +60,7 @@ import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
 import FamilyNotesModal from './FamilyNotes/FamilyNotesModal';
 import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
+import FamilyMessaging from './FamilyMessaging';
 import {
   Table,
   TableBody,
@@ -82,6 +84,8 @@ import {
   SheetDescription
 } from '../components/ui/sheet';
 import { Checkbox } from '../components/ui/checkbox';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,6 +110,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+
+// Utility function to generate consistent color from string
+const stringToColor = (str) => {
+  if (!str) return '#9CA3AF'; // Default gray color
+  
+  // Get first 2 characters and convert to number
+  const firstTwo = (str.substring(0, 2).toUpperCase());
+  let hash = 0;
+  for (let i = 0; i < firstTwo.length; i++) {
+    hash = firstTwo.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Generate hue between 0-360
+  const hue = Math.abs(hash % 360);
+  // Use consistent saturation and lightness for good visibility
+  return `hsl(${hue}, 70%, 45%)`;
+};
+
+// Utility function to format date as relative time
+const formatRelativeTime = (dateString) => {
+  if (!dateString) return 'Never';
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now - date);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}yr ago`;
+};
 
 // Comprehensive Status Badge Component
 const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, familyId, onToggleAssistance }) => {
@@ -314,8 +352,156 @@ const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
   );
 };
 
+// Memoized table row component for better performance
+const FamilyTableRow = memo(({ 
+  row, 
+  isSelected, 
+  onSelectFamily, 
+  onViewDashboard, 
+  onOpenNotes, 
+  onToggleAssistance,
+  loadingStatuses,
+  togglingAssistance,
+  isAdmin,
+  effectiveEmail
+}) => {
+  // Get student details for tooltip
+  const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
+  const studentTooltipContent = students.length > 0 ? (
+    <div className="space-y-2">
+      <p className="font-semibold">Students ({students.length}):</p>
+      {students.map((student, idx) => (
+        <div key={idx} className="text-xs border-t pt-1">
+          <p className="font-medium">{student.firstName} {student.lastName}</p>
+          <p>Grade: {student.grade || 'N/A'}</p>
+          {student.asn && <p>ASN: {student.asn}</p>}
+          {student.email && <p>Email: {student.email}</p>}
+        </div>
+      ))}
+    </div>
+  ) : 'No student details available';
+  
+  const familyBgColor = stringToColor(row.familyName);
+  const initials = row.familyName ? row.familyName.substring(0, 2).toUpperCase() : 'FF';
+  
+  return (
+    <>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onSelectFamily(row.familyId)}
+          aria-label={`Select ${row.familyName}`}
+        />
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center space-x-2">
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: familyBgColor }}
+                >
+                  {initials}
+                </div>
+                {row.isMyFamily && (
+                  <Badge variant="outline" className="text-xs px-1 py-0 text-purple-600 border-purple-300">
+                    Mine
+                  </Badge>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="font-semibold">{row.familyName}</p>
+              {row.isMyFamily && <p className="text-xs text-purple-600">My Family</p>}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <div>
+          <div className="text-sm font-medium">{row.primaryGuardian}</div>
+          <div className="text-xs text-gray-500">{row.guardianEmail}</div>
+        </div>
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-help">
+                <div className="flex items-center space-x-1 text-sm">
+                  <GraduationCap className="w-4 h-4 text-blue-500" />
+                  <span className="font-medium">{row.studentCount}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">{row.gradeRange}</div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              {studentTooltipContent}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <FacilitatorSelector
+          family={row.rawFamily}
+          familyId={row.familyId}
+          isAdmin={isAdmin}
+          currentUserEmail={effectiveEmail}
+          isMyFamily={row.isMyFamily}
+        />
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        {loadingStatuses ? (
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+        ) : togglingAssistance[row.familyId] ? (
+          <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
+        ) : (
+          <ComprehensiveStatusBadge 
+            statuses={row.comprehensiveStatus} 
+            assistanceRequired={row.comprehensiveStatus.assistanceRequired}
+            familyId={row.familyId}
+            onToggleAssistance={onToggleAssistance}
+          />
+        )}
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-gray-500 cursor-help">
+                {formatRelativeTime(row.lastUpdated)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{row.lastUpdated ? new Date(row.lastUpdated).toLocaleString() : 'Never updated'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap text-right">
+        <div className="flex justify-end space-x-1">
+          <button
+            onClick={() => onViewDashboard(row.familyId, row.rawFamily)}
+            className="p-1 text-purple-600 hover:bg-purple-50 rounded"
+            title="View Dashboard"
+          >
+            <PanelRightOpen className="w-4 h-4" />
+          </button>
+          <FamilyNotesIcon
+            familyId={row.familyId}
+            onClick={() => onOpenNotes(row.familyId, row.rawFamily)}
+          />
+        </div>
+      </td>
+    </>
+  );
+});
+
+FamilyTableRow.displayName = 'FamilyTableRow';
+
 // Family Table Component
-const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEmail, impersonatedEmail, isAdmin }) => {
+const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet }) => {
   const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [familyStatuses, setFamilyStatuses] = useState({});
@@ -341,14 +527,39 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   
   const effectiveEmail = impersonatedEmail || currentUserEmail;
 
-  // Fetch comprehensive status data for all families
+  // State to track visible families for lazy loading
+  const [visibleFamilies, setVisibleFamilies] = useState(new Set());
+  const [debouncedVisibleFamilies, setDebouncedVisibleFamilies] = useState(new Set());
+  
+  // Debounce visible families to reduce re-renders
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedVisibleFamilies(visibleFamilies);
+    }, 200); // 200ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [visibleFamilies]);
+  
+  // Fetch comprehensive status data for visible families only (lazy loading)
   useEffect(() => {
     const fetchFamilyStatuses = async () => {
+      if (debouncedVisibleFamilies.size === 0) {
+        setLoadingStatuses(false);
+        return;
+      }
+      
       setLoadingStatuses(true);
       const db = getDatabase();
-      const statuses = {};
+      const statuses = { ...familyStatuses }; // Keep existing statuses
 
-      for (const [familyId, family] of Object.entries(families)) {
+      // Only fetch statuses for visible families that haven't been fetched yet
+      const familiesToFetch = Array.from(debouncedVisibleFamilies).filter(
+        familyId => !familyStatuses[familyId] && families[familyId]
+      );
+      
+      for (const familyId of familiesToFetch) {
+        const family = families[familyId];
+        if (!family) continue;
         const students = family.students ? Object.values(family.students) : [];
         
         // Initialize status object
@@ -502,12 +713,12 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
       setLoadingStatuses(false);
     };
 
-    if (Object.keys(families).length > 0) {
+    if (Object.keys(families).length > 0 && debouncedVisibleFamilies.size > 0) {
       fetchFamilyStatuses();
     } else {
       setLoadingStatuses(false);
     }
-  }, [families, dbSchoolYear]);
+  }, [families, dbSchoolYear, debouncedVisibleFamilies, familyStatuses]);
 
   // Process families data for table display
   const familyRows = useMemo(() => {
@@ -612,6 +823,12 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     setShowBulkConfirmDialog(true);
   };
 
+  const handleBulkEmail = () => {
+    if (onOpenEmailSheet) {
+      onOpenEmailSheet(selectedFamilies);
+    }
+  };
+
   const handleBulkSetStatus = (status) => {
     setPendingBulkAction({ type: 'setStatus', status });
     setShowBulkConfirmDialog(true);
@@ -696,16 +913,6 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }
   };
 
-  const handleViewDashboard = (familyId, family) => {
-    // Call the parent's onViewDashboard to open the sheet
-    onViewDashboard(familyId, family);
-  };
-
-  const handleOpenNotes = (familyId, family) => {
-    setSelectedNotesFamilyId(familyId);
-    setSelectedNotesFamily(family);
-    setNotesModalOpen(true);
-  };
 
   // Handle toggling assistance required status
   const handleToggleAssistance = async (familyId, newValue) => {
@@ -844,6 +1051,22 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
                         </button>
                       </div>
                     </div>
+
+                    {/* Email Section */}
+                    <DropdownMenuSeparator className="my-2" />
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 flex items-center">
+                        <Mail className="w-4 h-4 mr-2 text-gray-500" />
+                        Communication
+                      </label>
+                      <button
+                        onClick={handleBulkEmail}
+                        className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                      >
+                        <Mail className="w-4 h-4 mr-2 text-blue-500" />
+                        Email Families
+                      </button>
+                    </div>
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -854,6 +1077,142 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     );
   };
 
+  // Custom table components for TableVirtuoso
+  const tableComponents = useMemo(() => ({
+    Table: (props) => (
+      <table {...props} className="min-w-full divide-y divide-gray-200" />
+    ),
+    TableHead: React.forwardRef((props, ref) => (
+      <thead {...props} ref={ref} className="bg-gray-50" />
+    )),
+    TableRow: React.forwardRef((props, ref) => {
+      const { item, ...restProps } = props;
+      const isSelected = item ? selectedFamilies.has(item.familyId) : false;
+      return (
+        <tr 
+          {...restProps} 
+          ref={ref}
+          className={`${
+            isSelected 
+              ? 'bg-blue-50 hover:bg-blue-100' 
+              : item?.isMyFamily 
+                ? 'bg-purple-50 hover:bg-purple-100' 
+                : 'hover:bg-gray-50'
+          }`}
+        />
+      );
+    }),
+    TableBody: React.forwardRef((props, ref) => (
+      <tbody {...props} ref={ref} className="bg-white divide-y divide-gray-200" />
+    ))
+  }), [selectedFamilies]);
+
+  // Fixed header content
+  const fixedHeaderContent = useCallback(() => (
+    <tr className="bg-gray-50">
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+        <Checkbox
+          checked={isAllSelected}
+          onCheckedChange={handleSelectAll}
+          aria-label="Select all families"
+        />
+      </th>
+      <th 
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-20"
+        onClick={() => handleSort('familyName')}
+      >
+        <div className="flex items-center space-x-1">
+          <span>Family</span>
+          {sortConfig.key === 'familyName' && (
+            <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </th>
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guardian</th>
+      <th 
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+        onClick={() => handleSort('studentCount')}
+      >
+        <div className="flex items-center space-x-1">
+          <span>Students</span>
+          {sortConfig.key === 'studentCount' && (
+            <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </th>
+      <th 
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+        onClick={() => handleSort('facilitatorEmail')}
+      >
+        <div className="flex items-center space-x-1">
+          <span>Facilitator</span>
+          {sortConfig.key === 'facilitatorEmail' && (
+            <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </th>
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <span>Status</span>
+      </th>
+      <th 
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+        onClick={() => handleSort('lastUpdated')}
+      >
+        <div className="flex items-center space-x-1">
+          <span>Active</span>
+          {sortConfig.key === 'lastUpdated' && (
+            <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+    </tr>
+  ), [isAllSelected, handleSelectAll, handleSort, sortConfig]);
+
+  // Row renderer - Note: We use inline functions here since these handlers are defined within FamilyTable
+  const rowContent = useCallback((index, row) => {
+    const isSelected = selectedFamilies.has(row.familyId);
+    return (
+      <FamilyTableRow
+        row={row}
+        isSelected={isSelected}
+        onSelectFamily={handleSelectFamily}
+        onViewDashboard={(familyId, family) => {
+          // Call the parent's onViewDashboard to open the sheet
+          onViewDashboard(familyId, family);
+        }}
+        onOpenNotes={(familyId, family) => {
+          setSelectedNotesFamilyId(familyId);
+          setSelectedNotesFamily(family);
+          setNotesModalOpen(true);
+        }}
+        onToggleAssistance={handleToggleAssistance}
+        loadingStatuses={loadingStatuses}
+        togglingAssistance={togglingAssistance}
+        isAdmin={isAdmin}
+        effectiveEmail={effectiveEmail}
+      />
+    );
+  }, [selectedFamilies, handleSelectFamily, onViewDashboard, handleToggleAssistance, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
+
+  // Handle range changes for lazy loading with extra buffer
+  const handleRangeChanged = useCallback((range) => {
+    // Track which families are visible for lazy loading
+    // Add extra buffer to pre-fetch nearby families
+    const visibleFamilyIds = new Set();
+    const bufferSize = 10; // Pre-fetch 10 extra rows on each side
+    
+    const startIdx = Math.max(0, range.startIndex - bufferSize);
+    const endIdx = Math.min(sortedRows.length - 1, range.endIndex + bufferSize);
+    
+    for (let i = startIdx; i <= endIdx && i < sortedRows.length; i++) {
+      if (sortedRows[i]) {
+        visibleFamilyIds.add(sortedRows[i].familyId);
+      }
+    }
+    setVisibleFamilies(visibleFamilyIds);
+  }, [sortedRows]);
+
   return (
     <>
       <BulkActionsToolbar />
@@ -862,163 +1221,39 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
       {selectedFamilies.size > 0 && <div className="h-14" />}
       
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <Table>
-        <TableHeader>
-          <TableRow className="bg-gray-50">
-            <TableHead className="w-12">
-              <Checkbox
-                checked={isAllSelected}
-                onCheckedChange={handleSelectAll}
-                aria-label="Select all families"
-              />
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('familyName')}
-            >
-              <div className="flex items-center space-x-1">
-                <span>Family Name</span>
-                {sortConfig.key === 'familyName' && (
-                  <ChevronDown className={`w-4 h-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                )}
-              </div>
-            </TableHead>
-            <TableHead>Primary Guardian</TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('studentCount')}
-            >
-              <div className="flex items-center space-x-1">
-                <span>Students</span>
-                {sortConfig.key === 'studentCount' && (
-                  <ChevronDown className={`w-4 h-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                )}
-              </div>
-            </TableHead>
-            <TableHead>Grades</TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('facilitatorEmail')}
-            >
-              <div className="flex items-center space-x-1">
-                <span>Facilitator</span>
-                {sortConfig.key === 'facilitatorEmail' && (
-                  <ChevronDown className={`w-4 h-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                )}
-              </div>
-            </TableHead>
-            <TableHead>
-              <span>Status</span>
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('lastUpdated')}
-            >
-              <div className="flex items-center space-x-1">
-                <span>Last Activity</span>
-                {sortConfig.key === 'lastUpdated' && (
-                  <ChevronDown className={`w-4 h-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                )}
-              </div>
-            </TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedRows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                No families found
-              </TableCell>
-            </TableRow>
-          ) : (
-            sortedRows.map((row) => {
-              const isSelected = selectedFamilies.has(row.familyId);
-              return (
-                <TableRow 
-                  key={row.familyId}
-                  className={`${
-                    isSelected 
-                      ? 'bg-blue-50 hover:bg-blue-100' 
-                      : row.isMyFamily 
-                        ? 'bg-purple-50 hover:bg-purple-100' 
-                        : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <TableCell>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => handleSelectFamily(row.familyId)}
-                      aria-label={`Select ${row.familyName}`}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                  {row.familyName}
-                  {row.isMyFamily && (
-                    <span className="ml-2 text-xs text-purple-600">(My Family)</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="text-sm font-medium">{row.primaryGuardian}</div>
-                    <div className="text-xs text-gray-500">{row.guardianEmail}</div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-1">
-                    <GraduationCap className="w-4 h-4 text-blue-500" />
-                    <span>{row.studentCount}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm">{row.gradeRange}</TableCell>
-                <TableCell>
-                  <FacilitatorSelector
-                    family={row.rawFamily}
-                    familyId={row.familyId}
-                    isAdmin={isAdmin}
-                    currentUserEmail={effectiveEmail}
-                    isMyFamily={row.isMyFamily}
-                  />
-                </TableCell>
-                <TableCell>
-                  {loadingStatuses ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                  ) : togglingAssistance[row.familyId] ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
-                  ) : (
-                    <ComprehensiveStatusBadge 
-                      statuses={row.comprehensiveStatus} 
-                      assistanceRequired={row.comprehensiveStatus.assistanceRequired}
-                      familyId={row.familyId}
-                      onToggleAssistance={handleToggleAssistance}
-                    />
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">
-                  {row.lastUpdated ? new Date(row.lastUpdated).toLocaleDateString() : 'N/A'}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end space-x-2">
-                    <button
-                      onClick={() => handleViewDashboard(row.familyId, row.rawFamily)}
-                      className="p-1 text-purple-600 hover:bg-purple-50 rounded"
-                      title="View Dashboard"
-                    >
-                      <PanelRightOpen className="w-4 h-4" />
-                    </button>
-                    <FamilyNotesIcon
-                      familyId={row.familyId}
-                      onClick={() => handleOpenNotes(row.familyId, row.rawFamily)}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+        {sortedRows.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No families found
+          </div>
+        ) : (
+          <TableVirtuoso
+            data={sortedRows}
+            components={tableComponents}
+            fixedHeaderContent={fixedHeaderContent}
+            itemContent={rowContent}
+            useWindowScroll={true}
+            overscan={20}
+            increaseViewportBy={{ top: 500, bottom: 500 }}
+            rangeChanged={handleRangeChanged}
+            scrollSeekConfiguration={{
+              enter: velocity => Math.abs(velocity) > 1000,
+              exit: velocity => Math.abs(velocity) < 100,
+              change: (_velocity, { startIndex, endIndex }) => {
+                // Show placeholder during fast scrolling
+                return {
+                  placeholder: (
+                    <tr>
+                      <td colSpan={8} className="text-center py-4 text-gray-400">
+                        Loading...
+                      </td>
+                    </tr>
+                  )
+                };
+              }
+            }}
+          />
+        )}
+      </div>
       
     {/* Family Notes Modal */}
     <FamilyNotesModal
@@ -1605,6 +1840,8 @@ const HomeEducationStaffDashboard = ({
     myFamilies: 0,
     myRegisteredFamilies: 0
   });
+  const [showEmailSheet, setShowEmailSheet] = useState(false);
+  const [selectedFamiliesForEmail, setSelectedFamiliesForEmail] = useState(new Set());
 
   // Initialize active school year
   useEffect(() => {
@@ -2393,6 +2630,10 @@ const HomeEducationStaffDashboard = ({
         currentUserEmail={user?.email}
         impersonatedEmail={impersonatingFacilitator?.contact?.email}
         isAdmin={isAdmin}
+        onOpenEmailSheet={(selectedFamilies) => {
+          setSelectedFamiliesForEmail(selectedFamilies);
+          setShowEmailSheet(true);
+        }}
       />
 
       {/* Empty State */}
@@ -2443,6 +2684,23 @@ const HomeEducationStaffDashboard = ({
         onClose={handleCloseManagementModal}
         action={managementAction}
       />
+
+      {/* Email Sheet */}
+      <Sheet open={showEmailSheet} onOpenChange={setShowEmailSheet}>
+        <SheetContent 
+          className="w-full sm:max-w-2xl overflow-hidden p-0" 
+          side="right"
+        >
+          <FamilyMessaging
+            selectedFamilies={selectedFamiliesForEmail}
+            families={families}
+            onClose={() => {
+              setShowEmailSheet(false);
+              setSelectedFamiliesForEmail(new Set()); // Clear selection after sending
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

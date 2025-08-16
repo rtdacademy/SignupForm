@@ -37,6 +37,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useUserPreferences } from '../context/UserPreferencesContext';
+import { useStaffClaims } from '../customClaims/useStaffClaims';
 
 
 /**
@@ -107,6 +108,29 @@ function formatRecipientTimestamp(timestampInSeconds) {
     hour: 'numeric',   // e.g. "2 PM"
     minute: 'numeric'  // e.g. "16"
   });
+}
+
+/**
+ * Truncates long continuous strings (like URLs) to prevent layout breaking
+ * Preserves normal words and only truncates very long continuous strings
+ */
+function truncateLongWords(text, maxLength = 50) {
+  if (!text) return text;
+  
+  // Split by spaces and newlines to preserve structure
+  const lines = text.split('\n');
+  
+  return lines.map(line => {
+    // Process each word in the line
+    return line.split(' ').map(word => {
+      // Only truncate if it's a very long continuous string (likely a URL)
+      if (word.length > maxLength) {
+        // Keep first 40 chars and add ellipsis
+        return word.substring(0, 40) + '...';
+      }
+      return word;
+    }).join(' ');
+  }).join('\n');
 }
 
 /**
@@ -189,6 +213,10 @@ const StudentNotes = ({
   const { preferences } = useUserPreferences();
 
   const { user } = useAuth();
+  
+  // Get staff claims to check admin privileges
+  const { isAdmin } = useStaffClaims({ readOnly: true });
+  const hasAdminPrivileges = isAdmin();
 
   // A ref to store unsubscribes for each emailId so we don't attach multiple listeners
   const unsubscribeMapRef = useRef({});
@@ -323,7 +351,13 @@ const StudentNotes = ({
   const handleEditNote = async (noteId, updatedContent, isImportant) => {
     const updatedNotes = notes.map((note) =>
       note.id === noteId 
-        ? { ...note, content: updatedContent, isImportant: isImportant } 
+        ? { 
+            ...note, 
+            content: updatedContent, 
+            isImportant: isImportant,
+            lastEditedBy: user.displayName || user.email,
+            lastEditedAt: new Date().toISOString()
+          } 
         : note
     );
 
@@ -395,7 +429,7 @@ const StudentNotes = ({
     if (!email) return null;
 
     return (
-      <div className="mt-2 p-3 bg-white rounded border space-y-2">
+      <div className="mt-2 p-3 bg-white rounded border space-y-2 w-full max-w-full overflow-hidden">
         <div className="space-y-1">
           <div className="text-sm text-gray-600">
             <strong>From:</strong>{' '}
@@ -407,11 +441,17 @@ const StudentNotes = ({
               </>
             )}
           </div>
-          <div className="text-sm font-medium mt-2">{email.subject}</div>
+          <div 
+            className="text-sm font-medium mt-2 break-all max-w-full"
+            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+          >
+            {email.subject}
+          </div>
         </div>
 
         <div
-          className="text-sm text-gray-700 prose prose-sm max-w-none pt-2 border-t"
+          className="text-sm text-gray-700 prose prose-sm max-w-none pt-2 border-t break-all"
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
           dangerouslySetInnerHTML={{ __html: email.html || email.text }}
         />
 
@@ -531,7 +571,7 @@ const StudentNotes = ({
   // Main Render
   // --------------------------------------------------------------------------
   return (
-    <div className={`flex flex-col ${isExpanded ? 'h-full overflow-hidden' : 'space-y-2'}`} ref={containerRef}>
+    <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'h-full overflow-hidden' : 'space-y-2'}`} ref={containerRef}>
       {/* Header with student name */}
       {studentName && !singleNoteMode && (
         <div className="mb-3">
@@ -541,7 +581,7 @@ const StudentNotes = ({
       
       {/* SINGLE NOTE MODE */}
       {singleNoteMode ? (
-        <div className="flex flex-col">
+        <div className="flex flex-col w-full max-w-full">
           <div className="flex items-center mb-1">
             <Button
               variant="ghost"
@@ -557,11 +597,11 @@ const StudentNotes = ({
             value={newNoteContent}
             onChange={(e) => handleNoteContentChange(e.target.value)}
             className="mb-2"
-            readOnly={!allowEdit}
+            readOnly={!allowEdit && !hasAdminPrivileges}
           />
         </div>
       ) : (
-        <div className={`flex flex-col ${isExpanded ? 'h-full' : ''}`}>
+        <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'h-full' : ''}`}>
 
           {/* ADD NOTE SECTION */}
           <div className="flex mb-1 space-x-1 items-center flex-shrink-0">
@@ -619,9 +659,9 @@ const StudentNotes = ({
               className={`mt-0 ${isExpanded ? 'flex-1 overflow-hidden' : ''}`}
             >
               <ScrollArea 
-                className={`pr-4 ${isExpanded ? 'h-[calc(100vh-250px)]' : 'h-[350px]'}`}
+                className={`${isExpanded ? 'h-[calc(100vh-250px)]' : 'h-[350px]'} w-full`}
               >
-                <div className="space-y-2 pb-24">
+                <div className="space-y-2 pb-24 pr-4 w-full">
                   {filteredNotes.length === 0 ? (
                     <div className="text-center text-gray-500 p-2 text-sm">
                       {activeTab === 'important' 
@@ -648,22 +688,32 @@ const StudentNotes = ({
                       return (
                         <div 
                           key={noteId} 
-                          className={`p-2 rounded relative ${
+                          className={`p-2 rounded relative w-full max-w-full ${
                             isImportant 
                               ? 'bg-yellow-50 border-l-4 border-yellow-400' 
                               : 'bg-gray-100'
                           }`}
                         >
                           {/* Compact Header with Important/Controls */}
-                          <div className="flex justify-between items-start">
-                          <p className="text-sm font-medium leading-tight">
+                          <div className="flex justify-between items-start gap-2 w-full">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p 
+                              className="text-sm font-medium leading-tight break-all max-w-full"
+                              style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                            >
   {note.noteType} - {formatTimestamp(note.timestamp)}{' '}
   {note.author ? `- ${note.author.split('@')[0]}` : ''}
+  {note.lastEditedBy && (
+    <span className="text-xs text-gray-500 italic">
+      {' (edited by ' + note.lastEditedBy.split('@')[0] + ')'}
+    </span>
+  )}
 </p>
+                          </div>
                             
                             {/* Controls as a compact row */}
-                            <div className="flex space-x-1">
-                              {allowEdit && (
+                            <div className="flex space-x-1 flex-shrink-0">
+                              {(allowEdit || hasAdminPrivileges) && (
                                 <>
                                   <Button
                                     variant="ghost"
@@ -706,7 +756,12 @@ const StudentNotes = ({
                           </div>
                           
                           {/* Note content */}
-                          <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
+                          <p 
+                            className="text-sm text-gray-700 whitespace-pre-wrap break-all mt-1 max-w-full"
+                            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                            title={note.content} // Show full content on hover
+                          >
+                            {/* Use truncateLongWords if CSS word-break doesn't work: {truncateLongWords(note.content)} */}
                             {note.content}
                           </p>
 

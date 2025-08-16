@@ -122,6 +122,11 @@ exports.handleWebhookEventsV2 = emailFunctions.handleWebhookEventsV2;
 exports.checkCourseDatesV2 = emailFunctions.checkCourseDatesV2;
 exports.testCheckCourseDatesV2 = emailFunctions.testCheckCourseDatesV2;
 
+// Family Email functions
+const familyEmailFunctions = require('./familyEmails');
+exports.sendFamilyEmailsV2 = familyEmailFunctions.sendFamilyEmailsV2;
+exports.handleFamilyWebhookEvents = familyEmailFunctions.handleFamilyWebhookEvents;
+
 // Payment functions
 exports.handleStripeWebhookV2 = stripeFunctions.handleStripeWebhookV2;
 exports.handleOneTimePaymentV2 = stripeFunctions.handleOneTimePaymentV2;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -14,7 +14,8 @@ import {
   User,
   ChevronRight,
   CheckCircle2,
-  XCircle
+  XCircle,
+  FilePenLine
 } from 'lucide-react';
 import { getAllFacilitators } from '../config/facilitators';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +31,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuGroup
 } from '../components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription
+} from '../components/ui/sheet';
+import TemplateManager from '../StudentManagement/TemplateManager';
 
 // RTD Logo component matching Header.js
 const RTDLogo = () => (
@@ -81,6 +90,7 @@ function HomeEducationHeader({
 }) {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
 
   const getUserDisplayName = () => {
     if (user) {
@@ -228,6 +238,16 @@ function HomeEducationHeader({
                         </div>
                       </div>
                     </DropdownMenuItem>
+                    
+                    <DropdownMenuItem onClick={() => setShowTemplateManager(true)}>
+                      <div className="flex items-center space-x-3 w-full">
+                        <FilePenLine className="h-4 w-4 text-gray-500" />
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-semibold">Email Templates</span>
+                          <span className="text-xs text-gray-500">Manage email templates</span>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                   
                   {/* Admin Section - Test as Facilitator */}
@@ -307,6 +327,17 @@ function HomeEducationHeader({
             </span>
           </div>
         </div>
+      )}
+      
+      {/* Template Manager - Rendered directly when opened from menu */}
+      {showTemplateManager && (
+        <TemplateManager 
+          directOpen={true}
+          onMessageChange={() => {}}
+          defaultOpen={true}
+          onClose={() => setShowTemplateManager(false)}
+          context="family"
+        />
       )}
     </header>
   );

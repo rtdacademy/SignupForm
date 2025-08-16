@@ -44,13 +44,19 @@ import {
   EyeOff,
   AlertCircle,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   Check,
   FileText,
   DollarSign,
   GraduationCap,
   Heart,
-  Phone
+  Phone,
+  Mail,
+  CheckCircle2,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import QuillEditor from '../../courses/CourseEditor/QuillEditor';
 import { useAuth } from '../../context/AuthContext';
@@ -76,6 +82,25 @@ const NOTE_CATEGORIES = {
   communication: { label: 'Communication', icon: Phone, color: 'bg-orange-100 text-orange-700' }
 };
 
+// Helper function to get email status icon
+function getEmailStatusIcon(status) {
+  switch (status) {
+    case 'sent':
+    case 'processed':
+      return <Clock className="h-4 w-4 text-yellow-600" />;
+    case 'delivered':
+      return <CheckCircle2 className="h-4 w-4 text-blue-600" />;
+    case 'opened':
+      return <Eye className="h-4 w-4 text-green-600" />;
+    case 'failed':
+    case 'bounce':
+    case 'dropped':
+      return <XCircle className="h-4 w-4 text-red-600" />;
+    default:
+      return <Mail className="h-4 w-4 text-gray-600" />;
+  }
+}
+
 const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
   const { user } = useAuth();
   const {
@@ -86,7 +111,9 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
     updateNote,
     deleteNote,
     markAsRead,
-    getUnreadCount
+    getUnreadCount,
+    emailTracking,
+    emailContents
   } = useFamilyNotes(familyId);
 
   // State management
@@ -102,6 +129,7 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
   const [noteImportant, setNoteImportant] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [expandedEmails, setExpandedEmails] = useState({});
 
   const quillRef = useRef(null);
 
@@ -257,8 +285,20 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
   const renderNoteItem = (note) => {
     const isUnread = !note.readBy?.includes(user.email);
     const isAuthor = note.authorEmail === user.email;
-    const CategoryIcon = NOTE_CATEGORIES[note.category]?.icon || FileText;
-    const categoryStyle = NOTE_CATEGORIES[note.category]?.color || 'bg-gray-100 text-gray-700';
+    const isEmailNote = note.metadata?.type === 'email';
+    const CategoryIcon = isEmailNote ? Mail : (NOTE_CATEGORIES[note.category]?.icon || FileText);
+    const categoryStyle = isEmailNote ? 'bg-blue-100 text-blue-700' : (NOTE_CATEGORIES[note.category]?.color || 'bg-gray-100 text-gray-700');
+
+    // Get email status if it's an email note
+    let emailStatus = null;
+    if (isEmailNote && note.metadata?.emailId && emailTracking) {
+      const tracking = emailTracking[note.metadata.emailId];
+      if (tracking?.recipients) {
+        // Get the primary recipient's status
+        const primaryRecipient = Object.values(tracking.recipients)[0];
+        emailStatus = primaryRecipient?.status;
+      }
+    }
 
     return (
       <div
@@ -272,8 +312,9 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
           <div className="flex items-center gap-2">
             <Badge className={categoryStyle} variant="secondary">
               <CategoryIcon className="w-3 h-3 mr-1" />
-              {NOTE_CATEGORIES[note.category]?.label}
+              {isEmailNote ? 'Email' : NOTE_CATEGORIES[note.category]?.label}
             </Badge>
+            {emailStatus && getEmailStatusIcon(emailStatus)}
             {note.isImportant && (
               <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
             )}
@@ -312,12 +353,21 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
           <span>{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}</span>
         </div>
 
-        <div 
-          className="text-sm text-gray-700 line-clamp-2"
-          dangerouslySetInnerHTML={{ 
-            __html: note.content.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' 
-          }}
-        />
+        {isEmailNote && note.metadata?.subject ? (
+          <div className="text-sm text-gray-700">
+            <div className="font-medium">{note.metadata.subject}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              To: {note.metadata.recipientEmail || 'Unknown'}
+            </div>
+          </div>
+        ) : (
+          <div 
+            className="text-sm text-gray-700 line-clamp-2"
+            dangerouslySetInnerHTML={{ 
+              __html: note.content.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' 
+            }}
+          />
+        )}
       </div>
     );
   };
@@ -519,8 +569,9 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
 
     if (selectedNote) {
       const isAuthor = selectedNote.authorEmail === user.email;
-      const CategoryIcon = NOTE_CATEGORIES[selectedNote.category]?.icon || FileText;
-      const categoryStyle = NOTE_CATEGORIES[selectedNote.category]?.color || 'bg-gray-100 text-gray-700';
+      const isEmailNote = selectedNote.metadata?.type === 'email';
+      const CategoryIcon = isEmailNote ? Mail : (NOTE_CATEGORIES[selectedNote.category]?.icon || FileText);
+      const categoryStyle = isEmailNote ? 'bg-blue-100 text-blue-700' : (NOTE_CATEGORIES[selectedNote.category]?.color || 'bg-gray-100 text-gray-700');
 
       return (
         <div className="h-full flex flex-col overflow-hidden">
@@ -530,7 +581,7 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
                 <div className="flex items-center gap-2 mb-2">
                   <Badge className={categoryStyle} variant="secondary">
                     <CategoryIcon className="w-3 h-3 mr-1" />
-                    {NOTE_CATEGORIES[selectedNote.category]?.label}
+                    {isEmailNote ? 'Email' : NOTE_CATEGORIES[selectedNote.category]?.label}
                   </Badge>
                   {selectedNote.isImportant && (
                     <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -591,10 +642,82 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
           </div>
 
           <ScrollArea className="flex-1 p-4 overflow-y-auto">
-            <div 
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: selectedNote.content }}
-            />
+            {isEmailNote ? (
+              <div className="space-y-4">
+                {/* Email metadata */}
+                {selectedNote.metadata?.subject && (
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm space-y-1">
+                      <div><strong>Subject:</strong> {selectedNote.metadata.subject}</div>
+                      <div><strong>To:</strong> {selectedNote.metadata.recipientEmail}</div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Email tracking status */}
+                {selectedNote.metadata?.emailId && emailTracking && emailTracking[selectedNote.metadata.emailId] && (
+                  <div className="border rounded-lg p-3 bg-blue-50/50">
+                    <div className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email Status
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(emailTracking[selectedNote.metadata.emailId].recipients || {}).map(([key, recipient]) => (
+                        <div key={key} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{recipient.email}</span>
+                          <span className="flex items-center gap-1">
+                            {getEmailStatusIcon(recipient.status)}
+                            <span className="text-xs">{recipient.status}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Email content toggle */}
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpandedEmails(prev => ({
+                      ...prev,
+                      [selectedNote.id]: !prev[selectedNote.id]
+                    }))}
+                    className="mb-2"
+                  >
+                    {expandedEmails[selectedNote.id] ? (
+                      <>
+                        <ChevronUp className="h-4 w-4 mr-2" />
+                        Hide Email Content
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Show Email Content
+                      </>
+                    )}
+                  </Button>
+                  
+                  {expandedEmails[selectedNote.id] && emailContents && emailContents[selectedNote.metadata.emailId] && (
+                    <div className="border rounded-lg p-4 bg-white">
+                      <div 
+                        className="prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ 
+                          __html: emailContents[selectedNote.metadata.emailId].html || 
+                                  emailContents[selectedNote.metadata.emailId].text 
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: selectedNote.content }}
+              />
+            )}
           </ScrollArea>
 
           {/* Delete confirmation */}

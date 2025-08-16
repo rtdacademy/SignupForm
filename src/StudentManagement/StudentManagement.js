@@ -714,7 +714,7 @@ function StudentManagement({
                         courseId={selectedStudent.CourseID}
                         initialNotes={studentNotes}
                         onNotesUpdate={handleNotesUpdate}
-                        readOnly={false}
+                        allowEdit={true}
                         isExpanded={false}
                       />
                     </div>
@@ -934,7 +934,7 @@ function StudentManagement({
                 courseId={selectedStudent?.CourseID}
                 initialNotes={studentNotes}
                 onNotesUpdate={handleNotesUpdate}
-                readOnly={false}
+                allowEdit={true}
                 isExpanded={true}
               />
             </div>
