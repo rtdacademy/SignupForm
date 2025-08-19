@@ -96,7 +96,8 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
   
   // Check citizenship docs
   const citizenshipDocs = familyData?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
-  const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true;
+  const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true || 
+                          citizenshipDocs?.completionStatus === 'completed';
   const docsNeedReview = citizenshipDocs?.requiresStaffReview === true;
   
   // Check SOLO plan
@@ -283,6 +284,20 @@ const RegistrarDashboard = (props) => {
           totalStudents++;
           const status = determineStudentStatus(student, family, activeSchoolYear);
           
+          // Count missing ASN for ANY student without ASN
+          if (!student.asn || student.asn === '') {
+            missingAsn++;
+          }
+          
+          // Count missing docs for ANY student without approved docs
+          const dbSchoolYear = activeSchoolYear.replace('/', '_');
+          const citizenshipDocs = family?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
+          const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true || 
+                                  citizenshipDocs?.completionStatus === 'completed';
+          if (!hasApprovedDocs) {
+            missingDocs++;
+          }
+          
           switch (status.status) {
             case 'ready':
               readyForPasi++;
@@ -292,11 +307,6 @@ const RegistrarDashboard = (props) => {
               break;
             case 'incomplete':
               incomplete++;
-              // Also count specific missing items
-              if (status.missingItems) {
-                if (status.missingItems.includes('ASN')) missingAsn++;
-                if (status.missingItems.includes('Citizenship Docs')) missingDocs++;
-              }
               break;
             case 'completed':
               completed++;
@@ -443,9 +453,12 @@ const RegistrarDashboard = (props) => {
           filtered = filtered.filter(s => !s.asn);
           break;
         case 'docs':
-          filtered = filtered.filter(s => 
-            !s.familyData?.STUDENT_CITIZENSHIP_DOCS?.[s.id]?.staffApproval?.isApproved
-          );
+          filtered = filtered.filter(s => {
+            const citizenshipDocs = s.familyData?.STUDENT_CITIZENSHIP_DOCS?.[s.id];
+            const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true || 
+                                    citizenshipDocs?.completionStatus === 'completed';
+            return !hasApprovedDocs;
+          });
           break;
         case 'address':
           filtered = filtered.filter(s => !s.primaryGuardian?.address);

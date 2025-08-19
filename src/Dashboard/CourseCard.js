@@ -555,17 +555,6 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
   // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
-    // Debug logging for course details
-    console.log('📋 Course Details Debug:', {
-      courseName: courseName,
-      courseId: courseId,
-      effectiveCourseDetails: effectiveCourseDetails,
-      cachedCourseDetails: cachedCourseDetails,
-      courseDetailsFromCourse: course.courseDetails,
-      doesNotRequireSchedule: effectiveCourseDetails?.doesNotRequireSchedule,
-      isFirebaseCourse: effectiveCourseDetails?.firebaseCourse
-    });
-
     // Don't render schedule buttons if course explicitly doesn't require a schedule
     // Only check this if effectiveCourseDetails exists
     if (effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) {
@@ -579,20 +568,6 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
       effectiveCourseDetails?.courseStructure?.units ||  // Direct location (legacy)
       course.Gradebook?.courseStructure?.units  // Student-specific location (legacy fallback)
     );
-    
-    // Debug logging to help troubleshoot
-    console.log('🔍 Enhanced Course Schedule Detection:', {
-      courseName: courseName,
-      courseId: courseId,
-      isFirebaseCourse: effectiveCourseDetails?.firebaseCourse,
-      hasGradebook: !!course.Gradebook,
-      hasCourseStructure: !!course.Gradebook?.courseStructure,
-      hasUnits: !!course.Gradebook?.courseStructure?.units,
-      hasCourseConfigStructure: !!effectiveCourseDetails?.["course-config"]?.courseStructure?.units,
-      hasDirectCourseStructure: !!effectiveCourseDetails?.courseStructure?.units,
-      hasEnhancedCourseStructure,
-      courseConfigKeys: effectiveCourseDetails?.["course-config"] ? Object.keys(effectiveCourseDetails?.["course-config"]) : 'none'
-    });
     
     if (hasEnhancedCourseStructure) {
       // Course with enhanced structure - allow schedule creation

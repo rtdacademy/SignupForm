@@ -932,6 +932,8 @@ const FirebaseCourseWrapperContent = ({
   }, [unitsList, activeItemId]);
   
   // Course and profile data available for component logic
+  console.log('Course object:', course);
+  console.log('Profile object:', profile);
   
   // Now that all hooks are declared, we can do conditional returns
   // Show loading state if course is temporarily unavailable during transitions

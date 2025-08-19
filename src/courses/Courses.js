@@ -2985,7 +2985,7 @@ function Courses({
                       <FirebaseCourseConfigEditor 
                         courseId={selectedCourseId} 
                         courseData={courseData}
-                        courseIsEditing={courseIsEditing} 
+                        isEditing={courseIsEditing} 
                       />
                     </div>
                     
