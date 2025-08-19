@@ -292,6 +292,7 @@ exports.getAdminAuditLog = adminUserManagementFunctions.getAdminAuditLog;
 exports.sendTempPasswordEmail = adminUserManagementFunctions.sendTempPasswordEmail;
 exports.createUserWithTempPassword = adminUserManagementFunctions.createUserWithTempPassword;
 exports.removeTempPasswordClaim = adminUserManagementFunctions.removeTempPasswordClaim;
+exports.verifyUserEmail = adminUserManagementFunctions.verifyUserEmail;
 
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;

@@ -43,7 +43,7 @@ import {
 } from '../components/ui/dialog';
 import TempPasswordModal from './TempPasswordModal';
 
-const AdminUserManagement = () => {
+const AdminUserManagement = ({ defaultTargetSite }) => {
   const { user, hasAdminAccess, isSuperAdminUser } = useAuth();
   const [searchEmail, setSearchEmail] = useState('');
   const [searchResults, setSearchResults] = useState(null);
@@ -51,7 +51,7 @@ const AdminUserManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: '', data: null });
-  const [tempPasswordModal, setTempPasswordModal] = useState({ open: false, userEmail: '' });
+  const [tempPasswordModal, setTempPasswordModal] = useState({ open: false, userEmail: '', isNewUser: false });
   const [currentTempPassword, setCurrentTempPassword] = useState('');
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
@@ -61,6 +61,7 @@ const AdminUserManagement = () => {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
   const [searchedEmail, setSearchedEmail] = useState('');
+  const [currentTargetSite, setCurrentTargetSite] = useState(defaultTargetSite || 'rtdacademy');
 
   // Clear messages after a delay
   const clearMessages = useCallback(() => {
@@ -117,6 +118,7 @@ const AdminUserManagement = () => {
     setSearchResults(null);
     setUserNotFound(false);
     setSearchedEmail('');
+    setCurrentTargetSite('rtdacademy');
 
     try {
       // Import Firebase Functions dynamically
@@ -216,11 +218,11 @@ const AdminUserManagement = () => {
 
   // Temp password modal handlers
   const handleOpenTempPasswordModal = (userEmail) => {
-    setTempPasswordModal({ open: true, userEmail });
+    setTempPasswordModal({ open: true, userEmail, isNewUser: false, defaultTargetSite });
   };
 
   // Handle creating a new user
-  const handleCreateNewUser = async ({ password, reason, sendEmail }) => {
+  const handleCreateNewUser = async ({ password, reason, sendEmail, targetSite }) => {
     if (!searchedEmail) return;
     
     setLoading(true);
@@ -237,11 +239,13 @@ const AdminUserManagement = () => {
         targetEmail: searchedEmail,
         customPassword: password,
         sendEmail: sendEmail,
-        reason: reason || 'Admin created new user account'
+        reason: reason || 'Admin created new user account',
+        targetSite: targetSite || 'rtdacademy'
       });
       
       if (result.data.success) {
         setCurrentTempPassword(result.data.tempPassword);
+        setCurrentTargetSite(targetSite || 'rtdacademy');
         
         if (result.data.emailResult?.success) {
           setEmailSent(true);
@@ -282,13 +286,13 @@ const AdminUserManagement = () => {
     }
   };
 
-  const handleTempPasswordConfirm = async ({ password, reason, sendEmail }) => {
+  const handleTempPasswordConfirm = async ({ password, reason, sendEmail, targetSite }) => {
     const isNewUser = tempPasswordModal.isNewUser;
     setTempPasswordModal({ open: false, userEmail: '' });
     
     if (isNewUser) {
       // Handle new user creation
-      await handleCreateNewUser({ password, reason, sendEmail });
+      await handleCreateNewUser({ password, reason, sendEmail, targetSite });
       return;
     }
     
@@ -305,11 +309,13 @@ const AdminUserManagement = () => {
       const result = await setTempPassword({ 
         targetEmail: searchResults.email,
         customPassword: password,
-        reason: reason
+        reason: reason,
+        targetSite: targetSite || 'rtdacademy'
       });
       
       if (result.data.success) {
         setCurrentTempPassword(result.data.tempPassword);
+        setCurrentTargetSite(targetSite || 'rtdacademy');
         
         // If email should be sent, send it automatically
         if (sendEmail) {
@@ -320,7 +326,8 @@ const AdminUserManagement = () => {
             const emailResult = await sendEmailFunction({
               targetEmail: searchResults.email,
               tempPassword: result.data.tempPassword,
-              userFirstName: searchResults.displayName?.split(' ')[0] || 'Student'
+              userFirstName: searchResults.displayName?.split(' ')[0] || 'Student',
+              targetSite: targetSite || 'rtdacademy'
             });
             
             if (emailResult.data.success) {
@@ -371,7 +378,8 @@ const AdminUserManagement = () => {
       const result = await sendEmailFunction({
         targetEmail: searchResults.email,
         tempPassword: currentTempPassword,
-        userFirstName: searchResults.displayName?.split(' ')[0] || 'Student'
+        userFirstName: searchResults.displayName?.split(' ')[0] || 'Student',
+        targetSite: currentTargetSite || 'rtdacademy'
       });
       
       if (result.data.success) {
@@ -387,6 +395,48 @@ const AdminUserManagement = () => {
       }
     } finally {
       setSendingEmail(false);
+      clearMessages();
+    }
+  };
+
+  // Verify user email
+  const handleVerifyEmail = async () => {
+    if (!searchResults) return;
+    
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const verifyEmail = httpsCallable(functions, 'verifyUserEmail');
+      
+      const result = await verifyEmail({ 
+        targetEmail: searchResults.email,
+        reason: 'Admin manually verified email address'
+      });
+      
+      if (result.data.success) {
+        if (result.data.alreadyVerified) {
+          setSuccess('Email address was already verified');
+        } else {
+          setSuccess('Email address verified successfully');
+        }
+        // Refresh user data
+        handleSearchUser();
+      }
+    } catch (error) {
+      console.error('Error verifying email:', error);
+      if (error.code === 'functions/permission-denied') {
+        setError('Access denied. You do not have permission to verify emails.');
+      } else if (error.code === 'functions/not-found') {
+        setError('User not found.');
+      } else {
+        setError(`Error: ${error.message || 'An unexpected error occurred'}`);
+      }
+    } finally {
+      setLoading(false);
       clearMessages();
     }
   };
@@ -544,10 +594,27 @@ const AdminUserManagement = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Create New User Account</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Would you like to create a new Firebase Auth account for this email address? 
-                  The user will receive a temporary password and be required to change it on their first login.
-                </p>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={searchedEmail}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+                  />
+                </div>
+                
+                <Alert className="border-blue-200 bg-blue-50 mb-4">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800 text-sm">
+                    A new account will be created for <strong>{searchedEmail}</strong>. 
+                    You'll be asked to confirm the email address in the next step to ensure accuracy before sending credentials.
+                  </AlertDescription>
+                </Alert>
+                
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-green-500" />
@@ -555,16 +622,21 @@ const AdminUserManagement = () => {
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Welcome email sent automatically with login instructions</span>
+                    <span>Email will be automatically verified</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span>Welcome email sent with login instructions</span>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     <span>User must change password on first login</span>
                   </div>
                 </div>
+                
                 <div className="mt-4">
                   <Button 
-                    onClick={() => setTempPasswordModal({ open: true, userEmail: searchedEmail, isNewUser: true })}
+                    onClick={() => setTempPasswordModal({ open: true, userEmail: searchedEmail, isNewUser: true, defaultTargetSite })}
                     className="bg-green-600 hover:bg-green-700"
                     disabled={loading}
                   >
@@ -621,19 +693,37 @@ const AdminUserManagement = () => {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Email Verified</label>
-                <p className="text-gray-900">
+                <div className="text-gray-900">
                   {searchResults.emailVerified ? (
                     <span className="text-green-600 flex items-center">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Yes
                     </span>
                   ) : (
-                    <span className="text-red-600 flex items-center">
-                      <XCircle className="w-4 h-4 mr-1" />
-                      No
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-red-600 flex items-center">
+                        <XCircle className="w-4 h-4 mr-1" />
+                        No
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleVerifyEmail}
+                        disabled={loading}
+                        className="h-7 px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white border-green-600"
+                      >
+                        {loading ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Verify Email
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   )}
-                </p>
+                </div>
               </div>
             </div>
 
@@ -799,6 +889,32 @@ const AdminUserManagement = () => {
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Verify Email - Show only if email is not verified */}
+                {!searchResults.emailVerified && (
+                  <Card className="p-4 border-green-200 bg-green-50">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-green-900">Verify Email Address</h4>
+                        <p className="text-sm text-green-700 mt-1">
+                          Manually mark this user's email address as verified.
+                        </p>
+                        <p className="text-xs text-green-600 mt-2">
+                          <strong>Use when:</strong> User cannot receive verification emails or you've confirmed their identity
+                        </p>
+                        <Button 
+                          size="sm" 
+                          className="mt-3 bg-green-600 hover:bg-green-700"
+                          onClick={handleVerifyEmail}
+                          disabled={loading}
+                        >
+                          Verify Email
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
                 {/* Set Temporary Password */}
                 <Card className="p-4 border-blue-200 bg-blue-50">
                   <div className="flex items-start space-x-3">
@@ -942,6 +1058,7 @@ const AdminUserManagement = () => {
         onClose={() => setTempPasswordModal({ open: false, userEmail: '' })}
         userEmail={tempPasswordModal.userEmail}
         isNewUser={tempPasswordModal.isNewUser}
+        defaultTargetSite={defaultTargetSite}
         onConfirm={handleTempPasswordConfirm}
       />
     </div>

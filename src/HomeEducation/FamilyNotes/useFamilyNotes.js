@@ -79,6 +79,12 @@ export const useFamilyNotes = (familyId) => {
     if (!familyId) return;
 
     const db = getDatabase();
+    console.log('[DEBUG] Email tracking effect running for familyId:', familyId);
+    console.log('[DEBUG] Notes with email metadata:', notes.filter(n => n.metadata?.type === 'email').map(n => ({
+      noteId: n.id,
+      emailId: n.metadata?.emailId,
+      familyId: n.metadata?.familyId
+    })));
 
     // For each note that's an email, attach a listener for tracking
     notes.forEach((note) => {
@@ -87,24 +93,37 @@ export const useFamilyNotes = (familyId) => {
 
         // Only attach a listener if we haven't done so yet
         if (!unsubscribeMapRef.current[emailId]) {
-          const trackingRef = ref(db, `homeEducationFamilies/emailTracking/${familyId}/emails/${emailId}`);
+          const trackingPath = `homeEducationFamilies/emailTracking/${familyId}/emails/${emailId}`;
+          console.log('[DEBUG] Attaching tracking listener to path:', trackingPath);
+          const trackingRef = ref(db, trackingPath);
 
           const handleValueChange = (snapshot) => {
+            console.log('[DEBUG] Firebase snapshot received for emailId:', emailId, 'exists:', snapshot.exists());
             if (snapshot.exists()) {
-              setEmailTracking((prev) => ({
-                ...prev,
-                [emailId]: snapshot.val()
-              }));
+              const trackingData = snapshot.val();
+              console.log('[DEBUG] Tracking data received for emailId:', emailId, trackingData);
+              setEmailTracking((prev) => {
+                const newState = {
+                  ...prev,
+                  [emailId]: trackingData
+                };
+                console.log('[DEBUG] emailTracking state updated:', newState);
+                return newState;
+              });
+            } else {
+              console.log('[DEBUG] No tracking data exists at path:', trackingPath);
             }
           };
 
           // Attach the listener
-          onValue(trackingRef, handleValueChange);
+          console.log('[DEBUG] About to attach onValue listener for:', emailId);
+          const unsubscribe = onValue(trackingRef, handleValueChange, (error) => {
+            console.error('[DEBUG] Firebase listener error for emailId:', emailId, error);
+          });
+          console.log('[DEBUG] Listener attached for:', emailId);
 
-          // Store the unsubscribe function
-          unsubscribeMapRef.current[emailId] = () => {
-            off(trackingRef, 'value', handleValueChange);
-          };
+          // Store the unsubscribe function (onValue returns an unsubscribe function)
+          unsubscribeMapRef.current[emailId] = unsubscribe;
         }
       }
     });
@@ -144,10 +163,15 @@ export const useFamilyNotes = (familyId) => {
   useEffect(() => {
     notes.forEach(note => {
       if (note.metadata?.type === 'email' && note.metadata?.emailId && note.metadata?.recipientEmail) {
-        fetchEmailContent(note.metadata.emailId, note.metadata.recipientEmail);
+        // Check if we already have this email content
+        if (!emailContents[note.metadata.emailId]) {
+          fetchEmailContent(note.metadata.emailId, note.metadata.recipientEmail);
+        }
       }
     });
-  }, [notes, fetchEmailContent]);
+    // Note: fetchEmailContent is intentionally not in dependencies to avoid infinite loop
+    // since it depends on emailContents which would cause re-renders
+  }, [notes]);
 
   // Create a new note
   const createNote = useCallback(async (noteData) => {

@@ -380,8 +380,8 @@ const sendFamilyEmailsV2 = onCall({
                       isImportant: false,
                       authorEmail: senderEmail,
                       authorName: senderName,
-                      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      createdAt: process.env.FUNCTIONS_EMULATOR ? new Date() : admin.firestore.FieldValue.serverTimestamp(),
+                      updatedAt: process.env.FUNCTIONS_EMULATOR ? new Date() : admin.firestore.FieldValue.serverTimestamp(),
                       readBy: [senderEmail],
                       metadata: {
                         type: 'email',
@@ -648,7 +648,7 @@ const handleFamilyWebhookEvents = onRequest({
                 const noteDoc = notesQuery.docs[0];
                 await noteDoc.ref.update({
                   'metadata.status': newStatus,
-                  'metadata.lastStatusUpdate': admin.firestore.FieldValue.serverTimestamp()
+                  'metadata.lastStatusUpdate': process.env.FUNCTIONS_EMULATOR ? new Date() : admin.firestore.FieldValue.serverTimestamp()
                 });
               }
             } catch (firestoreError) {

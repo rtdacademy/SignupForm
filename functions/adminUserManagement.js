@@ -116,7 +116,7 @@ const setTemporaryPassword = onCall({
   ]
 }, async (request) => {
   const callerInfo = await verifyAdminPermissions(request);
-  const { targetEmail, customPassword, reason } = request.data;
+  const { targetEmail, customPassword, reason, targetSite } = request.data;
   
   if (!targetEmail) {
     throw new HttpsError('invalid-argument', 'Target email is required.');
@@ -131,10 +131,18 @@ const setTemporaryPassword = onCall({
     // Generate or use provided password
     const tempPassword = customPassword || generateTempPassword();
     
-    // Update user password
-    await admin.auth().updateUser(targetUser.uid, {
+    // Update user password and verify email if not already verified
+    const updateData = {
       password: tempPassword
-    });
+    };
+    
+    // If email is not verified, verify it since admin is setting password
+    if (!targetUser.emailVerified) {
+      updateData.emailVerified = true;
+      console.log(`Also verifying email for user: ${targetEmail}`);
+    }
+    
+    await admin.auth().updateUser(targetUser.uid, updateData);
     
     // Get current custom claims
     const currentClaims = targetUser.customClaims || {};
@@ -159,14 +167,16 @@ const setTemporaryPassword = onCall({
     // Log the action
     await logAdminAction('setTemporaryPassword', targetUser, callerInfo, {
       reason: reason || 'No reason provided',
-      passwordGenerated: !customPassword
+      passwordGenerated: !customPassword,
+      emailVerified: !targetUser.emailVerified  // Log if email was verified as part of this action
     });
     
     return {
       success: true,
       tempPassword: tempPassword,
       message: 'Temporary password set successfully',
-      userEmail: targetUser.email
+      userEmail: targetUser.email,
+      targetSite: targetSite || 'rtdacademy'
     };
     
   } catch (error) {
@@ -496,7 +506,7 @@ const sendTempPasswordEmail = onCall({
   secrets: ["SENDGRID_KEY"]
 }, async (request) => {
   const callerInfo = await verifyAdminPermissions(request);
-  const { targetEmail, tempPassword, userFirstName } = request.data;
+  const { targetEmail, tempPassword, userFirstName, targetSite } = request.data;
   
   if (!targetEmail || !tempPassword) {
     throw new HttpsError('invalid-argument', 'Target email and temporary password are required.');
@@ -512,9 +522,18 @@ const sendTempPasswordEmail = onCall({
     const db = admin.database();
     const emailId = db.ref('emails').push().key;
     
+    // Determine the login URL based on target site
+    const loginUrl = targetSite === 'rtdconnect' 
+      ? 'https://rtd-connect.com/login' 
+      : 'https://yourway.rtdacademy.com/login';
+    
+    const siteName = targetSite === 'rtdconnect' 
+      ? 'RTD Connect' 
+      : 'RTD Academy';
+    
     // Create email content
     const firstName = userFirstName || 'Student';
-    const subject = 'Temporary Password for Your RTD Academy Account';
+    const subject = `Temporary Password for Your ${siteName} Account`;
     
     const htmlContent = `
       <!DOCTYPE html>
@@ -528,9 +547,7 @@ const sendTempPasswordEmail = onCall({
         <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border-left: 5px solid #007bff;">
           <h2 style="color: #007bff; margin-top: 0;">🔐 Temporary Password for Your Account</h2>
           
-          <p>Hello ${firstName},</p>
-          
-          <p>An administrator has set a temporary password for your RTD Academy account. You can use this password to log in, but you'll be required to create a new password during your next login for security purposes.</p>
+          <p>An administrator has set a temporary password for your ${siteName} account. You can use this password to log in, but you'll be required to create a new password during your next login for security purposes.</p>
           
           <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 2px solid #e9ecef; margin: 20px 0;">
             <h3 style="margin-top: 0; color: #495057;">📧 Your Login Information:</h3>
@@ -549,19 +566,21 @@ const sendTempPasswordEmail = onCall({
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://yourway.rtdacademy.com/login" 
+            <a href="${loginUrl}" 
                style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
               🚀 Log In to Your Account
             </a>
           </div>
           
-          <p>If you have any questions or need assistance, please contact your teacher or RTD Academy support.</p>
+          <p>${targetSite === 'rtdconnect' 
+            ? 'If you have any questions or need assistance, please contact your facilitator.' 
+            : 'If you have any questions or need assistance, please contact your teacher or RTD Academy support.'}</p>
           
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
           
           <div style="text-align: center; color: #6c757d; font-size: 14px;">
-            <p><strong>RTD Academy</strong><br>
-            Your Way Learning Platform</p>
+            <p><strong>${siteName}</strong><br>
+            ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}</p>
             <p style="font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
           </div>
         </div>
@@ -570,11 +589,9 @@ const sendTempPasswordEmail = onCall({
     `;
     
     const textContent = `
-Temporary Password for Your RTD Academy Account
+Temporary Password for Your ${siteName} Account
 
-Hello ${firstName},
-
-An administrator has set a temporary password for your RTD Academy account. You can use this password to log in, but you'll be required to create a new password during your next login for security purposes.
+An administrator has set a temporary password for your ${siteName} account. You can use this password to log in, but you'll be required to create a new password during your next login for security purposes.
 
 Your Login Information:
 Email: ${targetEmail}
@@ -586,11 +603,13 @@ IMPORTANT SECURITY NOTICE:
 - Do not share this password with anyone
 - For security, this email should be deleted after you log in
 
-Login at: https://yourway.rtdacademy.com/login
+Login at: ${loginUrl}
 
-If you have any questions or need assistance, please contact your teacher or RTD Academy support.
+${targetSite === 'rtdconnect' 
+  ? 'If you have any questions or need assistance, please contact your facilitator.' 
+  : 'If you have any questions or need assistance, please contact your teacher or RTD Academy support.'}
 
-RTD Academy - Your Way Learning Platform
+${siteName} - ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}
 This is an automated message. Please do not reply to this email.
     `;
 
@@ -739,7 +758,7 @@ const createUserWithTempPassword = onCall({
   secrets: ["SENDGRID_KEY"]
 }, async (request) => {
   const callerInfo = await verifyAdminPermissions(request);
-  const { targetEmail, customPassword, sendEmail, reason, userFirstName } = request.data;
+  const { targetEmail, customPassword, sendEmail, reason, userFirstName, targetSite } = request.data;
   
   if (!targetEmail) {
     throw new HttpsError('invalid-argument', 'Target email is required.');
@@ -769,10 +788,11 @@ const createUserWithTempPassword = onCall({
     const tempPassword = customPassword || generateTempPassword();
     
     // Create new user with Firebase Admin SDK
+    // Email is automatically verified since admin is creating the account
     const newUserRecord = await admin.auth().createUser({
       email: targetEmail,
       password: tempPassword,
-      emailVerified: false,
+      emailVerified: true,  // Auto-verify email when admin creates account
       disabled: false
     });
 
@@ -819,9 +839,18 @@ const createUserWithTempPassword = onCall({
 
         const emailId = db.ref('emails').push().key;
         
+        // Determine the login URL based on target site
+        const loginUrl = targetSite === 'rtdconnect' 
+          ? 'https://rtd-connect.com/login' 
+          : 'https://yourway.rtdacademy.com/login';
+        
+        const siteName = targetSite === 'rtdconnect' 
+          ? 'RTD Connect' 
+          : 'RTD Academy';
+        
         // Create email content
         const firstName = userFirstName || 'Student';
-        const subject = 'Welcome to RTD Academy - Your New Account';
+        const subject = `Welcome to ${siteName} - Your New Account`;
         
         const htmlContent = `
           <!DOCTYPE html>
@@ -829,15 +858,15 @@ const createUserWithTempPassword = onCall({
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Welcome to RTD Academy</title>
+            <title>Welcome to ${siteName}</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border-left: 5px solid #28a745;">
-              <h2 style="color: #28a745; margin-top: 0;">🎉 Welcome to RTD Academy!</h2>
+              <h2 style="color: #28a745; margin-top: 0;">🎉 Welcome to ${siteName}!</h2>
               
-              <p>Hello ${firstName},</p>
-              
-              <p>An administrator has created a new account for you at RTD Academy. We're excited to have you join our learning community!</p>
+              <p>An administrator has created a new account for you at ${siteName}. ${targetSite === 'rtdconnect' 
+                ? 'We\'re excited to have you join our home education community!' 
+                : 'We\'re excited to have you join our learning community!'}</p>
               
               <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 2px solid #e9ecef; margin: 20px 0;">
                 <h3 style="margin-top: 0; color: #495057;">📧 Your Login Information:</h3>
@@ -856,19 +885,21 @@ const createUserWithTempPassword = onCall({
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://yourway.rtdacademy.com/login" 
+                <a href="${loginUrl}" 
                    style="background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
                   🚀 Access Your Account
                 </a>
               </div>
               
-              <p>Once you log in, you'll have access to all your courses and learning materials. If you have any questions or need assistance, please contact your teacher or RTD Academy support.</p>
+              <p>${targetSite === 'rtdconnect' 
+                ? 'Once you log in, you\'ll have access to your RTD Connect dashboard. If you have any questions or need assistance, please contact your facilitator.' 
+                : 'Once you log in, you\'ll have access to all your courses and learning materials. If you have any questions or need assistance, please contact your teacher or RTD Academy support.'}</p>
               
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
               
               <div style="text-align: center; color: #6c757d; font-size: 14px;">
-                <p><strong>RTD Academy</strong><br>
-                Your Way Learning Platform</p>
+                <p><strong>${siteName}</strong><br>
+                ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}</p>
                 <p style="font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
               </div>
             </div>
@@ -877,11 +908,11 @@ const createUserWithTempPassword = onCall({
         `;
         
         const textContent = `
-Welcome to RTD Academy!
+Welcome to ${siteName}!
 
-Hello ${firstName},
-
-An administrator has created a new account for you at RTD Academy. We're excited to have you join our learning community!
+An administrator has created a new account for you at ${siteName}. ${targetSite === 'rtdconnect' 
+  ? 'We\'re excited to have you join our home education community!' 
+  : 'We\'re excited to have you join our learning community!'}
 
 Your Login Information:
 Email: ${targetEmail}
@@ -893,11 +924,13 @@ IMPORTANT SECURITY INFORMATION:
 - Keep this information secure until you log in
 - For security, delete this email after you've successfully logged in
 
-Login at: https://yourway.rtdacademy.com/login
+Login at: ${loginUrl}
 
-Once you log in, you'll have access to all your courses and learning materials. If you have any questions or need assistance, please contact your teacher or RTD Academy support.
+${targetSite === 'rtdconnect' 
+  ? 'Once you log in, you\'ll have access to your RTD Connect dashboard. If you have any questions or need assistance, please contact your facilitator.' 
+  : 'Once you log in, you\'ll have access to all your courses and learning materials. If you have any questions or need assistance, please contact your teacher or RTD Academy support.'}
 
-RTD Academy - Your Way Learning Platform
+${siteName} - ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}
 This is an automated message. Please do not reply to this email.
         `;
 
@@ -1061,14 +1094,92 @@ This is an automated message. Please do not reply to this email.
 });
 
 /**
+ * Cloud Function: verifyUserEmail
+ * 
+ * Manually verify a user's email address
+ * Admin only
+ */
+const verifyUserEmail = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com", 
+    "http://localhost:3000", 
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  const callerInfo = await verifyAdminPermissions(request);
+  const { targetEmail, targetUid, reason } = request.data;
+  
+  if (!targetEmail && !targetUid) {
+    throw new HttpsError('invalid-argument', 'Either targetEmail or targetUid must be provided.');
+  }
+  
+  console.log(`Admin ${callerInfo.callerEmail} verifying email for: ${targetEmail || targetUid}`);
+  
+  try {
+    // Get target user
+    let targetUser;
+    if (targetEmail) {
+      targetUser = await admin.auth().getUserByEmail(targetEmail);
+    } else {
+      targetUser = await admin.auth().getUser(targetUid);
+    }
+    
+    // Check if email is already verified
+    if (targetUser.emailVerified) {
+      return {
+        success: true,
+        message: 'Email is already verified',
+        userEmail: targetUser.email,
+        alreadyVerified: true
+      };
+    }
+    
+    // Update user to set emailVerified to true
+    await admin.auth().updateUser(targetUser.uid, {
+      emailVerified: true
+    });
+    
+    // Log the action
+    await logAdminAction('verifyUserEmail', targetUser, callerInfo, {
+      reason: reason || 'Admin manually verified email address',
+      previousStatus: false,
+      newStatus: true
+    });
+    
+    return {
+      success: true,
+      message: 'Email address verified successfully',
+      userEmail: targetUser.email,
+      emailVerified: true
+    };
+    
+  } catch (error) {
+    console.error('Error verifying user email:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while verifying email address.');
+  }
+});
+
+/**
  * Cloud Function: removeTempPasswordClaim
  * 
  * Removes the temporary password requirement claim from the calling user
  */
 const removeTempPasswordClaim = onCall({
   concurrency: 50,
+  enforceAppCheck: false,
   cors: [
-    "https://yourway.rtdacademy.com", 
+    "https://yourway.rtdacademy.com",
+    "https://rtdconnect.rtdacademy.com",
     "http://localhost:3000", 
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
@@ -1085,11 +1196,14 @@ const removeTempPasswordClaim = onCall({
   
   try {
     // Get user's current custom claims
+    console.log('Step 1: Getting user record for UID:', uid);
     const userRecord = await admin.auth().getUser(uid);
     const currentClaims = userRecord.customClaims || {};
+    console.log('Current claims:', currentClaims);
     
     // Check if user actually has temp password claim
     if (!currentClaims.tempPasswordRequired) {
+      console.log('No temporary password claim found, returning early');
       return {
         success: true,
         message: 'No temporary password claim to remove'
@@ -1097,28 +1211,42 @@ const removeTempPasswordClaim = onCall({
     }
     
     // Remove temporary password related claims
+    console.log('Step 2: Removing temp password claims');
     const newClaims = { ...currentClaims };
     delete newClaims.tempPasswordRequired;
     delete newClaims.tempPasswordSetAt;
     delete newClaims.tempPasswordSetBy;
+    console.log('New claims after removal:', newClaims);
     
+    console.log('Step 3: Setting custom user claims');
     await admin.auth().setCustomUserClaims(uid, newClaims);
+    console.log('Custom claims updated successfully');
     
     // Update metadata to trigger token refresh
+    console.log('Step 4: Updating metadata for token refresh');
     const db = admin.database();
     await db.ref(`metadata/${uid}`).set({
       refreshTime: Date.now(),
       tempPasswordRemoved: Date.now()
     });
+    console.log('Metadata updated successfully');
     
-    // Log the action
-    await logAdminAction('removeTempPasswordClaim', { email: userEmail, uid }, { 
-      callerUid: uid, 
-      callerEmail: userEmail 
-    }, {
-      reason: 'User completed forced password change'
-    });
+    // Log the action - wrap in try-catch to avoid failure if logging fails
+    console.log('Step 5: Logging admin action');
+    try {
+      await logAdminAction('removeTempPasswordClaim', { email: userEmail, uid }, { 
+        callerUid: uid, 
+        callerEmail: userEmail 
+      }, {
+        reason: 'User completed forced password change'
+      });
+      console.log('Admin action logged successfully');
+    } catch (logError) {
+      console.error('Failed to log admin action (non-critical):', logError);
+      // Don't fail the whole operation if logging fails
+    }
     
+    console.log('Successfully removed temp password claim for user:', userEmail);
     return {
       success: true,
       message: 'Temporary password claim removed successfully'
@@ -1126,12 +1254,17 @@ const removeTempPasswordClaim = onCall({
     
   } catch (error) {
     console.error('Error removing temporary password claim:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     
     if (error instanceof HttpsError) {
       throw error;
     }
     
-    throw new HttpsError('internal', 'An error occurred while removing temporary password claim.');
+    throw new HttpsError('internal', `An error occurred while removing temporary password claim: ${error.message}`);
   }
 });
 
@@ -1143,5 +1276,6 @@ module.exports = {
   getAdminAuditLog,
   sendTempPasswordEmail,
   createUserWithTempPassword,
-  removeTempPasswordClaim
+  removeTempPasswordClaim,
+  verifyUserEmail
 };

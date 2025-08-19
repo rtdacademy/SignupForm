@@ -2589,12 +2589,15 @@ const NonPrimaryStudentForm = forwardRef(({
                   <option value="">Select a course</option>
                   {courses.map((course) => {
                     const status = enrolledCourses[course.id];
-                    const isDisabled = !!status; // Disable if there's any status
+                    // Only disable if there's an actual enrollment status (Active, Future, Archived, or Registration)
+                    // Empty string or undefined means no actual enrollment, just metadata
+                    const isDisabled = status === 'Active' || status === 'Future' || 
+                                     status === 'Archived' || status === 'Registration';
 
                     let statusText = '';
                     if (status === 'Registration') {
                       statusText = '(Pending Registration)';
-                    } else if (status) {
+                    } else if (status === 'Active' || status === 'Future' || status === 'Archived') {
                       statusText = '(Already Enrolled)';
                     }
 

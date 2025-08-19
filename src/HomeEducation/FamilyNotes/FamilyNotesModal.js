@@ -116,6 +116,17 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
     emailContents
   } = useFamilyNotes(familyId);
 
+  // Debug logging in useEffect to avoid render loops
+  useEffect(() => {
+    if (emailTracking && Object.keys(emailTracking).length > 0) {
+      console.log('[DEBUG] FamilyNotesModal - Email tracking received:', {
+        familyId,
+        trackingKeys: Object.keys(emailTracking),
+        notesWithEmail: notes.filter(n => n.metadata?.type === 'email').map(n => n.metadata.emailId)
+      });
+    }
+  }, [Object.keys(emailTracking || {}).join(',')]); // Only log when tracking keys change
+
   // State management
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -289,15 +300,18 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
     const CategoryIcon = isEmailNote ? Mail : (NOTE_CATEGORIES[note.category]?.icon || FileText);
     const categoryStyle = isEmailNote ? 'bg-blue-100 text-blue-700' : (NOTE_CATEGORIES[note.category]?.color || 'bg-gray-100 text-gray-700');
 
-    // Get email status if it's an email note
+    // Get email status and open count if it's an email note
     let emailStatus = null;
+    let totalOpens = 0;
     if (isEmailNote && note.metadata?.emailId && emailTracking) {
       const tracking = emailTracking[note.metadata.emailId];
+      
       if (tracking?.recipients) {
         // Get the primary recipient's status
         const primaryRecipient = Object.values(tracking.recipients)[0];
         emailStatus = primaryRecipient?.status;
       }
+      totalOpens = tracking?.totalOpens || 0;
     }
 
     return (
@@ -315,6 +329,11 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
               {isEmailNote ? 'Email' : NOTE_CATEGORIES[note.category]?.label}
             </Badge>
             {emailStatus && getEmailStatusIcon(emailStatus)}
+            {totalOpens > 0 && (
+              <Badge variant="outline" className="text-xs bg-green-50">
+                {totalOpens} open{totalOpens !== 1 ? 's' : ''}
+              </Badge>
+            )}
             {note.isImportant && (
               <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
             )}
@@ -612,7 +631,7 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
                   )}
                 </div>
               </div>
-              {isAuthor && (
+              {isAuthor && !isEmailNote && (
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
@@ -660,18 +679,73 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
                     <div className="font-medium text-sm mb-2 flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       Email Status
+                      {emailTracking[selectedNote.metadata.emailId].totalOpens > 0 && (
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">
+                          {emailTracking[selectedNote.metadata.emailId].totalOpens} open{emailTracking[selectedNote.metadata.emailId].totalOpens !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
                     </div>
+                    
+                    {/* Last activity indicator */}
+                    {emailTracking[selectedNote.metadata.emailId].lastActivity && (
+                      <div className="text-xs text-gray-500 mb-2">
+                        Last activity: {emailTracking[selectedNote.metadata.emailId].lastActivity.type} - {
+                          formatDistanceToNow(new Date(emailTracking[selectedNote.metadata.emailId].lastActivity.timestamp * 1000), { addSuffix: true })
+                        }
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
-                      {Object.entries(emailTracking[selectedNote.metadata.emailId].recipients || {}).map(([key, recipient]) => (
-                        <div key={key} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">{recipient.email}</span>
-                          <span className="flex items-center gap-1">
-                            {getEmailStatusIcon(recipient.status)}
-                            <span className="text-xs">{recipient.status}</span>
-                          </span>
-                        </div>
-                      ))}
+                      {Object.entries(emailTracking[selectedNote.metadata.emailId].recipients || {}).map(([key, recipient]) => {
+                        const openCount = emailTracking[selectedNote.metadata.emailId].openCount?.[key] || 0;
+                        return (
+                          <div key={key} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">{recipient.email}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="flex items-center gap-1">
+                                {getEmailStatusIcon(recipient.status)}
+                                <span className="text-xs">{recipient.status}</span>
+                              </span>
+                              {openCount > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {openCount}x
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
+                    
+                    {/* Show event timeline if there are multiple events */}
+                    {emailTracking[selectedNote.metadata.emailId].events && 
+                     Object.keys(emailTracking[selectedNote.metadata.emailId].events).length > 1 && (
+                      <details className="mt-3">
+                        <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                          View event timeline
+                        </summary>
+                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                          {Object.entries(emailTracking[selectedNote.metadata.emailId].events || {})
+                            .filter(([key]) => key !== 'sent') // Filter out the 'sent' event which has different structure
+                            .sort(([, a], [, b]) => (b.timestamp || 0) - (a.timestamp || 0))
+                            .map(([eventKey, event]) => {
+                              // Handle different timestamp formats - some are in seconds, some in milliseconds
+                              const timestamp = event.timestamp > 10000000000 ? event.timestamp : event.timestamp * 1000;
+                              return (
+                                <div key={eventKey} className="text-xs text-gray-600 flex items-center gap-2">
+                                  {getEmailStatusIcon(event.status || event.type)}
+                                  <span>{event.type}</span>
+                                  <span className="text-gray-400">•</span>
+                                  <span>{event.email}</span>
+                                  <span className="text-gray-400">•</span>
+                                  <span>{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                </div>
+                              );
+                            })
+                          }
+                        </div>
+                      </details>
+                    )}
                   </div>
                 )}
                 

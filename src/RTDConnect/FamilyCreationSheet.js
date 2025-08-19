@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getDatabase, ref, onValue, off } from 'firebase/database';
+import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { toEdmontonDate, formatDateForDisplay, formatDateForInput } from '../utils/timeZoneUtils';
 import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
-import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye } from 'lucide-react';
+import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle } from 'lucide-react';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -75,49 +75,55 @@ const StudentCard = ({ student, index, onEdit, onRemove, userProfile }) => (
 );
 
 // Primary Guardian card component (read-only)
-const PrimaryGuardianCard = ({ userProfile }) => (
-  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-    <div className="flex items-start space-x-3">
-      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-        <Shield className="w-5 h-5 text-white" />
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center space-x-2 mb-2">
-          <h4 className="font-medium text-gray-900">
-            {userProfile?.firstName} {userProfile?.lastName}
-          </h4>
-          <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-md font-medium">
-            Primary Guardian
-          </span>
+const PrimaryGuardianCard = ({ guardian, isStaffMode }) => {
+  if (!guardian) return null;
+  
+  return (
+    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+      <div className="flex items-start space-x-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+          <Shield className="w-5 h-5 text-white" />
         </div>
-        <div className="space-y-2 text-sm text-gray-600">
-          <div className="flex items-center space-x-2">
-            <Mail className="w-4 h-4 text-gray-400" />
-            <span>{userProfile?.email}</span>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 mb-2">
+            <h4 className="font-medium text-gray-900">
+              {guardian.firstName} {guardian.lastName}
+            </h4>
+            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-md font-medium">
+              Primary Guardian
+            </span>
           </div>
-          {userProfile?.phone && (
+          <div className="space-y-2 text-sm text-gray-600">
             <div className="flex items-center space-x-2">
-              <Phone className="w-4 h-4 text-gray-400" />
-              <span>{userProfile.phone}</span>
+              <Mail className="w-4 h-4 text-gray-400" />
+              <span>{guardian.email}</span>
             </div>
-          )}
-          {userProfile?.address && (
-            <div className="flex items-center space-x-2">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="text-sm">
-                {userProfile.address.fullAddress || 
-                  `${userProfile.address.streetAddress || ''} ${userProfile.address.city || ''}, ${userProfile.address.province || ''} ${userProfile.address.postalCode || ''}`.trim()}
-              </span>
-            </div>
-          )}
+            {guardian.phone && (
+              <div className="flex items-center space-x-2">
+                <Phone className="w-4 h-4 text-gray-400" />
+                <span>{guardian.phone}</span>
+              </div>
+            )}
+            {guardian.address && (
+              <div className="flex items-center space-x-2">
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <span className="text-sm">
+                  {guardian.address.fullAddress || guardian.fullAddress ||
+                    `${guardian.address.streetAddress || ''} ${guardian.address.city || ''}, ${guardian.address.province || ''} ${guardian.address.postalCode || ''}`.trim()}
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {isStaffMode 
+              ? "This is the family's primary guardian."
+              : "This information comes from your profile and cannot be edited here."}
+          </p>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          This information comes from your profile and cannot be edited here.
-        </p>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Guardian card component
 const GuardianCard = ({ guardian, index, isPrimary, onEdit, onRemove, userProfile }) => (
@@ -191,6 +197,12 @@ const FamilyCreationSheet = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [restoredFromSession, setRestoredFromSession] = useState(false);
+  
+  // Auto-save state for staff mode
+  const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+  const [lastSavedTime, setLastSavedTime] = useState(null);
+  const autoSaveTimeoutRef = useRef(null);
+  const isStaffEditMode = (staffMode || isStaffViewing) && familyKey;
 
   // Student form state
   const [studentFormData, setStudentFormData] = useState({
@@ -271,6 +283,148 @@ const FamilyCreationSheet = ({
     }
   };
 
+  // Auto-save function for staff edits (direct database updates)
+  const autoSaveToDatabase = useCallback(async (dataToSave) => {
+    if (!isStaffEditMode || !familyKey) return;
+    
+    try {
+      setAutoSaveStatus('saving');
+      
+      const db = getDatabase();
+      const familyRef = ref(db, `homeEducationFamilies/familyInformation/${familyKey}`);
+      
+      // Prepare the update object
+      const updates = {
+        familyName: dataToSave.familyName,
+        updatedAt: Date.now(),
+        updatedBy: user?.uid || 'staff'
+      };
+      
+      // Update students
+      if (dataToSave.students && dataToSave.students.length > 0) {
+        // First, get existing students to preserve their keys
+        const existingDataSnapshot = await get(familyRef);
+        const existingStudents = existingDataSnapshot.exists() ? 
+          existingDataSnapshot.val().students || {} : {};
+        
+        const studentsObj = {};
+        
+        // First, add all existing students to preserve their IDs
+        Object.keys(existingStudents).forEach(existingKey => {
+          const existingStudent = existingStudents[existingKey];
+          // Find matching student in dataToSave by comparing properties
+          const matchingStudent = dataToSave.students.find(s => 
+            (s.id === existingKey) || 
+            (s.id === existingStudent.id) ||
+            (s.firstName === existingStudent.firstName && 
+             s.lastName === existingStudent.lastName &&
+             s.birthday === existingStudent.birthday)
+          );
+          
+          if (matchingStudent) {
+            // Update existing student, preserving the original key
+            studentsObj[existingKey] = {
+              ...matchingStudent,
+              id: existingKey, // ALWAYS preserve the original key as the ID
+              asn: matchingStudent.asn ? matchingStudent.asn.replace(/\D/g, '') : '',
+              updatedAt: Date.now(),
+              updatedBy: user?.uid || 'staff'
+            };
+          }
+        });
+        
+        // Then add any truly new students that weren't matched
+        dataToSave.students.forEach((student) => {
+          const alreadyAdded = Object.values(studentsObj).some(s => 
+            (s.firstName === student.firstName && 
+             s.lastName === student.lastName &&
+             s.birthday === student.birthday)
+          );
+          
+          if (!alreadyAdded) {
+            // This is a new student
+            const studentKey = student.id || `student_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            studentsObj[studentKey] = {
+              ...student,
+              id: studentKey,
+              asn: student.asn ? student.asn.replace(/\D/g, '') : '',
+              updatedAt: Date.now(),
+              updatedBy: user?.uid || 'staff'
+            };
+          }
+        });
+        
+        updates.students = studentsObj;
+      }
+      
+      // Update guardians
+      if (dataToSave.guardians) {
+        const guardiansObj = {};
+        dataToSave.guardians.forEach((guardian) => {
+          const emailKey = sanitizeEmail(guardian.email);
+          guardiansObj[emailKey] = {
+            ...guardian,
+            emailKey,
+            updatedAt: Date.now(),
+            updatedBy: user?.uid || 'staff'
+          };
+        });
+        
+        // Preserve primary guardian if exists
+        const existingDataSnapshot = await get(familyRef);
+        if (existingDataSnapshot.exists()) {
+          const existingData = existingDataSnapshot.val();
+          if (existingData.guardians) {
+            // Find and preserve primary guardian
+            Object.entries(existingData.guardians).forEach(([key, guardian]) => {
+              if (guardian.guardianType === 'primary_guardian' && !guardiansObj[key]) {
+                guardiansObj[key] = guardian;
+              }
+            });
+          }
+        }
+        
+        updates.guardians = guardiansObj;
+      }
+      
+      // Perform the update
+      await update(familyRef, updates);
+      
+      setAutoSaveStatus('saved');
+      setLastSavedTime(new Date());
+      
+      // Reset status after 2 seconds
+      setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Auto-save error:', error);
+      setAutoSaveStatus('error');
+      toast.error('Failed to auto-save changes');
+      
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 3000);
+    }
+  }, [isStaffEditMode, familyKey, user?.uid]);
+
+  // Debounced auto-save
+  const debouncedAutoSave = useCallback((data) => {
+    if (!isStaffEditMode) return;
+    
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Set new timeout for auto-save (500ms delay)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveToDatabase(data);
+    }, 500);
+  }, [isStaffEditMode, autoSaveToDatabase]);
+
   // Name validation helper
   const validateName = (name, fieldName) => {
     if (!name || !name.trim()) {
@@ -339,6 +493,11 @@ const FamilyCreationSheet = ({
     setFamilyData(updatedData);
     onFamilyDataChange?.(updatedData);
     setHasUnsavedChanges(true);
+    
+    // Auto-save for staff mode
+    if (isStaffEditMode) {
+      debouncedAutoSave(updatedData);
+    }
   };
 
   // Student validation
@@ -448,7 +607,8 @@ const FamilyCreationSheet = ({
       firstName: cleanNameForSubmission(studentFormData.firstName),
       lastName: cleanNameForSubmission(studentFormData.lastName),
       preferredName: cleanNameForSubmission(studentFormData.preferredName),
-      id: Date.now().toString()
+      // CRITICAL: Preserve existing ID when editing, only generate new ID for new students
+      id: editingStudentIndex !== null ? familyData.students[editingStudentIndex].id : Date.now().toString()
     };
     
     // If using primary address, don't store the full address object
@@ -474,6 +634,11 @@ const FamilyCreationSheet = ({
     setFamilyData(updatedData);
     onFamilyDataChange?.(updatedData);
     setHasUnsavedChanges(true);
+    
+    // Auto-save for staff mode
+    if (isStaffEditMode) {
+      debouncedAutoSave(updatedData);
+    }
     
     // Reset form
     setStudentFormData({
@@ -509,6 +674,11 @@ const FamilyCreationSheet = ({
     setFamilyData(updatedData);
     onFamilyDataChange?.(updatedData);
     setHasUnsavedChanges(true);
+    
+    // Auto-save for staff mode
+    if (isStaffEditMode) {
+      debouncedAutoSave(updatedData);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -625,6 +795,11 @@ const FamilyCreationSheet = ({
     onFamilyDataChange?.(updatedData);
     setHasUnsavedChanges(true);
     
+    // Auto-save for staff mode
+    if (isStaffEditMode) {
+      debouncedAutoSave(updatedData);
+    }
+    
     // Reset form
     setGuardianFormData({
       firstName: '',
@@ -655,6 +830,11 @@ const FamilyCreationSheet = ({
     setFamilyData(updatedData);
     onFamilyDataChange?.(updatedData);
     setHasUnsavedChanges(true);
+    
+    // Auto-save for staff mode
+    if (isStaffEditMode) {
+      debouncedAutoSave(updatedData);
+    }
   };
 
   const handleCancelGuardianEdit = () => {
@@ -688,19 +868,17 @@ const FamilyCreationSheet = ({
     setIsSaving(true);
 
     try {
-      // Prepare students object with id or clean ASN as key
+      // Prepare students object with id as key
+      // IMPORTANT: Always use student.id as the key to maintain consistency with forms and other data
       const studentsObj = {};
       familyData.students.forEach((student) => {
-        let key;
-        const cleanAsn = student.asn ? student.asn.replace(/\D/g, '') : '';
-        if (cleanAsn && cleanAsn.length === 9) {
-          key = cleanAsn;
-        } else {
-          key = student.id || `student_${Date.now()}`;
-        }
+        // Always use the student's ID as the key, not the ASN
+        // This ensures consistency with notification forms, SOLO plans, etc.
+        const key = student.id || `student_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         studentsObj[key] = {
           ...student,
-          id: key
+          id: key,
+          asn: student.asn ? student.asn.replace(/\D/g, '') : '' // Store clean ASN as a property
         };
       });
 
@@ -720,13 +898,22 @@ const FamilyCreationSheet = ({
       const functions = getFunctions();
       const saveFamilyData = httpsCallable(functions, 'saveFamilyData');
       
-      const result = await saveFamilyData({
+      // Include familyId and staff flags when staff is editing
+      const requestData = {
         familyData: {
           familyName: familyData.familyName,
           students: studentsObj,
           guardians: guardiansObj
         }
-      });
+      };
+      
+      // If staff is editing an existing family, include the family ID
+      if ((staffMode || isStaffViewing) && familyKey) {
+        requestData.familyId = familyKey;
+        requestData.isStaffEdit = true;
+      }
+      
+      const result = await saveFamilyData(requestData);
 
       if (result.data.success) {
         console.log('Family data saved successfully:', result.data);
@@ -857,6 +1044,15 @@ const FamilyCreationSheet = ({
       setHasUnsavedChanges(false);
     }
   }, [isOpen]);
+  
+  // Cleanup auto-save timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Load user profile data
   React.useEffect(() => {
@@ -892,12 +1088,37 @@ const FamilyCreationSheet = ({
                 <Users className="w-5 h-5 text-purple-500" />
                 <span>{hasRegisteredFamily ? (staffMode ? 'Update Family Information' : 'Update Your Family') : 'Create Your Family'}</span>
               </div>
-              {staffMode && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  <Eye className="w-3 h-3 mr-1" />
-                  Staff Mode
-                </span>
-              )}
+              <div className="flex items-center space-x-2">
+                {/* Auto-save status indicator for staff mode */}
+                {isStaffEditMode && (
+                  <div className="flex items-center space-x-2">
+                    {autoSaveStatus === 'saving' && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Saving...
+                      </span>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <Check className="w-3 h-3 mr-1" />
+                        Saved
+                      </span>
+                    )}
+                    {autoSaveStatus === 'error' && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Error saving
+                      </span>
+                    )}
+                  </div>
+                )}
+                {staffMode && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <Eye className="w-3 h-3 mr-1" />
+                    Staff Mode
+                  </span>
+                )}
+              </div>
             </div>
           </SheetTitle>
           <SheetDescription className="text-left">
@@ -915,9 +1136,16 @@ const FamilyCreationSheet = ({
             <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
               <div className="flex items-center space-x-2">
                 <Shield className="w-4 h-4 text-amber-600" />
-                <p className="text-sm text-amber-800">
-                  <strong>Staff Mode:</strong> You are editing this family's information as a staff member. All changes will be saved to the family's account.
-                </p>
+                <div className="flex-1">
+                  <p className="text-sm text-amber-800">
+                    <strong>Staff Mode:</strong> You are editing this family's information as a staff member.
+                  </p>
+                  {isStaffEditMode && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Changes are automatically saved as you type.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1270,12 +1498,27 @@ const FamilyCreationSheet = ({
           ) : (
             <div className="space-y-6">
               {/* Primary Guardian */}
-              {userProfile && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Primary Guardian</h3>
-                  <PrimaryGuardianCard userProfile={userProfile} />
-                </div>
-              )}
+              {(() => {
+                // Find the primary guardian from the family data
+                let primaryGuardian = null;
+                
+                if (isStaffEditMode) {
+                  // In staff mode, find the primary guardian from family data
+                  primaryGuardian = familyData.guardians?.find(g => g.guardianType === 'primary_guardian') || null;
+                } else {
+                  // In regular mode, use userProfile as primary guardian
+                  primaryGuardian = userProfile ? { ...userProfile, guardianType: 'primary_guardian' } : null;
+                }
+                
+                if (!primaryGuardian) return null;
+                
+                return (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">Primary Guardian</h3>
+                    <PrimaryGuardianCard guardian={primaryGuardian} isStaffMode={isStaffEditMode} />
+                  </div>
+                );
+              })()}
 
               {/* Additional Guardians List */}
               {(() => {
@@ -1501,49 +1744,65 @@ const FamilyCreationSheet = ({
             </div>
           )}
 
-          {/* Save Button */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="flex justify-center">
-              <button
-                onClick={handleSaveFamilyData}
-                disabled={isSaving || familyData.students.length === 0 || !familyData.familyName}
-                className={`w-full max-w-md py-3 px-4 rounded-md font-medium flex items-center justify-center ${
-                  isSaving || familyData.students.length === 0 || !familyData.familyName
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : hasUnsavedChanges
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors`}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : hasUnsavedChanges ? (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Family
-                  </>
-                )}
-              </button>
+          {/* Save Button - hidden in staff mode with auto-save */}
+          {!isStaffEditMode ? (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="flex justify-center">
+                <button
+                  onClick={handleSaveFamilyData}
+                  disabled={isSaving || familyData.students.length === 0 || !familyData.familyName}
+                  className={`w-full max-w-md py-3 px-4 rounded-md font-medium flex items-center justify-center ${
+                    isSaving || familyData.students.length === 0 || !familyData.familyName
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : hasUnsavedChanges
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors`}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : hasUnsavedChanges ? (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Family
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
+          ) : (
+            /* Auto-save info for staff mode */
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Changes are saved automatically
+                </p>
+                {lastSavedTime && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Last saved: {lastSavedTime.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
             
-            {familyData.students.length === 0 && (
-              <p className="mt-2 text-sm text-gray-500 text-center">Add at least one student to save</p>
-            )}
-            {!familyData.familyName && familyData.students.length > 0 && (
-              <p className="mt-2 text-sm text-gray-500 text-center">Please enter a family name to save</p>
-            )}
-            {hasUnsavedChanges && (
-              <p className="mt-2 text-sm text-amber-600 text-center">You have unsaved changes</p>
-            )}
-          </div>
+          {familyData.students.length === 0 && (
+            <p className="mt-2 text-sm text-gray-500 text-center">Add at least one student to save</p>
+          )}
+          {!familyData.familyName && familyData.students.length > 0 && (
+            <p className="mt-2 text-sm text-gray-500 text-center">Please enter a family name to save</p>
+          )}
+          {hasUnsavedChanges && !isStaffEditMode && (
+            <p className="mt-2 text-sm text-amber-600 text-center">You have unsaved changes</p>
+          )}
 
         </div>
       </SheetContent>

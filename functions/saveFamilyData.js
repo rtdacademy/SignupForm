@@ -27,7 +27,7 @@ const saveFamilyData = onCall({
 
   const uid = request.auth.uid;
   const userEmail = request.auth.token.email;
-  const { familyData } = request.data;
+  const { familyData, familyId: providedFamilyId, isStaffEdit } = request.data;
   
   if (!familyData) {
     throw new HttpsError('invalid-argument', 'Family data is required.');
@@ -49,110 +49,138 @@ const saveFamilyData = onCall({
     const userRecord = await admin.auth().getUser(uid);
     const existingClaims = userRecord.customClaims || {};
     
-    // Determine if this is a new family or update
-    let familyId = existingClaims.familyId;
+    let familyId;
     let isNewFamily = false;
+    let skipCustomClaimsUpdate = false;
     
-    // If no familyId in claims, check if user has an existing family in the database
-    if (!familyId) {
-      console.log(`No familyId in claims for user ${uid}, checking database for existing family...`);
-      
-      // Search for existing family where this user is the primary guardian
-      const userEmailKey = sanitizeEmail(userEmail);
-      const familiesSnapshot = await db.ref('homeEducationFamilies/familyInformation').once('value');
-      
-      if (familiesSnapshot.exists()) {
-        const allFamilies = familiesSnapshot.val();
-        
-        // Look for a family where this user is the primary guardian
-        for (const [existingFamilyId, familyData] of Object.entries(allFamilies)) {
-          if (familyData.guardians && familyData.guardians[userEmailKey] && 
-              familyData.guardians[userEmailKey].guardianType === 'primary_guardian') {
-            console.log(`Found existing family ${existingFamilyId} for user ${uid}`);
-            familyId = existingFamilyId;
-            
-            // Re-apply the custom claims since they seem to be missing
-            const customClaims = {
-              ...existingClaims,
-              familyId: familyId,
-              familyRole: 'primary_guardian'
-            };
-            
-            await admin.auth().setCustomUserClaims(uid, customClaims);
-            console.log(`Re-applied custom claims for user ${uid} with familyId ${familyId}`);
-            break;
-          }
-        }
+    // Check if this is a staff edit
+    if (isStaffEdit && providedFamilyId) {
+      // Verify user has staff permissions
+      if (!existingClaims.role || !['admin', 'staff', 'super_admin'].includes(existingClaims.role)) {
+        throw new HttpsError('permission-denied', 'Only staff members can edit other families.');
       }
-    }
-    
-    if (!familyId) {
-      // New family - generate ID
-      familyId = uuidv4();
-      isNewFamily = true;
-      console.log(`Creating new family ${familyId} for user ${uid}`);
-    } else {
-      // For existing families, we already verified the user is the primary guardian 
-      // when we found the family in the database lookup above
-      // No additional permission check needed since we found them as primary_guardian
-      console.log(`Updating existing family ${familyId} for user ${uid}`);
-    }
-    
-    // Always set custom claims for the primary guardian (current user) - ensures consistency
-    const customClaims = {
-      ...existingClaims,
-      familyId: familyId,
-      familyRole: 'primary_guardian'
-    };
-    
-    try {
-      // Multiple attempts to ensure claims are set properly
-      let claimsSet = false;
-      let attempts = 0;
-      const maxAttempts = 3;
       
-      while (!claimsSet && attempts < maxAttempts) {
-        attempts++;
+      console.log(`Staff member ${uid} (${userEmail}) is editing family ${providedFamilyId}`);
+      
+      // Use the provided family ID for staff edits
+      familyId = providedFamilyId;
+      isNewFamily = false;
+      skipCustomClaimsUpdate = true; // Don't update staff member's custom claims with family data
+      
+      // Verify the family exists
+      const familySnapshot = await db.ref(`homeEducationFamilies/familyInformation/${familyId}`).once('value');
+      if (!familySnapshot.exists()) {
+        throw new HttpsError('not-found', 'Family not found.');
+      }
+    } else {
+      // Regular user edit/creation flow
+      familyId = existingClaims.familyId;
+      
+      // If no familyId in claims, check if user has an existing family in the database
+      if (!familyId) {
+        console.log(`No familyId in claims for user ${uid}, checking database for existing family...`);
         
-        try {
-          await admin.auth().setCustomUserClaims(uid, customClaims);
-          console.log(`✓ Attempt ${attempts}: Set custom claims for user ${uid} with familyId: ${familyId}`);
+        // Search for existing family where this user is the primary guardian
+        const userEmailKey = sanitizeEmail(userEmail);
+        const familiesSnapshot = await db.ref('homeEducationFamilies/familyInformation').once('value');
+        
+        if (familiesSnapshot.exists()) {
+          const allFamilies = familiesSnapshot.val();
           
-          // Verify the claims were set by reading them back
-          await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for propagation
-          const updatedUserRecord = await admin.auth().getUser(uid);
-          const verifyCustomClaims = updatedUserRecord.customClaims || {};
-          
-          if (verifyCustomClaims.familyId === familyId && verifyCustomClaims.familyRole === 'primary_guardian') {
-            console.log(`✓ Verified custom claims - familyId: ${verifyCustomClaims.familyId}, familyRole: ${verifyCustomClaims.familyRole}`);
-            claimsSet = true;
-          } else {
-            console.log(`⚠️ Attempt ${attempts}: Claims verification failed, retrying...`);
-            if (attempts === maxAttempts) {
-              console.log(`✗ Failed to verify claims after ${maxAttempts} attempts`);
+          // Look for a family where this user is the primary guardian
+          for (const [existingFamilyId, familyData] of Object.entries(allFamilies)) {
+            if (familyData.guardians && familyData.guardians[userEmailKey] && 
+                familyData.guardians[userEmailKey].guardianType === 'primary_guardian') {
+              console.log(`Found existing family ${existingFamilyId} for user ${uid}`);
+              familyId = existingFamilyId;
+              
+              // Re-apply the custom claims since they seem to be missing
+              const customClaims = {
+                ...existingClaims,
+                familyId: familyId,
+                familyRole: 'primary_guardian'
+              };
+              
+              await admin.auth().setCustomUserClaims(uid, customClaims);
+              console.log(`Re-applied custom claims for user ${uid} with familyId ${familyId}`);
+              break;
             }
           }
-        } catch (error) {
-          console.error(`✗ Attempt ${attempts} failed:`, error);
-          if (attempts === maxAttempts) {
-            throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
         }
       }
       
-      if (!claimsSet) {
-        throw new Error('Failed to set and verify custom claims after multiple attempts');
+      if (!familyId) {
+        // New family - generate ID
+        familyId = uuidv4();
+        isNewFamily = true;
+        console.log(`Creating new family ${familyId} for user ${uid}`);
+      } else {
+        // For existing families, we already verified the user is the primary guardian 
+        // when we found the family in the database lookup above
+        // No additional permission check needed since we found them as primary_guardian
+        console.log(`Updating existing family ${familyId} for user ${uid}`);
       }
+    }
+    
+    // Only update custom claims for non-staff edits
+    if (!skipCustomClaimsUpdate) {
+      const customClaims = {
+        ...existingClaims,
+        familyId: familyId,
+        familyRole: 'primary_guardian'
+      };
       
-      console.log(`✓ Successfully set and verified custom claims for user ${uid} with familyId: ${familyId}`);
-      
-      // Small delay to ensure claims are propagated
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-    } catch (error) {
-      console.error(`✗ Failed to set custom claims for user ${uid}:`, error);
-      throw new HttpsError('internal', 'Failed to set user permissions');
+      try {
+        // Multiple attempts to ensure claims are set properly
+        let claimsSet = false;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (!claimsSet && attempts < maxAttempts) {
+          attempts++;
+          
+          try {
+            await admin.auth().setCustomUserClaims(uid, customClaims);
+            console.log(`✓ Attempt ${attempts}: Set custom claims for user ${uid} with familyId: ${familyId}`);
+            
+            // Verify the claims were set by reading them back
+            await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for propagation
+            const updatedUserRecord = await admin.auth().getUser(uid);
+            const verifyCustomClaims = updatedUserRecord.customClaims || {};
+            
+            if (verifyCustomClaims.familyId === familyId && verifyCustomClaims.familyRole === 'primary_guardian') {
+              console.log(`✓ Verified custom claims - familyId: ${verifyCustomClaims.familyId}, familyRole: ${verifyCustomClaims.familyRole}`);
+              claimsSet = true;
+            } else {
+              console.log(`⚠️ Attempt ${attempts}: Claims verification failed, retrying...`);
+              if (attempts === maxAttempts) {
+                console.log(`✗ Failed to verify claims after ${maxAttempts} attempts`);
+              }
+            }
+          } catch (error) {
+            console.error(`✗ Attempt ${attempts} failed:`, error);
+            if (attempts === maxAttempts) {
+              throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+          }
+        }
+        
+        if (!claimsSet) {
+          throw new Error('Failed to set and verify custom claims after multiple attempts');
+        }
+        
+        console.log(`✓ Successfully set and verified custom claims for user ${uid} with familyId: ${familyId}`);
+        
+        // Small delay to ensure claims are propagated
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.error(`✗ Failed to set custom claims for user ${uid}:`, error);
+        throw new HttpsError('internal', 'Failed to set user permissions');
+      }
+    } else {
+      console.log('Skipping custom claims update for staff edit');
     }
     
     // Get existing family data to compare for permission syncing
@@ -177,39 +205,58 @@ const saveFamilyData = onCall({
       lastActivity: Date.now()
     };
     
-    // Always ensure primary guardian exists (both new and existing families)
+    // Handle primary guardian differently for staff edits vs regular edits
     let primaryGuardianCount = 0;
     
-    // Get user profile data from database
-    let userProfile = {};
-    try {
-      const userProfileSnapshot = await db.ref(`users/${uid}`).once('value');
-      userProfile = userProfileSnapshot.val() || {};
-      console.log('Loaded user profile for primary guardian:', userProfile?.firstName, userProfile?.lastName, userProfile?.email);
-    } catch (error) {
-      console.log('Could not fetch user profile:', error);
+    if (isStaffEdit) {
+      // For staff edits, preserve the existing primary guardian
+      // Don't add the staff member as a guardian
+      console.log('Staff edit - preserving existing guardians structure');
+      
+      // Copy existing primary guardian if it exists
+      if (existingFamilyData.guardians) {
+        for (const [emailKey, guardian] of Object.entries(existingFamilyData.guardians)) {
+          if (guardian.guardianType === 'primary_guardian') {
+            familyDataToSave.guardians[emailKey] = guardian;
+            primaryGuardianCount = 1;
+            console.log(`Preserved primary guardian: ${guardian.email}`);
+            break;
+          }
+        }
+      }
+    } else {
+      // Regular edit - ensure current user is primary guardian
+      // Get user profile data from database
+      let userProfile = {};
+      try {
+        const userProfileSnapshot = await db.ref(`users/${uid}`).once('value');
+        userProfile = userProfileSnapshot.val() || {};
+        console.log('Loaded user profile for primary guardian:', userProfile?.firstName, userProfile?.lastName, userProfile?.email);
+      } catch (error) {
+        console.log('Could not fetch user profile:', error);
+      }
+      
+      const userEmailKey = sanitizeEmail(userEmail);
+      
+      // Always add/update the current user as primary guardian
+      familyDataToSave.guardians[userEmailKey] = {
+        email: userEmail,
+        emailKey: userEmailKey,
+        firstName: userProfile.firstName || 'Unknown',
+        lastName: userProfile.lastName || 'User',
+        phone: userProfile.phone || '',
+        address: userProfile.address || null,
+        relationToStudents: 'Primary Guardian',
+        guardianType: 'primary_guardian',
+        addedAt: existingFamilyData.guardians?.[userEmailKey]?.addedAt || Date.now(),
+        addedBy: existingFamilyData.guardians?.[userEmailKey]?.addedBy || uid,
+        familyId: familyId,
+        updatedAt: Date.now(),
+        updatedBy: uid
+      };
+      primaryGuardianCount = 1;
+      console.log(`Added/updated primary guardian: ${userEmail}`);
     }
-    
-    const userEmailKey = sanitizeEmail(userEmail);
-    
-    // Always add/update the current user as primary guardian
-    familyDataToSave.guardians[userEmailKey] = {
-      email: userEmail,
-      emailKey: userEmailKey,
-      firstName: userProfile.firstName || 'Unknown',
-      lastName: userProfile.lastName || 'User',
-      phone: userProfile.phone || '',
-      address: userProfile.address || null,
-      relationToStudents: 'Primary Guardian',
-      guardianType: 'primary_guardian',
-      addedAt: existingFamilyData.guardians?.[userEmailKey]?.addedAt || Date.now(),
-      addedBy: existingFamilyData.guardians?.[userEmailKey]?.addedBy || uid,
-      familyId: familyId,
-      updatedAt: Date.now(),
-      updatedBy: uid
-    };
-    primaryGuardianCount = 1;
-    console.log(`Added/updated primary guardian: ${userEmail}`);
     
 // Process students
 const studentsById = {};
@@ -247,8 +294,11 @@ familyDataToSave.students = studentsById;
     // Process guardians 
     const guardianEmailKeys = new Set();
     
-    // Always include primary guardian in the set
-    guardianEmailKeys.add(userEmailKey);
+    if (!isStaffEdit) {
+      // For regular edits, include primary guardian in the set
+      const userEmailKey = sanitizeEmail(userEmail);
+      guardianEmailKeys.add(userEmailKey);
+    }
     
     if (familyData.guardians) {
       for (const guardian of Object.values(familyData.guardians)) {
@@ -258,8 +308,9 @@ familyDataToSave.students = studentsById;
         
         const emailKey = sanitizeEmail(guardian.email);
         
-        // Skip if this is the primary guardian's email (already handled above)
-        if (emailKey === sanitizeEmail(userEmail)) {
+        // For regular edits, skip if this is the primary guardian's email (already handled above)
+        // For staff edits, process all guardians from the input
+        if (!isStaffEdit && emailKey === sanitizeEmail(userEmail)) {
           continue;
         }
         

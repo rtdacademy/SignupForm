@@ -497,7 +497,7 @@ const sendBulkEmailsV2 = onCall({
 
 /**
  * Cloud Function: handleWebhookEventsV2
- * Processes webhook events from SendGrid
+ * Processes webhook events from SendGrid for both regular and family emails
  */
 const handleWebhookEventsV2 = onRequest({
   timeoutSeconds: 60,
@@ -525,6 +525,7 @@ const handleWebhookEventsV2 = onRequest({
 
     console.log(`Processing ${events.length} webhook events...`);
     const db = admin.database();
+    const firestore = admin.firestore(); // Initialize Firestore for family notes
 
     // 3) Process each event in parallel, but catch per-event errors
     await Promise.all(
@@ -541,13 +542,21 @@ const handleWebhookEventsV2 = onRequest({
             ip,
             useragent,
             response,
-            emailId
+            emailId,
+            familyId // New field for family emails
           } = event;
 
-          // Validate core fields
+          // Validate core fields - familyId is optional but if present, it's a family email
           if (!emailId || !eventType || !timestamp) {
             console.log('Skipping invalid event:', event);
             return; // Skip
+          }
+
+          // For family emails, familyId is required
+          const isFamilyEmail = !!familyId;
+          if (isFamilyEmail && !familyId) {
+            console.log('Skipping family email event without familyId:', event);
+            return;
           }
 
           // Filter out unsupported event types
@@ -557,10 +566,11 @@ const handleWebhookEventsV2 = onRequest({
             return; // Skip
           }
 
-          console.log(`Processing event for emailId: ${emailId}`, {
+          console.log(`Processing ${isFamilyEmail ? 'family' : 'regular'} event for emailId: ${emailId}`, {
             type: eventType,
             timestamp,
-            recipient: email
+            recipient: email,
+            ...(isFamilyEmail && { familyId })
           });
 
           // Determine our internal status
@@ -597,8 +607,17 @@ const handleWebhookEventsV2 = onRequest({
           if (useragent !== undefined) newData.useragent = useragent;
           if (response !== undefined) newData.response = response;
 
-          // Fetch existing record from /sendGridTracking/{emailId}
-          const trackingRef = db.ref(`sendGridTracking/${emailId}`);
+          // Determine tracking path based on email type
+          let trackingRef;
+          if (isFamilyEmail) {
+            // Family email tracking path
+            trackingRef = db.ref(`homeEducationFamilies/emailTracking/${familyId}/emails/${emailId}`);
+          } else {
+            // Regular email tracking path
+            trackingRef = db.ref(`sendGridTracking/${emailId}`);
+          }
+
+          // Fetch existing record
           const snapshot = await trackingRef.once('value');
           const existingData = snapshot.val() || {};
 
@@ -612,6 +631,33 @@ const handleWebhookEventsV2 = onRequest({
           const sanitizedRecipient = sanitizeEmail(email);
           const recipientRef = trackingRef.child(`recipients/${sanitizedRecipient}`);
           await recipientRef.set(newData);
+
+          // Add event to events history
+          const eventKey = `${eventType}_${timestamp}_${sanitizedRecipient}`;
+          const eventRef = trackingRef.child(`events/${eventKey}`);
+          await eventRef.set({
+            type: eventType,
+            timestamp,
+            email,
+            status: newStatus,
+            ...(reason && { reason }),
+            ...(ip && { ip }),
+            ...(useragent && { useragent }),
+            ...(response && { response })
+          });
+
+          // Update open count for 'open' events
+          if (eventType === 'open') {
+            await trackingRef.child(`openCount/${sanitizedRecipient}`).transaction(count => (count || 0) + 1);
+            await trackingRef.child('totalOpens').transaction(count => (count || 0) + 1);
+          }
+
+          // Update last activity timestamp
+          await trackingRef.child('lastActivity').set({
+            timestamp,
+            type: eventType,
+            email
+          });
 
           // Optionally, update userEmails if event is delivered or failed
           if (newStatus === 'delivered' || newStatus === 'failed') {
@@ -629,8 +675,32 @@ const handleWebhookEventsV2 = onRequest({
             }
           }
 
+          // For family emails, update Firestore note if exists (for status tracking in UI)
+          if (isFamilyEmail && (newStatus === 'delivered' || newStatus === 'opened')) {
+            try {
+              const notesQuery = await firestore
+                .collection('familyNotes')
+                .doc(familyId)
+                .collection('notes')
+                .where('metadata.emailId', '==', emailId)
+                .limit(1)
+                .get();
+
+              if (!notesQuery.empty) {
+                const noteDoc = notesQuery.docs[0];
+                await noteDoc.ref.update({
+                  'metadata.status': newStatus,
+                  'metadata.lastStatusUpdate': process.env.FUNCTIONS_EMULATOR ? new Date() : admin.firestore.FieldValue.serverTimestamp()
+                });
+              }
+            } catch (firestoreError) {
+              console.error('Error updating Firestore note status:', firestoreError);
+              // Don't fail the webhook processing if note update fails
+            }
+          }
+
           console.log(
-            `Successfully processed ${eventType} event for emailId: ${emailId} -> ${email}`
+            `Successfully processed ${eventType} event for ${isFamilyEmail ? 'family' : 'regular'} emailId: ${emailId} -> ${email}`
           );
         } catch (innerErr) {
           // This error only affects the single event

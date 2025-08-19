@@ -23,6 +23,8 @@ import { auth, googleProvider, microsoftProvider, isDevelopment } from "../fireb
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
 import AuthLoadingScreen from './AuthLoadingScreen';
+import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -73,8 +75,6 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [emailError, setEmailError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
   const [signInMethods, setSignInMethods] = useState([]);
-  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
   const [isResetingPassword, setIsResetingPassword] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [checkingRedirect, setCheckingRedirect] = useState(true);
@@ -83,6 +83,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [showLinkAccountDialog, setShowLinkAccountDialog] = useState(false);
   const [pendingProvider, setPendingProvider] = useState(null);
   const [linkingEmail, setLinkingEmail] = useState("");
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   const db = getDatabase();
 
@@ -134,6 +135,57 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     return sanitized.endsWith("@rtdacademy.com");
   };
 
+  // Check if user has temporary password requirement
+  const checkTempPasswordRequirement = async (user) => {
+    if (!user) return false;
+
+    try {
+      // Get current token claims
+      const tokenResult = await user.getIdTokenResult();
+      const currentClaims = tokenResult.claims;
+      
+      return currentClaims.tempPasswordRequired === true;
+    } catch (error) {
+      console.error('Error checking temp password requirement:', error);
+      return false;
+    }
+  };
+
+  // Handle password change completion
+  const handlePasswordChangeComplete = async () => {
+    console.log('Password change completed, refreshing auth state');
+    setRequiresPasswordChange(false);
+    
+    // Get the current user and force token refresh to ensure claims are updated
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        // Force token refresh to get the updated claims without tempPasswordRequired
+        await currentUser.getIdToken(true);
+        console.log('Token refreshed successfully after password change');
+        
+        // Now check the updated token claims
+        const idTokenResult = await currentUser.getIdTokenResult();
+        console.log('Updated claims after password change:', idTokenResult.claims);
+        
+        // Only proceed if tempPasswordRequired is actually removed
+        if (!idTokenResult.claims.tempPasswordRequired) {
+          localStorage.setItem('rtdConnectPortalLogin', 'true');
+          // Skip temp password check since we just handled it
+          const success = await ensureUserData(currentUser, true);
+          if (success) {
+            navigate("/dashboard");
+          }
+        } else {
+          console.error('tempPasswordRequired claim still present after password change');
+          // The auth state listener will handle re-checking
+        }
+      } catch (error) {
+        console.error('Error refreshing token after password change:', error);
+      }
+    }
+  };
+
 
   const handleStaffAttempt = () => {
     setError("This email belongs to staff. Please use the staff login portal instead.");
@@ -181,8 +233,19 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     }
   };
 
-  const ensureUserData = async (user) => {
+  const ensureUserData = async (user, skipTempPasswordCheck = false) => {
     if (!user || !user.emailVerified) return false;
+    
+    // Check for temporary password requirement FIRST (unless explicitly skipped)
+    if (!skipTempPasswordCheck) {
+      const needsPasswordChange = await checkTempPasswordRequirement(user);
+      if (needsPasswordChange) {
+        console.log('User requires password change, showing forced password change screen');
+        setRequiresPasswordChange(true);
+        setShowAuthLoading(false);
+        return false; // Don't proceed with normal flow
+      }
+    }
     
     const uid = user.uid;
     const emailKey = sanitizeEmail(user.email);
@@ -424,8 +487,20 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       if (verificationFlag) {
         const email = localStorage.getItem('verificationEmail');
         if (email) {
-          setVerificationEmail(email);
-          setShowVerificationDialog(true);
+          toast.success(
+            <div>
+              <div className="font-semibold mb-1">Verification Email Sent!</div>
+              <div className="text-sm">
+                We've sent a verification email to <strong>{email}</strong>
+              </div>
+              <div className="text-sm mt-1">
+                Please check your inbox (and spam folder) to verify your email.
+              </div>
+            </div>,
+            {
+              duration: 8000,
+            }
+          );
         }
         localStorage.removeItem('verificationEmailSent');
         localStorage.removeItem('verificationEmail');
@@ -448,7 +523,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       if (user && !checkingRedirect) {
         const success = await ensureUserData(user);
         if (success) {
-          navigate("/dashboard");
+          navigate("/rtd-connect/dashboard");
         }
       }
     });
@@ -522,7 +597,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         // Proceed with normal user setup
         const success = await ensureUserData(result.user);
         if (success) {
-          navigate("/dashboard");
+          navigate("/rtd-connect/dashboard");
         }
       } else {
         // Use linkWithRedirect in production
@@ -563,7 +638,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         } else {
           const success = await ensureUserData(user);
           if (success) {
-            navigate("/dashboard");
+            navigate("/rtd-connect/dashboard");
           }
         }
       } else {
@@ -680,16 +755,38 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, emailInput.trim(), password);
       
-      await sendEmailVerification(userCredential.user);
+      // Create action code settings with dynamic continueUrl
+      const actionCodeSettings = {
+        url: `${window.location.origin}/login?verified=true`,
+        handleCodeInApp: true
+      };
       
-      localStorage.setItem('verificationEmailSent', 'true');
-      localStorage.setItem('verificationEmail', emailInput.trim());
+      await sendEmailVerification(userCredential.user, actionCodeSettings);
+      
       localStorage.setItem('rtdConnectPortalSignup', 'true');
       
       await auth.signOut();
       
-      setVerificationEmail(emailInput.trim());
-      setShowVerificationDialog(true);
+      // Show toast notification instead of dialog
+      toast.success(
+        <div>
+          <div className="font-semibold mb-1">Verification Email Sent!</div>
+          <div className="text-sm">
+            We've sent a verification email to <strong>{emailInput.trim()}</strong>
+          </div>
+          <div className="text-sm mt-1">
+            Please check your inbox (and spam folder) to verify your email before signing in.
+          </div>
+        </div>,
+        {
+          duration: 8000,
+        }
+      );
+      
+      // Clear form
+      setEmailInput("");
+      setPassword("");
+      setActiveTab("signin");
       
     } catch (error) {
       console.error("Sign-up error:", error.code, error.message);
@@ -710,13 +807,35 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       
       if (user.emailVerified) {
         localStorage.setItem('rtdConnectPortalLogin', 'true');
-        await ensureUserData(user);
-        navigate("/dashboard");
+        const success = await ensureUserData(user);
+        if (success) {
+          navigate("/rtd-connect/dashboard");
+        }
       } else {
-        await sendEmailVerification(user);
+        // Create action code settings with dynamic continueUrl
+        const actionCodeSettings = {
+          url: `${window.location.origin}/login?verified=true`,
+          handleCodeInApp: true
+        };
+        
+        await sendEmailVerification(user, actionCodeSettings);
         await auth.signOut();
-        setVerificationEmail(userEmail);
-        setShowVerificationDialog(true);
+        
+        // Show toast notification for unverified email
+        toast.info(
+          <div>
+            <div className="font-semibold mb-1">Email Verification Required</div>
+            <div className="text-sm">
+              A new verification email has been sent to <strong>{userEmail}</strong>
+            </div>
+            <div className="text-sm mt-1">
+              Please verify your email before signing in.
+            </div>
+          </div>,
+          {
+            duration: 8000,
+          }
+        );
       }
       
     } catch (error) {
@@ -1076,36 +1195,13 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     return <AuthLoadingScreen message={authLoadingMessage} />;
   }
 
+  // Show forced password change screen if temporary password detected
+  if (requiresPasswordChange) {
+    return <ForcedPasswordChange onPasswordChanged={handlePasswordChangeComplete} />;
+  }
+
   return (
     <>
-      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Email Verification Required</DialogTitle>
-            <DialogDescription asChild>
-              <div className="space-y-4 mt-4">
-                <div>
-                  We've sent a verification email to:
-                  <span className="block font-medium bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent mt-1">{verificationEmail}</span>
-                </div>
-                <div>
-                  Please check your inbox (and spam folder) for the verification link. 
-                  You'll need to verify your email before you can access RTD Connect.
-                </div>
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-center">
-            <button
-              onClick={() => setShowVerificationDialog(false)}
-              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-md hover:from-pink-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              Got it, I'll check my email
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={showLinkAccountDialog} onOpenChange={setShowLinkAccountDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

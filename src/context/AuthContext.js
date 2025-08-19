@@ -1101,14 +1101,18 @@ export function AuthProvider({ children }) {
                 // This ensures access to the portal even if custom claims are delayed
                 setIsHomeEducationParent(true);
                 
-                // Clear RTD Connect signup/login flags if they exist
+                // Clear RTD Connect signup flag if it exists (but keep login flag for now)
                 localStorage.removeItem('rtdConnectPortalSignup');
-                localStorage.removeItem('rtdConnectPortalLogin');
                 
                 // Navigate to RTD Connect dashboard
-                if (location.pathname.toLowerCase() === '/rtd-connect/login') {
+                if (location.pathname.toLowerCase() === '/rtd-connect/login' || 
+                    (process.env.REACT_APP_SITE === 'rtdconnect' && location.pathname.toLowerCase() === '/login')) {
                   authTimeout = setTimeout(() => {
-                    if (isMounted) navigate('/rtd-connect/dashboard');
+                    if (isMounted) {
+                      // Navigate to the appropriate dashboard based on app type
+                      const dashboardPath = process.env.REACT_APP_SITE === 'rtdconnect' ? '/dashboard' : '/rtd-connect/dashboard';
+                      navigate(dashboardPath);
+                    }
                   }, 500);
                 }
               }

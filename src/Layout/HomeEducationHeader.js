@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaSignOutAlt } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ChevronDown, 
   UserPlus, 
@@ -15,7 +15,10 @@ import {
   ChevronRight,
   CheckCircle2,
   XCircle,
-  FilePenLine
+  FilePenLine,
+  UserCog,
+  ClipboardCheck,
+  Home as HomeIcon
 } from 'lucide-react';
 import { getAllFacilitators } from '../config/facilitators';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +42,7 @@ import {
   SheetDescription
 } from '../components/ui/sheet';
 import TemplateManager from '../StudentManagement/TemplateManager';
+import AdminUserManagement from '../TeacherDashboard/AdminUserManagement';
 
 // RTD Logo component matching Header.js
 const RTDLogo = () => (
@@ -89,8 +93,18 @@ function HomeEducationHeader({
   stats
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin } = useAuth();
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+  
+  // Determine current page
+  const isOnRegistrarDashboard = location.pathname === '/registrar';
+  const isOnFamilyDashboard = location.pathname === '/home-education-staff';
+  
+  // On registrar dashboard, we don't need the families toggle
+  const showFamiliesToggle = !isOnRegistrarDashboard;
+  const showImpersonation = !isOnRegistrarDashboard && (isAdmin || user?.email === 'kyle@rtdacademy.com');
 
   const getUserDisplayName = () => {
     if (user) {
@@ -110,7 +124,7 @@ function HomeEducationHeader({
 
           {/* Center section - Filters */}
           <div className="flex items-center space-x-3">
-            {/* Status Filter Dropdown */}
+            {/* Status Filter Dropdown - Always shown */}
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
                 <div className="flex items-center space-x-2">
@@ -141,41 +155,53 @@ function HomeEducationHeader({
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* Families Toggle Switch */}
-            <div className="flex items-center bg-gray-100 rounded-full p-1">
-              <button
-                onClick={() => setShowMyFamiliesOnly(true)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
-                  showMyFamiliesOnly 
-                    ? 'bg-purple-600 text-white shadow-md' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                <UserCheck className="w-4 h-4" />
-                <span className="font-medium text-sm">My Families</span>
-                <span className={`font-bold ${showMyFamiliesOnly ? 'text-purple-100' : 'text-gray-500'}`}>
-                  ({stats.myFamilies})
-                </span>
-              </button>
-              
-              <button
-                onClick={() => setShowMyFamiliesOnly(false)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
-                  !showMyFamiliesOnly 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                <Globe className="w-4 h-4" />
-                <span className="font-medium text-sm">All Families</span>
-                <span className={`font-bold ${!showMyFamiliesOnly ? 'text-blue-100' : 'text-gray-500'}`}>
-                  ({stats.totalFamilies})
-                </span>
-              </button>
-            </div>
+            {/* Families Toggle Switch - Only shown on family dashboard */}
+            {showFamiliesToggle && (
+              <div className="flex items-center bg-gray-100 rounded-full p-1">
+                <button
+                  onClick={() => setShowMyFamiliesOnly(true)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
+                    showMyFamiliesOnly 
+                      ? 'bg-purple-600 text-white shadow-md' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span className="font-medium text-sm">My Families</span>
+                  <span className={`font-bold ${showMyFamiliesOnly ? 'text-purple-100' : 'text-gray-500'}`}>
+                    ({stats.myFamilies})
+                  </span>
+                </button>
+                
+                <button
+                  onClick={() => setShowMyFamiliesOnly(false)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
+                    !showMyFamiliesOnly 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="font-medium text-sm">All Families</span>
+                  <span className={`font-bold ${!showMyFamiliesOnly ? 'text-blue-100' : 'text-gray-500'}`}>
+                    ({stats.totalFamilies})
+                  </span>
+                </button>
+              </div>
+            )}
             
-            {/* Show impersonation indicator if active */}
-            {impersonatingFacilitator && (
+            {/* Registrar Dashboard Info - Only shown on registrar page */}
+            {isOnRegistrarDashboard && (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <ClipboardCheck className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-blue-700 font-medium">
+                  All Families: {stats.totalFamilies}
+                </span>
+              </div>
+            )}
+            
+            {/* Show impersonation indicator if active - Only on family dashboard */}
+            {showImpersonation && impersonatingFacilitator && (
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg">
                 <AlertTriangle className="w-4 h-4 text-orange-600" />
                 <span className="text-sm text-orange-700 hidden md:inline">
@@ -239,6 +265,29 @@ function HomeEducationHeader({
                       </div>
                     </DropdownMenuItem>
                     
+                    {/* Dynamic Dashboard Navigation - Changes based on current page */}
+                    {isOnRegistrarDashboard ? (
+                      <DropdownMenuItem onClick={() => navigate('/home-education-staff')}>
+                        <div className="flex items-center space-x-3 w-full">
+                          <HomeIcon className="h-4 w-4 text-gray-500" />
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm font-semibold">Family Dashboard</span>
+                            <span className="text-xs text-gray-500">Switch to Family Management</span>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => navigate('/registrar')}>
+                        <div className="flex items-center space-x-3 w-full">
+                          <ClipboardCheck className="h-4 w-4 text-gray-500" />
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm font-semibold">Registrar Dashboard</span>
+                            <span className="text-xs text-gray-500">PASI Registration Management</span>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    )}
+                    
                     <DropdownMenuItem onClick={() => setShowTemplateManager(true)}>
                       <div className="flex items-center space-x-3 w-full">
                         <FilePenLine className="h-4 w-4 text-gray-500" />
@@ -248,10 +297,20 @@ function HomeEducationHeader({
                         </div>
                       </div>
                     </DropdownMenuItem>
+                    
+                    <DropdownMenuItem onClick={() => setShowUserManagement(true)}>
+                      <div className="flex items-center space-x-3 w-full">
+                        <UserCog className="h-4 w-4 text-gray-500" />
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-semibold">User Support</span>
+                          <span className="text-xs text-gray-500">Help parents with account issues</span>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                   
-                  {/* Admin Section - Test as Facilitator */}
-                  {(isAdmin || user?.email === 'kyle@rtdacademy.com') && (
+                  {/* Admin Section - Test as Facilitator - Only on family dashboard */}
+                  {showImpersonation && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -317,8 +376,8 @@ function HomeEducationHeader({
         </div>
       </div>
 
-      {/* Status Banner */}
-      {impersonatingFacilitator && (
+      {/* Status Banner - Only on family dashboard */}
+      {showImpersonation && impersonatingFacilitator && (
         <div className="bg-orange-50 border-b border-orange-200 px-4 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-center space-x-2">
             <AlertTriangle className="w-4 h-4 text-orange-600" />
@@ -339,6 +398,24 @@ function HomeEducationHeader({
           context="family"
         />
       )}
+      
+      {/* User Management Sheet */}
+      <Sheet open={showUserManagement} onOpenChange={setShowUserManagement}>
+        <SheetContent size="xl" className="w-full sm:max-w-[90vw] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center">
+              <UserCog className="w-5 h-5 mr-2" />
+              User Account Support
+            </SheetTitle>
+            <SheetDescription>
+              Help parents with account issues, reset passwords, and verify emails
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            <AdminUserManagement defaultTargetSite="rtdconnect" />
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }

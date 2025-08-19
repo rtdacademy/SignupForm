@@ -381,8 +381,16 @@ export const useStudentData = (userEmailKey) => {
         })
       );
 
-      // Filter out any undefined courses and add to allCourses
-      allCourses = coursesWithDetails.filter(course => course);
+      // Filter out any undefined courses and only include those with valid enrollment status
+      allCourses = coursesWithDetails
+        .filter(course => course)
+        .filter(course => {
+          const status = course.ActiveFutureArchived?.Value;
+          // Only include courses with valid enrollment statuses
+          // This filters out courses that only have metadata (like categories) but no actual enrollment
+          return status === 'Active' || status === 'Future' || 
+                 status === 'Archived' || status === 'Registration';
+        });
     }
 
     // Get the student's email if profile is available

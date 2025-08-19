@@ -6,6 +6,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
+import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
 import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
 import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
@@ -514,6 +515,7 @@ const RTDConnectDashboard = ({
   const [profileErrors, setProfileErrors] = useState({});
   const [isSettingUpFamily, setIsSettingUpFamily] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -612,6 +614,14 @@ const RTDConnectDashboard = ({
 
   // Initialize school year tracking
   useEffect(() => {
+    // Clean up RTD Connect login flag after successful dashboard load
+    if (localStorage.getItem('rtdConnectPortalLogin') === 'true') {
+      // Small delay to ensure everything is loaded
+      setTimeout(() => {
+        localStorage.removeItem('rtdConnectPortalLogin');
+      }, 2000);
+    }
+    
     const currentYear = getCurrentSchoolYear();
     const activeSeptember = getActiveSeptemberCount();
     
@@ -655,6 +665,14 @@ const RTDConnectDashboard = ({
           const currentUser = getAuth().currentUser;
           const idTokenResult = await currentUser.getIdTokenResult();
           setCustomClaims(idTokenResult.claims);
+          
+          // Check for temporary password requirement
+          if (idTokenResult.claims.tempPasswordRequired === true) {
+            console.log('RTD Connect Dashboard: User has temporary password requirement');
+            setRequiresPasswordChange(true);
+            setLoading(false);
+            return;
+          }
           
           console.log('currentUser:', currentUser);
           console.log('idTokenResult:', idTokenResult);
@@ -2476,6 +2494,32 @@ Check console for full details.
         </div>
       </div>
     );
+  }
+
+  // Handle password change completion
+  const handlePasswordChangeComplete = async () => {
+    console.log('Password change completed in RTD Connect Dashboard');
+    setRequiresPasswordChange(false);
+    
+    // Force token refresh to get updated claims
+    const currentUser = getAuth().currentUser;
+    if (currentUser) {
+      try {
+        await currentUser.getIdToken(true);
+        const idTokenResult = await currentUser.getIdTokenResult();
+        setCustomClaims(idTokenResult.claims);
+        
+        // Continue with normal dashboard flow
+        setLoading(false);
+      } catch (error) {
+        console.error('Error refreshing token after password change:', error);
+      }
+    }
+  };
+
+  // Show forced password change screen if temporary password detected
+  if (requiresPasswordChange) {
+    return <ForcedPasswordChange onPasswordChanged={handlePasswordChangeComplete} />;
   }
 
   if (loading) {
@@ -4467,7 +4511,7 @@ Check console for full details.
         <FamilyCreationSheet
           isOpen={showFamilyCreation}
           onOpenChange={setShowFamilyCreation}
-          familyKey={hasRegisteredFamily ? familyKey : null}
+          familyKey={hasRegisteredFamily ? (isStaffViewing ? effectiveFamilyId : familyKey) : null}
           hasRegisteredFamily={hasRegisteredFamily}
           initialFamilyData={familyData}
           onFamilyDataChange={handleFamilyDataChange}

@@ -56,6 +56,7 @@ import FAQPage from './RTDConnect/pages/FAQPage';
 import FundingPage from './RTDConnect/pages/FundingPage';
 import BioPage from './RTDConnect/pages/BioPage';
 import HomeEducationStaffDashboard from './HomeEducation/HomeEducationStaffDashboard';
+import RegistrarDashboard from './HomeEducation/RegistrarDashboard';
 
 // Legal page imports
 import PrivacyStatement from './legal/PrivacyStatement';
@@ -252,6 +253,9 @@ function MainApp() {
         } />
         <Route path="/home-education-staff" element={
           user && isStaff(user) ? <Layout><HomeEducationStaffDashboard /></Layout> : <Navigate to="/staff-login" />
+        } />
+        <Route path="/registrar" element={
+          user && isStaff(user) ? <Layout><RegistrarDashboard /></Layout> : <Navigate to="/staff-login" />
         } />
         
         <Route path="/file-storage" element={

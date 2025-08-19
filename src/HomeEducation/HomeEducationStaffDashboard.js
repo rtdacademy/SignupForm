@@ -43,7 +43,8 @@ import {
   PanelRightOpen,
   CreditCard,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  ClipboardCheck
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
@@ -143,6 +144,255 @@ const formatRelativeTime = (dateString) => {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
   return `${Math.floor(diffDays / 365)}yr ago`;
+};
+
+// Helper function to determine student registration status (ported from RegistrarDashboard)
+const determineStudentRegistrationStatus = (student, familyData, schoolYear) => {
+  const dbSchoolYear = schoolYear.replace('/', '_');
+  
+  // Check if student has ASN
+  const hasASN = !!student.asn;
+  
+  // Check notification form status
+  const notificationForm = familyData?.NOTIFICATION_FORMS?.[dbSchoolYear]?.[student.id];
+  const hasNotificationForm = !!notificationForm;
+  const notificationFormSubmitted = notificationForm?.submissionStatus === 'submitted';
+  
+  // Check citizenship docs
+  const citizenshipDocs = familyData?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
+  const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true;
+  const docsNeedReview = citizenshipDocs?.requiresStaffReview === true;
+  
+  // Check SOLO plan
+  const soloPlan = familyData?.SOLO_EDUCATION_PLANS?.[dbSchoolYear]?.[student.id];
+  const hasSoloPlan = !!soloPlan;
+  const soloPlanSubmitted = soloPlan?.submissionStatus === 'submitted';
+  
+  // Check if marked as registered in PASI
+  const pasiRegistration = familyData?.PASI_REGISTRATIONS?.[dbSchoolYear]?.[student.id];
+  const registeredInPasi = pasiRegistration?.status === 'completed';
+  
+  // Determine overall status
+  if (registeredInPasi) {
+    // Check if registration is complete or incomplete
+    const missingItems = [];
+    if (!hasASN) missingItems.push('ASN');
+    if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
+    if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
+    
+    if (missingItems.length > 0) {
+      return {
+        status: 'incomplete',
+        label: `Incomplete - Missing: ${missingItems.join(', ')}`,
+        color: 'yellow',
+        priority: 1,
+        missingItems
+      };
+    }
+    
+    return {
+      status: 'completed',
+      label: 'Registered in PASI - Complete',
+      color: 'green',
+      priority: 0
+    };
+  }
+  
+  // Not registered in PASI yet - check requirements
+  if (!hasNotificationForm || !notificationFormSubmitted) {
+    return {
+      status: 'queue',
+      label: 'Missing Notification Form',
+      color: 'orange',
+      priority: 3
+    };
+  }
+  
+  // Has notification form - ready for PASI even if missing other items
+  const missingItems = [];
+  if (!hasASN) missingItems.push('ASN');
+  if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
+  if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
+  
+  return {
+    status: 'ready',
+    label: missingItems.length > 0 ? `Ready for PASI (Missing: ${missingItems.join(', ')})` : 'Ready for PASI',
+    color: 'blue',
+    priority: 2,
+    missingItems
+  };
+};
+
+// Helper function to determine family registration status (aggregate of all students)
+const determineFamilyRegistrationStatus = (family, schoolYear) => {
+  const students = family.students ? Object.values(family.students) : [];
+  
+  if (students.length === 0) {
+    return {
+      status: 'no-students',
+      label: 'No Students',
+      color: 'gray',
+      priority: -1,
+      studentStatuses: []
+    };
+  }
+  
+  // Get status for each student
+  const studentStatuses = students.map(student => ({
+    student,
+    status: determineStudentRegistrationStatus(student, family, schoolYear)
+  }));
+  
+  // Count students in each status
+  const statusCounts = {
+    queue: 0,
+    ready: 0,
+    incomplete: 0,
+    completed: 0
+  };
+  
+  studentStatuses.forEach(({ status }) => {
+    if (statusCounts.hasOwnProperty(status.status)) {
+      statusCounts[status.status]++;
+    }
+  });
+  
+  // Determine overall family status (worst case)
+  // Priority: queue > ready > incomplete > completed
+  let familyStatus;
+  if (statusCounts.queue > 0) {
+    familyStatus = {
+      status: 'queue',
+      label: `${statusCounts.queue} student${statusCounts.queue > 1 ? 's' : ''} missing notification`,
+      color: 'orange',
+      priority: 3
+    };
+  } else if (statusCounts.ready > 0) {
+    familyStatus = {
+      status: 'ready',
+      label: `${statusCounts.ready} student${statusCounts.ready > 1 ? 's' : ''} ready for PASI`,
+      color: 'blue',
+      priority: 2
+    };
+  } else if (statusCounts.incomplete > 0) {
+    familyStatus = {
+      status: 'incomplete',
+      label: `${statusCounts.incomplete} student${statusCounts.incomplete > 1 ? 's' : ''} incomplete`,
+      color: 'yellow',
+      priority: 1
+    };
+  } else if (statusCounts.completed === students.length) {
+    familyStatus = {
+      status: 'completed',
+      label: 'All students registered',
+      color: 'green',
+      priority: 0
+    };
+  } else {
+    familyStatus = {
+      status: 'mixed',
+      label: 'Mixed statuses',
+      color: 'gray',
+      priority: 1
+    };
+  }
+  
+  return {
+    ...familyStatus,
+    studentStatuses,
+    statusCounts,
+    totalStudents: students.length
+  };
+};
+
+// Registration Status Badge Component
+const RegistrationStatusBadge = ({ registrationStatus }) => {
+  if (!registrationStatus) return null;
+  
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'ready':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'incomplete':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'queue':
+        return 'bg-orange-100 text-orange-700 border-orange-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+  
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle2 className="w-3.5 h-3.5" />;
+      case 'ready':
+        return <ClipboardCheck className="w-3.5 h-3.5" />;
+      case 'incomplete':
+        return <AlertTriangle className="w-3.5 h-3.5" />;
+      case 'queue':
+        return <Clock className="w-3.5 h-3.5" />;
+      default:
+        return <AlertCircle className="w-3.5 h-3.5" />;
+    }
+  };
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ${getStatusStyles(registrationStatus.status)}`}>
+            {getStatusIcon(registrationStatus.status)}
+            <span className="text-xs font-medium">
+              {registrationStatus.status === 'queue' && 'Queue'}
+              {registrationStatus.status === 'ready' && 'Ready'}
+              {registrationStatus.status === 'incomplete' && 'Incomplete'}
+              {registrationStatus.status === 'completed' && 'Completed'}
+            </span>
+            {registrationStatus.statusCounts && (
+              <span className="text-xs opacity-75">
+                ({registrationStatus.statusCounts[registrationStatus.status]}/{registrationStatus.totalStudents})
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">
+          <div className="space-y-2">
+            <p className="font-semibold">{registrationStatus.label}</p>
+            {registrationStatus.studentStatuses && registrationStatus.studentStatuses.length > 0 && (
+              <div className="space-y-1 text-xs">
+                <p className="font-medium">Student Details:</p>
+                {registrationStatus.studentStatuses.map(({ student, status }, idx) => (
+                  <div key={idx} className="flex items-start gap-1 ml-2">
+                    <span className="font-medium">• {student.firstName} {student.lastName}:</span>
+                    <span className={`text-${status.color}-600`}>{status.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {registrationStatus.statusCounts && (
+              <div className="text-xs border-t pt-1 mt-2">
+                {registrationStatus.statusCounts.queue > 0 && (
+                  <p>Queue: {registrationStatus.statusCounts.queue} students</p>
+                )}
+                {registrationStatus.statusCounts.ready > 0 && (
+                  <p>Ready for PASI: {registrationStatus.statusCounts.ready} students</p>
+                )}
+                {registrationStatus.statusCounts.incomplete > 0 && (
+                  <p>Incomplete: {registrationStatus.statusCounts.incomplete} students</p>
+                )}
+                {registrationStatus.statusCounts.completed > 0 && (
+                  <p>Completed: {registrationStatus.statusCounts.completed} students</p>
+                )}
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 };
 
 // Comprehensive Status Badge Component
@@ -268,6 +518,138 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, family
   );
 };
 
+// Bulk Actions Toolbar Component - Extracted to fix dropdown issues
+const BulkActionsToolbar = ({ 
+  selectedFamilies, 
+  clearSelection, 
+  bulkActionLoading, 
+  selectedStatus, 
+  setSelectedStatus, 
+  handleBulkSetStatus, 
+  handleBulkSetAssistance, 
+  handleBulkEmail 
+}) => {
+  if (selectedFamilies.size === 0) return null;
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-lg transform transition-transform duration-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between py-3">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium text-gray-700">
+              {selectedFamilies.size} {selectedFamilies.size === 1 ? 'family' : 'families'} selected
+            </span>
+            <button
+              onClick={clearSelection}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear selection
+            </button>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Settings className="w-4 h-4" />
+                  )}
+                  <span>Bulk Actions</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 p-4">
+                <div className="space-y-4">
+                  {/* Status Update Section */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center">
+                      <ToggleRight className="w-4 h-4 mr-2 text-gray-500" />
+                      Set Family Status
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">
+                            <span className="flex items-center">
+                              <span className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                              Active
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="inactive">
+                            <span className="flex items-center">
+                              <span className="w-2 h-2 bg-gray-500 rounded-full mr-2" />
+                              Inactive
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <button
+                        onClick={() => handleBulkSetStatus(selectedStatus)}
+                        className="px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* Assistance Required Section */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Assistance Required
+                    </label>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => handleBulkSetAssistance(true)}
+                        className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                      >
+                        <HelpCircle className="w-4 h-4 mr-2 text-yellow-500" />
+                        Set Assistance Required
+                      </button>
+                      <button
+                        onClick={() => handleBulkSetAssistance(false)}
+                        className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
+                        Clear Assistance Required
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Email Section */}
+                  <DropdownMenuSeparator className="my-2" />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center">
+                      <Mail className="w-4 h-4 mr-2 text-gray-500" />
+                      Communication
+                    </label>
+                    <button
+                      onClick={handleBulkEmail}
+                      className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
+                    >
+                      <Mail className="w-4 h-4 mr-2 text-blue-500" />
+                      Email Families
+                    </button>
+                  </div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Dashboard Sheet Component - Displays family dashboard in a resizable sheet
 const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
   const [sheetSize, setSheetSize] = useState('preview');
@@ -355,11 +737,13 @@ const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
 // Memoized table row component for better performance
 const FamilyTableRow = memo(({ 
   row, 
-  isSelected, 
+  isSelected,
+  comprehensiveStatus,
   onSelectFamily, 
   onViewDashboard, 
   onOpenNotes, 
   onToggleAssistance,
+  onEmailFamily,
   loadingStatuses,
   togglingAssistance,
   isAdmin,
@@ -385,7 +769,7 @@ const FamilyTableRow = memo(({
   const initials = row.familyName ? row.familyName.substring(0, 2).toUpperCase() : 'FF';
   
   return (
-    <>
+    <React.Fragment>
       <td className="px-3 py-3 whitespace-nowrap">
         <Checkbox
           checked={isSelected}
@@ -432,12 +816,34 @@ const FamilyTableRow = memo(({
                 <div className="flex items-center space-x-1 text-sm">
                   <GraduationCap className="w-4 h-4 text-blue-500" />
                   <span className="font-medium">{row.studentCount}</span>
+                  {row.hasMissingASN && (
+                    <div className="flex items-center">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 ml-1" />
+                      <span className="text-xs text-amber-600 font-medium">
+                        {row.missingASNCount}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5">{row.gradeRange}</div>
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              {studentTooltipContent}
+              <div>
+                {studentTooltipContent}
+                {row.hasMissingASN && (
+                  <div className="mt-2 pt-2 border-t border-amber-200">
+                    <p className="text-xs font-medium text-amber-600">
+                      ⚠️ Missing ASN for {row.missingASNCount} student{row.missingASNCount > 1 ? 's' : ''}:
+                    </p>
+                    {row.studentsWithMissingASN.map((student, idx) => (
+                      <p key={idx} className="text-xs text-amber-600 ml-2">
+                        • {student.firstName} {student.lastName}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -452,14 +858,17 @@ const FamilyTableRow = memo(({
         />
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
+        <RegistrationStatusBadge registrationStatus={row.registrationStatus} />
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
         {loadingStatuses ? (
           <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
         ) : togglingAssistance[row.familyId] ? (
           <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
         ) : (
           <ComprehensiveStatusBadge 
-            statuses={row.comprehensiveStatus} 
-            assistanceRequired={row.comprehensiveStatus.assistanceRequired}
+            statuses={comprehensiveStatus} 
+            assistanceRequired={comprehensiveStatus.assistanceRequired}
             familyId={row.familyId}
             onToggleAssistance={onToggleAssistance}
           />
@@ -488,13 +897,20 @@ const FamilyTableRow = memo(({
           >
             <PanelRightOpen className="w-4 h-4" />
           </button>
+          <button
+            onClick={() => onEmailFamily(row.familyId)}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+            title="Email Family"
+          >
+            <Mail className="w-4 h-4" />
+          </button>
           <FamilyNotesIcon
             familyId={row.familyId}
             onClick={() => onOpenNotes(row.familyId, row.rawFamily)}
           />
         </div>
       </td>
-    </>
+    </React.Fragment>
   );
 });
 
@@ -526,6 +942,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   const dbSchoolYear = activeSchoolYear.replace('/', '_'); // Convert 25/26 to 25_26
   
   const effectiveEmail = impersonatedEmail || currentUserEmail;
+  
 
   // State to track visible families for lazy loading
   const [visibleFamilies, setVisibleFamilies] = useState(new Set());
@@ -733,14 +1150,16 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         (grades.length === 1 ? `Grade ${grades[0]}` : `Grades ${Math.min(...grades)}-${Math.max(...grades)}`) : 
         'No grades';
 
-      // Get comprehensive status for this family
-      const comprehensiveStatus = familyStatuses[familyId] || {
-        notificationForm: 'pending',
-        programPlan: 'pending',
-        citizenshipDocs: 'pending',
-        paymentSetup: 'not_started',
-        assistanceRequired: false
-      };
+      // Check for missing ASN
+      const studentsWithMissingASN = students.filter(student => !student.asn || student.asn === '');
+      const hasMissingASN = studentsWithMissingASN.length > 0;
+      const missingASNCount = studentsWithMissingASN.length;
+
+      // Calculate registration status for the family
+      const registrationStatus = determineFamilyRegistrationStatus(family, activeSchoolYear);
+
+      // Note: comprehensiveStatus removed from here to prevent re-renders during lazy loading
+      // It will be accessed directly from familyStatuses in the row component
 
       return {
         familyId,
@@ -752,22 +1171,43 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         gradeRange,
         facilitatorEmail: family.facilitatorEmail || '',
         isMyFamily: family.facilitatorEmail === effectiveEmail,
-        comprehensiveStatus,
         lastUpdated: family.lastUpdated || family.createdAt,
         city: primaryGuardian?.address?.city || '',
+        hasMissingASN,
+        missingASNCount,
+        studentsWithMissingASN,
+        registrationStatus,
         rawFamily: family
       };
     });
-  }, [families, effectiveEmail, familyStatuses]);
+  }, [families, effectiveEmail, activeSchoolYear]);
 
   // Sort functionality
   const sortedRows = useMemo(() => {
     if (!sortConfig.key) return familyRows;
     
     return [...familyRows].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
       
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+      
+      // Special handling for date fields (lastUpdated)
+      if (sortConfig.key === 'lastUpdated') {
+        // Convert to timestamps for consistent comparison
+        aVal = aVal ? new Date(aVal).getTime() : 0;
+        bVal = bVal ? new Date(bVal).getTime() : 0;
+      }
+      
+      // Special handling for numeric fields
+      if (sortConfig.key === 'studentCount') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      }
+      
+      // Compare values
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -781,58 +1221,56 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }));
   };
 
-  // Bulk selection handlers
-  const handleSelectFamily = (familyId) => {
-    const newSelection = new Set(selectedFamilies);
-    if (newSelection.has(familyId)) {
-      newSelection.delete(familyId);
-    } else {
-      newSelection.add(familyId);
-    }
-    setSelectedFamilies(newSelection);
-    
-    // Update "select all" state if needed
-    if (newSelection.size === 0) {
-      setIsAllSelected(false);
-    } else if (newSelection.size === sortedRows.length) {
-      setIsAllSelected(true);
-    }
-  };
+  // Bulk selection handlers - memoized for virtualized table performance
+  const handleSelectFamily = useCallback((familyId) => {
+    setSelectedFamilies(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(familyId)) {
+        newSelection.delete(familyId);
+      } else {
+        newSelection.add(familyId);
+      }
+      console.log('Selection updated:', Array.from(newSelection));
+      return newSelection;
+    });
+  }, []);
 
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      // Deselect all
-      setSelectedFamilies(new Set());
-      setIsAllSelected(false);
-    } else {
-      // Select all visible families
-      const allFamilyIds = sortedRows.map(row => row.familyId);
-      setSelectedFamilies(new Set(allFamilyIds));
-      setIsAllSelected(true);
-    }
-  };
+  const handleSelectAll = useCallback((allRows) => {
+    setIsAllSelected(prev => {
+      if (prev) {
+        // Deselect all
+        setSelectedFamilies(new Set());
+        return false;
+      } else {
+        // Select all visible families
+        const allFamilyIds = allRows.map(row => row.familyId);
+        setSelectedFamilies(new Set(allFamilyIds));
+        return true;
+      }
+    });
+  }, []);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedFamilies(new Set());
     setIsAllSelected(false);
-  };
+  }, []);
 
-  // Bulk action handlers
-  const handleBulkSetAssistance = (value) => {
+  // Bulk action handlers - memoized for virtualized table performance
+  const handleBulkSetAssistance = useCallback((value) => {
     setPendingBulkAction({ type: 'setAssistance', value });
     setShowBulkConfirmDialog(true);
-  };
+  }, []);
 
-  const handleBulkEmail = () => {
+  const handleBulkEmail = useCallback(() => {
     if (onOpenEmailSheet) {
       onOpenEmailSheet(selectedFamilies);
     }
-  };
+  }, [onOpenEmailSheet, selectedFamilies]);
 
-  const handleBulkSetStatus = (status) => {
+  const handleBulkSetStatus = useCallback((status) => {
     setPendingBulkAction({ type: 'setStatus', status });
     setShowBulkConfirmDialog(true);
-  };
+  }, []);
 
   const executeBulkAction = async () => {
     if (!pendingBulkAction || selectedFamilies.size === 0) return;
@@ -914,8 +1352,8 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   };
 
 
-  // Handle toggling assistance required status
-  const handleToggleAssistance = async (familyId, newValue) => {
+  // Handle toggling assistance required status - memoized for virtualized table
+  const handleToggleAssistance = useCallback(async (familyId, newValue) => {
     setTogglingAssistance(prev => ({ ...prev, [familyId]: true }));
     
     try {
@@ -950,132 +1388,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     } finally {
       setTogglingAssistance(prev => ({ ...prev, [familyId]: false }));
     }
-  };
-
-
-
-  // Bulk Actions Toolbar Component
-  const BulkActionsToolbar = () => {
-    if (selectedFamilies.size === 0) return null;
-    
-    return (
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-lg transform transition-transform duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm font-medium text-gray-700">
-                {selectedFamilies.size} {selectedFamilies.size === 1 ? 'family' : 'families'} selected
-              </span>
-              <button
-                onClick={clearSelection}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
-              >
-                Clear selection
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    disabled={bulkActionLoading}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {bulkActionLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Settings className="w-4 h-4" />
-                    )}
-                    <span>Bulk Actions</span>
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 p-4">
-                  <div className="space-y-4">
-                    {/* Status Update Section */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 flex items-center">
-                        <ToggleRight className="w-4 h-4 mr-2 text-gray-500" />
-                        Set Family Status
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active">
-                              <span className="flex items-center">
-                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                                Active
-                              </span>
-                            </SelectItem>
-                            <SelectItem value="inactive">
-                              <span className="flex items-center">
-                                <span className="w-2 h-2 bg-gray-500 rounded-full mr-2" />
-                                Inactive
-                              </span>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <button
-                          onClick={() => handleBulkSetStatus(selectedStatus)}
-                          className="px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <DropdownMenuSeparator />
-                    
-                    {/* Assistance Required Section */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Assistance Required
-                      </label>
-                      <div className="space-y-1">
-                        <button
-                          onClick={() => handleBulkSetAssistance(true)}
-                          className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
-                        >
-                          <HelpCircle className="w-4 h-4 mr-2 text-yellow-500" />
-                          Set Assistance Required
-                        </button>
-                        <button
-                          onClick={() => handleBulkSetAssistance(false)}
-                          className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
-                          Clear Assistance Required
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Email Section */}
-                    <DropdownMenuSeparator className="my-2" />
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 flex items-center">
-                        <Mail className="w-4 h-4 mr-2 text-gray-500" />
-                        Communication
-                      </label>
-                      <button
-                        onClick={handleBulkEmail}
-                        className="w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 rounded-md"
-                      >
-                        <Mail className="w-4 h-4 mr-2 text-blue-500" />
-                        Email Families
-                      </button>
-                    </div>
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  }, [families, dbSchoolYear]);
 
   // Custom table components for TableVirtuoso
   const tableComponents = useMemo(() => ({
@@ -1092,6 +1405,15 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         <tr 
           {...restProps} 
           ref={ref}
+          onClick={() => {
+            if (item?.rawFamily) {
+              console.log('Family record clicked:', item.rawFamily);
+              console.log('Family ID:', item.familyId);
+              console.log('Family Name:', item.familyName);
+              console.log('Full record object:', JSON.stringify(item.rawFamily, null, 2));
+            }
+          }}
+          style={{ cursor: 'pointer' }}
           className={`${
             isSelected 
               ? 'bg-blue-50 hover:bg-blue-100' 
@@ -1107,13 +1429,13 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     ))
   }), [selectedFamilies]);
 
-  // Fixed header content
-  const fixedHeaderContent = useCallback(() => (
+  // Fixed header content - moved outside of useCallback to avoid dependency issues
+  const fixedHeaderContent = () => (
     <tr className="bg-gray-50">
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
         <Checkbox
           checked={isAllSelected}
-          onCheckedChange={handleSelectAll}
+          onCheckedChange={() => handleSelectAll(sortedRows)}
           aria-label="Select all families"
         />
       </th>
@@ -1152,7 +1474,10 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         </div>
       </th>
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-        <span>Status</span>
+        <span>Registration</span>
+      </th>
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <span>Forms</span>
       </th>
       <th 
         className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -1167,15 +1492,32 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
       </th>
       <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
     </tr>
-  ), [isAllSelected, handleSelectAll, handleSort, sortConfig]);
+  );
+
+  // Handle individual family email
+  const handleEmailFamily = useCallback((familyId) => {
+    if (onOpenEmailSheet) {
+      onOpenEmailSheet(new Set([familyId]));
+    }
+  }, [onOpenEmailSheet]);
 
   // Row renderer - Note: We use inline functions here since these handlers are defined within FamilyTable
   const rowContent = useCallback((index, row) => {
     const isSelected = selectedFamilies.has(row.familyId);
+    // Get the comprehensive status for this specific row
+    const comprehensiveStatus = familyStatuses[row.familyId] || {
+      notificationForm: 'pending',
+      programPlan: 'pending',
+      citizenshipDocs: 'pending',
+      paymentSetup: 'not_started',
+      assistanceRequired: false
+    };
+    
     return (
       <FamilyTableRow
         row={row}
         isSelected={isSelected}
+        comprehensiveStatus={comprehensiveStatus}
         onSelectFamily={handleSelectFamily}
         onViewDashboard={(familyId, family) => {
           // Call the parent's onViewDashboard to open the sheet
@@ -1187,13 +1529,14 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
           setNotesModalOpen(true);
         }}
         onToggleAssistance={handleToggleAssistance}
+        onEmailFamily={handleEmailFamily}
         loadingStatuses={loadingStatuses}
         togglingAssistance={togglingAssistance}
         isAdmin={isAdmin}
         effectiveEmail={effectiveEmail}
       />
     );
-  }, [selectedFamilies, handleSelectFamily, onViewDashboard, handleToggleAssistance, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
+  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, handleEmailFamily, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
 
   // Handle range changes for lazy loading with extra buffer
   const handleRangeChanged = useCallback((range) => {
@@ -1215,7 +1558,16 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
 
   return (
     <>
-      <BulkActionsToolbar />
+      <BulkActionsToolbar 
+        selectedFamilies={selectedFamilies}
+        clearSelection={clearSelection}
+        bulkActionLoading={bulkActionLoading}
+        selectedStatus={selectedStatus}
+        setSelectedStatus={setSelectedStatus}
+        handleBulkSetStatus={handleBulkSetStatus}
+        handleBulkSetAssistance={handleBulkSetAssistance}
+        handleBulkEmail={handleBulkEmail}
+      />
       
       {/* Add spacing when toolbar is visible */}
       {selectedFamilies.size > 0 && <div className="h-14" />}
@@ -1824,11 +2176,12 @@ const HomeEducationStaffDashboard = ({
   const [loadingStatuses, setLoadingStatuses] = useState(true);
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
   const [filters, setFilters] = useState({
-    registrationStatus: 'all', // all, completed, partial, pending
+    registrationStatus: 'all', // all, queue, ready, incomplete, completed
     gradeLevel: 'all', // all, k, elementary, middle, high
     location: 'all', // all, specific provinces/cities
     facilitatorAssigned: 'all', // all, assigned, unassigned
-    assistanceRequired: 'all' // all, yes, no
+    assistanceRequired: 'all', // all, yes, no
+    missingASN: 'all' // all, yes, no
   });
   const [stats, setStats] = useState({
     totalFamilies: 0,
@@ -2157,18 +2510,10 @@ const HomeEducationStaffDashboard = ({
     // Apply advanced filters
     result = Object.fromEntries(
       Object.entries(result).filter(([familyId, family]) => {
-        // Registration Status Filter
+        // Registration Status Filter - Now using detailed PASI statuses
         if (filters.registrationStatus !== 'all') {
-          const students = family.students ? Object.values(family.students) : [];
-          const forms = family.NOTIFICATION_FORMS?.[currentYear] || {};
-          const hasFormsForAllStudents = students.length > 0 && students.every(student => 
-            forms[student.id] && forms[student.id].submissionStatus === 'submitted'
-          );
-          const hasAnyForms = Object.keys(forms).length > 0;
-
-          if (filters.registrationStatus === 'completed' && !hasFormsForAllStudents) return false;
-          if (filters.registrationStatus === 'partial' && (hasFormsForAllStudents || !hasAnyForms)) return false;
-          if (filters.registrationStatus === 'pending' && hasAnyForms) return false;
+          const registrationStatus = determineFamilyRegistrationStatus(family, currentYear);
+          if (filters.registrationStatus !== registrationStatus.status) return false;
         }
 
         // Grade Level Filter
@@ -2198,6 +2543,14 @@ const HomeEducationStaffDashboard = ({
           const hasAssistanceRequired = familyStatus?.assistanceRequired || false;
           if (filters.assistanceRequired === 'yes' && !hasAssistanceRequired) return false;
           if (filters.assistanceRequired === 'no' && hasAssistanceRequired) return false;
+        }
+
+        // Missing ASN Filter
+        if (filters.missingASN !== 'all') {
+          const students = family.students ? Object.values(family.students) : [];
+          const hasMissingASN = students.some(student => !student.asn || student.asn === '');
+          if (filters.missingASN === 'yes' && !hasMissingASN) return false;
+          if (filters.missingASN === 'no' && hasMissingASN) return false;
         }
 
         return true;
@@ -2271,6 +2624,12 @@ const HomeEducationStaffDashboard = ({
     setDashboardSheetFamily(null);
     setDashboardSheetFamilyId(null);
     setShowDashboardSheet(false);
+  };
+
+  // Handle individual family email - allows emailing without checkbox selection
+  const handleIndividualEmail = (familyId) => {
+    setSelectedFamiliesForEmail(new Set([familyId]));
+    setShowEmailSheet(true);
   };
 
   const handleManageFamily = (familyId, family) => {
@@ -2499,16 +2858,22 @@ const HomeEducationStaffDashboard = ({
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Registration Status Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Registration Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center">
+                      Registration Status
+                      <ClipboardCheck className="w-3 h-3 text-gray-500 ml-1" />
+                    </span>
+                  </label>
                   <select
                     value={filters.registrationStatus}
                     onChange={(e) => handleFilterChange('registrationStatus', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="all">All Statuses</option>
-                    <option value="completed">Completed</option>
-                    <option value="partial">Partial</option>
-                    <option value="pending">Pending</option>
+                    <option value="queue">📋 Queue - Missing Notification</option>
+                    <option value="ready">✅ Ready for PASI</option>
+                    <option value="incomplete">⚠️ Incomplete Registration</option>
+                    <option value="completed">✔️ Fully Registered</option>
                   </select>
                 </div>
 
@@ -2553,6 +2918,25 @@ const HomeEducationStaffDashboard = ({
                     <option value="all">All Families</option>
                     <option value="yes">Needs Assistance</option>
                     <option value="no">No Assistance Needed</option>
+                  </select>
+                </div>
+
+                {/* Missing ASN Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center">
+                      ASN Status
+                      <AlertTriangle className="w-3 h-3 text-amber-500 ml-1" />
+                    </span>
+                  </label>
+                  <select
+                    value={filters.missingASN}
+                    onChange={(e) => handleFilterChange('missingASN', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="all">All Families</option>
+                    <option value="yes">Missing ASN</option>
+                    <option value="no">ASN Complete</option>
                   </select>
                 </div>
 

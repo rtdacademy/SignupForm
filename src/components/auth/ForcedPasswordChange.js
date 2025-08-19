@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { updatePassword, getAuth } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase'; // Import the already configured functions instance
 import { Shield, Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -75,25 +77,46 @@ const ForcedPasswordChange = ({ onPasswordChanged }) => {
 
       // Update the user's password
       await updatePassword(currentUser, newPassword);
+      console.log('Password updated successfully');
       
       // Remove the temporary password claim by calling a cloud function
-      const { getFunctions, httpsCallable } = await import('firebase/functions');
-      const functions = getFunctions();
+      // Use the pre-configured functions instance with correct region
       const removeTempPasswordClaim = httpsCallable(functions, 'removeTempPasswordClaim');
       
       try {
-        await removeTempPasswordClaim();
+        console.log('Calling removeTempPasswordClaim cloud function...');
+        const result = await removeTempPasswordClaim();
+        console.log('Cloud function result:', result.data);
       } catch (claimError) {
         console.error('Error removing temp password claim:', claimError);
+        console.error('Cloud function error details:', {
+          code: claimError.code,
+          message: claimError.message,
+          details: claimError.details,
+          fullError: claimError
+        });
+        // Log the full error object to see what's happening
+        console.error('Full error object:', JSON.stringify(claimError, null, 2));
         // Don't throw here - password was changed successfully
+        // The claim might still be removed server-side even if the call failed
       }
       
       // Force token refresh to get updated claims
+      console.log('Forcing token refresh...');
       await currentUser.getIdToken(true);
+      
+      // Verify the claim was actually removed
+      const idTokenResult = await currentUser.getIdTokenResult();
+      console.log('Claims after password change:', idTokenResult.claims);
+      
+      if (idTokenResult.claims.tempPasswordRequired) {
+        console.error('Warning: tempPasswordRequired claim still present after removal attempt');
+      }
       
       // Notify parent component that password was changed
       if (onPasswordChanged) {
-        onPasswordChanged();
+        console.log('Calling onPasswordChanged callback...');
+        await onPasswordChanged();
       }
       
     } catch (error) {

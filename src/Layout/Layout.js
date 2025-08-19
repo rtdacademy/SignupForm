@@ -101,7 +101,7 @@ const Layout = React.memo(({ children }) => {
   }, [setIsFullScreen]);
 
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/teacher-dashboard';
-  const isHomeEducationRoute = location.pathname === '/home-education-staff';
+  const isHomeEducationRoute = location.pathname === '/home-education-staff' || location.pathname === '/registrar';
 
   const childrenWithProps = useMemo(() => {
     return React.Children.map(children, child => {
@@ -155,10 +155,13 @@ const Layout = React.memo(({ children }) => {
     hasParentAccount
   }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating, hasParentAccount]);
 
+  // Check if we're on the registrar page
+  const isRegistrarRoute = location.pathname === '/registrar';
+  
   const homeEducationHeaderProps = useMemo(() => ({
     user,
     onLogout: handleLogout,
-    showMyFamiliesOnly,
+    showMyFamiliesOnly: isRegistrarRoute ? false : showMyFamiliesOnly, // Always show all families on registrar
     setShowMyFamiliesOnly,
     impersonatingFacilitator,
     setImpersonatingFacilitator,
@@ -169,7 +172,7 @@ const Layout = React.memo(({ children }) => {
     stats: homeEducationStats
   }), [
     user, handleLogout, showMyFamiliesOnly, impersonatingFacilitator, 
-    showImpersonationDropdown, statusFilter, homeEducationStats
+    showImpersonationDropdown, statusFilter, homeEducationStats, isRegistrarRoute
   ]);
 
   return (
