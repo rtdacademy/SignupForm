@@ -689,6 +689,11 @@ const updateStatus = useCallback(async (newStatus) => {
       if (selectedStatusOption?.activeFutureArchivedValue) {
         if (!updatedData.ActiveFutureArchived) updatedData.ActiveFutureArchived = {};
         updatedData.ActiveFutureArchived.Value = selectedStatusOption.activeFutureArchivedValue;
+        
+        // If setting to Archived, also set ColdStorage to trigger archiving
+        if (selectedStatusOption.activeFutureArchivedValue === 'Archived') {
+          updatedData.ColdStorage = true;
+        }
       }
       
       // Update auto status flag

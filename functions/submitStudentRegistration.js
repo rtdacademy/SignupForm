@@ -113,10 +113,8 @@ const submitStudentRegistration = onCall({
       "StudentEmail": userEmail,
       "StudentPhone": formData.phoneNumber || '',
       "asn": formData.albertaStudentNumber || '',
-      // ASN guidance tracking fields
+      // ASN guidance tracking - only track if RTD needs to create ASN
       "needsASNCreation": formData.needsASNCreation || false,
-      "hasAttendedAlbertaSchool": formData.hasAttendedAlbertaSchool || null,
-      "knowsASN": formData.knowsASN || null,
       "gender": formData.gender || '',
       "firstName": formData.firstName || '',
       "lastName": formData.lastName || '',
@@ -230,6 +228,10 @@ const submitStudentRegistration = onCall({
         {
           "author": `${formData.firstName} ${formData.lastName}`,
           "content": `Student completed the registration form.${
+            formData.needsASNCreation
+              ? '\n\n🆔 ASN Required: RTD Academy needs to create a K-12 ASN for this student.'
+              : ''
+          }${
             formData.additionalInformation
               ? '\n\nAdditional Information:\n' + formData.additionalInformation
               : ''

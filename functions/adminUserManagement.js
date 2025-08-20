@@ -46,12 +46,14 @@ async function verifyAdminPermissions(request) {
   const callerUserRecord = await admin.auth().getUser(callerUid);
   const callerClaims = callerUserRecord.customClaims || {};
   
-  // Check if caller has admin permissions
-  const isAdmin = callerClaims.isAdminUser || callerClaims.isSuperAdminUser || 
-                  (callerClaims.staffPermissions && callerClaims.staffPermissions.includes('admin'));
+  // Check if caller has staff permissions (any staff member can perform user management)
+  const isStaff = callerClaims.isStaffUser || 
+                  callerClaims.isAdminUser || 
+                  callerClaims.isSuperAdminUser ||
+                  (callerClaims.staffPermissions && callerClaims.staffPermissions.length > 0);
   
-  if (!isAdmin && callerEmail !== 'kyle@rtdacademy.com') {
-    throw new HttpsError('permission-denied', 'Only admin users can perform user management actions.');
+  if (!isStaff && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only staff members can perform user management actions.');
   }
   
   return { callerUid, callerEmail, callerClaims };

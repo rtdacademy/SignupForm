@@ -642,15 +642,20 @@ const getAnyUserPermissions = onCall({
   const callerEmail = request.auth.token.email;
   const { targetEmail, targetUid } = request.data;
   
-  // Verify caller has super admin permissions
+  // Verify caller has staff permissions
   const callerTokenResult = await admin.auth().getUser(request.auth.uid);
   const callerClaims = callerTokenResult.customClaims || {};
   
-  if (!callerClaims.isSuperAdminUser && callerClaims.staffRole !== 'super_admin' && callerEmail !== 'kyle@rtdacademy.com') {
-    throw new HttpsError('permission-denied', 'Only super admin users can fetch user permissions.');
+  // Check if user is staff (any staff member can fetch user permissions)
+  const isStaff = callerClaims.isStaffUser || 
+                  (callerClaims.staffPermissions && callerClaims.staffPermissions.length > 0) ||
+                  isStaffEmail(callerEmail);
+  
+  if (!isStaff && callerEmail !== 'kyle@rtdacademy.com') {
+    throw new HttpsError('permission-denied', 'Only staff members can fetch user permissions.');
   }
   
-  console.log(`Super admin ${callerEmail} requesting permissions for: ${targetEmail || targetUid}`);
+  console.log(`Staff member ${callerEmail} requesting permissions for: ${targetEmail || targetUid}`);
   
   try {
     let targetUser;

@@ -756,8 +756,8 @@ const NonPrimaryStudentForm = forwardRef(({
         if (studentType === 'International Student' && !hasASN) {
           return false;
         }
-        // Don't validate if adult/international student hasn't answered the questions yet
-        if ((user18OrOlder || studentType === 'International Student') && hasAttendedAlbertaSchool === null) {
+        // Don't validate if Adult Student or International Student hasn't answered the questions yet
+        if ((studentType === 'Adult Student' || studentType === 'International Student') && hasAttendedAlbertaSchool === null) {
           return false;
         }
         // Don't validate if they attended Alberta schools but haven't decided if they know their ASN
@@ -3251,8 +3251,8 @@ const NonPrimaryStudentForm = forwardRef(({
                     <span className="text-red-500">*</span>
                   </h4>
 
-                  {/* Enhanced guidance for adult and international students */}
-                  {(user18OrOlder || studentType === 'International Student') ? (
+                  {/* Enhanced guidance for Adult Student and International Student types only */}
+                  {(studentType === 'Adult Student' || studentType === 'International Student') ? (
                     <div className="space-y-4">
                       {/* Question 1: Have you attended K-12 schooling in Alberta? */}
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -3367,11 +3367,34 @@ const NonPrimaryStudentForm = forwardRef(({
 
                       {/* ASN Input Field (if they know their ASN) */}
                       {hasAttendedAlbertaSchool === true && knowsASN === true && (
-                        <div>
-                          <label className="text-sm font-medium block mb-2">
-                            Please enter your 9-digit ASN:
-                          </label>
-                          <input
+                        <div className="space-y-3">
+                          <Alert className="bg-blue-50 border-blue-300">
+                            <AlertDescription>
+                              <div className="flex items-start space-x-2">
+                                <span className="text-blue-600 text-lg">ℹ️</span>
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-blue-900 mb-2">
+                                    Important: Use your ORIGINAL K-12 ASN
+                                  </p>
+                                  <ul className="list-disc list-inside text-sm text-blue-800 space-y-1">
+                                    <li>Use the same ASN you had in elementary or high school</li>
+                                    <li>This is the ASN that appears on your report cards or school records</li>
+                                    <li><strong>Do NOT use</strong> any ASN you may have created yourself through ApplyAlberta for post-secondary applications</li>
+                                    <li>If unsure which ASN is correct, <a href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">use the lookup tool</a> to find your original K-12 ASN</li>
+                                  </ul>
+                                  <p className="text-sm text-blue-700 italic mt-3 flex items-center">
+                                    <span className="text-2xl mr-2">🤦</span>
+                                    We know this is confusing - the government has really outdone themselves here!
+                                  </p>
+                                </div>
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                          <div>
+                            <label className="text-sm font-medium block mb-2">
+                              Please enter your 9-digit ASN:
+                            </label>
+                            <input
                             type="text"
                             id="albertaStudentNumber"
                             name="albertaStudentNumber"
@@ -3386,14 +3409,15 @@ const NonPrimaryStudentForm = forwardRef(({
                             placeholder="####-####-#"
                             maxLength={11}
                           />
-                          <ValidationFeedback
-                            isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
-                            message={
-                              touched.albertaStudentNumber
-                                ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
-                                : null
-                            }
-                          />
+                            <ValidationFeedback
+                              isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
+                              message={
+                                touched.albertaStudentNumber
+                                  ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
+                                  : null
+                              }
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -3500,7 +3524,7 @@ const NonPrimaryStudentForm = forwardRef(({
                       )}
                     </div>
                   ) : (
-                    // Original simpler flow for younger students
+                    // Original simpler flow for Summer School, Non-Primary, and Home Education students (must have ASN)
                     <>
                       <p className="text-sm text-gray-600">
                         Any student that has taken a course in Alberta has an ASN.{' '}
