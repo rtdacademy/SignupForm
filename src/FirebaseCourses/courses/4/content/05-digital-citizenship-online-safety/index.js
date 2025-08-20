@@ -47,14 +47,13 @@ const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) =>
   const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3;
 
   // Track completion when all questions are answered
+  // Note: Completion tracking is now handled automatically by the system
   useEffect(() => {
     if (allQuestionsCompleted) {
-      const lessonItemId = itemId || activeItem?.itemId;
-      if (lessonItemId) {
-        markCompleted(lessonItemId);
-      }
+      // Completion is now tracked automatically via assessment submissions
+      console.log('All questions completed for lesson:', itemId || activeItem?.itemId);
     }
-  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
+  }, [allQuestionsCompleted, itemId, activeItem?.itemId]);
 
   // Math Course Data
   const mathCourseData = {

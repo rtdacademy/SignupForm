@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { Search, Archive, RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2, Eye, X, Copy, ChevronDown, ChevronRight, FileJson, Wrench, BookOpen } from 'lucide-react';
+import { Search, Archive, RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2, Eye, X, Copy, ChevronDown, ChevronRight, FileJson, Wrench, BookOpen, Shield, Lock } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
+import { useStaffClaims } from '../customClaims/useStaffClaims';
+import { getAuth } from 'firebase/auth';
 
 const ArchiveManagement = () => {
   const [searchEmail, setSearchEmail] = useState('');
@@ -28,6 +30,10 @@ const ArchiveManagement = () => {
   const [expandedSections, setExpandedSections] = useState(new Set(['stats']));
   const [fixingCourses, setFixingCourses] = useState(new Set());
   const [restoreOptionsModal, setRestoreOptionsModal] = useState(null);
+  
+  // Use staff claims hook to check permissions
+  const { isStaff, loading: permissionsLoading, error: permissionsError } = useStaffClaims({ readOnly: true });
+  const auth = getAuth();
 
   const handleSearch = async () => {
     if (!searchEmail.trim()) {
@@ -356,14 +362,43 @@ const ArchiveManagement = () => {
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Unknown';
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    
+    // Handle the string "Unknown" explicitly
+    if (timestamp === 'Unknown') return 'Unknown';
+    
+    // Handle various timestamp formats
+    let date;
+    try {
+      if (typeof timestamp === 'string') {
+        // Check if it's a valid date string
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'number') {
+        // Handle numeric timestamps
+        date = new Date(timestamp);
+      } else if (timestamp && typeof timestamp === 'object' && timestamp._seconds) {
+        // Handle Firestore timestamp objects
+        date = new Date(timestamp._seconds * 1000);
+      } else {
+        return 'Unknown';
+      }
+      
+      // Check if date is valid
+      if (!date || isNaN(date.getTime())) {
+        console.warn('Invalid date timestamp:', timestamp);
+        return 'Unknown';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error, 'Timestamp:', timestamp);
+      return 'Unknown';
+    }
   };
 
   const formatBytes = (bytes) => {
@@ -391,6 +426,49 @@ const ArchiveManagement = () => {
     setSuccessMessage('JSON data copied to clipboard');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
+
+  // Check permissions and show loading/error states
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user is not authenticated
+  if (!auth.currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-red-50 rounded-lg p-8 max-w-md text-center">
+          <Lock className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600">You must be logged in to access this feature.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user is not staff
+  if (!isStaff()) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-yellow-50 rounded-lg p-8 max-w-md text-center">
+          <Shield className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Staff Access Required</h2>
+          <p className="text-gray-600 mb-4">
+            This feature is only available to staff members with @rtdacademy.com or @rtd-connect.com email addresses.
+          </p>
+          <p className="text-sm text-gray-500">
+            Current user: {auth.currentUser?.email || 'Unknown'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const renderJsonSection = (title, data, sectionKey) => {
     const isExpanded = expandedSections.has(sectionKey);
@@ -459,7 +537,13 @@ const ArchiveManagement = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Student Course Data Management</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold text-gray-900">Student Course Data Management</h1>
+          <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 rounded-full">
+            <Shield className="w-4 h-4 text-green-600" />
+            <span className="text-sm font-medium text-green-700">Staff Access</span>
+          </div>
+        </div>
         <p className="text-gray-600">Search for student course enrollments and manage archived data</p>
       </div>
 

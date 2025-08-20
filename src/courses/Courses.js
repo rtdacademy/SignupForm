@@ -622,6 +622,9 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
   const [requirements, setRequirements] = useState(progressionRequirements || {
     enabled: false,
     defaultCriteria: {
+      minimumPercentage: 50,
+      requireAllQuestions: true,
+      // Legacy structure for backwards compatibility
       lesson: {
         minimumPercentage: 50,
         requireAllQuestions: true
@@ -675,11 +678,32 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
         }
       }
       
+      // Migrate flat defaultCriteria structure to nested structure if needed
+      if (migrated.defaultCriteria && typeof migrated.defaultCriteria.minimumPercentage !== 'undefined') {
+        // Has flat structure, convert to nested for UI compatibility
+        const flatMinPercentage = migrated.defaultCriteria.minimumPercentage;
+        const flatRequireAll = migrated.defaultCriteria.requireAllQuestions;
+        migrated.defaultCriteria = {
+          minimumPercentage: flatMinPercentage,
+          requireAllQuestions: flatRequireAll,
+          lesson: {
+            minimumPercentage: flatMinPercentage,
+            requireAllQuestions: flatRequireAll
+          },
+          assignment: migrated.defaultCriteria.assignment || { sessionsRequired: 1 },
+          exam: migrated.defaultCriteria.exam || { sessionsRequired: 1 },
+          quiz: migrated.defaultCriteria.quiz || { sessionsRequired: 1 },
+          lab: migrated.defaultCriteria.lab || { requiresSubmission: true }
+        };
+      }
+      
       setRequirements(migrated);
     } else {
       setRequirements({
         enabled: false,
         defaultCriteria: {
+          minimumPercentage: 50,
+          requireAllQuestions: true,
           lesson: {
             minimumPercentage: 50,
             requireAllQuestions: true
@@ -776,6 +800,8 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
     const defaultRequirements = {
       enabled: requirements.enabled, // Keep the current enabled state
       defaultCriteria: {
+        minimumPercentage: 50,
+        requireAllQuestions: true,
         lesson: {
           minimumPercentage: 50,
           requireAllQuestions: true
@@ -794,8 +820,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
         }
       },
       lessonOverrides: {}, // Clear all overrides
-      showAlways: {}, // Clear all always visible settings
-      neverVisible: {} // Clear all never visible settings
+      visibility: {} // Clear all visibility settings
     };
     setRequirements(defaultRequirements);
     updateDatabase(defaultRequirements);
@@ -807,6 +832,9 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
       ...requirements,
       defaultCriteria: {
         ...requirements.defaultCriteria,
+        // Update both flat and nested structures
+        ...(type === 'lesson' && field === 'minimumPercentage' ? { minimumPercentage: value } : {}),
+        ...(type === 'lesson' && field === 'requireAllQuestions' ? { requireAllQuestions: value } : {}),
         [type]: {
           ...requirements.defaultCriteria[type],
           [field]: value
@@ -980,7 +1008,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
                               type="number"
                               min="0"
                               max="100"
-                              value={requirements.defaultCriteria?.lesson?.minimumPercentage || 50}
+                              value={requirements.defaultCriteria?.lesson?.minimumPercentage ?? 50}
                               onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
                               disabled={!courseIsEditing}
                               className="flex-1"

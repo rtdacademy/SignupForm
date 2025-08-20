@@ -654,7 +654,14 @@ const StandardMultipleChoiceQuestion = ({
     setResult(null);
 
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // Determine which cloud function to use based on courseId
+      // Course 2 (Physics 30) uses its own master function for backward compatibility
+      // All other courses use the universal assessment function
+      const cloudFunctionToUse = (String(courseId) === '2' && cloudFunctionName.startsWith('course2_')) 
+        ? 'course2_assessments' 
+        : 'universal_assessments';
+      
+      const assessmentFunction = httpsCallable(functions, cloudFunctionToUse);
 
       // Extract topic and difficulty from question data if available
       // For assignments with difficulty selection, use selectedDifficulty, otherwise use question data
@@ -758,7 +765,14 @@ const StandardMultipleChoiceQuestion = ({
 
     setSubmitting(true);
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // Determine which cloud function to use based on courseId
+      // Course 2 (Physics 30) uses its own master function for backward compatibility
+      // All other courses use the universal assessment function
+      const cloudFunctionToUse = (String(courseId) === '2' && cloudFunctionName.startsWith('course2_')) 
+        ? 'course2_assessments' 
+        : 'universal_assessments';
+      
+      const assessmentFunction = httpsCallable(functions, cloudFunctionToUse);
 
       // Extract topic and difficulty from question data if available
       // Use current difficulty from question data for evaluation

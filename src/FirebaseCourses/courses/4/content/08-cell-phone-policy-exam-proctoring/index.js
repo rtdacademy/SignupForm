@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
-const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigateToNext }) => {
+const CellPhonePolicyExamProctoring = ({ course, courseId, itemId, activeItem, onNavigateToNext, onNavigateToLesson, onAIAccordionContent }) => {
   const [activeSection, setActiveSection] = useState('general');
   const [setupProgress, setSetupProgress] = useState({
     step1: false,
@@ -2004,182 +2005,68 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto">
-              {/* Question Progress Indicator */}
-              <div className="flex justify-center mb-6">
-                <div className="flex space-x-2">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                        index === currentQuestionIndex
-                          ? 'bg-indigo-600 scale-125'
-                          : questionResults[`question${index + 1}`] === 'correct'
-                          ? 'bg-green-500'
-                          : questionResults[`question${index + 1}`] === 'incorrect'
-                          ? 'bg-red-500'
-                          : 'bg-gray-300 hover:bg-gray-400'
-                      }`}
-                      aria-label={`Go to question ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Question Display */}
-              <div className="relative">
-
-            {/* Question 1 - Cell Phone Setup Knowledge */}
-            {currentQuestionIndex === 0 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question1"
-                title="Secondary Camera Setup"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(1);
-                  setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 2 - Do Not Disturb Settings Knowledge */}
-            {currentQuestionIndex === 1 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question2"
-                title="Phone Configuration Requirements"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(2);
-                  setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 3 - Prohibited Behaviors Knowledge */}
-            {currentQuestionIndex === 2 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question3"
-                title="Exam Day Restrictions"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(3);
-                  setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 4 - Academic Integrity Policy Knowledge */}
-            {currentQuestionIndex === 3 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question4"
-                title="Academic Integrity Principles"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(4);
-                  setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 5 - Violation Consequences Knowledge */}
-            {currentQuestionIndex === 4 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question5"
-                title="Violation Consequences"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(5);
-                  setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 6 - Technical Issue Scenario */}
-            {currentQuestionIndex === 5 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question6"
-                title="Technical Difficulties During Exam"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(6);
-                  setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 7 - Academic Integrity Violation Scenario */}
-            {currentQuestionIndex === 6 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question7"
-                title="Academic Integrity Scenario"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(7);
-                  setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {/* Question 8 - Phone Policy Violation Scenario */}
-            {currentQuestionIndex === 7 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_08_cell_phone_policy_question8"
-                title="Cell Phone Policy Scenario"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  handleQuestionComplete(8);
-                  setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-              </div>
-
-              {/* Navigation Controls */}
-              <div className="flex justify-between items-center mt-6">
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-                  disabled={currentQuestionIndex === 0}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-
-                <div className="text-sm text-gray-500">
-                  Question {currentQuestionIndex + 1} of 8
-                </div>
-
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
-                  disabled={currentQuestionIndex === 7}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 7
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  Next
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-          </div>
+          <SlideshowKnowledgeCheck
+            courseId={courseId}
+            lessonPath="08-cell-phone-policy-exam-proctoring"
+            course={course}
+            // onAIAccordionContent={onAIAccordionContent}  // Commented out to hide "Ask AI" button
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question1',
+                title: 'Question 1: Secondary Camera Setup'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question2',
+                title: 'Question 2: Phone Configuration Requirements'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question3',
+                title: 'Question 3: Exam Day Restrictions'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question4',
+                title: 'Question 4: Academic Integrity Principles'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question5',
+                title: 'Question 5: Violation Consequences'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question6',
+                title: 'Question 6: Technical Difficulties During Exam'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question7',
+                title: 'Question 7: Academic Integrity Scenario'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_08_cell_phone_policy_question8',
+                title: 'Question 8: Cell Phone Policy Scenario'
+              }
+            ]}
+            onComplete={(score, results) => {
+              console.log(`Knowledge Check completed with ${score}%`);
+              // Check if all questions are completed successfully
+              const totalQuestions = 8;
+              const correctCount = Object.values(results).filter(result => result === 'correct').length;
+              if (correctCount >= 6 || score >= 75) {  // 75% passing threshold for 8 questions
+                // Mark all questions as completed
+                for (let i = 1; i <= totalQuestions; i++) {
+                  setQuestionsCompleted(prev => ({...prev, [`question${i}`]: true}));
+                }
+                setQuestionResults(results);
+              }
+            }}
+            theme="indigo"
+          />
         </section>
       )}
 

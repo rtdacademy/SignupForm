@@ -278,7 +278,7 @@ const AddressPicker = ({ onAddressSelect, studentType, value, error, placeholder
         <>
           <div className="relative">
             <GooglePlacesAutocomplete
-              apiKey="AIzaSyCrZ6Nh909XAiAksbBp52wh0lsG9jYFYRA"
+              apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
               selectProps={{
                 value: selectedPlace ? { 
                   label: selectedPlace.fullAddress, 

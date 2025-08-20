@@ -205,6 +205,8 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
   // Determine ASN display message
   const asnDisplay = formData.albertaStudentNumber
     ? formData.albertaStudentNumber
+    : formData.needsASNCreation
+    ? "RTD Academy will create your K-12 ASN and email it to you"
     : "Will be generated when you are added to Alberta's PASI system";
 
   const personalInfo = [

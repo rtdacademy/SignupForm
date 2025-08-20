@@ -25,6 +25,9 @@ export const getDefaultCourseConfig = (courseId, title = 'New Course') => ({
   },
   courseStructure: {
     units: []
+  },
+  courseOutline: {
+    resources: {}
   }
 });
 
@@ -341,6 +344,55 @@ export const cloneCourseConfig = (sourceConfig, newCourseId, newTitle) => {
       clonedFrom: sourceConfig.courseId
     }
   };
+};
+
+// Resource management utilities
+export const getDefaultResource = () => ({
+  title: '',
+  description: '',
+  type: 'url', // url | embed | pdf
+  url: '',
+  embedCode: '',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+});
+
+export const generateResourceId = (title) => {
+  return title
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .substring(0, 50); // Limit length
+};
+
+export const validateResource = (resource) => {
+  const errors = [];
+  
+  if (!resource.title?.trim()) {
+    errors.push('Resource title is required');
+  }
+  
+  if (!resource.description?.trim()) {
+    errors.push('Resource description is required');
+  }
+  
+  if (!['url', 'embed', 'pdf'].includes(resource.type)) {
+    errors.push('Invalid resource type');
+  }
+  
+  if (resource.type === 'embed' && !resource.embedCode?.trim()) {
+    errors.push('Embed code is required for embedded resources');
+  }
+  
+  if ((resource.type === 'url' || resource.type === 'pdf') && !resource.url?.trim()) {
+    errors.push('URL is required for link and PDF resources');
+  }
+  
+  if (resource.url && !resource.url.match(/^https?:\/\/.+/)) {
+    errors.push('Resource URL must be a valid HTTP(S) URL');
+  }
+  
+  return errors;
 };
 
 // Export/Import functions

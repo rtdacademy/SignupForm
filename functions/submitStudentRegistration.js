@@ -80,12 +80,19 @@ const submitStudentRegistration = onCall({
       throw new HttpsError('invalid-argument', 'Invalid Course ID format');
     }
 
-    // Check if course already exists
+    // Check if student is already actively enrolled in this course
     const existingCourseRef = db.ref(`students/${studentEmailKey}/courses/${numericCourseId}`);
     const existingCourseSnapshot = await existingCourseRef.once('value');
 
     if (existingCourseSnapshot.exists()) {
-      throw new HttpsError('already-exists', 'You are already registered for this course');
+      const courseData = existingCourseSnapshot.val();
+      const status = courseData?.ActiveFutureArchived?.Value;
+      
+      // Only block registration if student has Active, Future, or Registration status
+      // Empty status or Archived status should allow re-registration
+      if (status === 'Active' || status === 'Future' || status === 'Registration') {
+        throw new HttpsError('already-exists', `You are already registered for this course with status: ${status}`);
+      }
     }
 
     // Build the profile data
@@ -106,6 +113,10 @@ const submitStudentRegistration = onCall({
       "StudentEmail": userEmail,
       "StudentPhone": formData.phoneNumber || '',
       "asn": formData.albertaStudentNumber || '',
+      // ASN guidance tracking fields
+      "needsASNCreation": formData.needsASNCreation || false,
+      "hasAttendedAlbertaSchool": formData.hasAttendedAlbertaSchool || null,
+      "knowsASN": formData.knowsASN || null,
       "gender": formData.gender || '',
       "firstName": formData.firstName || '',
       "lastName": formData.lastName || '',

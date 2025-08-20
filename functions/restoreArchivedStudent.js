@@ -64,6 +64,35 @@ const restoreArchivedStudent = onCall({
     throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
   }
 
+  // Verify user has staff permissions
+  const uid = request.auth.uid;
+  const userEmail = request.auth.token.email;
+  
+  try {
+    // Get the user record to check custom claims
+    const userRecord = await admin.auth().getUser(uid);
+    const customClaims = userRecord.customClaims || {};
+    
+    // Check if user is staff (through custom claims or email domain)
+    const isStaff = customClaims.isStaffUser || 
+                    customClaims.staffPermissions?.includes('staff') ||
+                    customClaims.roles?.includes('staff') ||
+                    (userEmail && (userEmail.endsWith('@rtdacademy.com') || userEmail.endsWith('@rtd-connect.com')));
+    
+    if (!isStaff) {
+      console.log(`Access denied for non-staff user: ${userEmail}`);
+      throw new HttpsError('permission-denied', 'Only staff members can restore archived students.');
+    }
+    
+    console.log(`Staff member ${userEmail} restoring archived student`);
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    console.error('Error checking staff permissions:', error);
+    throw new HttpsError('internal', 'Failed to verify staff permissions.');
+  }
+
   const { studentEmail, courseId, mode = 'check' } = request.data;
   
   if (!studentEmail || !courseId) {
@@ -160,7 +189,8 @@ const restoreArchivedStudent = onCall({
         // Analyze what's in the current data
         const hasNotes = !!(currentData.jsonStudentNotes && currentData.jsonStudentNotes.length > 0);
         const noteCount = hasNotes ? currentData.jsonStudentNotes.length : 0;
-        const enrollmentDate = currentData.Created || 'Unknown';
+        // Keep enrollmentDate as null if not present, so formatDate can handle it properly
+        const enrollmentDate = currentData.Created || null;
         const status = currentData.Status?.Value || 'Unknown';
         
         return {

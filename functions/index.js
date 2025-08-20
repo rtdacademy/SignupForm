@@ -355,6 +355,10 @@ exports.course2_assessments = course2AssessmentFunctions.course2_assessments;
 // Course 2 Lab Submission Function (consolidated with assessments)
 exports.course2_lab_submit = course2AssessmentFunctions.course2_lab_submit;
 
+// Universal Assessment Function for all non-Physics courses (3, 4, and future courses)
+const universalAssessmentFunctions = require('./assessments/universal-assessments');
+exports.universal_assessments = universalAssessmentFunctions.universal_assessments;
+
 // Course 2 Lesson 41: Activities Assessment Functions
 const course2_41_activities = require('./courses/2/41-activities/assessments');
 exports.course2_41_station1_q1 = course2_41_activities.course2_41_station1_q1;

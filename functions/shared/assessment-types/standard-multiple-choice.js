@@ -360,6 +360,7 @@ class StandardMultipleChoiceCore {
       attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
       usedQuestionIds: newUsedQuestionIds,
       selectedQuestionIndex: question.originalIndex,
+      enableAIChat: config.enableAIChat !== false, // Add AI chat setting at top level
       settings: {
         showFeedback: config.showFeedback !== false && activityConfig.showDetailedFeedback !== false,
         enableHints: config.enableHints !== false && activityConfig.enableHints !== false,

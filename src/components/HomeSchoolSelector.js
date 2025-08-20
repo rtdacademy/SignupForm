@@ -43,7 +43,7 @@ const HomeSchoolSelector = ({ onAddressSelect, initialValue }) => {
     <div className="space-y-4">
       <div className="relative">
         <GooglePlacesAutocomplete
-          apiKey="AIzaSyCrZ6Nh909XAiAksbBp52wh0lsG9jYFYRA"
+          apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
           selectProps={{
             value: selectedPlace ? { 
               label: selectedPlace.name, 

@@ -930,6 +930,27 @@ const FirebaseCourseWrapperContent = ({
       unit.items && unit.items.some(item => item.itemId === activeItemId)
     );
   }, [unitsList, activeItemId]);
+
+  // Get course-specific AI assistant name
+  const getAIAssistantName = useCallback(() => {
+    const courseId = course?.CourseID || course?.courseId;
+    const courseIdStr = String(courseId);
+    
+    switch(courseIdStr) {
+      case '2':
+        return 'AI Physics Assistant';
+      case '3':
+        return 'AI Math Assistant';
+      case '4':
+        return 'AI Orientation Assistant';
+      case '100':
+        return 'AI Learning Assistant';
+      case '0':
+        return 'AI Physics Assistant';
+      default:
+        return 'AI Course Assistant';
+    }
+  }, [course]);
   
   // Course and profile data available for component logic
   console.log('Course object:', course);
@@ -1518,7 +1539,7 @@ const FirebaseCourseWrapperContent = ({
             
             {/* Tooltip */}
             <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              AI Physics Assistant
+              {getAIAssistantName()}
               <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
             </div>
           </button>
@@ -1537,7 +1558,7 @@ const FirebaseCourseWrapperContent = ({
                 <Bot className="w-6 h-6 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">AI Physics Assistant</span>
+                    <span className="font-semibold">{getAIAssistantName()}</span>
                     {currentActiveItem && (
                       <>
                         <span className="text-white/60">•</span>

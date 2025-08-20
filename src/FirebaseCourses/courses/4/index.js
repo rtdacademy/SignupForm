@@ -240,8 +240,9 @@ const Course4 = ({
       );
     }
 
-    // Get content component using the contentPath from structure
-    const contentPath = activeItem.contentPath;
+    // Get content component directly using itemId as the key
+    // This simplifies the system - itemId is the single source of truth
+    const contentPath = activeItem.contentPath || activeItem.itemId;
     const ContentComponent = contentRegistry[contentPath];
 
     // Loading content logging removed

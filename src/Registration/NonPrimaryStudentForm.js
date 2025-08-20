@@ -387,6 +387,11 @@ const NonPrimaryStudentForm = forwardRef(({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [hasASN, setHasASN] = useState(true);
+  
+  // New ASN guidance states for adult and international students
+  const [hasAttendedAlbertaSchool, setHasAttendedAlbertaSchool] = useState(null);
+  const [knowsASN, setKnowsASN] = useState(null);
+  const [needsASNCreation, setNeedsASNCreation] = useState(false);
 
   // Use our registration settings hook
   const { 
@@ -495,7 +500,11 @@ const NonPrimaryStudentForm = forwardRef(({
       indigenousStatus: '',
       citizenshipDocuments: [],
       howDidYouHear: '',
-      whyApplying: ''
+      whyApplying: '',
+      // ASN guidance fields
+      hasAttendedAlbertaSchool: null,
+      knowsASN: null,
+      needsASNCreation: false
     };
 
     console.log('Initial form data:', formData);
@@ -739,10 +748,23 @@ const NonPrimaryStudentForm = forwardRef(({
       preferredFirstName: () => usePreferredFirstName,
       documents: () => studentType === 'International Student' && !readOnlyFields.documents && !readOnlyFields.internationalDocuments,
       albertaStudentNumber: () => {
-        if (studentType === 'International Student' && !hasASN) {
-          return false; // Do not validate ASN
+        // Don't validate if RTD Academy will create the ASN
+        if (needsASNCreation) {
+          return false;
         }
-        return true; // Validate ASN
+        // Don't validate for international students who don't have ASN
+        if (studentType === 'International Student' && !hasASN) {
+          return false;
+        }
+        // Don't validate if adult/international student hasn't answered the questions yet
+        if ((user18OrOlder || studentType === 'International Student') && hasAttendedAlbertaSchool === null) {
+          return false;
+        }
+        // Don't validate if they attended Alberta schools but haven't decided if they know their ASN
+        if (hasAttendedAlbertaSchool === true && knowsASN === null) {
+          return false;
+        }
+        return true; // Validate ASN in all other cases
       },
       schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
       parentRelationship: () => !user18OrOlder && !readOnlyFields.parentRelationship,
@@ -754,7 +776,7 @@ const NonPrimaryStudentForm = forwardRef(({
     },
     readOnlyFields,
     formData // Pass the entire formData to the validation
-  }), [user18OrOlder, usePreferredFirstName, readOnlyFields, studentType, formData, hasASN]);
+  }), [user18OrOlder, usePreferredFirstName, readOnlyFields, studentType, formData, hasASN, needsASNCreation, hasAttendedAlbertaSchool, knowsASN]);
 
   const rules = useMemo(() => ({
     ...validationRules,
@@ -3219,73 +3241,278 @@ const NonPrimaryStudentForm = forwardRef(({
                 </div>
               )}
 
-              {/* Alberta Student Number (ASN) Section */}
+              {/* Alberta Student Number (ASN) Section - Enhanced Guidance */}
               {readOnlyFields.albertaStudentNumber ? (
                 renderReadOnlyField('albertaStudentNumber', formData.albertaStudentNumber, 'Alberta Student Number (ASN)')
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <h4 className="text-md font-medium">
                     Alberta Student Number (ASN)
-                    {(!studentType === 'International Student' || hasASN) && <span className="text-red-500">*</span>}
+                    <span className="text-red-500">*</span>
                   </h4>
 
-                  {/* Display different messages based on student type */}
-                  {studentType === 'International Student' ? (
-                    <p className="text-sm text-gray-600">
-                      If you have previously studied in Alberta, you may have an ASN.{' '}
-                      <a
-                        href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Click here to check
-                      </a>. If you do not have an ASN, please check the box below.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-600">
-                      Any student that has taken a course in Alberta has an ASN.{' '}
-                      <a
-                        href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Click here to easily find yours
-                      </a>.
-                    </p>
-                  )}
+                  {/* Enhanced guidance for adult and international students */}
+                  {(user18OrOlder || studentType === 'International Student') ? (
+                    <div className="space-y-4">
+                      {/* Question 1: Have you attended K-12 schooling in Alberta? */}
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <p className="text-sm font-medium mb-3">
+                          Have you attended K-12 schooling (Kindergarten through Grade 12) in or from Alberta before?
+                        </p>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasAttendedAlbertaSchool"
+                              value="yes"
+                              checked={hasAttendedAlbertaSchool === true}
+                              onChange={() => {
+                                setHasAttendedAlbertaSchool(true);
+                                setNeedsASNCreation(false);
+                                handleFormChange({
+                                  target: {
+                                    name: 'hasAttendedAlbertaSchool',
+                                    value: true
+                                  }
+                                });
+                              }}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm">Yes, I have attended Alberta K-12 schools</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasAttendedAlbertaSchool"
+                              value="no"
+                              checked={hasAttendedAlbertaSchool === false}
+                              onChange={() => {
+                                setHasAttendedAlbertaSchool(false);
+                                setKnowsASN(null);
+                                setNeedsASNCreation(true);
+                                handleFormChange({
+                                  target: {
+                                    name: 'albertaStudentNumber',
+                                    value: ''
+                                  }
+                                });
+                                handleFormChange({
+                                  target: {
+                                    name: 'hasAttendedAlbertaSchool',
+                                    value: false
+                                  }
+                                });
+                                handleFormChange({
+                                  target: {
+                                    name: 'needsASNCreation',
+                                    value: true
+                                  }
+                                });
+                              }}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm">No, I have never attended K-12 schools in Alberta</span>
+                          </label>
+                        </div>
+                      </div>
 
-                  {/* Checkbox for international students to indicate they don't have an ASN */}
-                  {studentType === 'International Student' && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <input
-                        type="checkbox"
-                        id="noASN"
-                        checked={!hasASN}
-                        onChange={(e) => {
-                          setHasASN(!e.target.checked);
-                          if (e.target.checked) {
-                            // Clear ASN value when they indicate they don't have one
-                            handleFormChange({
-                              target: {
-                                name: 'albertaStudentNumber',
-                                value: ''
+                      {/* Question 2: Do you know your ASN? (Only if attended Alberta schools) */}
+                      {hasAttendedAlbertaSchool === true && (
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                          <p className="text-sm font-medium mb-3">
+                            Do you know your Alberta Student Number (ASN)?
+                          </p>
+                          <div className="space-y-2">
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="knowsASN"
+                                value="yes"
+                                checked={knowsASN === true}
+                                onChange={() => {
+                                  setKnowsASN(true);
+                                  handleFormChange({
+                                    target: {
+                                      name: 'knowsASN',
+                                      value: true
+                                    }
+                                  });
+                                }}
+                                className="text-green-600"
+                              />
+                              <span className="text-sm">Yes, I know my ASN</span>
+                            </label>
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="knowsASN"
+                                value="no"
+                                checked={knowsASN === false}
+                                onChange={() => {
+                                  setKnowsASN(false);
+                                  handleFormChange({
+                                    target: {
+                                      name: 'knowsASN',
+                                      value: false
+                                    }
+                                  });
+                                }}
+                                className="text-green-600"
+                              />
+                              <span className="text-sm">No, but I had one (I need to look it up)</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ASN Input Field (if they know their ASN) */}
+                      {hasAttendedAlbertaSchool === true && knowsASN === true && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">
+                            Please enter your 9-digit ASN:
+                          </label>
+                          <input
+                            type="text"
+                            id="albertaStudentNumber"
+                            name="albertaStudentNumber"
+                            value={formData.albertaStudentNumber}
+                            onChange={handleASNChange}
+                            onBlur={() => handleBlur('albertaStudentNumber')}
+                            className={`w-full p-2 border rounded-md ${
+                              touched.albertaStudentNumber && errors.albertaStudentNumber 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-blue-500'
+                            }`}
+                            placeholder="####-####-#"
+                            maxLength={11}
+                          />
+                          <ValidationFeedback
+                            isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
+                            message={
+                              touched.albertaStudentNumber
+                                ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
+                                : null
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* ASN Lookup (if they don't know their ASN) */}
+                      {hasAttendedAlbertaSchool === true && knowsASN === false && (
+                        <div>
+                          <Alert className="bg-yellow-50 border-yellow-300">
+                            <AlertDescription>
+                              <p className="text-sm mb-2">
+                                Click the link below to look up your ASN:
+                              </p>
+                              <a
+                                href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline font-medium"
+                              >
+                                Look up your Alberta Student Number
+                              </a>
+                            </AlertDescription>
+                          </Alert>
+                          <div className="mt-3">
+                            <label className="text-sm font-medium block mb-2">
+                              Once found, enter it here:
+                            </label>
+                            <input
+                              type="text"
+                              id="albertaStudentNumber"
+                              name="albertaStudentNumber"
+                              value={formData.albertaStudentNumber}
+                              onChange={handleASNChange}
+                              onBlur={() => handleBlur('albertaStudentNumber')}
+                              className={`w-full p-2 border rounded-md ${
+                                touched.albertaStudentNumber && errors.albertaStudentNumber 
+                                  ? 'border-red-500 focus:ring-red-500' 
+                                  : 'border-gray-300 focus:ring-blue-500'
+                              }`}
+                              placeholder="####-####-#"
+                              maxLength={11}
+                            />
+                            <ValidationFeedback
+                              isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
+                              message={
+                                touched.albertaStudentNumber
+                                  ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
+                                  : null
                               }
-                            });
-                          }
-                          handleBlur('albertaStudentNumber');
-                        }}
-                      />
-                      <label htmlFor="noASN" className="text-sm">
-                        I do not have an Alberta Student Number (ASN)
-                      </label>
-                    </div>
-                  )}
+                            />
+                          </div>
+                        </div>
+                      )}
 
-                  {/* Show ASN input only if the student has an ASN */}
-                  {hasASN && (
+                      {/* RTD will create ASN message */}
+                      {hasAttendedAlbertaSchool === false && (
+                        <Alert className="bg-amber-50 border-amber-300">
+                          <AlertDescription>
+                            <div className="space-y-3">
+                              <div className="flex items-start space-x-2">
+                                <span className="text-amber-600 text-lg">⚠️</span>
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-amber-900 mb-2">
+                                    Important: A valid K-12 ASN must be created by a school, not by yourself.
+                                  </p>
+                                  <p className="text-sm text-amber-800 mb-2">
+                                    If you previously created an ASN yourself through ApplyAlberta for post-secondary applications, 
+                                    that ASN <strong>cannot be used</strong> for high school courses at RTD Academy.
+                                  </p>
+                                  <p className="text-sm text-amber-800">
+                                    A self-created ASN will prevent you from:
+                                  </p>
+                                  <ul className="list-disc list-inside text-sm text-amber-800 ml-2 mt-1">
+                                    <li>Creating a myPass account</li>
+                                    <li>Registering for diploma exams</li>
+                                    <li>Viewing your high school marks</li>
+                                    <li>Ordering official transcripts</li>
+                                  </ul>
+                                </div>
+                              </div>
+                              <div className="bg-white p-3 rounded border border-amber-200">
+                                <label className="flex items-start space-x-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={needsASNCreation}
+                                    onChange={(e) => {
+                                      setNeedsASNCreation(e.target.checked);
+                                      handleFormChange({
+                                        target: {
+                                          name: 'needsASNCreation',
+                                          value: e.target.checked
+                                        }
+                                      });
+                                    }}
+                                    className="mt-1 text-blue-600"
+                                  />
+                                  <span className="text-sm">
+                                    <strong>I understand that RTD Academy will create a valid K-12 ASN for me</strong> and email it to me. 
+                                    This is the only ASN that will work for Alberta high school upgrading.
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  ) : (
+                    // Original simpler flow for younger students
                     <>
+                      <p className="text-sm text-gray-600">
+                        Any student that has taken a course in Alberta has an ASN.{' '}
+                        <a
+                          href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Click here to easily find yours
+                        </a>.
+                      </p>
                       <input
                         type="text"
                         id="albertaStudentNumber"
@@ -3299,7 +3526,7 @@ const NonPrimaryStudentForm = forwardRef(({
                             : 'border-gray-300 focus:ring-blue-500'
                         }`}
                         placeholder="####-####-#"
-                        maxLength={11} // Account for the two hyphens
+                        maxLength={11}
                       />
                       <ValidationFeedback
                         isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
@@ -3310,19 +3537,6 @@ const NonPrimaryStudentForm = forwardRef(({
                         }
                       />
                     </>
-                  )}
-
-                  {/* Message to international students who don't have an ASN */}
-                  {studentType === 'International Student' && !hasASN && (
-                    <Alert className="bg-gray-100 text-gray-700 border-gray-300">
-                      <AlertDescription>
-                        <strong className="block mb-2">Important Information for International Students</strong>
-                        Since you do not currently have an Alberta Student Number (ASN), one will be automatically generated for you when we add you to Alberta's PASI system during enrollment. Once this process is complete, your ASN will appear in your profile.
-                        <br />
-                        <br />
-                        This number is essential for your schooling in Alberta, so please keep it safe for future reference.
-                      </AlertDescription>
-                    </Alert>
                   )}
                 </div>
               )}

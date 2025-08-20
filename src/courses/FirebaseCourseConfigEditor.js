@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import CourseStructureBuilder from './CourseStructureBuilder';
+import ResourcesTab from './ResourcesTab';
 import JsonDisplay from '../components/JsonDisplay';
 import {
   loadCourseConfig,
@@ -106,6 +107,16 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
     }));
   };
 
+  const updateResources = (resources) => {
+    setConfig(prev => ({
+      ...prev,
+      courseOutline: {
+        ...prev.courseOutline,
+        resources
+      }
+    }));
+  };
+
   if (loading) {
     return (
       <div className="p-4 text-center">
@@ -145,8 +156,9 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
 
       {/* Configuration Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="structure">Structure</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="weights">Weights</TabsTrigger>
           <TabsTrigger value="attempts">Attempts</TabsTrigger>
           <TabsTrigger value="json">JSON</TabsTrigger>
@@ -157,6 +169,14 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
             courseId={courseId}
             structure={config.courseStructure || {}}
             onUpdate={updateStructure}
+            isEditing={isEditing}
+          />
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <ResourcesTab
+            resources={config.courseOutline?.resources || {}}
+            onUpdate={updateResources}
             isEditing={isEditing}
           />
         </TabsContent>

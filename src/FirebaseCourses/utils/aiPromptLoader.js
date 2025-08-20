@@ -7,10 +7,12 @@
 const promptCache = new Map();
 
 /**
- * Default prompt for lessons without custom prompts
+ * Course-specific default prompts
  */
-const defaultPrompt = {
-  instructions: `You are a helpful Physics 30 tutor. Your role is to:
+const courseDefaultPrompts = {
+  // Physics courses (2 and 0)
+  physics: {
+    instructions: `You are a helpful Physics 30 tutor. Your role is to:
 - Help students understand physics concepts clearly
 - Guide them through problem-solving step by step
 - Encourage critical thinking and conceptual understanding
@@ -21,45 +23,169 @@ When a student asks a question but isn't clear about what specific help they nee
 
 Always adapt your explanations to the student's level of understanding.`,
 
-  conversationHistory: (studentName = '') => {
-    const firstName = studentName || 'there';
-    return [
-      {
-        sender: 'user',
-        text: 'Hello!',
-        timestamp: Date.now() - 1000
-      },
-      {
-        sender: 'model',
-        text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
+    conversationHistory: (studentName = '') => {
+      const firstName = studentName || 'there';
+      return [
+        {
+          sender: 'user',
+          text: 'Hello!',
+          timestamp: Date.now() - 1000
+        },
+        {
+          sender: 'model',
+          text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your AI physics tutor. I'm here to help you understand physics concepts and solve problems. 
 
 ${firstName !== 'there' ? `I know your name is ${firstName}, so I'll make sure to address you personally throughout our conversation. ` : ''}What would you like to work on today? Feel free to ask questions about any physics topic or get help with specific problems.`,
-        timestamp: Date.now()
-      }
-    ];
+          timestamp: Date.now()
+        }
+      ];
+    },
+
+    contextKeywords: ['physics', 'science', 'problem-solving'],
+    difficulty: 'intermediate',
+    
+    // Default AI configuration
+    aiConfig: {
+      model: 'DEFAULT_CHAT_MODEL',
+      temperature: 'BALANCED',
+      maxTokens: 'MEDIUM'
+    },
+    
+    // Default chat configuration
+    chatConfig: {
+      showYouTube: true,
+      showUpload: true,
+      allowContentRemoval: true,
+      showResourcesAtTop: true,
+      predefinedYouTubeVideos: [],
+      predefinedFiles: [],
+      predefinedFilesDisplayNames: {}
+    }
   },
 
-  contextKeywords: ['physics', 'science', 'problem-solving'],
-  difficulty: 'intermediate',
-  
-  // Default AI configuration
-  aiConfig: {
-    model: 'DEFAULT_CHAT_MODEL',
-    temperature: 'BALANCED',
-    maxTokens: 'MEDIUM'
+  // RTD Academy Orientation (Course 4)
+  orientation: {
+    instructions: `You are a helpful RTD Academy orientation assistant. Your role is to:
+- Guide students through RTD Academy policies and procedures
+- Explain academic expectations and requirements
+- Help students understand time management and study strategies
+- Clarify questions about exams, assignments, and academic integrity
+- Provide information about student support services
+
+Be welcoming, clear, and supportive as students navigate their learning journey at RTD Academy.`,
+
+    conversationHistory: (studentName = '') => {
+      const firstName = studentName || 'there';
+      return [
+        {
+          sender: 'user',
+          text: 'Hello!',
+          timestamp: Date.now() - 1000
+        },
+        {
+          sender: 'model',
+          text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your RTD Academy orientation assistant. I'm here to help you understand academy policies, procedures, and support services. 
+
+${firstName !== 'there' ? `Welcome to RTD Academy, ${firstName}! ` : 'Welcome to RTD Academy! '}How can I assist you today? Feel free to ask about course expectations, time management, academic integrity, or any other questions about your learning journey here.`,
+          timestamp: Date.now()
+        }
+      ];
+    },
+
+    contextKeywords: ['orientation', 'policies', 'academic', 'RTD Academy'],
+    difficulty: 'beginner',
+    
+    // Default AI configuration
+    aiConfig: {
+      model: 'DEFAULT_CHAT_MODEL',
+      temperature: 'BALANCED',
+      maxTokens: 'MEDIUM'
+    },
+    
+    // Default chat configuration
+    chatConfig: {
+      showYouTube: false,
+      showUpload: false,
+      allowContentRemoval: true,
+      showResourcesAtTop: false,
+      predefinedYouTubeVideos: [],
+      predefinedFiles: [],
+      predefinedFilesDisplayNames: {}
+    }
   },
-  
-  // Default chat configuration
-  chatConfig: {
-    showYouTube: true,
-    showUpload: true,
-    allowContentRemoval: true,
-    showResourcesAtTop: true,
-    predefinedYouTubeVideos: [],
-    predefinedFiles: [],
-    predefinedFilesDisplayNames: {}
+
+  // Math courses (Course 3)
+  math: {
+    instructions: `You are a helpful mathematics tutor. Your role is to:
+- Help students understand mathematical concepts clearly
+- Guide them through problem-solving step by step
+- Encourage logical thinking and mathematical reasoning
+- Use appropriate mathematical notation and terminology
+- Be patient and supportive
+
+When a student asks a question but isn't clear about what specific help they need, ask probing questions to determine exactly where they may be having difficulties.`,
+
+    conversationHistory: (studentName = '') => {
+      const firstName = studentName || 'there';
+      return [
+        {
+          sender: 'user',
+          text: 'Hello!',
+          timestamp: Date.now() - 1000
+        },
+        {
+          sender: 'model',
+          text: `Hello${firstName !== 'there' ? ` ${firstName}` : ''}! I'm your AI math tutor. I'm here to help you understand mathematical concepts and solve problems. 
+
+${firstName !== 'there' ? `I know your name is ${firstName}, so I'll make sure to address you personally throughout our conversation. ` : ''}What would you like to work on today?`,
+          timestamp: Date.now()
+        }
+      ];
+    },
+
+    contextKeywords: ['mathematics', 'math', 'algebra', 'calculus', 'problem-solving'],
+    difficulty: 'intermediate',
+    
+    aiConfig: {
+      model: 'DEFAULT_CHAT_MODEL',
+      temperature: 'BALANCED',
+      maxTokens: 'MEDIUM'
+    },
+    
+    chatConfig: {
+      showYouTube: true,
+      showUpload: true,
+      allowContentRemoval: true,
+      showResourcesAtTop: true,
+      predefinedYouTubeVideos: [],
+      predefinedFiles: [],
+      predefinedFilesDisplayNames: {}
+    }
   }
 };
+
+/**
+ * Get the appropriate default prompt for a course
+ */
+const getDefaultPromptForCourse = (courseId) => {
+  const courseIdStr = String(courseId);
+  
+  switch(courseIdStr) {
+    case '2':
+    case '0':
+      return courseDefaultPrompts.physics;
+    case '3':
+      return courseDefaultPrompts.math;
+    case '4':
+      return courseDefaultPrompts.orientation;
+    default:
+      // Fallback to physics prompt for unknown courses
+      return courseDefaultPrompts.physics;
+  }
+};
+
+// Keep a reference to the physics prompt as the general default
+const defaultPrompt = courseDefaultPrompts.physics;
 
 /**
  * Maps course IDs to their content paths
@@ -229,7 +355,7 @@ const getLessonFolder = (itemId) => {
 export const loadLessonPrompt = async (courseId, itemId) => {
   if (!courseId || !itemId) {
     console.warn('Missing courseId or itemId, using default prompt');
-    return defaultPrompt;
+    return getDefaultPromptForCourse(courseId || '2'); // Use course-specific default
   }
 
   // Check cache first
@@ -237,6 +363,9 @@ export const loadLessonPrompt = async (courseId, itemId) => {
   if (promptCache.has(cacheKey)) {
     return promptCache.get(cacheKey);
   }
+
+  // Get the course-specific default prompt
+  const courseDefaultPrompt = getDefaultPromptForCourse(courseId);
 
   try {
     // Get the course content path
@@ -255,15 +384,15 @@ export const loadLessonPrompt = async (courseId, itemId) => {
       return promptModule.aiPrompt;
     } else {
       console.warn(`AI prompt file found but no aiPrompt export for lesson: ${itemId}`);
-      return defaultPrompt;
+      return courseDefaultPrompt;
     }
   } catch (error) {
     // File doesn't exist or failed to load
-    console.log(`No custom AI prompt found for lesson: ${itemId}, using default`);
+    console.log(`No custom AI prompt found for lesson: ${itemId}, using course-specific default`);
     
-    // Cache the default to avoid repeated failed imports
-    promptCache.set(cacheKey, defaultPrompt);
-    return defaultPrompt;
+    // Cache the course-specific default to avoid repeated failed imports
+    promptCache.set(cacheKey, courseDefaultPrompt);
+    return courseDefaultPrompt;
   }
 };
 
@@ -291,11 +420,11 @@ export const loadCourseDefaultPrompt = async (courseId) => {
       return promptModule.aiPrompt;
     }
   } catch (error) {
-    // No course default prompt
-    return null;
+    // No custom course default prompt, use built-in course-specific default
+    return getDefaultPromptForCourse(courseId);
   }
   
-  return null;
+  return getDefaultPromptForCourse(courseId);
 };
 
 /**

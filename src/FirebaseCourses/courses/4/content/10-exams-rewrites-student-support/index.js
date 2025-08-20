@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
-const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) => {
+const ExamsRewritesStudentSupportResources = ({ course, courseId, itemId, activeItem, onNavigateToLesson, onNavigateToNext, onAIAccordionContent }) => {
   const [activeSection, setActiveSection] = useState('rewrite-policy');
   const [supportPlanData, setSupportPlanData] = useState({
     academicChallenges: '',
@@ -827,174 +828,68 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto">
-              {/* Question Progress Indicator */}
-              <div className="flex justify-center mb-6">
-                <div className="flex space-x-2">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                        index === currentQuestionIndex
-                          ? 'bg-indigo-600 scale-125'
-                          : questionResults[`question${index + 1}`] === 'correct'
-                          ? 'bg-green-500'
-                          : questionResults[`question${index + 1}`] === 'incorrect'
-                          ? 'bg-red-500'
-                          : 'bg-gray-300 hover:bg-gray-400'
-                      }`}
-                      aria-label={`Go to question ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Question Display */}
-              <div className="relative">
-
-            {currentQuestionIndex === 0 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question1"
-                title="Rewrite Policy Understanding"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question1: true }));
-                  setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 1 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question2"
-                title="Support Services Knowledge"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question2: true }));
-                  setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 2 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question3"
-                title="Student Support Resources"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question3: true }));
-                  setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 3 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question4"
-                title="Academic Planning Requirements"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question4: true }));
-                  setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 4 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question5"
-                title="Exam Support and Accommodations"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question5: true }));
-                  setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 5 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question6"
-                title="Student Readiness Assessment"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question6: true }));
-                  setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 6 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question7"
-                title="Scenario: Requesting Support"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question7: true }));
-                  setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-
-            {currentQuestionIndex === 7 && (
-              <StandardMultipleChoiceQuestion
-                courseId={courseId}
-                cloudFunctionName="course4_10_exams_rewrites_question8"
-                title="Scenario: Exam Rewrite Decision"
-                theme="indigo"
-                onAttempt={(isCorrect) => {
-                  setQuestionsCompleted(prev => ({ ...prev, question8: true }));
-                  setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
-                }}
-              />
-            )}
-              </div>
-
-              {/* Navigation Controls */}
-              <div className="flex justify-between items-center mt-6">
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-                  disabled={currentQuestionIndex === 0}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-
-                <div className="text-sm text-gray-500">
-                  Question {currentQuestionIndex + 1} of 8
-                </div>
-
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
-                  disabled={currentQuestionIndex === 7}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 7
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  Next
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-          </div>
+          <SlideshowKnowledgeCheck
+            courseId={courseId}
+            lessonPath="10-exams-rewrites-student-support"
+            course={course}
+            // onAIAccordionContent={onAIAccordionContent}  // Commented out to hide "Ask AI" button
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question1',
+                title: 'Question 1: Rewrite Policy Understanding'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question2',
+                title: 'Question 2: Support Services Knowledge'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question3',
+                title: 'Question 3: Student Support Resources'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question4',
+                title: 'Question 4: Academic Planning Requirements'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question5',
+                title: 'Question 5: Exam Support and Accommodations'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question6',
+                title: 'Question 6: Student Readiness Assessment'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question7',
+                title: 'Question 7: Requesting Support'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_10_exams_rewrites_question8',
+                title: 'Question 8: Exam Rewrite Decision'
+              }
+            ]}
+            onComplete={(score, results) => {
+              console.log(`Knowledge Check completed with ${score}%`);
+              // Check if all questions are completed successfully
+              const totalQuestions = 8;
+              const correctCount = Object.values(results).filter(result => result === 'correct').length;
+              if (correctCount >= 6 || score >= 75) {  // 75% passing threshold for 8 questions
+                // Mark all questions as completed
+                for (let i = 1; i <= totalQuestions; i++) {
+                  setQuestionsCompleted(prev => ({...prev, [`question${i}`]: true}));
+                }
+                setQuestionResults(results);
+              }
+            }}
+            theme="indigo"
+          />
         </section>
       )}
 

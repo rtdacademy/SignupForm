@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, update } from 'firebase/database';
 import { TableVirtuoso } from 'react-virtuoso';
 import { useAuth } from '../context/AuthContext';
@@ -44,7 +44,10 @@ import {
   CreditCard,
   BookOpen,
   HelpCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Check,
+  Copy,
+  Cake
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
@@ -111,6 +114,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
+import { Input } from '../components/ui/input';
 
 // Utility function to generate consistent color from string
 const stringToColor = (str) => {
@@ -650,6 +659,202 @@ const BulkActionsToolbar = ({
   );
 };
 
+// ASN Edit Popover Component - Allows inline editing of student ASNs
+const ASNEditPopover = ({ student, familyId, onUpdate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [asnValue, setAsnValue] = useState('');
+  const [isValid, setIsValid] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const inputRef = useRef(null);
+
+  // Format ASN for display (1234-5678-9)
+  const formatASN = (value) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    
+    // Format as 1234-5678-9
+    if (digits.length <= 4) {
+      return digits;
+    } else if (digits.length <= 8) {
+      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    } else {
+      return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 9)}`;
+    }
+  };
+
+  // Validate ASN (must be exactly 9 digits)
+  const validateASN = (value) => {
+    const digits = value.replace(/\D/g, '');
+    return digits.length === 9;
+  };
+
+  // Handle input change
+  const handleInputChange = (e) => {
+    const rawValue = e.target.value;
+    const formattedValue = formatASN(rawValue);
+    setAsnValue(formattedValue);
+    setIsValid(validateASN(rawValue));
+  };
+
+  // Handle paste event
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const formattedValue = formatASN(pastedText);
+    setAsnValue(formattedValue);
+    setIsValid(validateASN(pastedText));
+  };
+
+  // Save ASN to database
+  const handleSave = async () => {
+    if (!validateASN(asnValue)) {
+      setIsValid(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const db = getDatabase();
+      const digits = asnValue.replace(/\D/g, '');
+      
+      // Update the student's ASN in the database
+      const studentRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/students/${student.id}/asn`);
+      await update(ref(db, `homeEducationFamilies/familyInformation/${familyId}/students/${student.id}`), {
+        asn: digits
+      });
+
+      // Show success feedback
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setIsOpen(false);
+        // Call the onUpdate callback to refresh the table
+        if (onUpdate) {
+          onUpdate(familyId, student.id, digits);
+        }
+      }, 1500);
+    } catch (error) {
+      console.error('Error updating ASN:', error);
+      setIsValid(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle Enter key
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  // Reset and focus when opening
+  useEffect(() => {
+    if (isOpen) {
+      setAsnValue(student.asn ? formatASN(student.asn) : '');
+      setIsValid(true);
+      setShowSuccess(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 100);
+    }
+  }, [isOpen, student.asn]);
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-300 rounded hover:bg-amber-100 transition-colors"
+          title={`Click to add ASN for ${student.firstName} ${student.lastName}`}
+        >
+          <Edit className="w-3 h-3 text-amber-600" />
+          <span className="text-xs text-amber-700 font-medium">Add ASN</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="start">
+        <div className="space-y-3">
+          <div>
+            <h4 className="font-medium text-sm mb-1">
+              Edit ASN for {student.firstName} {student.lastName}
+            </h4>
+            <p className="text-xs text-gray-500">
+              Enter the 9-digit Alberta Student Number
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                ref={inputRef}
+                type="text"
+                value={asnValue}
+                onChange={handleInputChange}
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+                onBlur={() => {
+                  if (asnValue && validateASN(asnValue)) {
+                    handleSave();
+                  }
+                }}
+                placeholder="1234-5678-9"
+                className={`${!isValid && asnValue ? 'border-red-500 focus:ring-red-500' : ''} ${showSuccess ? 'border-green-500' : ''}`}
+                disabled={isSaving}
+                maxLength={11} // 9 digits + 2 dashes
+              />
+              {showSuccess && (
+                <Check className="absolute right-2 top-2.5 w-4 h-4 text-green-500" />
+              )}
+            </div>
+            
+            {!isValid && asnValue && (
+              <p className="text-xs text-red-500">
+                ASN must be exactly 9 digits
+              </p>
+            )}
+            
+            <p className="text-xs text-gray-400">
+              Format: 1234-5678-9 or paste as 123456789
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800"
+              disabled={isSaving}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!asnValue || !isValid || isSaving}
+              className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving...
+                </>
+              ) : showSuccess ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  Saved!
+                </>
+              ) : (
+                'Save ASN'
+              )}
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 // Dashboard Sheet Component - Displays family dashboard in a resizable sheet
 const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
   const [sheetSize, setSheetSize] = useState('preview');
@@ -734,6 +939,33 @@ const DashboardSheet = ({ isOpen, onClose, family, familyId }) => {
   );
 };
 
+// Helper function to format ASN for display
+const formatASNDisplay = (asn) => {
+  if (!asn) return '';
+  const digits = asn.replace(/\D/g, '');
+  if (digits.length !== 9) return asn;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 9)}`;
+};
+
+// Helper function to calculate age from birthday
+const calculateAge = (birthday) => {
+  if (!birthday) return null;
+  
+  // Parse the birthday string (YYYY-MM-DD format)
+  const birthDate = new Date(birthday + 'T00:00:00'); // Add time to avoid timezone issues
+  const today = new Date();
+  
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  // Adjust if birthday hasn't occurred this year
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
+
 // Memoized table row component for better performance
 const FamilyTableRow = memo(({ 
   row, 
@@ -744,26 +976,14 @@ const FamilyTableRow = memo(({
   onOpenNotes, 
   onToggleAssistance,
   onEmailFamily,
+  onASNUpdate,
   loadingStatuses,
   togglingAssistance,
   isAdmin,
   effectiveEmail
 }) => {
-  // Get student details for tooltip
+  // Get student details
   const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
-  const studentTooltipContent = students.length > 0 ? (
-    <div className="space-y-2">
-      <p className="font-semibold">Students ({students.length}):</p>
-      {students.map((student, idx) => (
-        <div key={idx} className="text-xs border-t pt-1">
-          <p className="font-medium">{student.firstName} {student.lastName}</p>
-          <p>Grade: {student.grade || 'N/A'}</p>
-          {student.asn && <p>ASN: {student.asn}</p>}
-          {student.email && <p>Email: {student.email}</p>}
-        </div>
-      ))}
-    </div>
-  ) : 'No student details available';
   
   const familyBgColor = stringToColor(row.familyName);
   const initials = row.familyName ? row.familyName.substring(0, 2).toUpperCase() : 'FF';
@@ -809,44 +1029,153 @@ const FamilyTableRow = memo(({
         </div>
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="cursor-help">
-                <div className="flex items-center space-x-1 text-sm">
+        <div>
+          <div className="flex items-center space-x-1 text-sm">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button 
+                  className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-100 transition-colors group"
+                  title="Click to view all students"
+                >
                   <GraduationCap className="w-4 h-4 text-blue-500" />
                   <span className="font-medium">{row.studentCount}</span>
                   {row.hasMissingASN && (
-                    <div className="flex items-center">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 ml-1" />
-                      <span className="text-xs text-amber-600 font-medium">
-                        {row.missingASNCount}
-                      </span>
-                    </div>
+                    <>
+                      <div className="flex items-center">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs text-amber-600 font-medium ml-0.5">
+                          {row.missingASNCount}
+                        </span>
+                      </div>
+                    </>
                   )}
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">{row.gradeRange}</div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <div>
-                {studentTooltipContent}
-                {row.hasMissingASN && (
-                  <div className="mt-2 pt-2 border-t border-amber-200">
-                    <p className="text-xs font-medium text-amber-600">
-                      ⚠️ Missing ASN for {row.missingASNCount} student{row.missingASNCount > 1 ? 's' : ''}:
-                    </p>
-                    {row.studentsWithMissingASN.map((student, idx) => (
-                      <p key={idx} className="text-xs text-amber-600 ml-2">
-                        • {student.firstName} {student.lastName}
+                </button>
+              </PopoverTrigger>
+                <PopoverContent className="w-96" align="start">
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="font-medium text-sm mb-1">Student Details - {row.familyName}</h4>
+                      <p className="text-xs text-gray-500">
+                        {row.studentCount} student{row.studentCount > 1 ? 's' : ''} • {row.gradeRange}
                       </p>
-                    ))}
+                    </div>
+                    
+                    {/* All Students List */}
+                    <div className="space-y-2">
+                      {students.map((student, idx) => {
+                        const [copiedBirthday, setCopiedBirthday] = React.useState(false);
+                        const [copiedASN, setCopiedASN] = React.useState(false);
+                        const age = calculateAge(student.birthday);
+                        
+                        const handleCopyBirthday = () => {
+                          if (student.birthday) {
+                            navigator.clipboard.writeText(student.birthday);
+                            setCopiedBirthday(true);
+                            setTimeout(() => setCopiedBirthday(false), 2000);
+                          }
+                        };
+                        
+                        const handleCopyASN = () => {
+                          if (student.asn) {
+                            const formattedASN = formatASNDisplay(student.asn);
+                            navigator.clipboard.writeText(formattedASN);
+                            setCopiedASN(true);
+                            setTimeout(() => setCopiedASN(false), 2000);
+                          }
+                        };
+                        
+                        return (
+                          <div key={idx} className="border rounded-lg p-3 bg-gray-50">
+                            <div className="space-y-2">
+                              {/* Name and Grade Header */}
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {student.firstName} {student.lastName}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-xs text-gray-600">
+                                      Grade: <span className="font-medium">{student.grade || 'N/A'}</span>
+                                    </span>
+                                    {age !== null && (
+                                      <span className="text-xs text-gray-600 flex items-center gap-1">
+                                        <Cake className="w-3 h-3" />
+                                        Age: <span className="font-medium">{age} years</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Birthday with Copy */}
+                              {student.birthday && (
+                                <div className="flex items-center gap-2 bg-white rounded px-2 py-1.5 border border-gray-200">
+                                  <span className="text-xs text-gray-600">Birthday:</span>
+                                  <span className="text-xs font-mono font-medium text-gray-900">
+                                    {student.birthday}
+                                  </span>
+                                  <button
+                                    onClick={handleCopyBirthday}
+                                    className="ml-auto p-1 hover:bg-gray-100 rounded transition-colors"
+                                    title="Copy birthday to clipboard"
+                                  >
+                                    {copiedBirthday ? (
+                                      <Check className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700" />
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                              
+                              {/* Email if exists */}
+                              {student.email && (
+                                <p className="text-xs text-gray-500">Email: {student.email}</p>
+                              )}
+                              
+                              {/* ASN or Add ASN Button */}
+                              {student.asn ? (
+                                <div className="flex items-center gap-2 bg-green-50 rounded px-2 py-1.5 border border-green-200 mt-2">
+                                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                  <span className="text-xs text-gray-600">ASN:</span>
+                                  <span className="text-xs font-mono font-medium text-green-900">
+                                    {formatASNDisplay(student.asn)}
+                                  </span>
+                                  <button
+                                    onClick={handleCopyASN}
+                                    className="ml-auto p-1 hover:bg-green-100 rounded transition-colors"
+                                    title="Copy ASN to clipboard"
+                                  >
+                                    {copiedASN ? (
+                                      <Check className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-green-600 hover:text-green-700" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <p className="text-xs text-amber-600 mb-2">
+                                    ⚠️ ASN needed for registration
+                                  </p>
+                                  <ASNEditPopover 
+                                    student={student} 
+                                    familyId={row.familyId}
+                                    onUpdate={onASNUpdate}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                </PopoverContent>
+              </Popover>
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5">{row.gradeRange}</div>
+        </div>
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
         <FacilitatorSelector
@@ -1501,6 +1830,13 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }
   }, [onOpenEmailSheet]);
 
+  // Handle ASN update callback
+  const handleASNUpdate = useCallback((familyId, studentId, newASN) => {
+    // Force a reload of the page to reflect the ASN change
+    // This is simpler than trying to update all the complex state
+    window.location.reload();
+  }, []);
+
   // Row renderer - Note: We use inline functions here since these handlers are defined within FamilyTable
   const rowContent = useCallback((index, row) => {
     const isSelected = selectedFamilies.has(row.familyId);
@@ -1530,13 +1866,14 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         }}
         onToggleAssistance={handleToggleAssistance}
         onEmailFamily={handleEmailFamily}
+        onASNUpdate={handleASNUpdate}
         loadingStatuses={loadingStatuses}
         togglingAssistance={togglingAssistance}
         isAdmin={isAdmin}
         effectiveEmail={effectiveEmail}
       />
     );
-  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, handleEmailFamily, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
+  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, handleEmailFamily, handleASNUpdate, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
 
   // Handle range changes for lazy loading with extra buffer
   const handleRangeChanged = useCallback((range) => {

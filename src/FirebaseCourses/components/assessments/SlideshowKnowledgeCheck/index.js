@@ -426,9 +426,9 @@ const SlideshowKnowledgeCheck = ({
         } else {
           // Cloud function question - load on demand (no preloading)
           const originalQuestionId = question.questionId || questionId;
-          const cloudFunctionName = (String(courseId) === '2' && originalQuestionId.startsWith('course2_')) 
-            ? 'course2_assessments' 
-            : originalQuestionId;
+          // For course 2, use course2_assessments; for course 4 and others, pass the questionId
+          // StandardMultipleChoiceQuestion will determine the correct cloud function
+          const cloudFunctionName = originalQuestionId;
           
           return (
             <StandardMultipleChoiceQuestion
@@ -452,9 +452,8 @@ const SlideshowKnowledgeCheck = ({
       
       case 'ai-short-answer':
         const originalAIQuestionId = question.questionId || questionId;
-        const aiCloudFunctionName = (String(courseId) === '2' && originalAIQuestionId.startsWith('course2_')) 
-          ? 'course2_assessments' 
-          : originalAIQuestionId;
+        // StandardMultipleChoiceQuestion/AIShortAnswerQuestion will determine the correct cloud function
+        const aiCloudFunctionName = originalAIQuestionId;
         
         return (
           <AIShortAnswerQuestion
@@ -674,29 +673,6 @@ const SlideshowKnowledgeCheck = ({
                               Previous
                             </button>
 
-                            <div className={`text-center bg-white px-6 py-3 rounded-lg border border-${themeConfig.border}`}>
-                              <div className="flex justify-center space-x-6 text-base">
-                                <div className="text-center">
-                                  <div className="font-bold text-blue-600 text-xl">
-                                    {Object.keys(questionsCompleted).length}
-                                  </div>
-                                  <div className="text-sm text-gray-500">Attempted</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="font-bold text-green-600 text-xl">
-                                    {Object.values(questionResults).filter(r => r === 'correct').length}
-                                  </div>
-                                  <div className="text-sm text-gray-500">Correct</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="font-bold text-gray-600 text-xl">
-                                    {questions.length}
-                                  </div>
-                                  <div className="text-sm text-gray-500">Total</div>
-                                </div>
-                              </div>
-                            </div>
-
                             <button
                               onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
                               disabled={currentQuestionIndex === questions.length - 1}
@@ -842,45 +818,6 @@ const SlideshowKnowledgeCheck = ({
               <ChevronLeft className="w-5 h-5 mr-1" />
               Previous
             </button>
-
-            <div className={`text-center bg-white px-4 py-2 rounded-lg border border-${themeConfig.border}`}>
-              <div className="flex justify-center space-x-4 text-sm">
-                <div className="text-center">
-                  <div className="font-bold text-blue-600">
-                    {(() => {
-                      let attemptedCount = 0;
-                      questions.forEach((question, index) => {
-                        const questionId = question.questionId || generateQuestionId(index);
-                        const status = getQuestionStatus(questionId);
-                        if (status.attempted) attemptedCount++;
-                      });
-                      return attemptedCount;
-                    })()}
-                  </div>
-                  <div className="text-xs text-gray-500">Attempted</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-bold text-green-600">
-                    {(() => {
-                      let correctCount = 0;
-                      questions.forEach((question, index) => {
-                        const questionId = question.questionId || generateQuestionId(index);
-                        const status = getQuestionStatus(questionId);
-                        if (status.correct === true) correctCount++;
-                      });
-                      return correctCount;
-                    })()}
-                  </div>
-                  <div className="text-xs text-gray-500">Correct</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-bold text-gray-600">
-                    {questions.length}
-                  </div>
-                  <div className="text-xs text-gray-500">Total</div>
-                </div>
-              </div>
-            </div>
 
             <button
               onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
