@@ -41,10 +41,14 @@ import PaymentDetailsDialog from './PaymentDetailsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 import CreateScheduleButton from './CreateScheduleButton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
+import FormDialog from '../Registration/FormDialog';
+import { RefreshCw } from 'lucide-react';
 
 // Keep the enforcement date constant
 const PAYMENT_ENFORCEMENT_DATE = new Date('2024-11-22');
@@ -99,8 +103,10 @@ const CourseCard = ({
   onGoToCourse, // Keep for backward compatibility
   onGoToFirebaseCourse, // New handler for Firebase courses
   onGoToLMSCourse, // New handler for LMS courses
+  onCourseRefresh, // Handler for refreshing course data after transition
   className = '',
-  profile 
+  profile,
+  importantDates 
 }) => {
   const { currentUser, isEmulating } = useAuth();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -141,6 +147,52 @@ const CourseCard = ({
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [lastEmailSent, setLastEmailSent] = useState(null);
+  const [showTransitionDialog, setShowTransitionDialog] = useState(false);
+
+  // Monitor course.transition for changes
+  useEffect(() => {
+    // If transition was true and now it's false/null, the transition is complete
+    if (course.transition === false || (course.transition === null && showTransitionDialog)) {
+      // Close the dialog if it's open
+      if (showTransitionDialog) {
+        setShowTransitionDialog(false);
+        toast.success('Re-registration complete! You can now access your course.', {
+          duration: 5000
+        });
+        // Trigger course refresh if callback is available
+        if (onCourseRefresh) {
+          onCourseRefresh(course.CourseID || course.id);
+        }
+      }
+    }
+  }, [course.transition, showTransitionDialog, onCourseRefresh, course.CourseID, course.id]);
+
+  // Optional: Set up Firebase listener for real-time updates
+  useEffect(() => {
+    if (!currentUser?.email || !course.CourseID) return;
+    
+    const db = getDatabase();
+    const sanitizedEmail = sanitizeEmail(currentUser.email);
+    const transitionRef = ref(db, `students/${sanitizedEmail}/courses/${course.CourseID}/transition`);
+    
+    const unsubscribe = onValue(transitionRef, (snapshot) => {
+      const transitionValue = snapshot.val();
+      // If transition is false or null, trigger update
+      if (transitionValue === false || transitionValue === null) {
+        if (showTransitionDialog) {
+          setShowTransitionDialog(false);
+          toast.success('Re-registration complete! You can now access your course.', {
+            duration: 5000
+          });
+          if (onCourseRefresh) {
+            onCourseRefresh(course.CourseID);
+          }
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [currentUser?.email, course.CourseID, showTransitionDialog, onCourseRefresh]);
 
   // Check if current user is a developer for this course
   const isDeveloper = (() => {
@@ -262,8 +314,19 @@ const CourseCard = ({
       setShowInstructorContactAlert(true);
     }
   };
-    // Simplify handleGoToCourse to just check schedule and status
+  // Handle transition re-registration
+  const handleTransitionRegistration = () => {
+    setShowTransitionDialog(true);
+  };
+
+  // Simplify handleGoToCourse to just check schedule and status
   const handleGoToCourse = async () => {
+    // Check if course requires transition re-registration
+    if (course.transition === true) {
+      toast.error("You must complete re-registration for the next school year before accessing this course");
+      return;
+    }
+
     // For required courses, we always allow access
     if (course.isRequiredCourse) {
       // Use appropriate handler based on course type
@@ -724,6 +787,57 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     return null;
   };
 
+  // Render transition required message
+  const renderTransitionMessage = () => {
+    if (!course.transition) return null;
+
+    return (
+      <Alert className="mb-4 bg-orange-50 border-orange-200">
+        <RefreshCw className="h-4 w-4 text-orange-500" />
+        <AlertDescription className="text-orange-700">
+          <p className="font-medium mb-2">Re-registration Required</p>
+          <div className="space-y-2">
+            <p className="text-sm">
+              This course requires re-registration for the next school year. 
+              You must complete the re-registration process to continue accessing this course.
+            </p>
+            <p className="text-xs text-orange-600">
+              Your previous enrollment data will be preserved, but you need to confirm your student type and information for the upcoming year.
+            </p>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  // Render schedule required message
+  const renderScheduleRequiredMessage = () => {
+    // Check if this course needs a schedule but doesn't have one
+    const needsSchedule = !hasSchedule && 
+      !effectiveCourseDetails?.doesNotRequireSchedule &&
+      !(effectiveCourseDetails?.firebaseCourse || course.firebaseCourse) &&
+      status === 'Active'; // Only show for active courses
+    
+    if (!needsSchedule) return null;
+    
+    return (
+      <Alert className="mb-4 bg-blue-50 border-blue-200">
+        <FaCalendarPlus className="h-4 w-4 text-blue-500" />
+        <AlertDescription className="text-blue-700">
+          <p className="font-medium mb-2">Schedule Required</p>
+          <div className="space-y-2">
+            <p className="text-sm">
+              You need to create a schedule for this course before you can access the course materials.
+            </p>
+            <p className="text-xs text-blue-600">
+              👉 Please use the <strong>"Create/Edit Schedule"</strong> button below to set up your learning schedule.
+            </p>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
   const renderRegistrationMessage = () => {
     if (status !== 'Registration') return null;
 
@@ -1114,6 +1228,8 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               </Alert>
             )}
 
+            {renderTransitionMessage()}
+            {renderScheduleRequiredMessage()}
             {renderRegistrationMessage()}
             {renderTrialMessage()}
             {renderParentApprovalStatus()}
@@ -1197,8 +1313,16 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               <div className={`grid ${(effectiveCourseDetails?.units || effectiveCourseDetails?.["course-config"]?.courseStructure?.units || course.Gradebook?.courseStructure?.units) && !(effectiveCourseDetails && effectiveCourseDetails.doesNotRequireSchedule) ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
-                {/* Show button in disabled state while loading or if course access is restricted and user is not developer */}
-                {!(effectiveCourseDetails?.restrictCourseAccess === true && !isDeveloper) && (
+                {/* Show transition button if transition is required */}
+                {course.transition === true ? (
+                  <Button
+                    onClick={handleTransitionRegistration}
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2 hover:shadow-xl hover:scale-[1.02] transform"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Complete Re-registration</span>
+                  </Button>
+                ) : !(effectiveCourseDetails?.restrictCourseAccess === true && !isDeveloper) && (
                   <Button
                     onClick={courseDetailsLoading ? undefined : handleGoToCourse}
                     className={`
@@ -1304,6 +1428,34 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Transition Re-registration Dialog */}
+      <FormDialog
+        open={showTransitionDialog}
+        onOpenChange={setShowTransitionDialog}
+        importantDates={importantDates}
+        transitionCourse={{
+          courseId: course.CourseID || course.id,
+          courseName: courseName,
+          currentStudentType: studentType,
+          currentEnrollmentYear: schoolYear
+        }}
+        onTransitionComplete={(studentKey, courseId) => {
+          console.log('Transition complete for:', { studentKey, courseId });
+          // Trigger a refresh of the course data
+          // Option 1: If you have a refresh function from parent
+          if (onCourseRefresh) {
+            onCourseRefresh(courseId);
+          }
+          // Option 2: Force a re-render by updating local state
+          // This will cause the component to re-evaluate the transition flag
+          setShowTransitionDialog(false);
+          // You could also trigger a toast notification here
+          toast.success('Re-registration complete! You can now access your course.', {
+            duration: 5000
+          });
+        }}
+      />
     </>
   );
 };

@@ -20,7 +20,8 @@ import {
   Shield,
   Users,
   FileText,
-  HelpCircle
+  HelpCircle,
+  CheckCircle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -378,7 +379,8 @@ const NonPrimaryStudentForm = forwardRef(({
   initialData, 
   onSave, 
   studentType,
-  importantDates 
+  importantDates,
+  transitionCourse 
 }, ref) => {
   const { user, user_email_key } = useAuth();
   const uid = user?.uid; // Extract uid from user
@@ -429,6 +431,16 @@ const NonPrimaryStudentForm = forwardRef(({
         console.log('Initial data has incomplete registration settings path, will be fixed when currentSchoolYearKey is available');
       }
       
+      // If transition course is provided, override the course selection
+      if (transitionCourse) {
+        return {
+          ...initialData,
+          courseId: transitionCourse.courseId,
+          courseName: transitionCourse.courseName,
+          isTransition: true
+        };
+      }
+      
       return initialData;
     }
   
@@ -468,8 +480,9 @@ const NonPrimaryStudentForm = forwardRef(({
       birthday: '',
       enrollmentYear: defaultEnrollmentYear || '',
       albertaStudentNumber: '',
-      courseId: '',
-      courseName: '',
+      courseId: transitionCourse ? transitionCourse.courseId : '',
+      courseName: transitionCourse ? transitionCourse.courseName : '',
+      isTransition: transitionCourse ? true : false,
       parentFirstName: '',
       parentLastName: '',
       parentPhone: '',
@@ -795,8 +808,24 @@ const NonPrimaryStudentForm = forwardRef(({
       },
       required: true,
       successMessage: "School selected"
+    },
+    additionalInformation: {
+      validate: (value) => {
+        // Only required for transition re-registrations
+        if (transitionCourse) {
+          if (!value || value.trim().length === 0) {
+            return "Please explain your transition circumstances and plans for success";
+          }
+          if (value.trim().length < 50) {
+            return "Please provide more detail about your transition (minimum 50 characters)";
+          }
+        }
+        return null;
+      },
+      required: !!transitionCourse,
+      successMessage: transitionCourse ? "Transition explanation provided" : "Additional information added"
     }
-  }), []);
+  }), [transitionCourse]);
   const {
     errors,
     touched,
@@ -2597,15 +2626,25 @@ const NonPrimaryStudentForm = forwardRef(({
                 <label className="text-sm font-medium">
                   Course Selection <span className="text-red-500">*</span>
                 </label>
+                {transitionCourse && (
+                  <Alert className="mb-2 bg-orange-50 border-orange-200">
+                    <InfoIcon className="h-4 w-4 text-orange-500" />
+                    <AlertDescription className="text-sm text-orange-700">
+                      Re-registering for this course - selection cannot be changed
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <select
                   name="courseId"
                   value={formData.courseId}
                   onChange={handleCourseChange}
                   onBlur={() => handleBlur('courseId')}
                   className={`w-full p-2 border rounded-md ${
+                    transitionCourse ? 'bg-gray-100' : ''
+                  } ${
                     touched.courseId && errors.courseId ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  disabled={coursesLoading}
+                  disabled={coursesLoading || transitionCourse}
                   required
                 >
                   <option value="">Select a course</option>
@@ -4129,26 +4168,63 @@ const NonPrimaryStudentForm = forwardRef(({
           </Card>
 
           {/* Additional Information Card */}
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+          <Card className={`bg-gradient-to-br ${transitionCourse ? 'from-orange-50 to-amber-50 border-t-orange-400' : 'from-blue-50 to-indigo-50 border-t-blue-400'} shadow-md hover:shadow-lg transition-all duration-200 border-t-4`}>
             <CardHeader>
-              <h3 className="text-md font-semibold">Additional Information</h3>
+              <h3 className="text-md font-semibold">
+                {transitionCourse ? 'Transition Explanation (Required)' : 'Additional Information'}
+              </h3>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Is there anything else you would like us to know?
+                  {transitionCourse ? (
+                    <>
+                      Please explain why you need to transition to the next school year
+                      <span className="text-red-500 ml-1">*</span>
+                    </>
+                  ) : (
+                    'Is there anything else you would like us to know?'
+                  )}
                 </label>
+                {transitionCourse && (
+                  <Alert className="mb-2 bg-orange-50 border-orange-200">
+                    <InfoIcon className="h-4 w-4 text-orange-500" />
+                    <AlertDescription className="text-sm text-orange-700">
+                      Help us understand your situation. If you fell behind, what strategies will you use to ensure success this time? 
+                      What support do you need? What will you do differently?
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <textarea
                  name="additionalInformation"
                  value={formData.additionalInformation}
                  onChange={handleFormChange}
                  onBlur={() => handleBlur('additionalInformation')}
-                 className="w-full p-3 border rounded-md min-h-[100px] resize-y"
-                 placeholder="Please share any additional information that might be relevant to your registration (optional)"
+                 className={`w-full p-3 border rounded-md min-h-[120px] resize-y ${
+                   transitionCourse && errors.additionalInformation && touched.additionalInformation 
+                     ? 'border-red-500' 
+                     : ''
+                 }`}
+                 placeholder={transitionCourse 
+                   ? "Example: I had health issues last semester that caused me to miss several weeks. I now have medical support in place and will use the online resources to stay caught up if I need to miss class..."
+                   : "Please share any additional information that might be relevant to your registration (optional)"
+                 }
+                 required={transitionCourse}
                 />
-                <p className="text-sm text-gray-500">
-                  You can use this space to share any additional context, special circumstances, or specific needs we should be aware of.
-                </p>
+                {transitionCourse && errors.additionalInformation && touched.additionalInformation && (
+                  <p className="text-sm text-red-600 mt-1">{errors.additionalInformation}</p>
+                )}
+                {!transitionCourse && (
+                  <p className="text-sm text-gray-500">
+                    You can use this space to share any additional context, special circumstances, or specific needs we should be aware of.
+                  </p>
+                )}
+                {transitionCourse && formData.additionalInformation && formData.additionalInformation.trim().length >= 50 && !errors.additionalInformation && (
+                  <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Transition explanation provided
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

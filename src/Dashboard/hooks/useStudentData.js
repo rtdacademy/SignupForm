@@ -726,7 +726,8 @@ export const useStudentData = (userEmailKey) => {
             'Enrolled_x0020_Date',
             'Final_x0020_Grade',
             'Program',
-            'Semester'
+            'Semester',
+            'transition'  // Monitor transition field for real-time updates
           ];
 
           rootPropertiesToListen.forEach(propertyPath => {

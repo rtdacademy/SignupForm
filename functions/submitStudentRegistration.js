@@ -83,15 +83,25 @@ const submitStudentRegistration = onCall({
     // Check if student is already actively enrolled in this course
     const existingCourseRef = db.ref(`students/${studentEmailKey}/courses/${numericCourseId}`);
     const existingCourseSnapshot = await existingCourseRef.once('value');
+    
+    // Store existing data for preservation if this is a transition
+    let existingCourseData = null;
+    let isTransitionRegistration = false;
 
     if (existingCourseSnapshot.exists()) {
-      const courseData = existingCourseSnapshot.val();
-      const status = courseData?.ActiveFutureArchived?.Value;
+      existingCourseData = existingCourseSnapshot.val();
+      const status = existingCourseData?.ActiveFutureArchived?.Value;
       
-      // Only block registration if student has Active, Future, or Registration status
-      // Empty status or Archived status should allow re-registration
-      if (status === 'Active' || status === 'Future' || status === 'Registration') {
-        throw new HttpsError('already-exists', `You are already registered for this course with status: ${status}`);
+      // Check if this is a transition re-registration
+      if (existingCourseData?.transition === true) {
+        isTransitionRegistration = true;
+        console.log(`Processing transition re-registration for course ${numericCourseId}`);
+      } else {
+        // Only block registration if student has Active, Future, or Registration status
+        // Empty status or Archived status should allow re-registration
+        if (status === 'Active' || status === 'Future' || status === 'Registration') {
+          throw new HttpsError('already-exists', `You are already registered for this course with status: ${status}`);
+        }
       }
     }
 
@@ -151,19 +161,88 @@ const submitStudentRegistration = onCall({
     // Fetch required courses
     const requiredCourses = await fetchRequiredCourses(userEmail);
 
-    // Build the course data
+    // STEP 1: Extract data to preserve if this is a transition
+    let preservedPaymentStatus = null;
+    let preservedNotes = [];
+    let preservedStatusLog = [];
+    let preservedCreatedDate = null;
+    
+    if (isTransitionRegistration && existingCourseData) {
+      // Extract each preserved field explicitly
+      preservedPaymentStatus = existingCourseData.payment_status || null;
+      preservedNotes = Array.isArray(existingCourseData.jsonStudentNotes) 
+        ? existingCourseData.jsonStudentNotes 
+        : [];
+      preservedStatusLog = Array.isArray(existingCourseData.statusLog) 
+        ? existingCourseData.statusLog 
+        : [];
+      preservedCreatedDate = existingCourseData.Created || null;
+      
+      console.log('Preserving transition data:', {
+        hasPaymentStatus: !!preservedPaymentStatus,
+        notesCount: preservedNotes.length,
+        statusLogCount: preservedStatusLog.length,
+        hasCreatedDate: !!preservedCreatedDate
+      });
+    }
+    
+    // STEP 2: Build student notes array
+    let studentNotes = [];
+    
+    // Add transition note if applicable
+    if (isTransitionRegistration) {
+      studentNotes.push({
+        "author": "System",
+        "content": `🔄 Course Transition Re-registration\n\nStudent re-registered for the next school year.\nPrevious Student Type: ${existingCourseData?.StudentType?.Value || 'Unknown'}\nNew Student Type: ${formData.studentType}\nPrevious Year: ${existingCourseData?.School_x0020_Year?.Value || 'Unknown'}\nNew Year: ${formData.enrollmentYear}`,
+        "id": `note-transition-${Date.now()}`,
+        "noteType": "🔄",
+        "timestamp": new Date().toISOString()
+      });
+    }
+    
+    // Add the new registration note
+    studentNotes.push({
+      "author": `${formData.firstName} ${formData.lastName}`,
+      "content": `Student completed the registration form.${
+        formData.needsASNCreation
+          ? '\n\n🆔 ASN Required: RTD Academy needs to create a K-12 ASN for this student.'
+          : ''
+      }${
+        formData.additionalInformation
+          ? '\n\nAdditional Information:\n' + formData.additionalInformation
+          : ''
+      }${
+        requiredCourses.length > 0
+          ? '\n\nAuto-enrolled in required courses.'
+          : ''
+      }${
+        isTransitionRegistration
+          ? '\n\n📌 This is a transition re-registration for the next school year.'
+          : ''
+      }`,
+      "id": `note-${Date.now()}`,
+      "noteType": isTransitionRegistration ? "🔄" : "📝",
+      "timestamp": new Date().toISOString()
+    });
+    
+    // Append preserved notes after new notes
+    if (isTransitionRegistration && preservedNotes.length > 0) {
+      studentNotes = [...studentNotes, ...preservedNotes];
+    }
+
+    // STEP 3: Build clean course data object (no conditional spreading)
     const courseData = {
       "inOldSharePoint": false,
       "ActiveFutureArchived": {
         "Id": 1,
-        "Value": "Registration"
+        "Value": isTransitionRegistration ? "Active" : "Registration"
       },
       "Course": {
         "Id": numericCourseId,
         "Value": formData.courseName || ''
       },
       "CourseID": numericCourseId,
-      "Created": new Date().toISOString(),
+      "Created": new Date().toISOString(), // Will be overwritten if transition
       "ScheduleStartDate": formData.startDate || '',
       "ScheduleEndDate": formData.endDate || '',
       "StudentType": {
@@ -172,7 +251,7 @@ const submitStudentRegistration = onCall({
       },
       "Status": {
         "Id": 1,
-        "Value": "Newly Enrolled"
+        "Value": isTransitionRegistration ? "Re-enrolled" : "Newly Enrolled"
       },
       "Over18_x003f_": {
         "Id": registrationData.studentType === 'Adult Student' ? 1 : (formData.age >= 18 ? 1 : 2),
@@ -186,66 +265,74 @@ const submitStudentRegistration = onCall({
         "Id": 1,
         "Value": formData.enrollmentYear || ''
       },
-      // Add Term information
       "Term": formData.term || 'Full Year',
-      // Add parent approval status for under-18 students
       "parentApproval": {
         "required": formData.age < 18,
         "approved": false,
         "approvedAt": null,
         "approvedBy": null
       },
-      // Single DiplomaMonthChoices conditional that only adds if there's data
-      ...(formData.diplomaMonth && {
-        "DiplomaMonthChoices": {
-          "Id": 1,
-          "Value": formData.diplomaMonth.alreadyWrote
-            ? "Already Wrote"
-            : formData.diplomaMonth.month || ""
-        }
-      }),
-      // Add registration settings information
-      ...(formData.registrationSettingsPath && {
-        "registrationSettingsPath": formData.registrationSettingsPath,
-        "timeSectionId": formData.timeSectionId || null
-      }),
-      ...(registrationData.studentType !== 'Adult Student' && {
-        "primarySchoolName": formData.schoolAddress?.name || '',
-        "primarySchoolAddress": formData.schoolAddress?.fullAddress || '',
-        "primarySchoolPlaceId": formData.schoolAddress?.placeId || ''
-      }),
-      // Add international documents to course data if student is international
-      ...(registrationData.studentType === 'International Student' && {
-        "internationalDocuments": formData.internationalDocuments || 
-          // Fallback to old format if new format is not available
-          (formData.documents ? {
-            "passport": formData.documents.passport || '',
-            "additionalID": formData.documents.additionalID || '',
-            "residencyProof": formData.documents.residencyProof || ''
-          } : [])
-      }),
-      "jsonStudentNotes": [
-        {
-          "author": `${formData.firstName} ${formData.lastName}`,
-          "content": `Student completed the registration form.${
-            formData.needsASNCreation
-              ? '\n\n🆔 ASN Required: RTD Academy needs to create a K-12 ASN for this student.'
-              : ''
-          }${
-            formData.additionalInformation
-              ? '\n\nAdditional Information:\n' + formData.additionalInformation
-              : ''
-          }${
-            requiredCourses.length > 0
-              ? '\n\nAuto-enrolled in required courses.'
-              : ''
-          }`,
-          "id": `note-${Date.now()}`,
-          "noteType": "📝",
-          "timestamp": new Date().toISOString()
-        }
-      ]
+      "jsonStudentNotes": studentNotes
     };
+    
+    // Add optional fields if they exist
+    if (formData.diplomaMonth) {
+      courseData["DiplomaMonthChoices"] = {
+        "Id": 1,
+        "Value": formData.diplomaMonth.alreadyWrote
+          ? "Already Wrote"
+          : formData.diplomaMonth.month || ""
+      };
+    }
+    
+    if (formData.registrationSettingsPath) {
+      courseData["registrationSettingsPath"] = formData.registrationSettingsPath;
+      courseData["timeSectionId"] = formData.timeSectionId || null;
+    }
+    
+    if (registrationData.studentType !== 'Adult Student') {
+      courseData["primarySchoolName"] = formData.schoolAddress?.name || '';
+      courseData["primarySchoolAddress"] = formData.schoolAddress?.fullAddress || '';
+      courseData["primarySchoolPlaceId"] = formData.schoolAddress?.placeId || '';
+    }
+    
+    if (registrationData.studentType === 'International Student') {
+      courseData["internationalDocuments"] = formData.internationalDocuments || 
+        (formData.documents ? {
+          "passport": formData.documents.passport || '',
+          "additionalID": formData.documents.additionalID || '',
+          "residencyProof": formData.documents.residencyProof || ''
+        } : []);
+    }
+    
+    // STEP 4: Merge preserved data for transitions
+    if (isTransitionRegistration) {
+      // Preserve original creation date
+      if (preservedCreatedDate) {
+        courseData["Created"] = preservedCreatedDate;
+      }
+      
+      // Preserve payment status
+      if (preservedPaymentStatus) {
+        courseData["payment_status"] = preservedPaymentStatus;
+      }
+      
+      // Build complete status log with transition entry
+      const transitionEntry = {
+        "status": "Transition Re-registration",
+        "timestamp": new Date().toISOString(),
+        "previousStudentType": existingCourseData?.StudentType?.Value,
+        "newStudentType": formData.studentType,
+        "previousYear": existingCourseData?.School_x0020_Year?.Value,
+        "newYear": formData.enrollmentYear
+      };
+      
+      courseData["statusLog"] = [...preservedStatusLog, transitionEntry];
+      
+      // Clear the transition flag by setting it to null in the course data
+      courseData["transition"] = null;
+      console.log(`Clearing transition flag for course ${numericCourseId}`);
+    }
 
     // Prepare profile updates using flattened object for Firebase update
     const profileUpdates = {};
@@ -274,7 +361,7 @@ const submitStudentRegistration = onCall({
     // Create notifications node for new students
     batch[`notifications/${studentEmailKey}`] = {};
     
-    // Add main course
+    // Add main course (transition flag removal is included in courseData if applicable)
     batch[`students/${studentEmailKey}/courses/${numericCourseId}`] = courseData;
 
     // Add required courses
@@ -409,13 +496,16 @@ const submitStudentRegistration = onCall({
 
     return {
       success: true,
-      message: 'Registration submitted successfully',
+      message: isTransitionRegistration 
+        ? 'Transition re-registration completed successfully. You can now access your course for the new school year.'
+        : 'Registration submitted successfully',
       studentEmailKey: studentEmailKey,
       courseId: numericCourseId,
       requiredCourses: requiredCourses.map(c => ({
         courseId: c.courseId,
         title: c.title
-      }))
+      })),
+      isTransition: isTransitionRegistration
     };
 
   } catch (error) {

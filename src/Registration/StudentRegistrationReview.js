@@ -136,7 +136,7 @@ const DocumentPreview = ({ documents, title }) => {
   );
 };
 
-const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false }) => {
+const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false, transitionCourse }) => {
   const { user } = useAuth();
   const uid = user?.uid;
   const [registrationData, setRegistrationData] = useState(null);
@@ -369,6 +369,31 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
 
   return (
     <div className="space-y-8">
+      {/* Show transition context if applicable */}
+      {transitionCourse && (
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-2">
+              <InfoIcon className="h-5 w-5 text-orange-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-orange-800 mb-2">Course Transition Re-registration</h3>
+                <div className="text-sm text-orange-700 space-y-1">
+                  <p>You are re-registering for <strong>{transitionCourse.courseName}</strong> to continue into the next school year.</p>
+                  {transitionCourse.currentStudentType && formData.studentType !== transitionCourse.currentStudentType && (
+                    <p className="mt-2">
+                      Student type changed from <strong>{transitionCourse.currentStudentType}</strong> to <strong>{formData.studentType}</strong>
+                    </p>
+                  )}
+                  <p className="text-xs mt-2 text-orange-600">
+                    Your previous enrollment data and progress will be preserved.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="space-y-6 pt-6">
           <ReviewSection title="Personal Information" items={personalInfo} />

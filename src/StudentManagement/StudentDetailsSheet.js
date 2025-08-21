@@ -86,23 +86,32 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     const updates = {};
 
     // Determine if this is a course enrollment field or a profile field
-    const isCourseEnrollmentField = ['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field);
+    const isCourseEnrollmentField = ['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value', 'transition'].includes(field);
 
     if (isCourseEnrollmentField) {
-      const fieldName = field.replace('_Value', '');
-      updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
+      if (field === 'transition') {
+        // Handle transition field without /Value suffix
+        updates[`students/${studentKey}/courses/${courseId}/transition`] = value;
+        // Update local state immediately
+        setCourseEnrollmentData(prev => ({
+          ...prev,
+          transition: value
+        }));
+      } else {
+        const fieldName = field.replace('_Value', '');
+        updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
+        // Update local state immediately
+        setCourseEnrollmentData(prev => ({
+          ...prev,
+          [fieldName]: { ...prev[fieldName], Value: value }
+        }));
+      }
       // Add enrollment-specific lastChange tracking
       updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
         userEmail: user?.email || 'unknown',
         timestamp: Date.now(),
         field: field
       };
-      
-      // Update local state immediately
-      setCourseEnrollmentData(prev => ({
-        ...prev,
-        [fieldName]: { ...prev[fieldName], Value: value }
-      }));
     } else if (field === 'ParentPermission_x003f_') {
       updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
       // Add profile-specific lastChange tracking
@@ -299,6 +308,23 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 {renderEditableField("Active", "ActiveFutureArchived_Value", ACTIVE_FUTURE_ARCHIVED_OPTIONS)}
                 
                 {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
+                
+                <div className="space-y-1 mt-4">
+                  <label className="text-sm font-medium">Transition</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="transition-toggle"
+                      checked={courseEnrollmentData.transition || false}
+                      onChange={(e) => handleFieldUpdate('transition', e.target.checked)}
+                      disabled={!hasEditPermission}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="transition-toggle" className="text-sm text-gray-700">
+                      Enable Transition
+                    </label>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </ScrollArea>

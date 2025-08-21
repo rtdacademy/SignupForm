@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card
 import { Button } from "../components/ui/button";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
-import { AlertTriangle, HelpCircle, Check } from "lucide-react";
+import { AlertTriangle, HelpCircle, Check, InfoIcon } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { getStudentTypeInfo, STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
 import { GraduationCap, Home, Sun, User, Globe } from 'lucide-react';
@@ -49,7 +49,7 @@ const questions = [
   }
 ];
 
-function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponent = false, importantDates }) {
+function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponent = false, importantDates, transitionCourse }) {
   const { user } = useAuth();
   const uid = user?.uid;
   const [currentView, setCurrentView] = useState(isFormComponent ? 'initial' : 'questionnaire');
@@ -338,6 +338,25 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
 
   return (
     <div className="space-y-6">
+      {/* Show transition context message */}
+      {transitionCourse && (
+        <Alert className="bg-orange-50 border-orange-200">
+          <InfoIcon className="h-4 w-4 text-orange-500" />
+          <AlertDescription className="text-orange-700">
+            <p className="font-medium mb-1">Re-registering for {transitionCourse.courseName}</p>
+            <p className="text-sm">
+              You are transitioning to the next school year. Your circumstances may have changed, 
+              so please select the student type that best describes your situation for the upcoming year.
+            </p>
+            {transitionCourse.currentStudentType && (
+              <p className="text-xs mt-2 text-orange-600">
+                Previous registration: {transitionCourse.currentStudentType} Student
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />

@@ -353,6 +353,8 @@ const updateStudentCourseSummaryResumingDate = createSpecificPathListener('resum
 
 const updateStudentCourseSummaryPaymentStatus = createSpecificPathListener('payment_status/status', 'payment_status');
 
+const updateStudentCourseSummaryTransition = createSpecificPathListener('transition', 'transition');
+
 // Special listener for previousCourse changes
 const updateStudentCourseSummaryPreviousEnrollment = onValueWritten({
   ref: '/students/{studentId}/courses/{courseId}/previousCourse',
@@ -647,6 +649,9 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     } else {
       summaryData['payment_status'] = '';
     }
+    
+    // For transition field
+    summaryData['transition'] = courseData.transition !== undefined ? courseData.transition : false;
     
     // Check for previous enrollments and continuing student status
     if (courseData.previousCourse) {
@@ -981,6 +986,9 @@ const batchSyncStudentDataV2 = onCall({
               summaryData['payment_status'] = '';
             }
             
+            // For transition field
+            summaryData['transition'] = courseData.transition !== undefined ? courseData.transition : false;
+            
             // Check for previous enrollments and continuing student status
             if (courseData.previousCourse) {
               // Get the latest previous enrollment (highest timestamp)
@@ -1180,6 +1188,7 @@ module.exports = {
   updateStudentCourseSummaryPrimarySchool,
   updateStudentCourseSummaryResumingDate,
   updateStudentCourseSummaryPaymentStatus,
+  updateStudentCourseSummaryTransition,
   updateStudentCourseSummaryPreviousEnrollment,
   updateStudentCourseSummaryScheduleJSON,
   

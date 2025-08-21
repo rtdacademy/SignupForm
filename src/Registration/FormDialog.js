@@ -9,10 +9,11 @@ import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 import StudentRegistrationReview from './StudentRegistrationReview';
 //import { cn } from "../lib/utils";
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, get, remove, set, update } from 'firebase/database';
+import { getDatabase, ref, get, remove, set, update, onValue } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
 import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import {
   Sheet,
   SheetContent,
@@ -32,7 +33,7 @@ import {
   Globe
 } from 'lucide-react';
 
-const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
+const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCourse, onTransitionComplete }) => {
   const trackConversion = useConversionTracking();
   const { user, user_email_key } = useAuth();
   const uid = user?.uid;
@@ -147,8 +148,8 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           let isValid = true;
           let periodMessage = null;
 
-          // Skip validation for Adult and International Students
-          if (studentType !== 'Adult Student' && studentType !== 'International Student') {
+          // Skip validation for Adult and International Students, and for transition re-registrations
+          if (!transitionCourse && studentType !== 'Adult Student' && studentType !== 'International Student') {
             isValid = registrationPeriod.hasActiveWindow;
 
             if (!isValid) {
@@ -216,14 +217,18 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
 
   const handleProceed = async () => {
     if (currentStep === 'type-selection' && selectedStudentType) {
-      // Verify there's an active registration window (except for Adult/International)
-      if (selectedStudentType !== 'Adult Student' && selectedStudentType !== 'International Student') {
-        const activeWindows = getActiveRegistrationWindows(selectedStudentType);
-        const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
-        
-        if (!registrationPeriod.hasActiveWindow) {
-          setError(`There are currently no active registration windows for ${selectedStudentType} students.`);
-          return;
+      // Skip registration window validation for transition re-registrations
+      // as students need to select a new school year on the form page
+      if (!transitionCourse) {
+        // Verify there's an active registration window (except for Adult/International)
+        if (selectedStudentType !== 'Adult Student' && selectedStudentType !== 'International Student') {
+          const activeWindows = getActiveRegistrationWindows(selectedStudentType);
+          const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
+          
+          if (!registrationPeriod.hasActiveWindow) {
+            setError(`There are currently no active registration windows for ${selectedStudentType} students.`);
+            return;
+          }
         }
       }
       
@@ -333,6 +338,72 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
 
         trackConversion();
 
+        // If this was a transition re-registration, set up listeners for completion
+        if (result.data.isTransition && registrationData.formData?.courseId) {
+          const studentKey = sanitizeEmail(user.email);
+          const courseId = registrationData.formData.courseId;
+          
+          console.log('Setting up transition listeners for:', { studentKey, courseId });
+          
+          // Listen for transition flag removal
+          const transitionRef = ref(db, `students/${studentKey}/courses/${courseId}/transition`);
+          const statusRef = ref(db, `students/${studentKey}/courses/${courseId}/Status/Value`);
+          const activeFutureRef = ref(db, `students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`);
+          
+          let transitionListener = null;
+          let statusListener = null;
+          let activeFutureListener = null;
+          let cleanupDone = false;
+          
+          // Cleanup function
+          const cleanup = () => {
+            if (cleanupDone) return;
+            cleanupDone = true;
+            
+            if (transitionListener) transitionListener();
+            if (statusListener) statusListener();
+            if (activeFutureListener) activeFutureListener();
+            
+            // Call the callback if provided
+            if (onTransitionComplete) {
+              onTransitionComplete(studentKey, courseId);
+            }
+          };
+          
+          // Listen for transition flag removal (primary indicator)
+          transitionListener = onValue(transitionRef, (snapshot) => {
+            console.log('Transition flag value:', snapshot.val());
+            if (!snapshot.exists() || snapshot.val() === null) {
+              console.log('Transition flag removed - update complete');
+              cleanup();
+            }
+          });
+          
+          // Also listen for status change as backup
+          statusListener = onValue(statusRef, (snapshot) => {
+            if (snapshot.val() === "Re-enrolled") {
+              console.log('Status changed to Re-enrolled');
+              // Small delay to ensure all updates are complete
+              setTimeout(cleanup, 500);
+            }
+          });
+          
+          // Listen for ActiveFutureArchived change
+          activeFutureListener = onValue(activeFutureRef, (snapshot) => {
+            if (snapshot.val() === "Registration") {
+              console.log('ActiveFutureArchived changed to Registration');
+              // Small delay to ensure all updates are complete
+              setTimeout(cleanup, 500);
+            }
+          });
+          
+          // Set timeout to clean up listeners after 30 seconds (failsafe)
+          setTimeout(() => {
+            console.log('Cleanup timeout reached');
+            cleanup();
+          }, 30000);
+        }
+
         // Reset all form state
         setCurrentStep('type-selection');
         setSelectedStudentType('');
@@ -412,6 +483,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           importantDates={importantDates}
           requiredCourses={requiredCourses}
           loadingRequiredCourses={loadingRequiredCourses}
+          transitionCourse={transitionCourse}
         />
       );
     }
@@ -423,6 +495,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           selectedType={selectedStudentType}
           isFormComponent={true} 
           importantDates={importantDates}
+          transitionCourse={transitionCourse}
         />
       );
     }
@@ -440,6 +513,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             onValidationChange={setIsFormValid}
             studentType={selectedStudentType}
             importantDates={importantDates}
+            transitionCourse={transitionCourse}
             onSave={async (data) => {
               const db = getDatabase();
               const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
@@ -447,6 +521,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
                 studentType: selectedStudentType,
                 currentStep: 'form',
                 formData: data,
+                transitionCourse: transitionCourse,
                 lastUpdated: new Date().toISOString()
               });
             }}
@@ -510,7 +585,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         {trigger}
       </SheetTrigger>
       <SheetContent 
-        className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl flex flex-col h-full overflow-hidden"
+        className="w-full sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl flex flex-col h-full overflow-hidden"
         side="right"
       >
         {loading ? (
@@ -548,12 +623,20 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   {currentStep !== 'form' && (
     <>
       <div className="text-2xl font-semibold">
-        {currentStep === 'type-selection' ? 'Student Information Form' : 'Review Registration'}
+        {transitionCourse ? 
+          (currentStep === 'type-selection' ? 'Course Re-registration' : 'Review Re-registration') :
+          (currentStep === 'type-selection' ? 'Student Information Form' : 'Review Registration')}
       </div>
       <div className="text-gray-600 text-sm">
-        {currentStep === 'type-selection'
-          ? 'Please determine your student type'
-          : 'Please review your information before submitting'}
+        {transitionCourse ? (
+          currentStep === 'type-selection' ?
+            `Re-registering for ${transitionCourse.courseName} - Please select your student type for the next school year` :
+            'Please review your re-registration information before submitting'
+        ) : (
+          currentStep === 'type-selection' ?
+            'Please determine your student type' :
+            'Please review your information before submitting'
+        )}
       </div>
     </>  )}
 </SheetHeader>            {/* Compact Progress Bar - Only show during form step */}
