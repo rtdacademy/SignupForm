@@ -966,6 +966,117 @@ const calculateAge = (birthday) => {
   return age;
 };
 
+// StudentDetailsRow component - Extracted to fix hooks error
+const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx }) => {
+  const [copiedBirthday, setCopiedBirthday] = useState(false);
+  const [copiedASN, setCopiedASN] = useState(false);
+  const age = calculateAge(student.birthday);
+  
+  const handleCopyBirthday = () => {
+    if (student.birthday) {
+      navigator.clipboard.writeText(student.birthday);
+      setCopiedBirthday(true);
+      setTimeout(() => setCopiedBirthday(false), 2000);
+    }
+  };
+  
+  const handleCopyASN = () => {
+    if (student.asn) {
+      const formattedASN = formatASNDisplay(student.asn);
+      navigator.clipboard.writeText(formattedASN);
+      setCopiedASN(true);
+      setTimeout(() => setCopiedASN(false), 2000);
+    }
+  };
+  
+  return (
+    <div key={idx} className="border rounded-lg p-3 bg-gray-50">
+      <div className="space-y-2">
+        {/* Name and Grade Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              {student.firstName} {student.lastName}
+            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs text-gray-600">
+                Grade: <span className="font-medium">{student.grade || 'N/A'}</span>
+              </span>
+              {age !== null && (
+                <span className="text-xs text-gray-600 flex items-center gap-1">
+                  <Cake className="w-3 h-3" />
+                  Age: <span className="font-medium">{age} years</span>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Birthday with Copy */}
+        {student.birthday && (
+          <div className="flex items-center gap-2 bg-white rounded px-2 py-1.5 border border-gray-200">
+            <span className="text-xs text-gray-600">Birthday:</span>
+            <span className="text-xs font-mono font-medium text-gray-900">
+              {student.birthday}
+            </span>
+            <button
+              onClick={handleCopyBirthday}
+              className="ml-auto p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Copy birthday to clipboard"
+            >
+              {copiedBirthday ? (
+                <Check className="w-3.5 h-3.5 text-green-600" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700" />
+              )}
+            </button>
+          </div>
+        )}
+        
+        {/* Email if exists */}
+        {student.email && (
+          <p className="text-xs text-gray-500">Email: {student.email}</p>
+        )}
+        
+        {/* ASN or Add ASN Button */}
+        {student.asn ? (
+          <div className="flex items-center gap-2 bg-green-50 rounded px-2 py-1.5 border border-green-200 mt-2">
+            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="text-xs text-gray-600">ASN:</span>
+            <span className="text-xs font-mono font-medium text-green-900">
+              {formatASNDisplay(student.asn)}
+            </span>
+            <button
+              onClick={handleCopyASN}
+              className="ml-auto p-1 hover:bg-green-100 rounded transition-colors"
+              title="Copy ASN to clipboard"
+            >
+              {copiedASN ? (
+                <Check className="w-3.5 h-3.5 text-green-600" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-green-600 hover:text-green-700" />
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <p className="text-xs text-amber-600 mb-2">
+              ⚠️ ASN needed for registration
+            </p>
+            <ASNEditPopover 
+              student={student} 
+              familyId={familyId}
+              onUpdate={onASNUpdate}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+StudentDetailsRow.displayName = 'StudentDetailsRow';
+
 // Memoized table row component for better performance
 const FamilyTableRow = memo(({ 
   row, 
@@ -1062,113 +1173,15 @@ const FamilyTableRow = memo(({
                     
                     {/* All Students List */}
                     <div className="space-y-2">
-                      {students.map((student, idx) => {
-                        const [copiedBirthday, setCopiedBirthday] = React.useState(false);
-                        const [copiedASN, setCopiedASN] = React.useState(false);
-                        const age = calculateAge(student.birthday);
-                        
-                        const handleCopyBirthday = () => {
-                          if (student.birthday) {
-                            navigator.clipboard.writeText(student.birthday);
-                            setCopiedBirthday(true);
-                            setTimeout(() => setCopiedBirthday(false), 2000);
-                          }
-                        };
-                        
-                        const handleCopyASN = () => {
-                          if (student.asn) {
-                            const formattedASN = formatASNDisplay(student.asn);
-                            navigator.clipboard.writeText(formattedASN);
-                            setCopiedASN(true);
-                            setTimeout(() => setCopiedASN(false), 2000);
-                          }
-                        };
-                        
-                        return (
-                          <div key={idx} className="border rounded-lg p-3 bg-gray-50">
-                            <div className="space-y-2">
-                              {/* Name and Grade Header */}
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-900">
-                                    {student.firstName} {student.lastName}
-                                  </p>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs text-gray-600">
-                                      Grade: <span className="font-medium">{student.grade || 'N/A'}</span>
-                                    </span>
-                                    {age !== null && (
-                                      <span className="text-xs text-gray-600 flex items-center gap-1">
-                                        <Cake className="w-3 h-3" />
-                                        Age: <span className="font-medium">{age} years</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Birthday with Copy */}
-                              {student.birthday && (
-                                <div className="flex items-center gap-2 bg-white rounded px-2 py-1.5 border border-gray-200">
-                                  <span className="text-xs text-gray-600">Birthday:</span>
-                                  <span className="text-xs font-mono font-medium text-gray-900">
-                                    {student.birthday}
-                                  </span>
-                                  <button
-                                    onClick={handleCopyBirthday}
-                                    className="ml-auto p-1 hover:bg-gray-100 rounded transition-colors"
-                                    title="Copy birthday to clipboard"
-                                  >
-                                    {copiedBirthday ? (
-                                      <Check className="w-3.5 h-3.5 text-green-600" />
-                                    ) : (
-                                      <Copy className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700" />
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                              
-                              {/* Email if exists */}
-                              {student.email && (
-                                <p className="text-xs text-gray-500">Email: {student.email}</p>
-                              )}
-                              
-                              {/* ASN or Add ASN Button */}
-                              {student.asn ? (
-                                <div className="flex items-center gap-2 bg-green-50 rounded px-2 py-1.5 border border-green-200 mt-2">
-                                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                  <span className="text-xs text-gray-600">ASN:</span>
-                                  <span className="text-xs font-mono font-medium text-green-900">
-                                    {formatASNDisplay(student.asn)}
-                                  </span>
-                                  <button
-                                    onClick={handleCopyASN}
-                                    className="ml-auto p-1 hover:bg-green-100 rounded transition-colors"
-                                    title="Copy ASN to clipboard"
-                                  >
-                                    {copiedASN ? (
-                                      <Check className="w-3.5 h-3.5 text-green-600" />
-                                    ) : (
-                                      <Copy className="w-3.5 h-3.5 text-green-600 hover:text-green-700" />
-                                    )}
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="mt-2 pt-2 border-t border-gray-200">
-                                  <p className="text-xs text-amber-600 mb-2">
-                                    ⚠️ ASN needed for registration
-                                  </p>
-                                  <ASNEditPopover 
-                                    student={student} 
-                                    familyId={row.familyId}
-                                    onUpdate={onASNUpdate}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {students.map((student, idx) => (
+                        <StudentDetailsRow
+                          key={student.id || idx}
+                          student={student}
+                          familyId={row.familyId}
+                          onASNUpdate={onASNUpdate}
+                          idx={idx}
+                        />
+                      ))}
                     </div>
                   </div>
                 </PopoverContent>
