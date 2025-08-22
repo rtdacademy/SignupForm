@@ -354,22 +354,68 @@ const CollapsibleNavigation = ({
     if (gradeData && course?.courseDetails?.['course-config']?.progressionRequirements?.enabled) {
       const progressionRequirements = course.courseDetails['course-config'].progressionRequirements;
       const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
-      const defaultCriteria = progressionRequirements.defaultCriteria || {};
       
-      const criteria = {
-        minimumPercentage: lessonOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50,
-        requireAllQuestions: lessonOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? true
-      };
+      // Get item type from the course item
+      const itemType = item.type || 'lesson';
       
-      const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
+      // Get default criteria for this item type, with proper fallback
+      const typeDefaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
+      const generalDefaultCriteria = progressionRequirements.defaultCriteria || {};
       
-      if (isSessionBased) {
-        // For session-based items, completion is based on having sessions and meeting minimum score
-        isCompleted = sessionCount > 0 && lessonPercentage >= criteria.minimumPercentage;
-      } else if (criteria.requireAllQuestions) {
-        isCompleted = completionRate >= 100 && lessonPercentage >= criteria.minimumPercentage;
+      // Build criteria based on item type
+      let criteria = {};
+      
+      if (itemType === 'assignment' || itemType === 'exam' || itemType === 'quiz') {
+        criteria = {
+          sessionsRequired: lessonOverride?.sessionsRequired ?? 
+                           typeDefaultCriteria.sessionsRequired ?? 
+                           1
+        };
+        // For session-based items, check if they have completed sessions
+        const examSessions = course?.ExamSessions || {};
+        const completedSessions = Object.values(examSessions).filter(session => {
+          return session?.examItemId === item.itemId && session?.status === 'completed';
+        });
+        isCompleted = completedSessions.length >= criteria.sessionsRequired;
+      } else if (itemType === 'lab') {
+        criteria = {
+          requiresSubmission: lessonOverride?.requiresSubmission ?? 
+                             typeDefaultCriteria.requiresSubmission ?? 
+                             true
+        };
+        // For labs, check if all questions have been submitted
+        if (criteria.requiresSubmission) {
+          const assessments = course?.Assessments || {};
+          const questions = item.questions || [];
+          isCompleted = questions.length > 0 && questions.every(q => 
+            assessments.hasOwnProperty(q.questionId)
+          );
+        } else {
+          isCompleted = true; // No submission required
+        }
       } else {
-        isCompleted = lessonPercentage >= criteria.minimumPercentage;
+        // For lessons or other types
+        criteria = {
+          minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                            typeDefaultCriteria.minimumPercentage ?? 
+                            generalDefaultCriteria.minimumPercentage ?? 
+                            50,
+          requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                              typeDefaultCriteria.requireAllQuestions ?? 
+                              generalDefaultCriteria.requireAllQuestions ?? 
+                              true
+        };
+        
+        const completionRate = totalQuestions > 0 ? (attemptedQuestions / totalQuestions) * 100 : 0;
+        
+        if (isSessionBased) {
+          // For session-based items, completion is based on having sessions and meeting minimum score
+          isCompleted = sessionCount > 0 && lessonPercentage >= criteria.minimumPercentage;
+        } else if (criteria.requireAllQuestions) {
+          isCompleted = completionRate >= 100 && lessonPercentage >= criteria.minimumPercentage;
+        } else {
+          isCompleted = lessonPercentage >= criteria.minimumPercentage;
+        }
       }
     } else {
       // Use gradebook completion status or percentage-based completion
@@ -700,50 +746,100 @@ const CollapsibleNavigation = ({
               <>
                 {(() => {
                   const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements;
-                  const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId];
-                  const defaultCriteria = progressionRequirements.defaultCriteria || {};
+                  const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || 
+                                        progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
                   
-                  // Get criteria for this lesson
-                  const criteria = {
-                    minimumPercentage: lessonOverride?.minimumPercentage ?? 
-                                      defaultCriteria.minimumPercentage ?? 
-                                      progressionRequirements.defaultMinimumPercentage ?? 
-                                      80,
-                    requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
-                                        defaultCriteria.requireAllQuestions ?? 
-                                        false,
-                    questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
-                                                 defaultCriteria.questionCompletionPercentage ?? 
-                                                 null
-                  };
+                  // Get item type from the course item
+                  const itemType = item.type || 'lesson';
                   
-                  // Generate requirement text
-                  let requirementParts = [];
+                  // Get default criteria for this item type, with proper fallback
+                  const typeDefaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
+                  const generalDefaultCriteria = progressionRequirements.defaultCriteria || {};
                   
-                  // Only show score requirement if minimumPercentage > 0
-                  if (criteria.minimumPercentage > 0) {
-                    requirementParts.push(`${criteria.minimumPercentage}% score`);
+                  // Generate requirement text based on item type
+                  if (itemType === 'assignment' || itemType === 'exam' || itemType === 'quiz') {
+                    const sessionsRequired = lessonOverride?.sessionsRequired ?? 
+                                           typeDefaultCriteria.sessionsRequired ?? 
+                                           1;
+                    
+                    // Check current session count
+                    const examSessions = course?.ExamSessions || {};
+                    const completedSessions = Object.values(examSessions).filter(session => {
+                      return session?.examItemId === item.itemId && session?.status === 'completed';
+                    });
+                    const currentSessions = completedSessions.length;
+                    
+                    return (
+                      <p className="text-xs text-blue-600 mt-1">
+                        📋 Need {sessionsRequired} session{sessionsRequired > 1 ? 's' : ''} to unlock next lesson
+                        {currentSessions > 0 && ` (${currentSessions}/${sessionsRequired} completed)`}
+                      </p>
+                    );
+                  } else if (itemType === 'lab') {
+                    const requiresSubmission = lessonOverride?.requiresSubmission ?? 
+                                             typeDefaultCriteria.requiresSubmission ?? 
+                                             true;
+                    
+                    if (requiresSubmission) {
+                      // Check submission status
+                      const assessments = course?.Assessments || {};
+                      const questions = item.questions || [];
+                      const submittedCount = questions.filter(q => 
+                        assessments.hasOwnProperty(q.questionId)
+                      ).length;
+                      
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          🔬 Submit all lab work to unlock next lesson
+                          {questions.length > 0 && ` (${submittedCount}/${questions.length} submitted)`}
+                        </p>
+                      );
+                    } else {
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          🔬 Lab completion not required
+                        </p>
+                      );
+                    }
+                  } else {
+                    // For lessons or other types
+                    const criteria = {
+                      minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                                        typeDefaultCriteria.minimumPercentage ?? 
+                                        generalDefaultCriteria.minimumPercentage ?? 
+                                        50,
+                      requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                                          typeDefaultCriteria.requireAllQuestions ?? 
+                                          generalDefaultCriteria.requireAllQuestions ?? 
+                                          true
+                    };
+                    
+                    // Generate requirement text
+                    let requirementParts = [];
+                    
+                    // Only show score requirement if minimumPercentage > 0
+                    if (criteria.minimumPercentage > 0) {
+                      requirementParts.push(`${criteria.minimumPercentage}% score`);
+                    }
+                    
+                    if (criteria.requireAllQuestions) {
+                      requirementParts.push('all questions');
+                    }
+                    
+                    // If no score requirement and only completion requirement, use simpler text
+                    const requirementText = requirementParts.length > 0 
+                      ? requirementParts.join(' + ')
+                      : 'completion';
+                    
+                    return (
+                      <p className="text-xs text-blue-600 mt-1">
+                        {criteria.minimumPercentage > 0 
+                          ? `📊 Need ${requirementText} to unlock next lesson`
+                          : `✅ Answer ${requirementText} to unlock next lesson`
+                        }
+                      </p>
+                    );
                   }
-                  
-                  if (criteria.requireAllQuestions) {
-                    requirementParts.push('all questions');
-                  } else if (criteria.questionCompletionPercentage && criteria.questionCompletionPercentage > 0) {
-                    requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
-                  }
-                  
-                  // If no score requirement and only completion requirement, use simpler text
-                  const requirementText = requirementParts.length > 0 
-                    ? requirementParts.join(' + ')
-                    : 'completion';
-                  
-                  return (
-                    <p className="text-xs text-blue-600 mt-1">
-                      {criteria.minimumPercentage > 0 
-                        ? `📊 Need ${requirementText} to unlock next lesson`
-                        : `✅ Answer ${requirementText} to unlock next lesson`
-                      }
-                    </p>
-                  );
                 })()}
               </>
             )}

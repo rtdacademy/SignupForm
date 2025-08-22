@@ -21,7 +21,7 @@ export const calculateCourseProgress = (course, allCourseItems = []) => {
   }
 
   const gradebook = course.Gradebook;
-  const progressionRequirements = course.courseDetails?.progressionRequirements || {};
+  const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements || {};
 
   let completedCount = 0;
   const total = allCourseItems.length;
@@ -111,7 +111,7 @@ export const getNavigationProgress = (course, allCourseItems = []) => {
   }
 
   const gradebook = course.Gradebook;
-  const progressionRequirements = course.courseDetails?.progressionRequirements || {};
+  const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements || {};
   const progress = {};
 
   // Process each course item

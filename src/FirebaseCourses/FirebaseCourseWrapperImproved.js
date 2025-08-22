@@ -880,13 +880,18 @@ const FirebaseCourseWrapperContent = ({
       return accessibility;
     }
     
-    // Use the gradebook directly from course.Gradebook
-    const gradebook = course.Gradebook;
-    const courseStructure = gradebook.courseStructure || course.courseStructure;
+    // Get the course structure
+    const courseStructure = {
+      courseStructure: {
+        units: unitsList
+      }
+    };
+    
+    // Get progression requirements from the correct location
+    const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements;
     
     // Only apply sequential access if enabled
-    if (!course.courseDetails?.['course-config']?.globalSettings?.requireSequentialProgress || 
-        !course.courseDetails?.progressionRequirements?.enabled) {
+    if (!progressionRequirements?.enabled) {
       const accessibility = {};
       allCourseItems.forEach(item => {
         accessibility[item.itemId] = { accessible: true, reason: 'Sequential access disabled' };
@@ -894,24 +899,15 @@ const FirebaseCourseWrapperContent = ({
       return accessibility;
     }
     
-    // Use the lesson access logic with gradebook data and actual grades
-    const gradebookWithGrades = {
-      ...gradebook,
-      grades: {
-        assessments: course?.Grades?.assessments || {}
-      },
-      ExamSessions: course?.ExamSessions || {},
-      Assessments: course?.Assessments || {}
-    };
-    
     // Pass developer bypass information to handle inDevelopment restrictions
-    const isDeveloperBypass = shouldBypass;
+    const isDeveloperBypass = shouldBypass || (isAuthorizedDeveloper && isDeveloperModeActive);
     
-    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebookWithGrades, {
+    // Use the simplified lesson access logic with the full course object
+    return getLessonAccessibility(courseStructure, course, {
       isDeveloperBypass,
-      progressionRequirements: course.courseDetails?.progressionRequirements
+      staffOverrides: {} // Add staff overrides if needed
     });
-  }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive]);
+  }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive, unitsList]);
   
   // Find the current active item for the info panel
   const currentActiveItem = useMemo(() => {
