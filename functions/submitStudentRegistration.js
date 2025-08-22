@@ -329,8 +329,8 @@ const submitStudentRegistration = onCall({
       
       courseData["statusLog"] = [...preservedStatusLog, transitionEntry];
       
-      // Clear the transition flag by setting it to null in the course data
-      courseData["transition"] = null;
+      // Clear the transition flag by setting it to false in the course data
+      courseData["transition"] = false;
       console.log(`Clearing transition flag for course ${numericCourseId}`);
     }
 

@@ -701,12 +701,16 @@ const YourWayScheduleMaker = ({
       }));
       setStartingAssignmentOptions(assignmentOptions);
       
-      // For new schedules, automatically select the first assignment
-      if (!hasExistingSchedule && assignmentOptions.length > 0) {
+      // Check if this is a transition student (has transition property defined)
+      const hasTransitionFlag = course?.transition !== undefined;
+      
+      if (!hasTransitionFlag && assignmentOptions.length > 0 && !hasExistingSchedule) {
+        // New student (no transition property) and no existing schedule - auto-select first assignment for convenience
         setSelectedStartingAssignment(assignmentOptions[0]);
         setForceAssignmentSelection(false);
       } else {
-        // For existing schedules, clear selection until user chooses
+        // Transition student, existing schedule, or no options - require manual selection
+        // This allows students to adjust their position during the grace period
         setSelectedStartingAssignment(null);
         setForceAssignmentSelection(true);
       }
@@ -1182,24 +1186,13 @@ const YourWayScheduleMaker = ({
                     }
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
-                    Your diploma exam date is already registered
+                    Your diploma exam date is already set from your registration
                   </div>
                 </div>
               </div>
             </div>
             
-            <Alert className="bg-blue-50 border-blue-200">
-              <InfoIcon className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-700">
-                <div className="space-y-1">
-                  <p className="font-medium">Diploma Date Set</p>
-                  <p className="text-sm">
-                    Your diploma exam date is already registered and cannot be changed through the schedule builder. 
-                    If you need to change your diploma exam date, please contact your instructor.
-                  </p>
-                </div>
-              </AlertDescription>
-            </Alert>
+         
           </div>
         ) : (
           // Original selectable diploma date section
@@ -1261,18 +1254,18 @@ const YourWayScheduleMaker = ({
 
   // Modified section for starting assignment selection
   const startingAssignmentSection = selectedCourse && (
-    <div className={`space-y-2 p-4 rounded-lg border ${
+    <div className={`space-y-3 p-4 rounded-lg border ${
       hasExistingSchedule 
         ? 'bg-blue-50/50 border-blue-100' 
         : 'bg-gray-50/50 border-gray-100'
     }`}>
-      <Label className={hasExistingSchedule ? 'text-blue-800' : 'text-gray-700'}>
-        {hasExistingSchedule ? 'Current Progress' : 'Starting Point'}
-      </Label>
-      
-      {hasExistingSchedule ? (
-        // Only show selection for existing schedules
-        <>
+      <div>
+        <Label className={`block mb-2 ${hasExistingSchedule ? 'text-blue-800' : 'text-gray-700'}`}>
+          {hasExistingSchedule ? 'Current Progress' : 'Starting Point'}
+        </Label>
+        
+        {/* Constrained width dropdown for better UX */}
+        <div className="max-w-md">
           <Select
             value={selectedStartingAssignment?.value?.toString()}
             onValueChange={(value) => {
@@ -1282,56 +1275,43 @@ const YourWayScheduleMaker = ({
             }}
           >
             <SelectTrigger className="w-full bg-white">
-              <SelectValue placeholder="Select your current assignment" />
+              <SelectValue placeholder="Select where to start in the course" />
             </SelectTrigger>
             <SelectContent>
-              <ScrollArea className="h-[200px]">
+              <ScrollArea className="h-[250px]">
                 {startingAssignmentOptions.map((option) => (
                   <SelectItem 
                     key={option.value} 
                     value={option.value.toString()}
-                    className="flex flex-col space-y-1 py-2"
+                    className="py-2"
                   >
-                    <span className="font-medium">{option.label}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {option.unitName} • {option.type}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.unitName} • {option.type}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </ScrollArea>
             </SelectContent>
           </Select>
-          
-          {forceAssignmentSelection && !selectedStartingAssignment && (
-            <Alert variant="warning" className="mt-2">
-              <AlertDescription className="text-yellow-800">
-                Please select your current progress to continue. This helps ensure your new schedule aligns with where you are in the course.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <p className="text-sm text-blue-600">
-            Select the assignment you're currently working on to update your schedule from this point forward.
-          </p>
-        </>
-      ) : (
-        // For new schedules, just show the first assignment as the starting point
-        <>
-          <div className="p-3 bg-white border rounded-md">
-            <div className="font-medium text-gray-900">
-              {selectedStartingAssignment?.label}
-            </div>
-            {selectedStartingAssignment && (
-              <div className="text-sm text-gray-500 mt-1">
-                {selectedStartingAssignment.unitName} • {selectedStartingAssignment.type}
-              </div>
-            )}
-          </div>
-          <p className="text-sm text-gray-600">
-            Your schedule will begin with the first lesson in the course.
-          </p>
-        </>
+        </div>
+      </div>
+      
+      {forceAssignmentSelection && !selectedStartingAssignment && (
+        <Alert variant="warning" className="mt-2">
+          <AlertDescription className="text-yellow-800">
+            Please select where you want to start in the course. This is required to create your schedule.
+          </AlertDescription>
+        </Alert>
       )}
+      
+      <p className="text-sm text-muted-foreground mt-2">
+        {hasExistingSchedule 
+          ? "Select the assignment you're currently working on to update your schedule from this point forward."
+          : "Choose where to begin in the course. New students typically start with the first lesson, while continuing students can select their current position."}
+      </p>
     </div>
   );
 

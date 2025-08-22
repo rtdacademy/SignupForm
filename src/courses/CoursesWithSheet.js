@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getDatabase, ref, onValue, query, orderByChild, equalTo, startAt, endAt } from 'firebase/database';
+import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, startAt, endAt } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -113,15 +113,37 @@ function CoursesWithSheet() {
 
     // Fetch courses
     const coursesRef = ref(db, 'courses');
-    const unsubscribeCourses = onValue(coursesRef, (snapshot) => {
+    const unsubscribeCourses = onValue(coursesRef, async (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setCourses(data);
-        if (selectedCourseId) {
-          setCourseData(data[selectedCourseId]);
+        // Fetch course-config data for each course to get progressionRequirements
+        const coursesWithConfig = { ...data };
+        for (const courseId of Object.keys(data)) {
+          if (courseId !== 'sections') {
+            try {
+              const configRef = ref(db, `courses/${courseId}/course-config`);
+              const configSnapshot = await get(configRef);
+              if (configSnapshot.exists()) {
+                const configData = configSnapshot.val();
+                // Merge course-config data into the course data
+                coursesWithConfig[courseId] = {
+                  ...coursesWithConfig[courseId],
+                  progressionRequirements: configData.progressionRequirements || coursesWithConfig[courseId].progressionRequirements,
+                  'course-config': configData
+                };
+              }
+            } catch (error) {
+              console.error(`Error fetching course-config for course ${courseId}:`, error);
+            }
+          }
+        }
+        
+        setCourses(coursesWithConfig);
+        if (selectedCourseId && coursesWithConfig[selectedCourseId]) {
+          setCourseData(coursesWithConfig[selectedCourseId]);
           // Set course weights if they exist; otherwise, use default values
           setCourseWeights(
-            data[selectedCourseId]?.weights || {
+            coursesWithConfig[selectedCourseId]?.weights || {
               lesson: 0.2,
               assignment: 0.2,
               exam: 0.6
@@ -179,12 +201,32 @@ function CoursesWithSheet() {
   }, [user, isStaff, navigate, selectedCourseId]);
 
   // Handler functions to update state
-  const handleCourseSelect = (courseId) => {
+  const handleCourseSelect = async (courseId) => {
     setSelectedCourseId(courseId);
     if (courses[courseId]) {
-      setCourseData(courses[courseId]);
+      // If we don't have course-config data yet, fetch it
+      let courseDataToSet = courses[courseId];
+      if (!courseDataToSet['course-config']) {
+        try {
+          const db = getDatabase();
+          const configRef = ref(db, `courses/${courseId}/course-config`);
+          const configSnapshot = await get(configRef);
+          if (configSnapshot.exists()) {
+            const configData = configSnapshot.val();
+            courseDataToSet = {
+              ...courseDataToSet,
+              progressionRequirements: configData.progressionRequirements || courseDataToSet.progressionRequirements,
+              'course-config': configData
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching course-config for course ${courseId}:`, error);
+        }
+      }
+      
+      setCourseData(courseDataToSet);
       setCourseWeights(
-        courses[courseId].weights || {
+        courseDataToSet.weights || {
           lesson: 0.2,
           assignment: 0.2,
           exam: 0.6

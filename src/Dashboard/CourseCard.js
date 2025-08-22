@@ -270,15 +270,12 @@ const CourseCard = ({
     );
   };
 
-  // Calculate grace period status - only relevant if a schedule already exists
+  // Calculate grace period status - works even before schedule is created
   const calculateGracePeriod = () => {
-    // If no schedule exists yet, no grace period applies
-    if (!hasSchedule) return { isInGracePeriod: false, daysRemaining: 0, gracePeriodEndDate: null, noScheduleYet: true };
-    
-    // Always use course start date as the reference for grace period
+    // Use course start date as the reference for grace period (available from registration)
     const courseStartDate = course.ScheduleStartDate ? new Date(course.ScheduleStartDate) : null;
     
-    if (!courseStartDate) return { isInGracePeriod: false, daysRemaining: 0, gracePeriodEndDate: null };
+    if (!courseStartDate) return { isInGracePeriod: false, daysRemaining: 0, gracePeriodEndDate: null, noScheduleYet: !hasSchedule };
     
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
@@ -297,7 +294,8 @@ const CourseCard = ({
       isInGracePeriod,
       daysRemaining: Math.max(0, daysRemaining),
       gracePeriodEndDate: gracePeriodEnd,
-      hasStarted: true // Always true if schedule exists
+      hasStarted: hasSchedule,
+      noScheduleYet: !hasSchedule
     };
   };
   
@@ -593,27 +591,51 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
   // Function to render subtle grace period info
   const renderGracePeriodInfo = () => {
-    if (!hasSchedule || !gracePeriodInfo || gracePeriodInfo.noScheduleYet) {
+    if (!gracePeriodInfo) {
       return null;
     }
 
-    const { isInGracePeriod, daysRemaining, gracePeriodEndDate } = gracePeriodInfo;
+    const { isInGracePeriod, daysRemaining, gracePeriodEndDate, noScheduleYet } = gracePeriodInfo;
     
-    if (isInGracePeriod) {
-      const isEndingSoon = daysRemaining <= 3;
-      return (
-        <div className={`text-xs ${isEndingSoon ? 'text-amber-600' : 'text-gray-500'} text-center mt-2`}>
-          {isEndingSoon && '⚠️ '}
-          You can modify your schedule for {daysRemaining} more day{daysRemaining !== 1 ? 's' : ''}
-        </div>
-      );
-    } else {
-      return (
-        <div className="text-xs text-gray-500 text-center mt-2">
-          Schedule locked • Contact instructor for changes
-        </div>
-      );
+    // Show message even before schedule is created
+    if (noScheduleYet && course.ScheduleStartDate) {
+      if (isInGracePeriod) {
+        const isEndingSoon = daysRemaining <= 3;
+        return (
+          <div className={`text-xs ${isEndingSoon ? 'text-amber-600' : 'text-gray-500'} text-center mt-2`}>
+            {isEndingSoon && '⚠️ '}
+            You'll be able to modify your schedule for {daysRemaining} more day{daysRemaining !== 1 ? 's' : ''} after creation
+          </div>
+        );
+      } else {
+        return (
+          <div className="text-xs text-gray-500 text-center mt-2">
+            Grace period has passed • Schedule changes will require instructor approval
+          </div>
+        );
+      }
     }
+    
+    // Original messages for when schedule exists
+    if (hasSchedule) {
+      if (isInGracePeriod) {
+        const isEndingSoon = daysRemaining <= 3;
+        return (
+          <div className={`text-xs ${isEndingSoon ? 'text-amber-600' : 'text-gray-500'} text-center mt-2`}>
+            {isEndingSoon && '⚠️ '}
+            You can modify your schedule for {daysRemaining} more day{daysRemaining !== 1 ? 's' : ''}
+          </div>
+        );
+      } else {
+        return (
+          <div className="text-xs text-gray-500 text-center mt-2">
+            Schedule locked • Contact instructor for changes
+          </div>
+        );
+      }
+    }
+    
+    return null;
   };
 
   // Updated renderScheduleButtons function

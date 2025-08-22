@@ -689,11 +689,6 @@ const updateStatus = useCallback(async (newStatus) => {
       if (selectedStatusOption?.activeFutureArchivedValue) {
         if (!updatedData.ActiveFutureArchived) updatedData.ActiveFutureArchived = {};
         updatedData.ActiveFutureArchived.Value = selectedStatusOption.activeFutureArchivedValue;
-        
-        // If setting to Archived, also set ColdStorage to trigger archiving
-        if (selectedStatusOption.activeFutureArchivedValue === 'Archived') {
-          updatedData.ColdStorage = true;
-        }
       }
       
       // Update auto status flag
@@ -1699,12 +1694,38 @@ const handleStatusChange = useCallback(async (newStatus) => {
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
             {isColdStorage ? (
-              <div className="border rounded-md p-2 text-center bg-cyan-50 border-cyan-200">
+              <div className="border rounded-md p-2 bg-cyan-50 border-cyan-200">
                 <div className="flex items-center justify-center mb-1 text-cyan-700">
                   <span className="mr-2"><ArchiveRestore className="h-4 w-4" /></span>
                   <span className="font-medium">Student is Archived</span>
                 </div>
-                <p className="text-xs text-cyan-600">This student's data has been archived. Use the Restore button below to restore access.</p>
+                <p className="text-xs text-cyan-600 mb-2">This student's data is ready for cold storage archiving.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const db = getDatabase();
+                    const studentKey = sanitizeEmail(student.StudentEmail);
+                    const courseId = student.CourseID || student.courseId;
+                    const summaryKey = `${studentKey}_${courseId}`;
+                    
+                    try {
+                      await set(ref(db, `/studentCourseSummaries/${summaryKey}/ColdStorage`), true);
+                      toast.info('Initiating cold storage archiving...', {
+                        description: 'The student data will be archived shortly.',
+                        duration: 3000
+                      });
+                    } catch (error) {
+                      console.error('Error triggering cold storage:', error);
+                      toast.error('Failed to initiate cold storage');
+                    }
+                  }}
+                >
+                  <Snowflake className="h-4 w-4" />
+                  Move to Cold Storage
+                </Button>
               </div>
             ) : (
               <DropdownMenu>

@@ -776,7 +776,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
   const updateDatabase = async (updatedRequirements) => {
     try {
       const db = getDatabase();
-      const courseRef = ref(db, `courses/${courseId}`);
+      const courseRef = ref(db, `courses/${courseId}/course-config`);
       await update(courseRef, { 
         progressionRequirements: updatedRequirements 
       });

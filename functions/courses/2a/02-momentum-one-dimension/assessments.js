@@ -8,19 +8,13 @@
  */
 
 
-const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../../../shared/utilities/config-loader');
+// Removed dependency on config file - settings are now handled directly in assessment configurations
 //const { MOMENTUM_RUBRICS } = require('../../../shared/rubrics');
-const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
 // Options: 'lesson', 'assignment', 'lab', 'exam'
-// This determines which default settings are used from course-config.json
 const ACTIVITY_TYPE = 'lesson';
-
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
-//const longAnswerDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE, 'longAnswer');
 
 
 

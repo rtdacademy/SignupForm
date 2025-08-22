@@ -61,11 +61,6 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
       // Update the ActiveFutureArchived/Value for this student course
       updates[`students/${studentKey}/courses/${record.courseId}/ActiveFutureArchived/Value`] = record.expectedState;
       
-      // If setting to Archived, also set ColdStorage to trigger archiving
-      if (record.expectedState === 'Archived') {
-        updates[`students/${studentKey}/courses/${record.courseId}/ColdStorage`] = true;
-      }
-      
       await update(ref(db), updates);
       
       toast.success(`Updated ActiveFutureArchived state to "${record.expectedState}" for ${record.studentName}`);
@@ -93,11 +88,6 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
       
       // Update the ActiveFutureArchived/Value for this student course
       updates[`students/${studentKey}/courses/${record.courseId}/ActiveFutureArchived/Value`] = newState;
-      
-      // If setting to Archived, also set ColdStorage to trigger archiving
-      if (newState === 'Archived') {
-        updates[`students/${studentKey}/courses/${record.courseId}/ColdStorage`] = true;
-      }
       
       await update(ref(db), updates);
       

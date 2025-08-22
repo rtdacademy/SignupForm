@@ -12,13 +12,12 @@ if (!admin.apps.length) {
 
 // Archive function
 const archiveStudentDataV2 = onValueWritten({
-  ref: '/students/{studentKey}/courses/{courseId}/ColdStorage',
+  ref: '/studentCourseSummaries/{summaryKey}/ColdStorage',
   region: 'us-central1',
   memory: '1GiB',
   concurrency: 80
 }, async (event) => {
-  const studentKey = event.params.studentKey;
-  const courseId = event.params.courseId;
+  const summaryKey = event.params.summaryKey;
   
   // Check if value changed to true
   const beforeValue = event.data.before.val();
@@ -29,9 +28,7 @@ const archiveStudentDataV2 = onValueWritten({
     return null;
   }
   
-  // Construct the summaryKey from studentKey and courseId
-  const summaryKey = `${studentKey}_${courseId}`;
-  console.log(`Starting archive process for student: ${studentKey}, course: ${courseId}, summaryKey: ${summaryKey}`);
+  console.log(`Starting archive process for summaryKey: ${summaryKey}`);
   
   const db = admin.database();
   const storage = admin.storage().bucket();
@@ -48,6 +45,8 @@ const archiveStudentDataV2 = onValueWritten({
 
     // Extract required properties
     const studentEmail = summaryData.StudentEmail;
+    const studentKey = sanitizeEmail(studentEmail);
+    const courseId = summaryData.CourseID;
     const asn = summaryData.asn;
     const lmsStudentId = summaryData.LMSStudentID;
 
@@ -168,7 +167,7 @@ const archiveStudentDataV2 = onValueWritten({
     }
 
     // Update ColdStorage status to completed
-    await db.ref(`/students/${studentKey}/courses/${courseId}/ColdStorage`).set('completed');
+    await db.ref(`/studentCourseSummaries/${summaryKey}/ColdStorage`).set('completed');
     // Also update archive status in summary for backward compatibility
     await db.ref(`/studentCourseSummaries/${summaryKey}/archiveStatus`).set('Completed');
 
@@ -180,8 +179,6 @@ const archiveStudentDataV2 = onValueWritten({
     
     // Log the error
     await db.ref('errorLogs/archiveStudentData').push({
-      studentKey,
-      courseId,
       summaryKey,
       error: error.message,
       stack: error.stack,
@@ -189,7 +186,7 @@ const archiveStudentDataV2 = onValueWritten({
     });
 
     // Update the status to indicate failure
-    await db.ref(`/students/${studentKey}/courses/${courseId}/ColdStorage`).set('failed');
+    await db.ref(`/studentCourseSummaries/${summaryKey}/ColdStorage`).set('failed');
     // Also update archive status in summary for backward compatibility
     await db.ref(`/studentCourseSummaries/${summaryKey}/archiveStatus`).set('Failed');
     
