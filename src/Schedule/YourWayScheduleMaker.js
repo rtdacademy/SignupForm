@@ -78,7 +78,17 @@ const DragAndDropCalendar = withDragAndDrop(Calendar);
 
 // Calculate expected time for each type
 const calculateExpectedTimes = (course, totalHours) => {
-  const items = course.units.flatMap(unit => unit.items);
+  // Guard against missing units
+  if (!course || !course.units || !Array.isArray(course.units)) {
+    console.warn('Course units not available for calculateExpectedTimes');
+    return {
+      exam: 120, // 2 hours in minutes
+      assignment: 60, // 1 hour in minutes
+      lesson: 60, // Default 1 hour for lessons
+    };
+  }
+  
+  const items = course.units.flatMap(unit => unit.items || []);
   const examCount = items.filter(item => item.type?.toLowerCase() === 'exam').length;
   const assignmentCount = items.filter(item => item.type?.toLowerCase() === 'assignment').length;
   const lessonCount = items.filter(item => item.type?.toLowerCase() === 'lesson').length;
@@ -397,15 +407,39 @@ const YourWayScheduleMaker = ({
       const fetchCourseById = async (id) => {
         const db = getDatabase();
         
-        // First, try to fetch the new course structure format
+        // Check if course already has courseDetails with course-config (Firebase courses)
+        if (course.courseDetails?.['course-config']?.courseStructure?.units) {
+          console.log('Firebase course detected with course-config structure');
+          const combinedCourseData = {
+            courseStructure: course.courseDetails['course-config'].courseStructure,
+            // Merge in other course data
+            ...course
+          };
+          
+          // Adapt the course structure to work with YourWay components
+          const adaptedCourse = adaptCourseData(combinedCourseData, id);
+          
+          if (adaptedCourse) {
+            setSelectedCourse(adaptedCourse);
+            handleCourseData(adaptedCourse, id);
+            console.log('Successfully adapted Firebase course format:', adaptedCourse);
+          } else {
+            console.error('Failed to adapt Firebase course format');
+            toast.error('Failed to adapt course structure');
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Try to fetch the new course structure format from student's Gradebook
         const newFormatRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${id}/Gradebook/courseStructure`);
         
         try {
-          console.log('Checking for new course format...');
+          console.log('Checking for new course format in student Gradebook...');
           const newFormatSnapshot = await get(newFormatRef);
           
           if (newFormatSnapshot.exists()) {
-            console.log('New course format detected, adapting for YourWay compatibility');
+            console.log('New course format detected in Gradebook, adapting for YourWay compatibility');
             const newFormatData = newFormatSnapshot.val();
             
             // Get additional course data from the student's course record
@@ -645,7 +679,7 @@ const YourWayScheduleMaker = ({
   };
 
   useEffect(() => {
-    if (selectedCourse) {
+    if (selectedCourse && selectedCourse.units) {
       const expectedTimes = calculateExpectedTimes(selectedCourse, courseHours);
     }
   }, [selectedCourse, courseHours]);
@@ -682,10 +716,10 @@ const YourWayScheduleMaker = ({
 
   // Modified useEffect for starting assignment options
   useEffect(() => {
-    if (selectedCourse) {
+    if (selectedCourse && selectedCourse.units) {
       // Flatten all items from all units into a single array
       const flattenedItems = selectedCourse.units.flatMap(unit => 
-        unit.items.map(item => ({
+        (unit.items || []).map(item => ({
           ...item,
           unitName: unit.name
         }))
@@ -1431,13 +1465,7 @@ const YourWayScheduleMaker = ({
               <p className="text-lg font-semibold">
                 {selectedCourse ? selectedCourse.Title : "Loading..."}
               </p>
-              {selectedCourse && supportsEnhancedFeatures(selectedCourse) && (
-                <div className="mt-2">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    ✨ Enhanced Course Format
-                  </span>
-                </div>
-              )}
+           
             </div>
           ) : (
             <div>

@@ -7,6 +7,7 @@ import GradebookSummary, { getLastActivityTime, getRelativeTime } from './Gradeb
 import AssessmentGridProps from './AssessmentGridProps';
 import { createEnrichedCourseItems, getCourseUnitsList } from '../../utils/courseItemsUtils';
 import { sanitizeEmail } from '../../../utils/sanitizeEmail';
+import { getLessonAccessibility } from '../../utils/lessonAccess';
 
 /**
  * GradebookDashboard with realtime Firebase listeners
@@ -27,6 +28,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
   const [realtimeGrades, setRealtimeGrades] = useState(null);
   const [itemStructure, setItemStructure] = useState(null);
   const [realtimeCourseStructure, setRealtimeCourseStructure] = useState(null);
+  const [progressionExemptions, setProgressionExemptions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -56,6 +58,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     const gradesRef = ref(database, `students/${userEmailKey}/courses/${courseId}/Grades`);
     const itemStructureRef = ref(database, `courses/${courseId}/course-config/itemStructure`);
     const courseStructureRef = ref(database, `courses/${courseId}/course-config/courseStructure`);
+    const exemptionsRef = ref(database, `students/${userEmailKey}/courses/${courseId}/progressionExemptions`);
 
     setLoading(true);
     setError(null);
@@ -108,6 +111,11 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
       setRealtimeCourseStructure(data);
     }, (error) => handleError(error, 'courseStructure'));
 
+    const unsubscribeExemptions = onValue(exemptionsRef, (snapshot) => {
+      const data = snapshot.exists() ? snapshot.val() : null;
+      setProgressionExemptions(data);
+    }, (error) => handleError(error, 'progressionExemptions'));
+
     // Set loading to false after a brief delay to allow initial data to load
     const loadingTimeout = setTimeout(() => {
       setLoading(false);
@@ -123,6 +131,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
       unsubscribeGrades();
       unsubscribeItemStructure();
       unsubscribeCourseStructure();
+      unsubscribeExemptions();
     };
   }, [userEmailKey, courseId]);
 
@@ -163,13 +172,15 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
           }
         }
       },
+      // Add progression exemptions
+      progressionExemptions: progressionExemptions || course.progressionExemptions,
       // Add flags to indicate this is realtime data
       _isRealtimeData: true,
       _lastRealtimeUpdate: Date.now()
     };
 
     return enriched;
-  }, [course, realtimeGradebook, realtimeSchedule, realtimeAssessments, realtimeExamSessions, realtimeGrades, itemStructure, realtimeCourseStructure]);
+  }, [course, realtimeGradebook, realtimeSchedule, realtimeAssessments, realtimeExamSessions, realtimeGrades, itemStructure, realtimeCourseStructure, progressionExemptions]);
 
   // Create enriched course items using the utility function with realtime data
   const enrichedCourseItems = useMemo(() => {
@@ -188,6 +199,70 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
     
     return enrichedItems;
   }, [enrichedCourse]);
+
+  // Calculate lesson accessibility if not provided as prop
+  const calculatedLessonAccessibility = useMemo(() => {
+    // If lessonAccessibility was passed as a prop and has data, use it
+    if (lessonAccessibility && Object.keys(lessonAccessibility).length > 0) {
+      console.log('📊 Using provided lessonAccessibility from props');
+      return lessonAccessibility;
+    }
+
+    // Otherwise, calculate it locally
+    console.log('📊 Calculating lessonAccessibility locally in GradebookDashboardRealtime');
+    
+    if (!enrichedCourse || enrichedCourseItems.length === 0) {
+      console.log('📊 No course data or items yet, returning empty accessibility');
+      return {};
+    }
+
+    const unitsList = getCourseUnitsList(enrichedCourse);
+    
+    // NO BYPASS CONDITIONS - always calculate actual progression status
+    // Removed staff/developer bypass checks to show true progression status
+
+    // If no gradebook data yet, provide basic accessibility
+    if (!enrichedCourse?.Gradebook) {
+      const accessibility = {};
+      enrichedCourseItems.forEach((item, index) => {
+        if (index === 0) {
+          accessibility[item.itemId] = { accessible: true, reason: 'First lesson' };
+        } else {
+          accessibility[item.itemId] = { accessible: false, reason: 'Loading progression data...' };
+        }
+      });
+      return accessibility;
+    }
+
+    // Build course structure for getLessonAccessibility
+    const courseStructure = {
+      courseStructure: {
+        units: unitsList
+      }
+    };
+
+    // Get progression requirements
+    const progressionRequirements = enrichedCourse.courseDetails?.['course-config']?.progressionRequirements;
+
+    // If sequential access is not enabled, all lessons are accessible
+    if (!progressionRequirements?.enabled) {
+      const accessibility = {};
+      enrichedCourseItems.forEach(item => {
+        accessibility[item.itemId] = { accessible: true, reason: 'Sequential access disabled' };
+      });
+      return accessibility;
+    }
+
+    // Calculate full lesson accessibility without any bypass conditions
+    const accessibility = getLessonAccessibility(courseStructure, enrichedCourse, {
+      isDeveloperBypass: false,  // Never bypass for developer mode
+      staffOverrides: {},  // No staff overrides
+      progressionExemptions: enrichedCourse?.progressionExemptions || {}  // Only use actual teacher-granted exemptions
+    });
+
+    console.log('📊 Calculated accessibility:', accessibility);
+    return accessibility;
+  }, [lessonAccessibility, enrichedCourse, enrichedCourseItems, currentUser, studentEmail]);
 
   // Event handlers
   const handleReviewAssessment = (assessment) => {
@@ -265,6 +340,7 @@ const GradebookDashboardRealtime = ({ course, profile, lessonAccessibility = {},
             course={enrichedCourse}
             profile={profile}
             onReviewAssessment={handleReviewAssessment}
+            lessonAccessibility={calculatedLessonAccessibility}
             loading={loading}
             error={error}
           />

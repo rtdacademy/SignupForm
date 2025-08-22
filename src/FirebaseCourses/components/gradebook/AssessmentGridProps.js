@@ -74,7 +74,10 @@ import {
   CalendarCheck,
   EyeOff,
   Ban,
-  MoreVertical
+  MoreVertical,
+  Unlock,
+  Lock,
+  PlayCircle
 } from 'lucide-react';
 import { 
   checkLessonCompletion,
@@ -220,10 +223,15 @@ const AssessmentGridProps = ({
   course, 
   profile, 
   onReviewAssessment,
+  lessonAccessibility = {},
   loading = false,
   error = null 
 }) => {
   const { currentUser } = useAuth();
+  
+  // Debug log to see what accessibility data is being passed
+  console.log('📊 AssessmentGridProps lessonAccessibility:', lessonAccessibility);
+  console.log('📊 AssessmentGridProps lessonAccessibility keys:', Object.keys(lessonAccessibility));
   
   
   // Extract data from props instead of course object
@@ -241,6 +249,11 @@ const AssessmentGridProps = ({
   const [omittedItems, setOmittedItems] = useState({});
   const [loadingOmittedItems, setLoadingOmittedItems] = useState(true);
   const [togglingOmit, setTogglingOmit] = useState({});
+  
+  // State for progression exemptions
+  const [progressionExemptions, setProgressionExemptions] = useState({});
+  const [loadingExemptions, setLoadingExemptions] = useState(true);
+  const [togglingExemption, setTogglingExemption] = useState({});
   
   // State for dropdown menu
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -287,6 +300,30 @@ const AssessmentGridProps = ({
     loadOmittedItems();
   }, [studentEmail, course?.CourseID]);
 
+  // Load progression exemptions from Firebase on component mount
+  useEffect(() => {
+    const loadProgressionExemptions = async () => {
+      if (!studentEmail || !course?.CourseID) return;
+      
+      const database = getDatabase();
+      const courseId = course.CourseID;
+      const exemptionsPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/progressionExemptions`;
+      
+      try {
+        const snapshot = await get(ref(database, exemptionsPath));
+        if (snapshot.exists()) {
+          setProgressionExemptions(snapshot.val());
+        }
+        setLoadingExemptions(false);
+      } catch (error) {
+        console.error('Error loading progression exemptions:', error);
+        setLoadingExemptions(false);
+      }
+    };
+    
+    loadProgressionExemptions();
+  }, [studentEmail, course?.CourseID]);
+
   // Handle click outside and escape key for dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -311,6 +348,45 @@ const AssessmentGridProps = ({
     }
   }, [openDropdown]);
   
+  // Toggle progression exemption for an item
+  const handleToggleProgressionExemption = async (itemId) => {
+    if (!isStaffView || !studentEmail || !course?.CourseID) return;
+    
+    setTogglingExemption(prev => ({ ...prev, [itemId]: true }));
+    
+    const database = getDatabase();
+    const courseId = course.CourseID;
+    const exemptionPath = `students/${sanitizeEmail(studentEmail)}/courses/${courseId}/progressionExemptions/${itemId}`;
+    
+    try {
+      if (progressionExemptions[itemId]) {
+        // Remove exemption
+        await remove(ref(database, exemptionPath));
+        setProgressionExemptions(prev => {
+          const newExemptions = { ...prev };
+          delete newExemptions[itemId];
+          return newExemptions;
+        });
+        toast.success(`Prerequisites restored for ${itemId}`);
+      } else {
+        // Add exemption
+        const exemptionData = {
+          exemptedAt: Date.now(),
+          exemptedBy: currentUser.email,
+          reason: 'Teacher granted early access'
+        };
+        await update(ref(database, exemptionPath), exemptionData);
+        setProgressionExemptions(prev => ({ ...prev, [itemId]: exemptionData }));
+        toast.success(`Prerequisites waived for ${itemId}`);
+      }
+    } catch (error) {
+      console.error('Error toggling progression exemption:', error);
+      toast.error('Failed to update exemption status');
+    } finally {
+      setTogglingExemption(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
   // Toggle omit status for an item
   const handleToggleOmit = async (itemId) => {
     if (!isStaffView || !studentEmail || !course?.CourseID) return;
@@ -482,6 +558,9 @@ const AssessmentGridProps = ({
     if (allCourseItems.length === 0) {
       return [];
     }
+    
+    // Debug: log lesson IDs
+    console.log('📊 Lesson IDs from enrichedCourseItems:', allCourseItems.map(item => item.itemId));
     
     const lessons = [];
     
@@ -1501,8 +1580,8 @@ const AssessmentGridProps = ({
       <div className="text-sm text-gray-600 flex items-center gap-4">
         <span>Showing {filteredLessons.length} of {groupedLessons.length} lessons</span>
         <div className={`inline-flex items-center gap-1 text-xs ${course?._isRealtimeData ? 'text-green-600' : 'text-orange-600'}`}>
-          <div className={`w-2 h-2 rounded-full ${course?._isRealtimeData ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-          {course?._isRealtimeData ? 'Real-time active' : 'Loading...'}
+          
+          {course?._isRealtimeData ? '' : 'Loading...'}
         </div>
         {course?._lastRealtimeUpdate && (
           <span className="text-xs text-gray-400">
@@ -1569,9 +1648,13 @@ const AssessmentGridProps = ({
                   isOmitted={!!omittedItems[lesson.lessonId]}
                   onToggleOmit={() => handleToggleOmit(lesson.lessonId)}
                   togglingOmit={togglingOmit[lesson.lessonId]}
+                  isExempted={!!progressionExemptions[lesson.lessonId]}
+                  onToggleExemption={() => handleToggleProgressionExemption(lesson.lessonId)}
+                  togglingExemption={togglingExemption[lesson.lessonId]}
                   openDropdown={openDropdown}
                   setOpenDropdown={setOpenDropdown}
                   dropdownRef={dropdownRef}
+                  lessonAccessibility={lessonAccessibility[lesson.lessonId]}
                 />
               ))}
             </tbody>
@@ -1714,14 +1797,19 @@ const LessonRow = ({
   isOmitted,
   onToggleOmit,
   togglingOmit,
+  isExempted,
+  onToggleExemption,
+  togglingExemption,
   openDropdown,
   setOpenDropdown,
-  dropdownRef
+  dropdownRef,
+  lessonAccessibility
 }) => {
   // Handle row click to open details modal
   const handleRowClick = () => {
     // Log the lesson record to console
     console.log('🎯 Lesson clicked:', lesson);
+    console.log('📍 Lesson accessibility:', lessonAccessibility);
     
     // Prevent clicking if session is being created for this lesson
     if (creatingSessionFor === lesson.lessonId) {
@@ -1777,6 +1865,58 @@ const LessonRow = ({
               <div className={`text-sm font-medium ${isOmitted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                 {lesson.lessonTitle}
               </div>
+              {/* Access indicator - show access status if lesson accessibility data exists */}
+              {lessonAccessibility ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center">
+                        {lessonAccessibility.accessible ? (
+                          // Accessible - show different icons based on reason
+                          lessonAccessibility.isExempted ? (
+                            <Unlock className="h-3.5 w-3.5 text-purple-600" />
+                          ) : lessonAccessibility.isShowAlways ? (
+                            <Eye className="h-3.5 w-3.5 text-blue-600" />
+                          ) : lessonAccessibility.reason?.includes('Developer') ? (
+                            <Shield className="h-3.5 w-3.5 text-orange-600" />
+                          ) : lessonAccessibility.reason === 'First lesson' ? (
+                            <PlayCircle className="h-3.5 w-3.5 text-green-600" />
+                          ) : (
+                            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          )
+                        ) : (
+                          // Not accessible - show lock icon
+                          lessonAccessibility.isNeverVisible ? (
+                            <EyeOff className="h-3.5 w-3.5 text-gray-400" />
+                          ) : lessonAccessibility.reason?.includes('being developed') ? (
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 text-gray-400" />
+                          )
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <div className="text-xs">
+                        <div className="font-medium mb-1">
+                          {lessonAccessibility.accessible ? 'Accessible' : 'Locked'}
+                        </div>
+                        <div className="text-gray-600">
+                          {lessonAccessibility.reason || 'Access status unknown'}
+                        </div>
+                        {lessonAccessibility.requiredPercentage && !lessonAccessibility.accessible && (
+                          <div className="text-gray-500 mt-1">
+                            Required: {lessonAccessibility.requiredPercentage}% score
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                // Show a simple indicator when no accessibility data is available
+                <div className="h-3.5 w-3.5" title="Access data not available" />
+              )}
               {creatingSessionFor === lesson.lessonId && (
                 <Loader2 className="h-4 w-4 text-blue-500 animate-spin" 
                      title="Creating session..." />
@@ -2205,6 +2345,34 @@ const LessonRow = ({
             {openDropdown === lesson.lessonId && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                 <div className="py-1">
+                  {/* Progression Exemption menu item */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleExemption();
+                      setOpenDropdown(null);
+                    }}
+                    disabled={togglingExemption}
+                    className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors duration-200 ${
+                      isExempted 
+                        ? 'text-purple-600' 
+                        : 'text-gray-700'
+                    } disabled:opacity-50`}
+                  >
+                    {togglingExemption ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isExempted ? (
+                      <Lock className="h-4 w-4" />
+                    ) : (
+                      <Unlock className="h-4 w-4" />
+                    )}
+                    <span>
+                      {isExempted ? 'Restore prerequisites' : 'Waive prerequisites'}
+                    </span>
+                  </button>
+                  
+                  <div className="border-t border-gray-100 my-1"></div>
+                  
                   {/* Omit/Include menu item */}
                   <button
                     onClick={(e) => {

@@ -662,10 +662,48 @@ export const useStudentData = (userEmailKey) => {
               return;
             }
             
-            console.log(`🎓 First course detected for new student: ${newCourseId} - refreshing page to load full course data`);
+            console.log(`🎓 First course detected for new student: ${newCourseId} - setting up listeners dynamically`);
             
-            // Simple solution: refresh the page to ensure all complex course loading logic runs properly
-            window.location.reload();
+            // Initialize course data accumulator if it doesn't exist
+            if (!courseDataAccumulator[newCourseId]) {
+              courseDataAccumulator[newCourseId] = {};
+            }
+            
+            // Set up listeners for the new course
+            setupCourseListeners(newCourseId);
+            
+            // Fetch initial data for the new course and process it
+            const newCourseRef = ref(db, `students/${userEmailKey}/courses/${newCourseId}`);
+            const newCourseSnapshot = await get(newCourseRef);
+            
+            if (newCourseSnapshot.exists()) {
+              const newCourseData = newCourseSnapshot.val();
+              courseDataAccumulator[newCourseId] = newCourseData;
+              
+              // Process the first course
+              const coursesData = { [newCourseId]: newCourseData };
+              const processedCourses = await processCourses(coursesData);
+              
+              if (!isMounted) return;
+
+              setStudentData(prev => {
+                let updatedCourses = processedCourses;
+                
+                if (prev.profile && prev.allNotifications) {
+                  updatedCourses = processNotificationsForCourses(
+                    processedCourses,
+                    prev.profile,
+                    prev.allNotifications
+                  );
+                }
+                
+                return {
+                  ...prev,
+                  courses: updatedCourses,
+                  studentExists: true
+                };
+              });
+            }
           }, handleError);
           
           return () => {
@@ -810,11 +848,49 @@ export const useStudentData = (userEmailKey) => {
             return; // Already being tracked
           }
           
-          console.log(`🎓 New course detected: ${newCourseId} - refreshing page to load full course data`);
+          console.log(`🎓 New course detected: ${newCourseId} - setting up listeners dynamically`);
           
-          // Simple solution: refresh the page to ensure all complex course loading logic runs properly
-          // This ensures proper course details, payment info, notifications, and real-time listeners are set up
-          window.location.reload();
+          // Initialize accumulator for new course
+          courseDataAccumulator[newCourseId] = {};
+          
+          // Set up listeners for the new course (reuse the setupCourseListeners function)
+          setupCourseListeners(newCourseId);
+          
+          // Fetch initial data for the new course and process it
+          const newCourseRef = ref(db, `students/${userEmailKey}/courses/${newCourseId}`);
+          const newCourseSnapshot = await get(newCourseRef);
+          
+          if (newCourseSnapshot.exists()) {
+            const newCourseData = newCourseSnapshot.val();
+            courseDataAccumulator[newCourseId] = newCourseData;
+            
+            // Reconstruct the full courses data structure with the new course
+            const reconstructedCoursesData = { ...coursesData };
+            reconstructedCoursesData[newCourseId] = newCourseData;
+            
+            // Process courses with the updated data (including the new course)
+            const processedCourses = await processCourses(reconstructedCoursesData);
+            
+            if (!isMounted) return;
+
+            setStudentData(prev => {
+              let updatedCourses = processedCourses;
+              
+              if (prev.profile && prev.allNotifications) {
+                updatedCourses = processNotificationsForCourses(
+                  processedCourses,
+                  prev.profile,
+                  prev.allNotifications
+                );
+              }
+              
+              return {
+                ...prev,
+                courses: updatedCourses,
+                studentExists: true
+              };
+            });
+          }
         }, handleError);
         
         courseUnsubscribers.push(parentUnsubscribe);

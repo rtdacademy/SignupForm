@@ -27,7 +27,7 @@ export const isSequentialAccessEnabled = (progressionRequirements) => {
  */
 export const getLessonAccessibility = (courseStructure, course, options = {}) => {
   const accessibility = {};
-  const { isDeveloperBypass = false, staffOverrides = {} } = options;
+  const { isDeveloperBypass = false, staffOverrides = {}, progressionExemptions = {} } = options;
   
   // Get progression requirements from the correct location
   const progressionRequirements = course?.courseDetails?.['course-config']?.progressionRequirements;
@@ -37,7 +37,17 @@ export const getLessonAccessibility = (courseStructure, course, options = {}) =>
   // If sequential access is not enabled, all lessons are accessible (except dev/staff overrides)
   if (!isSequentialAccessEnabled(progressionRequirements)) {
     allItems.forEach(item => {
-      // Check for staff override first
+      // Check for progression exemption first (even when sequential not enabled, for consistency)
+      if (progressionExemptions[item.itemId]) {
+        accessibility[item.itemId] = {
+          accessible: true,
+          reason: 'Prerequisites waived by teacher',
+          isExempted: true
+        };
+        return;
+      }
+      
+      // Check for staff override
       const override = getLessonOverride(staffOverrides, item.itemId);
       if (override) {
         accessibility[item.itemId] = {
@@ -127,7 +137,17 @@ export const getLessonAccessibility = (courseStructure, course, options = {}) =>
     const currentItem = sortedItems[i];
     const previousItem = sortedItems[i - 1];
     
-    // Check for staff override first
+    // Check for progression exemption first (teacher waived prerequisites)
+    if (progressionExemptions[currentItem.itemId]) {
+      accessibility[currentItem.itemId] = {
+        accessible: true,
+        reason: 'Prerequisites waived by teacher',
+        isExempted: true
+      };
+      continue;
+    }
+    
+    // Check for staff override
     const override = getLessonOverride(staffOverrides, currentItem.itemId);
     if (override) {
       accessibility[currentItem.itemId] = {

@@ -89,23 +89,22 @@ const YourWayScheduleCreator = ({
   };
 
   return (
-    <div className={`w-full ${className}`}>
-      <div className="space-y-4">
-        <div>
-          <p className="text-gray-500">
-            Design your learning schedule for {course?.Course?.Value || 'your course'}
-          </p>
-        </div>
-        
-        <div className="h-[80vh] overflow-auto">
-          <YourWayScheduleMaker
-            course={course}
-            defaultStartDate={defaultStartDate}
-            defaultEndDate={defaultEndDate}
-            onScheduleSaved={handleScheduleSaved}
-            disableDirectSave={true}
-          />
-        </div>
+    <div className={`w-full h-full flex flex-col ${className}`}>
+      <div className="px-6 py-4 border-b">
+        <h2 className="text-lg font-semibold">Create Your Course Schedule</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Design your learning schedule for {course?.Course?.Value || 'your course'}
+        </p>
+      </div>
+      
+      <div className="flex-1 overflow-auto">
+        <YourWayScheduleMaker
+          course={course}
+          defaultStartDate={defaultStartDate}
+          defaultEndDate={defaultEndDate}
+          onScheduleSaved={handleScheduleSaved}
+          disableDirectSave={true}
+        />
       </div>
     </div>
   );

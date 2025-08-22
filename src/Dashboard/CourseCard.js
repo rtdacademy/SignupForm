@@ -686,14 +686,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               side="right"
             >
               <SheetContent className="w-full sm:max-w-[90%] h-full">
-                <SheetHeader>
-                  <SheetTitle>Create Your Course Schedule</SheetTitle>
-                  <div className="mt-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      ✨ Enhanced Firebase Course
-                    </span>
-                  </div>
-                </SheetHeader>
+               
                 <YourWayScheduleCreator
                   course={course}
                   onScheduleSaved={() => {

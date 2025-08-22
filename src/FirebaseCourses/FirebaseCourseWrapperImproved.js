@@ -692,6 +692,53 @@ const FirebaseCourseWrapperContent = ({
       off(gradebookRef, 'value');
     };
   }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
+
+  // Realtime listener for progressionExemptions (teacher-granted prerequisite waivers)
+  useEffect(() => {
+    // Only set up listener if we have a course ID and user email
+    const courseId = course?.CourseID || course?.courseId;
+    const userEmail = currentUser?.email || profile?.StudentEmail;
+    
+    if (!courseId || !userEmail) {
+      return;
+    }
+    
+    // Use the correct student key format from the profile if available
+    let studentKey;
+    if (profile?.StudentKey) {
+      studentKey = profile.StudentKey;
+    } else {
+      // Fallback to sanitizing the email
+      studentKey = sanitizeEmail(userEmail);
+    }
+    
+    // Listen to the student's progression exemptions
+    const exemptionsPath = `students/${studentKey}/courses/${courseId}/progressionExemptions`;
+    
+    // Create database reference
+    const db = getDatabase();
+    const exemptionsRef = ref(db, exemptionsPath);
+    
+    // Set up the listener
+    const unsubscribe = onValue(exemptionsRef, (snapshot) => {
+      const exemptionsData = snapshot.val();
+      
+      // Update the course object's progression exemptions
+      if (course) {
+        course.progressionExemptions = exemptionsData || {};
+      }
+      
+      // Force re-render by updating trigger
+      setDataUpdateTrigger(prev => prev + 1);
+    }, (error) => {
+      console.error('❌ Error in progressionExemptions listener:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      off(exemptionsRef, 'value');
+    };
+  }, [course?.CourseID, course?.courseId, currentUser?.email, profile?.StudentEmail, profile?.StudentKey]);
   
   // END OF useEffect HOOKS SECTION
   
@@ -863,12 +910,26 @@ const FirebaseCourseWrapperContent = ({
 
   // Calculate lesson accessibility for the active lesson info panel
   const lessonAccessibility = useMemo(() => {
+    console.log('🔐 Calculating lessonAccessibility:', {
+      isStaffView,
+      devMode,
+      isDeveloperModeActive,
+      hasGradebook: !!course?.Gradebook,
+      allCourseItemsCount: allCourseItems.length,
+      progressionEnabled: course?.courseDetails?.['course-config']?.progressionRequirements?.enabled
+    });
+    
+    // If no course items yet, return empty
+    if (allCourseItems.length === 0) {
+      console.log('🔐 No course items yet, returning empty accessibility');
+      return {};
+    }
     
     // Skip access control for staff/dev or when developer mode is active
     const shouldBypass = shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course) || 
                         (isAuthorizedDeveloper && isDeveloperModeActive);
     
-    if (shouldBypass || !course?.Gradebook) {
+    if (shouldBypass) {
       const accessibility = {};
       let bypassReason = getBypassReason(isStaffView, devMode, currentUser, course);
       if (isAuthorizedDeveloper && isDeveloperModeActive) {
@@ -876,6 +937,20 @@ const FirebaseCourseWrapperContent = ({
       }
       allCourseItems.forEach(item => {
         accessibility[item.itemId] = { accessible: true, reason: bypassReason };
+      });
+      return accessibility;
+    }
+    
+    // If no gradebook data yet, still calculate basic accessibility
+    if (!course?.Gradebook) {
+      const accessibility = {};
+      // First lesson is always accessible, others need gradebook data to determine
+      allCourseItems.forEach((item, index) => {
+        if (index === 0) {
+          accessibility[item.itemId] = { accessible: true, reason: 'First lesson' };
+        } else {
+          accessibility[item.itemId] = { accessible: false, reason: 'Loading progression data...' };
+        }
       });
       return accessibility;
     }
@@ -905,7 +980,8 @@ const FirebaseCourseWrapperContent = ({
     // Use the simplified lesson access logic with the full course object
     return getLessonAccessibility(courseStructure, course, {
       isDeveloperBypass,
-      staffOverrides: {} // Add staff overrides if needed
+      staffOverrides: {}, // Add staff overrides if needed
+      progressionExemptions: course?.progressionExemptions || {}
     });
   }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive, unitsList]);
   
