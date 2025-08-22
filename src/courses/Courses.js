@@ -647,6 +647,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
   });
   const [availableLessons, setAvailableLessons] = useState([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
+  const [detectedItemTypes, setDetectedItemTypes] = useState(new Set());
 
   useEffect(() => {
     // Handle migration from old structure to new
@@ -741,14 +742,20 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
         if (snapshot.exists()) {
           const courseStructure = snapshot.val();
           const lessons = [];
+          const itemTypes = new Set();
           
-          // Extract all lessons from all units
+          // Extract all lessons from all units and detect item types
           if (courseStructure.units) {
             courseStructure.units.forEach(unit => {
               if (unit.items) {
                 unit.items.forEach(item => {
-                  // Include lessons, assignments, exams, and labs that can have questions
-                  if (item.type === 'lesson' || item.type === 'assignment' || item.type === 'exam' || item.type === 'lab') {
+                  // Track all item types found in the course
+                  if (item.type) {
+                    itemTypes.add(item.type);
+                  }
+                  
+                  // Include lessons, assignments, exams, quizzes, and labs that can have questions
+                  if (item.type === 'lesson' || item.type === 'assignment' || item.type === 'exam' || item.type === 'quiz' || item.type === 'lab') {
                     lessons.push({
                       itemId: item.itemId,
                       title: item.title,
@@ -762,6 +769,7 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
           }
           
           setAvailableLessons(lessons);
+          setDetectedItemTypes(itemTypes);
         }
       } catch (error) {
         console.error('Error fetching course structure:', error);
@@ -775,12 +783,42 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
 
   const updateDatabase = async (updatedRequirements) => {
     try {
+      // Clean the requirements to only include detected item types
+      const cleanedRequirements = { ...updatedRequirements };
+      
+      if (cleanedRequirements.defaultCriteria) {
+        // Create a new defaultCriteria object with only detected types
+        const cleanedDefaultCriteria = {
+          minimumPercentage: cleanedRequirements.defaultCriteria.minimumPercentage,
+          requireAllQuestions: cleanedRequirements.defaultCriteria.requireAllQuestions
+        };
+        
+        // Only include item type configurations that exist in the course
+        if (detectedItemTypes.has('lesson') && cleanedRequirements.defaultCriteria.lesson) {
+          cleanedDefaultCriteria.lesson = cleanedRequirements.defaultCriteria.lesson;
+        }
+        if (detectedItemTypes.has('assignment') && cleanedRequirements.defaultCriteria.assignment) {
+          cleanedDefaultCriteria.assignment = cleanedRequirements.defaultCriteria.assignment;
+        }
+        if (detectedItemTypes.has('exam') && cleanedRequirements.defaultCriteria.exam) {
+          cleanedDefaultCriteria.exam = cleanedRequirements.defaultCriteria.exam;
+        }
+        if (detectedItemTypes.has('quiz') && cleanedRequirements.defaultCriteria.quiz) {
+          cleanedDefaultCriteria.quiz = cleanedRequirements.defaultCriteria.quiz;
+        }
+        if (detectedItemTypes.has('lab') && cleanedRequirements.defaultCriteria.lab) {
+          cleanedDefaultCriteria.lab = cleanedRequirements.defaultCriteria.lab;
+        }
+        
+        cleanedRequirements.defaultCriteria = cleanedDefaultCriteria;
+      }
+      
       const db = getDatabase();
       const courseRef = ref(db, `courses/${courseId}/course-config`);
       await update(courseRef, { 
-        progressionRequirements: updatedRequirements 
+        progressionRequirements: cleanedRequirements 
       });
-      console.log('Successfully updated progression requirements:', updatedRequirements);
+      console.log('Successfully updated progression requirements:', cleanedRequirements);
     } catch (error) {
       console.error('Error updating progression requirements:', error);
       toast.error('Failed to update progression requirements');
@@ -995,121 +1033,138 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
                   </p>
                   
                   <div className="space-y-6">
-                    {/* Lesson Defaults */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-100">
-                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Lessons</h5>
-                      <div className="flex flex-wrap gap-6">
+                    {/* Lesson Defaults - Only show if course has lessons */}
+                    {detectedItemTypes.has('lesson') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Lessons</h5>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex-1 min-w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Minimum Percentage
+                            </label>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={requirements.defaultCriteria?.lesson?.minimumPercentage ?? 50}
+                                onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                disabled={!courseIsEditing}
+                                className="flex-1"
+                              />
+                              <FaPercentage className="text-gray-400" />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 mt-6">
+                            <Switch
+                              checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
+                              onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
+                              disabled={!courseIsEditing}
+                            />
+                            <label className="text-sm font-medium text-gray-700">
+                              Require All Questions
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Assignment Defaults - Only show if course has assignments */}
+                    {detectedItemTypes.has('assignment') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Assignments</h5>
                         <div className="flex-1 min-w-48">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Minimum Percentage
+                            Sessions Required
                           </label>
                           <div className="flex items-center space-x-2">
                             <Input
                               type="number"
                               min="0"
-                              max="100"
-                              value={requirements.defaultCriteria?.lesson?.minimumPercentage ?? 50}
-                              onChange={(e) => handleDefaultCriteriaChange('lesson', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                              max="5"
+                              value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
+                              onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
                               disabled={!courseIsEditing}
                               className="flex-1"
                             />
-                            <FaPercentage className="text-gray-400" />
+                            <span className="text-sm text-gray-500">sessions</span>
                           </div>
                         </div>
+                      </div>
+                    )}
 
-                        <div className="flex items-center space-x-2 mt-6">
+                    {/* Exam Defaults - Only show if course has exams */}
+                    {detectedItemTypes.has('exam') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Exams</h5>
+                        <div className="flex-1 min-w-48">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Sessions Required
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="5"
+                              value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
+                              onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                              disabled={!courseIsEditing}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-gray-500">sessions</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quiz Defaults - Only show if course has quizzes */}
+                    {detectedItemTypes.has('quiz') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Quizzes</h5>
+                        <div className="flex-1 min-w-48">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Sessions Required
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="5"
+                              value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
+                              onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
+                              disabled={!courseIsEditing}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-gray-500">sessions</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lab Defaults - Only show if course has labs */}
+                    {detectedItemTypes.has('lab') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Labs</h5>
+                        <div className="flex items-center space-x-2">
                           <Switch
-                            checked={requirements.defaultCriteria?.lesson?.requireAllQuestions || false}
-                            onCheckedChange={(checked) => handleDefaultCriteriaChange('lesson', 'requireAllQuestions', checked)}
+                            checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
+                            onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
                             disabled={!courseIsEditing}
                           />
                           <label className="text-sm font-medium text-gray-700">
-                            Require All Questions
+                            Requires Submission
                           </label>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Assignment Defaults */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-100">
-                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Assignments</h5>
-                      <div className="flex-1 min-w-48">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Sessions Required
-                        </label>
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="5"
-                            value={requirements.defaultCriteria?.assignment?.sessionsRequired || 1}
-                            onChange={(e) => handleDefaultCriteriaChange('assignment', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!courseIsEditing}
-                            className="flex-1"
-                          />
-                          <span className="text-sm text-gray-500">sessions</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Exam Defaults */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-100">
-                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Exams</h5>
-                      <div className="flex-1 min-w-48">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Sessions Required
-                        </label>
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="5"
-                            value={requirements.defaultCriteria?.exam?.sessionsRequired || 1}
-                            onChange={(e) => handleDefaultCriteriaChange('exam', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!courseIsEditing}
-                            className="flex-1"
-                          />
-                          <span className="text-sm text-gray-500">sessions</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quiz Defaults */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-100">
-                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Quizzes</h5>
-                      <div className="flex-1 min-w-48">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Sessions Required
-                        </label>
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="5"
-                            value={requirements.defaultCriteria?.quiz?.sessionsRequired || 1}
-                            onChange={(e) => handleDefaultCriteriaChange('quiz', 'sessionsRequired', Math.max(0, Math.min(5, parseInt(e.target.value) || 1)))}
-                            disabled={!courseIsEditing}
-                            className="flex-1"
-                          />
-                          <span className="text-sm text-gray-500">sessions</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Lab Defaults */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-100">
-                      <h5 className="text-sm font-semibold text-blue-700 mb-3">Labs</h5>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={requirements.defaultCriteria?.lab?.requiresSubmission || false}
-                          onCheckedChange={(checked) => handleDefaultCriteriaChange('lab', 'requiresSubmission', checked)}
-                          disabled={!courseIsEditing}
-                        />
-                        <label className="text-sm font-medium text-gray-700">
-                          Requires Submission
-                        </label>
-                      </div>
-                    </div>
+                    )}
+                    
+                    {/* Show message if no item types detected yet */}
+                    {detectedItemTypes.size === 0 && (
+                      <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                        Loading course structure to detect item types...
+                      </p>
+                    )}
                   </div>
                 </div>
               </AccordionContent>

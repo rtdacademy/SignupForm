@@ -1020,11 +1020,47 @@ const AssessmentSession = ({
       
       setAssessmentResults(examResult.data.results);
       
+      // Wait for results to be confirmed in database before navigating
+      console.log('⏳ Confirming results are written to database...');
+      const waitForDatabaseConfirmation = async () => {
+        return new Promise((resolve) => {
+          const studentKey = sanitizeEmail(currentUser.email);
+          const sessionPath = `students/${studentKey}/courses/${courseId}/ExamSessions/${assessmentSession.sessionId}/finalResults`;
+          const sessionRef = ref(db, sessionPath);
+          
+          let isResolved = false;
+          const timeoutId = setTimeout(() => {
+            if (!isResolved) {
+              console.log('⚠️ Database confirmation timeout - proceeding anyway');
+              isResolved = true;
+              resolve();
+            }
+          }, 10000); // 10 second timeout
+          
+          const unsubscribe = onValue(sessionRef, (snapshot) => {
+            if (snapshot.exists() && !isResolved) {
+              console.log('✅ Results confirmed in database');
+              clearTimeout(timeoutId);
+              isResolved = true;
+              off(sessionRef, 'value', unsubscribe);
+              resolve();
+            }
+          });
+        });
+      };
+      
+      await waitForDatabaseConfirmation();
+      
       // Update URL to show exam completed
       updateExamURLParams('completed', assessmentSession.sessionId);
       
-      // Redirect to standalone results page to avoid course object corruption
-      navigate(`/exam-results/${assessmentSession.sessionId}`);
+      // Redirect to standalone results page with results in state as fallback
+      navigate(`/exam-results/${assessmentSession.sessionId}`, {
+        state: { 
+          results: examResult.data.results,
+          fromSubmission: true 
+        }
+      });
       
     } catch (error) {
       console.error('Error submitting exam:', error);

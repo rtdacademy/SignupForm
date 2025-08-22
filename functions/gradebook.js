@@ -11,7 +11,7 @@
  * - Easier maintenance and fewer errors
  */
 
-const { onValueCreated, onValueUpdated, onValueWritten } = require('firebase-functions/v2/database');
+const { onValueWritten } = require('firebase-functions/v2/database');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
@@ -253,8 +253,11 @@ exports.updateGradebookOnSessionComplete = onValueWritten({
  * Trigger: Update gradebook when non-session assessment scores are recorded
  * Listens to: /students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}
  * This handles individual question-based assessments (lessons, reviews, practice)
+ * 
+ * UPDATED: Now uses onValueWritten to catch both score creation AND updates
+ * This ensures gradebook gets initialized when the first lesson question is answered
  */
-exports.updateGradebookOnAssessmentScore = onValueUpdated({
+exports.updateGradebookOnAssessmentScore = onValueWritten({
   ref: '/students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}',
   region: 'us-central1',
   memory: '256MiB',
@@ -262,12 +265,12 @@ exports.updateGradebookOnAssessmentScore = onValueUpdated({
 }, async (event) => {
   const { studentKey, courseId, assessmentId } = event.params;
   const newScore = event.data.after.val();
-  const oldScore = event.data.before.val();
+  const oldScore = event.data.before.exists() ? event.data.before.val() : null;
   
   console.log(`📝 Assessment score trigger: ${studentKey}/${courseId}/${assessmentId} = ${oldScore} → ${newScore}`);
   
-  // Skip if score is null or unchanged
-  if (newScore === null || newScore === undefined || newScore === oldScore) {
+  // Skip if score is null or unchanged (but allow initial creation when before doesn't exist)
+  if (newScore === null || newScore === undefined || (event.data.before.exists() && newScore === oldScore)) {
     console.log('Score is null/undefined or unchanged, skipping gradebook update');
     return;
   }

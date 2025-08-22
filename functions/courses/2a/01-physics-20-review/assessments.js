@@ -4,6 +4,8 @@
 // Load course configuration
 //const courseConfig = require('../../../../shared/courses-config/2/course-config.json');
 
+// Removed dependency on config file - settings are now handled directly in assessment configurations
+
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
 // Options: 'lesson', 'assignment', 'lab', 'exam'
@@ -40,11 +42,21 @@ const createDisplacementQuestionExample = () => {
   const final = randInt(-20, 20);
   const displacement = final - initial;
   
+  // Create unique incorrect answers
+  let optionB;
+  if (displacement >= 0) {
+    // For positive or zero displacement, add a random error instead of using absolute value
+    optionB = displacement + randInt(5, 15);
+  } else {
+    // For negative displacement, absolute value is different from displacement
+    optionB = Math.abs(displacement);
+  }
+  
   return {
     questionText: `State the displacement when position changes from ${initial} km to ${final} km.`,
     options: [
       { id: 'a', text: `${displacement} km` },
-      { id: 'b', text: `${Math.abs(displacement)} km` },
+      { id: 'b', text: `${optionB} km` },
       { id: 'c', text: `${initial - final} km` },
       { id: 'd', text: `${final + initial} km` }
     ],
@@ -86,13 +98,55 @@ const createRandomDisplacementQuestion = () => {
   // Helper function to format numbers with proper signs
   const formatNumber = (num) => num > 0 ? `+${num}` : `${num}`;
   
+  // Generate all potential answers
+  const correctAnswer = displacement;
+  const wrongOrder = initial - final;
+  const sumAnswer = final + initial;
+  
+  // Create a unique option B that doesn't duplicate other answers
+  let optionB, optionBFeedback;
+  const usedValues = new Set([correctAnswer, wrongOrder, sumAnswer]);
+  
+  // Try absolute value first (for negative displacements)
+  if (displacement < 0 && !usedValues.has(Math.abs(displacement))) {
+    optionB = Math.abs(displacement);
+    optionBFeedback = "This is the magnitude (distance) but displacement includes direction. Don't take the absolute value.";
+  } else {
+    // Generate a unique wrong answer by adding/subtracting various amounts
+    const possibleErrors = [
+      displacement * 2,
+      displacement / 2,
+      displacement + randInt(5, 15),
+      displacement - randInt(5, 15),
+      Math.abs(displacement) + randInt(1, 10),
+      -displacement
+    ];
+    
+    // Find the first value that isn't already used
+    for (const errorValue of possibleErrors) {
+      if (!usedValues.has(errorValue) && errorValue !== displacement) {
+        optionB = errorValue;
+        break;
+      }
+    }
+    
+    // Set appropriate feedback based on the error type
+    if (optionB > displacement) {
+      optionBFeedback = "This value is too large. Remember: displacement = final - initial position.";
+    } else if (optionB < displacement) {
+      optionBFeedback = "This value is too small. Check your calculation: displacement = final - initial.";
+    } else {
+      optionBFeedback = "This is incorrect. Displacement = final position - initial position.";
+    }
+  }
+  
   return {
     questionText: `State the displacement when position changes from ${formatNumber(initial)} km to ${formatNumber(final)} km.`,
     options: [
-      { id: 'a', text: `${formatNumber(displacement)} km`, feedback: "Correct! Displacement = final position - initial position." },
-      { id: 'b', text: `${formatNumber(Math.abs(displacement))} km`, feedback: "This is the magnitude (distance) but displacement includes direction. Don't take the absolute value." },
-      { id: 'c', text: `${formatNumber(initial - final)} km`, feedback: "You subtracted in the wrong order. It should be final - initial, not initial - final." },
-      { id: 'd', text: `${formatNumber(final + initial)} km`, feedback: "You added the positions instead of subtracting. Displacement = final - initial, not final + initial." }
+      { id: 'a', text: `${formatNumber(correctAnswer)} km`, feedback: "Correct! Displacement = final position - initial position." },
+      { id: 'b', text: `${formatNumber(optionB)} km`, feedback: optionBFeedback },
+      { id: 'c', text: `${formatNumber(wrongOrder)} km`, feedback: "You subtracted in the wrong order. It should be final - initial, not initial - final." },
+      { id: 'd', text: `${formatNumber(sumAnswer)} km`, feedback: "You added the positions instead of subtracting. Displacement = final - initial, not final + initial." }
     ],
     correctOptionId: 'a',
     explanation: `Displacement = final position - initial position = (${final}) - (${initial}) = ${displacement} km`,

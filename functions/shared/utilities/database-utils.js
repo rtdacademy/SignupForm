@@ -884,12 +884,19 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     
     // Transform courseStructure into gradebook itemStructure format
     let itemStructure = {};
-    let weights = { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15, lab: 0.15 };
+    const defaultWeights = { lesson: 0, assignment: 0, exam: 0, project: 0, lab: 0, quiz: 0 };
+    
+    // Priority: courseConfig.weights > gradebook.weights > defaultWeights
+    let weights = courseConfig.weights || courseConfig.gradebook?.weights || defaultWeights;
+    
+    // Log warning if using default weights (indicates configuration issue)
+    if (!courseConfig.weights && !courseConfig.gradebook?.weights) {
+      console.warn(`⚠️ No weights found in course config for course ${courseId}, using zero weights. Gradebook will show 0% for all categories.`);
+    }
     
     if (courseConfig.gradebook?.itemStructure) {
       // Use existing gradebook structure if available
       itemStructure = courseConfig.gradebook.itemStructure;
-      weights = courseConfig.gradebook.weights || weights;
     } else if (courseConfig.courseStructure?.units) {
       // Transform courseStructure to gradebook format
       console.log(`🔄 Transforming courseStructure to gradebook format for course ${courseId}`);
@@ -995,7 +1002,10 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
           itemCount: 0,
           completedCount: 0,
           attemptedScore: 0,
-          attemptedTotal: 0
+          attemptedTotal: 0,
+          // For averaging per item
+          itemPercentages: [],
+          attemptedItemPercentages: []
         };
       }
       
@@ -1123,6 +1133,9 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
         categoryTotals[type].total += itemScore.total;
         categoryTotals[type].itemCount++;
         
+        // Track item percentage for averaging
+        categoryTotals[type].itemPercentages.push(itemScore.percentage);
+        
         // Track attempted work separately (for current performance calculation)
         // Match client-side logic: attempted > 0 OR (session-based item that was attempted)
         const hasBeenAttempted = itemScore.attempted > 0 || 
@@ -1131,6 +1144,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
         if (hasBeenAttempted) {
           categoryTotals[type].attemptedScore += itemScore.score;
           categoryTotals[type].attemptedTotal += itemScore.total;
+          // Track attempted item percentage for averaging
+          categoryTotals[type].attemptedItemPercentages.push(itemScore.percentage);
         }
         
         // Only count session-based items as completed (they have definitive completion)
@@ -1142,9 +1157,18 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       }
     }
     
-    // Calculate category percentages
+    // Calculate category percentages using item averaging
     Object.values(categoryTotals).forEach(category => {
-      category.percentage = category.total > 0 ? (category.score / category.total) * 100 : 0;
+      // Use average of item percentages instead of sum of all points
+      if (category.itemPercentages.length > 0) {
+        const sum = category.itemPercentages.reduce((acc, p) => acc + p, 0);
+        category.percentage = sum / category.itemPercentages.length;
+      } else {
+        category.percentage = 0;
+      }
+      
+      // Also keep the old calculation for backwards compatibility (but not used in grade calculation)
+      category.percentageByPoints = category.total > 0 ? (category.score / category.total) * 100 : 0;
     });
     
     // Calculate two types of weighted grades
@@ -1160,15 +1184,16 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       if (weight > 0) {
         totalWeightUsed += weight;
         
-        // 1. Projected Final Grade (using actual earned vs total possible from config)
-        const maxPossiblePoints = categoryMaxPoints[type] || category.total;
-        const projectedCategoryPercentage = maxPossiblePoints > 0 ? (category.score / maxPossiblePoints) * 100 : 0;
-        projectedFinalWeighted += projectedCategoryPercentage * weight;
+        // 1. Projected Final Grade (using average of item percentages)
+        // Use the category percentage which is now the average of item percentages
+        projectedFinalWeighted += category.percentage * weight;
         
         // 2. Current Performance Grade (only on attempted work)
-        if (category.attemptedTotal > 0) {
+        if (category.attemptedItemPercentages.length > 0) {
           attemptedWeightUsed += weight;
-          const attemptedCategoryPercentage = (category.attemptedScore / category.attemptedTotal) * 100;
+          // Calculate average of attempted item percentages
+          const attemptedSum = category.attemptedItemPercentages.reduce((acc, p) => acc + p, 0);
+          const attemptedCategoryPercentage = attemptedSum / category.attemptedItemPercentages.length;
           currentPerformanceWeighted += attemptedCategoryPercentage * weight;
         }
       }

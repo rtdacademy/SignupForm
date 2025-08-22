@@ -4,6 +4,8 @@ const { getActivityTypeSettings } = require('../../../shared/utilities/config-lo
 // Load course configuration
 const courseConfig = require('../../../courses-config/2/course-config.json');
 
+// Removed dependency on config file - settings are now handled directly in assessment configurations
+
 // ===== ACTIVITY TYPE CONFIGURATION =====
 // Set the activity type for all assessments in this content module
 // Options: 'lesson', 'assignment', 'lab', 'exam'

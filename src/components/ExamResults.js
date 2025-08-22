@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';  
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const ExamResults = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [sessionData, setSessionData] = useState(null);
   const [detailedQuestions, setDetailedQuestions] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const fetchSessionData = async () => {
@@ -19,6 +21,18 @@ const ExamResults = () => {
         setError('Missing user email or session ID');
         setLoading(false);
         return;
+      }
+
+      // Check if results were passed through navigation state first
+      if (location.state?.results && location.state?.fromSubmission) {
+        console.log('📋 Using results from navigation state');
+        // Use the passed results immediately
+        setSessionData({
+          finalResults: location.state.results,
+          sessionId: sessionId,
+          status: 'completed'
+        });
+        // Still try to fetch full session data and question details in background
       }
 
       try {
@@ -51,7 +65,56 @@ const ExamResults = () => {
         }
 
         if (!foundSessionData) {
-          throw new Error('Exam session not found');
+          // If session not found and we don't have state data, set up a listener
+          if (!location.state?.results) {
+            console.log('⏳ Session not found yet, setting up listener...');
+            
+            // Set up listeners for each possible course
+            const unsubscribes = [];
+            let sessionFound = false;
+            
+            for (const courseId of possibleCourseIds) {
+              const sessionPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`;
+              const sessionRef = ref(database, sessionPath);
+              
+              const unsubscribe = onValue(sessionRef, (snapshot) => {
+                if (snapshot.exists() && !sessionFound) {
+                  sessionFound = true;
+                  const data = snapshot.val();
+                  
+                  // Check if finalResults exist
+                  if (data.finalResults) {
+                    console.log('✅ Session data now available!');
+                    data.courseId = courseId;
+                    setSessionData(data);
+                    setLoading(false);
+                    
+                    // Clean up all listeners
+                    unsubscribes.forEach(unsub => unsub());
+                  }
+                }
+              });
+              
+              unsubscribes.push(unsubscribe);
+            }
+            
+            // Set timeout to stop listening after 30 seconds
+            setTimeout(() => {
+              if (!sessionFound) {
+                console.error('❌ Timeout waiting for session data');
+                unsubscribes.forEach(unsub => unsub());
+                setError('Results are still being processed. Please refresh the page in a moment.');
+                setLoading(false);
+              }
+            }, 30000);
+            
+            return; // Exit early, listener will handle the update
+          } else {
+            // We have state data but no database data yet - this is okay
+            console.log('📋 Using state data while waiting for database');
+            setLoading(false);
+            return;
+          }
         }
 
         // Add courseId to session data for navigation

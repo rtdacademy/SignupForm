@@ -5,20 +5,15 @@ const CourseOutline = ({ course, isOpen, onClose }) => {
   const [expandedUnits, setExpandedUnits] = useState({});
 
   // Extract course data from the course prop
-  const courseConfig = course?.Gradebook?.courseConfig || {};
+  const courseConfig = course?.courseDetails?.['course-config'] || {};
   const courseDetails = course?.courseDetails || {};
   
   // Try multiple paths for course structure - new structure first, then legacy
-  const courseStructure = courseConfig?.courseStructure || 
-                         courseDetails?.courseConfig?.courseStructure || 
-                         {};
+  const courseStructure = courseConfig?.courseStructure || {};
   
-  const weights = courseConfig?.weights || 
-                 courseDetails?.courseConfig?.weights || 
-                 {};
+  const weights = courseConfig?.weights || {};
   
   const resources = courseConfig?.courseOutline?.resources || 
-                   courseDetails?.courseConfig?.courseOutline?.resources || 
                    courseConfig?.resources || 
                    {};
 
