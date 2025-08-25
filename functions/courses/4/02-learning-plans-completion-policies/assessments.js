@@ -17,49 +17,6 @@ const activityDefaults = {
   pointsValue: 1
 };
 
-// Question pool for AI-generated questions (using fallback questions)
-const questionPoolAI = [
-  {
-    questionText: "Emma is enrolled in Math 30-1 and has completed her Section 1 exam with a score of 78%. Due to unexpected family circumstances, she's considering withdrawing from the course. She's also registered for the diploma exam through MyPass. What should Emma know about her situation?",
-    options: [
-      { id: 'a', text: "She can withdraw cleanly with no grade impact since she hasn't finished the course yet", feedback: "Incorrect. Since she completed Section 1, her grade will be submitted to PASI." },
-      { id: 'b', text: "If she withdraws now, RTD will submit her current grade to PASI, and she must cancel her MyPass registration herself", feedback: "Correct! Since Emma completed Section 1 exam, withdrawing now means RTD will submit her current grade to PASI. Additionally, students are responsible for cancelling their own MyPass registrations." },
-      { id: 'c', text: "RTD Academy will automatically cancel her MyPass registration if she withdraws", feedback: "Incorrect. Students must cancel their own MyPass registrations - RTD cannot do this for them." },
-      { id: 'd', text: "She should wait to withdraw until after the diploma exam to avoid penalty", feedback: "Incorrect. Waiting won't change the fact that her current grade will be submitted since she completed Section 1." }
-    ],
-    correctOptionId: 'b',
-    explanation: "Since Emma completed Section 1 exam, withdrawing now means RTD will submit her current grade to PASI. Additionally, students are responsible for cancelling their own MyPass registrations - RTD cannot do this for them.",
-    difficulty: 'intermediate',
-    tags: ['withdrawal', 'pasi', 'mypass', 'section-1']
-  },
-  {
-    questionText: "What is the primary purpose of creating a personal learning plan at RTD Academy?",
-    options: [
-      { id: 'a', text: "To meet government requirements for funding", feedback: "Incorrect. While there may be administrative benefits, this isn't the primary purpose." },
-      { id: 'b', text: "To help you set realistic goals and manage your time effectively throughout the course", feedback: "Correct! A personal learning plan helps you set realistic goals, manage your time effectively, and stay on track with your coursework." },
-      { id: 'c', text: "To determine your final grade in the course", feedback: "Incorrect. Your learning plan doesn't determine your grades - your performance does." },
-      { id: 'd', text: "To register for diploma exams automatically", feedback: "Incorrect. Diploma exam registration is done through MyPass, not the learning plan." }
-    ],
-    correctOptionId: 'b',
-    explanation: "A personal learning plan helps you set realistic goals, manage your time effectively, and stay on track with your coursework. It's a tool for your success, not just a requirement.",
-    difficulty: 'beginner',
-    tags: ['learning-plan', 'time-management', 'goals']
-  },
-  {
-    questionText: "Marcus started his Biology 30 course in September but hasn't submitted any work for 45 days. He's registered for the January diploma exam through MyPass. He wants to get back on track but is unsure of his status. Which statement best describes his situation and required actions?",
-    options: [
-      { id: 'a', text: "He's been automatically withdrawn and must re-register for the course and cancel his MyPass registration", feedback: "Incorrect. Students aren't automatically withdrawn after 45 days, though he is at risk." },
-      { id: 'b', text: "He's still enrolled but at risk of withdrawal; he should contact his teacher immediately and may need to update his learning plan", feedback: "Correct! After 30+ days of inactivity, students are at risk of withdrawal but not automatically withdrawn. Marcus should contact his teacher immediately." },
-      { id: 'c', text: "His inactivity automatically cancelled his diploma exam registration", feedback: "Incorrect. MyPass registrations remain active unless the student cancels them." },
-      { id: 'd', text: "He can continue where he left off with no consequences since he's still within the course timeline", feedback: "Incorrect. After 30+ days of inactivity, there are consequences and he needs to communicate with his teacher." }
-    ],
-    correctOptionId: 'b',
-    explanation: "After 30+ days of inactivity, students are at risk of withdrawal but not automatically withdrawn. Marcus should contact his teacher immediately to discuss his situation and likely update his learning plan. His MyPass registration remains active unless he cancels it himself.",
-    difficulty: 'advanced',
-    tags: ['inactivity', 'withdrawal-risk', 'communication', 'mypass']
-  }
-];
-
 // Question pool 1: Alex's Section 1 Withdrawal Scenario
 const questionPool1 = [
   {
@@ -331,33 +288,6 @@ const questionPool8 = [
  * can use to instantiate StandardMultipleChoiceCore handlers
  */
 const assessmentConfigs = {
-  'course4_02_learning_plans_completion_policies_aiQuestion': {
-    type: 'multiple-choice',
-    questions: questionPoolAI,
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    activityType: ACTIVITY_TYPE,
-    maxAttempts: 5,
-    pointsValue: 2,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    allowDifficultySelection: true,
-    defaultDifficulty: 'intermediate',
-    subject: 'RTD Academy Orientation',
-    gradeLevel: 12,
-    topic: 'Learning Plans & Completion Policies',
-    learningObjectives: [
-      'Understand personal learning plan requirements',
-      'Know course completion and withdrawal policies',
-      'Understand PASI implications of withdrawal',
-      'Know MyPass registration responsibilities',
-      'Understand inactivity consequences'
-    ]
-  },
-  
   'course4_02_learning_plans_question1': {
     type: 'multiple-choice',
     questions: questionPool1,

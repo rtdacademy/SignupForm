@@ -56,7 +56,7 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
                 <img 
                   src={facilitator.image} 
                   alt={facilitator.name}
-                  className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md hover:shadow-lg transition-shadow"
+                  className={`w-20 h-20 rounded-full object-cover border-4 border-white shadow-md hover:shadow-lg transition-shadow ${facilitator.imageStyle || ''}`}
                 />
               </a>
             ) : (
@@ -179,7 +179,7 @@ const FacilitatorDetailSheet = ({ isOpen, onClose, facilitator }) => {
                 <img 
                   src={facilitator.image} 
                   alt={facilitator.name}
-                  className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-200 hover:border-gray-300 transition-colors"
+                  className={`w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-200 hover:border-gray-300 transition-colors ${facilitator.imageStyle || ''}`}
                 />
               </a>
             ) : (

@@ -270,9 +270,17 @@ export const checkItemCompletion = (itemId, course, progressionRequirements) => 
   
   // Check based on item type
   if (itemType === 'lesson') {
-    const meetsPercentage = gradebookItem.percentage >= (criteria.minimumPercentage || 50);
+    const minimumPercentage = criteria.minimumPercentage ?? 50;
     const meetsQuestions = !criteria.requireAllQuestions || 
                           gradebookItem.attempted >= gradebookItem.totalQuestions;
+    
+    // If minimum percentage is 0, only check that all questions are attempted
+    if (minimumPercentage === 0 && criteria.requireAllQuestions) {
+      return meetsQuestions;
+    }
+    
+    // Otherwise check both percentage and questions
+    const meetsPercentage = gradebookItem.percentage >= minimumPercentage;
     return meetsPercentage && meetsQuestions;
   }
   

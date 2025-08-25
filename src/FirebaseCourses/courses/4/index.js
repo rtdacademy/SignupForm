@@ -42,9 +42,21 @@ const LessonContentWrapper = ({
     if (activeItem?.itemId && !shouldBypassAccessControl(isStaffView, devMode)) {
       
       // For assessment-based unlocking, we validate access using gradebook/assessment data
-      const assessmentData = gradebookItems;
+      // Create a course object with gradebook data for the new signature
+      const courseWithGradebook = {
+        Gradebook: {
+          items: gradebookItems
+        },
+        courseDetails: {
+          'course-config': {
+            progressionRequirements: {
+              enabled: true // Assuming sequential access is enabled for course 4
+            }
+          }
+        }
+      };
       
-      const accessibility = getLessonAccessibility({ courseStructure }, assessmentData);
+      const accessibility = getLessonAccessibility({ courseStructure }, courseWithGradebook);
       const accessInfo = accessibility[activeItem.itemId];
       
       
@@ -64,7 +76,7 @@ const LessonContentWrapper = ({
         }
         
         // Redirect to highest accessible lesson
-        const highestAccessible = getHighestAccessibleLesson({ courseStructure }, assessmentData);
+        const highestAccessible = getHighestAccessibleLesson({ courseStructure }, courseWithGradebook);
         if (highestAccessible && highestAccessible !== activeItem.itemId) {
           if (onItemSelect) {
             onItemSelect(highestAccessible);

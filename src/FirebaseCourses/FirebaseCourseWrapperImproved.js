@@ -916,7 +916,9 @@ const FirebaseCourseWrapperContent = ({
       isDeveloperModeActive,
       hasGradebook: !!course?.Gradebook,
       allCourseItemsCount: allCourseItems.length,
-      progressionEnabled: course?.courseDetails?.['course-config']?.progressionRequirements?.enabled
+      progressionEnabled: course?.courseDetails?.['course-config']?.progressionRequirements?.enabled,
+      realtimeGradebookUpdate: !!realtimeGradebook,
+      dataUpdateTrigger
     });
     
     // If no course items yet, return empty
@@ -941,8 +943,11 @@ const FirebaseCourseWrapperContent = ({
       return accessibility;
     }
     
+    // Use the real-time gradebook if available, otherwise fall back to course.Gradebook
+    const currentGradebook = realtimeGradebook || course?.Gradebook;
+    
     // If no gradebook data yet, still calculate basic accessibility
-    if (!course?.Gradebook) {
+    if (!currentGradebook) {
       const accessibility = {};
       // First lesson is always accessible, others need gradebook data to determine
       allCourseItems.forEach((item, index) => {
@@ -954,6 +959,12 @@ const FirebaseCourseWrapperContent = ({
       });
       return accessibility;
     }
+    
+    // Create an updated course object with real-time gradebook
+    const courseWithRealtimeData = {
+      ...course,
+      Gradebook: currentGradebook
+    };
     
     // Get the course structure
     const courseStructure = {
@@ -977,13 +988,13 @@ const FirebaseCourseWrapperContent = ({
     // Pass developer bypass information to handle inDevelopment restrictions
     const isDeveloperBypass = shouldBypass || (isAuthorizedDeveloper && isDeveloperModeActive);
     
-    // Use the simplified lesson access logic with the full course object
-    return getLessonAccessibility(courseStructure, course, {
+    // Use the simplified lesson access logic with the course object that has real-time gradebook
+    return getLessonAccessibility(courseStructure, courseWithRealtimeData, {
       isDeveloperBypass,
       staffOverrides: {}, // Add staff overrides if needed
-      progressionExemptions: course?.progressionExemptions || {}
+      progressionExemptions: courseWithRealtimeData?.progressionExemptions || {}
     });
-  }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive, unitsList]);
+  }, [allCourseItems, isStaffView, devMode, currentUser, course, isAuthorizedDeveloper, isDeveloperModeActive, unitsList, realtimeGradebook, dataUpdateTrigger]);
   
   // Find the current active item for the info panel
   const currentActiveItem = useMemo(() => {

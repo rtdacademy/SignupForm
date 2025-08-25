@@ -221,7 +221,7 @@ const BioPage = () => {
                           <img 
                             src={facilitator.image} 
                             alt={facilitator.name}
-                            className={`w-48 h-48 mx-auto rounded-full object-cover border-4 ${facilitator.gradients.border} shadow-xl`}
+                            className={`w-48 h-48 mx-auto rounded-full object-cover border-4 ${facilitator.gradients.border} shadow-xl ${facilitator.imageStyle || ''}`}
                           />
                         ) : (
                           <div className={`w-48 h-48 mx-auto rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-gray-300 shadow-xl flex items-center justify-center`}>

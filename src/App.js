@@ -51,6 +51,7 @@ import FacilitatorProfile1 from './RTDConnect/FacilitatorProfile1';
 import FacilitatorProfile2 from './RTDConnect/FacilitatorProfile2';
 import FacilitatorProfile3 from './RTDConnect/FacilitatorProfile3';
 import FacilitatorProfile4 from './RTDConnect/FacilitatorProfile4';
+import FacilitatorProfile5 from './RTDConnect/FacilitatorProfile5';
 import AboutPage from './RTDConnect/pages/AboutPage';
 import FAQPage from './RTDConnect/pages/FAQPage';
 import FundingPage from './RTDConnect/pages/FundingPage';
@@ -387,6 +388,7 @@ function RTDConnectApp() {
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
         <Route path="/facilitator/elise" element={<FacilitatorProfile4 />} />
+        <Route path="/facilitator/kari" element={<FacilitatorProfile5 />} />
         
         {/* Legal pages */}
         <Route path="/privacy" element={<PrivacyStatement />} />

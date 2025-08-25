@@ -24,7 +24,7 @@ const FacilitatorProfile3 = () => {
   };
 
   const handleContactEmail = () => {
-    window.location.href = 'mailto:grace-anne@rtdconnect.com';
+    window.location.href = 'mailto:grace-anne@rtd-connect.com';
   };
 
   return (

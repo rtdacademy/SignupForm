@@ -133,6 +133,39 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8'] // Can support some middle school
     }
+  },
+  {
+    id: 'kari-luther',
+    name: 'Kari Luther',
+    title: 'Holistic Learning Specialist',
+    experience: '30+ years experience',
+    description: 'With over 30 years of experience working with children in various settings, Kari is passionate about supporting holistic, authentic, child-led learning. She understands and appreciates that each child and family\'s journey in education can be as unique as they are.',
+    image: '/connectImages/Kari.jpg',
+    imageStyle: 'object-top', // Custom positioning to better frame her face
+    specializations: [
+      'Nature-based & Play-based Learning',
+      'Child-Led Learning & Art Education',
+      'Indigenous Education & Early Literacy',
+      'Resource Sourcing & Early Elementary'
+    ],
+    stats: [
+      { icon: 'Star', value: '30+', label: 'Years Experience' },
+      { icon: 'GraduationCap', value: 'M.Ed, B.A./B.Ed.', label: 'Qualifications' },
+      { icon: 'Heart', value: '10 Years', label: 'Rural Teaching' }
+    ],
+    contact: {
+      email: 'kari@rtd-connect.com'
+    },
+    profilePath: '/facilitator/kari-luther',
+    gradients: {
+      card: 'from-emerald-500 to-teal-500',
+      border: 'border-emerald-100'
+    },
+    // Grade focus for assignment recommendations - Early Elementary focus
+    gradeFocus: {
+      primary: ['K', '1', '2', '3', '4', '5', '6'],
+      secondary: ['7', '8', '9'] // Can support some middle school
+    }
   }
 ];
 

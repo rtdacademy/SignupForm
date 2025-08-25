@@ -15,7 +15,6 @@ module.exports = {
   'course4_01_welcome_rtd_academy_question3': '01-welcome-rtd-academy/assessments',
   
   // Lesson 02: Learning Plans and Completion Policies
-  'course4_02_learning_plans_completion_policies_aiQuestion': '02-learning-plans-completion-policies/assessments',
   'course4_02_learning_plans_question1': '02-learning-plans-completion-policies/assessments',
   'course4_02_learning_plans_question2': '02-learning-plans-completion-policies/assessments',
   'course4_02_learning_plans_question3': '02-learning-plans-completion-policies/assessments',

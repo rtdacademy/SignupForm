@@ -411,6 +411,9 @@ const CollapsibleNavigation = ({
         if (isSessionBased) {
           // For session-based items, completion is based on having sessions and meeting minimum score
           isCompleted = sessionCount > 0 && lessonPercentage >= criteria.minimumPercentage;
+        } else if (criteria.minimumPercentage === 0 && criteria.requireAllQuestions) {
+          // If minimum percentage is 0, only check that all questions are attempted
+          isCompleted = completionRate >= 100;
         } else if (criteria.requireAllQuestions) {
           isCompleted = completionRate >= 100 && lessonPercentage >= criteria.minimumPercentage;
         } else {
