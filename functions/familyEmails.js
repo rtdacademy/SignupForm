@@ -62,10 +62,13 @@ const sendFamilyEmailsV2 = onCall({
 
   const senderEmail = data.auth.token.email;
 
-  // Domain validation
-  if (!senderEmail.endsWith('@rtdacademy.com')) {
+  // Domain validation - allow both RTD Academy and RTD Connect domains
+  const allowedDomains = ['@rtdacademy.com', '@rtd-connect.com'];
+  const isAllowedDomain = allowedDomains.some(domain => senderEmail.endsWith(domain));
+  
+  if (!isAllowedDomain) {
     console.error(`Unauthorized sender domain: ${senderEmail}`);
-    throw new Error('Only RTD Academy staff members can send emails.');
+    throw new Error('Only RTD Academy or RTD Connect staff members can send emails.');
   }
 
   // Input validation

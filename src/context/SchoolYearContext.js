@@ -635,26 +635,41 @@ export const SchoolYearProvider = ({ children }) => {
 
   // Combine PASI & summaries with optional next/previous year data
   const pasiStudentSummariesCombined = useMemo(() => {
-    // Merge all selected year data
-    let allStudentSummaries = [...studentSummaries];
-    let allPasiRecordsNew = [...pasiRecordsNew];
-    
-    if (includeNextYear) {
-      allStudentSummaries = [...allStudentSummaries, ...nextYearStudentSummaries];
-      allPasiRecordsNew = [...allPasiRecordsNew, ...nextYearPasiRecordsNew];
-    }
-    
-    if (includePreviousYear) {
-      allStudentSummaries = [...allStudentSummaries, ...previousYearStudentSummaries];
-      allPasiRecordsNew = [...allPasiRecordsNew, ...previousYearPasiRecordsNew];
-    }
-    
     if (!isStaffUser) {
+      // For non-staff users, just combine all summaries
+      let allStudentSummaries = [...studentSummaries];
+      
+      if (includeNextYear) {
+        allStudentSummaries = [...allStudentSummaries, ...nextYearStudentSummaries];
+      }
+      
+      if (includePreviousYear) {
+        allStudentSummaries = [...allStudentSummaries, ...previousYearStudentSummaries];
+      }
+      
       return allStudentSummaries;
     }
     
-    // Use new simplified matching logic with pasiRecordsNew structure
-    return matchPasiToStudentSummary(allPasiRecordsNew, allStudentSummaries);
+    // For staff users, match each year's data separately to prevent cross-year matching
+    let results = [];
+    
+    // Match current year summaries with ONLY current year PASI records
+    const currentYearMatched = matchPasiToStudentSummary(pasiRecordsNew, studentSummaries);
+    results = [...results, ...currentYearMatched];
+    
+    // Match next year summaries with ONLY next year PASI records
+    if (includeNextYear) {
+      const nextYearMatched = matchPasiToStudentSummary(nextYearPasiRecordsNew, nextYearStudentSummaries);
+      results = [...results, ...nextYearMatched];
+    }
+    
+    // Match previous year summaries with ONLY previous year PASI records
+    if (includePreviousYear) {
+      const previousYearMatched = matchPasiToStudentSummary(previousYearPasiRecordsNew, previousYearStudentSummaries);
+      results = [...results, ...previousYearMatched];
+    }
+    
+    return results;
   }, [studentSummaries, pasiRecordsNew, nextYearStudentSummaries, nextYearPasiRecordsNew, previousYearStudentSummaries, previousYearPasiRecordsNew, includeNextYear, includePreviousYear, isStaffUser, matchPasiToStudentSummary]);
 
   // Other derived lists (unlinked, unmatched, duplicates)

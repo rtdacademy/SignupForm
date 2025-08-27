@@ -145,9 +145,23 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
     };
   }
   
-  // Has notification form - ready for PASI even if missing other items
+  // Has notification form but missing ASN - CANNOT be ready for PASI
+  if (!hasASN) {
+    const missingItems = ['ASN'];
+    if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
+    if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
+    
+    return {
+      status: 'missing-asn',
+      label: `Missing ASN Required for PASI (Also missing: ${missingItems.slice(1).join(', ') || 'None'})`,
+      color: 'red',
+      priority: 2.5,
+      missingItems
+    };
+  }
+  
+  // Has notification form AND ASN - ready for PASI
   const missingItems = [];
-  if (!hasASN) missingItems.push('ASN');
   if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
   if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
   
@@ -305,6 +319,10 @@ const RegistrarDashboard = (props) => {
             case 'missing-notification':
               // Count students with missing notification forms
               break;
+            case 'missing-asn':
+              // Count students with notification but missing ASN separately
+              // They are NOT ready for PASI
+              break;
             case 'incomplete':
               incomplete++;
               break;
@@ -400,7 +418,8 @@ const RegistrarDashboard = (props) => {
     switch (selectedTab) {
       case 'queue':
         filtered = filtered.filter(s => 
-          s.registrationStatus.status === 'missing-notification'
+          s.registrationStatus.status === 'missing-notification' ||
+          s.registrationStatus.status === 'missing-asn'
         );
         break;
       case 'ready':
@@ -701,7 +720,8 @@ const RegistrarDashboard = (props) => {
                   Queue
                   <Badge variant="secondary" className="ml-1">
                     {processedStudents.filter(s => 
-                      s.registrationStatus.status === 'missing-notification'
+                      s.registrationStatus.status === 'missing-notification' ||
+                      s.registrationStatus.status === 'missing-asn'
                     ).length}
                   </Badge>
                 </TabsTrigger>

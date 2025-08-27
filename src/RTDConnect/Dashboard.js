@@ -4,11 +4,12 @@ import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { getDatabase, ref, get, set, push, onValue, off, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
 import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
 import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
-import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink } from 'lucide-react';
+import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink, BookOpen, TrendingUp } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import AddressPicker from '../components/AddressPicker';
@@ -21,6 +22,7 @@ import ReceiptUploadForm from './ReceiptUploadForm';
 import StudentBudgetCard from './StudentBudgetCard';
 import FamilyBudgetOverview from './FamilyBudgetOverview';
 import AcceptanceLetterDialog from './AcceptanceLetterDialog';
+import PortfolioManager from '../PortfolioManager/components/PortfolioManager';
 import Toast from '../components/Toast';
 import FormCompletionBadge, { CompactFormCompletionBadge } from '../components/FormCompletionBadge';
 import { 
@@ -71,9 +73,20 @@ const determineFormStatus = (formData) => {
   }
 };
 
-// Helper function to calculate student budget based on grade
-const calculateStudentBudget = (grade) => {
-  // Convert grade to normalized format for comparison
+// Helper function to calculate student budget based on grade and eligibility
+const calculateStudentBudget = (student) => {
+  // Check if student has funding eligibility flag (new system)
+  if (student.fundingEligible === false) {
+    return 0; // Not eligible for funding
+  }
+  
+  // If student has fundingAmount set (new system), use that
+  if (student.fundingAmount !== undefined && student.fundingAmount !== null) {
+    return student.fundingAmount;
+  }
+  
+  // Fallback to grade-based calculation for existing students
+  const grade = student.grade;
   const gradeStr = grade?.toString().toLowerCase().trim();
   
   // Check for kindergarten variations
@@ -557,6 +570,11 @@ const RTDConnectDashboard = ({
   const [showSOLOPlanForm, setShowSOLOPlanForm] = useState(false);
   const [selectedStudentForSOLO, setSelectedStudentForSOLO] = useState(null);
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
+  
+  // Portfolio state
+  const [showPortfolio, setShowPortfolio] = useState(false);
+  const [selectedStudentForPortfolio, setSelectedStudentForPortfolio] = useState(null);
+  const [studentPortfolioStatuses, setStudentPortfolioStatuses] = useState({});
   
   // Reimbursement system state
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -1088,6 +1106,53 @@ const RTDConnectDashboard = ({
 
     loadStudentSOLOPlanStatuses();
   }, [effectiveFamilyId, familyData?.students, soloTargetSchoolYear]);
+
+  // Effect to load portfolio statuses
+  useEffect(() => {
+    if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
+      return;
+    }
+
+    const loadPortfolioStatuses = async () => {
+      const db = getFirestore();
+      const statuses = {};
+      
+      for (const student of familyData.students) {
+        try {
+          // Check if metadata exists for this student
+          const metadataRef = doc(db, 'portfolios', effectiveFamilyId, 'metadata', student.id);
+          const metadataSnap = await getDoc(metadataRef);
+          
+          if (metadataSnap.exists()) {
+            const metadata = metadataSnap.data();
+            statuses[student.id] = {
+              hasPortfolio: true,
+              entryCount: metadata.totalEntries || 0,
+              lastUpdated: metadata.lastModified?.toDate ? metadata.lastModified.toDate() : metadata.lastModified
+            };
+          } else {
+            statuses[student.id] = {
+              hasPortfolio: false,
+              entryCount: 0,
+              lastUpdated: null
+            };
+          }
+        } catch (error) {
+          console.error(`Error loading portfolio status for student ${student.id}:`, error);
+          statuses[student.id] = {
+            hasPortfolio: false,
+            entryCount: 0,
+            lastUpdated: null
+          };
+        }
+      }
+      
+      setStudentPortfolioStatuses(statuses);
+      console.log('Student portfolio statuses loaded:', statuses);
+    };
+
+    loadPortfolioStatuses();
+  }, [effectiveFamilyId, familyData?.students, activeSchoolYear]);
 
   // Effect to load Stripe Connect status
   useEffect(() => {
@@ -2256,7 +2321,7 @@ Check console for full details.
       const claimsSnapshot = await get(claimsRef);
       
       for (const student of familyData.students) {
-        const studentBudgetLimit = calculateStudentBudget(student.grade);
+        const studentBudgetLimit = calculateStudentBudget(student);
         const fundingInfo = getFundingType(student.grade);
         
         let spentAmount = 0;
@@ -4173,6 +4238,79 @@ Check console for full details.
                               )}
                             </div>
 
+                            {/* Learning Portfolio Section */}
+                            <div className="mt-3 pt-3 border-t border-blue-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <BookOpen className="w-4 h-4 text-indigo-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Learning Portfolio
+                                  </span>
+                                  {studentPortfolioStatuses[student.id]?.hasPortfolio ? (
+                                    <TrendingUp className="w-4 h-4 text-indigo-500" />
+                                  ) : (
+                                    <Info className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {studentPortfolioStatuses[student.id]?.entryCount > 0 && (
+                                    <span className="text-xs px-2 py-1 rounded-full font-medium shadow-sm border bg-indigo-100 text-indigo-700 border-indigo-300">
+                                      {studentPortfolioStatuses[student.id].entryCount} {studentPortfolioStatuses[student.id].entryCount === 1 ? 'entry' : 'entries'}
+                                    </span>
+                                  )}
+                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                    studentPortfolioStatuses[student.id]?.hasPortfolio 
+                                      ? 'bg-gradient-to-r from-indigo-100 to-teal-100 text-indigo-700 border-indigo-300' 
+                                      : 'bg-gray-100 text-gray-600 border-gray-300'
+                                  }`}>
+                                    {studentPortfolioStatuses[student.id]?.hasPortfolio ? 'Active' : 'Not Started'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Portfolio Details */}
+                              {studentPortfolioStatuses[student.id]?.hasPortfolio && (
+                                <div className="mb-2 text-xs text-gray-600 flex items-center justify-between">
+                                  <span>
+                                    Last updated: {studentPortfolioStatuses[student.id]?.lastUpdated 
+                                      ? new Date(studentPortfolioStatuses[student.id].lastUpdated).toLocaleDateString()
+                                      : 'Never'}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {/* Portfolio Button - Primary Guardians and Staff */}
+                              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedStudentForPortfolio(student);
+                                    setShowPortfolio(true);
+                                  }}
+                                  className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                    studentPortfolioStatuses[student.id]?.hasPortfolio
+                                      ? 'bg-gradient-to-r from-indigo-500 to-teal-500 text-white hover:from-indigo-600 hover:to-teal-600 border border-indigo-400'
+                                      : 'bg-gradient-to-r from-indigo-100 to-teal-100 text-indigo-700 hover:from-indigo-200 hover:to-teal-200 border border-indigo-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>
+                                      {isStaff() 
+                                        ? 'View Portfolio'
+                                        : studentPortfolioStatuses[student.id]?.hasPortfolio
+                                          ? 'Manage Portfolio'
+                                          : 'Create Portfolio'
+                                      }
+                                    </span>
+                                  </div>
+                                </button>
+                              ) : (
+                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                  Contact Primary Guardian
+                                </div>
+                              )}
+                            </div>
+
                             {/* Budget Information Section */}
                             {studentBudgets[student.id] && (
                               <div className={`mt-3 pt-3 border-t border-blue-300 ${!studentEligibility?.canAccessPayments ? 'relative' : ''}`}>
@@ -4905,6 +5043,68 @@ Check console for full details.
           readOnly={isStaff()}
           staffMode={isStaff()}
         />
+      )}
+
+      {/* Portfolio Manager - Primary Guardians and Staff */}
+      {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && (
+        <Sheet open={showPortfolio} onOpenChange={(open) => {
+          if (!open) {
+            setShowPortfolio(false);
+            setSelectedStudentForPortfolio(null);
+            // Reload portfolio statuses after closing
+            if (effectiveFamilyId && familyData?.students && activeSchoolYear) {
+              const loadPortfolioStatuses = async () => {
+                const db = getFirestore();
+                const statuses = {};
+                
+                for (const student of familyData.students) {
+                  try {
+                    // Check if metadata exists for this student
+                    const metadataRef = doc(db, 'portfolios', effectiveFamilyId, 'metadata', student.id);
+                    const metadataSnap = await getDoc(metadataRef);
+                    
+                    if (metadataSnap.exists()) {
+                      const metadata = metadataSnap.data();
+                      statuses[student.id] = {
+                        hasPortfolio: true,
+                        entryCount: metadata.totalEntries || 0,
+                        lastUpdated: metadata.lastModified?.toDate ? metadata.lastModified.toDate() : metadata.lastModified
+                      };
+                    } else {
+                      statuses[student.id] = {
+                        hasPortfolio: false,
+                        entryCount: 0,
+                        lastUpdated: null
+                      };
+                    }
+                  } catch (error) {
+                    console.error(`Error loading portfolio status for student ${student.id}:`, error);
+                    statuses[student.id] = {
+                      hasPortfolio: false,
+                      entryCount: 0,
+                      lastUpdated: null
+                    };
+                  }
+                }
+                
+                setStudentPortfolioStatuses(statuses);
+              };
+              
+              loadPortfolioStatuses();
+            }
+          }
+        }}>
+          <SheetContent side="bottom" size="full" className="h-full w-full overflow-hidden p-0">
+            {selectedStudentForPortfolio && (
+              <PortfolioManager
+                student={selectedStudentForPortfolio}
+                familyId={effectiveFamilyId}
+                schoolYear={activeSchoolYear}
+                onClose={() => setShowPortfolio(false)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Acceptance Letter Dialog */}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Table,
   TableBody,
@@ -658,7 +658,7 @@ const CustomViewModal = ({
       groups: [
         {
           id: 'group-1',
-          conditions: [{ field: '', operator: '', value: '', logicOperator: 'AND' }],
+          conditions: [],
           internalLogic: 'AND'
         }
       ],
@@ -682,18 +682,22 @@ const CustomViewModal = ({
             groups: [
               {
                 id: 'group-1',
-                conditions: editingView.conditions.length > 0 ? editingView.conditions : [{ field: '', operator: '', value: '', logicOperator: 'AND' }],
+                conditions: editingView.conditions.length > 0 ? editingView.conditions : [],
                 internalLogic: 'AND'
               }
             ],
             groupLogic: 'AND'
           };
+        } else if (editingView.conditions && editingView.conditions.groups) {
+          // New grouped format
+          conditions = editingView.conditions;
         } else {
-          conditions = editingView.conditions || {
+          // Fallback for any other format or undefined
+          conditions = {
             groups: [
               {
                 id: 'group-1',
-                conditions: [{ field: '', operator: '', value: '', logicOperator: 'AND' }],
+                conditions: [],
                 internalLogic: 'AND'
               }
             ],
@@ -723,7 +727,7 @@ const CustomViewModal = ({
             groups: [
               {
                 id: 'group-1',
-                conditions: [{ field: '', operator: '', value: '', logicOperator: 'AND' }],
+                conditions: [],
                 internalLogic: 'AND'
               }
             ],
@@ -746,7 +750,7 @@ const CustomViewModal = ({
           ...prev.newViewConditions.groups,
           {
             id: newGroupId,
-            conditions: [{ field: '', operator: '', value: '', logicOperator: 'AND' }],
+            conditions: [],
             internalLogic: 'AND'
           }
         ]
@@ -755,15 +759,14 @@ const CustomViewModal = ({
   };
 
   const removeGroup = (groupId) => {
-    if (localFormState.newViewConditions.groups.length > 1) {
-      setLocalFormState(prev => ({
-        ...prev,
-        newViewConditions: {
-          ...prev.newViewConditions,
-          groups: prev.newViewConditions.groups.filter(group => group.id !== groupId)
-        }
-      }));
-    }
+    // Allow removing all groups - having zero groups means no filters
+    setLocalFormState(prev => ({
+      ...prev,
+      newViewConditions: {
+        ...prev.newViewConditions,
+        groups: prev.newViewConditions.groups.filter(group => group.id !== groupId)
+      }
+    }));
   };
 
   const updateGroupLogic = (groupId, logic) => {
@@ -800,7 +803,7 @@ const CustomViewModal = ({
           group.id === groupId 
             ? {
                 ...group,
-                conditions: [...group.conditions, { field: '', operator: '', value: '', logicOperator: 'AND' }]
+                conditions: [...(group.conditions || []), { field: '', operator: '', value: '' }]
               }
             : group
         )
@@ -814,10 +817,10 @@ const CustomViewModal = ({
       newViewConditions: {
         ...prev.newViewConditions,
         groups: prev.newViewConditions.groups.map(group => {
-          if (group.id === groupId && group.conditions.length > 1) {
+          if (group.id === groupId) {
             return {
               ...group,
-              conditions: group.conditions.filter((_, i) => i !== conditionIndex)
+              conditions: (group.conditions || []).filter((_, i) => i !== conditionIndex)
             };
           }
           return group;
@@ -833,7 +836,7 @@ const CustomViewModal = ({
         ...prev.newViewConditions,
         groups: prev.newViewConditions.groups.map(group => {
           if (group.id === groupId) {
-            const updatedConditions = [...group.conditions];
+            const updatedConditions = [...(group.conditions || [])];
             updatedConditions[conditionIndex] = { 
               ...updatedConditions[conditionIndex], 
               [field]: value 
@@ -1327,7 +1330,7 @@ const CustomViewModal = ({
             </div>
 
             {/* Group Logic Selector */}
-            {localFormState.newViewConditions.groups.length > 1 && (
+            {localFormState.newViewConditions.groups && localFormState.newViewConditions.groups.length > 1 && (
               <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
                 <Label className="text-sm font-medium">Groups Combined With:</Label>
                 <Select value={localFormState.newViewConditions.groupLogic} onValueChange={updateGroupsLogic}>
@@ -1343,7 +1346,23 @@ const CustomViewModal = ({
             )}
 
             {/* Condition Groups */}
-            {localFormState.newViewConditions.groups.map((group, groupIndex) => (
+            {!localFormState.newViewConditions.groups || localFormState.newViewConditions.groups.length === 0 ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                <Info className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600 mb-2">No Filter Groups</p>
+                <p className="text-xs text-gray-500 mb-4">This view will show all available records</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addGroup}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add First Filter Group
+                </Button>
+              </div>
+            ) : (
+              localFormState.newViewConditions.groups.map((group, groupIndex) => (
               <div key={group.id} className="border-2 border-dashed border-gray-300 rounded-lg p-4 space-y-4 bg-gray-50">
                 {/* Group Header */}
                 <div className="flex items-center justify-between">
@@ -1378,38 +1397,41 @@ const CustomViewModal = ({
                       <Plus className="h-3 w-3 mr-1" />
                       Add Condition
                     </Button>
-                    {localFormState.newViewConditions.groups.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeGroup(group.id)}
-                        className="h-7 px-2 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeGroup(group.id)}
+                      className="h-7 px-2 text-red-600 hover:bg-red-50"
+                      title="Remove this group"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
 
                 {/* Conditions within group */}
-                {group.conditions.map((condition, conditionIndex) => (
+                {!group.conditions || group.conditions.length === 0 ? (
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <p className="text-sm text-gray-500 mb-2">No conditions in this group</p>
+                    <p className="text-xs text-gray-400">All records will be shown when no filters are applied</p>
+                  </div>
+                ) : (
+                  group.conditions.map((condition, conditionIndex) => (
                   <div key={conditionIndex} className="bg-white border rounded-lg p-3 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-600">
                         Condition {conditionIndex + 1}
                       </span>
-                      {group.conditions.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeCondition(group.id, conditionIndex)}
-                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCondition(group.id, conditionIndex)}
+                        className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1472,19 +1494,40 @@ const CustomViewModal = ({
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
-            ))}
+            ))
+            )}
 
             {/* Visual representation */}
             <div className="text-xs text-gray-500 p-3 bg-blue-50 rounded-lg">
               <strong>Preview:</strong> 
-              {localFormState.newViewConditions.groups.map((group, idx) => (
-                <span key={group.id}>
-                  {idx > 0 && ` ${localFormState.newViewConditions.groupLogic} `}
-                  ({group.conditions.filter(c => c.field && c.operator).length} condition{group.conditions.filter(c => c.field && c.operator).length !== 1 ? 's' : ''} with {group.internalLogic})
-                </span>
-              ))}
+              {(() => {
+                if (!localFormState.newViewConditions.groups || localFormState.newViewConditions.groups.length === 0) {
+                  return <span className="text-blue-600 ml-2">No filters applied - all records will be shown</span>;
+                }
+                
+                const validGroups = localFormState.newViewConditions.groups.filter(
+                  group => group.conditions && group.conditions.some(c => c.field && c.operator)
+                );
+                
+                if (validGroups.length === 0) {
+                  return <span className="text-blue-600 ml-2">No filters applied - all records will be shown</span>;
+                }
+                
+                return localFormState.newViewConditions.groups.map((group, idx) => {
+                  const validConditions = (group.conditions || []).filter(c => c.field && c.operator).length;
+                  if (validConditions === 0) return null;
+                  
+                  return (
+                    <span key={group.id}>
+                      {idx > 0 && ` ${localFormState.newViewConditions.groupLogic} `}
+                      ({validConditions} condition{validConditions !== 1 ? 's' : ''} with {group.internalLogic})
+                    </span>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -1526,7 +1569,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     includeNextYear,
     includePreviousYear,
     getNextSchoolYear,
-    getPreviousSchoolYear
+    getPreviousSchoolYear,
+    schoolYearOptions
   } = useSchoolYear();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -1619,8 +1663,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     };
   }, []);
 
-  // Helper function to evaluate a single condition
-  const evaluateCondition = (record, condition) => {
+  // Helper function to evaluate a single condition - Memoized for stability
+  const evaluateCondition = useCallback((record, condition) => {
     
     if (!condition.field || !condition.operator) {
       return false;
@@ -1861,113 +1905,10 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     }
     
     return result;
-  };
+  }, [teacherCategories]);
 
-  // Enhanced filter function for grouped conditions
-  const applyCustomFilter = (records, conditionsConfig) => {
-    
-    // Handle legacy format (simple array of conditions)
-    if (Array.isArray(conditionsConfig)) {
-      return applyLegacyFilter(records, conditionsConfig);
-    }
-    
-    // Handle new grouped format
-    if (!conditionsConfig || !conditionsConfig.groups || conditionsConfig.groups.length === 0) {
-      return records;
-    }
-    
-    
-    const filteredRecords = records.filter((record, recordIndex) => {
-      // Only log for first few records to avoid console spam
-      const shouldLog = recordIndex < 3;
-      if (shouldLog) {
-      }
-      
-      const groupResults = [];
-      
-      // Evaluate each group
-      for (let groupIndex = 0; groupIndex < conditionsConfig.groups.length; groupIndex++) {
-        const group = conditionsConfig.groups[groupIndex];
-        
-        if (shouldLog) {
-        }
-        
-        if (!group.conditions || group.conditions.length === 0) {
-          groupResults.push(true);
-          groupResults.push(true);
-          continue;
-        }
-        
-        // Filter out invalid conditions
-        const validConditions = group.conditions.filter(c => c.field && c.operator);
-        if (validConditions.length === 0) {
-          groupResults.push(true);
-          groupResults.push(true);
-          continue;
-        }
-        
-        // Evaluate conditions within the group
-        let groupResult = true;
-        const groupLogic = group.internalLogic || 'AND';
-        
-        if (shouldLog) {
-        }
-        
-        for (let i = 0; i < validConditions.length; i++) {
-          const condition = validConditions[i];
-          if (shouldLog) {
-          }
-          
-          const conditionResult = evaluateCondition(record, condition);
-          
-          if (i === 0) {
-            groupResult = conditionResult;
-          } else {
-            const previousResult = groupResult;
-            if (groupLogic === 'AND') {
-              groupResult = groupResult && conditionResult;
-            } else if (groupLogic === 'OR') {
-              groupResult = groupResult || conditionResult;
-            }
-            if (shouldLog) {
-            }
-          }
-        }
-        
-        if (shouldLog) {
-        }
-        groupResults.push(groupResult);
-      }
-      
-      // Combine group results using groupLogic
-      let finalResult = groupResults[0] || false;
-      const globalGroupLogic = conditionsConfig.groupLogic || 'AND';
-      
-      if (shouldLog) {
-      }
-      
-      for (let i = 1; i < groupResults.length; i++) {
-        const previousResult = finalResult;
-        if (globalGroupLogic === 'AND') {
-          finalResult = finalResult && groupResults[i];
-        } else if (globalGroupLogic === 'OR') {
-          finalResult = finalResult || groupResults[i];
-        }
-        if (shouldLog) {
-        }
-      }
-      
-      if (shouldLog) {
-      }
-      
-      return finalResult;
-    });
-    
-    return filteredRecords;
-  };
-
-  // Legacy filter function for backwards compatibility
-  const applyLegacyFilter = (records, conditions) => {
+  // Legacy filter function for backwards compatibility - Memoized for stability
+  const applyLegacyFilter = useCallback((records, conditions) => {
     
     if (!conditions || conditions.length === 0) {
       return records;
@@ -2017,54 +1958,158 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     });
     
     return filteredRecords;
-  };
+  }, [evaluateCondition]);
 
-  // Apply aggregate filter for student-level course conditions
-  const applyAggregateFilter = (records, conditionsConfig) => {
-    // Group records by ASN
-    const recordsByASN = {};
-    records.forEach(record => {
-      if (record.asn) {
-        if (!recordsByASN[record.asn]) {
-          recordsByASN[record.asn] = [];
-        }
-        recordsByASN[record.asn].push(record);
-      }
-    });
-
-    // Evaluate conditions for each student
-    const matchedASNs = new Set();
+  // Enhanced filter function for grouped conditions - Memoized for stability
+  const applyCustomFilter = useCallback((records, conditionsConfig) => {
     
-    Object.entries(recordsByASN).forEach(([asn, studentRecords]) => {
-      // Extract course codes for this student
-      const studentCourseCodes = new Set(
-        studentRecords
-          .map(r => r.courseCode)
-          .filter(code => code && code !== 'N/A')
-      );
-      
-      // Check if this student matches all condition groups
-      const studentMatches = evaluateStudentAgainstConditions(
-        studentRecords[0], // Use first record for non-course fields
-        studentCourseCodes,
-        conditionsConfig
-      );
-      
-      if (studentMatches) {
-        matchedASNs.add(asn);
-      }
-    });
-
-    // Return all records for matched students
-    if (matchedASNs.size === 0) {
-      return [];
+    // Handle legacy format (simple array of conditions)
+    if (Array.isArray(conditionsConfig)) {
+      return applyLegacyFilter(records, conditionsConfig);
     }
+    
+    // Handle new grouped format
+    if (!conditionsConfig || !conditionsConfig.groups || conditionsConfig.groups.length === 0) {
+      return records;
+    }
+    
+    // Check if there are any valid conditions across all groups
+    const hasValidConditions = conditionsConfig.groups.some(group => {
+      if (!group.conditions || group.conditions.length === 0) return false;
+      const validConditions = group.conditions.filter(c => c.field && c.operator);
+      return validConditions.length > 0;
+    });
+    
+    // If no valid conditions exist, return all records (no filters applied)
+    if (!hasValidConditions) {
+      return records;
+    }
+    
+    const filteredRecords = records.filter((record, recordIndex) => {
+      // Only log for first few records to avoid console spam
+      const shouldLog = recordIndex < 3;
+      if (shouldLog) {
+      }
+      
+      const groupResults = [];
+      
+      // Evaluate each group
+      for (let groupIndex = 0; groupIndex < conditionsConfig.groups.length; groupIndex++) {
+        const group = conditionsConfig.groups[groupIndex];
+        
+        if (shouldLog) {
+        }
+        
+        if (!group.conditions || group.conditions.length === 0) {
+          // Skip empty groups - don't add to results
+          continue;
+        }
+        
+        // Filter out invalid conditions
+        const validConditions = group.conditions.filter(c => c.field && c.operator);
+        if (validConditions.length === 0) {
+          // Skip groups with no valid conditions
+          continue;
+        }
+        
+        // Evaluate conditions within the group
+        let groupResult = true;
+        const groupLogic = group.internalLogic || 'AND';
+        
+        if (shouldLog) {
+        }
+        
+        for (let i = 0; i < validConditions.length; i++) {
+          const condition = validConditions[i];
+          if (shouldLog) {
+          }
+          
+          const conditionResult = evaluateCondition(record, condition);
+          
+          if (i === 0) {
+            groupResult = conditionResult;
+          } else {
+            const previousResult = groupResult;
+            if (groupLogic === 'AND') {
+              groupResult = groupResult && conditionResult;
+            } else if (groupLogic === 'OR') {
+              groupResult = groupResult || conditionResult;
+            }
+            if (shouldLog) {
+            }
+          }
+        }
+        
+        if (shouldLog) {
+        }
+        groupResults.push(groupResult);
+      }
+      
+      // If no groups had valid conditions, include the record (show all)
+      if (groupResults.length === 0) {
+        return true;
+      }
+      
+      // Combine group results using groupLogic
+      let finalResult = groupResults[0] || false;
+      const globalGroupLogic = conditionsConfig.groupLogic || 'AND';
+      
+      if (shouldLog) {
+      }
+      
+      for (let i = 1; i < groupResults.length; i++) {
+        const previousResult = finalResult;
+        if (globalGroupLogic === 'AND') {
+          finalResult = finalResult && groupResults[i];
+        } else if (globalGroupLogic === 'OR') {
+          finalResult = finalResult || groupResults[i];
+        }
+        if (shouldLog) {
+        }
+      }
+      
+      if (shouldLog) {
+      }
+      
+      return finalResult;
+    });
+    
+    return filteredRecords;
+  }, [evaluateCondition, applyLegacyFilter]);
 
-    return records.filter(record => record.asn && matchedASNs.has(record.asn));
-  };
+  // Evaluate aggregate course conditions - Memoized for stability
+  const evaluateAggregateCondition = useCallback((studentCourseCodes, condition) => {
+    const { operator, value } = condition;
+    
+    switch (operator) {
+      case 'student_has_course':
+        return studentCourseCodes.has(value);
+        
+      case 'student_does_not_have_course':
+        return !studentCourseCodes.has(value);
+        
+      case 'student_has_any_of_courses':
+        // Split comma-separated course codes
+        const anyCourses = value.split(',').map(c => c.trim()).filter(c => c);
+        return anyCourses.some(course => studentCourseCodes.has(course));
+        
+      case 'student_has_all_courses':
+        // Split comma-separated course codes
+        const allCourses = value.split(',').map(c => c.trim()).filter(c => c);
+        return allCourses.every(course => studentCourseCodes.has(course));
+        
+      case 'student_has_none_of_courses':
+        // Split comma-separated course codes
+        const noneCourses = value.split(',').map(c => c.trim()).filter(c => c);
+        return !noneCourses.some(course => studentCourseCodes.has(course));
+        
+      default:
+        return false;
+    }
+  }, []);
 
-  // Helper function to evaluate a student against aggregate conditions
-  const evaluateStudentAgainstConditions = (sampleRecord, studentCourseCodes, conditionsConfig) => {
+  // Helper function to evaluate a student against aggregate conditions - Memoized for stability
+  const evaluateStudentAgainstConditions = useCallback((sampleRecord, studentCourseCodes, conditionsConfig) => {
     if (!conditionsConfig || !conditionsConfig.groups || conditionsConfig.groups.length === 0) {
       return true;
     }
@@ -2128,41 +2173,54 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     }
 
     return finalResult;
-  };
+  }, [evaluateCondition, evaluateAggregateCondition]);
 
-  // Evaluate aggregate course conditions
-  const evaluateAggregateCondition = (studentCourseCodes, condition) => {
-    const { operator, value } = condition;
+  // Apply aggregate filter for student-level course conditions - Memoized for stability
+  const applyAggregateFilter = useCallback((records, conditionsConfig) => {
+    // Group records by ASN
+    const recordsByASN = {};
+    records.forEach(record => {
+      if (record.asn) {
+        if (!recordsByASN[record.asn]) {
+          recordsByASN[record.asn] = [];
+        }
+        recordsByASN[record.asn].push(record);
+      }
+    });
+
+    // Evaluate conditions for each student
+    const matchedASNs = new Set();
     
-    switch (operator) {
-      case 'student_has_course':
-        return studentCourseCodes.has(value);
-        
-      case 'student_does_not_have_course':
-        return !studentCourseCodes.has(value);
-        
-      case 'student_has_any_of_courses':
-        // Split comma-separated course codes
-        const anyCourses = value.split(',').map(c => c.trim()).filter(c => c);
-        return anyCourses.some(course => studentCourseCodes.has(course));
-        
-      case 'student_has_all_courses':
-        // Split comma-separated course codes
-        const allCourses = value.split(',').map(c => c.trim()).filter(c => c);
-        return allCourses.every(course => studentCourseCodes.has(course));
-        
-      case 'student_has_none_of_courses':
-        // Split comma-separated course codes
-        const noneCourses = value.split(',').map(c => c.trim()).filter(c => c);
-        return !noneCourses.some(course => studentCourseCodes.has(course));
-        
-      default:
-        return false;
+    Object.entries(recordsByASN).forEach(([asn, studentRecords]) => {
+      // Extract course codes for this student
+      const studentCourseCodes = new Set(
+        studentRecords
+          .map(r => r.courseCode)
+          .filter(code => code && code !== 'N/A')
+      );
+      
+      // Check if this student matches all condition groups
+      const studentMatches = evaluateStudentAgainstConditions(
+        studentRecords[0], // Use first record for non-course fields
+        studentCourseCodes,
+        conditionsConfig
+      );
+      
+      if (studentMatches) {
+        matchedASNs.add(asn);
+      }
+    });
+
+    // Return all records for matched students
+    if (matchedASNs.size === 0) {
+      return [];
     }
-  };
+
+    return records.filter(record => record.asn && matchedASNs.has(record.asn));
+  }, [evaluateStudentAgainstConditions]);
 
   // Apply grouped filter - shows all records for students who have at least one matching record
-  const applyGroupedFilter = (records, conditionsConfig) => {
+  const applyGroupedFilter = useCallback((records, conditionsConfig) => {
     // Check if we have any aggregate operators in use
     const hasAggregateOperators = conditionsConfig?.groups?.some(group => 
       group.conditions?.some(condition => 
@@ -2213,7 +2271,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
         _isDirectMatch: isDirectMatch
       };
     });
-  };
+  }, [applyCustomFilter, applyAggregateFilter]);
 
   // Filter records based on search term and active tab
   const filteredRecords = useMemo(() => {
@@ -2562,7 +2620,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     );
   };
 
-  // Tab counts
+  // Tab counts - Memoized with stable dependencies
   const tabCounts = useMemo(() => {
     const counts = {
       linked: 0,
@@ -2572,6 +2630,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
       allYourWay: 0
     };
     
+    // Always use the combined data that respects multi-year selection
     if (pasiStudentSummariesCombined) {
       counts.linked = pasiStudentSummariesCombined.filter(r => r.recordType === 'linked').length;
       counts.summaryOnly = pasiStudentSummariesCombined.filter(r => r.recordType === 'summaryOnly').length;
@@ -2590,6 +2649,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     customViews.forEach(view => {
       let records = [];
       
+      // IMPORTANT: Use the same data sources as filteredRecords to ensure consistency
       // Get base data source for custom view
       switch (view.baseDataSource) {
         case 'linked':
@@ -2600,6 +2660,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
             counts[view.id] = 0;
             return;
           }
+          // Use combined data that includes all selected years
           records = [...pasiStudentSummariesCombined];
           // Apply base filter
           if (view.baseDataSource === 'linked') {
@@ -2638,6 +2699,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
             counts[view.id] = 0;
             return;
           }
+          // Use combined PASI records that include all selected years
           records = [...pasiRecordsNew];
           break;
         case 'allYourWay':
@@ -2645,6 +2707,7 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
             counts[view.id] = 0;
             return;
           }
+          // Use combined student summaries that include all selected years
           records = [...studentSummaries];
           break;
         default:
@@ -2669,7 +2732,14 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
     });
     
     return counts;
-  }, [pasiStudentSummariesCombined, pasiRecordsNew, studentSummaries, customViews, applyGroupedFilter, applyCustomFilter]);
+  }, [
+    pasiStudentSummariesCombined, 
+    pasiRecordsNew, 
+    studentSummaries, 
+    customViews,
+    applyGroupedFilter,
+    applyCustomFilter
+  ]);
 
   // Handle page change
   const handlePageChange = (newPage) => {
@@ -3039,20 +3109,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
       return;
     }
 
-    // Validate conditions across all groups
-    let hasValidConditions = false;
-    for (const group of formData.newViewConditions.groups) {
-      const validConditions = group.conditions.filter(c => c.field && c.operator);
-      if (validConditions.length > 0) {
-        hasValidConditions = true;
-        break;
-      }
-    }
-    
-    if (!hasValidConditions) {
-      toast.error('Please add at least one valid condition');
-      return;
-    }
+    // No validation required for conditions - allow saving with no filters
+    // This will show all records when no conditions are applied
 
     try {
       const database = getDatabase();
@@ -3130,16 +3188,43 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
               <span>PASI Records</span>
               {/* Multi-Year Context Display */}
               <div className="text-sm font-normal text-gray-600 flex items-center gap-2">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                <span 
+                  className="px-2 py-1 rounded text-xs font-medium"
+                  style={{ 
+                    backgroundColor: `${schoolYearOptions?.find(opt => opt.value === currentSchoolYear)?.color || '#3B82F6'}20`,
+                    color: schoolYearOptions?.find(opt => opt.value === currentSchoolYear)?.color || '#3B82F6',
+                    borderColor: schoolYearOptions?.find(opt => opt.value === currentSchoolYear)?.color || '#3B82F6',
+                    borderWidth: '1px',
+                    borderStyle: 'solid'
+                  }}
+                >
                   {currentSchoolYear}
                 </span>
                 {includePreviousYear && (
-                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                  <span 
+                    className="px-2 py-1 rounded text-xs font-medium"
+                    style={{ 
+                      backgroundColor: `${schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(currentSchoolYear))?.color || '#6B7280'}20`,
+                      color: schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(currentSchoolYear))?.color || '#6B7280',
+                      borderColor: schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(currentSchoolYear))?.color || '#6B7280',
+                      borderWidth: '1px',
+                      borderStyle: 'solid'
+                    }}
+                  >
                     + {getPreviousSchoolYear(currentSchoolYear)}
                   </span>
                 )}
                 {includeNextYear && (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                  <span 
+                    className="px-2 py-1 rounded text-xs font-medium"
+                    style={{ 
+                      backgroundColor: `${schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(currentSchoolYear))?.color || '#3B82F6'}20`,
+                      color: schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(currentSchoolYear))?.color || '#3B82F6',
+                      borderColor: schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(currentSchoolYear))?.color || '#3B82F6',
+                      borderWidth: '1px',
+                      borderStyle: 'solid'
+                    }}
+                  >
                     + {getNextSchoolYear(currentSchoolYear)}
                   </span>
                 )}

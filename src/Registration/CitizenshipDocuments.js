@@ -28,16 +28,37 @@ const CitizenshipDocuments = forwardRef(({
   const existingDocuments = documents.filter(doc => doc.fromProfile);
   const newDocuments = documents.filter(doc => !doc.fromProfile);
 
-  // Document type options
+  // Document type options - organized by category and matching PASI system
   const documentTypes = [
-    { value: 'birth-certificate', label: 'Birth Certificate' },
-    { value: 'citizenship-certificate', label: 'Canadian Citizenship Certificate' },
-    { value: 'citizenship-card', label: 'Canadian Citizenship Card' },
-    { value: 'passport', label: 'Canadian Passport' },
-    { value: 'status-card', label: 'Status Card (Indigenous)' },
-    { value: 'visa', label: 'Visa' },
-    { value: 'immigration-document', label: 'Immigration Document' },
-    { value: 'other', label: 'Other' }
+    // Birth Certificates
+    { value: 'alberta_birth_certificate', label: 'Alberta Birth Certificate', category: 'Birth Certificates' },
+    { value: 'canadian_birth_certificate', label: 'Canadian Birth Certificate (Other Province/Territory)', category: 'Birth Certificates', helper: 'For BC, Ontario, Quebec, or any other Canadian province' },
+    { value: 'foreign_birth_certificate', label: 'Foreign Birth Certificate', category: 'Birth Certificates', helper: 'Non-Canadian birth certificate' },
+    
+    // Canadian Citizenship
+    { value: 'canadian_citizenship_certificate', label: 'Canadian Citizenship Certificate', category: 'Canadian Citizenship' },
+    { value: 'canadian_citizenship_card', label: 'Canadian Citizenship Card', category: 'Canadian Citizenship' },
+    { value: 'canadian_passport', label: 'Canadian Passport', category: 'Canadian Citizenship' },
+    { value: 'temporary_declaration_of_citizenship', label: 'Temporary Declaration of Citizenship', category: 'Canadian Citizenship' },
+    
+    // Immigration Documents
+    { value: 'canadian_permanent_resident_card', label: 'Permanent Resident Card (PR Card)', category: 'Immigration Documents' },
+    { value: 'canadian_study_permit', label: 'Study Permit', category: 'Immigration Documents' },
+    { value: 'canadian_work_permit', label: 'Work Permit', category: 'Immigration Documents' },
+    { value: 'canadian_temporary_resident_visa', label: 'Temporary Resident Visa', category: 'Immigration Documents' },
+    { value: 'confirmation_of_permanent_residence', label: 'Confirmation of Permanent Residence', category: 'Immigration Documents' },
+    { value: 'canadian_refugee_protection_claimant', label: 'Refugee Protection Claimant Document', category: 'Immigration Documents' },
+    { value: 'application_permanent_temporary_residence', label: 'Application for Permanent/Temporary Residence', category: 'Immigration Documents' },
+    { value: 'proof_of_application_status', label: 'Proof of Application Status', category: 'Immigration Documents' },
+    
+    // Indigenous Status
+    { value: 'canadian_certificate_of_indian_status', label: 'Status Card', category: 'Indigenous Status' },
+    { value: 'treaty_card', label: 'Treaty Card', category: 'Indigenous Status' },
+    
+    // Other Documents
+    { value: 'foreign_passport', label: 'Foreign Passport', category: 'Other Documents', helper: 'Must include visa or legal status' },
+    { value: 'consulate_visa', label: 'Consulate Visa', category: 'Other Documents' },
+    { value: 'visa', label: 'Visa', category: 'Other Documents' }
   ];
 
   const handleFileSelect = async (files, documentType = null) => {
@@ -226,11 +247,11 @@ const CitizenshipDocuments = forwardRef(({
                 <p className="font-medium mb-2">You have previously uploaded citizenship documents. You may add additional documents if needed.</p>
                 <p className="mb-2"><strong>Required for Alberta school registration:</strong> Upload clear copies of ONE of the following documents:</p>
                 <ul className="list-disc pl-5 mt-1 space-y-1">
-                  <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
+                  <li><strong>Birth Certificate:</strong> From ANY Canadian province/territory (Alberta, BC, Ontario, Quebec, etc.) - all are accepted</li>
                   <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
                   <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
-                  <li><strong>Status Card (Indigenous):</strong> Secure Certificate of Indian Status for First Nations people registered under the Indian Act</li>
-                  <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
+                  <li><strong>Indigenous Status Documents:</strong> Status Card or Treaty Card</li>
+                  <li><strong>Immigration Documents:</strong> PR card, study/work permit, or other documents showing legal status in Canada</li>
                 </ul>
                 <p className="mt-2 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>
               </>
@@ -238,11 +259,11 @@ const CitizenshipDocuments = forwardRef(({
               <>
                 <p className="font-medium mb-2"><strong>Required for Alberta school registration:</strong> Upload clear copies of ONE of the following documents:</p>
                 <ul className="list-disc pl-5 mt-2 space-y-1">
-                  <li><strong>Birth Certificate:</strong> Canadian birth certificate (most common for Canadian-born children)</li>
+                  <li><strong>Birth Certificate:</strong> From ANY Canadian province/territory (Alberta, BC, Ontario, Quebec, etc.) - all are accepted</li>
                   <li><strong>Canadian Citizenship Certificate or Card:</strong> For naturalized Canadian citizens</li>
                   <li><strong>Canadian Passport:</strong> Valid passport showing Canadian citizenship</li>
-                  <li><strong>Status Card (Indigenous):</strong> Secure Certificate of Indian Status for First Nations people registered under the Indian Act</li>
-                  <li><strong>Immigration Documents:</strong> Permanent resident card, visa, or other documents showing legal status in Canada</li>
+                  <li><strong>Indigenous Status Documents:</strong> Status Card or Treaty Card</li>
+                  <li><strong>Immigration Documents:</strong> PR card, study/work permit, or other documents showing legal status in Canada</li>
                 </ul>
                 <p className="mt-3 text-sm italic">Note: Schools require these documents to verify your child's eligibility for enrollment under Alberta Education regulations.</p>
               </>
@@ -268,12 +289,35 @@ const CitizenshipDocuments = forwardRef(({
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select document type</option>
-            {documentTypes.map((docType) => (
-              <option key={docType.value} value={docType.value}>
-                {docType.label}
-              </option>
+            
+            {/* Group documents by category */}
+            {Object.entries(
+              documentTypes.reduce((groups, docType) => {
+                const category = docType.category || 'Other';
+                if (!groups[category]) groups[category] = [];
+                groups[category].push(docType);
+                return groups;
+              }, {})
+            ).map(([category, types]) => (
+              <optgroup key={category} label={category}>
+                {types.map((docType) => (
+                  <option key={docType.value} value={docType.value}>
+                    {docType.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
+          
+          {/* Helper text for selected document type */}
+          {selectedDocumentType && (() => {
+            const selected = documentTypes.find(dt => dt.value === selectedDocumentType);
+            return selected?.helper ? (
+              <p className="text-xs text-gray-600 mt-1">
+                <span className="font-medium">Note:</span> {selected.helper}
+              </p>
+            ) : null;
+          })()}
         </div>
 
         {/* Existing Documents from Profile */}

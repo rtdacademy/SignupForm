@@ -1,19 +1,4 @@
-//const { createStandardMultipleChoice } = require('../shared/assessment-types/standard-multiple-choice');
-const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../../../courses-config/2/course-config.json');
-
 // Removed dependency on config file - settings are now handled directly in assessment configurations
-
-// ===== ACTIVITY TYPE CONFIGURATION =====
-// Set the activity type for all assessments in this content module
-// Options: 'lesson', 'assignment', 'lab', 'exam'
-// This determines which default settings are used from course-config.json
-const ACTIVITY_TYPE = 'lesson';
-
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== SLIDESHOW KNOWLEDGE CHECK ASSESSMENTS =====
 

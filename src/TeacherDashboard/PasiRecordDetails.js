@@ -25,7 +25,8 @@ import {
   FileText as FileTextIcon,
   MapPin,
   ExternalLink,
-  FileCheck
+  FileCheck,
+  Copy
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -59,15 +60,32 @@ const calculateAge = (birthday) => {
     // Check if birthDate is valid
     if (isNaN(birthDate.getTime())) return 'N/A';
     
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDifference = today.getMonth() - birthDate.getMonth();
+    // Calculate years
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
     
-    // If birthday hasn't occurred yet this year, subtract one year
-    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+    // Adjust if birthday hasn't occurred yet this year
+    if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+      years--;
+      months += 12;
     }
     
-    return age;
+    // Adjust months if the day hasn't occurred yet this month
+    if (today.getDate() < birthDate.getDate()) {
+      months--;
+      if (months < 0) {
+        months = 11;
+      }
+    }
+    
+    // Format the output
+    if (years === 0) {
+      return `${months} month${months !== 1 ? 's' : ''}`;
+    } else if (months === 0) {
+      return `${years} year${years !== 1 ? 's' : ''}`;
+    } else {
+      return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
+    }
   } catch (error) {
     console.error("Error calculating age:", error);
     return 'N/A';
@@ -282,10 +300,14 @@ const EditableField = ({
         ) : (
           <div className="flex items-center gap-2 group">
             <span 
-              className="cursor-pointer hover:text-blue-600"
+              className="cursor-pointer hover:text-blue-600 flex items-center gap-1"
               onClick={() => onClick && value && onClick(value, label)}
+              title="Click to copy"
             >
               {value || 'N/A'}
+              {value && value !== 'N/A' && (
+                <Copy className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
             </span>
             <Button
               size="sm"
@@ -889,14 +911,21 @@ const PasiRecordDetails = forwardRef(({
               <dt className="font-medium text-gray-500">Email:</dt>
               <dd className={isMissingPasi ? "" : "grid grid-cols-2 gap-2"}>
                 {isMissingPasi ? (
-                  <div className="cursor-pointer hover:text-blue-600" 
-                    onClick={() => handleCellClick && yourWayData.email && handleCellClick(yourWayData.email, "Email")}>
-                    <span>{yourWayData.email || 'N/A'}</span>
+                  <div className="cursor-pointer hover:text-blue-600 group" 
+                    onClick={() => handleCellClick && yourWayData.email && handleCellClick(yourWayData.email, "Email")}
+                    title="Click to copy">
+                    <span className="flex items-center gap-1">
+                      {yourWayData.email || 'N/A'}
+                      {yourWayData.email && yourWayData.email !== 'N/A' && (
+                        <Copy className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity inline-block" />
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <>
-                    <div className="cursor-pointer hover:text-blue-600" 
-                      onClick={() => handleCellClick && yourWayData.email && handleCellClick(yourWayData.email, "Email")}>
+                    <div className="cursor-pointer hover:text-blue-600 group" 
+                      onClick={() => handleCellClick && yourWayData.email && handleCellClick(yourWayData.email, "Email")}
+                      title="Click to copy">
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
@@ -904,11 +933,17 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>{yourWayData.email || 'N/A'}</span>
+                        <span className="flex items-center gap-1">
+                          {yourWayData.email || 'N/A'}
+                          {yourWayData.email && yourWayData.email !== 'N/A' && (
+                            <Copy className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity inline-block" />
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <div className="cursor-pointer hover:text-blue-600" 
-                      onClick={() => handleCellClick && pasiData.email && handleCellClick(pasiData.email, "Email")}>
+                    <div className="cursor-pointer hover:text-blue-600 group" 
+                      onClick={() => handleCellClick && pasiData.email && handleCellClick(pasiData.email, "Email")}
+                      title="Click to copy">
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
@@ -1057,10 +1092,13 @@ const PasiRecordDetails = forwardRef(({
               {yourWayData.primarySchool && (
                 <>
                   <dt className="font-medium text-gray-500">Primary School:</dt>
-                  <dd className="col-span-2 cursor-pointer hover:text-blue-600" 
+                  <dd className="col-span-2 group cursor-pointer hover:text-blue-600" 
                     onClick={() => handleCellClick && yourWayData.primarySchool && handleCellClick(yourWayData.primarySchool, "Primary School")}>
                     {isMissingPasi ? (
-                      <span>{yourWayData.primarySchool}</span>
+                      <span className="inline-flex items-center gap-1">
+                        {yourWayData.primarySchool}
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      </span>
                     ) : (
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1069,7 +1107,10 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>{yourWayData.primarySchool}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {yourWayData.primarySchool}
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                        </span>
                       </div>
                     )}
                   </dd>
@@ -1100,15 +1141,30 @@ const PasiRecordDetails = forwardRef(({
               
               {/* Registration Date */}
               <dt className="font-medium text-gray-500">Registration Date:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && record.startDateFormatted && handleCellClick(record.startDateFormatted, "Registration Date")}>
-                <span>
-                  {record.startDateFormatted && record.startDateFormatted !== 'N/A' ? 
-                    formatUserFriendlyDate(record.startDateFormatted, true) : 'N/A'}
+              <dd className="group cursor-pointer hover:text-blue-600" 
+                onClick={() => {
+                  const dateValue = record.Created || record.startDateFormatted;
+                  if (handleCellClick && dateValue && dateValue !== 'N/A') {
+                    handleCellClick(dateValue, "Registration Date");
+                  }
+                }}>
+                <span className="inline-flex items-center gap-1">
+                  {(() => {
+                    // Use Created date if available, otherwise fall back to startDateFormatted
+                    const dateValue = record.Created || record.startDateFormatted;
+                    if (dateValue && dateValue !== 'N/A') {
+                      return formatUserFriendlyDate(dateValue, true);
+                    }
+                    return 'N/A';
+                  })()}
+                  {(record.Created || record.startDateFormatted) && 
+                   (record.Created || record.startDateFormatted) !== 'N/A' && (
+                    <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  )}
                 </span>
-                {record.startDateSource && (
+                {(record.Created ? '(Registration)' : record.startDateSource) && (
                   <span className="text-xs text-gray-500 ml-1">
-                    (Source: {record.startDateSource})
+                    (Source: {record.Created ? 'Registration' : record.startDateSource})
                   </span>
                 )}
               </dd>
@@ -1202,13 +1258,18 @@ const PasiRecordDetails = forwardRef(({
               <dt className="font-medium text-gray-500">{isMissingPasi ? 'Course ID:' : 'Course ID/Code:'}</dt>
               <dd className={isMissingPasi ? "" : "grid grid-cols-2 gap-2"}>
                 {isMissingPasi ? (
-                  <div className="cursor-pointer hover:text-blue-600" 
+                  <div className="group cursor-pointer hover:text-blue-600" 
                     onClick={() => handleCellClick && yourWayData.courseId && handleCellClick(yourWayData.courseId, "Course ID")}>
-                    <span>{yourWayData.courseId || 'N/A'}</span>
+                    <span className="inline-flex items-center gap-1">
+                      {yourWayData.courseId || 'N/A'}
+                      {yourWayData.courseId && yourWayData.courseId !== 'N/A' && (
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <>
-                    <div className="cursor-pointer hover:text-blue-600" 
+                    <div className="group cursor-pointer hover:text-blue-600" 
                       onClick={() => handleCellClick && yourWayData.courseId && handleCellClick(yourWayData.courseId, "Course ID")}>
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1217,10 +1278,15 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>{yourWayData.courseId || 'N/A'}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {yourWayData.courseId || 'N/A'}
+                          {yourWayData.courseId && yourWayData.courseId !== 'N/A' && (
+                            <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <div className="cursor-pointer hover:text-blue-600" 
+                    <div className="group cursor-pointer hover:text-blue-600" 
                       onClick={() => handleCellClick && pasiData.courseCode && handleCellClick(pasiData.courseCode, "Course Code")}>
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1229,7 +1295,12 @@ const PasiRecordDetails = forwardRef(({
                         >
                           PASI
                         </Badge>
-                        <span>{pasiData.courseCode || 'N/A'}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {pasiData.courseCode || 'N/A'}
+                          {pasiData.courseCode && pasiData.courseCode !== 'N/A' && (
+                            <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </span>
                       </div>
                     </div>
                   </>
@@ -1240,13 +1311,18 @@ const PasiRecordDetails = forwardRef(({
               <dt className="font-medium text-gray-500">{isMissingPasi ? 'Course Name:' : 'Description:'}</dt>
               <dd className={isMissingPasi ? "" : "grid grid-cols-2 gap-2"}>
                 {isMissingPasi ? (
-                  <div className="cursor-pointer hover:text-blue-600" 
+                  <div className="group cursor-pointer hover:text-blue-600" 
                     onClick={() => handleCellClick && yourWayData.courseName && handleCellClick(yourWayData.courseName, "Course Name")}>
-                    <span>{yourWayData.courseName || 'N/A'}</span>
+                    <span className="inline-flex items-center gap-1">
+                      {yourWayData.courseName || 'N/A'}
+                      {yourWayData.courseName && yourWayData.courseName !== 'N/A' && (
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <>
-                    <div className="cursor-pointer hover:text-blue-600" 
+                    <div className="group cursor-pointer hover:text-blue-600" 
                       onClick={() => handleCellClick && yourWayData.courseName && handleCellClick(yourWayData.courseName, "Course Name")}>
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1255,10 +1331,15 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>{yourWayData.courseName || 'N/A'}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {yourWayData.courseName || 'N/A'}
+                          {yourWayData.courseName && yourWayData.courseName !== 'N/A' && (
+                            <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <div className="cursor-pointer hover:text-blue-600" 
+                    <div className="group cursor-pointer hover:text-blue-600" 
                       onClick={() => handleCellClick && pasiData.courseDescription && handleCellClick(pasiData.courseDescription, "Course Description")}>
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1267,7 +1348,12 @@ const PasiRecordDetails = forwardRef(({
                         >
                           PASI
                         </Badge>
-                        <span>{pasiData.courseDescription || 'N/A'}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {pasiData.courseDescription || 'N/A'}
+                          {pasiData.courseDescription && pasiData.courseDescription !== 'N/A' && (
+                            <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </span>
                       </div>
                     </div>
                   </>
@@ -1278,7 +1364,7 @@ const PasiRecordDetails = forwardRef(({
               {!isMissingPasi && (
                 <>
                   <dt className="font-medium text-gray-500">Term:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600"
+                  <dd className="group cursor-pointer hover:text-blue-600"
                     onClick={() => handleCellClick && pasiData.term && handleCellClick(pasiData.term, "Term")}
                   >
                     <div className="flex items-center gap-1">
@@ -1291,6 +1377,9 @@ const PasiRecordDetails = forwardRef(({
                       <Badge className="text-sm py-1 px-2 bg-green-50 text-green-700 border-green-200">
                         {pasiData.term || 'N/A'}
                       </Badge>
+                      {pasiData.term && pasiData.term !== 'N/A' && (
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      )}
                     </div>
                   </dd>
                 </>
@@ -1312,7 +1401,7 @@ const PasiRecordDetails = forwardRef(({
                       fieldKey="status"
                       isYourWay={true}
                     />
-                    <div className="cursor-pointer hover:text-blue-600"
+                    <div className="group cursor-pointer hover:text-blue-600"
                       onClick={() => handleCellClick && pasiData.status && handleCellClick(pasiData.status, "Status")}
                     >
                       <div className="flex items-center gap-1">
@@ -1336,30 +1425,15 @@ const PasiRecordDetails = forwardRef(({
                         >
                           {pasiData.status || 'N/A'}
                         </Badge>
+                        {pasiData.status && pasiData.status !== 'N/A' && (
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                        )}
                       </div>
                     </div>
                   </>
                 )}
               </dd>
               
-              {/* Grade - PASI only - hide in MissingPasi mode */}
-              {!isMissingPasi && (
-                <>
-                  <dt className="font-medium text-gray-500">Grade:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600" 
-                    onClick={() => handleCellClick && pasiData.grade && handleCellClick(pasiData.grade, "Grade")}>
-                    <div className="flex items-center gap-1">
-                      <Badge 
-                        variant="outline" 
-                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
-                      >
-                        PASI
-                      </Badge>
-                      <span>{pasiData.grade && pasiData.grade !== '-' ? pasiData.grade : 'N/A'}</span>
-                    </div>
-                  </dd>
-                </>
-              )}
               
               {/* Assignment Date - PASI only - hide in MissingPasi mode */}
               {!isMissingPasi && pasiData.assignmentDate && (
@@ -1406,14 +1480,15 @@ const PasiRecordDetails = forwardRef(({
               {yourWayData.scheduleStartDate && (
                 <>
                   <dt className="font-medium text-gray-500">Schedule Period:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600"
+                  <dd className="group cursor-pointer hover:text-blue-600"
                     onClick={() => handleCellClick && yourWayData.scheduleStartDate && handleCellClick(`${formatUserFriendlyDate(yourWayData.scheduleStartDate)} to ${formatUserFriendlyDate(yourWayData.scheduleEndDate)}`, "Schedule Period")}>
                     {isMissingPasi ? (
-                      <span>
+                      <span className="inline-flex items-center gap-1">
                         {formatUserFriendlyDate(yourWayData.scheduleStartDate)}
                         {yourWayData.scheduleEndDate && (
                           <> to {formatUserFriendlyDate(yourWayData.scheduleEndDate)}</>
                         )}
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                       </span>
                     ) : (
                       <div className="flex items-center gap-1">
@@ -1423,11 +1498,12 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>
+                        <span className="inline-flex items-center gap-1">
                           {formatUserFriendlyDate(yourWayData.scheduleStartDate)}
                           {yourWayData.scheduleEndDate && (
                             <> to {formatUserFriendlyDate(yourWayData.scheduleEndDate)}</>
                           )}
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                         </span>
                       </div>
                     )}
@@ -1514,10 +1590,13 @@ const PasiRecordDetails = forwardRef(({
               {yourWayData.payment_status && (
                 <>
                   <dt className="font-medium text-gray-500">Payment Status:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600"
+                  <dd className="group cursor-pointer hover:text-blue-600"
                     onClick={() => handleCellClick && yourWayData.payment_status && handleCellClick(yourWayData.payment_status, "Payment Status")}>
                     {isMissingPasi ? (
-                      <span>{yourWayData.payment_status}</span>
+                      <span className="inline-flex items-center gap-1">
+                        {yourWayData.payment_status}
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      </span>
                     ) : (
                       <div className="flex items-center gap-1">
                         <Badge 
@@ -1526,7 +1605,10 @@ const PasiRecordDetails = forwardRef(({
                         >
                           YourWay
                         </Badge>
-                        <span>{yourWayData.payment_status}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {yourWayData.payment_status}
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                        </span>
                       </div>
                     )}
                   </dd>
@@ -1537,7 +1619,7 @@ const PasiRecordDetails = forwardRef(({
               {!isMissingPasi && (
                 <>
                   <dt className="font-medium text-gray-500">Reference #:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600 break-all" 
+                  <dd className="group cursor-pointer hover:text-blue-600 break-all" 
                     onClick={() => handleCellClick && record.referenceNumber && handleCellClick(record.referenceNumber, "Reference Number")}>
                     <div className="flex items-center gap-1">
                       <Badge 
@@ -1546,7 +1628,12 @@ const PasiRecordDetails = forwardRef(({
                       >
                         PASI
                       </Badge>
-                      <span>{record.referenceNumber || 'N/A'}</span>
+                      <span className="inline-flex items-center gap-1">
+                        {record.referenceNumber || 'N/A'}
+                        {record.referenceNumber && record.referenceNumber !== 'N/A' && (
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                        )}
+                      </span>
                     </div>
                   </dd>
                 </>

@@ -80,7 +80,7 @@ export const FACILITATORS = [
       'Experiential Learning & Global Citizenship',
       'Rural Home Education Support',
       'Curriculum Planning & Personalized Learning',
-      'Community Engagement & Parent Education'
+      'Welcomes Parents Who Are Brand New to Homeschooling'
     ],
     stats: [
       { icon: 'GraduationCap', value: 'Since 2020', label: 'Facilitator' },

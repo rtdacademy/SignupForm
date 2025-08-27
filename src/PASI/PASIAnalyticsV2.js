@@ -41,20 +41,10 @@ import {
 } from 'recharts';
 import { 
   BarChart4, 
-  PieChart as PieChartIcon, 
-  LineChart as LineChartIcon, 
   Calendar, 
   Award, 
-  BookOpen, 
   Users, 
-  Clock, 
-  AlertTriangle, 
-  Check, 
-  X, 
-  Layers,
-  Download,
-  FileText,
-  TrendingUp
+  Download
 } from 'lucide-react';
 
 // Helper function to format dates
@@ -204,7 +194,17 @@ const COLORS = [
 ];
 
 // Main component
-const PASIAnalyticsV2 = ({ records, isOpen, onClose, selectedSchoolYear = '2024-2025' }) => {
+const PASIAnalyticsV2 = ({ 
+  records, 
+  isOpen, 
+  onClose, 
+  selectedSchoolYear = '2024-2025',
+  includePreviousYear = false,
+  includeNextYear = false,
+  getPreviousSchoolYear,
+  getNextSchoolYear,
+  schoolYearOptions
+}) => {
   // Calculate all analytics data
   const analytics = useMemo(() => {
     if (!records || records.length === 0) {
@@ -553,97 +553,65 @@ const PASIAnalyticsV2 = ({ records, isOpen, onClose, selectedSchoolYear = '2024-
           <SheetTitle className="text-lg flex items-center">
             <BarChart4 className="mr-2 h-5 w-5" /> PASI Analytics Dashboard
           </SheetTitle>
-          <SheetDescription>
-            Analysis of {analytics.totalRecords} PASI records for {selectedSchoolYear} school year
+          <SheetDescription className="flex flex-col gap-2">
+            <span>Analysis of {analytics.totalRecords} PASI records</span>
+            {/* School Year Context Badges */}
+            <div className="flex items-center gap-2 mt-1">
+              <span 
+                className="px-2 py-1 rounded text-xs font-medium"
+                style={{ 
+                  backgroundColor: `${schoolYearOptions?.find(opt => opt.value === selectedSchoolYear)?.color || '#3B82F6'}20`,
+                  color: schoolYearOptions?.find(opt => opt.value === selectedSchoolYear)?.color || '#3B82F6',
+                  borderColor: schoolYearOptions?.find(opt => opt.value === selectedSchoolYear)?.color || '#3B82F6',
+                  borderWidth: '1px',
+                  borderStyle: 'solid'
+                }}
+              >
+                {selectedSchoolYear}
+              </span>
+              {includePreviousYear && getPreviousSchoolYear && (
+                <span 
+                  className="px-2 py-1 rounded text-xs font-medium"
+                  style={{ 
+                    backgroundColor: `${schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(selectedSchoolYear))?.color || '#6B7280'}20`,
+                    color: schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(selectedSchoolYear))?.color || '#6B7280',
+                    borderColor: schoolYearOptions?.find(opt => opt.value === getPreviousSchoolYear(selectedSchoolYear))?.color || '#6B7280',
+                    borderWidth: '1px',
+                    borderStyle: 'solid'
+                  }}
+                >
+                  + {getPreviousSchoolYear(selectedSchoolYear)}
+                </span>
+              )}
+              {includeNextYear && getNextSchoolYear && (
+                <span 
+                  className="px-2 py-1 rounded text-xs font-medium"
+                  style={{ 
+                    backgroundColor: `${schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(selectedSchoolYear))?.color || '#3B82F6'}20`,
+                    color: schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(selectedSchoolYear))?.color || '#3B82F6',
+                    borderColor: schoolYearOptions?.find(opt => opt.value === getNextSchoolYear(selectedSchoolYear))?.color || '#3B82F6',
+                    borderWidth: '1px',
+                    borderStyle: 'solid'
+                  }}
+                >
+                  + {getNextSchoolYear(selectedSchoolYear)}
+                </span>
+              )}
+              {(includeNextYear || includePreviousYear) && (
+                <span className="text-xs text-gray-500 ml-2">
+                  (Combined Data)
+                </span>
+              )}
+            </div>
           </SheetDescription>
         </SheetHeader>
         
         <div className="mt-4 space-y-6">
-          {/* Summary Statistics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-700 font-medium">Active Records</p>
-                    <h3 className="text-2xl font-bold text-blue-800">{analytics.summaryStats.activeCount}</h3>
-                  </div>
-                  <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Clock className="h-6 w-6 text-blue-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-blue-600 mt-1">
-                  {analytics.totalRecords ? ((analytics.summaryStats.activeCount / analytics.totalRecords) * 100).toFixed(1) : 0}% of total
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 font-medium">Completed</p>
-                    <h3 className="text-2xl font-bold text-green-800">{analytics.summaryStats.completedCount}</h3>
-                  </div>
-                  <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <Check className="h-6 w-6 text-green-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-green-600 mt-1">
-                  {analytics.totalRecords ? ((analytics.summaryStats.completedCount / analytics.totalRecords) * 100).toFixed(1) : 0}% of total
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-amber-50 border-amber-200">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-700 font-medium">With Grades</p>
-                    <h3 className="text-2xl font-bold text-amber-800">{analytics.grades.hasGrade}</h3>
-                  </div>
-                  <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
-                    <Award className="h-6 w-6 text-amber-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-amber-600 mt-1">
-                  {analytics.grades.averageGrade > 0 ? `Avg: ${analytics.grades.averageGrade}` : 'No numeric grades'}
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-purple-50 border-purple-200">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-purple-700 font-medium">Recent (30d)</p>
-                    <h3 className="text-2xl font-bold text-purple-800">{analytics.summaryStats.recentlyRegistered}</h3>
-                  </div>
-                  <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-purple-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-purple-600 mt-1">
-                  {analytics.totalRecords ? ((analytics.summaryStats.recentlyRegistered / analytics.totalRecords) * 100).toFixed(1) : 0}% of total
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-          
           {/* Tabs for different chart views */}
           <Tabs defaultValue="registration" className="w-full">
             <TabsList className="w-full justify-start flex-wrap border-b pb-px">
               <TabsTrigger value="registration" className="flex items-center">
                 <Calendar className="h-4 w-4 mr-1" /> Registration Trends
-              </TabsTrigger>
-              <TabsTrigger value="overview" className="flex items-center">
-                <PieChartIcon className="h-4 w-4 mr-1" /> Overview
-              </TabsTrigger>
-              <TabsTrigger value="courses" className="flex items-center">
-                <BookOpen className="h-4 w-4 mr-1" /> Courses
-              </TabsTrigger>
-              <TabsTrigger value="grades" className="flex items-center">
-                <Award className="h-4 w-4 mr-1" /> Grades
               </TabsTrigger>
               <TabsTrigger value="studenttypes" className="flex items-center">
                 <Users className="h-4 w-4 mr-1" /> Student Types
@@ -793,187 +761,8 @@ const PASIAnalyticsV2 = ({ records, isOpen, onClose, selectedSchoolYear = '2024-
               </div>
             </TabsContent>
             
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Status Distribution */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Status Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={analytics.statusDistribution}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {analytics.statusDistribution.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => [value, 'Records']} />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {/* Term Distribution */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Term Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={analytics.termDistribution}
-                          layout="vertical"
-                          margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" />
-                          <YAxis type="category" dataKey="name" width={55} />
-                          <Tooltip formatter={(value) => [value, 'Records']} />
-                          <Bar dataKey="count" fill="#4f46e5" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
             
-            {/* Courses Tab */}
-            <TabsContent value="courses" className="mt-4 space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Course Distribution (Top 10)</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={analytics.courseDistribution}
-                        layout="vertical"
-                        margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis type="category" dataKey="name" width={90} />
-                        <Tooltip formatter={(value) => [value, 'Records']} />
-                        <Bar dataKey="count" fill="#0284c7">
-                          {analytics.courseDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
             
-            {/* Grades Tab */}
-            <TabsContent value="grades" className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Grade Status</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="h-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'With Grade', value: analytics.grades.hasGrade },
-                              { name: 'No Grade', value: analytics.grades.noGrade }
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={70}
-                            dataKey="value"
-                          >
-                            <Cell fill="#0891b2" />
-                            <Cell fill="#94a3b8" />
-                          </Pie>
-                          <Tooltip formatter={(value) => [value, 'Records']} />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-teal-50 border-teal-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-teal-800">Grade Statistics</h3>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-lg font-bold text-teal-800">Average Grade</p>
-                        <p className="text-3xl font-bold text-teal-700 mt-1">{analytics.grades.averageGrade}</p>
-                      </div>
-                      <div className="h-16 w-16 bg-teal-100 rounded-full flex items-center justify-center">
-                        <Award className="h-8 w-8 text-teal-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {analytics.grades.gradeDistribution.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Grade Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={analytics.grades.gradeDistribution}
-                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip formatter={(value) => [value, 'Records']} />
-                          <Bar dataKey="count" name="Number of Records" fill="#10b981">
-                            {analytics.grades.gradeDistribution.map((entry, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={
-                                  entry.name === '90-100' ? '#10b981' :  // Green
-                                  entry.name === '80-89' ? '#14b8a6' :   // Teal
-                                  entry.name === '70-79' ? '#0ea5e9' :   // Blue
-                                  entry.name === '60-69' ? '#6366f1' :   // Indigo
-                                  entry.name === '50-59' ? '#8b5cf6' :   // Violet
-                                  entry.name === 'Below 50' ? '#ef4444' : // Red
-                                  '#94a3b8'                              // Gray for non-numeric
-                                } 
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
             
             {/* Student Types Tab */}
             <TabsContent value="studenttypes" className="mt-4 space-y-4">

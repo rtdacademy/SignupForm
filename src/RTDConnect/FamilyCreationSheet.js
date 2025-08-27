@@ -3,11 +3,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { toEdmontonDate, formatDateForDisplay, formatDateForInput } from '../utils/timeZoneUtils';
+import { toEdmontonDate, formatDateForDisplay, formatDateForInput, calculateAge } from '../utils/timeZoneUtils';
 import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
-import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle } from 'lucide-react';
+import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { FUNDING_RATES } from '../config/HomeEducation';
+import { getCurrentSchoolYear } from '../config/importantDates';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -27,52 +29,189 @@ const validateASN = (asn) => {
   return cleanASN.length === 9;
 };
 
+/**
+ * Determines funding eligibility based on student's age as of September 1st
+ * @param {string} birthday - Student's birthday in YYYY-MM-DD format
+ * @returns {Object} Object containing eligibility info
+ */
+const determineFundingEligibility = (birthday) => {
+  if (!birthday) {
+    return { 
+      fundingEligible: true, // Default to eligible if no birthday yet
+      fundingAmount: 0,
+      ageCategory: 'unknown'
+    };
+  }
+
+  // Get current school year
+  const currentSchoolYear = getCurrentSchoolYear();
+  const startYear = parseInt('20' + currentSchoolYear.substr(0, 2));
+  
+  // September 1st of the school year is the reference date
+  const septemberFirst = new Date(startYear, 8, 1); // Month is 0-indexed, so 8 = September
+  
+  // Calculate age as of September 1st
+  const age = calculateAge(birthday, septemberFirst);
+  const birthDate = toEdmontonDate(birthday);
+  
+  // Calculate age in months for kindergarten eligibility
+  const monthsDiff = (septemberFirst.getFullYear() - birthDate.getFullYear()) * 12 + 
+                     (septemberFirst.getMonth() - birthDate.getMonth());
+  const daysDiff = septemberFirst.getDate() - birthDate.getDate();
+  const ageInMonths = monthsDiff + (daysDiff >= 0 ? 0 : -1);
+  
+  // Check if student turns 5 by December 31st of the school year
+  const december31 = new Date(startYear, 11, 31); // December 31st
+  const turningFiveByDec31 = calculateAge(birthday, december31) >= 5;
+  
+  // Too young: Under 4 years 8 months (56 months) as of September 1st
+  if (ageInMonths < 56) {
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      ageCategory: 'too_young',
+      message: `This student is too young for funding (under 4 years 8 months as of September 1). They can still be added but will not receive funding.`,
+      grade: null
+    };
+  }
+  
+  // Kindergarten: 4 years 8 months to under 6 years old as of September 1st
+  // AND must turn 5 by December 31st
+  if (age < 6 && ageInMonths >= 56 && turningFiveByDec31) {
+    return {
+      fundingEligible: true,
+      fundingAmount: FUNDING_RATES.KINDERGARTEN.amount,
+      ageCategory: 'kindergarten',
+      message: `This student is kindergarten age and eligible for ${FUNDING_RATES.KINDERGARTEN.formatted} in funding.`,
+      grade: 'K'
+    };
+  }
+  
+  // Too old: 20 years or older as of September 1st
+  // Note: Students who turn 20 on September 2nd or later are still eligible
+  if (age >= 20) {
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      ageCategory: 'too_old',
+      message: `This student is too old for funding (20 or older as of September 1). They can still be added but will not receive funding.`,
+      grade: '12' // Default to grade 12 for older students
+    };
+  }
+  
+  // Grades 1-12: Ages 6 to 19 as of September 1st
+  if (age >= 6 && age <= 19) {
+    // Estimate grade based on age
+    let estimatedGrade = Math.min(12, Math.max(1, age - 5));
+    
+    return {
+      fundingEligible: true,
+      fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
+      ageCategory: 'grades_1_12',
+      message: null, // No special message for normal funding
+      grade: estimatedGrade.toString()
+    };
+  }
+  
+  // Edge case: 5 years old but doesn't turn 5 by Dec 31 (shouldn't happen but just in case)
+  if (age === 5 && !turningFiveByDec31) {
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      ageCategory: 'too_young',
+      message: `This student must turn 5 by December 31st to be eligible for kindergarten funding.`,
+      grade: null
+    };
+  }
+  
+  // Default case (shouldn't reach here)
+  return {
+    fundingEligible: true,
+    fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
+    ageCategory: 'grades_1_12',
+    message: null,
+    grade: '1'
+  };
+};
+
 // Student card component
-const StudentCard = ({ student, index, onEdit, onRemove, userProfile }) => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <div className="flex justify-between items-start">
-      <div className="flex-1">
-        <h4 className="font-medium text-gray-900">
-          {student.preferredName || `${student.firstName} ${student.lastName}`}
-        </h4>
-        <div className="mt-2 space-y-1 text-sm text-gray-600">
-          <p>Legal Name: {student.firstName} {student.lastName}</p>
-          <p>ASN: {student.asn}</p>
-          <p>Grade: {student.grade}</p>
-          <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender}</p>
-          <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
-          {student.email && <p>Email: {student.email}</p>}
-          {student.phone && <p>Phone: {student.phone}</p>}
-          {student.usePrimaryAddress ? (
-            <p>Address: {userProfile?.address?.fullAddress || 'Same as primary guardian'}</p>
-          ) : student.address ? (
-            <p>Address: {student.address.fullAddress || 
-              `${student.address.streetAddress || ''} ${student.address.city || ''}, ${student.address.province || ''} ${student.address.postalCode || ''}`.trim()
-            }</p>
-          ) : (
-            <p>Address: Not provided</p>
-          )}
+const StudentCard = ({ student, index, onEdit, onRemove, userProfile }) => {
+  // Determine funding status for display
+  const getFundingBadge = () => {
+    if (student.fundingEligible === false) {
+      return (
+        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-md font-medium flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" />
+          Not Funded
+        </span>
+      );
+    }
+    if (student.fundingAmount === FUNDING_RATES.KINDERGARTEN.amount) {
+      return (
+        <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-md font-medium">
+          Kindergarten Funding: {FUNDING_RATES.KINDERGARTEN.formatted}
+        </span>
+      );
+    }
+    if (student.fundingAmount === FUNDING_RATES.GRADES_1_TO_12.amount) {
+      return (
+        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md font-medium">
+          Full Funding: {FUNDING_RATES.GRADES_1_TO_12.formatted}
+        </span>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className="font-medium text-gray-900">
+              {student.preferredName || `${student.firstName} ${student.lastName}`}
+            </h4>
+            {getFundingBadge()}
+          </div>
+          <div className="mt-2 space-y-1 text-sm text-gray-600">
+            <p>Legal Name: {student.firstName} {student.lastName}</p>
+            <p>ASN: {student.asn}</p>
+            <p>Grade: {student.grade}</p>
+            <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender}</p>
+            <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
+            {student.email && <p>Email: {student.email}</p>}
+            {student.phone && <p>Phone: {student.phone}</p>}
+            {student.usePrimaryAddress ? (
+              <p>Address: {userProfile?.address?.fullAddress || 'Same as primary guardian'}</p>
+            ) : student.address ? (
+              <p>Address: {student.address.fullAddress || 
+                `${student.address.streetAddress || ''} ${student.address.city || ''}, ${student.address.province || ''} ${student.address.postalCode || ''}`.trim()
+              }</p>
+            ) : (
+              <p>Address: Not provided</p>
+            )}
+          </div>
+        </div>
+        <div className="flex space-x-2 ml-4">
+          <button
+            onClick={() => onEdit(index)}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            title="Edit student"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onRemove(index)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            title="Remove student"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
-      <div className="flex space-x-2 ml-4">
-        <button
-          onClick={() => onEdit(index)}
-          className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-          title="Edit student"
-        >
-          <Edit3 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onRemove(index)}
-          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-          title="Remove student"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Primary Guardian card component (read-only)
 const PrimaryGuardianCard = ({ guardian, isStaffMode }) => {
@@ -216,11 +355,14 @@ const FamilyCreationSheet = ({
     phone: '',
     gender: '',
     address: null,
-    usePrimaryAddress: false
+    usePrimaryAddress: false,
+    fundingEligible: true,
+    fundingAmount: 0
   });
   const [studentErrors, setStudentErrors] = useState({});
   const [editingStudentIndex, setEditingStudentIndex] = useState(null);
   const [showStudentForm, setShowStudentForm] = useState(false);
+  const [fundingEligibilityInfo, setFundingEligibilityInfo] = useState(null);
 
   // Guardian form state
   const [guardianFormData, setGuardianFormData] = useState({
@@ -601,6 +743,9 @@ const FamilyCreationSheet = ({
   const handleAddStudent = () => {
     if (!validateStudentForm()) return;
     
+    // Calculate current funding eligibility before saving
+    const eligibility = determineFundingEligibility(studentFormData.birthday);
+    
     const newStudent = {
       ...studentFormData,
       // Clean names for submission
@@ -608,7 +753,10 @@ const FamilyCreationSheet = ({
       lastName: cleanNameForSubmission(studentFormData.lastName),
       preferredName: cleanNameForSubmission(studentFormData.preferredName),
       // CRITICAL: Preserve existing ID when editing, only generate new ID for new students
-      id: editingStudentIndex !== null ? familyData.students[editingStudentIndex].id : Date.now().toString()
+      id: editingStudentIndex !== null ? familyData.students[editingStudentIndex].id : Date.now().toString(),
+      // Add funding eligibility info
+      fundingEligible: eligibility.fundingEligible,
+      fundingAmount: eligibility.fundingAmount
     };
     
     // If using primary address, don't store the full address object
@@ -652,17 +800,29 @@ const FamilyCreationSheet = ({
       phone: '',
       gender: '',
       address: null,
-      usePrimaryAddress: false
+      usePrimaryAddress: false,
+      fundingEligible: true,
+      fundingAmount: 0
     });
     setShowStudentForm(false);
+    setFundingEligibilityInfo(null);
   };
 
   const handleEditStudent = (index) => {
     const student = familyData.students[index];
     setStudentFormData({
       ...student,
-      birthday: formatDateForInput(student.birthday)
+      birthday: formatDateForInput(student.birthday),
+      fundingEligible: student.fundingEligible !== undefined ? student.fundingEligible : true,
+      fundingAmount: student.fundingAmount || 0
     });
+    
+    // Set funding info if birthday exists
+    if (student.birthday) {
+      const eligibility = determineFundingEligibility(student.birthday);
+      setFundingEligibilityInfo(eligibility);
+    }
+    
     setEditingStudentIndex(index);
     setShowStudentForm(true);
   };
@@ -693,11 +853,14 @@ const FamilyCreationSheet = ({
       phone: '',
       gender: '',
       address: null,
-      usePrimaryAddress: false
+      usePrimaryAddress: false,
+      fundingEligible: true,
+      fundingAmount: 0
     });
     setEditingStudentIndex(null);
     setStudentErrors({});
     setShowStudentForm(false);
+    setFundingEligibilityInfo(null);
   };
 
   // Guardian validation
@@ -1327,7 +1490,21 @@ const FamilyCreationSheet = ({
                           type="date"
                           id="student-birthday"
                           value={studentFormData.birthday}
-                          onChange={(e) => setStudentFormData({...studentFormData, birthday: e.target.value})}
+                          onChange={(e) => {
+                            const newBirthday = e.target.value;
+                            const eligibility = determineFundingEligibility(newBirthday);
+                            
+                            setStudentFormData({
+                              ...studentFormData, 
+                              birthday: newBirthday,
+                              fundingEligible: eligibility.fundingEligible,
+                              fundingAmount: eligibility.fundingAmount,
+                              // Auto-select kindergarten if applicable
+                              grade: eligibility.grade || studentFormData.grade
+                            });
+                            
+                            setFundingEligibilityInfo(eligibility);
+                          }}
                           className={`w-full px-3 py-2 border ${studentErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
                         />
                         {studentErrors.birthday && (
@@ -1342,19 +1519,72 @@ const FamilyCreationSheet = ({
                         <select
                           id="student-grade"
                           value={studentFormData.grade}
-                          onChange={(e) => setStudentFormData({...studentFormData, grade: e.target.value})}
-                          className={`w-full px-3 py-2 border ${studentErrors.grade ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                          onChange={(e) => {
+                            // Prevent changing grade if kindergarten age
+                            if (fundingEligibilityInfo?.ageCategory === 'kindergarten') {
+                              return; // Do nothing
+                            }
+                            setStudentFormData({...studentFormData, grade: e.target.value});
+                          }}
+                          disabled={fundingEligibilityInfo?.ageCategory === 'kindergarten'}
+                          className={`w-full px-3 py-2 border ${
+                            studentErrors.grade ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                            fundingEligibilityInfo?.ageCategory === 'kindergarten' 
+                              ? 'bg-gray-100 cursor-not-allowed' 
+                              : ''
+                          }`}
                         >
                           <option value="">Select expected grade</option>
                           {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(grade => (
                             <option key={grade} value={grade}>Grade {grade}</option>
                           ))}
                         </select>
-                        <p className="mt-1 text-sm text-gray-500">Best estimate - this can be adjusted later</p>
+                        {fundingEligibilityInfo?.ageCategory === 'kindergarten' ? (
+                          <p className="mt-1 text-sm text-amber-600 flex items-center">
+                            <Info className="w-4 h-4 mr-1" />
+                            Grade automatically set to Kindergarten based on age
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-sm text-gray-500">Best estimate - this can be adjusted later</p>
+                        )}
                         {studentErrors.grade && (
                           <p className="mt-1 text-sm text-red-600">{studentErrors.grade}</p>
                         )}
                       </div>
+
+                      {/* Funding Eligibility Message */}
+                      {fundingEligibilityInfo && fundingEligibilityInfo.message && (
+                        <div className={`md:col-span-2 p-3 rounded-md border ${
+                          fundingEligibilityInfo.fundingEligible === false
+                            ? 'bg-red-50 border-red-200'
+                            : fundingEligibilityInfo.ageCategory === 'kindergarten'
+                            ? 'bg-amber-50 border-amber-200'
+                            : 'bg-green-50 border-green-200'
+                        }`}>
+                          <div className="flex items-start space-x-2">
+                            {fundingEligibilityInfo.fundingEligible === false ? (
+                              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                            ) : (
+                              <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                            )}
+                            <div className="text-sm">
+                              <p className={`font-medium ${
+                                fundingEligibilityInfo.fundingEligible === false
+                                  ? 'text-red-800'
+                                  : 'text-amber-800'
+                              }`}>
+                                {fundingEligibilityInfo.message}
+                              </p>
+                              {fundingEligibilityInfo.ageCategory === 'kindergarten' && (
+                                <p className="text-amber-700 mt-1">
+                                  Kindergarten students are eligible for half the regular funding amount as per Alberta Education guidelines.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <label htmlFor="student-gender" className="block text-sm font-medium text-gray-700 mb-1">

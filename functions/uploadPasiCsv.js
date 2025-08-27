@@ -52,14 +52,18 @@ const getCourseIdFromPasiCode = (pasiCode) => {
   return PASI_TO_COURSE_MAP[code] || 2000; // Default to 2000 if not found
 };
 
-// Helper function to convert school year format (e.g., "2024-2025" to "24_25")
+// Helper function to convert school year format 
+// Handles: "2024-2025" -> "24_25", "25/26" -> "25_26", "24_25" stays as is
 const formatSchoolYear = (schoolYear) => {
   if (schoolYear.includes('-')) {
     // Convert "2024-2025" to "24_25"
     const [start, end] = schoolYear.split('-');
     return `${start.slice(-2)}_${end.slice(-2)}`;
+  } else if (schoolYear.includes('/')) {
+    // Convert "25/26" to "25_26"
+    return schoolYear.replace('/', '_');
   }
-  // Return as-is if already in correct format
+  // Return as-is if already in correct format (e.g., "24_25")
   return schoolYear;
 };
 

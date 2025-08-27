@@ -50,8 +50,8 @@ import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
 import { toast } from 'sonner';
 import PermissionIndicator from '../context/PermissionIndicator';
-import ProfileHistory from './ProfileHistory';
 import PasiActionButtons from '../components/PasiActionButtons';
+import PasiRecordDetails from '../TeacherDashboard/PasiRecordDetails';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import PaymentInfo from './PaymentInfo';
 
@@ -490,6 +490,10 @@ const StudentCard = React.memo(({
   
   // State for payment info sheet
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
+  
+  // State for PASI details sheet
+  const [isPasiDetailsSheetOpen, setIsPasiDetailsSheetOpen] = useState(false);
+  const [selectedPasiRecord, setSelectedPasiRecord] = useState(null);
 
   // Add state for restoring from cold storage
   const [isRestoring, setIsRestoring] = useState(false);
@@ -516,9 +520,6 @@ const StudentCard = React.memo(({
   const [pendingStatus, setPendingStatus] = useState(null);
   const [isResumingOnOpen, setIsResumingOnOpen] = useState(false);
   
-  // Profile History state
-  const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
-  const [hasProfileHistory, setHasProfileHistory] = useState(false);
 
   // Blacklist state is now passed as props
 
@@ -579,33 +580,6 @@ const StudentCard = React.memo(({
     fetchTeacherNames();
   }, []);
 
-  // Check if profile history exists
-  useEffect(() => {
-    const checkProfileHistory = async () => {
-      if (!student.id) return;
-      
-      const db = getDatabase();
-      // Get the student key consistently with how categories are handled
-      const rawEmail = student.StudentEmail;
-  if (!rawEmail) {
-    console.error('StudentEmail is missing for student:', student);
-    toast.error('Cannot update: Student email is missing');
-    return;
-  }
-      const studentKey = sanitizeEmail(rawEmail);
-      const profileHistoryRef = ref(db, `students/${studentKey}/profileHistory`);
-      
-      try {
-        const snapshot = await get(profileHistoryRef);
-        setHasProfileHistory(snapshot.exists());
-      } catch (error) {
-        console.error("Error checking profile history:", error);
-        setHasProfileHistory(false);
-      }
-    };
-
-    checkProfileHistory();
-  }, [student.id]);
 
   // Blacklist status is now passed as props from parent component
 
@@ -1309,6 +1283,31 @@ const handleStatusChange = useCallback(async (newStatus) => {
     event.stopPropagation();
     setIsChatOpen(true);
   }, []);
+  
+  const handlePasiRecordSelect = useCallback(() => {
+    // Prepare the record data in a format that PasiRecordDetails expects
+    const pasiRecord = {
+      ...student,
+      // Ensure we have the fields that PasiRecordDetails might expect
+      studentName: student.studentName || `${student.lastName || ''}, ${student.firstName || ''}`.trim(),
+      courseCode: student.courseCode || student.Course_Value,
+      // Add any other field mappings if needed
+    };
+    setSelectedPasiRecord(pasiRecord);
+    setIsPasiDetailsSheetOpen(true);
+  }, [student]);
+  
+  const handleCopyEmail = useCallback(() => {
+    navigator.clipboard.writeText(getStudentInfo.email);
+    toast.success('Email copied!');
+  }, [getStudentInfo.email]);
+  
+  const handleCopyASN = useCallback(() => {
+    if (student.asn) {
+      navigator.clipboard.writeText(student.asn);
+      toast.success('ASN copied!');
+    }
+  }, [student.asn]);
 
   const initialParticipantsMemo = useMemo(() => {
     return [
@@ -1574,9 +1573,36 @@ const handleStatusChange = useCallback(async (newStatus) => {
           {/* Updated Section with GenderBadge */}
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 truncate">
+              <span 
+                className="text-xs text-gray-500 truncate cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopyEmail();
+                }}
+                title="Click to copy email"
+              >
                 {getStudentInfo.email}
               </span>
+              {student.asn && (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="h-5 w-5 p-0 ml-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopyASN();
+                      }}
+                    >
+                      <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy ASN: {student.asn}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <GenderBadge gender={student.gender} />
             </div>
             {student.StudentType_Value && (
@@ -2099,11 +2125,9 @@ const handleStatusChange = useCallback(async (newStatus) => {
             const buttonCount = 
               (checkAsnIssues ? 1 : 0) +
               (isStudentFirebaseCourse ? 1 : 0) + // Firebase course button
-              1 + // Chat is always visible
-              (hasProfileHistory ? 1 : 0) +
               1 + // Emulate is always visible
-              (isAdminUser ? 1 : 0) +
-              (canRestore ? 1 : 0);
+              (canRestore ? 1 : 0) +
+              1; // PASI Action Buttons
             
             // Three size tiers based on button count
             const sizeMode = buttonCount > 4 ? 'small' : buttonCount === 4 ? 'medium' : 'normal';
@@ -2163,66 +2187,30 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   </Button>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={buttonClass}
-                  onClick={handleOpenChat}
-                >
-                  <MessageSquare className={iconClass} />
-                  Chat
-                </Button>
-
-                {hasProfileHistory && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`${buttonClass} text-purple-600 hover:text-purple-700`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsProfileHistoryOpen(true);
-                    }}
-                  >
-                    <FileTextIcon className={iconClass} />
-                    {useShortLabels ? "History" : "History"}
-                  </Button>
-                )}
 
                 <Button
                   variant="outline"
-                  size="sm"
-                  className={`${buttonClass} text-blue-600 hover:text-blue-700`}
+                  size="xs"
+                  className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
                   onClick={(e) => {
                     window.open(`/emulate/${getStudentInfo.email}`, 'emulationTab');
                   }}
                 >
-                  <UserCheck className={iconClass} />
+                  <UserCheck className="w-4 h-4 mr-1" />
                   Emulate
                 </Button>
 
-                {isAdminUser && (
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`${buttonClass} text-red-600 hover:text-red-700 border-red-200 bg-red-50 hover:bg-red-100 relative`}
-                        onClick={(e) => {
-                          setIsRemovalDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className={iconClass} />
-                        Remove
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Admin Only"></span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <div className="text-xs">
-                        <div className="font-semibold">Admin Only</div>
-                        <div>Remove course from student record</div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
+                {/* PASI Action Buttons */}
+                {student.asn && (
+                  <div className="flex items-center">
+                    <PasiActionButtons 
+                      asn={student.asn}
+                      referenceNumber={student.referenceNumber || null}
+                      showYourWay={false}
+                      showCopyLink={true}
+                      onViewDetails={handlePasiRecordSelect}
+                    />
+                  </div>
                 )}
 
                 {canRestore && (
@@ -2230,12 +2218,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
-                        size="sm"
-                        className={`${buttonClass} text-blue-600 hover:text-blue-700`}
+                        size="xs"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
                         onClick={handleOpenArchiveOptions}
                         disabled={isRestoring}
                       >
-                        <ArchiveRestore className={iconClass} />
+                        <ArchiveRestore className="w-4 h-4 mr-1" />
                         Archive Options
                       </Button>
                     </TooltipTrigger>
@@ -2264,26 +2252,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
           </DialogHeader>
           <div className="flex-1 overflow-auto mt-4">
             <StudentDetail studentSummary={student} isMobile={isMobile} />
-          </div>
-        </DialogContent>
-      </Dialog>
-    
-      {/* Chat Dialog */}
-      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
-          <DialogHeader className="mb-0 bg-white py-0">
-            <DialogTitle> 
-              Messaging
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-hidden rounded-lg border border-gray-200">
-            <ChatApp
-              mode="popup"
-              courseInfo={null}
-              courseTeachers={[]}
-              courseSupportStaff={[]}
-              initialParticipants={initialParticipantsMemo}
-            />
           </div>
         </DialogContent>
       </Dialog>
@@ -2408,27 +2376,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
         }}
       />
 
-      {/* Profile History Dialog */}
-      <Dialog open={isProfileHistoryOpen} onOpenChange={setIsProfileHistoryOpen}>
-        <DialogContent className="max-w-[90vw] w-[800px] h-[80vh] max-h-[700px] p-4 flex flex-col">
-          <DialogHeader className="mb-4 bg-white">
-            <DialogTitle>
-              Profile Change History - {getStudentInfo.fullName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-auto">
-            <ProfileHistory studentEmailKey={(() => {
-              const rawEmail = student.StudentEmail;
-  if (!rawEmail) {
-    console.error('StudentEmail is missing for student:', student);
-    toast.error('Cannot update: Student email is missing');
-    return;
-  }
-              return sanitizeEmail(rawEmail);
-            })()} />
-          </div>
-        </DialogContent>
-      </Dialog>
       
       {/* Archive Options Sheet */}
       <Sheet open={archiveOptionsDialog} onOpenChange={setArchiveOptionsDialog}>
@@ -2733,6 +2680,40 @@ const handleStatusChange = useCallback(async (newStatus) => {
               }}
             />
           </div>
+        </SheetContent>
+      </Sheet>
+      
+      {/* PASI Details Sheet */}
+      <Sheet open={isPasiDetailsSheetOpen} onOpenChange={setIsPasiDetailsSheetOpen}>
+        <SheetContent className="w-[75vw] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Record Details</SheetTitle>
+            <SheetDescription>
+              {selectedPasiRecord && (
+                `${getStudentInfo.fullName} - ${student.Course_Value || 'No Course'}`
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selectedPasiRecord && (
+            <div className="mt-4">
+              <PasiRecordDetails
+                record={selectedPasiRecord}
+                onClose={() => setIsPasiDetailsSheetOpen(false)}
+                handleCellClick={(value, label) => {
+                  // Copy value to clipboard when cell is clicked
+                  if (value && value !== 'N/A') {
+                    navigator.clipboard.writeText(value);
+                    toast.success(`${label} copied!`);
+                  }
+                }}
+                onRecordUpdate={(updatedRecord) => {
+                  // Optional: handle record updates if needed
+                  setSelectedPasiRecord(updatedRecord);
+                }}
+              />
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </>

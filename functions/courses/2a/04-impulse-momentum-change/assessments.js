@@ -8,18 +8,7 @@
  */
 
 
-const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../../../courses-config/2/course-config.json');
-
 // Removed dependency on config file - settings are now handled directly in assessment configurations
-
-// ===== ACTIVITY TYPE CONFIGURATION =====
-const ACTIVITY_TYPE = 'lesson';
-
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 // ===== HELPER FUNCTIONS FOR RANDOMIZATION =====
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;

@@ -388,7 +388,7 @@ function RTDConnectApp() {
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
         <Route path="/facilitator/elise" element={<FacilitatorProfile4 />} />
-        <Route path="/facilitator/kari" element={<FacilitatorProfile5 />} />
+        <Route path="/facilitator/kari-luther" element={<FacilitatorProfile5 />} />
         
         {/* Legal pages */}
         <Route path="/privacy" element={<PrivacyStatement />} />

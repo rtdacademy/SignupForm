@@ -13,7 +13,7 @@ import StudentMessaging from './StudentMessaging';
 import GradebookDashboard from '../FirebaseCourses/components/gradebook/GradebookDashboard';
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { ChevronLeft, Flame, User, ArrowLeft, InfoIcon, UserCheck, Activity } from "lucide-react";
+import { ChevronLeft, Flame, User, ArrowLeft, InfoIcon, Activity } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Badge } from "../components/ui/badge";
@@ -21,7 +21,6 @@ import { useUserPreferences } from '../context/UserPreferencesContext';
 import StudentNotes from './StudentNotes';
 import { ClipboardList, X, Maximize2 } from 'lucide-react';
 import StudentDetailsSheet from './StudentDetailsSheet';
-import RegistrationInfo from './RegistrationInfo';
 import StudentActivitySheet from './StudentActivitySheet';
 import { Sheet, SheetContent } from "../components/ui/sheet";
 
@@ -101,7 +100,6 @@ function StudentManagement({
   
   // State for action buttons and sheets
   const [isStudentDetailsSheetOpen, setIsStudentDetailsSheetOpen] = useState(false);
-  const [isRegistrationSheetOpen, setIsRegistrationSheetOpen] = useState(false);
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   const [userClaims, setUserClaims] = useState(null);
 
@@ -709,15 +707,13 @@ function StudentManagement({
                       exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ duration: 0.2, delay: 0.1 }}
                     >
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <button
                         onClick={handleToggleNotesPanel}
-                        className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:bg-gray-50"
-                        title="Show notes panel"
+                        className="h-10 w-10 p-0 bg-white shadow-lg border-2 border-indigo-600/30 hover:bg-indigo-50 hover:border-indigo-600 transition-all rounded-md flex items-center justify-center relative z-20"
+                        title="Show Student Notes"
                       >
-                        <ClipboardList className="h-4 w-4 text-indigo-600" />
-                      </Button>
+                        <ClipboardList className="h-5 w-5 text-indigo-600" />
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -728,31 +724,16 @@ function StudentManagement({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2, delay: 0.2 }}
-                    className="flex flex-col space-y-1"
+                    className="flex flex-col space-y-2"
                   >
                     {/* More Info Button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <button
                       onClick={() => setIsStudentDetailsSheetOpen(true)}
-                      className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:bg-gray-50"
-                      title="More Info"
+                      className="h-10 w-10 p-0 bg-white shadow-lg border-2 border-[#40b3b3]/30 hover:bg-[#e0f7f7] hover:border-[#40b3b3] transition-all rounded-md flex items-center justify-center relative z-20"
+                      title="Student Information"
                     >
-                      <InfoIcon className="h-4 w-4 text-[#40b3b3]" />
-                    </Button>
-                    
-                    {/* Registration Button - Admin only */}
-                    {isAdminUser() && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsRegistrationSheetOpen(true)}
-                        className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:bg-gray-50"
-                        title="Registration"
-                      >
-                        <UserCheck className="h-4 w-4 text-orange-600" />
-                      </Button>
-                    )}
+                      <InfoIcon className="h-5 w-5 text-[#40b3b3]" />
+                    </button>
                     
                     {/* Activity Button - Hidden for now */}
                     {/* <Button
@@ -930,31 +911,6 @@ function StudentManagement({
         </Sheet>
       )}
       
-      {/* Registration Sheet */}
-      {selectedStudent && memoizedFirebaseProfile && isAdminUser() && (
-        <Sheet open={isRegistrationSheetOpen} onOpenChange={setIsRegistrationSheetOpen}>
-          <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                  <UserCheck className="h-5 w-5 mr-2" />
-                  Registration Information
-                </h2>
-              </div>
-              
-              {/* Registration Content */}
-              <div className="flex-1 overflow-auto">
-                <RegistrationInfo 
-                  studentData={{ profile: memoizedFirebaseProfile, courses: memoizedFirebaseCourses || {} }}
-                  courseId={selectedStudent?.CourseID}
-                  readOnly={false}
-                />
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
       
       {/* Activity Sheet */}
       {selectedStudent && memoizedFirebaseProfile && (

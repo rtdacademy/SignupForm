@@ -1,19 +1,5 @@
 
-const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
-
-// Load course configuration
-const courseConfig = require('../../../courses-config/2/course-config.json');
-
 // Removed dependency on config file - settings are now handled directly in assessment configurations
-
-// ===== ACTIVITY TYPE CONFIGURATION =====
-// Set the activity type for all assessments in this content module
-// Options: 'lesson', 'assignment', 'lab', 'exam'
-// This determines which default settings are used from course-config.json
-const ACTIVITY_TYPE = 'lesson';
-
-// Get the default settings for this activity type
-const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
 
 /**
  * Introduction to Light Practice Problems - 17 Questions
@@ -291,7 +277,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_building_height_calculation': {
     questions: [questions[1]],
@@ -302,7 +288,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_shadow_size_calculation': {
     questions: [questions[2]],
@@ -313,7 +299,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_shadow_area_calculation': {
     questions: [questions[3]],
@@ -324,7 +310,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_fence_shadow_calculation': {
     questions: [questions[4]],
@@ -335,7 +321,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_michelson_six_sided_calculation': {
     questions: [questions[5]],
@@ -346,7 +332,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_michelson_eight_sided_frequency': {
     questions: [questions[6]],
@@ -357,7 +343,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_michelson_pentagonal_frequency': {
     questions: [questions[7]],
@@ -368,7 +354,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_michelson_twelve_sided_distance': {
     questions: [questions[8]],
@@ -379,7 +365,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_space_station_radio_signal': {
     questions: [questions[9]],
@@ -390,7 +376,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_light_travel_three_years': {
     questions: [questions[10]],
@@ -401,7 +387,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_star_explosion_observation': {
     questions: [questions[11]],
@@ -412,7 +398,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_proxima_centauri_distance': {
     questions: [questions[12]],
@@ -423,7 +409,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_spacecraft_travel_time': {
     questions: [questions[13]],
@@ -434,7 +420,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_sunlight_travel_time': {
     questions: [questions[14]],
@@ -445,7 +431,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_galileo_light_travel': {
     questions: [questions[15]],
@@ -456,7 +442,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   },
   'course2_09_earth_jupiter_speed_calculation': {
     questions: [questions[16]],
@@ -467,7 +453,7 @@ const assessmentConfigs = {
     randomizeQuestions: false,
     randomizeOptions: true,
     allowSameQuestion: true,
-    theme: activityDefaults.theme || 'purple'
+    theme: 'purple'
   }
 };
 

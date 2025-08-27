@@ -1,8 +1,66 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, Clock, DollarSign } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, DollarSign, Ban } from 'lucide-react';
 
 const StudentBudgetCard = ({ student, budgetInfo, reimbursementStatus }) => {
+  // Check if student is not eligible for funding
+  if (student.fundingEligible === false) {
+    return (
+      <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 opacity-75">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="font-medium text-gray-900">
+              {student.firstName} {student.lastName}
+            </h4>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <span>Grade {student.grade}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center space-x-1 text-red-600">
+              <Ban className="w-5 h-5" />
+              <span className="text-lg font-bold">$0.00</span>
+            </div>
+            <div className="text-xs text-gray-500">No Funding</div>
+          </div>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded p-2 mt-3">
+          <p className="text-xs text-red-700 flex items-center">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            {student.fundingAmount === 0 && student.grade === 'K' 
+              ? 'Student is too young for kindergarten funding'
+              : student.fundingAmount === 0 && student.grade === '12'
+              ? 'Student exceeds age limit for funding'
+              : 'Not eligible for funding based on age requirements'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!budgetInfo) return null;
+
+  // Also check if budget is 0 (shouldn't happen after above check, but just in case)
+  if (budgetInfo.fundingFormatted === '$0.00' || budgetInfo.fundingAmount === 0) {
+    return (
+      <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 opacity-75">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="font-medium text-gray-900">
+              {student.firstName} {student.lastName}
+            </h4>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <span>Grade {student.grade}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-gray-500">$0.00</div>
+            <div className="text-xs text-gray-500">No Budget</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const getProgressColor = () => {
     if (budgetInfo.percentageUsed > 95) return 'bg-red-500';

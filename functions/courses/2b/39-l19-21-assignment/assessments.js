@@ -1,5 +1,5 @@
 
-const { createStandardMultipleChoice } = require('../../../shared/assessment-types/standard-multiple-choice');
+// Removed dependency on config file - settings are now handled directly in assessment configurations
 
 // Asset path for images
 const ASSET_PATH = '/courses/2/content/39-l19-21-assignment/assets/';

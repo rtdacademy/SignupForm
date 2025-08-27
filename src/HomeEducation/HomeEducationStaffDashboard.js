@@ -65,6 +65,7 @@ import { useNavigate } from 'react-router-dom';
 import FamilyNotesModal from './FamilyNotes/FamilyNotesModal';
 import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
 import FamilyMessaging from './FamilyMessaging';
+import StaffDocumentReview from './StaffDocumentReview';
 import {
   Table,
   TableBody,
@@ -405,7 +406,7 @@ const RegistrationStatusBadge = ({ registrationStatus }) => {
 };
 
 // Comprehensive Status Badge Component
-const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, familyId, onToggleAssistance }) => {
+const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, familyId, onToggleAssistance, onDocumentReview }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
@@ -492,10 +493,19 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, family
         {/* Citizenship Docs Status */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`p-1 rounded relative ${getStatusColor(statuses.citizenshipDocs)}`}>
+            <div 
+              className={`p-1 rounded relative ${getStatusColor(statuses.citizenshipDocs)} ${
+                onDocumentReview 
+                  ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all transform hover:scale-105' 
+                  : ''
+              }`}
+              onClick={onDocumentReview 
+                ? () => onDocumentReview(familyId)
+                : undefined}
+            >
               <UserCheck className="w-3.5 h-3.5" />
               {statuses.citizenshipDocs === 'pending_review' && (
-                <div className="absolute -top-1 -right-1 bg-orange-500 rounded-full p-0.5">
+                <div className="absolute -top-1 -right-1 bg-orange-500 rounded-full p-0.5 animate-pulse">
                   <Eye className="w-2.5 h-2.5 text-white" />
                 </div>
               )}
@@ -506,6 +516,9 @@ const ComprehensiveStatusBadge = ({ statuses, assistanceRequired = false, family
             <p className="text-xs capitalize">{statuses.citizenshipDocs.replace('_', ' ')}</p>
             {statuses.citizenshipDocs === 'pending_review' && (
               <p className="text-xs text-orange-600 font-medium mt-1">🔍 Staff Review Required</p>
+            )}
+            {onDocumentReview && (
+              <p className="text-xs text-gray-600 mt-1">🖱️ Click to review documents</p>
             )}
           </TooltipContent>
         </Tooltip>
@@ -660,12 +673,13 @@ const BulkActionsToolbar = ({
 };
 
 // ASN Edit Popover Component - Allows inline editing of student ASNs
-const ASNEditPopover = ({ student, familyId, onUpdate }) => {
+const ASNEditPopover = ({ student, familyId, onUpdate, remainingStudentsCount = 0, onContinue }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [asnValue, setAsnValue] = useState('');
   const [isValid, setIsValid] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const inputRef = useRef(null);
 
   // Format ASN for display (1234-5678-9)
@@ -707,7 +721,7 @@ const ASNEditPopover = ({ student, familyId, onUpdate }) => {
   };
 
   // Save ASN to database
-  const handleSave = async () => {
+  const handleSave = async (shouldClose = false) => {
     if (!validateASN(asnValue)) {
       setIsValid(false);
       return;
@@ -724,16 +738,36 @@ const ASNEditPopover = ({ student, familyId, onUpdate }) => {
         asn: digits
       });
 
+      // Call the onUpdate callback immediately for optimistic update
+      if (onUpdate) {
+        onUpdate(familyId, student.id, digits);
+      }
+
       // Show success feedback
       setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        setIsOpen(false);
-        // Call the onUpdate callback to refresh the table
-        if (onUpdate) {
-          onUpdate(familyId, student.id, digits);
-        }
-      }, 1500);
+      setJustSaved(true);
+      
+      // If there are more students and we should continue, reset form after brief feedback
+      if (remainingStudentsCount > 0 && !shouldClose) {
+        setTimeout(() => {
+          setShowSuccess(false);
+          setJustSaved(false);
+          setAsnValue('');
+          setIsValid(true);
+          // Keep popover open and refocus input
+          inputRef.current?.focus();
+          // Call continue callback if provided
+          if (onContinue) {
+            onContinue();
+          }
+        }, 1000);
+      } else {
+        // Close after success if no more students or explicitly closing
+        setTimeout(() => {
+          setShowSuccess(false);
+          setIsOpen(false);
+        }, 1000);
+      }
     } catch (error) {
       console.error('Error updating ASN:', error);
       setIsValid(false);
@@ -784,6 +818,16 @@ const ASNEditPopover = ({ student, familyId, onUpdate }) => {
             <p className="text-xs text-gray-500">
               Enter the 9-digit Alberta Student Number
             </p>
+            {remainingStudentsCount > 0 && !justSaved && (
+              <p className="text-xs text-amber-600 font-medium mt-1">
+                {remainingStudentsCount} more student{remainingStudentsCount > 1 ? 's' : ''} need{remainingStudentsCount === 1 ? 's' : ''} ASN
+              </p>
+            )}
+            {justSaved && remainingStudentsCount > 0 && (
+              <p className="text-xs text-green-600 font-medium mt-1 animate-pulse">
+                ✓ Saved! Ready for next student...
+              </p>
+            )}
           </div>
           
           <div className="space-y-2">
@@ -821,7 +865,7 @@ const ASNEditPopover = ({ student, familyId, onUpdate }) => {
             </p>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-between items-center">
             <button
               onClick={() => setIsOpen(false)}
               className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800"
@@ -829,25 +873,39 @@ const ASNEditPopover = ({ student, familyId, onUpdate }) => {
             >
               Cancel
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!asnValue || !isValid || isSaving}
-              className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Saving...
-                </>
-              ) : showSuccess ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  Saved!
-                </>
-              ) : (
-                'Save ASN'
+            <div className="flex gap-2">
+              {remainingStudentsCount > 0 && (
+                <button
+                  onClick={() => handleSave(true)}
+                  disabled={!asnValue || !isValid || isSaving}
+                  className="px-3 py-1.5 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  title="Save and close popover"
+                >
+                  Save & Close
+                </button>
               )}
-            </button>
+              <button
+                onClick={() => handleSave(false)}
+                disabled={!asnValue || !isValid || isSaving}
+                className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Saving...
+                  </>
+                ) : showSuccess ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Saved!
+                  </>
+                ) : remainingStudentsCount > 0 ? (
+                  'Save & Continue'
+                ) : (
+                  'Save ASN'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </PopoverContent>
@@ -967,10 +1025,17 @@ const calculateAge = (birthday) => {
 };
 
 // StudentDetailsRow component - Extracted to fix hooks error
-const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx }) => {
+const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStudents = [], localASN }) => {
   const [copiedBirthday, setCopiedBirthday] = useState(false);
   const [copiedASN, setCopiedASN] = useState(false);
   const age = calculateAge(student.birthday);
+  
+  // Use local ASN if available, otherwise use student's ASN
+  const displayASN = localASN || student.asn;
+  
+  // Calculate remaining students needing ASN
+  const studentsNeedingASN = allStudents.filter(s => !s.asn && s.id !== student.id);
+  const remainingCount = studentsNeedingASN.length;
   
   const handleCopyBirthday = () => {
     if (student.birthday) {
@@ -981,8 +1046,8 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx }) => {
   };
   
   const handleCopyASN = () => {
-    if (student.asn) {
-      const formattedASN = formatASNDisplay(student.asn);
+    if (displayASN) {
+      const formattedASN = formatASNDisplay(displayASN);
       navigator.clipboard.writeText(formattedASN);
       setCopiedASN(true);
       setTimeout(() => setCopiedASN(false), 2000);
@@ -990,22 +1055,22 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx }) => {
   };
   
   return (
-    <div key={idx} className="border rounded-lg p-3 bg-gray-50">
-      <div className="space-y-2">
-        {/* Name and Grade Header */}
+    <div key={idx} className="border rounded-lg p-2.5 bg-gray-50 hover:bg-gray-100 transition-colors">
+      <div className="space-y-1.5">
+        {/* Name and Grade Header - More Compact */}
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-gray-900">
               {student.firstName} {student.lastName}
             </p>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-0.5">
               <span className="text-xs text-gray-600">
                 Grade: <span className="font-medium">{student.grade || 'N/A'}</span>
               </span>
               {age !== null && (
                 <span className="text-xs text-gray-600 flex items-center gap-1">
                   <Cake className="w-3 h-3" />
-                  Age: <span className="font-medium">{age} years</span>
+                  <span className="font-medium">{age}y</span>
                 </span>
               )}
             </div>
@@ -1038,36 +1103,44 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx }) => {
           <p className="text-xs text-gray-500">Email: {student.email}</p>
         )}
         
-        {/* ASN or Add ASN Button */}
-        {student.asn ? (
-          <div className="flex items-center gap-2 bg-green-50 rounded px-2 py-1.5 border border-green-200 mt-2">
-            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+        {/* ASN or Add ASN Button - Compact */}
+        {displayASN ? (
+          <div className="flex items-center gap-1.5 bg-green-50 rounded px-2 py-1 border border-green-200">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
             <span className="text-xs text-gray-600">ASN:</span>
             <span className="text-xs font-mono font-medium text-green-900">
-              {formatASNDisplay(student.asn)}
+              {formatASNDisplay(displayASN)}
             </span>
             <button
               onClick={handleCopyASN}
-              className="ml-auto p-1 hover:bg-green-100 rounded transition-colors"
+              className="ml-auto p-0.5 hover:bg-green-100 rounded transition-colors"
               title="Copy ASN to clipboard"
             >
               {copiedASN ? (
-                <Check className="w-3.5 h-3.5 text-green-600" />
+                <Check className="w-3 h-3 text-green-600" />
               ) : (
-                <Copy className="w-3.5 h-3.5 text-green-600 hover:text-green-700" />
+                <Copy className="w-3 h-3 text-green-600 hover:text-green-700" />
               )}
             </button>
           </div>
         ) : (
-          <div className="mt-2 pt-2 border-t border-gray-200">
-            <p className="text-xs text-amber-600 mb-2">
-              ⚠️ ASN needed for registration
-            </p>
-            <ASNEditPopover 
-              student={student} 
-              familyId={familyId}
-              onUpdate={onASNUpdate}
-            />
+          <div className="mt-1 pt-1 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-amber-600">
+                ⚠️ ASN needed
+                {remainingCount > 0 && (
+                  <span className="ml-1 text-gray-600">
+                    (+{remainingCount} more)
+                  </span>
+                )}
+              </p>
+              <ASNEditPopover 
+                student={student} 
+                familyId={familyId}
+                onUpdate={onASNUpdate}
+                remainingStudentsCount={remainingCount}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -1086,6 +1159,7 @@ const FamilyTableRow = memo(({
   onViewDashboard, 
   onOpenNotes, 
   onToggleAssistance,
+  onDocumentReview,
   onEmailFamily,
   onASNUpdate,
   loadingStatuses,
@@ -1162,27 +1236,82 @@ const FamilyTableRow = memo(({
                   )}
                 </button>
               </PopoverTrigger>
-                <PopoverContent className="w-96" align="start">
-                  <div className="space-y-3">
-                    <div>
+                <PopoverContent 
+                  className="w-96 max-w-[90vw]" 
+                  align="start"
+                  side="bottom"
+                  sideOffset={5}
+                  avoidCollisions={true}
+                  collisionPadding={20}
+                  collisionBoundary="viewport"
+                >
+                  <div className="max-h-[70vh] flex flex-col">
+                    {/* Fixed header */}
+                    <div className="flex-shrink-0 pb-3 border-b">
                       <h4 className="font-medium text-sm mb-1">Student Details - {row.familyName}</h4>
-                      <p className="text-xs text-gray-500">
-                        {row.studentCount} student{row.studentCount > 1 ? 's' : ''} • {row.gradeRange}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">
+                          {row.studentCount} student{row.studentCount > 1 ? 's' : ''} • {row.gradeRange}
+                        </p>
+                        {/* ASN Progress Indicator */}
+                        {row.studentCount > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-600">ASN:</span>
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: row.studentCount }).map((_, i) => {
+                                const student = students[i];
+                                const hasASN = student && (student.asn || row.localASNUpdates?.[`${row.familyId}_${student.id}`]);
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      hasASN ? 'bg-green-500' : 'bg-gray-300'
+                                    }`}
+                                    title={hasASN ? 'Has ASN' : 'Missing ASN'}
+                                  />
+                                );
+                              })}
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              ({row.studentCount - row.missingASNCount}/{row.studentCount})
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {row.hasMissingASN && (
+                        <p className="text-xs text-amber-600 font-medium mt-1">
+                          ⚠️ {row.missingASNCount} student{row.missingASNCount > 1 ? 's' : ''} still need{row.missingASNCount === 1 ? 's' : ''} ASN
+                        </p>
+                      )}
                     </div>
                     
-                    {/* All Students List */}
-                    <div className="space-y-2">
-                      {students.map((student, idx) => (
-                        <StudentDetailsRow
-                          key={student.id || idx}
-                          student={student}
-                          familyId={row.familyId}
-                          onASNUpdate={onASNUpdate}
-                          idx={idx}
-                        />
-                      ))}
-                    </div>
+                    {/* Scrollable Students List */}
+                    <ScrollArea className="flex-1 mt-3">
+                      <div className="space-y-2 pr-4">
+                        {students.map((student, idx) => {
+                          // Apply local ASN updates to each student for display
+                          const studentsWithLocalASN = students.map(s => {
+                            const key = `${row.familyId}_${s.id}`;
+                            const localASN = row.localASNUpdates?.[key];
+                            return localASN ? { ...s, asn: localASN } : s;
+                          });
+                          
+                          const localUpdateKey = `${row.familyId}_${student.id}`;
+                          const localASN = row.localASNUpdates?.[localUpdateKey];
+                          return (
+                            <StudentDetailsRow
+                              key={student.id || idx}
+                              student={student}
+                              familyId={row.familyId}
+                              onASNUpdate={onASNUpdate}
+                              idx={idx}
+                              allStudents={studentsWithLocalASN}
+                              localASN={localASN}
+                            />
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -1213,6 +1342,7 @@ const FamilyTableRow = memo(({
             assistanceRequired={comprehensiveStatus.assistanceRequired}
             familyId={row.familyId}
             onToggleAssistance={onToggleAssistance}
+            onDocumentReview={onDocumentReview}
           />
         )}
       </td>
@@ -1259,7 +1389,7 @@ const FamilyTableRow = memo(({
 FamilyTableRow.displayName = 'FamilyTableRow';
 
 // Family Table Component
-const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet }) => {
+const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentReview, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet }) => {
   const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [familyStatuses, setFamilyStatuses] = useState({});
@@ -1268,6 +1398,9 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
   const [selectedNotesFamily, setSelectedNotesFamily] = useState(null);
   const [selectedNotesFamilyId, setSelectedNotesFamilyId] = useState(null);
   const [togglingAssistance, setTogglingAssistance] = useState({});
+  
+  // Local state for tracking ASN updates optimistically
+  const [localASNUpdates, setLocalASNUpdates] = useState({});
   
   // Bulk selection state
   const [selectedFamilies, setSelectedFamilies] = useState(new Set());
@@ -1423,9 +1556,15 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
               const docsData = docsSnapshot.val();
               anyDocsStarted = true;
               
-              if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview) {
-                // Document is complete
-              } else if (docsData.requiresStaffReview || docsData.staffReviewRequired) {
+              // Check if already approved by staff
+              const isStaffApproved = docsData.staffApproval?.isApproved === true;
+              
+              if (isStaffApproved) {
+                // Already approved by staff - counts as complete
+              } else if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview && !docsData.staffReviewRequired) {
+                // Document is complete and doesn't need review
+              } else if ((docsData.requiresStaffReview || docsData.staffReviewRequired) && !isStaffApproved) {
+                // Needs staff review and hasn't been approved yet
                 anyPendingReview = true;
                 allDocsCompleted = false;
               } else {
@@ -1479,10 +1618,22 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }
   }, [families, dbSchoolYear, debouncedVisibleFamilies, familyStatuses]);
 
-  // Process families data for table display
+  // Process families data for table display with local ASN updates
   const familyRows = useMemo(() => {
     return Object.entries(families).map(([familyId, family]) => {
-      const students = family.students ? Object.values(family.students) : [];
+      // Apply local ASN updates to students
+      const studentsObj = family.students ? { ...family.students } : {};
+      Object.keys(studentsObj).forEach(studentId => {
+        const localUpdateKey = `${familyId}_${studentId}`;
+        if (localASNUpdates[localUpdateKey]) {
+          studentsObj[studentId] = {
+            ...studentsObj[studentId],
+            asn: localASNUpdates[localUpdateKey]
+          };
+        }
+      });
+      
+      const students = Object.values(studentsObj);
       const guardians = family.guardians ? Object.values(family.guardians) : [];
       const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
       
@@ -1492,8 +1643,13 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         (grades.length === 1 ? `Grade ${grades[0]}` : `Grades ${Math.min(...grades)}-${Math.max(...grades)}`) : 
         'No grades';
 
-      // Check for missing ASN
-      const studentsWithMissingASN = students.filter(student => !student.asn || student.asn === '');
+      // Check for missing ASN (accounting for local updates)
+      const studentsWithMissingASN = students.filter(student => {
+        const localUpdateKey = `${familyId}_${student.id}`;
+        const localASN = localASNUpdates[localUpdateKey];
+        const asn = localASN || student.asn;
+        return !asn || asn === '';
+      });
       const hasMissingASN = studentsWithMissingASN.length > 0;
       const missingASNCount = studentsWithMissingASN.length;
 
@@ -1519,10 +1675,11 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         missingASNCount,
         studentsWithMissingASN,
         registrationStatus,
-        rawFamily: family
+        rawFamily: { ...family, students: studentsObj }, // Pass the updated students with local ASN
+        localASNUpdates: localASNUpdates // Pass the local ASN updates to the row
       };
     });
-  }, [families, effectiveEmail, activeSchoolYear]);
+  }, [families, effectiveEmail, activeSchoolYear, localASNUpdates]);
 
   // Sort functionality
   const sortedRows = useMemo(() => {
@@ -1843,12 +2000,20 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
     }
   }, [onOpenEmailSheet]);
 
-  // Handle ASN update callback
+  // Handle ASN update callback with optimistic updates
   const handleASNUpdate = useCallback((familyId, studentId, newASN) => {
-    // Force a reload of the page to reflect the ASN change
-    // This is simpler than trying to update all the complex state
-    window.location.reload();
-  }, []);
+    // Update local state optimistically
+    setLocalASNUpdates(prev => ({
+      ...prev,
+      [`${familyId}_${studentId}`]: newASN
+    }));
+    
+    // Also update the families data if it's passed from parent
+    // This will trigger a re-render of the table with the new ASN
+    if (families[familyId] && families[familyId].students && families[familyId].students[studentId]) {
+      families[familyId].students[studentId].asn = newASN;
+    }
+  }, [families]);
 
   // Row renderer - Note: We use inline functions here since these handlers are defined within FamilyTable
   const rowContent = useCallback((index, row) => {
@@ -1878,6 +2043,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
           setNotesModalOpen(true);
         }}
         onToggleAssistance={handleToggleAssistance}
+        onDocumentReview={onDocumentReview}
         onEmailFamily={handleEmailFamily}
         onASNUpdate={handleASNUpdate}
         loadingStatuses={loadingStatuses}
@@ -1886,7 +2052,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, currentUserEma
         effectiveEmail={effectiveEmail}
       />
     );
-  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, handleEmailFamily, handleASNUpdate, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
+  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, onDocumentReview, handleEmailFamily, handleASNUpdate, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
 
   // Handle range changes for lazy loading with extra buffer
   const handleRangeChanged = useCallback((range) => {
@@ -2524,6 +2690,9 @@ const HomeEducationStaffDashboard = ({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [familyStatuses, setFamilyStatuses] = useState({});
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [showDocumentReview, setShowDocumentReview] = useState(false);
+  const [documentReviewFamilyId, setDocumentReviewFamilyId] = useState(null);
+  const [documentReviewFamily, setDocumentReviewFamily] = useState(null);
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
   const [filters, setFilters] = useState({
     registrationStatus: 'all', // all, queue, ready, incomplete, completed
@@ -2673,9 +2842,15 @@ const HomeEducationStaffDashboard = ({
               const docsData = docsSnapshot.val();
               anyDocsStarted = true;
               
-              if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview) {
-                // Document is complete
-              } else if (docsData.requiresStaffReview || docsData.staffReviewRequired) {
+              // Check if already approved by staff
+              const isStaffApproved = docsData.staffApproval?.isApproved === true;
+              
+              if (isStaffApproved) {
+                // Already approved by staff - counts as complete
+              } else if (docsData.completionStatus === 'completed' && !docsData.requiresStaffReview && !docsData.staffReviewRequired) {
+                // Document is complete and doesn't need review
+              } else if ((docsData.requiresStaffReview || docsData.staffReviewRequired) && !isStaffApproved) {
+                // Needs staff review and hasn't been approved yet
                 anyPendingReview = true;
                 allDocsCompleted = false;
               } else {
@@ -2956,6 +3131,15 @@ const HomeEducationStaffDashboard = ({
     setDashboardSheetFamilyId(familyId);
     setDashboardSheetFamily(family);
     setShowDashboardSheet(true);
+  };
+
+  const handleDocumentReview = (familyId) => {
+    const family = families[familyId];
+    if (family) {
+      setDocumentReviewFamilyId(familyId);
+      setDocumentReviewFamily(family);
+      setShowDocumentReview(true);
+    }
   };
 
   const handleCloseModal = () => {
@@ -3361,6 +3545,7 @@ const HomeEducationStaffDashboard = ({
         families={filteredFamilies}
         onViewDashboard={handleViewDashboard}
         onManageFamily={handleManageFamily}
+        onDocumentReview={handleDocumentReview}
         currentUserEmail={user?.email}
         impersonatedEmail={impersonatingFacilitator?.contact?.email}
         isAdmin={isAdmin}
@@ -3435,6 +3620,17 @@ const HomeEducationStaffDashboard = ({
           />
         </SheetContent>
       </Sheet>
+
+      {/* Document Review Sheet */}
+      <StaffDocumentReview
+        isOpen={showDocumentReview}
+        onOpenChange={(open) => {
+          setShowDocumentReview(open);
+          // The sheet has closed, statuses will be updated via realtime listeners
+        }}
+        familyId={documentReviewFamilyId}
+        familyData={documentReviewFamily}
+      />
     </div>
   );
 };

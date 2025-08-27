@@ -1,8 +1,9 @@
 // src/components/PasiActionButtons.js
 import React, { useState } from 'react';
 import { Button } from "./ui/button";
-import { ExternalLink, Edit, ChevronDown, Database, X, Layers, BookOpen, ArrowRightCircle, Info } from 'lucide-react';
+import { ExternalLink, Edit, ChevronDown, Database, X, Layers, BookOpen, ArrowRightCircle, Info, Copy, ClipboardCheck } from 'lucide-react';
 import { openManagedWindow } from '../utils/windowUtils';
+import { toast } from 'sonner';
 import {
   Tooltip,
   TooltipContent,
@@ -144,9 +145,16 @@ export const MultipleRecordsDisplay = ({ records, asn, onSelect, selectedRecord 
   );
 };
 
-const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDetails = null }) => {
+const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, showCopyLink = false, onViewDetails = null }) => {
   const validAsn = isValidValue(asn);
   const validReferenceNumber = isValidValue(referenceNumber);
+
+  const handleCopyLink = () => {
+    if (!validAsn) return;
+    const url = `${window.location.origin}/teacher-dashboard?asn=${asn}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copied to clipboard!');
+  };
 
   const handleOpenPasi = () => {
     if (!validAsn) return;
@@ -260,8 +268,25 @@ const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDet
           </Tooltip>
         </div>
 
-        {/* YourWay Button - Separate with different color - Conditionally rendered */}
-        {showYourWay && (
+        {/* YourWay Button or Copy Link Button - Conditionally rendered */}
+        {showCopyLink && !showYourWay ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleCopyLink}
+                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-green-50/80 hover:bg-green-100/90"
+                disabled={!validAsn}
+              >
+                <Copy className="h-4 w-4 text-green-700" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy YourWay Link</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : showYourWay ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -278,7 +303,7 @@ const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDet
               <p>Open in YourWay</p>
             </TooltipContent>
           </Tooltip>
-        )}
+        ) : null}
 
         {/* Details Button - Conditionally rendered when onViewDetails is provided */}
         {onViewDetails && (
@@ -288,13 +313,13 @@ const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDet
                 variant="ghost"
                 size="xs"
                 onClick={onViewDetails}
-                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-purple-50/80 hover:bg-purple-100/90"
+                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-indigo-50/80 hover:bg-indigo-100/90"
               >
-                <Info className="h-4 w-4 text-purple-700" />
+                <ClipboardCheck className="h-4 w-4 text-indigo-700" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>View Detailed Information</p>
+              <p>Registration Details (Registrar Use)</p>
             </TooltipContent>
           </Tooltip>
         )}

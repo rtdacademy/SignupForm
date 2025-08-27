@@ -150,11 +150,59 @@ const ReceiptAnalysisSchema = z.object({
 });
 
 /**
+ * Valid citizenship document types matching PASI system
+ */
+const VALID_CITIZENSHIP_DOCUMENT_TYPES = {
+  ALBERTA_BIRTH_CERTIFICATE: 'alberta_birth_certificate',
+  CANADIAN_BIRTH_CERTIFICATE: 'canadian_birth_certificate',
+  CANADIAN_CITIZENSHIP_CERTIFICATE: 'canadian_citizenship_certificate',
+  CANADIAN_CITIZENSHIP_CARD: 'canadian_citizenship_card',
+  CANADIAN_PASSPORT: 'canadian_passport',
+  FOREIGN_PASSPORT: 'foreign_passport',
+  CANADIAN_CERTIFICATE_OF_INDIAN_STATUS: 'canadian_certificate_of_indian_status',
+  TREATY_CARD: 'treaty_card',
+  CANADIAN_PERMANENT_RESIDENT_CARD: 'canadian_permanent_resident_card',
+  CANADIAN_STUDY_PERMIT: 'canadian_study_permit',
+  CANADIAN_WORK_PERMIT: 'canadian_work_permit',
+  CANADIAN_TEMPORARY_RESIDENT_VISA: 'canadian_temporary_resident_visa',
+  CONFIRMATION_OF_PERMANENT_RESIDENCE: 'confirmation_of_permanent_residence',
+  CANADIAN_REFUGEE_PROTECTION_CLAIMANT: 'canadian_refugee_protection_claimant',
+  APPLICATION_PERMANENT_TEMPORARY_RESIDENCE: 'application_permanent_temporary_residence',
+  PROOF_OF_APPLICATION_STATUS: 'proof_of_application_status',
+  FOREIGN_BIRTH_CERTIFICATE: 'foreign_birth_certificate',
+  CONSULATE_VISA: 'consulate_visa',
+  VISA: 'visa',
+  TEMPORARY_DECLARATION_OF_CITIZENSHIP: 'temporary_declaration_of_citizenship'
+};
+
+/**
  * Schema for citizenship document analysis with student verification
  */
 const CitizenshipDocumentAnalysisSchema = z.object({
   // Document identification fields
-  detectedDocumentType: z.string().default('unknown').describe('Type of document detected: birth_certificate, passport, citizenship_certificate, immigration_document, unknown'),
+  detectedDocumentType: z.enum([
+    'alberta_birth_certificate',
+    'canadian_birth_certificate',
+    'canadian_citizenship_certificate',
+    'canadian_citizenship_card',
+    'canadian_passport',
+    'foreign_passport',
+    'canadian_certificate_of_indian_status',
+    'treaty_card',
+    'canadian_permanent_resident_card',
+    'canadian_study_permit',
+    'canadian_work_permit',
+    'canadian_temporary_resident_visa',
+    'confirmation_of_permanent_residence',
+    'canadian_refugee_protection_claimant',
+    'application_permanent_temporary_residence',
+    'proof_of_application_status',
+    'foreign_birth_certificate',
+    'consulate_visa',
+    'visa',
+    'temporary_declaration_of_citizenship',
+    'unknown'
+  ]).default('unknown').describe('Type of document detected - MUST be one of the predefined PASI-compatible values'),
   documentTypeConfidence: z.number().default(0).describe('Confidence 0-1 in document type classification'),
   
   // Student verification fields
@@ -1140,41 +1188,80 @@ IMPORTANT: You must return a complete JSON object with ALL required fields inclu
 /**
  * System prompt for citizenship document analysis and student verification
  */
-const CITIZENSHIP_DOCUMENT_ANALYSIS_PROMPT = `You are an expert document analyzer specializing in Canadian citizenship and immigration document verification for school registration purposes. Your primary task is to verify that uploaded documents belong to the correct student and are the expected document type.
+const CITIZENSHIP_DOCUMENT_ANALYSIS_PROMPT = `You are an expert document analyzer specializing in Canadian citizenship and immigration document verification for school registration purposes. Your primary task is to verify that uploaded documents belong to the correct student and classify them using PASI-compatible document types.
 
 CRITICAL MISSION: Verify student identity and document authenticity to prevent registration fraud and ensure compliance with Alberta Education requirements.
 
 Key responsibilities:
 1. Extract the full name from the document and compare it with the expected student name
-2. Identify the specific type of citizenship/immigration document
+2. Identify the specific type of citizenship/immigration document from the APPROVED LIST ONLY
 3. Assess document authenticity and quality
 4. Determine if the document matches the expected document type
 5. Flag any discrepancies or concerns for manual review
 
-DOCUMENT TYPE CLASSIFICATION:
+APPROVED DOCUMENT TYPES (YOU MUST USE THESE EXACT VALUES):
 
-BIRTH_CERTIFICATE:
-- Canadian birth certificates from provinces/territories
-- Should show child's name, birth date, parents' names, place of birth
-- Official government seal or signature
-- May be long form or short form
+1. alberta_birth_certificate - Birth certificate issued by Alberta
+2. canadian_birth_certificate - Birth certificate from ANY OTHER Canadian province/territory (BC, Ontario, Quebec, etc.)
+3. canadian_citizenship_certificate - Canadian Citizenship Certificate
+4. canadian_citizenship_card - Canadian Citizenship Card
+5. canadian_passport - Canadian passport (may be expired)
+6. foreign_passport - Non-Canadian passport (must have visa/status)
+7. canadian_certificate_of_indian_status - Status card for Indigenous peoples
+8. treaty_card - Treaty card for First Nations
+9. canadian_permanent_resident_card - PR Card
+10. canadian_study_permit - Study permit document
+11. canadian_work_permit - Work permit document
+12. canadian_temporary_resident_visa - Temporary resident visa
+13. confirmation_of_permanent_residence - Confirmation of PR document
+14. canadian_refugee_protection_claimant - Refugee protection document
+15. application_permanent_temporary_residence - Application for PR/TR
+16. proof_of_application_status - Proof of application for status
+17. foreign_birth_certificate - Non-Canadian birth certificate
+18. consulate_visa - Visa from consulate
+19. visa - General visa document
+20. temporary_declaration_of_citizenship - Temporary citizenship declaration
 
-PASSPORT:
-- Canadian passport (blue cover typically)
-- Should show holder's name, photo, birth date, passport number
-- Government of Canada issuing authority
-- May be expired but still valid for identity verification
+CRITICAL CLASSIFICATION RULES:
 
-CITIZENSHIP_CERTIFICATE:
-- Canadian Citizenship Certificate or Card
-- Shows holder's name, certificate number, date of citizenship
-- Issued by Immigration, Refugees and Citizenship Canada (IRCC)
+1. You MUST select from the exact list above. Do NOT create custom values.
 
-IMMIGRATION_DOCUMENT:
-- Permanent Resident Card (PR Card)
-- Study permits, work permits, visitor records
-- Immigration documents with legal status in Canada
-- Various forms depending on immigration status
+2. BIRTH CERTIFICATE CLASSIFICATION:
+   - If issued by Alberta → use "alberta_birth_certificate"
+   - If issued by ANY other Canadian province (British Columbia, Ontario, Quebec, Manitoba, Saskatchewan, Nova Scotia, New Brunswick, PEI, Newfoundland, Yukon, NWT, Nunavut) → use "canadian_birth_certificate"
+   - If foreign/non-Canadian → use "foreign_birth_certificate"
+   
+   IMPORTANT: BC birth certificates are VALID and should be classified as "canadian_birth_certificate"
+   NEVER reject a Canadian provincial birth certificate just because it's not from Alberta!
+
+3. DOCUMENT CLASSIFICATION DECISION TREE:
+
+Is it a birth certificate?
+├─ Yes → Does it show "Alberta" or "Province of Alberta"?
+│   ├─ Yes → alberta_birth_certificate
+│   ├─ No → Is it from another Canadian province (BC, ON, QC, etc.)?
+│   │   ├─ Yes → canadian_birth_certificate
+│   │   └─ No → foreign_birth_certificate
+
+Is it a citizenship document?
+├─ Certificate format → canadian_citizenship_certificate
+├─ Card format → canadian_citizenship_card
+
+Is it a passport?
+├─ Canadian → canadian_passport
+├─ Foreign → foreign_passport
+
+Is it an Indigenous status document?
+├─ Status card → canadian_certificate_of_indian_status
+├─ Treaty card → treaty_card
+
+Is it an immigration document?
+├─ PR Card → canadian_permanent_resident_card
+├─ Study Permit → canadian_study_permit
+├─ Work Permit → canadian_work_permit
+├─ Temporary Resident Visa → canadian_temporary_resident_visa
+├─ Refugee document → canadian_refugee_protection_claimant
+└─ Other immigration → Check the full list above
 
 STUDENT NAME VERIFICATION:
 
@@ -1185,9 +1272,19 @@ When comparing names, consider:
 - Legal name changes (adoption, marriage, etc.)
 - OCR errors in name extraction
 
+CRITICAL MIDDLE NAME RULE:
+If the expected student name contains ONLY first and last names (no middle name provided):
+- IGNORE any middle names or middle initials present on the document
+- Match ONLY the first and last names
+- Consider it a GOOD MATCH (80-94% confidence) if first and last names match exactly
+- This is common as many systems don't store middle names
+
 NAME MATCHING GUIDELINES:
 - PERFECT MATCH (95-100% confidence): Names are identical or nearly identical
-- GOOD MATCH (80-94% confidence): Minor variations (Nick vs Nicholas, missing middle name)
+- GOOD MATCH (80-94% confidence): Minor variations including:
+  * First and last names match, but document has additional middle name/initial
+  * Nick vs Nicholas, common nickname variations
+  * Missing middle name in expected name (ONLY compare first/last)
 - PARTIAL MATCH (60-79% confidence): Some similarity but notable differences
 - POOR MATCH (30-59% confidence): Significant differences but could be same person
 - NO MATCH (0-29% confidence): Completely different names, likely wrong document
@@ -1303,8 +1400,8 @@ ${contentType === 'application/pdf' ?
 VERIFICATION REQUIREMENTS:
 1. Extract the full name exactly as it appears on the document
 2. Compare the extracted name with the expected student name: "${studentName}"
-3. Identify the type of citizenship document (birth_certificate, passport, citizenship_certificate, immigration_document)
-${expectedDocumentType ? `4. Verify this matches the expected document type: "${expectedDocumentType}"` : '4. Classify the document type'}
+3. Identify the type of citizenship document from the APPROVED 20 TYPES LISTED ABOVE
+${expectedDocumentType ? `4. Verify this matches the expected document type: "${expectedDocumentType}"` : '4. Classify the document type using ONLY the approved values'}
 5. Assess document quality and authenticity
 6. Determine if this document belongs to the correct student
 
@@ -1315,21 +1412,38 @@ CRITICAL ANALYSIS POINTS:
 - Are there any red flags or concerns?
 
 NAME MATCHING INSTRUCTIONS:
+CRITICAL: If the expected student name "${studentName}" contains ONLY first and last names (no middle name):
+- Match ONLY against the first and last names on the document
+- IGNORE any middle names or middle initials present on the document
+- Mark as studentNameMatch: true if first and last names match
+- Set confidence to 0.8-0.94 for this scenario (it's a GOOD match)
+
 When comparing names, consider these acceptable variations:
-- "${studentName}" (exact match)
+- "${studentName}" (exact match) 
+- First and last names match, document has additional middle name = GOOD MATCH
 - Common nicknames or shortened versions
-- Missing or additional middle names
 - Different name order (cultural variations)
 - Minor spelling differences due to OCR errors
+
+Example: If expected is "John Smith" and document shows "John Michael Smith" = GOOD MATCH (ignore middle name)
 
 DOCUMENT TYPE VERIFICATION:
 ${expectedDocumentType ? `Expected document type: "${expectedDocumentType}"
 Verify this matches what you see in the document.` : 'Classify the document type based on its appearance and content.'}
 
+CRITICAL REMINDERS:
+1. Use ONLY the 20 approved document type values listed in the prompt above
+2. BC birth certificates → "canadian_birth_certificate" (NOT invalid, NOT alberta_birth_certificate)
+3. Ontario birth certificates → "canadian_birth_certificate" 
+4. Quebec birth certificates → "canadian_birth_certificate"
+5. ALL non-Alberta Canadian provincial birth certificates → "canadian_birth_certificate"
+6. If you cannot determine the type with confidence → "unknown"
+
 RETURN COMPLETE ANALYSIS:
 Provide all fields in the response schema, including confidence scores, reasoning, and specific verification results.
+The detectedDocumentType field MUST be one of the 20 approved values or "unknown".
 
-Focus on accuracy and fraud prevention while being reasonable about common name variations.`
+Focus on accuracy and fraud prevention while being reasonable about common name variations and accepting ALL Canadian provincial documents.`
       }
     ];
     

@@ -9,6 +9,35 @@ import { FileText, Upload, CheckCircle2, AlertTriangle, X, Loader2, Sparkles, Ey
 import CitizenshipDocuments from '../Registration/CitizenshipDocuments';
 import { toast } from 'sonner';
 
+// Helper function to format document type for display
+const formatDocumentType = (type) => {
+  const typeDisplayMap = {
+    'alberta_birth_certificate': 'Alberta Birth Certificate',
+    'canadian_birth_certificate': 'Canadian Birth Certificate',
+    'canadian_citizenship_certificate': 'Canadian Citizenship Certificate',
+    'canadian_citizenship_card': 'Canadian Citizenship Card',
+    'canadian_passport': 'Canadian Passport',
+    'foreign_passport': 'Foreign Passport',
+    'canadian_certificate_of_indian_status': 'Status Card',
+    'treaty_card': 'Treaty Card',
+    'canadian_permanent_resident_card': 'Permanent Resident Card',
+    'canadian_study_permit': 'Study Permit',
+    'canadian_work_permit': 'Work Permit',
+    'canadian_temporary_resident_visa': 'Temporary Resident Visa',
+    'confirmation_of_permanent_residence': 'Confirmation of Permanent Residence',
+    'canadian_refugee_protection_claimant': 'Refugee Protection Claimant Document',
+    'application_permanent_temporary_residence': 'Application for PR/TR',
+    'proof_of_application_status': 'Proof of Application Status',
+    'foreign_birth_certificate': 'Foreign Birth Certificate',
+    'consulate_visa': 'Consulate Visa',
+    'visa': 'Visa',
+    'temporary_declaration_of_citizenship': 'Temporary Declaration of Citizenship',
+    'unknown': 'Unknown Document Type'
+  };
+  
+  return typeDisplayMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const StudentCitizenshipDocuments = ({ 
   isOpen, 
   onOpenChange, 
@@ -147,8 +176,28 @@ const StudentCitizenshipDocuments = ({
         const nameMatch = analysis.studentNameMatch;
         const typeMatch = analysis.documentTypeMatch;
         const overallScore = analysis.overallScore;
-        const hasValidType = ['birth_certificate', 'citizenship_certificate', 'citizenship_card', 
-                             'passport', 'status_card', 'immigration_document'].includes(analysis.detectedDocumentType);
+        const hasValidType = [
+          'alberta_birth_certificate',
+          'canadian_birth_certificate', 
+          'canadian_citizenship_certificate',
+          'canadian_citizenship_card',
+          'canadian_passport',
+          'foreign_passport',
+          'canadian_certificate_of_indian_status',
+          'treaty_card',
+          'canadian_permanent_resident_card',
+          'canadian_study_permit',
+          'canadian_work_permit',
+          'canadian_temporary_resident_visa',
+          'confirmation_of_permanent_residence',
+          'canadian_refugee_protection_claimant',
+          'application_permanent_temporary_residence',
+          'proof_of_application_status',
+          'foreign_birth_certificate',
+          'consulate_visa',
+          'visa',
+          'temporary_declaration_of_citizenship'
+        ].includes(analysis.detectedDocumentType);
         const isLegible = analysis.textLegibility > 70 || overallScore >= 50;
 
         if (hasValidType && isLegible) {
@@ -318,8 +367,28 @@ const StudentCitizenshipDocuments = ({
         let aiValidated = false;
         if (aiAnalyze && analysis) {
           // More forgiving validation: accept if it's a valid document type and legible
-          const hasValidType = ['birth_certificate', 'citizenship_certificate', 'citizenship_card', 
-                               'passport', 'status_card', 'immigration_document'].includes(analysis.detectedDocumentType);
+          const hasValidType = [
+            'alberta_birth_certificate',
+            'canadian_birth_certificate', 
+            'canadian_citizenship_certificate',
+            'canadian_citizenship_card',
+            'canadian_passport',
+            'foreign_passport',
+            'canadian_certificate_of_indian_status',
+            'treaty_card',
+            'canadian_permanent_resident_card',
+            'canadian_study_permit',
+            'canadian_work_permit',
+            'canadian_temporary_resident_visa',
+            'confirmation_of_permanent_residence',
+            'canadian_refugee_protection_claimant',
+            'application_permanent_temporary_residence',
+            'proof_of_application_status',
+            'foreign_birth_certificate',
+            'consulate_visa',
+            'visa',
+            'temporary_declaration_of_citizenship'
+          ].includes(analysis.detectedDocumentType);
           const isLegible = analysis.textLegibility > 70 || analysis.overallScore >= 50;
           aiValidated = hasValidType && isLegible;
         }
@@ -569,11 +638,13 @@ const StudentCitizenshipDocuments = ({
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-medium text-gray-900">
-                                  {analysis.detectedDocumentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  {formatDocumentType(analysis.detectedDocumentType)}
                                 </p>
-                                <p className="text-xs text-gray-600">
-                                  Confidence: {Math.round(analysis.documentTypeConfidence * 100)}%
-                                </p>
+                                {analysis.detectedDocumentType !== 'unknown' && (
+                                  <p className="text-xs text-gray-600">
+                                    Confidence: {Math.round(analysis.documentTypeConfidence * 100)}%
+                                  </p>
+                                )}
                               </div>
                             </div>
 
