@@ -427,9 +427,4 @@ const assessmentConfigs = {
   }
 };
 
-// Export individual assessment functions
-Object.keys(assessmentConfigs).forEach(questionId => {
-  exports[questionId] = createStandardMultipleChoice(questionId, assessmentConfigs[questionId]);
-});
-
 exports.assessmentConfigs = assessmentConfigs;

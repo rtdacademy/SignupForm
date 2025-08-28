@@ -139,13 +139,32 @@ module.exports = {
             transform: "translateY(0)",
             animationTimingFunction: "cubic-bezier(0, 0, 0.2, 1)"
           }
+        },
+        "blob": {
+          "0%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+          "33%": {
+            transform: "translate(30px, -50px) scale(1.1)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) scale(0.9)",
+          },
+          "100%": {
+            transform: "translate(0px, 0px) scale(1)",
+          }
         }
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
         "accordion-up": "accordion-up 0.3s ease-out",
         "subtlePulse": "subtlePulse 6s ease-in-out infinite",
-        "gentleBounce": "gentleBounce 2s ease-in-out infinite"
+        "gentleBounce": "gentleBounce 2s ease-in-out infinite",
+        "blob": "blob 7s infinite"
+      },
+      animationDelay: {
+        "2000": "2000ms",
+        "4000": "4000ms"
       },
     },
   },

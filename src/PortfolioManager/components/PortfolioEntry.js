@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,18 +25,36 @@ import {
   Maximize2,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Paperclip,
+  Zap
 } from 'lucide-react';
+import PortfolioComments from './PortfolioComments';
 
 const PortfolioEntry = ({
   entry,
   viewMode = 'grid',
+  isPresentationMode = false,
   onEdit,
   onDelete,
-  onUpdate
+  onUpdate,
+  comments = [],
+  loadingComments = false,
+  onCreateComment,
+  onUpdateComment,
+  onDeleteComment,
+  onLoadComments
 }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showComments, setShowComments] = useState(false);
+
+  // Load comments when component mounts or entry changes
+  useEffect(() => {
+    if (onLoadComments && entry?.id) {
+      onLoadComments(entry.id);
+    }
+  }, [entry?.id, onLoadComments]);
 
   // Get entry type icon
   const getTypeIcon = () => {
@@ -97,6 +116,12 @@ const PortfolioEntry = ({
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-gray-900 truncate">
                 {entry.title}
+                {entry.quickAdd && (
+                  <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-700">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Quick Add
+                  </Badge>
+                )}
               </h3>
               <p className="text-sm text-gray-500 flex items-center mt-1">
                 <Calendar className="w-3 h-3 mr-1" />
@@ -234,6 +259,15 @@ const PortfolioEntry = ({
           {entry.files?.length > 0 && (
             <span>{entry.files.length} file{entry.files.length > 1 ? 's' : ''}</span>
           )}
+          {entry.commentCount > 0 && (
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className="flex items-center gap-1 hover:text-gray-700"
+            >
+              <MessageSquare className="w-3 h-3" />
+              {entry.commentCount}
+            </button>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -244,6 +278,23 @@ const PortfolioEntry = ({
           View Details
         </Button>
       </div>
+
+      {/* Comments Section */}
+      {showComments && onCreateComment && (
+        <div className="border-t">
+          <PortfolioComments
+            entryId={entry.id}
+            comments={comments}
+            loadingComments={loadingComments}
+            onCreateComment={onCreateComment}
+            onUpdateComment={onUpdateComment}
+            onDeleteComment={onDeleteComment}
+            collapsed={false}
+            onToggle={setShowComments}
+            commentCount={entry.commentCount || 0}
+          />
+        </div>
+      )}
     </Card>
   );
 
@@ -516,6 +567,202 @@ const PortfolioEntry = ({
       </div>
     </div>
   );
+
+  // Presentation Mode Card - Beautiful display for showcasing
+  const PresentationCard = () => (
+    <div className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 bg-white">
+      {/* Image Type - Full Image Display */}
+      {entry.type === 'image' && entry.files?.length > 0 && (
+        <div 
+          className="aspect-[4/3] overflow-hidden cursor-pointer"
+          onClick={() => setShowPreview(true)}
+        >
+          <img
+            src={entry.files[0].url}
+            alt={entry.title}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+              <h3 className="text-2xl font-bold mb-2">{entry.title}</h3>
+              <p className="text-sm opacity-90">{formatDate(entry.date)}</p>
+            </div>
+          </div>
+          {entry.files.length > 1 && (
+            <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+              +{entry.files.length - 1} more
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video Type - Video Thumbnail */}
+      {entry.type === 'video' && entry.files?.length > 0 && (
+        <div 
+          className="aspect-video bg-black relative cursor-pointer group"
+          onClick={() => setShowPreview(true)}
+        >
+          <video
+            src={entry.files[0].url}
+            className="w-full h-full object-cover"
+            preload="metadata"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+              <Video className="w-8 h-8 text-gray-800 ml-1" />
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+            <h3 className="text-xl font-bold">{entry.title}</h3>
+            <p className="text-sm opacity-90 mt-1">{formatDate(entry.date)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Text Type - Beautiful Typography */}
+      {entry.type === 'text' && (
+        <div 
+          className="p-8 cursor-pointer min-h-[300px] flex flex-col"
+          onClick={() => setShowPreview(true)}
+        >
+          <div className="mb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4">
+              <FileText className="w-6 h-6 text-purple-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2 line-clamp-2">
+              {entry.title}
+            </h3>
+            <p className="text-sm text-gray-500">{formatDate(entry.date)}</p>
+          </div>
+          
+          <div className="flex-1">
+            <div 
+              className="text-gray-600 line-clamp-6 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ 
+                __html: entry.content?.substring(0, 300) + '...' || '' 
+              }}
+            />
+          </div>
+
+          {/* Tags in presentation mode */}
+          {getTotalTagCount() > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex flex-wrap gap-2">
+                {entry.tags?.activities?.slice(0, 2).map((tag, index) => (
+                  <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">
+                    {tag.replace(/_/g, ' ')}
+                  </span>
+                ))}
+                {entry.tags?.assessments?.slice(0, 1).map((tag, index) => (
+                  <span key={index} className="px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full font-medium">
+                    {tag.replace(/_/g, ' ')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* File Type - Document Display */}
+      {entry.type === 'file' && (
+        <div 
+          className="p-8 cursor-pointer"
+          onClick={() => setShowPreview(true)}
+        >
+          <div className="flex items-start space-x-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Upload className="w-8 h-8 text-gray-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {entry.title}
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">{formatDate(entry.date)}</p>
+              
+              <div className="space-y-2">
+                {entry.files?.slice(0, 3).map((file, index) => (
+                  <div key={index} className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded">
+                    <Paperclip className="w-4 h-4 mr-2 text-gray-400" />
+                    <span className="truncate">{file.name}</span>
+                  </div>
+                ))}
+                {entry.files?.length > 3 && (
+                  <p className="text-sm text-gray-500 pl-3">
+                    +{entry.files.length - 3} more files
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Combined/Mixed Type */}
+      {entry.type === 'combined' && (
+        <div className="cursor-pointer" onClick={() => setShowPreview(true)}>
+          {entry.files?.length > 0 && entry.files[0].type?.includes('image') && (
+            <div className="aspect-[16/9] overflow-hidden">
+              <img
+                src={entry.files[0].url}
+                alt={entry.title}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+              />
+            </div>
+          )}
+          <div className="p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">{entry.title}</h3>
+            <p className="text-sm text-gray-500 mb-3">{formatDate(entry.date)}</p>
+            {entry.content && (
+              <div 
+                className="text-gray-600 line-clamp-3 prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: getPreviewContent() }}
+              />
+            )}
+            {entry.files?.length > 0 && (
+              <div className="mt-3 flex items-center text-sm text-gray-500">
+                <Paperclip className="w-4 h-4 mr-1" />
+                {entry.files.length} attachment{entry.files.length > 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reflection Badge - Shows if has reflections */}
+      {entry.reflections && (
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-purple-700 shadow-lg">
+          <MessageSquare className="w-3 h-3 inline mr-1" />
+          Reflection
+        </div>
+      )}
+
+      {/* Hover Actions - Subtle in presentation mode */}
+      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <Button
+          variant="default"
+          size="sm"
+          className="bg-white/90 backdrop-blur-sm text-gray-700 hover:bg-white shadow-lg"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowPreview(true);
+          }}
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Choose which view to render
+  if (viewMode === 'presentation' || isPresentationMode) {
+    return (
+      <>
+        <PresentationCard />
+        {showPreview && <PreviewModal />}
+      </>
+    );
+  }
 
   return (
     <>

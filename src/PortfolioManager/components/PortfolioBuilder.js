@@ -22,15 +22,29 @@ import {
   Download,
   Grid,
   List,
-  Filter,
-  SortAsc,
-  SortDesc,
-  Search,
   X,
   Save,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Sparkles,
+  PenTool,
+  Presentation,
+  FolderOpen,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Calculator,
+  Beaker,
+  Globe,
+  Activity,
+  Briefcase,
+  Wrench,
+  GraduationCap,
+  Folder,
+  Hash,
+  Home
 } from 'lucide-react';
 
 const PortfolioBuilder = ({
@@ -46,23 +60,67 @@ const PortfolioBuilder = ({
   resources,
   activityDescriptions,
   assessmentDescriptions,
-  resourceDescriptions
+  resourceDescriptions,
+  student,
+  portfolioStructure,
+  onSelectStructure,
+  onPresentationModeChange,
+  loadComments,
+  createComment,
+  updateComment,
+  deleteComment,
+  comments,
+  loadingComments
 }) => {
+  const [isPresentationMode, setIsPresentationMode] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
   const [showNewEntry, setShowNewEntry] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
-  const [sortBy, setSortBy] = useState('date'); // date, title, type
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [filterType, setFilterType] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTags, setSelectedTags] = useState({
-    activities: [],
-    assessments: [],
-    resources: []
-  });
+
+  // Notify parent when presentation mode changes
+  React.useEffect(() => {
+    if (onPresentationModeChange) {
+      onPresentationModeChange(isPresentationMode);
+    }
+  }, [isPresentationMode, onPresentationModeChange]);
 
   // File upload ref
   const fileInputRef = useRef(null);
+
+  // Icon component mapping
+  const iconComponents = {
+    BookOpen: BookOpen,
+    Calculator: Calculator,
+    Beaker: Beaker,
+    Globe: Globe,
+    Activity: Activity,
+    Briefcase: Briefcase,
+    Wrench: Wrench,
+    GraduationCap: GraduationCap,
+    Folder: Folder,
+    FolderOpen: FolderOpen,
+    FileText: FileText,
+    Hash: Hash
+  };
+
+  // Get icon component by name
+  const getIconComponent = (iconName) => {
+    // If it's already a React element or emoji, return it as is
+    if (typeof iconName !== 'string' || !iconComponents[iconName]) {
+      return null;
+    }
+    return iconComponents[iconName];
+  };
+
+  // Render icon helper
+  const renderIcon = (iconNameOrEmoji, className = "w-5 h-5") => {
+    const IconComponent = getIconComponent(iconNameOrEmoji);
+    if (IconComponent) {
+      return <IconComponent className={className} />;
+    }
+    // If it's an emoji or unsupported icon, display as text
+    return <span className="text-2xl">{iconNameOrEmoji || '📁'}</span>;
+  };
 
   // New entry state
   const [newEntryData, setNewEntryData] = useState({
@@ -172,202 +230,330 @@ const PortfolioBuilder = ({
     }
   };
 
-  // Filter and sort entries
-  const getFilteredEntries = () => {
-    let filtered = [...entries];
+  // Sort entries by date (newest first)
+  const sortedEntries = [...entries].sort((a, b) => {
+    return new Date(b.date) - new Date(a.date);
+  });
 
-    // Filter by type
-    if (filterType !== 'all') {
-      filtered = filtered.filter(entry => entry.type === filterType);
-    }
+  // State for editing card backgrounds
+  const [editingCardId, setEditingCardId] = useState(null);
+  const [cardBackgrounds, setCardBackgrounds] = useState({});
 
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(entry =>
-        entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.reflections?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Predefined gradient backgrounds
+  const gradientOptions = [
+    'from-purple-500 to-blue-600',
+    'from-blue-500 to-teal-600',
+    'from-green-500 to-emerald-600',
+    'from-orange-500 to-red-600',
+    'from-pink-500 to-purple-600',
+    'from-indigo-500 to-purple-600',
+    'from-yellow-500 to-orange-600',
+    'from-cyan-500 to-blue-600',
+    'from-rose-500 to-pink-600',
+    'from-slate-600 to-gray-700'
+  ];
+
+  // Empty state - show portfolio overview if no section selected
+  if (!selectedStructure) {
+    // Always show presentation mode for portfolio overview
+    if (portfolioStructure && portfolioStructure.length > 0) {
+      return (
+        <div className="min-h-full bg-gradient-to-br from-purple-50 to-blue-50">
+          {/* Presentation Mode Header */}
+          <div className="bg-white/90 backdrop-blur-sm border-b sticky top-0 z-10 px-8 py-4">
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {student?.firstName}'s Portfolio
+                </h1>
+                <p className="text-gray-600 mt-1">Learning Journey & Achievements</p>
+              </div>
+              <Button
+                onClick={() => setEditingCardId(editingCardId ? null : 'edit-mode')}
+                className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <PenTool className="w-4 h-4" />
+                {editingCardId ? 'Done Editing' : 'Edit Cards'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Portfolio Sections Grid */}
+          <div className="max-w-7xl mx-auto px-8 py-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {portfolioStructure.map((section, index) => {
+                const sectionEntries = entries.filter(e => e.structureId === section.id);
+                const backgroundGradient = cardBackgrounds[section.id] || gradientOptions[index % gradientOptions.length];
+                
+                return (
+                  <Card 
+                    key={section.id}
+                    className="group hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden relative"
+                    onClick={() => {
+                      if (!editingCardId) {
+                        // Navigate to the section
+                        onSelectStructure(section.id);
+                      }
+                    }}
+                  >
+                    {/* Edit Background Button */}
+                    {editingCardId && (
+                      <div className="absolute top-2 right-2 z-20">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCardId(section.id);
+                          }}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Background Selector */}
+                    {editingCardId === section.id && (
+                      <div className="absolute inset-0 bg-black/50 z-30 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg p-4 max-w-sm w-full">
+                          <h4 className="text-sm font-semibold mb-3">Choose Background</h4>
+                          <div className="grid grid-cols-5 gap-2">
+                            {gradientOptions.map((gradient, idx) => (
+                              <button
+                                key={idx}
+                                className={`w-12 h-12 rounded-lg bg-gradient-to-br ${gradient} hover:scale-110 transition-transform`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCardBackgrounds(prev => ({
+                                    ...prev,
+                                    [section.id]: gradient
+                                  }));
+                                  setEditingCardId(null);
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mt-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingCardId(null);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`aspect-[16/9] bg-gradient-to-br ${backgroundGradient} p-6 flex flex-col justify-end relative`}>
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                      <div className="relative z-10">
+                        <div className="mb-3">
+                          {renderIcon(section.icon || 'BookOpen', "w-10 h-10 text-white")}
+                        </div>
+                        <h3 className="text-xl font-bold text-white">
+                          {section.title}
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <p className="text-gray-600 text-sm mb-3">{section.description || 'Portfolio section'}</p>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">
+                          {sectionEntries.length} {sectionEntries.length === 1 ? 'entry' : 'entries'}
+                        </span>
+                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       );
     }
 
-    // Filter by selected tags
-    if (selectedTags.activities.length > 0 ||
-        selectedTags.assessments.length > 0 ||
-        selectedTags.resources.length > 0) {
-      filtered = filtered.filter(entry => {
-        const hasActivityTag = selectedTags.activities.length === 0 ||
-          selectedTags.activities.some(tag => entry.tags?.activities?.includes(tag));
-        const hasAssessmentTag = selectedTags.assessments.length === 0 ||
-          selectedTags.assessments.some(tag => entry.tags?.assessments?.includes(tag));
-        const hasResourceTag = selectedTags.resources.length === 0 ||
-          selectedTags.resources.some(tag => entry.tags?.resources?.includes(tag));
-        return hasActivityTag && hasAssessmentTag && hasResourceTag;
-      });
-    }
-
-    // Sort entries
-    filtered.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'date':
-          comparison = new Date(b.date) - new Date(a.date);
-          break;
-        case 'title':
-          comparison = a.title.localeCompare(b.title);
-          break;
-        case 'type':
-          comparison = a.type.localeCompare(b.type);
-          break;
-        default:
-          comparison = 0;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return filtered;
-  };
-
-  const filteredEntries = getFilteredEntries();
-
-  // Empty state
-  if (!selectedStructure) {
+    // Fallback for when there are no sections
     return (
-      <div className="flex items-center justify-center h-full bg-gray-50">
+      <div className="min-h-full bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900">No Section Selected</h2>
-          <p className="text-gray-600 mt-2">Select a section from the sidebar to start adding content</p>
+          <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900">Welcome to Your Portfolio</h2>
+          <p className="text-gray-600 mt-2">Create your first section to get started</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <span className="mr-2" style={{ color: selectedStructure.color }}>
-                {selectedStructure.icon}
-              </span>
-              {selectedStructure.title}
-            </h2>
-            {selectedStructure.description && (
-              <p className="text-sm text-gray-600 mt-1">{selectedStructure.description}</p>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowNewEntry(!showNewEntry)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Entry
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="bg-white border-b px-6 py-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search entries..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-            />
-          </div>
-
-          {/* Filters and View Options */}
-          <div className="flex items-center space-x-2">
-            {/* Filter by type */}
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-            >
-              <option value="all">All Types</option>
-              {entryTypes.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-
-            {/* Sort */}
-            <select
-              value={`${sortBy}-${sortOrder}`}
-              onChange={(e) => {
-                const [newSortBy, newSortOrder] = e.target.value.split('-');
-                setSortBy(newSortBy);
-                setSortOrder(newSortOrder);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-            >
-              <option value="date-desc">Newest First</option>
-              <option value="date-asc">Oldest First</option>
-              <option value="title-asc">Title A-Z</option>
-              <option value="title-desc">Title Z-A</option>
-              <option value="type-asc">Type</option>
-            </select>
-
-            {/* View mode toggle */}
-            <div className="flex bg-gray-100 rounded-md p-1">
+  // Presentation Mode for Selected Section
+  if (isPresentationMode) {
+    const sectionEntries = entries.filter(entry => entry.structureId === selectedStructure.id);
+    
+    return (
+      <div className="min-h-full bg-gradient-to-br from-purple-50 via-white to-blue-50">
+        {/* Presentation Header */}
+        <div className="bg-white/90 backdrop-blur-sm border-b sticky top-0 z-10">
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={() => onSelectStructure(null)}
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-purple-50"
+                  title="Back to Portfolio Overview"
+                >
+                  <Home className="w-5 h-5" />
+                </Button>
+                <div className="w-px h-8 bg-gray-300" />
+                <div style={{ color: selectedStructure.color }}>
+                  {renderIcon(selectedStructure.icon || 'Folder', "w-12 h-12")}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {selectedStructure.title}
+                  </h1>
+                  {selectedStructure.description && (
+                    <p className="text-gray-600 mt-1">{selectedStructure.description}</p>
+                  )}
+                </div>
+              </div>
               <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="px-2 py-1"
+                onClick={() => setIsPresentationMode(false)}
+                className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
               >
-                <Grid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="px-2 py-1"
-              >
-                <List className="w-4 h-4" />
+                <PenTool className="w-4 h-4" />
+                Edit Mode
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Active tags filter */}
-        {(selectedTags.activities.length > 0 ||
-          selectedTags.assessments.length > 0 ||
-          selectedTags.resources.length > 0) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {selectedTags.activities.map(tag => (
-              <span
-                key={tag}
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+        {/* Presentation Content */}
+        <div className="max-w-7xl mx-auto px-8 py-12">
+          {sectionEntries.length === 0 ? (
+            <div className="text-center py-20">
+              <Sparkles className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+              <h2 className="text-2xl font-semibold text-gray-700">No Content Yet</h2>
+              <p className="text-gray-500 mt-2 mb-8">This section is waiting for amazing content</p>
+              <Button 
+                onClick={() => setIsPresentationMode(false)}
+                className="gap-2"
               >
-                {tag}
-                <button
-                  onClick={() => setSelectedTags(prev => ({
-                    ...prev,
-                    activities: prev.activities.filter(t => t !== tag)
-                  }))}
-                  className="ml-1"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            {/* Similar for assessments and resources */}
-          </div>
-        )}
+                <PenTool className="w-4 h-4" />
+                Go to Builder
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Masonry/Grid Layout for Entries */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sectionEntries.map(entry => (
+                  <PortfolioEntry
+                    key={entry.id}
+                    entry={entry}
+                    viewMode="presentation"
+                    isPresentationMode={true}
+                    onEdit={() => {
+                      setIsPresentationMode(false);
+                      setEditingEntry(entry);
+                    }}
+                    onDelete={() => handleDeleteEntry(entry.id)}
+                    onUpdate={(updates) => handleUpdateEntry(entry.id, updates)}
+                    comments={comments}
+                    loadingComments={loadingComments}
+                    onCreateComment={createComment}
+                    onUpdateComment={updateComment}
+                    onDeleteComment={deleteComment}
+                    onLoadComments={loadComments}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+    );
+  }
+
+  // Builder Mode (existing code)
+  return (
+    <div className="h-full flex flex-col bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => onSelectStructure(null)}
+              variant="ghost"
+              size="sm"
+              className="hover:bg-purple-50"
+              title="Back to Portfolio Overview"
+            >
+              <Home className="w-4 h-4" />
+            </Button>
+            <div className="w-px h-6 bg-gray-300" />
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <span className="mr-2" style={{ color: selectedStructure.color }}>
+                  {renderIcon(selectedStructure.icon || 'Folder', "w-5 h-5")}
+                </span>
+                {selectedStructure.title}
+              </h2>
+              {selectedStructure.description && (
+                <p className="text-sm text-gray-600 mt-1">{selectedStructure.description}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {/* Mode Toggle - Modern Pill Design */}
+            <div className="relative flex items-center bg-gradient-to-r from-purple-50 to-blue-50 rounded-full p-1 border border-purple-200 shadow-sm">
+              {/* Sliding Background */}
+              <div 
+                className={`absolute h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-300 ease-in-out shadow-md ${
+                  isPresentationMode ? 'translate-x-[120px] w-[104px]' : 'translate-x-0 w-[105px]'
+                }`}
+              />
+              
+              {/* Builder Button */}
+              <button
+                onClick={() => setIsPresentationMode(false)}
+                className={`relative z-10 flex items-center px-5 py-2 pr-6 rounded-full text-sm font-medium transition-colors duration-200 ${
+                  !isPresentationMode 
+                    ? 'text-white' 
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                <PenTool className="w-4 h-4 mr-2" />
+                Builder
+              </button>
+              
+              {/* Divider */}
+              <div className="w-px h-5 bg-gray-300 mx-2" />
+              
+              {/* Present Button */}
+              <button
+                onClick={() => setIsPresentationMode(true)}
+                className={`relative z-10 flex items-center px-5 py-2 pr-6 rounded-full text-sm font-medium transition-colors duration-200 ${
+                  isPresentationMode 
+                    ? 'text-white' 
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                <Presentation className="w-4 h-4 mr-2" />
+                Present
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6">
@@ -572,14 +758,12 @@ const PortfolioBuilder = ({
         )}
 
         {/* Entries Display */}
-        {filteredEntries.length === 0 ? (
+        {sortedEntries.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900">No Entries Yet</h3>
             <p className="text-gray-600 mt-2">
-              {searchQuery || filterType !== 'all' || selectedTags.activities.length > 0
-                ? 'No entries match your current filters'
-                : 'Start building your portfolio by adding your first entry'}
+              Start building your portfolio by adding your first entry
             </p>
             {!showNewEntry && (
               <Button
@@ -593,7 +777,7 @@ const PortfolioBuilder = ({
           </div>
         ) : (
           <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-            {filteredEntries.map(entry => (
+            {sortedEntries.map(entry => (
               <PortfolioEntry
                 key={entry.id}
                 entry={entry}
@@ -601,6 +785,12 @@ const PortfolioBuilder = ({
                 onEdit={() => setEditingEntry(entry)}
                 onDelete={() => handleDeleteEntry(entry.id)}
                 onUpdate={(updates) => handleUpdateEntry(entry.id, updates)}
+                comments={comments}
+                loadingComments={loadingComments}
+                onCreateComment={createComment}
+                onUpdateComment={updateComment}
+                onDeleteComment={deleteComment}
+                onLoadComments={loadComments}
               />
             ))}
           </div>

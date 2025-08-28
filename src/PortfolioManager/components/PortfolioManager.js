@@ -4,33 +4,33 @@ import { useAuth } from '../../context/AuthContext';
 import { usePortfolio, useSOLOIntegration } from '../hooks/usePortfolio';
 import PortfolioSidebar from './PortfolioSidebar';
 import PortfolioBuilder from './PortfolioBuilder';
-import PortfolioDashboard from './PortfolioDashboard';
+import PortfolioQuickAdd from './PortfolioQuickAdd';
+import PortfolioAccessGate from './PortfolioAccessGate';
 import SOLOEducationPlanForm from '../../RTDConnect/SOLOEducationPlanForm';
 import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { 
   Plus,
   Menu,
-  Home,
-  Settings,
-  Download,
-  Share2,
   BookOpen,
-  Grid3X3,
-  ChevronRight,
   Loader2,
   AlertCircle,
   Camera,
   Upload,
-  FolderPlus
+  FolderPlus,
+  Zap
 } from 'lucide-react';
 
-const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
+const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOpen }) => {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState('dashboard'); // dashboard, builder, viewer
+  const [selectedSection, setSelectedSection] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSOLOPlan, setShowSOLOPlan] = useState(false);
+  const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
   
   // Portfolio hooks
   const {
@@ -51,7 +51,14 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
     deletePortfolioEntry,
     reorderStructure,
     getStructureHierarchy,
-    generateFromAlbertaCourses
+    generateFromAlbertaCourses,
+    createQuickEntry,
+    loadComments,
+    createComment,
+    updateComment,
+    deleteComment,
+    comments,
+    loadingComments
   } = usePortfolio(familyId, student?.id, schoolYear);
 
   // SOLO plan integration
@@ -81,44 +88,42 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
 
 
   // Quick action handlers
-  const handleQuickAdd = (type) => {
-    if (type === 'structure') {
-      // Open structure creation modal
-      createStructureItem({
-        type: 'module',
-        title: 'New Module',
-        description: '',
-        parentId: null,
-        icon: 'Folder',
-        color: '#6B7280'
-      });
-    } else if (type === 'entry') {
-      // Open entry creation modal
-      if (selectedStructureId) {
-        setViewMode('builder');
-      } else {
-        // Prompt to select or create structure first
-        alert('Please select or create a section first');
-      }
+  const handleQuickAdd = () => {
+    setShowQuickAdd(true);
+  };
+  
+  // Notify parent when quick add is requested
+  useEffect(() => {
+    if (onQuickAddOpen) {
+      onQuickAddOpen(() => setShowQuickAdd(true));
     }
-  };
+  }, [onQuickAddOpen]);
 
-  // Export portfolio
-  const handleExportPortfolio = () => {
-    // TODO: Implement PDF/ZIP export
-    console.log('Exporting portfolio...');
-  };
-
-  // Share portfolio
-  const handleSharePortfolio = () => {
-    // TODO: Generate share link for facilitator
-    console.log('Sharing portfolio...');
-  };
 
   // Open SOLO Education Plan form
   const handleOpenSOLOPlan = () => {
     setShowSOLOPlan(true);
   };
+
+  // Check if user is staff
+  const isStaff = user?.role === 'staff' || user?.customClaims?.role === 'staff' || 
+                  user?.email?.includes('@rtdacademy.com') || user?.email?.includes('@rtdlearning.ca');
+
+  // Handle access granted
+  const handleAccessGranted = () => {
+    setHasAccess(true);
+  };
+
+  // Show access gate if no access yet
+  if (!hasAccess) {
+    return (
+      <PortfolioAccessGate
+        onAccessGranted={handleAccessGranted}
+        studentName={student?.firstName || 'Student'}
+        isStaff={isStaff}
+      />
+    );
+  }
 
   if (portfolioLoading || soloLoading) {
     return (
@@ -173,56 +178,25 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
           </div>
         </div>
 
+        {/* Quick Add Button in header */}
         <div className="flex items-center space-x-2">
-          {/* View Toggle */}
-          <div className="hidden md:flex items-center bg-gray-100 rounded-lg p-1">
-            <Button
-              variant={viewMode === 'dashboard' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('dashboard')}
-              className="px-3 py-1"
-            >
-              <Home className="w-4 h-4 mr-1" />
-              Dashboard
-            </Button>
-            <Button
-              variant={viewMode === 'builder' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('builder')}
-              className="px-3 py-1"
-            >
-              <Grid3X3 className="w-4 h-4 mr-1" />
-              Builder
-            </Button>
-          </div>
-
-          {/* Action Buttons */}
           <Button
-            variant="outline"
+            onClick={handleQuickAdd}
             size="sm"
-            onClick={handleSharePortfolio}
-            className="hidden md:flex"
+            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white gap-2"
           >
-            <Share2 className="w-4 h-4 mr-1" />
-            Share
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPortfolio}
-            className="hidden md:flex"
-          >
-            <Download className="w-4 h-4 mr-1" />
-            Export
+            <Zap className="w-4 h-4" />
+            <span className="hidden md:inline">Quick Add</span>
           </Button>
         </div>
+
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <div className="w-64 bg-white border-r border-gray-200">
+          <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out`}>
             <PortfolioSidebar
               structure={getStructureHierarchy()}
               selectedId={selectedStructureId}
@@ -235,81 +209,64 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
               onReorder={reorderStructure}
               metadata={portfolioMetadata}
               onOpenSOLOPlan={handleOpenSOLOPlan}
+              isCollapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
             />
           </div>
         )}
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          {viewMode === 'dashboard' && (
-            <PortfolioDashboard
-              student={student}
-              portfolioMetadata={portfolioMetadata}
-              portfolioStructure={portfolioStructure}
-              entries={portfolioEntries}
-              soloplanData={soloplanData}
-              onNavigateToBuilder={(structureId) => {
-                setSelectedStructureId(structureId);
-                setViewMode('builder');
-              }}
-            />
-          )}
-
-          {viewMode === 'builder' && (
-            <PortfolioBuilder
-              selectedStructure={portfolioStructure.find(s => s.id === selectedStructureId)}
-              entries={portfolioEntries}
-              onCreateEntry={createPortfolioEntry}
-              onUpdateEntry={updatePortfolioEntry}
-              onDeleteEntry={deletePortfolioEntry}
-              soloplanData={soloplanData}
-              getTagSuggestions={getTagSuggestions}
-              activities={activities}
-              assessments={assessments}
-              resources={resources}
-              activityDescriptions={activityDescriptions}
-              assessmentDescriptions={assessmentDescriptions}
-              resourceDescriptions={resourceDescriptions}
-            />
-          )}
+          <PortfolioBuilder
+            selectedStructure={portfolioStructure.find(s => s.id === selectedStructureId)}
+            entries={portfolioEntries}
+            onCreateEntry={createPortfolioEntry}
+            onUpdateEntry={updatePortfolioEntry}
+            onDeleteEntry={deletePortfolioEntry}
+            soloplanData={soloplanData}
+            getTagSuggestions={getTagSuggestions}
+            activities={activities}
+            assessments={assessments}
+            resources={resources}
+            activityDescriptions={activityDescriptions}
+            assessmentDescriptions={assessmentDescriptions}
+            resourceDescriptions={resourceDescriptions}
+            student={student}
+            portfolioStructure={portfolioStructure}
+            onSelectStructure={setSelectedStructureId}
+            loadComments={loadComments}
+            createComment={createComment}
+            updateComment={updateComment}
+            deleteComment={deleteComment}
+            comments={comments}
+            loadingComments={loadingComments}
+            onPresentationModeChange={(isPresenting) => {
+              // Only auto-collapse once per session when entering presentation mode
+              if (isPresenting && !sidebarCollapsed && !hasAutoCollapsed) {
+                setSidebarCollapsed(true);
+                setHasAutoCollapsed(true);
+              }
+              // Reset the auto-collapse flag when leaving presentation mode
+              if (!isPresenting) {
+                setHasAutoCollapsed(false);
+              }
+            }}
+          />
         </div>
       </div>
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <div className="bg-white border-t border-gray-200 px-4 py-2">
-          <div className="flex justify-around">
-            <Button
-              variant={viewMode === 'dashboard' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('dashboard')}
-              className="flex-1"
-            >
-              <Home className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'builder' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('builder')}
-              className="flex-1"
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </Button>
+          <div className="flex justify-center">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="flex-1"
+              className="px-8"
             >
               <FolderPlus className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSharePortfolio}
-              className="flex-1"
-            >
-              <Share2 className="w-4 h-4" />
+              <span className="text-xs ml-1">Sections</span>
             </Button>
           </div>
         </div>
@@ -327,7 +284,6 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
             onSelectStructure={(id) => {
               setSelectedStructureId(id);
               setSidebarOpen(false);
-              setViewMode('builder');
             }}
             onCreateStructure={createStructureItem}
             onUpdateStructure={updateStructureItem}
@@ -344,50 +300,32 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose }) => {
       {/* Floating Action Button (Mobile) */}
       {isMobile && (
         <div className="fixed bottom-20 right-4 z-10">
-          <div className="relative">
-            <Button
-              size="lg"
-              className="rounded-full w-14 h-14 shadow-lg"
-              onClick={() => handleQuickAdd('entry')}
-            >
-              <Plus className="w-6 h-6" />
-            </Button>
-            
-            {/* Quick action menu */}
-            <div className="absolute bottom-16 right-0 hidden">
-              <div className="bg-white rounded-lg shadow-lg p-2 space-y-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleQuickAdd('photo')}
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Take Photo
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleQuickAdd('upload')}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload File
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleQuickAdd('entry')}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Entry
-                </Button>
-              </div>
-            </div>
-          </div>
+          <Button
+            size="lg"
+            className="rounded-full w-14 h-14 shadow-lg bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+            onClick={handleQuickAdd}
+          >
+            <Zap className="w-6 h-6" />
+          </Button>
         </div>
       )}
+
+      {/* Quick Add Modal */}
+      <PortfolioQuickAdd
+        isOpen={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        portfolioStructure={portfolioStructure}
+        getStructureHierarchy={getStructureHierarchy}
+        onCreateEntry={createQuickEntry}
+        activities={activities}
+        assessments={assessments}
+        resources={resources}
+        activityDescriptions={activityDescriptions}
+        assessmentDescriptions={assessmentDescriptions}
+        resourceDescriptions={resourceDescriptions}
+        getTagSuggestions={getTagSuggestions}
+        preselectedStructureId={selectedStructureId}
+      />
 
       {/* SOLO Education Plan Form */}
       <SOLOEducationPlanForm

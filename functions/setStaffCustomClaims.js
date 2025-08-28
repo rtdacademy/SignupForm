@@ -327,7 +327,9 @@ const setStaffCustomClaims = onCall({
       isTeacher: expandedPermissions.includes('teacher'),
       isCourseManager: expandedPermissions.includes('course_manager'),
       isAdminUser: expandedPermissions.includes('admin'),
-      isSuperAdminUser: basePermissions.includes('super_admin') || highestPermission === 'super_admin'
+      isSuperAdminUser: basePermissions.includes('super_admin') || highestPermission === 'super_admin',
+      // RTD Learning Admin status (preserve if already set)
+      isRTDLearningAdmin: existingClaims.isRTDLearningAdmin || false
     };
     
     // Set the custom claims
@@ -708,7 +710,8 @@ const getAnyUserPermissions = onCall({
           isTeacher: customClaims.isTeacher || false,
           isCourseManager: customClaims.isCourseManager || false,
           isAdminUser: customClaims.isAdminUser || false,
-          isSuperAdminUser: customClaims.isSuperAdminUser || false
+          isSuperAdminUser: customClaims.isSuperAdminUser || false,
+          isRTDLearningAdmin: customClaims.isRTDLearningAdmin || false
         },
         expectedClaims: {
           staffPermissions: expectedExpandedPermissions,
@@ -780,6 +783,7 @@ const updateStaffPermissions = onCall({
     staffRole, 
     individualPermissions, 
     customClaims: additionalCustomClaims,
+    isRTDLearningAdmin,
     reason 
   } = request.data;
   
@@ -861,6 +865,9 @@ const updateStaffPermissions = onCall({
       isAdminUser: finalStaffPermissions.includes('admin'),
       isSuperAdminUser: finalStaffPermissions.includes('super_admin'),
       
+      // RTD Learning Admin flag
+      isRTDLearningAdmin: isRTDLearningAdmin !== undefined ? isRTDLearningAdmin : (currentClaims.isRTDLearningAdmin || false),
+      
       // Add any additional custom claims
       ...(additionalCustomClaims || {})
     };
@@ -911,7 +918,8 @@ const updateStaffPermissions = onCall({
             staffRole: currentClaims.staffRole || null,
             isStaffUser: currentClaims.isStaffUser || false,
             isAdminUser: currentClaims.isAdminUser || false,
-            isSuperAdminUser: currentClaims.isSuperAdminUser || false
+            isSuperAdminUser: currentClaims.isSuperAdminUser || false,
+            isRTDLearningAdmin: currentClaims.isRTDLearningAdmin || false
           },
           newClaims: {
             staffPermissions: finalStaffPermissions,
@@ -920,7 +928,8 @@ const updateStaffPermissions = onCall({
             isTeacher: newCustomClaims.isTeacher,
             isCourseManager: newCustomClaims.isCourseManager,
             isAdminUser: newCustomClaims.isAdminUser,
-            isSuperAdminUser: newCustomClaims.isSuperAdminUser
+            isSuperAdminUser: newCustomClaims.isSuperAdminUser,
+            isRTDLearningAdmin: newCustomClaims.isRTDLearningAdmin
           },
           additionalCustomClaims: additionalCustomClaims || {}
         },

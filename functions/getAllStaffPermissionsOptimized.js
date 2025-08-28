@@ -113,7 +113,8 @@ const getAllStaffPermissionsOptimized = onCall({
               isTeacher: customClaims.isTeacher || false,
               isCourseManager: customClaims.isCourseManager || false,
               isAdminUser: customClaims.isAdminUser || false,
-              isSuperAdminUser: customClaims.isSuperAdminUser || false
+              isSuperAdminUser: customClaims.isSuperAdminUser || false,
+              isRTDLearningAdmin: customClaims.isRTDLearningAdmin || false
             }
           };
         } catch (error) {

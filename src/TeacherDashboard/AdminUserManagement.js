@@ -22,7 +22,11 @@ import {
   Loader2,
   Mail,
   Send,
-  UserPlus
+  UserPlus,
+  Code,
+  Edit3,
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -62,6 +66,10 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
   const [userNotFound, setUserNotFound] = useState(false);
   const [searchedEmail, setSearchedEmail] = useState('');
   const [currentTargetSite, setCurrentTargetSite] = useState(defaultTargetSite || 'rtdacademy');
+  const [showClaimsDialog, setShowClaimsDialog] = useState(false);
+  const [editingClaims, setEditingClaims] = useState('');
+  const [claimsError, setClaimsError] = useState('');
+  const [updatingClaims, setUpdatingClaims] = useState(false);
 
   // Clear messages after a delay
   const clearMessages = useCallback(() => {
@@ -441,6 +449,99 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
     }
   };
 
+  // Quick remove tempPasswordRequired claim
+  const handleQuickRemoveTempPasswordClaim = async () => {
+    if (!searchResults) return;
+    
+    setUpdatingClaims(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const updateClaims = httpsCallable(functions, 'updateUserCustomClaims');
+      
+      // Remove tempPasswordRequired from current claims
+      const updatedClaims = { ...searchResults.currentClaims };
+      delete updatedClaims.tempPasswordRequired;
+      
+      const result = await updateClaims({ 
+        targetEmail: searchResults.email,
+        customClaims: updatedClaims,
+        reason: 'Admin removed tempPasswordRequired claim'
+      });
+      
+      if (result.data.success) {
+        setSuccess('Temporary password requirement removed successfully');
+        // Refresh user data
+        handleSearchUser();
+      }
+    } catch (error) {
+      console.error('Error removing temp password claim:', error);
+      if (error.code === 'functions/permission-denied') {
+        setError('Access denied. You do not have permission to update claims.');
+      } else {
+        setError(`Error: ${error.message || 'Failed to remove claim'}`);
+      }
+    } finally {
+      setUpdatingClaims(false);
+      clearMessages();
+    }
+  };
+
+  // Update custom claims
+  const handleUpdateCustomClaims = async () => {
+    if (!searchResults) return;
+    
+    // Validate JSON
+    let parsedClaims;
+    try {
+      parsedClaims = JSON.parse(editingClaims);
+    } catch (error) {
+      setClaimsError('Invalid JSON format. Please check your syntax.');
+      return;
+    }
+    
+    setUpdatingClaims(true);
+    setClaimsError('');
+    setError('');
+    setSuccess('');
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const updateClaims = httpsCallable(functions, 'updateUserCustomClaims');
+      
+      const result = await updateClaims({ 
+        targetEmail: searchResults.email,
+        customClaims: parsedClaims,
+        reason: 'Admin manually updated custom claims'
+      });
+      
+      if (result.data.success) {
+        setSuccess('Custom claims updated successfully');
+        setShowClaimsDialog(false);
+        // Refresh user data
+        handleSearchUser();
+      }
+    } catch (error) {
+      console.error('Error updating custom claims:', error);
+      if (error.code === 'functions/permission-denied') {
+        setClaimsError('Access denied. You do not have permission to update claims.');
+      } else if (error.code === 'functions/not-found') {
+        setClaimsError('User not found.');
+      } else {
+        setClaimsError(`Error: ${error.message || 'Failed to update claims'}`);
+      }
+    } finally {
+      setUpdatingClaims(false);
+      if (!claimsError) {
+        clearMessages();
+      }
+    }
+  };
+
   // Execute confirmed action
   const executeAction = async () => {
     const { action, data } = confirmDialog;
@@ -782,6 +883,97 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
               ) : null}
             </div>
 
+            {/* Custom Claims Display */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center">
+                  <Code className="w-5 h-5 mr-2" />
+                  Custom Claims
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingClaims(JSON.stringify(searchResults.currentClaims || {}, null, 2));
+                    setClaimsError('');
+                    setShowClaimsDialog(true);
+                  }}
+                  className="flex items-center"
+                >
+                  <Edit3 className="w-3 h-3 mr-1" />
+                  Edit Claims
+                </Button>
+              </h3>
+              
+              {searchResults.currentClaims && Object.keys(searchResults.currentClaims).length > 0 ? (
+                <div className="space-y-3">
+                  {/* Warning if tempPasswordRequired is present */}
+                  {searchResults.currentClaims.tempPasswordRequired && (
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <AlertDescription className="text-red-800">
+                        <strong>Warning:</strong> User has <code className="px-1 py-0.5 bg-red-100 rounded">tempPasswordRequired: true</code> claim. 
+                        This forces password change on login.
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleQuickRemoveTempPasswordClaim()}
+                          className="ml-3 h-6 px-2 py-1 text-xs"
+                          disabled={updatingClaims}
+                        >
+                          {updatingClaims ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>Remove This Claim</>
+                          )}
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {/* Display claims in formatted JSON */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                    <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words">
+                      {JSON.stringify(searchResults.currentClaims, null, 2)}
+                    </pre>
+                  </div>
+                  
+                  {/* Common claim indicators */}
+                  <div className="flex flex-wrap gap-2">
+                    {searchResults.currentClaims.isStaffUser && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Staff User
+                      </span>
+                    )}
+                    {searchResults.currentClaims.familyId && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        Family: {searchResults.currentClaims.familyId}
+                      </span>
+                    )}
+                    {searchResults.currentClaims.familyRole && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        Role: {searchResults.currentClaims.familyRole}
+                      </span>
+                    )}
+                    {searchResults.currentClaims.permissions?.isAdmin && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md">
+                  <div className="flex items-center">
+                    <Info className="h-4 w-4 text-gray-400 mr-2" />
+                    No custom claims found for this user.
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Current Temporary Password Display */}
             {currentTempPassword && (
               <div className="border-t pt-6">
@@ -1061,6 +1253,225 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
         defaultTargetSite={defaultTargetSite}
         onConfirm={handleTempPasswordConfirm}
       />
+
+      {/* Edit Custom Claims Dialog */}
+      <Dialog open={showClaimsDialog} onOpenChange={(open) => {
+        if (!open && !updatingClaims) {
+          setShowClaimsDialog(false);
+          setClaimsError('');
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Code className="w-5 h-5 mr-2 text-blue-600" />
+              Edit Custom Claims
+            </DialogTitle>
+            <DialogDescription>
+              Modify the user's custom claims. Be careful - invalid claims can prevent user login.
+              {searchResults && (
+                <div className="mt-2 text-sm font-medium">
+                  User: <span className="text-blue-600">{searchResults.email}</span>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-4">
+              {/* Quick Actions */}
+              {(() => {
+                try {
+                  const claims = editingClaims ? JSON.parse(editingClaims) : {};
+                  if (claims.tempPasswordRequired) {
+                    return (
+                      <Alert className="border-amber-200 bg-amber-50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800">
+                          <strong>Warning:</strong> <code>tempPasswordRequired: true</code> is present. 
+                          This will force the user to change their password on next login.
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              try {
+                                const claimsObj = JSON.parse(editingClaims);
+                                delete claimsObj.tempPasswordRequired;
+                                delete claimsObj.tempPasswordSetAt;
+                                delete claimsObj.tempPasswordSetBy;
+                                // Also remove customClaimsKeys if present
+                                delete claimsObj.customClaimsKeys;
+                                setEditingClaims(JSON.stringify(claimsObj, null, 2));
+                              } catch (error) {
+                                setClaimsError('Failed to remove claim from editor');
+                              }
+                            }}
+                            className="ml-3 h-6 px-2 py-1 text-xs border-amber-600 text-amber-700 hover:bg-amber-100"
+                          >
+                            Remove from Editor
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                  // Also check if tempPasswordRequired is in customClaimsKeys array
+                  if (claims.customClaimsKeys && claims.customClaimsKeys.includes('tempPasswordRequired')) {
+                    return (
+                      <Alert className="border-amber-200 bg-amber-50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800">
+                          <strong>Warning:</strong> <code>tempPasswordRequired</code> found in customClaimsKeys. 
+                          This may cause authentication issues.
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              try {
+                                const claimsObj = JSON.parse(editingClaims);
+                                // Remove the customClaimsKeys array entirely
+                                delete claimsObj.customClaimsKeys;
+                                // Also ensure temp password fields are removed
+                                delete claimsObj.tempPasswordRequired;
+                                delete claimsObj.tempPasswordSetAt;
+                                delete claimsObj.tempPasswordSetBy;
+                                setEditingClaims(JSON.stringify(claimsObj, null, 2));
+                              } catch (error) {
+                                setClaimsError('Failed to clean claims in editor');
+                              }
+                            }}
+                            className="ml-3 h-6 px-2 py-1 text-xs border-amber-600 text-amber-700 hover:bg-amber-100"
+                          >
+                            Clean Claims
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                } catch (e) {
+                  // Invalid JSON, don't show warning
+                  return null;
+                }
+                return null;
+              })()}
+              
+              {/* JSON Editor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Claims JSON (edit carefully)
+                </label>
+                <textarea
+                  value={editingClaims}
+                  onChange={(e) => {
+                    setEditingClaims(e.target.value);
+                    setClaimsError(''); // Clear error on edit
+                  }}
+                  className="w-full h-96 px-3 py-2 font-mono text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder='{}'
+                  spellCheck={false}
+                />
+              </div>
+              
+              {/* Common Claims Helper */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Quick Add Common Claims:</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try {
+                        const claims = JSON.parse(editingClaims || '{}');
+                        claims.isStaffUser = true;
+                        setEditingClaims(JSON.stringify(claims, null, 2));
+                      } catch (error) {
+                        setClaimsError('Invalid JSON in editor');
+                      }
+                    }}
+                  >
+                    Add Staff User
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try {
+                        const claims = JSON.parse(editingClaims || '{}');
+                        delete claims.tempPasswordRequired;
+                        delete claims.tempPasswordSetAt;
+                        delete claims.tempPasswordSetBy;
+                        // Also remove customClaimsKeys if it exists
+                        if (claims.customClaimsKeys) {
+                          delete claims.customClaimsKeys;
+                        }
+                        setEditingClaims(JSON.stringify(claims, null, 2));
+                      } catch (error) {
+                        setClaimsError('Invalid JSON in editor');
+                      }
+                    }}
+                  >
+                    Remove Temp Password
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingClaims('{}');
+                    }}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    Clear All Claims
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Error Display */}
+              {claimsError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{claimsError}</AlertDescription>
+                </Alert>
+              )}
+              
+              {/* Info */}
+              <Alert className="border-blue-200 bg-blue-50">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-700 text-sm">
+                  <strong>Note:</strong> Claims are used for permissions and access control. 
+                  Common claims include: <code>isStaffUser</code>, <code>familyId</code>, 
+                  <code>familyRole</code>, <code>tempPasswordRequired</code>.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+          
+          <DialogFooter className="border-t pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowClaimsDialog(false);
+                setClaimsError('');
+              }}
+              disabled={updatingClaims}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateCustomClaims}
+              disabled={updatingClaims || !editingClaims}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {updatingClaims ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Claims'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -15,6 +15,7 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
     admin: false,
     super_admin: false
   });
+  const [rtdLearningAdmin, setRtdLearningAdmin] = useState(false);
   const [customClaims, setCustomClaims] = useState([]);
   const [reason, setReason] = useState('');
   const [useQuickRole, setUseQuickRole] = useState(true);
@@ -82,12 +83,15 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
         admin: currentPerms.includes('admin'),
         super_admin: currentPerms.includes('super_admin')
       });
+      
+      // Set RTD Learning Admin status
+      setRtdLearningAdmin(user.currentClaims?.isRTDLearningAdmin || false);
 
       // Extract custom claims (non-staff related)
       const allClaims = user.allCustomClaims || {};
       const staffClaimKeys = [
         'staffPermissions', 'staffRole', 'lastPermissionUpdate', 'permissionSource',
-        'isStaffUser', 'isAdminUser', 'isSuperAdminUser', 'lastUpdatedBy'
+        'isStaffUser', 'isAdminUser', 'isSuperAdminUser', 'isRTDLearningAdmin', 'lastUpdatedBy'
       ];
       
       const customClaimsArray = Object.entries(allClaims)
@@ -174,7 +178,8 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
       const updateData = {
         targetUid: user.uid,
         reason: reason.trim(),
-        customClaims: customClaimsObject
+        customClaims: customClaimsObject,
+        isRTDLearningAdmin: rtdLearningAdmin
       };
 
       if (useQuickRole) {
@@ -384,9 +389,27 @@ const PermissionEditor = ({ user, isOpen, onClose, onSave }) => {
               </div>
             )}
 
+            {/* RTD Learning Admin Permission */}
+            <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Special Permissions</h3>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="rtdLearningAdmin"
+                  checked={rtdLearningAdmin}
+                  onChange={(e) => setRtdLearningAdmin(e.target.checked)}
+                  className="mr-3"
+                />
+                <label htmlFor="rtdLearningAdmin" className="cursor-pointer flex-1">
+                  <div className="font-medium text-gray-900">RTD Learning Admin</div>
+                  <div className="text-sm text-gray-600">Grant access to RTD Learning admin dashboard and features</div>
+                </label>
+              </div>
+            </div>
+
             {/* Individual Permissions */}
             {!useQuickRole && (
-              <div>
+              <div className="mt-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Select Individual Permissions</h3>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                   <div className="flex items-center space-x-2">

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import {
@@ -7,8 +7,15 @@ import {
   PopoverTrigger,
 } from '../../components/ui/popover';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
+import {
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Plus,
   MoreVertical,
   Edit2,
@@ -36,9 +43,13 @@ import {
   Hash,
   Shield,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  EyeOff,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { getIconForSubject } from '../hooks/usePortfolio';
+import Toast from '../../components/Toast';
 
 const PortfolioSidebar = ({
   structure,
@@ -51,19 +62,24 @@ const PortfolioSidebar = ({
   onGetArchivedItems,
   onReorder,
   metadata,
-  onOpenSOLOPlan
+  onOpenSOLOPlan,
+  isCollapsed = false,
+  onToggleCollapse
 }) => {
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [archivedItems, setArchivedItems] = useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [undoItem, setUndoItem] = useState(null);
+  const undoTimeoutRef = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [showNewItemForm, setShowNewItemForm] = useState(false);
   const [newItemParentId, setNewItemParentId] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemType, setNewItemType] = useState('module');
+  const [newItemType, setNewItemType] = useState('course');
   
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState(null);
@@ -119,6 +135,19 @@ const PortfolioSidebar = ({
   // Get icon component
   const getIconComponent = (iconName) => {
     return iconComponents[iconName] || Folder;
+  };
+
+  // Get icon for a given type
+  const getIconForType = (type) => {
+    const iconMap = {
+      course: 'BookOpen',
+      subject: 'GraduationCap',
+      module: 'Folder',
+      unit: 'Hash',
+      lesson: 'FileText',
+      topic: 'Activity'
+    };
+    return iconMap[type] || 'Folder';
   };
 
   // Toggle item expansion
@@ -195,13 +224,13 @@ const PortfolioSidebar = ({
         title: newItemTitle.trim(),
         description: '',
         parentId: newItemParentId,
-        icon: newItemType === 'course' ? 'GraduationCap' : newItemType === 'module' ? 'Folder' : 'FileText',
+        icon: getIconForType(newItemType),
         color: colorPalette[Math.floor(Math.random() * colorPalette.length)]
       });
       
       setShowNewItemForm(false);
       setNewItemTitle('');
-      setNewItemType('module');
+      setNewItemType('course'); // Reset to course as default
       setNewItemParentId(null);
     }
   };
@@ -227,6 +256,46 @@ const PortfolioSidebar = ({
     });
   };
 
+  // Render collapsed structure item
+  const renderCollapsedItem = (item, level = 0) => {
+    const isSelected = selectedId === item.id;
+    const IconComponent = getIconComponent(item.icon || 'Folder');
+    
+    return (
+      <Tooltip key={item.id}>
+        <TooltipTrigger asChild>
+          <div
+            className={`
+              flex items-center justify-center p-2 rounded-md cursor-pointer
+              transition-all duration-200 mb-1
+              ${isSelected ? 'bg-purple-100' : 'hover:bg-gray-100'}
+            `}
+            onClick={() => onSelectStructure(item.id)}
+          >
+            <div 
+              className="w-8 h-8 rounded flex items-center justify-center"
+              style={{ backgroundColor: `${item.color}20`, color: item.color }}
+            >
+              {IconComponent ? (
+                <IconComponent className="w-5 h-5" />
+              ) : (
+                <span className="text-lg">{item.icon || '📁'}</span>
+              )}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div>
+            <div className="font-medium">{item.title}</div>
+            {item.entryCount > 0 && (
+              <div className="text-xs text-gray-500">{item.entryCount} entries</div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
   // Render structure item
   const renderStructureItem = (item, level = 0) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -234,6 +303,11 @@ const PortfolioSidebar = ({
     const isSelected = selectedId === item.id;
     const isEditing = editingId === item.id;
     const isDraggedOver = dragOverItem?.id === item.id;
+
+    // Use collapsed rendering when sidebar is collapsed
+    if (isCollapsed && level === 0) {
+      return renderCollapsedItem(item);
+    }
 
     return (
       <div key={item.id}>
@@ -256,14 +330,14 @@ const PortfolioSidebar = ({
           {/* Drag handle */}
           <GripVertical className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
           
-          {/* Expand/Collapse chevron */}
-          {hasChildren && (
+          {/* Expand/Collapse chevron - always show for courses */}
+          {(hasChildren || item.type === 'course') && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 toggleExpand(item.id);
               }}
-              className="p-0.5 hover:bg-gray-200 rounded"
+              className="p-0.5 hover:bg-gray-200 rounded transition-transform"
             >
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4" />
@@ -271,6 +345,9 @@ const PortfolioSidebar = ({
                 <ChevronRight className="w-4 h-4" />
               )}
             </button>
+          )}
+          {!hasChildren && item.type !== 'course' && (
+            <div className="w-5" /> 
           )}
           
           {/* Icon with color */}
@@ -370,30 +447,39 @@ const PortfolioSidebar = ({
             </span>
           )}
           
-          {/* Action menu */}
+          {/* Inline action buttons */}
           {!isEditing && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 p-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-1">
-                <button
-                  onClick={() => {
-                    setNewItemParentId(item.id);
-                    setShowNewItemForm(true);
-                  }}
-                  className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                >
-                  <FolderPlus className="w-4 h-4 mr-2" />
-                  Add Sub-item
-                </button>
+            <div className="flex items-center space-x-1 opacity-40 group-hover:opacity-100 transition-opacity">
+              {/* Add sub-item button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-1 hover:bg-gray-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNewItemParentId(item.id);
+                  setNewItemType('module');
+                  setShowNewItemForm(true);
+                }}
+                title="Add sub-item"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+              
+              {/* More actions menu */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 hover:bg-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                    title="More actions"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1">
                 <button
                   onClick={() => startEditing(item)}
                   className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
@@ -428,6 +514,8 @@ const PortfolioSidebar = ({
                   </div>
                 </div>
                 
+                <div className="border-t my-1"></div>
+                
                 {item.isAlbertaCourse ? (
                   <div className="border-t">
                     <div className="px-3 py-2 bg-blue-50 rounded">
@@ -453,19 +541,42 @@ const PortfolioSidebar = ({
                   <div className="border-t">
                     <button
                       onClick={() => {
-                        if (window.confirm('Are you sure you want to archive this item? You can restore it later from the archive.')) {
-                          onDeleteStructure(item.id);
+                        // Store item for potential undo
+                        setUndoItem(item);
+                        onDeleteStructure(item.id);
+                        
+                        // Show toast with undo
+                        setToastMessage({
+                          text: `"${item.title}" hidden from view`,
+                          action: 'Undo',
+                          onAction: () => {
+                            if (undoItem) {
+                              onRestoreStructure(undoItem.id);
+                              setUndoItem(null);
+                              setToastMessage(null);
+                            }
+                          }
+                        });
+                        
+                        // Clear undo after 5 seconds
+                        if (undoTimeoutRef.current) {
+                          clearTimeout(undoTimeoutRef.current);
                         }
+                        undoTimeoutRef.current = setTimeout(() => {
+                          setUndoItem(null);
+                          setToastMessage(null);
+                        }, 5000);
                       }}
-                      className="flex items-center w-full px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded"
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded"
                     >
-                      <Archive className="w-4 h-4 mr-2" />
-                      Archive
+                      <EyeOff className="w-4 h-4 mr-2" />
+                      Hide from view
                     </button>
                   </div>
                 )}
               </PopoverContent>
             </Popover>
+          </div>
           )}
           
           {/* Edit action buttons */}
@@ -497,11 +608,38 @@ const PortfolioSidebar = ({
           )}
         </div>
         
-        {/* Render children */}
-        {hasChildren && isExpanded && (
-          <div>
-            {filterStructure(item.children).map((child) => 
-              renderStructureItem(child, level + 1)
+        {/* Render children or empty state */}
+        {isExpanded && (
+          <div className="relative">
+            {/* Indentation guide line */}
+            {level < 3 && hasChildren && (
+              <div 
+                className="absolute w-0.5 bg-gray-200" 
+                style={{ 
+                  left: `${(level + 1) * 16 + 20}px`,
+                  top: '0',
+                  bottom: '0'
+                }}
+              />
+            )}
+            
+            {hasChildren ? (
+              filterStructure(item.children).map((child) => 
+                renderStructureItem(child, level + 1)
+              )
+            ) : (
+              <div 
+                className="text-xs text-gray-400 italic py-2 hover:text-gray-600 cursor-pointer"
+                style={{ paddingLeft: `${(level + 1) * 16 + 32}px` }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNewItemParentId(item.id);
+                  setNewItemType('module');
+                  setShowNewItemForm(true);
+                }}
+              >
+                Click + to add {item.type === 'course' ? 'modules' : 'sub-items'}...
+              </div>
             )}
           </div>
         )}
@@ -512,83 +650,92 @@ const PortfolioSidebar = ({
   const filteredStructure = filterStructure(structure);
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* Search bar */}
-      <div className="p-3 border-b bg-white">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Search portfolio..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-3 h-9"
-          />
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="h-full flex flex-col bg-gray-50 relative">
+        {/* Collapse Toggle Button */}
+        <button
+          onClick={onToggleCollapse}
+          className="absolute -right-3 top-4 z-50 bg-white border border-gray-200 rounded-full p-1.5 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <PanelLeft className="w-4 h-4 text-gray-600" />
+          ) : (
+            <PanelLeftClose className="w-4 h-4 text-gray-600" />
+          )}
+        </button>
 
-      {/* Quick stats */}
-      {metadata && (
-        <div className="px-3 py-2 bg-white border-b">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="text-gray-600">
-              <span className="font-medium">{metadata.totalEntries || 0}</span> entries
-            </div>
-            <div className="text-gray-600">
-              <span className="font-medium">{metadata.totalFiles || 0}</span> files
+        {/* Search bar */}
+        {!isCollapsed && (
+          <div className="p-3 border-b bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search portfolio..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-3 h-9"
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
+
 
       {/* Add new button and archive toggle */}
-      <div className="p-3 bg-white border-b space-y-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={() => {
-            setNewItemParentId(null);
-            setShowNewItemForm(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Section
-        </Button>
-        
-        {metadata?.hasArchivedItems && (
+      {!isCollapsed ? (
+        <div className="p-3 bg-white border-b space-y-2">
           <Button
-            variant={showArchived ? 'default' : 'outline'}
+            variant="outline"
             size="sm"
             className="w-full"
-            disabled={loadingArchived}
-            onClick={async () => {
-              if (!showArchived && onGetArchivedItems) {
-                setLoadingArchived(true);
-                try {
-                  const items = await onGetArchivedItems();
-                  setArchivedItems(items);
-                } catch (err) {
-                  console.error('Error loading archived items:', err);
-                } finally {
-                  setLoadingArchived(false);
-                }
-              }
-              setShowArchived(!showArchived);
+            onClick={() => {
+              setNewItemParentId(null);
+              setNewItemType('course'); // Force course type for top-level
+              setShowNewItemForm(true);
             }}
           >
-            {loadingArchived ? (
-              <Archive className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Archive className="w-4 h-4 mr-2" />
-            )}
-            {showArchived ? 'Hide Archived' : 'Show Archived'}
+            <Plus className="w-4 h-4 mr-2" />
+            Add Course
           </Button>
-        )}
-      </div>
+          
+          {metadata?.hasArchivedItems && (
+            <Button
+              variant={showArchived ? 'default' : 'outline'}
+              size="sm"
+              className="w-full"
+              disabled={loadingArchived}
+              onClick={async () => {
+                if (!showArchived && onGetArchivedItems) {
+                  setLoadingArchived(true);
+                  try {
+                    const items = await onGetArchivedItems();
+                    setArchivedItems(items);
+                  } catch (err) {
+                    console.error('Error loading archived items:', err);
+                  } finally {
+                    setLoadingArchived(false);
+                  }
+                }
+                setShowArchived(!showArchived);
+              }}
+            >
+              {loadingArchived ? (
+                <Archive className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4 mr-2" />
+              )}
+              {showArchived ? 'Hide Archived' : 'Show Archived'}
+            </Button>
+          )}
+        </div>
+      ) : (
+        // When collapsed, just add spacing to push content down below the toggle button
+        <div className="h-12 bg-white border-b" />
+      )}
 
       {/* Structure tree */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'p-2 pt-1' : 'p-3'}`}>
         {showArchived ? (
           // Show archived items
           archivedItems.length === 0 ? (
@@ -598,27 +745,27 @@ const PortfolioSidebar = ({
             </div>
           ) : (
             <div className="space-y-2">
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Archived Items</h3>
+              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Hidden Items</h3>
+              <p className="text-xs text-gray-400">Click restore to bring items back</p>
               {archivedItems.map((item) => (
                 <div 
                   key={item.id}
-                  className="flex items-center p-2 rounded-md bg-gray-100 opacity-60"
+                  className="flex items-center p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors group"
                 >
-                  <Archive className="w-4 h-4 text-gray-400 mr-2" />
-                  <span className="flex-1 text-sm text-gray-600 italic">{item.title}</span>
+                  <EyeOff className="w-4 h-4 text-gray-400 mr-2" />
+                  <span className="flex-1 text-sm text-gray-600">{item.title}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      if (window.confirm('Restore this item?')) {
-                        onRestoreStructure(item.id);
-                        // Refresh archived items
-                        onGetArchivedItems().then(setArchivedItems);
-                      }
+                      onRestoreStructure(item.id);
+                      // Refresh archived items
+                      onGetArchivedItems().then(setArchivedItems);
                     }}
-                    className="p-1"
+                    className="p-1 opacity-70 group-hover:opacity-100"
+                    title="Restore this item"
                   >
-                    <ArchiveRestore className="w-4 h-4" />
+                    <ArchiveRestore className="w-4 h-4 text-green-600" />
                   </Button>
                 </div>
               ))}
@@ -651,25 +798,29 @@ const PortfolioSidebar = ({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-4">
-              Add New {newItemParentId ? 'Sub-section' : 'Section'}
+              Add New {newItemParentId ? 'Sub-item' : 'Course'}
             </h3>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
-                </label>
-                <select
-                  value={newItemType}
-                  onChange={(e) => setNewItemType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                >
-                  <option value="course">Course</option>
-                  <option value="subject">Subject</option>
-                  <option value="module">Module</option>
-                  <option value="lesson">Lesson</option>
-                </select>
-              </div>
+              {/* Only show type selector for sub-items */}
+              {newItemParentId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={newItemType}
+                    onChange={(e) => setNewItemType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="subject">Subject</option>
+                    <option value="module">Module</option>
+                    <option value="unit">Unit</option>
+                    <option value="lesson">Lesson</option>
+                    <option value="topic">Topic</option>
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -708,7 +859,31 @@ const PortfolioSidebar = ({
           </div>
         </div>
       )}
+
+      {/* Toast notification with undo */}
+      {toastMessage && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-3">
+            <span className="text-sm">{toastMessage.text}</span>
+            {toastMessage.action && (
+              <button
+                onClick={toastMessage.onAction}
+                className="text-sm font-medium text-blue-300 hover:text-blue-200 underline"
+              >
+                {toastMessage.action}
+              </button>
+            )}
+            <button
+              onClick={() => setToastMessage(null)}
+              className="ml-2 text-gray-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+    </TooltipProvider>
   );
 };
 

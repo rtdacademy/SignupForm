@@ -297,6 +297,9 @@ const StaffPermissionsManager = () => {
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Special
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Sign In
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -330,6 +333,13 @@ const StaffPermissionsManager = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {staff.currentClaims?.staffRole ? getRoleBadge(staff.currentClaims.staffRole) : (
                         <span className="text-xs text-gray-400">None</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {staff.currentClaims?.isRTDLearningAdmin && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          RTD Learning
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -509,6 +519,12 @@ const StaffPermissionsManager = () => {
                               {selectedUser.currentClaims.isSuperAdminUser ? 'Yes' : 'No'}
                             </div>
                           </div>
+                          <div>
+                            <span className="text-gray-600 text-sm">RTD Learning:</span>
+                            <div className="font-medium">
+                              {selectedUser.currentClaims.isRTDLearningAdmin ? 'Yes' : 'No'}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -659,6 +675,12 @@ const StaffPermissionsManager = () => {
                         {searchResults.currentClaims.isSuperAdminUser ? 'Yes' : 'No'}
                       </div>
                     </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">RTD Learning Admin:</span>
+                      <div className="font-medium">
+                        {searchResults.currentClaims.isRTDLearningAdmin ? 'Yes' : 'No'}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -782,6 +804,7 @@ const StaffPermissionsManager = () => {
                       <div><span className="text-blue-600">Is Staff:</span> {String(rawClaimsUser.allCustomClaims.isStaffUser || false)}</div>
                       <div><span className="text-blue-600">Is Admin:</span> {String(rawClaimsUser.allCustomClaims.isAdminUser || false)}</div>
                       <div><span className="text-blue-600">Is Super Admin:</span> {String(rawClaimsUser.allCustomClaims.isSuperAdminUser || false)}</div>
+                      <div><span className="text-blue-600">RTD Learning Admin:</span> {String(rawClaimsUser.allCustomClaims.isRTDLearningAdmin || false)}</div>
                     </div>
                   </div>
                   

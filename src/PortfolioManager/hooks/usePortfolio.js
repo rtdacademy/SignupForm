@@ -942,6 +942,183 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     return colors[subject] || '#6B7280'; // Default gray
   };
 
+  // Comment operations
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  // Subscribe to comments for selected entry
+  const loadComments = useCallback(async (entryId) => {
+    if (!entryId) {
+      setComments([]);
+      return;
+    }
+
+    setLoadingComments(true);
+    try {
+      const commentsRef = collection(db, 'portfolios', familyId, 'comments');
+      const q = query(
+        commentsRef,
+        where('entryId', '==', entryId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const commentsList = [];
+          snapshot.forEach((doc) => {
+            commentsList.push({
+              id: doc.id,
+              ...doc.data()
+            });
+          });
+          setComments(commentsList);
+          setLoadingComments(false);
+        },
+        (err) => {
+          console.error('Error loading comments:', err);
+          setLoadingComments(false);
+        }
+      );
+
+      return unsubscribe;
+    } catch (err) {
+      console.error('Error setting up comments listener:', err);
+      setLoadingComments(false);
+    }
+  }, [familyId]);
+
+  // Create a new comment
+  const createComment = useCallback(async (commentData) => {
+    try {
+      const commentRef = doc(collection(db, 'portfolios', familyId, 'comments'));
+      
+      const newComment = {
+        ...commentData,
+        id: commentRef.id,
+        authorEmail: user.email,
+        authorName: user.displayName || user.email,
+        authorUid: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        edited: false
+      };
+
+      await setDoc(commentRef, newComment);
+      
+      // Update entry's comment count
+      if (commentData.entryId) {
+        const entryRef = doc(db, 'portfolios', familyId, 'entries', commentData.entryId);
+        const entryDoc = await getDoc(entryRef);
+        if (entryDoc.exists()) {
+          const currentCount = entryDoc.data().commentCount || 0;
+          await updateDoc(entryRef, {
+            commentCount: currentCount + 1,
+            lastCommentAt: serverTimestamp()
+          });
+        }
+      }
+
+      return commentRef.id;
+    } catch (err) {
+      console.error('Error creating comment:', err);
+      throw err;
+    }
+  }, [familyId, user]);
+
+  // Update a comment
+  const updateComment = useCallback(async (commentId, updates) => {
+    try {
+      const commentRef = doc(db, 'portfolios', familyId, 'comments', commentId);
+      
+      await updateDoc(commentRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+        edited: true,
+        editedBy: user.uid,
+        editedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('Error updating comment:', err);
+      throw err;
+    }
+  }, [familyId, user]);
+
+  // Delete a comment
+  const deleteComment = useCallback(async (commentId, entryId) => {
+    try {
+      const commentRef = doc(db, 'portfolios', familyId, 'comments', commentId);
+      await deleteDoc(commentRef);
+      
+      // Update entry's comment count
+      if (entryId) {
+        const entryRef = doc(db, 'portfolios', familyId, 'entries', entryId);
+        const entryDoc = await getDoc(entryRef);
+        if (entryDoc.exists()) {
+          const currentCount = entryDoc.data().commentCount || 1;
+          await updateDoc(entryRef, {
+            commentCount: Math.max(0, currentCount - 1)
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      throw err;
+    }
+  }, [familyId]);
+
+  // Get comment count for an entry
+  const getCommentCount = useCallback(async (entryId) => {
+    try {
+      const commentsRef = collection(db, 'portfolios', familyId, 'comments');
+      const q = query(commentsRef, where('entryId', '==', entryId));
+      const snapshot = await getDocs(q);
+      return snapshot.size;
+    } catch (err) {
+      console.error('Error getting comment count:', err);
+      return 0;
+    }
+  }, [familyId]);
+
+  // Quick add entry (simplified version)
+  const createQuickEntry = useCallback(async (entryData, files = []) => {
+    try {
+      // This is a simplified version of createPortfolioEntry
+      const entryRef = doc(collection(db, 'portfolios', familyId, 'entries'));
+      
+      // Upload files if provided
+      const uploadedFiles = await uploadFiles(files, entryRef.id);
+      
+      const newEntry = {
+        ...entryData,
+        id: entryRef.id,
+        studentId: studentId,
+        files: uploadedFiles,
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+        lastModified: serverTimestamp(),
+        quickAdd: true, // Mark as quick-add entry
+        order: entryData.order || portfolioEntries.length,
+        commentCount: 0
+      };
+
+      await setDoc(entryRef, newEntry);
+      
+      // Update metadata
+      const metadataRef = doc(db, 'portfolios', familyId, 'metadata', studentId);
+      await updateDoc(metadataRef, {
+        lastModified: serverTimestamp(),
+        totalEntries: (portfolioMetadata?.totalEntries || 0) + 1,
+        totalFiles: (portfolioMetadata?.totalFiles || 0) + uploadedFiles.length
+      });
+
+      return entryRef.id;
+    } catch (err) {
+      console.error('Error creating quick entry:', err);
+      throw err;
+    }
+  }, [familyId, studentId, user, portfolioEntries, portfolioMetadata, uploadFiles]);
+
   return {
     // State
     portfolioMetadata,
@@ -950,6 +1127,8 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     loading,
     error,
     selectedStructureId,
+    comments,
+    loadingComments,
     
     // Actions
     setSelectedStructureId,
@@ -964,6 +1143,14 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     reorderStructure,
     getStructureHierarchy,
     generateFromAlbertaCourses,
+    createQuickEntry,
+    
+    // Comment operations
+    loadComments,
+    createComment,
+    updateComment,
+    deleteComment,
+    getCommentCount,
     
     // Utilities
     uploadFiles

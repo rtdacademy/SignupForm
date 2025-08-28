@@ -19,7 +19,7 @@ const ManualContent = ({ course, courseId, courseDisplay, itemConfig, isStaffVie
 
       {AIAccordion ? (
         <div className="my-8">
-          <AIAccordion className="space-y-0">
+          <AIAccordion className="space-y-4">
             <AIAccordion.Item value="introduction" title="🌟 The Quantum Revolution Begins" onAskAI={onAIAccordionContent}>
               <div className="mt-4">
                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">

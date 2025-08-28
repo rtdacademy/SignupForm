@@ -57,6 +57,7 @@ export function AuthProvider({ children }) {
   const [isStaffUser, setIsStaffUser] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
+  const [isRTDLearningAdmin, setIsRTDLearningAdmin] = useState(false);
   const [isParentUser, setIsParentUser] = useState(false);
   const [isHomeEducationParent, setIsHomeEducationParent] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState({});
@@ -1031,6 +1032,16 @@ export function AuthProvider({ children }) {
               setIsAdminUser(adminStatus);
               setIsSuperAdminUser(superAdminStatus);
               
+              // Check RTD Learning Admin status from custom claims
+              try {
+                const tokenResult = await currentUser.getIdTokenResult();
+                const rtdLearningAdminStatus = tokenResult.claims?.isRTDLearningAdmin === true;
+                setIsRTDLearningAdmin(rtdLearningAdminStatus);
+              } catch (error) {
+                console.error('Error checking RTD Learning Admin status:', error);
+                setIsRTDLearningAdmin(false);
+              }
+              
               dataCreated = await ensureStaffNode(currentUser, emailKey);
               if (dataCreated) {
                 try {
@@ -1095,6 +1106,7 @@ export function AuthProvider({ children }) {
                 setIsStaffUser(false);
                 setIsAdminUser(false);
                 setIsSuperAdminUser(false);
+                setIsRTDLearningAdmin(false);
                 setIsParentUser(false);
                 
                 // For RTD Connect portal access, set isHomeEducationParent to true
@@ -1149,6 +1161,7 @@ export function AuthProvider({ children }) {
                 setIsStaffUser(false);
                 setIsAdminUser(false);
                 setIsSuperAdminUser(false);
+                setIsRTDLearningAdmin(false);
                 setIsParentUser(true);
                 
                 // Clear parent signup flag if it exists
@@ -1193,6 +1206,7 @@ export function AuthProvider({ children }) {
                 setIsStaffUser(false);
                 setIsAdminUser(false);
                 setIsSuperAdminUser(false);
+                setIsRTDLearningAdmin(false);
                 setIsParentUser(false);
                 setIsHomeEducationParent(false);
                 
@@ -1212,6 +1226,7 @@ export function AuthProvider({ children }) {
             setIsStaffUser(false);
             setIsAdminUser(false);
             setIsSuperAdminUser(false);
+            setIsRTDLearningAdmin(false);
             setIsParentUser(false);
             setIsHomeEducationParent(false);
             setCourseTeachers({});
@@ -1302,6 +1317,7 @@ export function AuthProvider({ children }) {
       setIsStaffUser(false);
       setIsAdminUser(false);
       setIsSuperAdminUser(false);
+      setIsRTDLearningAdmin(false);
       setIsParentUser(false);
       setIsHomeEducationParent(false);
       setCourseTeachers({});
@@ -1352,6 +1368,7 @@ export function AuthProvider({ children }) {
       setIsStaffUser(false);
       setIsAdminUser(false);
       setIsSuperAdminUser(false);
+      setIsRTDLearningAdmin(false);
       setIsParentUser(false);
       setIsHomeEducationParent(false);
       navigate('/login');
@@ -1436,6 +1453,7 @@ export function AuthProvider({ children }) {
     isStaffUser,
     isAdminUser,
     isSuperAdminUser,
+    isRTDLearningAdmin,
     isParentUser,
     isHomeEducationParent,
     ensureStaffNode,

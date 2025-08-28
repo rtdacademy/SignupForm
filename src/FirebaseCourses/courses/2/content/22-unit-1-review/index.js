@@ -2,7 +2,7 @@ import React from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
-const Unit1Review = ({ courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const Unit1Review = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
   return (
     <LessonContent
       lessonId="lesson_22_unit_1_review"
@@ -269,6 +269,7 @@ const Unit1Review = ({ courseId = 'default', AIAccordion, onAIAccordionContent }
 
       <SlideshowKnowledgeCheck
         course={course}
+        courseId={courseId}
         title="Unit 1 Review - Momentum and Impulse Practice"
         questions={[
           {
@@ -360,7 +361,6 @@ const Unit1Review = ({ courseId = 'default', AIAccordion, onAIAccordionContent }
             questionId: 'course2_22_unit1_q17'
           }
         ]}
-        courseId={courseId}
         lessonPath="lesson_22_unit_1_review"
         onAIAccordionContent={onAIAccordionContent}
       />

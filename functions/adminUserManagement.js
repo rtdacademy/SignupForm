@@ -1270,6 +1270,108 @@ const removeTempPasswordClaim = onCall({
   }
 });
 
+/**
+ * Cloud Function: updateUserCustomClaims
+ * 
+ * Allows admins to manually update a user's custom claims
+ * This provides full control over custom claims for debugging and management
+ */
+const updateUserCustomClaims = onCall({
+  concurrency: 50,
+  enforceAppCheck: false,
+  cors: [
+    "https://yourway.rtdacademy.com",
+    "https://rtdconnect.rtdacademy.com",
+    "http://localhost:3000",
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+  }
+
+  const { targetEmail, customClaims, reason = 'Admin manually updated custom claims' } = request.data;
+  const callerUid = request.auth.uid;
+  const callerEmail = request.auth.token.email;
+  const currentClaims = request.auth.token;
+  
+  console.log(`Admin ${callerEmail} (${callerUid}) updating custom claims for ${targetEmail}`);
+  
+  // Check admin permissions - only super admins can update claims
+  const isAdmin = currentClaims.isAdminUser === true || 
+                  currentClaims.permissions?.isAdmin === true ||
+                  currentClaims.roles?.includes('admin');
+  
+  const isSuperAdmin = ['kyle@rtdacademy.com', 'stan@rtdacademy.com', 'charlie@rtdacademy.com']
+    .includes(callerEmail?.toLowerCase());
+  
+  if (!isAdmin && !isSuperAdmin) {
+    console.warn(`Unauthorized attempt to update custom claims by ${callerEmail}`);
+    throw new HttpsError('permission-denied', 'Only administrators can update custom claims.');
+  }
+  
+  try {
+    // Get the target user by email
+    const targetUser = await admin.auth().getUserByEmail(targetEmail);
+    
+    if (!targetUser) {
+      throw new HttpsError('not-found', 'Target user not found.');
+    }
+    
+    // Validate custom claims (basic validation)
+    if (typeof customClaims !== 'object' || customClaims === null) {
+      throw new HttpsError('invalid-argument', 'Custom claims must be a valid object.');
+    }
+    
+    // Ensure we're not exceeding Firebase's 1000 byte limit for custom claims
+    const claimsString = JSON.stringify(customClaims);
+    if (claimsString.length > 1000) {
+      throw new HttpsError('invalid-argument', 
+        `Custom claims size (${claimsString.length} bytes) exceeds Firebase limit of 1000 bytes.`);
+    }
+    
+    // Log the current claims for audit
+    const currentUserClaims = targetUser.customClaims || {};
+    console.log('Current user claims:', currentUserClaims);
+    console.log('New claims to set:', customClaims);
+    
+    // Update the custom claims
+    await admin.auth().setCustomUserClaims(targetUser.uid, customClaims);
+    console.log('Custom claims updated successfully');
+    
+    // Update metadata to trigger token refresh
+    const db = admin.database();
+    const metadataRef = db.ref(`metadata/${targetUser.uid}`);
+    await metadataRef.update({
+      refreshTime: Date.now(),
+      lastClaimsUpdate: Date.now(),
+      updatedBy: callerEmail,
+      updateReason: reason
+    });
+    
+    // Log the admin action
+    await logAdminAction('updateUserCustomClaims', targetUser, 
+      { callerUid, callerEmail }, 
+      { reason, oldClaims: currentUserClaims, newClaims: customClaims });
+    
+    return {
+      success: true,
+      message: 'Custom claims updated successfully',
+      uid: targetUser.uid,
+      email: targetUser.email,
+      newClaims: customClaims
+    };
+    
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    console.error('Error updating custom claims:', error);
+    throw new HttpsError('internal', `Failed to update custom claims: ${error.message}`);
+  }
+});
+
 module.exports = {
   setTemporaryPassword,
   deleteFirebaseAuthUser,
@@ -1279,5 +1381,6 @@ module.exports = {
   sendTempPasswordEmail,
   createUserWithTempPassword,
   removeTempPasswordClaim,
-  verifyUserEmail
+  verifyUserEmail,
+  updateUserCustomClaims
 };

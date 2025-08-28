@@ -1,29 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { signInWithPopup, onAuthStateChanged } from "firebase/auth";
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
 import { auth, microsoftProvider } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { useAuth } from "../context/AuthContext";
 
 const RTDLearningAdminLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { currentUser, isRTDLearningAdmin } = useAuth();
 
   const db = getDatabase();
-
-  // Check if email is an allowed RTD Learning admin email
-  const isRTDLearningAdmin = (email) => {
-    if (typeof email !== 'string') return false;
-    const allowedEmails = [
-      'kyle@rtdacademy.com',
-      'stan@rtdacademy.com',
-      'marc@rtdacademy.com'
-    ];
-    return allowedEmails.includes(email.toLowerCase());
-  };
+  
+  // Check authentication on mount
+  useEffect(() => {
+    if (currentUser && isRTDLearningAdmin) {
+      navigate('/rtd-learning-admin-dashboard');
+    }
+  }, [currentUser, isRTDLearningAdmin, navigate]);
 
   // Convert Firebase error codes to user-friendly messages
   const getFriendlyErrorMessage = (error) => {
@@ -42,7 +40,7 @@ const RTDLearningAdminLogin = () => {
   };
 
   const ensureAdminUserData = async (user) => {
-    if (!user || !isRTDLearningAdmin(user.email)) return false;
+    if (!user) return false;
     
     const uid = user.uid;
     const userRef = ref(db, `users/${uid}`);
@@ -60,8 +58,7 @@ const RTDLearningAdminLogin = () => {
           createdAt: Date.now(),
           lastLogin: Date.now(),
           provider: user.providerData[0]?.providerId || 'microsoft.com',
-          emailVerified: user.emailVerified,
-          isRTDLearningAdmin: true
+          emailVerified: user.emailVerified
         };
         await set(userRef, userData);
       } else {
@@ -70,8 +67,7 @@ const RTDLearningAdminLogin = () => {
           ...existingData,
           lastLogin: Date.now(),
           emailVerified: user.emailVerified,
-          type: "staff",
-          isRTDLearningAdmin: true
+          type: "staff"
         });
       }
       return true;
@@ -95,14 +91,25 @@ const RTDLearningAdminLogin = () => {
         return;
       }
 
-      if (!isRTDLearningAdmin(user.email)) {
-        await auth.signOut();
-        setError("Access denied. This login is only for authorized RTD Learning administrators (kyle@rtdacademy.com, stan@rtdacademy.com, or marc@rtdacademy.com).");
-        return;
-      }
-
+      // First ensure user data in database
       await ensureAdminUserData(user);
-      navigate("/rtd-learning-admin-dashboard");
+      
+      // Force token refresh to get the latest claims
+      try {
+        const tokenResult = await user.getIdTokenResult(true); // Force refresh
+        const hasRTDLearningAdmin = tokenResult.claims?.isRTDLearningAdmin === true;
+        
+        if (!hasRTDLearningAdmin) {
+          await auth.signOut();
+          setError("Access denied. This login is only for authorized RTD Learning administrators.");
+          return;
+        }
+        
+        // User has the right permissions, the useEffect will handle navigation
+        // once AuthContext updates with the new claims
+      } catch (error) {
+        console.error("Error checking admin claims:", error);
+      }
       
     } catch (error) {
       console.error("Admin sign-in error:", error);

@@ -18,7 +18,9 @@ import {
   FilePenLine,
   UserCog,
   ClipboardCheck,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Zap,
+  Camera
 } from 'lucide-react';
 import { getAllFacilitators } from '../config/facilitators';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +43,7 @@ import {
   SheetTitle,
   SheetDescription
 } from '../components/ui/sheet';
+import { Button } from '../components/ui/button';
 import TemplateManager from '../StudentManagement/TemplateManager';
 import AdminUserManagement from '../TeacherDashboard/AdminUserManagement';
 
@@ -90,7 +93,9 @@ function HomeEducationHeader({
   setShowImpersonationDropdown,
   statusFilter,
   setStatusFilter,
-  stats
+  stats,
+  // Portfolio quick add props
+  onQuickAddToPortfolio
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -214,9 +219,23 @@ function HomeEducationHeader({
             )}
           </div>
 
-          {/* Right section - Hamburger Menu */}
+          {/* Right section - Quick Add Button and Hamburger Menu */}
           {user && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              {/* Portfolio Quick Add Button - shown when callback is provided */}
+              {onQuickAddToPortfolio && (
+                <Button
+                  onClick={onQuickAddToPortfolio}
+                  size="sm"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white gap-2"
+                  title="Quick Add to Portfolio"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span className="hidden md:inline">Quick Add</span>
+                  <Camera className="w-4 h-4 md:hidden" />
+                </Button>
+              )}
+              
               <span className="text-gray-700 text-sm hidden lg:inline">
                 Welcome, {getUserDisplayName()}
               </span>

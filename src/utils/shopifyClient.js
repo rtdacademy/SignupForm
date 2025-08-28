@@ -317,7 +317,9 @@ export const shopifyUtils = {
 
   // Check if product is available
   isProductAvailable(product) {
-    return product?.availableForSale && product?.totalInventory > 0;
+    // For digital products/sessions, we only check if it's available for sale
+    // (active status and published to the sales channel)
+    return product?.availableForSale === true;
   },
 
   // Get minimum price from product

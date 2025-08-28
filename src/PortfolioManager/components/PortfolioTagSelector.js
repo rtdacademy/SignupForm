@@ -130,72 +130,6 @@ const PortfolioTagSelector = ({
            (selectedTags.resources?.length || 0);
   };
 
-  // Compact view for smaller spaces
-  if (compact) {
-    return (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Tags ({getTotalSelectedCount()})
-        </label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <span className="flex items-center">
-                <Tag className="w-4 h-4 mr-2" />
-                {getTotalSelectedCount() > 0 
-                  ? `${getTotalSelectedCount()} tags selected`
-                  : 'Add tags...'}
-              </span>
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            <TagSelectorContent />
-          </PopoverContent>
-        </Popover>
-        
-        {/* Selected tags preview */}
-        {getTotalSelectedCount() > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {selectedTags.activities?.map((tag, index) => (
-              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
-                <button
-                  onClick={() => toggleTag('activities', tag)}
-                  className="ml-1 hover:text-blue-900"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            {selectedTags.assessments?.map((tag, index) => (
-              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
-                <button
-                  onClick={() => toggleTag('assessments', tag)}
-                  className="ml-1 hover:text-green-900"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            {selectedTags.resources?.map((tag, index) => (
-              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
-                <button
-                  onClick={() => toggleTag('resources', tag)}
-                  className="ml-1 hover:text-purple-900"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // Tag selector content (used in both full and popover views)
   const TagSelectorContent = () => (
     <>
@@ -299,30 +233,92 @@ const PortfolioTagSelector = ({
                       )}
                     </div>
                     {description && (
-                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                        {description}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">{description}</p>
                     )}
                   </div>
-                  {isSelected && (
-                    <div className={`ml-2 p-1 bg-${getCategoryColor(activeCategory)}-600 rounded`}>
-                      <X className="w-3 h-3 text-white" />
-                    </div>
-                  )}
+                  <div className="ml-2">
+                    {isSelected ? (
+                      <div className={`w-5 h-5 rounded-full bg-${getCategoryColor(activeCategory)}-500 flex items-center justify-center`}>
+                        <X className="w-3 h-3 text-white" />
+                      </div>
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                    )}
+                  </div>
                 </div>
               </button>
             );
           })}
         </div>
-        
-        {getFilteredTags(activeCategory).length === 0 && (
-          <p className="text-center text-gray-500 text-sm py-4">
-            No tags found matching "{searchQuery}"
-          </p>
-        )}
       </div>
     </>
   );
+
+  // Compact view for smaller spaces
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Tags ({getTotalSelectedCount()})
+        </label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <span className="flex items-center">
+                <Tag className="w-4 h-4 mr-2" />
+                {getTotalSelectedCount() > 0 
+                  ? `${getTotalSelectedCount()} tags selected`
+                  : 'Add tags...'}
+              </span>
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <TagSelectorContent />
+          </PopoverContent>
+        </Popover>
+        
+        {/* Selected tags preview */}
+        {getTotalSelectedCount() > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {selectedTags.activities?.map((tag, index) => (
+              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                {getTagDisplayName(tag)}
+                <button
+                  onClick={() => toggleTag('activities', tag)}
+                  className="ml-1 hover:text-blue-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            {selectedTags.assessments?.map((tag, index) => (
+              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                {getTagDisplayName(tag)}
+                <button
+                  onClick={() => toggleTag('assessments', tag)}
+                  className="ml-1 hover:text-green-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            {selectedTags.resources?.map((tag, index) => (
+              <span key={index} className="inline-flex items-center px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                {getTagDisplayName(tag)}
+                <button
+                  onClick={() => toggleTag('resources', tag)}
+                  className="ml-1 hover:text-purple-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Full view
   return (
