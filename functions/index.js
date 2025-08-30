@@ -127,6 +127,10 @@ const familyEmailFunctions = require('./familyEmails');
 exports.sendFamilyEmailsV2 = familyEmailFunctions.sendFamilyEmailsV2;
 exports.handleFamilyWebhookEvents = familyEmailFunctions.handleFamilyWebhookEvents;
 
+// Email tracking webhook
+const { trackEmailOpens } = require('./trackEmailOpens');
+exports.trackEmailOpens = trackEmailOpens;
+
 // Payment functions
 exports.handleStripeWebhookV2 = stripeFunctions.handleStripeWebhookV2;
 exports.handleOneTimePaymentV2 = stripeFunctions.handleOneTimePaymentV2;

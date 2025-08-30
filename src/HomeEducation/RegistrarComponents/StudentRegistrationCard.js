@@ -42,8 +42,15 @@ import {
 } from '../../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Separator } from '../../components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '../../components/ui/sheet';
 import { 
-  calculateAge,
   copyToClipboard,
   getSchoolBoardCode,
   formatAddressForCopy,
@@ -59,6 +66,7 @@ import {
   formatAiAnalysis,
   getAiAnalysisStatus
 } from './utils/registrationUtils';
+import { calculateAge } from '../../utils/timeZoneUtils';
 
 // Component for copyable field with visual feedback
 const CopyableField = ({ label, value, fieldName, icon: Icon, className = "" }) => {
@@ -130,8 +138,11 @@ const DocumentButton = ({ document, type, onView, label }) => {
   );
 };
 
-// Component for AI Analysis Popover
-const AiAnalysisPopover = ({ document, studentName }) => {
+// Component for AI Analysis Sheet
+const AiAnalysisSheet = ({ document, studentName }) => {
+  const [imageError, setImageError] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  
   if (!document?.aiAnalysis) return null;
   
   const analysis = formatAiAnalysis(document.aiAnalysis);
@@ -147,19 +158,18 @@ const AiAnalysisPopover = ({ document, studentName }) => {
   };
   
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
         <button className="p-1 hover:bg-gray-100 rounded transition-colors">
           <Brain className={`w-4 h-4 ${iconColors[statusColor]} hover:scale-110 transition-transform`} />
         </button>
-      </PopoverTrigger>
-      <PopoverContent side="left" align="start" className="w-96 max-h-[600px] overflow-y-auto">
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b pb-2">
+      </SheetTrigger>
+      <SheetContent side="right" className="w-[500px] sm:w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Sparkles className={`w-5 h-5 ${iconColors[statusColor]}`} />
-              <h3 className="font-semibold">AI Document Analysis</h3>
+              <span>AI Document Analysis</span>
             </div>
             <Badge className={`
               ${statusColor === 'green' ? 'bg-green-100 text-green-800' : 
@@ -170,7 +180,13 @@ const AiAnalysisPopover = ({ document, studentName }) => {
             `}>
               {analysis.overallScore}% Match
             </Badge>
-          </div>
+          </SheetTitle>
+          <SheetDescription>
+            Automated analysis of {document.name || 'citizenship document'} for {studentName}
+          </SheetDescription>
+        </SheetHeader>
+        
+        <div className="space-y-4 mt-6">
           
           {/* Document Type Analysis */}
           <div className="space-y-2">
@@ -295,12 +311,49 @@ const AiAnalysisPopover = ({ document, studentName }) => {
           {document.url && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Document Preview</h4>
-              <div className="border rounded-lg overflow-hidden">
-                <img 
-                  src={document.url} 
-                  alt="Document preview"
-                  className="w-full h-48 object-contain bg-gray-50"
-                />
+              <div className="border rounded-lg overflow-hidden bg-gray-50">
+                {/* Check if the document is a PDF */}
+                {document.name?.toLowerCase().endsWith('.pdf') ? (
+                  <div className="w-full h-96 flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-3" />
+                      <p className="text-base text-gray-600 font-medium">PDF Document</p>
+                      <p className="text-sm text-gray-500 mt-1">{document.name}</p>
+                      <p className="text-xs text-gray-400 mt-2">PDF preview not available in browser</p>
+                    </div>
+                  </div>
+                ) : 
+                /* Check if it's a known image format */
+                (document.name?.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) || 
+                 document.url?.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i)) ? (
+                  imageError ? (
+                    /* Show fallback if image failed to load */
+                    <div className="w-full h-96 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-3" />
+                        <p className="text-base text-gray-600">Preview unavailable</p>
+                        <p className="text-sm text-gray-500 mt-1">Click below to view the full document</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img 
+                      src={document.url} 
+                      alt="Document preview"
+                      className="w-full h-96 object-contain"
+                      onError={() => setImageError(true)}
+                    />
+                  )
+                ) : (
+                  /* For other file types, show a generic file icon */
+                  <div className="w-full h-96 flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-3" />
+                      <p className="text-base text-gray-600">Document File</p>
+                      <p className="text-sm text-gray-500 mt-1">{document.name || 'Unknown file type'}</p>
+                      <p className="text-xs text-gray-400 mt-2">Click below to view</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <Button
                 variant="outline"
@@ -331,8 +384,8 @@ const AiAnalysisPopover = ({ document, studentName }) => {
             </div>
           )}
         </div>
-      </PopoverContent>
-    </Popover>
+      </SheetContent>
+    </Sheet>
   );
 };
 
@@ -388,7 +441,7 @@ const StudentRegistrationCard = ({
     let completed = 0;
     let total = 5;
     
-    if (student.asn) completed++;
+    if (student.asn || student.readyForPASI) completed++;
     if (notificationData?.submitted) completed++;
     if (citizenshipData?.approved) completed++;
     if (educationData?.submitted) completed++;
@@ -399,7 +452,7 @@ const StudentRegistrationCard = ({
       total,
       percentage: Math.round((completed / total) * 100)
     };
-  }, [student.asn, notificationData, citizenshipData, educationData, primaryGuardian]);
+  }, [student.asn, student.readyForPASI, notificationData, citizenshipData, educationData, primaryGuardian]);
   
   // Get school board code for copying
   const schoolBoardCode = useMemo(() => {
@@ -463,7 +516,8 @@ const StudentRegistrationCard = ({
               <div>
                 <div className="font-medium text-sm">
                   {student.firstName} {student.lastName}
-                  {!student.asn && <AlertCircle className="inline w-3 h-3 ml-1 text-red-500" />}
+                  {!student.asn && !student.readyForPASI && <AlertCircle className="inline w-3 h-3 ml-1 text-red-500" />}
+                  {!student.asn && student.readyForPASI && <Info className="inline w-3 h-3 ml-1 text-blue-500" />}
                 </div>
                 <div className="text-xs text-gray-500">
                   Grade {student.grade} • {familyData?.familyName}
@@ -596,7 +650,7 @@ const StudentRegistrationCard = ({
                   />
                   <CopyableField
                     label="Age"
-                    value={calculateAge(student.birthday) ? `${calculateAge(student.birthday)} years` : 'N/A'}
+                    value={calculateAge(student.birthday) !== null ? `${calculateAge(student.birthday)} years` : 'N/A'}
                     fieldName="Age"
                     icon={Clock}
                   />
@@ -608,10 +662,18 @@ const StudentRegistrationCard = ({
                   value={student.asn}
                   fieldName="ASN"
                   icon={Hash}
-                  className={!student.asn ? "bg-red-50 border border-red-200" : ""}
+                  className={!student.asn && !student.readyForPASI ? "bg-red-50 border border-red-200" : 
+                            (!student.asn && student.readyForPASI ? "bg-blue-50 border border-blue-200" : "")}
                 />
                 
-                {!student.asn && (
+                {!student.asn && student.readyForPASI && (
+                  <p className="text-xs text-blue-600 flex items-center">
+                    <Info className="w-3 h-3 mr-1" />
+                    ASN Needs to be created
+                  </p>
+                )}
+                
+                {!student.asn && !student.readyForPASI && (
                   <p className="text-xs text-red-600 flex items-center">
                     <AlertCircle className="w-3 h-3 mr-1" />
                     ASN required for PASI registration
@@ -839,7 +901,7 @@ const StudentRegistrationCard = ({
                     )}
                     <span className="text-xs">Citizenship</span>
                     {citizenshipData?.hasAiAnalysis && citizenshipData?.documents?.[0] && (
-                      <AiAnalysisPopover 
+                      <AiAnalysisSheet 
                         document={citizenshipData.documents[0]} 
                         studentName={`${student.firstName} ${student.lastName}`}
                       />

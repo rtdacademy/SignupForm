@@ -5,44 +5,17 @@ import { useStaffClaims } from '../customClaims/useStaffClaims';
 import { 
   Users, 
   Search, 
-  Filter, 
-  Download, 
   Eye, 
-  Calendar,
   AlertCircle,
   CheckCircle2,
   Clock,
   Hash,
-  User,
   FileText,
-  UserCheck,
-  Globe,
-  ChevronDown,
-  X,
-  UserPlus,
-  Save,
   AlertTriangle,
   Loader2,
-  ClipboardCheck,
   ClipboardList,
-  ChevronRight,
-  BookOpen,
-  CreditCard,
-  MapPin,
-  Mail,
-  Phone,
-  Edit,
-  ExternalLink,
-  FileDown,
-  History,
   CheckSquare,
-  XCircle,
-  HelpCircle,
-  BarChart3,
-  TrendingUp,
-  Target,
-  Award,
-  Activity
+  XCircle
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
@@ -51,9 +24,6 @@ import {
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import StudentRegistrationCard from './RegistrarComponents/StudentRegistrationCard';
 import RegistrationDetailSheet from './RegistrarComponents/RegistrationDetailSheet';
-import RegistrationWorkflow from './RegistrarComponents/RegistrationWorkflow';
-import RegistrarStats from './RegistrarComponents/RegistrarStats';
-import RegistrationReports from './RegistrarComponents/RegistrationReports';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -86,8 +56,10 @@ import { toast } from 'sonner';
 const determineStudentStatus = (student, familyData, schoolYear) => {
   const dbSchoolYear = schoolYear.replace('/', '_');
   
-  // Check if student has ASN
+  // Check if student has ASN or is marked as ready for PASI (ASN to be created)
   const hasASN = !!student.asn;
+  const isReadyForPASI = student.readyForPASI === true;
+  const hasIdentification = hasASN || isReadyForPASI;
   
   // Check notification form status
   const notificationForm = familyData?.NOTIFICATION_FORMS?.[dbSchoolYear]?.[student.id];
@@ -113,7 +85,7 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
   if (registeredInPasi) {
     // Check if registration is complete or incomplete
     const missingItems = [];
-    if (!hasASN) missingItems.push('ASN');
+    if (!hasASN && !isReadyForPASI) missingItems.push('ASN');
     if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
     if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
     
@@ -123,7 +95,8 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
         label: `Incomplete - Missing: ${missingItems.join(', ')}`,
         color: 'yellow',
         priority: 1,
-        missingItems
+        missingItems,
+        needsASNCreation: isReadyForPASI && !hasASN
       };
     }
     
@@ -145,8 +118,8 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
     };
   }
   
-  // Has notification form but missing ASN - CANNOT be ready for PASI
-  if (!hasASN) {
+  // Has notification form but missing identification (ASN or readyForPASI flag)
+  if (!hasIdentification) {
     const missingItems = ['ASN'];
     if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
     if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
@@ -160,45 +133,29 @@ const determineStudentStatus = (student, familyData, schoolYear) => {
     };
   }
   
-  // Has notification form AND ASN - ready for PASI
+  // Has notification form AND (ASN or readyForPASI) - ready for PASI
   const missingItems = [];
   if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
   if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
   
+  // Add special indicator if ASN needs to be created
+  const needsASNCreation = isReadyForPASI && !hasASN;
+  
   return {
     status: 'ready',
-    label: missingItems.length > 0 ? `Ready for PASI (Missing: ${missingItems.join(', ')})` : 'Ready for PASI',
+    label: needsASNCreation 
+      ? (missingItems.length > 0 
+          ? `Ready for PASI - ASN pending (Missing: ${missingItems.join(', ')})` 
+          : 'Ready for PASI - ASN pending')
+      : (missingItems.length > 0 
+          ? `Ready for PASI (Missing: ${missingItems.join(', ')})` 
+          : 'Ready for PASI'),
     color: 'blue',
     priority: 2,
-    missingItems
+    missingItems,
+    needsASNCreation
   };
 };
-
-// Statistics Card Component
-const StatsCard = ({ title, value, icon: Icon, color = 'blue', subtitle, trend }) => (
-  <Card className="hover:shadow-md transition-shadow">
-    <CardHeader className="pb-2">
-      <div className="flex items-center justify-between">
-        <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
-        <div className={`p-2 rounded-lg bg-${color}-100`}>
-          <Icon className={`w-4 h-4 text-${color}-600`} />
-        </div>
-      </div>
-    </CardHeader>
-    <CardContent>
-      <div className="flex items-baseline justify-between">
-        <p className="text-2xl font-bold">{value}</p>
-        {trend && (
-          <div className={`flex items-center text-sm ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {trend > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <Activity className="w-3 h-3 mr-1" />}
-            {Math.abs(trend)}%
-          </div>
-        )}
-      </div>
-      {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-    </CardContent>
-  </Card>
-);
 
 const RegistrarDashboard = (props) => {
   const { user } = useAuth();
@@ -222,9 +179,6 @@ const RegistrarDashboard = (props) => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedFamily, setSelectedFamily] = useState(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [workflowOpen, setWorkflowOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [reportsOpen, setReportsOpen] = useState(false);
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
   const [filters, setFilters] = useState({
     facilitator: 'all',
@@ -232,18 +186,6 @@ const RegistrarDashboard = (props) => {
     status: 'all',
     missingData: 'all'
   });
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    readyForPasi: 0,
-    missingAsn: 0,
-    missingDocs: 0,
-    completed: 0,
-    incomplete: 0,
-    todayProcessed: 0,
-    weekProcessed: 0,
-    avgProcessingTime: 0
-  });
-  const [processingQueue, setProcessingQueue] = useState([]);
   
   // Initialize active school year
   useEffect(() => {
@@ -271,82 +213,15 @@ const RegistrarDashboard = (props) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setFamilies(data);
-        calculateStats(data);
       } else {
         // No families found for this status
         setFamilies({});
-        calculateStats({});
       }
       setLoading(false);
     });
     
     return () => off(familiesRef, 'value', unsubscribe);
   }, [activeSchoolYear, statusFilter]);
-  
-  // Calculate statistics
-  const calculateStats = (familiesData) => {
-    let totalStudents = 0;
-    let readyForPasi = 0;
-    let missingAsn = 0;
-    let missingDocs = 0;
-    let completed = 0;
-    let incomplete = 0;
-    
-    Object.entries(familiesData).forEach(([familyId, family]) => {
-      if (family.students) {
-        Object.values(family.students).forEach(student => {
-          totalStudents++;
-          const status = determineStudentStatus(student, family, activeSchoolYear);
-          
-          // Count missing ASN for ANY student without ASN
-          if (!student.asn || student.asn === '') {
-            missingAsn++;
-          }
-          
-          // Count missing docs for ANY student without approved docs
-          const dbSchoolYear = activeSchoolYear.replace('/', '_');
-          const citizenshipDocs = family?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
-          const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true || 
-                                  citizenshipDocs?.completionStatus === 'completed';
-          if (!hasApprovedDocs) {
-            missingDocs++;
-          }
-          
-          switch (status.status) {
-            case 'ready':
-              readyForPasi++;
-              break;
-            case 'missing-notification':
-              // Count students with missing notification forms
-              break;
-            case 'missing-asn':
-              // Count students with notification but missing ASN separately
-              // They are NOT ready for PASI
-              break;
-            case 'incomplete':
-              incomplete++;
-              break;
-            case 'completed':
-              completed++;
-              break;
-          }
-        });
-      }
-    });
-    
-    setStats({
-      totalStudents,
-      readyForPasi,
-      missingAsn,
-      missingDocs,
-      completed,
-      incomplete,
-      todayProcessed: 0, // Would calculate from today's activity
-      weekProcessed: 0, // Would calculate from week's activity
-      avgProcessingTime: 0 // Would calculate from processing times
-    });
-  };
-  
   // Process students for display
   const processedStudents = useMemo(() => {
     const studentsList = [];
@@ -573,81 +448,7 @@ const RegistrarDashboard = (props) => {
               <h1 className="text-3xl font-bold text-gray-900">Registrar Dashboard</h1>
               <p className="text-gray-600 mt-1">PASI Registration Management for {activeSchoolYear}</p>
             </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => setWorkflowOpen(true)}
-                variant="outline"
-                className="flex items-center"
-              >
-                <ClipboardCheck className="w-4 h-4 mr-2" />
-                Workflow Guide
-              </Button>
-              <Button
-                onClick={() => setReportsOpen(true)}
-                variant="outline"
-                className="flex items-center"
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                onClick={() => setStatsOpen(true)}
-                variant="outline"
-                className="flex items-center"
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Analytics
-              </Button>
-            </div>
           </div>
-        </div>
-        
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <StatsCard
-            title="Total Students"
-            value={stats.totalStudents}
-            icon={Users}
-            color="purple"
-            subtitle="All registered families"
-          />
-          <StatsCard
-            title="Ready for PASI"
-            value={stats.readyForPasi}
-            icon={CheckCircle2}
-            color="blue"
-            subtitle="Complete documentation"
-            trend={12}
-          />
-          <StatsCard
-            title="Missing ASN"
-            value={stats.missingAsn}
-            icon={Hash}
-            color="red"
-            subtitle="Requires ASN lookup"
-          />
-          <StatsCard
-            title="Missing Docs"
-            value={stats.missingDocs}
-            icon={FileText}
-            color="orange"
-            subtitle="Incomplete documents"
-          />
-          <StatsCard
-            title="Incomplete"
-            value={stats.incomplete}
-            icon={AlertTriangle}
-            color="yellow"
-            subtitle="In PASI, missing docs"
-          />
-          <StatsCard
-            title="Completed"
-            value={stats.completed}
-            icon={Award}
-            color="green"
-            subtitle="Fully registered"
-            trend={8}
-          />
         </div>
         
         {/* Filters and Search */}
@@ -859,28 +660,6 @@ const RegistrarDashboard = (props) => {
         />
       )}
       
-      
-      {/* Workflow Guide */}
-      <RegistrationWorkflow
-        isOpen={workflowOpen}
-        onClose={() => setWorkflowOpen(false)}
-      />
-      
-      {/* Stats Dashboard */}
-      <RegistrarStats
-        isOpen={statsOpen}
-        onClose={() => setStatsOpen(false)}
-        families={families}
-        schoolYear={activeSchoolYear}
-      />
-      
-      {/* Reports Export */}
-      <RegistrationReports
-        isOpen={reportsOpen}
-        onClose={() => setReportsOpen(false)}
-        families={families}
-        schoolYear={activeSchoolYear}
-      />
     </div>
   );
 };

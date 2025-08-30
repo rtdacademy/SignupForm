@@ -2,23 +2,7 @@
 import { toast } from 'sonner';
 import { getAllAuthorities } from '../../../config/albertaSchoolBoards';
 import { getFacilitatorByEmail } from '../../../config/facilitators';
-
-/**
- * Calculate age from birthday
- * @param {string|Date} birthday - The birthday to calculate from
- * @returns {number|null} The calculated age or null if invalid
- */
-export const calculateAge = (birthday) => {
-  if (!birthday) return null;
-  const birthDate = new Date(birthday);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-};
+import { calculateAge, formatDateForDisplay, toEdmontonDate } from '../../../utils/timeZoneUtils';
 
 /**
  * Copy text to clipboard with success feedback
@@ -121,9 +105,10 @@ export const getPreviousDocumentVersions = (versions) => {
 export const formatDate = (date) => {
   if (!date) return '';
   
-  const dateObj = typeof date === 'number' ? new Date(date) : new Date(date);
+  // Use toEdmontonDate to properly handle YYYY-MM-DD strings without timezone shift
+  const dateObj = toEdmontonDate(date);
   
-  if (isNaN(dateObj.getTime())) return '';
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
   
   return dateObj.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
 };
@@ -316,7 +301,8 @@ export const buildStudentInfoText = (student, notificationData, guardian) => {
   if (student.asn) lines.push(`ASN: ${student.asn}`);
   lines.push(`Name: ${student.firstName} ${student.lastName}`);
   if (student.preferredName) lines.push(`Preferred Name: ${student.preferredName}`);
-  lines.push(`Birthday: ${formatDate(student.birthday)} (Age: ${calculateAge(student.birthday)})`);
+  const age = calculateAge(student.birthday);
+  lines.push(`Birthday: ${formatDate(student.birthday)}${age !== null ? ` (Age: ${age})` : ''}`);
   lines.push(`Grade: ${student.grade}`);
   lines.push(`Gender: ${student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : 'Other'}`);
   

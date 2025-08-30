@@ -55,6 +55,7 @@ const isFormComplete = (formData) => {
   );
 };
 
+
 // Helper function to determine form status including completeness
 const determineFormStatus = (formData) => {
   if (!formData) return 'pending';
@@ -622,6 +623,10 @@ const RTDConnectDashboard = ({
   const [familyPaymentEligibility, setFamilyPaymentEligibility] = useState(null);
   const [studentPaymentEligibility, setStudentPaymentEligibility] = useState({});
 
+  // Collapsed forms state - to minimize completed items
+  const [showCompletedForms, setShowCompletedForms] = useState({});
+  const [expandedCompletedSections, setExpandedCompletedSections] = useState({});
+
   // Staff mode detection
   const isStaffViewing = staffView || false;
   const effectiveFamilyId = isStaffViewing && propFamilyId ? propFamilyId : customClaims?.familyId;
@@ -629,6 +634,27 @@ const RTDConnectDashboard = ({
   
   // Target user UID for staff mode profile editing
   const [targetUserUid, setTargetUserUid] = useState(null);
+
+  // Helper function to check if registration form should be minimized
+  const shouldMinimizeRegistration = (studentId) => {
+    const formStatus = studentFormStatuses[studentId]?.current || 'pending';
+    return formStatus === 'submitted' && !expandedCompletedSections[`registration-${studentId}`];
+  };
+
+  // Helper function to check if citizenship docs should be minimized
+  const shouldMinimizeCitizenship = (studentId) => {
+    const docStatus = studentDocumentStatuses[studentId] || { status: 'pending' };
+    const isApproved = docStatus.status === 'completed' || docStatus.staffApproval?.isApproved;
+    return isApproved && !expandedCompletedSections[`citizenship-${studentId}`];
+  };
+
+  // Toggle expanded state for completed sections
+  const toggleCompletedSection = (sectionId) => {
+    setExpandedCompletedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
 
   // Initialize school year tracking
   useEffect(() => {
@@ -3944,128 +3970,223 @@ Check console for full details.
                             
                             {/* Home Education Notification Form Status */}
                             <div className="mt-3 pt-3 border-t border-blue-300">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  <FileText className="w-4 h-4 text-blue-500" />
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {activeSchoolYear} Registration
-                                  </span>
-                                  {formStatus === 'submitted' ? (
+                              {shouldMinimizeRegistration(student.id) ? (
+                                // Minimized view for completed registration
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2 flex-1">
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                  ) : formStatus === 'incomplete' ? (
-                                    <AlertCircle className="w-4 h-4 text-yellow-500" />
-                                  ) : ['draft', 'draft-complete'].includes(formStatus) ? (
-                                    <Clock className="w-4 h-4 text-blue-500" />
-                                  ) : (
-                                    <AlertCircle className="w-4 h-4 text-orange-500" />
-                                  )}
-                                </div>
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
-                                  formStatus === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' :
-                                  formStatus === 'incomplete' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                  formStatus === 'draft-complete' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                  formStatus === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                  'bg-orange-100 text-orange-700 border-orange-300'
-                                }`}>
-                                  {formStatus === 'submitted' ? 'Complete' :
-                                   formStatus === 'incomplete' ? 'Incomplete' :
-                                   formStatus === 'draft-complete' ? 'Ready' :
-                                   formStatus === 'draft' ? 'Draft' : 'Required'}
-                                </span>
-                              </div>
-                              
-                              {/* Form Access Button - Primary Guardians and Staff */}
-                              {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
-                                <div className="space-y-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {activeSchoolYear} Registration
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700 border border-green-300">
+                                      Complete
+                                    </span>
+                                  </div>
                                   <button
-                                    onClick={() => {
-                                      setSelectedStudent(student);
-                                      setShowNotificationForm(true);
-                                    }}
-                                    className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
-                                      formStatus === 'submitted' ?
-                                      'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
-                                      formStatus === 'incomplete' ?
-                                      'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border border-yellow-300 hover:border-yellow-400' :
-                                      ['draft', 'draft-complete'].includes(formStatus) ?
-                                      'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
-                                      'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
-                                    }`}
+                                    onClick={() => toggleCompletedSection(`registration-${student.id}`)}
+                                    className="text-xs text-green-600 hover:text-green-700 font-medium"
                                   >
-                                    {isStaff() ? 
-                                      (formStatus === 'submitted' || formStatus === 'incomplete' || ['draft', 'draft-complete'].includes(formStatus) ? 
-                                        `View ${activeSchoolYear} Registration` : 
-                                        `View ${activeSchoolYear} Registration`) :
-                                      (formStatus === 'submitted' ? `Update ${activeSchoolYear} Form` : 
-                                       formStatus === 'incomplete' ? `Complete Missing Parts` :
-                                       formStatus === 'draft-complete' ? `Submit ${activeSchoolYear} Form` :
-                                       formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
-                                       `Start ${activeSchoolYear} Form`)
-                                    }
+                                    Expand
                                   </button>
                                 </div>
                               ) : (
-                                <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
-                                  Contact Primary Guardian
-                                </div>
+                                // Full view for incomplete or expanded registration
+                                <>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center space-x-2">
+                                      <FileText className="w-4 h-4 text-blue-500" />
+                                      <span className="text-sm font-medium text-gray-700">
+                                        {activeSchoolYear} Registration
+                                      </span>
+                                      {formStatus === 'submitted' ? (
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                      ) : formStatus === 'incomplete' ? (
+                                        <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                      ) : ['draft', 'draft-complete'].includes(formStatus) ? (
+                                        <Clock className="w-4 h-4 text-blue-500" />
+                                      ) : (
+                                        <AlertCircle className="w-4 h-4 text-orange-500" />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                        formStatus === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' :
+                                        formStatus === 'incomplete' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                        formStatus === 'draft-complete' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                        formStatus === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                        'bg-orange-100 text-orange-700 border-orange-300'
+                                      }`}>
+                                        {formStatus === 'submitted' ? 'Complete' :
+                                         formStatus === 'incomplete' ? 'Incomplete' :
+                                         formStatus === 'draft-complete' ? 'Ready' :
+                                         formStatus === 'draft' ? 'Draft' : 'Required'}
+                                      </span>
+                                      {formStatus === 'submitted' && (
+                                        <button
+                                          onClick={() => toggleCompletedSection(`registration-${student.id}`)}
+                                          className="text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                          Minimize
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Form Access Button - Primary Guardians and Staff */}
+                                  {(customClaims?.familyRole === 'primary_guardian' || isStaff()) ? (
+                                    <div className="space-y-2">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedStudent(student);
+                                          setShowNotificationForm(true);
+                                        }}
+                                        className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                          formStatus === 'submitted' ?
+                                          'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                          formStatus === 'incomplete' ?
+                                          'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border border-yellow-300 hover:border-yellow-400' :
+                                          ['draft', 'draft-complete'].includes(formStatus) ?
+                                          'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
+                                          'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
+                                        }`}
+                                      >
+                                        {isStaff() ? 
+                                          (formStatus === 'submitted' || formStatus === 'incomplete' || ['draft', 'draft-complete'].includes(formStatus) ? 
+                                            `View ${activeSchoolYear} Registration` : 
+                                            `View ${activeSchoolYear} Registration`) :
+                                          (formStatus === 'submitted' ? `View ${activeSchoolYear} Form` : 
+                                           formStatus === 'incomplete' ? `Complete Missing Parts` :
+                                           formStatus === 'draft-complete' ? `Submit ${activeSchoolYear} Form` :
+                                           formStatus === 'draft' ? `Complete ${activeSchoolYear} Form` : 
+                                           `Start ${activeSchoolYear} Form`)
+                                        }
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md text-center">
+                                      Contact Primary Guardian
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
 
                             {/* Citizenship Documents Status */}
                             <div className="mt-3 pt-3 border-t border-blue-300">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  <Upload className="w-4 h-4 text-purple-500" />
-                                  <span className="text-sm font-medium text-gray-700">
-                                    Citizenship Documents
-                                  </span>
-                                  {docStatus.status === 'completed' ? (
+                              {shouldMinimizeCitizenship(student.id) ? (
+                                // Minimized view for approved documents
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2 flex-1">
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                  ) : docStatus.status === 'pending-review' ? (
-                                    <Eye className="w-4 h-4 text-orange-500" />
-                                  ) : (
-                                    <AlertCircle className="w-4 h-4 text-red-500" />
-                                  )}
-                                </div>
-                                {docStatus.status === 'completed' && docStatus.staffApproval ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <button className="inline-flex items-center space-x-1 text-xs px-2 py-1 rounded-full font-medium shadow-sm border bg-green-100 text-green-700 border-green-300 hover:bg-green-200 transition-colors cursor-pointer">
-                                        <CheckCircle2 className="w-3 h-3" />
-                                        <span>Staff Verified</span>
-                                      </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-64 p-3">
-                                      <div className="space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                          <span className="font-medium text-green-900">Staff Approved</span>
-                                        </div>
-                                        <div className="text-sm text-gray-700">
-                                          <p><strong>Approved by:</strong> {docStatus.staffApproval.approvedBy.email}</p>
-                                          <p><strong>Date:</strong> {new Date(docStatus.staffApproval.approvedAt).toLocaleDateString()}</p>
-                                          {docStatus.staffApproval.comment && (
-                                            <div className="mt-2">
-                                              <p><strong>Comment:</strong></p>
-                                              <p className="text-xs text-gray-600 italic">"{docStatus.staffApproval.comment}"</p>
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Citizenship Documents
+                                    </span>
+                                    {docStatus.staffApproval ? (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="inline-flex items-center space-x-1 text-xs px-2 py-1 rounded-full font-medium shadow-sm border bg-green-100 text-green-700 border-green-300 hover:bg-green-200 transition-colors cursor-pointer">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            <span>Staff Verified</span>
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-64 p-3">
+                                          <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                              <span className="font-medium text-green-900">Staff Approved</span>
                                             </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : (
-                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
-                                    docStatus.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : 
-                                    docStatus.status === 'pending-review' ? 'bg-orange-100 text-orange-700 border-orange-300' : 
-                                    'bg-red-100 text-red-700 border-red-300'
-                                  }`}>
-                                    {docStatus.status === 'completed' ? 'Verified' : 
-                                     docStatus.status === 'pending-review' ? 'Review Required' : 
-                                     'Required'}
-                                  </span>
-                                )}
-                              </div>
+                                            <div className="text-sm text-gray-700">
+                                              <p><strong>Approved by:</strong> {docStatus.staffApproval.approvedBy.email}</p>
+                                              <p><strong>Date:</strong> {new Date(docStatus.staffApproval.approvedAt).toLocaleDateString()}</p>
+                                              {docStatus.staffApproval.comment && (
+                                                <div className="mt-2">
+                                                  <p><strong>Comment:</strong></p>
+                                                  <p className="text-xs text-gray-600 italic">"{docStatus.staffApproval.comment}"</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : (
+                                      <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700 border border-green-300">
+                                        Verified
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => toggleCompletedSection(`citizenship-${student.id}`)}
+                                    className="text-xs text-green-600 hover:text-green-700 font-medium"
+                                  >
+                                    Expand
+                                  </button>
+                                </div>
+                              ) : (
+                                // Full view for unapproved or expanded documents
+                                <>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Upload className="w-4 h-4 text-purple-500" />
+                                      <span className="text-sm font-medium text-gray-700">
+                                        Citizenship Documents
+                                      </span>
+                                      {docStatus.status === 'completed' ? (
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                      ) : docStatus.status === 'pending-review' ? (
+                                        <Eye className="w-4 h-4 text-orange-500" />
+                                      ) : (
+                                        <AlertCircle className="w-4 h-4 text-red-500" />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      {docStatus.status === 'completed' && docStatus.staffApproval ? (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button className="inline-flex items-center space-x-1 text-xs px-2 py-1 rounded-full font-medium shadow-sm border bg-green-100 text-green-700 border-green-300 hover:bg-green-200 transition-colors cursor-pointer">
+                                              <CheckCircle2 className="w-3 h-3" />
+                                              <span>Staff Verified</span>
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-64 p-3">
+                                            <div className="space-y-2">
+                                              <div className="flex items-center space-x-2">
+                                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                <span className="font-medium text-green-900">Staff Approved</span>
+                                              </div>
+                                              <div className="text-sm text-gray-700">
+                                                <p><strong>Approved by:</strong> {docStatus.staffApproval.approvedBy.email}</p>
+                                                <p><strong>Date:</strong> {new Date(docStatus.staffApproval.approvedAt).toLocaleDateString()}</p>
+                                                {docStatus.staffApproval.comment && (
+                                                  <div className="mt-2">
+                                                    <p><strong>Comment:</strong></p>
+                                                    <p className="text-xs text-gray-600 italic">"{docStatus.staffApproval.comment}"</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : (
+                                        <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                          docStatus.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : 
+                                          docStatus.status === 'pending-review' ? 'bg-orange-100 text-orange-700 border-orange-300' : 
+                                          'bg-red-100 text-red-700 border-red-300'
+                                        }`}>
+                                          {docStatus.status === 'completed' ? 'Verified' : 
+                                           docStatus.status === 'pending-review' ? 'Review Required' : 
+                                           'Required'}
+                                        </span>
+                                      )}
+                                      {docStatus.status === 'completed' && (
+                                        <button
+                                          onClick={() => toggleCompletedSection(`citizenship-${student.id}`)}
+                                          className="text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                          Minimize
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                               
                               {/* Staff Review Status */}
                               {!docStatus.staffApproval && docStatus.requiresStaffReview && docStatus.status === 'pending-review' && (
@@ -4165,6 +4286,8 @@ Check console for full details.
                                     </button>
                                   )}
                                 </div>
+                              )}
+                                </>
                               )}
                             </div>
 
@@ -5274,6 +5397,56 @@ Check console for full details.
                         </span>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Completed Documents Section */}
+              {familyData?.students && familyData.students.length > 0 && (
+                <div className="pb-4 border-b border-gray-200">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Completed Documents</h4>
+                  <div className="space-y-1">
+                    {familyData.students.map(student => {
+                      const formStatus = studentFormStatuses[student.id]?.current || 'pending';
+                      const docStatus = studentDocumentStatuses[student.id] || { status: 'pending' };
+                      const hasCompletedForm = formStatus === 'submitted';
+                      const hasApprovedDocs = docStatus.status === 'completed' || docStatus.staffApproval?.isApproved;
+                      
+                      if (!hasCompletedForm && !hasApprovedDocs) return null;
+                      
+                      return (
+                        <div key={student.id} className="space-y-1">
+                          <p className="text-xs text-gray-500 font-medium px-3 pt-2">
+                            {student.firstName} {student.lastName}
+                          </p>
+                          {hasCompletedForm && (
+                            <button
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                setSelectedStudent(student);
+                                setShowNotificationForm(true);
+                              }}
+                              className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-green-50 rounded-md transition-colors"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-3 text-green-500" />
+                              View Registration Form
+                            </button>
+                          )}
+                          {hasApprovedDocs && (
+                            <button
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                handlePreviewDocuments(student);
+                              }}
+                              className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-green-50 rounded-md transition-colors"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-3 text-green-500" />
+                              View Citizenship Docs
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }).filter(Boolean)}
                   </div>
                 </div>
               )}

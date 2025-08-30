@@ -14,9 +14,14 @@ import {
   TrendingUp,
   Calendar,
   FileText,
-  Shield
+  Shield,
+  Package,
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 import CourseCatalog from './components/CourseCatalog';
+import ShopifyWebhookMonitor from './components/ShopifyWebhookMonitor';
+import { useShopifyWebhooks } from './hooks/useShopifyWebhooks';
 
 // Static Triangle Component with RTD Learning green theme
 const StaticTriangle = ({ color }) => {
@@ -55,6 +60,13 @@ const RTDLearningAdminDashboard = () => {
   // Sample admin data
   const profile = { firstName: 'Admin', lastName: 'User' };
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showWebhookMonitor, setShowWebhookMonitor] = useState(false);
+  
+  // Get webhook stats for the dashboard
+  const { stats, alertCount, criticalAlertCount } = useShopifyWebhooks({ 
+    maxResults: 5, 
+    autoRefresh: true 
+  });
 
   // Redirect non-admin users
   useEffect(() => {
@@ -126,7 +138,62 @@ const RTDLearningAdminDashboard = () => {
             </div>
           </div>
 
-
+          {/* Shopify Webhook Section */}
+          <div className="mb-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Package className="h-6 w-6 text-emerald-600 mr-3" />
+                    <h3 className="text-lg font-semibold">Shopify Order Processing</h3>
+                  </div>
+                  <Button 
+                    onClick={() => setShowWebhookMonitor(true)}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                  >
+                    <Activity className="h-4 w-4 mr-2" />
+                    Open Monitor
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-gray-50 rounded p-3">
+                    <div className="text-sm text-gray-600">Today's Orders</div>
+                    <div className="text-2xl font-bold text-gray-900">{stats?.totalWebhooks || 0}</div>
+                  </div>
+                  <div className="bg-green-50 rounded p-3">
+                    <div className="text-sm text-green-600">Successful</div>
+                    <div className="text-2xl font-bold text-green-700">{stats?.successfulOrders || 0}</div>
+                  </div>
+                  <div className="bg-blue-50 rounded p-3">
+                    <div className="text-sm text-blue-600">Users Created</div>
+                    <div className="text-2xl font-bold text-blue-700">{stats?.usersCreated || 0}</div>
+                  </div>
+                  <div className={`rounded p-3 ${alertCount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                    <div className={`text-sm ${alertCount > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                      Active Alerts
+                    </div>
+                    <div className={`text-2xl font-bold ${alertCount > 0 ? 'text-red-700' : 'text-gray-900'}`}>
+                      {alertCount || 0}
+                      {criticalAlertCount > 0 && (
+                        <span className="text-sm ml-2 text-red-500">({criticalAlertCount} critical)</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {alertCount > 0 && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+                    <span className="text-sm text-yellow-800">
+                      You have {alertCount} unresolved alert{alertCount !== 1 ? 's' : ''} requiring attention
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Course Catalog Section */}
           <div className="mt-8">
@@ -134,6 +201,11 @@ const RTDLearningAdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Webhook Monitor Modal */}
+      {showWebhookMonitor && (
+        <ShopifyWebhookMonitor onClose={() => setShowWebhookMonitor(false)} />
+      )}
     </div>
   );
 };

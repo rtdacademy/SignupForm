@@ -328,6 +328,47 @@ const sendFamilyEmailsV2 = onCall({
                   recipients: recipientsObj
                 });
 
+                // Store email record for family communication tracking
+                if (familyId) {
+                  const now = Date.now();
+                  const today = new Date(now);
+                  const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  
+                  // Store in family's email history
+                  await db.ref(`homeEducationFamilies/familyEmails/${familyId}/sent/${emailId}`).set({
+                    emailId,
+                    subject: originalRecipient.subject,
+                    recipientEmail: originalRecipient.to,
+                    recipientName: guardianName,
+                    senderEmail,
+                    senderName,
+                    sentAt: now,
+                    opened: false,
+                    readAt: null,
+                    ccRecipients: ccRecipients || [],
+                    bccRecipients: bccRecipients || [],
+                    useDoNotReply: originalRecipient.useDoNotReply || false
+                  });
+                  
+                  // Update daily summary
+                  const summaryRef = db.ref(`homeEducationFamilies/familyEmails/${familyId}/dailySummary/${dateKey}`);
+                  await summaryRef.transaction((current) => {
+                    if (!current) {
+                      return {
+                        emailsSent: 1,
+                        emailsRead: 0,
+                        lastSentAt: now,
+                        lastReadAt: null
+                      };
+                    }
+                    return {
+                      ...current,
+                      emailsSent: (current.emailsSent || 0) + 1,
+                      lastSentAt: now
+                    };
+                  });
+                }
+
                 // Store email record for recipient
                 const emailRecord = {
                   subject: originalRecipient.subject,

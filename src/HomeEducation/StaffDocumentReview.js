@@ -178,8 +178,16 @@ const StaffDocumentReview = ({
         setStudents(studentsWithDocuments);
         setStudentsWithoutDocs(studentsWithoutDocuments);
         
-        // Load first student's data if available
-        if (studentsWithDocuments.length > 0) {
+        // Find first student that needs review (not already approved)
+        const firstUnreviewedIndex = studentsWithDocuments.findIndex(
+          student => !student.documentData?.staffApproval?.isApproved
+        );
+        
+        if (firstUnreviewedIndex !== -1) {
+          setCurrentStudentIndex(firstUnreviewedIndex);
+          await loadStudentDocuments(studentsWithDocuments[firstUnreviewedIndex]);
+        } else if (studentsWithDocuments.length > 0) {
+          // All approved, just load the first one
           await loadStudentDocuments(studentsWithDocuments[0]);
         }
       } catch (error) {
@@ -234,10 +242,24 @@ const StaffDocumentReview = ({
 
   // Handle moving to next student
   const handleNextStudent = async () => {
+    // Find next student that needs review
+    let nextIndex = currentStudentIndex + 1;
+    
+    // First try to find next unreviewed student
+    while (nextIndex < students.length) {
+      if (!students[nextIndex].documentData?.staffApproval?.isApproved) {
+        setCurrentStudentIndex(nextIndex);
+        await loadStudentDocuments(students[nextIndex]);
+        return;
+      }
+      nextIndex++;
+    }
+    
+    // If all remaining are approved, just move to next student if available
     if (currentStudentIndex < students.length - 1) {
-      const nextIndex = currentStudentIndex + 1;
-      setCurrentStudentIndex(nextIndex);
-      await loadStudentDocuments(students[nextIndex]);
+      const simpleNextIndex = currentStudentIndex + 1;
+      setCurrentStudentIndex(simpleNextIndex);
+      await loadStudentDocuments(students[simpleNextIndex]);
     }
   };
 
@@ -539,7 +561,11 @@ const StaffDocumentReview = ({
                         variant="outline"
                         disabled={currentStudentIndex >= students.length - 1}
                       >
-                        Next Student
+                        {students.slice(currentStudentIndex + 1).some(s => !s.documentData?.staffApproval?.isApproved) 
+                          ? 'Next Student' 
+                          : currentStudentIndex < students.length - 1 
+                            ? 'Next Student (Reviewed)' 
+                            : 'Next Student'}
                         <ChevronRight className="w-3 h-3 ml-1" />
                       </Button>
                     </>
@@ -599,7 +625,11 @@ const StaffDocumentReview = ({
                           variant="outline"
                           disabled={currentStudentIndex >= students.length - 1}
                         >
-                          Next Student
+                          {students.slice(currentStudentIndex + 1).some(s => !s.documentData?.staffApproval?.isApproved) 
+                            ? 'Next Student' 
+                            : currentStudentIndex < students.length - 1 
+                              ? 'Next Student (Reviewed)' 
+                              : 'Next Student'}
                           <ChevronRight className="w-3 h-3 ml-1" />
                         </Button>
                       </>

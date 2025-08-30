@@ -115,11 +115,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '../components/ui/popover';
 import { Input } from '../components/ui/input';
 
 // Utility function to generate consistent color from string
@@ -160,8 +155,8 @@ const formatRelativeTime = (dateString) => {
 const determineStudentRegistrationStatus = (student, familyData, schoolYear) => {
   const dbSchoolYear = schoolYear.replace('/', '_');
   
-  // Check if student has ASN
-  const hasASN = !!student.asn;
+  // Check if student has ASN or is marked ready for PASI
+  const hasASN = !!student.asn || student.readyForPASI === true;
   
   // Check notification form status
   const notificationForm = familyData?.NOTIFICATION_FORMS?.[dbSchoolYear]?.[student.id];
@@ -220,16 +215,22 @@ const determineStudentRegistrationStatus = (student, familyData, schoolYear) => 
   
   // Has notification form - ready for PASI even if missing other items
   const missingItems = [];
-  if (!hasASN) missingItems.push('ASN');
+  // Only count ASN as missing if not marked ready for PASI
+  if (!student.asn && !student.readyForPASI) missingItems.push('ASN');
   if (!hasApprovedDocs) missingItems.push('Citizenship Docs');
   if (!hasSoloPlan || !soloPlanSubmitted) missingItems.push('Education Plan');
   
+  // Add special indicator if ready for PASI but needs ASN created
+  const needsASNCreation = student.readyForPASI && !student.asn;
+  
   return {
     status: 'ready',
-    label: missingItems.length > 0 ? `Ready for PASI (Missing: ${missingItems.join(', ')})` : 'Ready for PASI',
+    label: missingItems.length > 0 ? `Ready for PASI (Missing: ${missingItems.join(', ')})` : 
+           needsASNCreation ? 'Ready for PASI (ASN pending)' : 'Ready for PASI',
     color: 'blue',
     priority: 2,
-    missingItems
+    missingItems,
+    needsASNCreation
   };
 };
 
@@ -673,17 +674,26 @@ const BulkActionsToolbar = ({
 };
 
 // ASN Edit Sheet Component - Allows editing student ASNs in a sheet interface
-const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStudent = null }) => {
+const ASNEditSheet = ({ isOpen, onClose, families, familyId, onUpdate, currentStudent = null }) => {
   const [selectedStudentId, setSelectedStudentId] = useState(currentStudent?.id || null);
   const [asnValues, setAsnValues] = useState({});
   const [isValid, setIsValid] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState({});
   const [justSaved, setJustSaved] = useState({});
+  const [readyForPASI, setReadyForPASI] = useState({});
+  const [copiedField, setCopiedField] = useState(null);
   const inputRefs = useRef({});
 
-  const students = family?.students ? Object.values(family.students) : [];
-  const selectedStudent = students.find(s => s.id === selectedStudentId) || students[0];
+  // Get fresh family data from families prop
+  const family = families?.[familyId] || null;
+  // Use Object.entries to preserve the database keys
+  const studentEntries = family?.students ? Object.entries(family.students) : [];
+  const students = studentEntries.map(([dbKey, student]) => ({
+    ...student,
+    dbKey: dbKey // Store the actual database key
+  }));
+  const selectedStudent = students.find(s => s.dbKey === selectedStudentId) || students[0];
 
   // Format ASN for display (1234-5678-9)
   const formatASN = (value) => {
@@ -706,26 +716,30 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
     return digits.length === 9;
   };
 
-  // Initialize ASN values when sheet opens or family changes
+  // Initialize ASN values and ready for PASI status when sheet opens or family changes
   useEffect(() => {
     if (isOpen && students.length > 0) {
       const initialValues = {};
       const initialValid = {};
+      const initialReadyStatus = {};
       students.forEach(student => {
-        initialValues[student.id] = student.asn ? formatASN(student.asn) : '';
-        initialValid[student.id] = true;
+        initialValues[student.dbKey] = student.asn ? formatASN(student.asn) : '';
+        initialValid[student.dbKey] = true;
+        initialReadyStatus[student.dbKey] = student.readyForPASI === true;
+        console.log(`Student ${student.firstName} ${student.lastName}: readyForPASI = ${student.readyForPASI}, dbKey = ${student.dbKey}`);
       });
       setAsnValues(initialValues);
       setIsValid(initialValid);
+      setReadyForPASI(initialReadyStatus);
       
-      // Set initial selected student
+      // Set initial selected student if not already set
       if (!selectedStudentId && students.length > 0) {
         // Find first student without ASN, or use first student
-        const firstMissingASN = students.find(s => !s.asn);
-        setSelectedStudentId(firstMissingASN?.id || students[0].id);
+        const firstMissingASN = students.find(s => !s.asn && !s.readyForPASI);
+        setSelectedStudentId(firstMissingASN?.dbKey || students[0].dbKey);
       }
     }
-  }, [isOpen, family]);
+  }, [isOpen, familyId, families, selectedStudentId]);
 
   // Handle input change for a specific student
   const handleInputChange = (studentId, value) => {
@@ -743,11 +757,36 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
     setIsValid(prev => ({ ...prev, [studentId]: validateASN(pastedText) }));
   };
 
+  // Handle Ready for PASI checkbox toggle
+  const handleReadyForPASIToggle = (studentId) => {
+    const newValue = !readyForPASI[studentId];
+    
+    // Update local state only - actual save happens when Save button is clicked
+    setReadyForPASI(prev => ({ ...prev, [studentId]: newValue }));
+    
+    // Clear ASN value when checking "No ASN Yet"
+    if (newValue) {
+      setAsnValues(prev => ({ ...prev, [studentId]: '' }));
+      setIsValid(prev => ({ ...prev, [studentId]: true })); // No validation needed for "No ASN Yet"
+    }
+  };
+
   // Save ASN for a specific student
   const handleSave = async (studentId, moveToNext = true) => {
     const asnValue = asnValues[studentId] || '';
+    const isReadyForPASI = readyForPASI[studentId];
     
-    if (!validateASN(asnValue)) {
+    console.log('handleSave called:', { 
+      studentId, 
+      asnValue, 
+      isReadyForPASI, 
+      familyId,
+      selectedStudent,
+      allStudentIds: students.map(s => s.id)
+    });
+    
+    // If not ready for PASI, validate ASN
+    if (!isReadyForPASI && !validateASN(asnValue)) {
       setIsValid(prev => ({ ...prev, [studentId]: false }));
       return;
     }
@@ -755,50 +794,147 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
     setIsSaving(true);
     try {
       const db = getDatabase();
-      const digits = asnValue.replace(/\D/g, '');
       
-      // Update the student's ASN in the database
-      await update(ref(db, `homeEducationFamilies/familyInformation/${familyId}/students/${studentId}`), {
-        asn: digits
-      });
-
-      // Call the onUpdate callback immediately for optimistic update
-      if (onUpdate) {
-        onUpdate(familyId, studentId, digits);
-      }
-
-      // Show success feedback
-      setShowSuccess(prev => ({ ...prev, [studentId]: true }));
-      setJustSaved(prev => ({ ...prev, [studentId]: true }));
-      
-      // Move to next student without ASN if requested
-      if (moveToNext) {
-        const currentIndex = students.findIndex(s => s.id === studentId);
-        const nextStudentWithoutASN = students.slice(currentIndex + 1).find(s => !s.asn && !asnValues[s.id]);
+      // If ready for PASI (No ASN Yet), save to database
+      if (isReadyForPASI) {
+        const updatePath = `homeEducationFamilies/familyInformation/${familyId}/students/${studentId}`;
+        console.log('Saving readyForPASI to EXACT path:', updatePath);
+        console.log('StudentId type:', typeof studentId, 'Value:', studentId);
+        console.log('FamilyId type:', typeof familyId, 'Value:', familyId);
         
-        if (nextStudentWithoutASN) {
-          setTimeout(() => {
-            setSelectedStudentId(nextStudentWithoutASN.id);
-            setShowSuccess(prev => ({ ...prev, [studentId]: false }));
-            setJustSaved(prev => ({ ...prev, [studentId]: false }));
-            // Focus on next student's input
+        try {
+          // Save the readyForPASI status and clear ASN
+          const updateData = {
+            asn: '', // Clear any existing ASN
+            readyForPASI: true
+          };
+          console.log('Update data being sent:', updateData);
+          await update(ref(db, updatePath), updateData);
+          
+          // Verify the update by reading back from database
+          const verifyRef = ref(db, `${updatePath}/readyForPASI`);
+          const snapshot = await get(verifyRef);
+          
+          if (snapshot.exists() && snapshot.val() === true) {
+            console.log('Successfully verified readyForPASI = true in database');
+          } else {
+            console.error('Warning: readyForPASI may not have been saved correctly');
+            throw new Error('Failed to verify readyForPASI save');
+          }
+          
+          // Call the onUpdate callback for optimistic update
+          if (onUpdate) {
+            onUpdate(familyId, studentId, '', true); // Empty ASN, readyForPASI true
+          }
+        } catch (saveError) {
+          console.error('Error saving readyForPASI:', saveError);
+          alert('Failed to save "No ASN Yet" status. Please try again.');
+          setIsSaving(false);
+          return;
+        }
+        
+        // Show success feedback
+        setShowSuccess(prev => ({ ...prev, [`ready_${studentId}`]: true }));
+        setJustSaved(prev => ({ ...prev, [studentId]: true }));
+        
+        // Move to next or close
+        if (moveToNext) {
+          const currentIndex = students.findIndex(s => s.id === studentId);
+          const nextStudentWithoutASN = students.slice(currentIndex + 1).find(s => !s.asn && !readyForPASI[s.id]);
+          
+          if (nextStudentWithoutASN) {
             setTimeout(() => {
-              inputRefs.current[nextStudentWithoutASN.id]?.focus();
-              inputRefs.current[nextStudentWithoutASN.id]?.select();
-            }, 100);
-          }, 1000);
+              setSelectedStudentId(nextStudentWithoutASN.id);
+              setShowSuccess(prev => ({ ...prev, [`ready_${studentId}`]: false }));
+              setJustSaved(prev => ({ ...prev, [studentId]: false }));
+              // Focus on next student's input if not ready for PASI
+              if (!readyForPASI[nextStudentWithoutASN.id]) {
+                setTimeout(() => {
+                  inputRefs.current[nextStudentWithoutASN.id]?.focus();
+                  inputRefs.current[nextStudentWithoutASN.id]?.select();
+                }, 100);
+              }
+            }, 500);
+          } else {
+            // No more students, close sheet after delay
+            setTimeout(() => {
+              onClose();
+              setSelectedStudentId(null);
+              setShowSuccess({});
+              setJustSaved({});
+            }, 500);
+          }
         } else {
-          // No more students, show success for a moment then can close
+          // Just close the sheet
+          setTimeout(() => {
+            onClose();
+            setSelectedStudentId(null);
+            setShowSuccess({});
+            setJustSaved({});
+          }, 500);
+        }
+      } else {
+        // Save ASN
+        const digits = asnValue.replace(/\D/g, '');
+        const updatePath = `homeEducationFamilies/familyInformation/${familyId}/students/${studentId}`;
+        console.log('Saving ASN to path:', updatePath, 'ASN:', digits);
+        
+        // Update the student's ASN in the database and explicitly delete readyForPASI
+        const updates = {
+          asn: digits
+        };
+        
+        // First update the ASN
+        await update(ref(db, updatePath), updates);
+        
+        // Then explicitly remove readyForPASI field if it exists
+        const readyForPASIRef = ref(db, `${updatePath}/readyForPASI`);
+        const readySnapshot = await get(readyForPASIRef);
+        if (readySnapshot.exists()) {
+          await update(ref(db, updatePath), { readyForPASI: null });
+          console.log('Removed existing readyForPASI field');
+        }
+        
+        console.log('Successfully saved ASN:', digits);
+
+        // Call the onUpdate callback immediately for optimistic update
+        if (onUpdate) {
+          onUpdate(familyId, studentId, digits, false); // Pass ASN and readyForPASI false
+        }
+
+        // Show success feedback
+        setShowSuccess(prev => ({ ...prev, [studentId]: true }));
+        setJustSaved(prev => ({ ...prev, [studentId]: true }));
+        
+        // Move to next student without ASN if requested
+        if (moveToNext) {
+          const currentIndex = students.findIndex(s => s.id === studentId);
+          const nextStudentWithoutASN = students.slice(currentIndex + 1).find(s => !s.asn && !asnValues[s.id]);
+          
+          if (nextStudentWithoutASN) {
+            setTimeout(() => {
+              setSelectedStudentId(nextStudentWithoutASN.id);
+              setShowSuccess(prev => ({ ...prev, [studentId]: false }));
+              setJustSaved(prev => ({ ...prev, [studentId]: false }));
+              // Focus on next student's input
+              setTimeout(() => {
+                inputRefs.current[nextStudentWithoutASN.id]?.focus();
+                inputRefs.current[nextStudentWithoutASN.id]?.select();
+              }, 100);
+            }, 1000);
+          } else {
+            // No more students, show success for a moment then can close
+            setTimeout(() => {
+              setShowSuccess(prev => ({ ...prev, [studentId]: false }));
+              setJustSaved(prev => ({ ...prev, [studentId]: false }));
+            }, 2000);
+          }
+        } else {
           setTimeout(() => {
             setShowSuccess(prev => ({ ...prev, [studentId]: false }));
             setJustSaved(prev => ({ ...prev, [studentId]: false }));
           }, 2000);
         }
-      } else {
-        setTimeout(() => {
-          setShowSuccess(prev => ({ ...prev, [studentId]: false }));
-          setJustSaved(prev => ({ ...prev, [studentId]: false }));
-        }, 2000);
       }
     } catch (error) {
       console.error('Error updating ASN:', error);
@@ -817,11 +953,24 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
     }
   };
 
+  // Handle copy field to clipboard
+  const handleCopyField = (field, value) => {
+    if (value) {
+      navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    }
+  };
+
   // Calculate progress
-  const studentsWithASN = students.filter(s => s.asn || (asnValues[s.id] && validateASN(asnValues[s.id]))).length;
+  const studentsWithASN = students.filter(s => 
+    s.asn || 
+    (asnValues[s.dbKey] && validateASN(asnValues[s.dbKey])) || 
+    readyForPASI[s.dbKey]
+  ).length;
   const totalStudents = students.length;
 
-  if (!family) return null;
+  if (!isOpen || !family) return null;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -841,7 +990,7 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalStudents }).map((_, i) => {
                   const student = students[i];
-                  const hasASN = student && (student.asn || (asnValues[student.id] && validateASN(asnValues[student.id])));
+                  const hasASN = student && (student.asn || (asnValues[student.dbKey] && validateASN(asnValues[student.dbKey])) || readyForPASI[student.dbKey]);
                   return (
                     <div
                       key={i}
@@ -863,46 +1012,125 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
             <label className="text-sm font-medium text-gray-700">Select Student</label>
             <div className="grid gap-2">
               {students.map((student) => {
-                const hasASN = student.asn || (asnValues[student.id] && validateASN(asnValues[student.id]));
-                const isSelected = selectedStudentId === student.id;
+                const hasASN = student.asn || (asnValues[student.dbKey] && validateASN(asnValues[student.dbKey]));
+                const isReadyForPASI = readyForPASI[student.dbKey];
+                const isComplete = hasASN || isReadyForPASI;
+                const isSelected = selectedStudentId === student.dbKey;
+                const age = calculateAge(student.birthday);
                 
                 return (
-                  <button
-                    key={student.id}
-                    onClick={() => {
-                      setSelectedStudentId(student.id);
-                      setTimeout(() => {
-                        inputRefs.current[student.id]?.focus();
-                        inputRefs.current[student.id]?.select();
-                      }, 100);
-                    }}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                  <div
+                    key={student.dbKey}
+                    className={`p-3 rounded-lg border transition-colors ${
                       isSelected 
                         ? 'border-purple-500 bg-purple-50' 
                         : 'border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        hasASN ? 'bg-green-100' : 'bg-gray-100'
-                      }`}>
-                        {hasASN ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <User className="w-4 h-4 text-gray-400" />
+                    <button
+                      onClick={() => {
+                        setSelectedStudentId(student.dbKey);
+                        setTimeout(() => {
+                          inputRefs.current[student.dbKey]?.focus();
+                          inputRefs.current[student.dbKey]?.select();
+                        }, 100);
+                      }}
+                      className="w-full"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mt-1 ${
+                            hasASN ? 'bg-green-100' : isReadyForPASI ? 'bg-blue-100' : 'bg-gray-100'
+                          }`}>
+                            {hasASN ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            ) : isReadyForPASI ? (
+                              <ClipboardCheck className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <User className="w-4 h-4 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="text-left space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium">{student.firstName}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyField(`firstName-${student.dbKey}`, student.firstName);
+                                  }}
+                                  className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                                  title="Copy first name"
+                                >
+                                  {copiedField === `firstName-${student.dbKey}` ? (
+                                    <Check className="w-3 h-3 text-green-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium">{student.lastName}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyField(`lastName-${student.dbKey}`, student.lastName);
+                                  }}
+                                  className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                                  title="Copy last name"
+                                >
+                                  {copiedField === `lastName-${student.dbKey}` ? (
+                                    <Check className="w-3 h-3 text-green-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span>Grade {student.grade || 'N/A'}</span>
+                              {age !== null && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    <Cake className="w-3 h-3" />
+                                    {age}y
+                                  </span>
+                                </>
+                              )}
+                              {student.birthday && (
+                                <>
+                                  <span>•</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-mono">{student.birthday}</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCopyField(`birthday-${student.dbKey}`, student.birthday);
+                                      }}
+                                      className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                                      title="Copy birthday"
+                                    >
+                                      {copiedField === `birthday-${student.dbKey}` ? (
+                                        <Check className="w-3 h-3 text-green-600" />
+                                      ) : (
+                                        <Copy className="w-3 h-3 text-gray-400" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {(hasASN || isReadyForPASI) && (
+                          <Badge variant="outline" className={`text-xs ${isReadyForPASI && !hasASN ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}>
+                            {student.asn ? formatASNDisplay(student.asn) : isReadyForPASI ? 'Ready for PASI' : 'Modified'}
+                          </Badge>
                         )}
                       </div>
-                      <div className="text-left">
-                        <p className="text-sm font-medium">{student.firstName} {student.lastName}</p>
-                        <p className="text-xs text-gray-500">Grade {student.grade || 'N/A'}</p>
-                      </div>
-                    </div>
-                    {hasASN && (
-                      <Badge variant="outline" className="text-xs">
-                        {student.asn ? formatASNDisplay(student.asn) : 'Modified'}
-                      </Badge>
-                    )}
-                  </button>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -916,61 +1144,104 @@ const ASNEditSheet = ({ isOpen, onClose, family, familyId, onUpdate, currentStud
                   Edit ASN for {selectedStudent.firstName} {selectedStudent.lastName}
                 </h4>
                 <p className="text-xs text-gray-500">
-                  Enter the 9-digit Alberta Student Number
+                  Enter the 9-digit Alberta Student Number or mark as no ASN yet
                 </p>
               </div>
               
               <div className="space-y-2">
-                <div className="relative">
-                  <Input
-                    ref={el => inputRefs.current[selectedStudent.id] = el}
-                    type="text"
-                    value={asnValues[selectedStudent.id] || ''}
-                    onChange={(e) => handleInputChange(selectedStudent.id, e.target.value)}
-                    onPaste={(e) => handlePaste(selectedStudent.id, e)}
-                    onKeyDown={(e) => handleKeyDown(selectedStudent.id, e)}
-                    placeholder="1234-5678-9"
-                    className={`${
-                      !isValid[selectedStudent.id] && asnValues[selectedStudent.id] 
-                        ? 'border-red-500 focus:ring-red-500' 
-                        : ''
-                    } ${showSuccess[selectedStudent.id] ? 'border-green-500' : ''}`}
-                    disabled={isSaving}
-                    maxLength={11} // 9 digits + 2 dashes
-                  />
-                  {showSuccess[selectedStudent.id] && (
-                    <Check className="absolute right-2 top-2.5 w-4 h-4 text-green-500" />
-                  )}
-                </div>
-                
-                {!isValid[selectedStudent.id] && asnValues[selectedStudent.id] && (
-                  <p className="text-xs text-red-500">
-                    ASN must be exactly 9 digits
-                  </p>
-                )}
-                
-                <p className="text-xs text-gray-400">
-                  Format: 1234-5678-9 or paste as 123456789
-                </p>
+                {/* Only show ASN input if NOT marked as ready for PASI */}
+                {!readyForPASI[selectedStudent.dbKey] && (
+                  <>
+                    <div className="relative">
+                      <Input
+                        ref={el => inputRefs.current[selectedStudent.dbKey] = el}
+                        type="text"
+                        value={asnValues[selectedStudent.dbKey] || ''}
+                        onChange={(e) => handleInputChange(selectedStudent.dbKey, e.target.value)}
+                        onPaste={(e) => handlePaste(selectedStudent.dbKey, e)}
+                        onKeyDown={(e) => handleKeyDown(selectedStudent.dbKey, e)}
+                        placeholder="1234-5678-9"
+                        className={`${
+                          !isValid[selectedStudent.dbKey] && asnValues[selectedStudent.dbKey] 
+                            ? 'border-red-500 focus:ring-red-500' 
+                            : ''
+                        } ${showSuccess[selectedStudent.dbKey] ? 'border-green-500' : ''}`}
+                        disabled={isSaving}
+                        maxLength={11} // 9 digits + 2 dashes
+                      />
+                      {showSuccess[selectedStudent.dbKey] && (
+                        <Check className="absolute right-2 top-2.5 w-4 h-4 text-green-500" />
+                      )}
+                    </div>
+                    
+                    {!isValid[selectedStudent.dbKey] && asnValues[selectedStudent.dbKey] && (
+                      <p className="text-xs text-red-500">
+                        ASN must be exactly 9 digits
+                      </p>
+                    )}
+                    
+                    <p className="text-xs text-gray-400">
+                      Format: 1234-5678-9 or paste as 123456789
+                    </p>
 
-                {justSaved[selectedStudent.id] && (
-                  <p className="text-xs text-green-600 font-medium animate-pulse">
-                    ✓ Saved successfully!
-                  </p>
+                    {justSaved[selectedStudent.dbKey] && (
+                      <p className="text-xs text-green-600 font-medium animate-pulse">
+                        ✓ Saved successfully!
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* No ASN Yet checkbox - show if no ASN or empty string ASN */}
+                {(!selectedStudent.asn || selectedStudent.asn === '') && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="flex items-start space-x-3 cursor-pointer">
+                      <div className="flex items-center h-5">
+                        <Checkbox
+                          checked={readyForPASI[selectedStudent.dbKey] || false}
+                          onCheckedChange={() => handleReadyForPASIToggle(selectedStudent.dbKey)}
+                          disabled={isSaving}
+                          className="border-blue-400"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-blue-900">
+                            No ASN Yet
+                          </span>
+                          {showSuccess[`ready_${selectedStudent.dbKey}`] && (
+                            <Check className="w-3 h-3 text-green-600" />
+                          )}
+                        </div>
+                        <p className="text-xs text-blue-700 mt-1">
+                          Check this if the student doesn't have an ASN yet but is ready to be registered in PASI. 
+                          The registrar will create one.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 )}
               </div>
 
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => handleSave(selectedStudent.id, false)}
-                  disabled={!asnValues[selectedStudent.id] || !isValid[selectedStudent.id] || isSaving}
+                  onClick={() => handleSave(selectedStudent.dbKey, false)}
+                  disabled={
+                    ((!asnValues[selectedStudent.dbKey] && !readyForPASI[selectedStudent.dbKey]) || 
+                     (!isValid[selectedStudent.dbKey] && asnValues[selectedStudent.dbKey])) || 
+                    isSaving
+                  }
                   className="px-4 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save
                 </button>
                 <button
-                  onClick={() => handleSave(selectedStudent.id, true)}
-                  disabled={!asnValues[selectedStudent.id] || !isValid[selectedStudent.id] || isSaving}
+                  onClick={() => handleSave(selectedStudent.dbKey, true)}
+                  disabled={
+                    ((!asnValues[selectedStudent.dbKey] && !readyForPASI[selectedStudent.dbKey]) || 
+                     (!isValid[selectedStudent.dbKey] && asnValues[selectedStudent.dbKey])) || 
+                    isSaving
+                  }
                   className="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSaving ? (
@@ -1134,9 +1405,10 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStuden
   
   // Use local ASN if available, otherwise use student's ASN
   const displayASN = localASN || student.asn;
+  const isReadyForPASI = student.readyForPASI === true;
   
-  // Calculate remaining students needing ASN
-  const studentsNeedingASN = allStudents.filter(s => !s.asn && s.id !== student.id);
+  // Calculate remaining students needing ASN (excluding those marked ready for PASI)
+  const studentsNeedingASN = allStudents.filter(s => !s.asn && !s.readyForPASI && s.id !== student.id);
   const remainingCount = studentsNeedingASN.length;
   
   const handleCopyBirthday = () => {
@@ -1205,7 +1477,7 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStuden
           <p className="text-xs text-gray-500">Email: {student.email}</p>
         )}
         
-        {/* ASN or Add ASN Button - Compact */}
+        {/* ASN or Ready for PASI or Add ASN Button - Compact */}
         {displayASN ? (
           <div className="flex items-center gap-1.5 bg-green-50 rounded px-2 py-1 border border-green-200">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
@@ -1223,6 +1495,20 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStuden
               ) : (
                 <Copy className="w-3 h-3 text-green-600 hover:text-green-700" />
               )}
+            </button>
+          </div>
+        ) : isReadyForPASI ? (
+          <div className="flex items-center gap-1.5 bg-blue-50 rounded px-2 py-1 border border-blue-200">
+            <ClipboardCheck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+            <span className="text-xs text-gray-600">Status:</span>
+            <span className="text-xs font-medium text-blue-900">Ready for PASI</span>
+            <span className="text-xs text-blue-700">(ASN pending)</span>
+            <button
+              onClick={() => onOpenASNSheet(family, student)}
+              className="ml-auto p-0.5 hover:bg-blue-100 rounded transition-colors"
+              title="Edit status"
+            >
+              <Edit className="w-3 h-3 text-blue-600 hover:text-blue-700" />
             </button>
           </div>
         ) : (
@@ -1319,107 +1605,30 @@ const FamilyTableRow = memo(({
       <td className="px-3 py-3 whitespace-nowrap">
         <div>
           <div className="flex items-center space-x-1 text-sm">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button 
-                  className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-100 transition-colors group"
-                  title="Click to view all students"
-                >
-                  <GraduationCap className="w-4 h-4 text-blue-500" />
-                  <span className="font-medium">{row.studentCount}</span>
-                  {row.hasMissingASN && (
-                    <>
-                      <div className="flex items-center">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="text-xs text-amber-600 font-medium ml-0.5">
-                          {row.missingASNCount}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </button>
-              </PopoverTrigger>
-                <PopoverContent 
-                  className="w-96 max-w-[90vw]" 
-                  align="start"
-                  side="bottom"
-                  sideOffset={5}
-                  avoidCollisions={true}
-                  collisionPadding={20}
-                  collisionBoundary="viewport"
-                >
-                  <div className="max-h-[70vh] flex flex-col">
-                    {/* Fixed header */}
-                    <div className="flex-shrink-0 pb-3 border-b">
-                      <h4 className="font-medium text-sm mb-1">Student Details - {row.familyName}</h4>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500">
-                          {row.studentCount} student{row.studentCount > 1 ? 's' : ''} • {row.gradeRange}
-                        </p>
-                        {/* ASN Progress Indicator */}
-                        {row.studentCount > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-600">ASN:</span>
-                            <div className="flex items-center gap-0.5">
-                              {Array.from({ length: row.studentCount }).map((_, i) => {
-                                const student = students[i];
-                                const hasASN = student && (student.asn || row.localASNUpdates?.[`${row.familyId}_${student.id}`]);
-                                return (
-                                  <div
-                                    key={i}
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      hasASN ? 'bg-green-500' : 'bg-gray-300'
-                                    }`}
-                                    title={hasASN ? 'Has ASN' : 'Missing ASN'}
-                                  />
-                                );
-                              })}
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              ({row.studentCount - row.missingASNCount}/{row.studentCount})
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {row.hasMissingASN && (
-                        <p className="text-xs text-amber-600 font-medium mt-1">
-                          ⚠️ {row.missingASNCount} student{row.missingASNCount > 1 ? 's' : ''} still need{row.missingASNCount === 1 ? 's' : ''} ASN
-                        </p>
-                      )}
-                    </div>
-                    
-                    {/* Scrollable Students List */}
-                    <ScrollArea className="flex-1 mt-3">
-                      <div className="space-y-2 pr-4">
-                        {students.map((student, idx) => {
-                          // Apply local ASN updates to each student for display
-                          const studentsWithLocalASN = students.map(s => {
-                            const key = `${row.familyId}_${s.id}`;
-                            const localASN = row.localASNUpdates?.[key];
-                            return localASN ? { ...s, asn: localASN } : s;
-                          });
-                          
-                          const localUpdateKey = `${row.familyId}_${student.id}`;
-                          const localASN = row.localASNUpdates?.[localUpdateKey];
-                          return (
-                            <StudentDetailsRow
-                              key={student.id || idx}
-                              student={student}
-                              familyId={row.familyId}
-                              onASNUpdate={onASNUpdate}
-                              idx={idx}
-                              allStudents={studentsWithLocalASN}
-                              localASN={localASN}
-                              family={row.rawFamily}
-                              onOpenASNSheet={onOpenASNSheet}
-                            />
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
+            <button 
+              onClick={() => onOpenASNSheet(row.rawFamily, null)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-100 transition-colors group"
+              title="Click to manage student ASNs"
+            >
+              <GraduationCap className="w-4 h-4 text-blue-500" />
+              <span className="font-medium">{row.studentCount}</span>
+              {row.hasMissingASN && (
+                <div className="flex items-center">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs text-amber-600 font-medium ml-0.5">
+                    {row.missingASNCount}
+                  </span>
+                </div>
+              )}
+              {row.hasNoASNYet && (
+                <div className="flex items-center">
+                  <ClipboardCheck className="w-3.5 h-3.5 text-blue-500" />
+                  <span className="text-xs text-blue-600 font-medium ml-0.5">
+                    {row.noASNYetCount}
+                  </span>
+                </div>
+              )}
+            </button>
           </div>
           <div className="text-xs text-gray-500 mt-0.5">{row.gradeRange}</div>
         </div>
@@ -1506,10 +1715,10 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
   
   // Local state for tracking ASN updates optimistically
   const [localASNUpdates, setLocalASNUpdates] = useState({});
+  const [localReadyForPASIUpdates, setLocalReadyForPASIUpdates] = useState({});
   
   // ASN Edit Sheet state
   const [asnSheetOpen, setAsnSheetOpen] = useState(false);
-  const [asnSheetFamily, setAsnSheetFamily] = useState(null);
   const [asnSheetFamilyId, setAsnSheetFamilyId] = useState(null);
   const [asnSheetStudent, setAsnSheetStudent] = useState(null);
   
@@ -1732,7 +1941,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
   // Process families data for table display with local ASN updates
   const familyRows = useMemo(() => {
     return Object.entries(families).map(([familyId, family]) => {
-      // Apply local ASN updates to students
+      // Apply local ASN and readyForPASI updates to students
       const studentsObj = family.students ? { ...family.students } : {};
       Object.keys(studentsObj).forEach(studentId => {
         const localUpdateKey = `${familyId}_${studentId}`;
@@ -1740,6 +1949,12 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
           studentsObj[studentId] = {
             ...studentsObj[studentId],
             asn: localASNUpdates[localUpdateKey]
+          };
+        }
+        if (localReadyForPASIUpdates[localUpdateKey] !== undefined) {
+          studentsObj[studentId] = {
+            ...studentsObj[studentId],
+            readyForPASI: localReadyForPASIUpdates[localUpdateKey]
           };
         }
       });
@@ -1754,15 +1969,32 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         (grades.length === 1 ? `Grade ${grades[0]}` : `Grades ${Math.min(...grades)}-${Math.max(...grades)}`) : 
         'No grades';
 
-      // Check for missing ASN (accounting for local updates)
+      // Check for missing ASN (accounting for local updates and readyForPASI status)
       const studentsWithMissingASN = students.filter(student => {
         const localUpdateKey = `${familyId}_${student.id}`;
         const localASN = localASNUpdates[localUpdateKey];
         const asn = localASN || student.asn;
-        return !asn || asn === '';
+        const localReadyStatus = localReadyForPASIUpdates[localUpdateKey];
+        const isReadyForPASI = localReadyStatus !== undefined ? localReadyStatus : (student.readyForPASI === true);
+        // Only count as missing if no ASN AND not marked as ready for PASI
+        return (!asn || asn === '') && !isReadyForPASI;
       });
+      
+      // Count students marked as "No ASN Yet" (readyForPASI = true)
+      const studentsNoASNYet = students.filter(student => {
+        const localUpdateKey = `${familyId}_${student.id}`;
+        const localASN = localASNUpdates[localUpdateKey];
+        const asn = localASN || student.asn;
+        const localReadyStatus = localReadyForPASIUpdates[localUpdateKey];
+        const isReadyForPASI = localReadyStatus !== undefined ? localReadyStatus : (student.readyForPASI === true);
+        // Count if no ASN AND marked as ready for PASI
+        return (!asn || asn === '') && isReadyForPASI;
+      });
+      
       const hasMissingASN = studentsWithMissingASN.length > 0;
       const missingASNCount = studentsWithMissingASN.length;
+      const hasNoASNYet = studentsNoASNYet.length > 0;
+      const noASNYetCount = studentsNoASNYet.length;
 
       // Calculate registration status for the family
       const registrationStatus = determineFamilyRegistrationStatus(family, activeSchoolYear);
@@ -1784,13 +2016,17 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         city: primaryGuardian?.address?.city || '',
         hasMissingASN,
         missingASNCount,
+        hasNoASNYet,
+        noASNYetCount,
         studentsWithMissingASN,
+        studentsNoASNYet,
         registrationStatus,
-        rawFamily: { ...family, students: studentsObj }, // Pass the updated students with local ASN
-        localASNUpdates: localASNUpdates // Pass the local ASN updates to the row
+        rawFamily: { ...family, students: studentsObj }, // Pass the updated students with local ASN and readyForPASI
+        localASNUpdates: localASNUpdates, // Pass the local ASN updates to the row
+        localReadyForPASIUpdates: localReadyForPASIUpdates // Pass the local readyForPASI updates to the row
       };
     });
-  }, [families, effectiveEmail, activeSchoolYear, localASNUpdates]);
+  }, [families, effectiveEmail, activeSchoolYear, localASNUpdates, localReadyForPASIUpdates]);
 
   // Sort functionality
   const sortedRows = useMemo(() => {
@@ -2002,20 +2238,31 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
 
   // Handler for opening ASN Edit Sheet
   const handleOpenASNSheet = useCallback((family, student = null) => {
-    const familyId = Object.keys(families).find(id => families[id] === family);
-    setAsnSheetFamily(family);
+    // The family object contains its own familyId
+    const familyId = family?.familyId || Object.keys(families).find(id => families[id] === family);
+    console.log('Opening ASN sheet for family:', familyId, family);
     setAsnSheetFamilyId(familyId);
     setAsnSheetStudent(student);
     setAsnSheetOpen(true);
   }, [families]);
 
   // Handler for ASN updates from sheet
-  const handleASNUpdate = useCallback((familyId, studentId, asn) => {
+  const handleASNUpdate = useCallback((familyId, studentId, asn, readyForPASI = null) => {
     // Update local state for optimistic updates
-    setLocalASNUpdates(prev => ({
-      ...prev,
-      [`${familyId}_${studentId}`]: asn
-    }));
+    if (asn !== null) {
+      setLocalASNUpdates(prev => ({
+        ...prev,
+        [`${familyId}_${studentId}`]: asn
+      }));
+    }
+    
+    // Update readyForPASI status if provided
+    if (readyForPASI !== null) {
+      setLocalReadyForPASIUpdates(prev => ({
+        ...prev,
+        [`${familyId}_${studentId}`]: readyForPASI
+      }));
+    }
   }, []);
 
   // Custom table components for TableVirtuoso
@@ -2296,7 +2543,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
     <ASNEditSheet
       isOpen={asnSheetOpen}
       onClose={() => setAsnSheetOpen(false)}
-      family={asnSheetFamily}
+      families={families}
       familyId={asnSheetFamilyId}
       onUpdate={handleASNUpdate}
       currentStudent={asnSheetStudent}

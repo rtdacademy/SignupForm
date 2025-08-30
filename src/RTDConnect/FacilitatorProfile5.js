@@ -199,7 +199,7 @@ const FacilitatorProfile5 = () => {
               these individual strengths.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              Through play-based and nature-based approaches, combined with creative arts and Indigenous wisdom, 
+              Through play-based and nature-based approaches, combined with creative arts and intuitive parental wisdom, 
               we can create rich learning environments where children thrive naturally. My goal is to support families 
               in building confidence, fostering curiosity, and developing a lifelong love of learning.
             </p>
