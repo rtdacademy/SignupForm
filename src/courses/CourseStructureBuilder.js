@@ -411,6 +411,36 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
     setImportTarget(null);
   };
 
+  // State for import configuration dialog
+  const [importConfigModal, setImportConfigModal] = useState(false);
+  const [pendingImportData, setPendingImportData] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+
+  // Handle import configuration choice
+  const handleImportChoice = (choice) => {
+    if (!pendingImportData) return;
+
+    if (choice === 'structure-only') {
+      // Import just the course structure
+      const structureData = pendingImportData.courseStructure || pendingImportData;
+      onUpdate(structureData);
+      toast.success('Course structure imported successfully!');
+    } else if (choice === 'full-config') {
+      // Import full configuration - pass to parent
+      if (window.updateFullCourseConfig) {
+        window.updateFullCourseConfig(pendingImportData);
+        toast.success('Full course configuration imported successfully!');
+      } else {
+        toast.error('Full configuration import not available. Please use structure-only import.');
+      }
+    }
+
+    // Clean up
+    setImportConfigModal(false);
+    setPendingImportData(null);
+    setImportPreview(null);
+  };
+
   // Import structure from JSON file
   const handleImportStructure = (event) => {
     const file = event.target.files[0];
@@ -421,8 +451,35 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
       try {
         const importedData = JSON.parse(e.target.result);
         
+        // Check if this is a full configuration or just structure
+        const isFullConfig = importedData.courseStructure && importedData.courseId;
+        
+        if (isFullConfig) {
+          // This is a full configuration file
+          // Prepare preview data
+          const preview = {
+            courseId: importedData.courseId,
+            title: importedData.title,
+            hasStructure: !!importedData.courseStructure?.units,
+            unitCount: importedData.courseStructure?.units?.length || 0,
+            hasWeights: !!importedData.weights,
+            hasAttemptLimits: !!importedData.attemptLimits,
+            hasProgressionRequirements: !!importedData.progressionRequirements,
+            hasAIFeatures: !!importedData.aiFeatures,
+            hasMetadata: !!importedData.metadata
+          };
+          
+          setPendingImportData(importedData);
+          setImportPreview(preview);
+          setImportConfigModal(true);
+          return;
+        }
+        
+        // Otherwise, treat as structure-only import
+        const structureToValidate = importedData.units ? importedData : { units: [] };
+        
         // Validate the imported structure
-        if (!importedData.units || !Array.isArray(importedData.units)) {
+        if (!structureToValidate.units || !Array.isArray(structureToValidate.units)) {
           toast.error('Invalid structure: missing units array');
           return;
         }
@@ -431,7 +488,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
         const validationErrors = [];
         
         // Check each unit
-        importedData.units.forEach((unit, unitIndex) => {
+        structureToValidate.units.forEach((unit, unitIndex) => {
           if (!unit.unitId) {
             validationErrors.push(`Unit ${unitIndex + 1}: missing unitId`);
           }
@@ -454,7 +511,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
             if (!item.title) {
               validationErrors.push(`Unit ${unitIndex + 1}, Item ${itemIndex + 1}: missing title`);
             }
-            if (!item.type || !['lesson', 'assignment', 'lab', 'exam'].includes(item.type)) {
+            if (!item.type || !['lesson', 'assignment', 'lab', 'exam', 'quiz'].includes(item.type)) {
               validationErrors.push(`Unit ${unitIndex + 1}, Item ${itemIndex + 1}: invalid type`);
             }
             if (!item.order || typeof item.order !== 'number') {
@@ -485,8 +542,8 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
         }
 
         // Import the structure
-        onUpdate(importedData);
-        toast.success('Structure imported successfully!');
+        onUpdate(structureToValidate);
+        toast.success('Course structure imported successfully!');
       } catch (error) {
         toast.error('Error parsing JSON file: ' + error.message);
       }
@@ -1095,6 +1152,78 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
           itemNumber={units[importTarget.unitIndex]?.items[importTarget.itemIndex]?.order || 1}
           existingQuestions={units[importTarget.unitIndex]?.items[importTarget.itemIndex]?.questions || []}
         />
+      )}
+
+      {/* Configuration Import Choice Modal */}
+      {importConfigModal && importPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Import Configuration Detected</h2>
+            
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-700 mb-2">
+                The selected file contains a full course configuration:
+              </p>
+              <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                {importPreview.title && (
+                  <li>• Course Title: <span className="font-medium">{importPreview.title}</span></li>
+                )}
+                {importPreview.unitCount > 0 && (
+                  <li>• Course Structure: <span className="font-medium">{importPreview.unitCount} units</span></li>
+                )}
+                {importPreview.hasWeights && <li>• Grade Weights Configuration</li>}
+                {importPreview.hasAttemptLimits && <li>• Attempt Limits Settings</li>}
+                {importPreview.hasProgressionRequirements && <li>• Progression Requirements</li>}
+                {importPreview.hasAIFeatures && <li>• AI Features Settings</li>}
+                {importPreview.hasMetadata && <li>• Course Metadata</li>}
+              </ul>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 font-medium mb-2">
+                How would you like to import this file?
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleImportChoice('structure-only')}
+                className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="font-medium text-gray-900">Import Course Structure Only</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Import just the units, lessons, and questions. Other settings will remain unchanged.
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleImportChoice('full-config')}
+                className="w-full p-3 text-left border rounded-lg hover:bg-blue-50 transition-colors border-blue-300"
+              >
+                <div className="font-medium text-blue-900">Import Full Configuration</div>
+                <div className="text-sm text-blue-700 mt-1">
+                  Import everything including structure, weights, limits, and all course settings.
+                </div>
+                <div className="text-xs text-orange-600 mt-2">
+                  ⚠️ This will override all existing course settings
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportConfigModal(false);
+                  setPendingImportData(null);
+                  setImportPreview(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

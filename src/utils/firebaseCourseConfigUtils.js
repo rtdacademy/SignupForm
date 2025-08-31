@@ -307,10 +307,19 @@ export const validateCourseConfig = (config) => {
   if (!config.courseId) errors.push('Course ID is required');
   if (!config.title) errors.push('Course title is required');
   
-  // Validate weights
-  const weightSum = Object.values(config.weights || {}).reduce((sum, weight) => sum + weight, 0);
-  if (Math.abs(weightSum - 1) > 0.001 && weightSum !== 0) {
-    errors.push(`Weights must sum to 1 or 0 (current sum: ${weightSum})`);
+  // Validate weights if present
+  if (config.weights) {
+    const weightSum = Object.values(config.weights).reduce((sum, weight) => sum + weight, 0);
+    if (Math.abs(weightSum - 1) > 0.001 && weightSum !== 0) {
+      errors.push(`Weights must sum to 1 or 0 (current sum: ${weightSum})`);
+    }
+    
+    // Check individual weight values
+    Object.entries(config.weights).forEach(([type, weight]) => {
+      if (typeof weight !== 'number' || weight < 0 || weight > 1) {
+        errors.push(`Weight for ${type} must be between 0 and 1`);
+      }
+    });
   }
   
   // Validate attempt limits
@@ -324,6 +333,62 @@ export const validateCourseConfig = (config) => {
       }
     });
   }
+  
+  // Validate course structure if present
+  if (config.courseStructure) {
+    if (!config.courseStructure.units || !Array.isArray(config.courseStructure.units)) {
+      errors.push('Course structure must contain a units array');
+    } else {
+      // Basic structure validation
+      config.courseStructure.units.forEach((unit, index) => {
+        if (!unit.unitId) errors.push(`Unit ${index + 1} is missing unitId`);
+        if (!unit.name) errors.push(`Unit ${index + 1} is missing name`);
+        if (!unit.items || !Array.isArray(unit.items)) {
+          errors.push(`Unit ${index + 1} must have an items array`);
+        }
+      });
+    }
+  }
+  
+  // Validate progression requirements if present
+  if (config.progressionRequirements) {
+    const pr = config.progressionRequirements;
+    if (pr.enabled === true && pr.defaultCriteria) {
+      if (pr.defaultCriteria.minimumPercentage !== undefined) {
+        const perc = pr.defaultCriteria.minimumPercentage;
+        if (typeof perc !== 'number' || perc < 0 || perc > 100) {
+          errors.push('Default minimum percentage must be between 0 and 100');
+        }
+      }
+    }
+  }
+  
+  // Validate AI features if present
+  if (config.aiFeatures) {
+    if (config.aiFeatures.enabled !== undefined && typeof config.aiFeatures.enabled !== 'boolean') {
+      errors.push('AI features enabled flag must be a boolean');
+    }
+  }
+  
+  return errors;
+};
+
+// Validate full configuration import (more comprehensive)
+export const validateFullConfigImport = (config) => {
+  const errors = validateCourseConfig(config);
+  
+  // Additional validation for imports
+  if (!config.courseStructure || !config.courseStructure.units) {
+    errors.push('Import must contain a valid course structure');
+  }
+  
+  // Check for required configuration sections
+  const requiredSections = ['weights', 'attemptLimits'];
+  requiredSections.forEach(section => {
+    if (!config[section]) {
+      errors.push(`Configuration is missing required section: ${section}`);
+    }
+  });
   
   return errors;
 };

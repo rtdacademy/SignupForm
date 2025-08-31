@@ -1,0 +1,51 @@
+{
+  "courseId": "test",
+  "title": "Test Import Course",
+  "courseStructure": {
+    "units": [
+      {
+        "unitId": "unit_1_test",
+        "name": "Test Unit",
+        "order": 1,
+        "items": [
+          {
+            "itemId": "01_test_lesson",
+            "title": "Test Lesson",
+            "type": "lesson",
+            "order": 1,
+            "estimatedTime": 30,
+            "questions": [
+              {
+                "questionId": "test_q1",
+                "title": "Test Question 1",
+                "points": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "weights": {
+    "lesson": 0.2,
+    "assignment": 0.3,
+    "lab": 0.2,
+    "exam": 0.3
+  },
+  "attemptLimits": {
+    "lesson": 999,
+    "assignment": 3,
+    "lab": 3,
+    "exam": 1
+  },
+  "progressionRequirements": {
+    "enabled": true,
+    "defaultCriteria": {
+      "minimumPercentage": 70,
+      "requireAllQuestions": true
+    }
+  },
+  "aiFeatures": {
+    "enabled": true
+  }
+}

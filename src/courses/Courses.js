@@ -2318,23 +2318,25 @@ function Courses({
                     </p>
                   </div>
 
-                  {/* Development emails */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Development emails
-                    </label>
-                    <ImprovedEmailManager
-                      courseId={selectedCourseId}
-                      allowedEmails={courseData.allowedEmails || []}
-                      courseIsEditing={courseIsEditing}
-                      onUpdate={handleAllowedEmailsUpdate}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {courseData.allowedEmails && courseData.allowedEmails.length > 0
-                        ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
-                        : 'Available to all students'}
-                    </p>
-                  </div>
+                  {/* Development emails - Only show when course access is restricted */}
+                  {courseData.restrictCourseAccess === true && (
+                    <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Development emails
+                      </label>
+                      <ImprovedEmailManager
+                        courseId={selectedCourseId}
+                        allowedEmails={courseData.allowedEmails || []}
+                        isEditing={courseIsEditing}
+                        onUpdate={handleAllowedEmailsUpdate}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {courseData.allowedEmails && courseData.allowedEmails.length > 0
+                          ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
+                          : 'Available to all students'}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Student Access Controls - Grouped together prominently */}
                   <div className="w-full px-2 mb-6">
@@ -2689,23 +2691,25 @@ function Courses({
                     />
                   </div>
 
-                  {/* Email Restrictions */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Restrictions
-                    </label>
-                    <ImprovedEmailManager
-                      courseId={selectedCourseId}
-                      allowedEmails={courseData.allowedEmails || []}
-                      courseIsEditing={courseIsEditing}
-                      onUpdate={handleAllowedEmailsUpdate}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {courseData.allowedEmails && courseData.allowedEmails.length > 0
-                        ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
-                        : 'Available to all students'}
-                    </p>
-                  </div>
+                  {/* Email Restrictions - Only show when course access is restricted */}
+                  {courseData.restrictCourseAccess === true && (
+                    <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Restrictions
+                      </label>
+                      <ImprovedEmailManager
+                        courseId={selectedCourseId}
+                        allowedEmails={courseData.allowedEmails || []}
+                        isEditing={courseIsEditing}
+                        onUpdate={handleAllowedEmailsUpdate}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {courseData.allowedEmails && courseData.allowedEmails.length > 0
+                          ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
+                          : 'Available to all students'}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Student Access Controls - Grouped together prominently */}
                   <div className="w-full px-2 mb-6">

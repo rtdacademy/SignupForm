@@ -117,6 +117,50 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
     }));
   };
 
+  // Handle full configuration import
+  const handleFullConfigImport = (importedConfig) => {
+    // Validate the imported config
+    const validationErrors = validateCourseConfig(importedConfig);
+    if (validationErrors.length > 0) {
+      toast.error(`Import validation failed: ${validationErrors[0]}`);
+      return false;
+    }
+
+    // Merge with current courseId and title from courseData
+    const mergedConfig = {
+      ...importedConfig,
+      courseId: courseId, // Keep current courseId
+      title: courseData?.Title || importedConfig.title,
+      metadata: {
+        ...importedConfig.metadata,
+        lastUpdated: new Date().toISOString(),
+        importedAt: new Date().toISOString()
+      }
+    };
+
+    // Update the configuration
+    setConfig(mergedConfig);
+    
+    // Save to database
+    saveCourseConfig(courseId, mergedConfig).then(result => {
+      if (result.success) {
+        toast.success('Full configuration imported and saved successfully!');
+      } else {
+        toast.error('Failed to save imported configuration');
+      }
+    });
+
+    return true;
+  };
+
+  // Make the import handler available globally for CourseStructureBuilder
+  useEffect(() => {
+    window.updateFullCourseConfig = handleFullConfigImport;
+    return () => {
+      delete window.updateFullCourseConfig;
+    };
+  }, [courseId, courseData]);
+
   if (loading) {
     return (
       <div className="p-4 text-center">
