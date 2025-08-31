@@ -44,6 +44,7 @@ const Course0 = React.lazy(() => import('./courses/PHY30'));
 const Course2 = React.lazy(() => import('./courses/2'));
 const Course3 = React.lazy(() => import('./courses/3'));
 const Course4 = React.lazy(() => import('./courses/4'));
+const Course5 = React.lazy(() => import('./courses/5'));
 const Course100 = React.lazy(() => import('./courses/100'));
 
 // Skeleton fallback component for lazy loading
@@ -1576,6 +1577,9 @@ const FirebaseCourseWrapperContent = ({
                     case 4:
                     case '4':
                       return <Course4 {...courseProps} />;
+                    case 5:
+                    case '5':
+                      return <Course5 {...courseProps} />;
                     case 2:
                     case '2':
                       return <Course2 {...courseProps} />;

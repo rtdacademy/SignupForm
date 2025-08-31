@@ -506,7 +506,9 @@ function generateContentRegistry(config) {
   config.courseStructure.units.forEach(unit => {
     unit.items.forEach(item => {
       const folderName = itemIdToFolderName(item.itemId);
-      const componentName = item.itemId.replace(/-/g, '').replace(/_/g, '');
+      // Ensure component name starts with a letter (JavaScript requirement)
+      const rawName = item.itemId.replace(/-/g, '').replace(/_/g, '');
+      const componentName = rawName.match(/^\d/) ? `Lesson${rawName}` : rawName;
       
       imports.push(`import ${componentName} from './${folderName}';`);
       registry.push(`  '${item.itemId}': ${componentName},`);
