@@ -177,12 +177,11 @@ function writeFileWithTracking(filePath, content, fileList) {
 }
 
 // Convert item ID to folder name
+// Using full itemId as folder name for complete consistency
 function itemIdToFolderName(itemId) {
-  const parts = itemId.split('_');
-  if (parts.length >= 4) {
-    return `${parts[0]}-${parts.slice(3).join('-')}`;
-  }
-  return itemId.replace(/_/g, '-');
+  // Return the itemId exactly as-is for folder names
+  // This ensures perfect matching between database, frontend, and backend
+  return itemId;
 }
 
 // Get theme for type

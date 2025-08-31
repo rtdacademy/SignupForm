@@ -1,0 +1,33 @@
+{
+  "courseId": "5",
+  "generatedAt": "2025-08-31T16:04:28.059Z",
+  "configFile": "course-generator/configs/course-sample-config.json",
+  "files": [
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/01_data_science_introduction_overview/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/02_data_science_python_basics/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/03_data_science_statistics_review/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/04_data_science_unit1_assignment/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/05_data_science_pandas_introduction/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/06_data_science_data_cleaning/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/07_data_science_visualization_basics/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/08_data_science_pandas_lab/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/09_data_science_unit2_quiz/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/10_data_science_ml_fundamentals/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/5/content/11_data_science_final_exam/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/assessment-mapping.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/01_data_science_introduction_overview/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/02_data_science_python_basics/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/03_data_science_statistics_review/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/04_data_science_unit1_assignment/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/05_data_science_pandas_introduction/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/06_data_science_data_cleaning/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/07_data_science_visualization_basics/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/08_data_science_pandas_lab/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/09_data_science_unit2_quiz/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/10_data_science_ml_fundamentals/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/5/11_data_science_final_exam/assessments.js"
+  ],
+  "version": "1.0.0"
+}
