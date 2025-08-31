@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Award, Target } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
 import { formatScore } from '../../utils/gradeUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { 
-  calculateCourseProgress,
   hasValidGradebookData 
 } from '../../utils/courseProgressUtils';
 
@@ -13,6 +12,116 @@ const GradebookSummary = ({ course, profile, enrichedCourseItems }) => {
   
   // Use enriched course items passed from parent component
   const allCourseItems = enrichedCourseItems || [];
+  
+  // Create a map of itemId to type from courseStructure for real-time calculations
+  const itemTypeMap = useMemo(() => {
+    const typeMap = {};
+    const courseStructure = course?.courseDetails?.['course-config']?.courseStructure;
+    
+    if (courseStructure?.units) {
+      courseStructure.units.forEach(unit => {
+        if (unit.items) {
+          unit.items.forEach(item => {
+            const itemType = item.type || 'lesson';
+            // Store with original ID
+            typeMap[item.itemId] = itemType;
+            // Also store with underscore version if it has hyphens
+            if (item.itemId.includes('-')) {
+              typeMap[item.itemId.replace(/-/g, '_')] = itemType;
+            }
+            // Also store with hyphen version if it has underscores
+            if (item.itemId.includes('_')) {
+              typeMap[item.itemId.replace(/_/g, '-')] = itemType;
+            }
+          });
+        }
+      });
+    }
+    
+    return typeMap;
+  }, [course?.courseDetails]);
+  
+  // Local function to check item completion using actual gradebook data
+  const checkItemCompletionLocal = useCallback((itemId, gradebook, progressionRequirements = {}) => {
+    if (!gradebook?.items || !itemId) {
+      return false;
+    }
+    
+    // Try different ID formats to find the gradebook item
+    let gradebookItem = gradebook.items[itemId];
+    
+    // If not found, try converting hyphens to underscores
+    if (!gradebookItem && itemId.includes('-')) {
+      const underscoreItemId = itemId.replace(/-/g, '_');
+      gradebookItem = gradebook.items[underscoreItemId];
+    }
+    
+    // If still not found, try converting underscores to hyphens
+    if (!gradebookItem && itemId.includes('_')) {
+      const hyphenItemId = itemId.replace(/_/g, '-');
+      gradebookItem = gradebook.items[hyphenItemId];
+    }
+    
+    if (!gradebookItem) {
+      return false;
+    }
+    
+    // Get item type from our map (default to 'lesson' if not found)
+    const itemType = itemTypeMap[itemId] || 'lesson';
+    
+    // Get progression requirements for this item
+    const itemOverride = progressionRequirements.lessonOverrides?.[itemId];
+    const defaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || 
+                           progressionRequirements.defaultCriteria || {};
+    
+    const minimumPercentage = itemOverride?.minimumPercentage ?? 
+                             defaultCriteria.minimumPercentage ?? 50;
+    const requireAllQuestions = itemOverride?.requireAllQuestions ?? 
+                               defaultCriteria.requireAllQuestions ?? false;
+    
+    // Check completion based on requirements
+    if (requireAllQuestions) {
+      // Must attempt all questions AND meet minimum score
+      const allQuestionsAttempted = gradebookItem.totalQuestions > 0 && 
+                                   gradebookItem.attempted >= gradebookItem.totalQuestions;
+      return allQuestionsAttempted && gradebookItem.percentage >= minimumPercentage;
+    } else {
+      // Only need to meet minimum score
+      return gradebookItem.percentage >= minimumPercentage;
+    }
+  }, [itemTypeMap]);
+  
+  // Calculate course progress using local completion check
+  const courseItemStats = useMemo(() => {
+    const gradebook = course?.Gradebook;
+    const progressionRequirements = course?.courseDetails?.['course-config']?.progressionRequirements || {};
+    
+    if (!gradebook || allCourseItems.length === 0) {
+      return {
+        total: 0,
+        completed: 0,
+        completionPercentage: 0
+      };
+    }
+    
+    let completedCount = 0;
+    const total = allCourseItems.length;
+    
+    // Check each course item for completion
+    allCourseItems.forEach(courseItem => {
+      if (checkItemCompletionLocal(courseItem.itemId, gradebook, progressionRequirements)) {
+        completedCount++;
+      }
+    });
+    
+    const completionPercentage = total > 0 ? (completedCount / total) * 100 : 0;
+    
+    return {
+      total,
+      completed: completedCount,
+      completionPercentage
+    };
+  }, [course?.Gradebook, course?.courseDetails, allCourseItems, checkItemCompletionLocal]);
   
   // Calculate actual item counts from enriched course items
   const actualItemCounts = useMemo(() => {
@@ -147,7 +256,6 @@ const GradebookSummary = ({ course, profile, enrichedCourseItems }) => {
 
   // Get weights from course config for display
   const weights = course?.courseDetails?.['course-config']?.weights || {};
-  const courseItemStats = calculateCourseProgress(course, allCourseItems);
   
   const passingGrade = 60; // Could be made configurable
 

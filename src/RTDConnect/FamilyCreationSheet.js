@@ -10,6 +10,7 @@ import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { FUNDING_RATES } from '../config/HomeEducation';
 import { getCurrentSchoolYear } from '../config/importantDates';
+import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -27,111 +28,6 @@ const formatASN = (value) => {
 const validateASN = (asn) => {
   const cleanASN = asn.replace(/\D/g, '');
   return cleanASN.length === 9;
-};
-
-/**
- * Determines funding eligibility based on student's age as of September 1st
- * @param {string} birthday - Student's birthday in YYYY-MM-DD format
- * @returns {Object} Object containing eligibility info
- */
-const determineFundingEligibility = (birthday) => {
-  if (!birthday) {
-    return { 
-      fundingEligible: true, // Default to eligible if no birthday yet
-      fundingAmount: 0,
-      ageCategory: 'unknown'
-    };
-  }
-
-  // Get current school year
-  const currentSchoolYear = getCurrentSchoolYear();
-  const startYear = parseInt('20' + currentSchoolYear.substr(0, 2));
-  
-  // September 1st of the school year is the reference date
-  const septemberFirst = new Date(startYear, 8, 1); // Month is 0-indexed, so 8 = September
-  
-  // Calculate age as of September 1st
-  const age = calculateAge(birthday, septemberFirst);
-  const birthDate = toEdmontonDate(birthday);
-  
-  // Calculate age in months for kindergarten eligibility
-  const monthsDiff = (septemberFirst.getFullYear() - birthDate.getFullYear()) * 12 + 
-                     (septemberFirst.getMonth() - birthDate.getMonth());
-  const daysDiff = septemberFirst.getDate() - birthDate.getDate();
-  const ageInMonths = monthsDiff + (daysDiff >= 0 ? 0 : -1);
-  
-  // Check if student turns 5 by December 31st of the school year
-  const december31 = new Date(startYear, 11, 31); // December 31st
-  const turningFiveByDec31 = calculateAge(birthday, december31) >= 5;
-  
-  // Too young: Under 4 years 8 months (56 months) as of September 1st
-  if (ageInMonths < 56) {
-    return {
-      fundingEligible: false,
-      fundingAmount: 0,
-      ageCategory: 'too_young',
-      message: `This student is too young for funding (under 4 years 8 months as of September 1). They can still be added but will not receive funding.`,
-      grade: null
-    };
-  }
-  
-  // Kindergarten: 4 years 8 months to under 6 years old as of September 1st
-  // AND must turn 5 by December 31st
-  if (age < 6 && ageInMonths >= 56 && turningFiveByDec31) {
-    return {
-      fundingEligible: true,
-      fundingAmount: FUNDING_RATES.KINDERGARTEN.amount,
-      ageCategory: 'kindergarten',
-      message: `This student is kindergarten age and eligible for ${FUNDING_RATES.KINDERGARTEN.formatted} in funding.`,
-      grade: 'K'
-    };
-  }
-  
-  // Too old: 20 years or older as of September 1st
-  // Note: Students who turn 20 on September 2nd or later are still eligible
-  if (age >= 20) {
-    return {
-      fundingEligible: false,
-      fundingAmount: 0,
-      ageCategory: 'too_old',
-      message: `This student is too old for funding (20 or older as of September 1). They can still be added but will not receive funding.`,
-      grade: '12' // Default to grade 12 for older students
-    };
-  }
-  
-  // Grades 1-12: Ages 6 to 19 as of September 1st
-  if (age >= 6 && age <= 19) {
-    // Estimate grade based on age
-    let estimatedGrade = Math.min(12, Math.max(1, age - 5));
-    
-    return {
-      fundingEligible: true,
-      fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
-      ageCategory: 'grades_1_12',
-      message: null, // No special message for normal funding
-      grade: estimatedGrade.toString()
-    };
-  }
-  
-  // Edge case: 5 years old but doesn't turn 5 by Dec 31 (shouldn't happen but just in case)
-  if (age === 5 && !turningFiveByDec31) {
-    return {
-      fundingEligible: false,
-      fundingAmount: 0,
-      ageCategory: 'too_young',
-      message: `This student must turn 5 by December 31st to be eligible for kindergarten funding.`,
-      grade: null
-    };
-  }
-  
-  // Default case (shouldn't reach here)
-  return {
-    fundingEligible: true,
-    fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
-    ageCategory: 'grades_1_12',
-    message: null,
-    grade: '1'
-  };
 };
 
 // Student card component

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
+import NextLessonButton from '../../components/NextLessonButton';
 // Course structure now loaded from database via gradebook
 
 // Type-specific styling
@@ -24,7 +25,11 @@ const Course3 = ({
   activeItemId: externalActiveItemId,
   onItemSelect,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  // Next lesson navigation props
+  currentLessonCompleted = false,
+  nextLessonInfo = null,
+  courseProgress = 0
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course?.CourseID || '3';
@@ -131,6 +136,20 @@ const Course3 = ({
             itemConfig={activeItem}
             isStaffView={isStaffView}
             devMode={devMode}
+          />
+          
+          {/* Next Lesson Button */}
+          <NextLessonButton
+            currentLessonCompleted={currentLessonCompleted}
+            nextLessonInfo={nextLessonInfo}
+            onNavigateToNext={(nextItemId) => {
+              if (onItemSelect) {
+                onItemSelect(nextItemId);
+              } else {
+                setInternalActiveItemId(nextItemId);
+              }
+            }}
+            courseProgress={courseProgress}
           />
         </div>
       );

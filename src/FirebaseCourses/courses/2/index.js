@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
 import ReactMarkdown from 'react-markdown';
+import NextLessonButton from '../../components/NextLessonButton';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import remarkEmoji from 'remark-emoji';
@@ -102,7 +103,11 @@ const Course2 = ({
   onAIAccordionContent,
   createAskAIButton,
   createAskAIButtonFromElement,
-  gradebookItems
+  gradebookItems,
+  // Next lesson navigation props
+  currentLessonCompleted = false,
+  nextLessonInfo = null,
+  courseProgress = 0
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course?.CourseID || '2';
@@ -215,6 +220,20 @@ const Course2 = ({
             createAskAIButton={createAskAIButton}
             createAskAIButtonFromElement={createAskAIButtonFromElement}
             gradebookItems={gradebookItems}
+          />
+          
+          {/* Next Lesson Button */}
+          <NextLessonButton
+            currentLessonCompleted={currentLessonCompleted}
+            nextLessonInfo={nextLessonInfo}
+            onNavigateToNext={(nextItemId) => {
+              if (onItemSelect) {
+                onItemSelect(nextItemId);
+              } else {
+                setInternalActiveItemId(nextItemId);
+              }
+            }}
+            courseProgress={courseProgress}
           />
         </div>
       );

@@ -16,11 +16,10 @@ import {
   GoogleAuthProvider,
   OAuthProvider
 } from "firebase/auth";
-import { getDatabase, ref, set, get, child } from "firebase/database";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { auth, googleProvider, microsoftProvider, isDevelopment } from "../firebase";
-import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { useAuth } from '../context/AuthContext';
 import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
 import AuthLoadingScreen from './AuthLoadingScreen';
 import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
@@ -67,6 +66,7 @@ const RTDConnectLogo = () => (
 const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: currentAuthUser, isHomeEducationParent, loading: authLoading } = useAuth();
   const [error, setError] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [password, setPassword] = useState("");
@@ -84,8 +84,6 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [pendingProvider, setPendingProvider] = useState(null);
   const [linkingEmail, setLinkingEmail] = useState("");
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
-
-  const db = getDatabase();
 
   // Convert Firebase error codes to user-friendly messages
   const getFriendlyErrorMessage = (error) => {
@@ -131,8 +129,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
 
   const isStaffEmail = (email) => {
     if (typeof email !== 'string') return false;
-    const sanitized = sanitizeEmail(email);
-    return sanitized.endsWith("@rtdacademy.com");
+    return email.toLowerCase().endsWith("@rtdacademy.com");
   };
 
   // Check if user has temporary password requirement
@@ -156,6 +153,10 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     console.log('Password change completed, refreshing auth state');
     setRequiresPasswordChange(false);
     
+    // Show loading while AuthContext handles the navigation
+    setShowAuthLoading(true);
+    setAuthLoadingMessage("Password updated successfully. Preparing your dashboard...");
+    
     // Get the current user and force token refresh to ensure claims are updated
     const currentUser = auth.currentUser;
     if (currentUser) {
@@ -164,24 +165,14 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         await currentUser.getIdToken(true);
         console.log('Token refreshed successfully after password change');
         
-        // Now check the updated token claims
-        const idTokenResult = await currentUser.getIdTokenResult();
-        console.log('Updated claims after password change:', idTokenResult.claims);
+        // Set the portal login flag
+        localStorage.setItem('rtdConnectPortalLogin', 'true');
         
-        // Only proceed if tempPasswordRequired is actually removed
-        if (!idTokenResult.claims.tempPasswordRequired) {
-          localStorage.setItem('rtdConnectPortalLogin', 'true');
-          // Skip temp password check since we just handled it
-          const success = await ensureUserData(currentUser, true);
-          if (success) {
-            navigate("/dashboard");
-          }
-        } else {
-          console.error('tempPasswordRequired claim still present after password change');
-          // The auth state listener will handle re-checking
-        }
+        // AuthContext will handle the navigation once it detects the updated claims
       } catch (error) {
         console.error('Error refreshing token after password change:', error);
+        setShowAuthLoading(false);
+        setError('An error occurred. Please try signing in again.');
       }
     }
   };
@@ -233,64 +224,16 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     }
   };
 
-  const ensureUserData = async (user, skipTempPasswordCheck = false) => {
-    if (!user || !user.emailVerified) return false;
-    
-    // Check for temporary password requirement FIRST (unless explicitly skipped)
-    if (!skipTempPasswordCheck) {
-      const needsPasswordChange = await checkTempPasswordRequirement(user);
-      if (needsPasswordChange) {
-        console.log('User requires password change, showing forced password change screen');
-        setRequiresPasswordChange(true);
-        setShowAuthLoading(false);
-        return false; // Don't proceed with normal flow
-      }
+  // Note: ensureUserData has been removed - AuthContext now handles all user data setup
+
+  // Redirect to dashboard if user is already authenticated when component mounts
+  useEffect(() => {
+    // Only redirect if we're not already showing auth loading (from a login attempt)
+    if (!authLoading && currentAuthUser && currentAuthUser.emailVerified && !showAuthLoading) {
+      // User is already logged in, redirect to dashboard
+      navigate('/dashboard');
     }
-    
-    const uid = user.uid;
-    const emailKey = sanitizeEmail(user.email);
-    
-    try {
-      setAuthLoadingMessage("Setting up your account...");
-      
-      // Mark this as an RTD Connect portal login
-      localStorage.setItem('rtdConnectPortalLogin', 'true');
-      
-      setAuthLoadingMessage("Verifying your profile...");
-      
-      // Create/update user in users table
-      const userRef = ref(db, `users/${uid}`);
-      const userSnapshot = await get(child(ref(db), `users/${uid}`));
-      
-      if (!userSnapshot.exists()) {
-        setAuthLoadingMessage("Creating your profile...");
-        const userData = {
-          uid: uid,
-          email: user.email,
-          sanitizedEmail: emailKey,
-          type: "student", // Default type - will be updated when they register their family
-          createdAt: Date.now(),
-          lastLogin: Date.now(),
-          provider: user.providerData[0]?.providerId || 'password',
-          emailVerified: user.emailVerified
-        };
-        await set(userRef, userData);
-      } else {
-        setAuthLoadingMessage("Updating your profile...");
-        const existingData = userSnapshot.val();
-        await set(userRef, {
-          ...existingData,
-          lastLogin: Date.now(),
-          emailVerified: user.emailVerified
-        });
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Error ensuring user data:", error);
-      return true; // Allow user to continue even if there's an error
-    }
-  };
+  }, [currentAuthUser, authLoading, navigate, showAuthLoading]);
 
   useEffect(() => {
     const initializePersistence = async () => {
@@ -372,18 +315,14 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
             await auth.signOut();
             handleStaffAttempt();
           } else {
+            // Set the portal login flag and let AuthContext handle navigation
+            localStorage.setItem('rtdConnectPortalLogin', 'true');
             setAuthLoadingMessage("Preparing your dashboard...");
-            const success = await ensureUserData(user);
-            if (success) {
-              setAuthLoadingMessage("Almost ready...");
-              // Add a small delay to show the final message, then navigate
-              setTimeout(() => {
-                setShowAuthLoading(false);
-                navigate("/dashboard");
-              }, 1000);
-            } else {
+            // AuthContext will detect the auth state change and handle navigation
+            // Keep loading screen showing briefly to avoid flashing
+            setTimeout(() => {
               setShowAuthLoading(false);
-            }
+            }, 1000);
           }
         } else if (authInProgress) {
           // We were expecting a redirect but didn't get one - this might indicate an error
@@ -518,16 +457,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       navigate(location.pathname, { replace: true, state: {} });
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Only process auth state changes if we're not currently handling a redirect
-      if (user && !checkingRedirect) {
-        const success = await ensureUserData(user);
-        if (success) {
-          navigate("/rtd-connect/dashboard");
-        }
-      }
-    });
-    return () => unsubscribe();
+    // Removed duplicate onAuthStateChanged listener - AuthContext handles this
   }, [location, navigate]);
 
   const handleEmailPasswordSubmit = async (e) => {
@@ -594,11 +524,11 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         setPendingProvider(null);
         setLinkingEmail("");
         
-        // Proceed with normal user setup
-        const success = await ensureUserData(result.user);
-        if (success) {
-          navigate("/rtd-connect/dashboard");
-        }
+        // Set the portal login flag and let AuthContext handle navigation
+        localStorage.setItem('rtdConnectPortalLogin', 'true');
+        setShowAuthLoading(true);
+        setAuthLoadingMessage("Account linked successfully. Preparing your dashboard...");
+        // AuthContext will detect the auth state change and handle navigation
       } else {
         // Use linkWithRedirect in production
         sessionStorage.setItem('rtdConnectLinkingInProgress', 'true');
@@ -636,10 +566,11 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
           await auth.signOut();
           handleStaffAttempt();
         } else {
-          const success = await ensureUserData(user);
-          if (success) {
-            navigate("/rtd-connect/dashboard");
-          }
+          // Set the portal login flag and let AuthContext handle navigation
+          localStorage.setItem('rtdConnectPortalLogin', 'true');
+          setShowAuthLoading(true);
+          setAuthLoadingMessage("Preparing your dashboard...");
+          // AuthContext will detect the auth state change and handle navigation
         }
       } else {
         // Use redirect in production
@@ -802,15 +733,17 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
     const userEmail = emailInput.trim();
 
     try {
+      setShowAuthLoading(true);
+      setAuthLoadingMessage("Signing you in...");
+      
       const userCredential = await signInWithEmailAndPassword(auth, userEmail, password);
       const user = userCredential.user;
       
       if (user.emailVerified) {
+        // Set the portal login flag and let AuthContext handle navigation
         localStorage.setItem('rtdConnectPortalLogin', 'true');
-        const success = await ensureUserData(user);
-        if (success) {
-          navigate("/rtd-connect/dashboard");
-        }
+        setAuthLoadingMessage("Preparing your dashboard...");
+        // AuthContext will detect the auth state change and handle navigation
       } else {
         // Create action code settings with dynamic continueUrl
         const actionCodeSettings = {
@@ -820,6 +753,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
         
         await sendEmailVerification(user, actionCodeSettings);
         await auth.signOut();
+        setShowAuthLoading(false);
         
         // Show toast notification for unverified email
         toast.info(
@@ -840,6 +774,7 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       
     } catch (error) {
       console.error("Sign-in error:", error.code, error.message);
+      setShowAuthLoading(false);
       setError(getFriendlyErrorMessage(error));
     }
   };
@@ -1189,6 +1124,16 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
       </div>
     );
   };
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return <AuthLoadingScreen message="Checking authentication..." />;
+  }
+
+  // Redirect if already authenticated
+  if (currentAuthUser && currentAuthUser.emailVerified) {
+    return <AuthLoadingScreen message="Redirecting to dashboard..." />;
+  }
 
   // Show auth loading screen if we're processing authentication
   if (showAuthLoading) {

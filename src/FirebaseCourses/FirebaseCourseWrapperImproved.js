@@ -5,7 +5,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
-import { getLessonAccessibility } from './utils/lessonAccess';
+import { 
+  getLessonAccessibility,
+  isLessonFullyCompleted,
+  getNextLessonWithAccessibility
+} from './utils/lessonAccess';
+import NextLessonButtonFloating from './components/NextLessonButtonFloating';
+import ReturnToDashboardButton from './components/ReturnToDashboardButton';
 import { loadLessonPrompt, enhancePromptWithContext } from './utils/aiPromptLoader';
 import { 
   validateGradeDataStructures, 
@@ -180,6 +186,11 @@ const FirebaseCourseWrapperContent = ({
   const courseTitle = courseData.title;
   const unitsList = courseData.structure;
   const courseWeights = courseData.courseWeights;
+  
+  // Check if AI features are enabled for this course
+  const isAIEnabled = useMemo(() => {
+    return course?.courseDetails?.['course-config']?.aiFeatures?.enabled === true;
+  }, [course?.courseDetails]);
   
   // Create enriched course items using centralized utility function
   const allCourseItems = useMemo(() => {
@@ -1002,6 +1013,117 @@ const FirebaseCourseWrapperContent = ({
     return allCourseItems.find(item => item.itemId === activeItemId);
   }, [activeItemId, allCourseItems]);
 
+  // Calculate overall course progress percentage
+  const overallProgress = useMemo(() => {
+    if (!allCourseItems.length) return 0;
+    
+    // Use realtime gradebook if available, otherwise fall back to course.Gradebook
+    const gradebookToUse = realtimeGradebook || course?.Gradebook;
+    
+    // Count completed items directly from gradebook items
+    const completedCount = allCourseItems.filter(item => {
+      const itemGradeData = gradebookToUse?.items?.[item.itemId];
+      return itemGradeData?.completed === true || 
+             itemGradeData?.status === 'completed' || 
+             itemGradeData?.status === 'manually_graded';
+    }).length;
+    
+    return Math.round((completedCount / allCourseItems.length) * 100);
+  }, [allCourseItems, course, realtimeGradebook, dataUpdateTrigger]);
+
+  // Calculate if current lesson is completed and get next lesson info
+  const currentLessonCompletion = useMemo(() => {
+    if (!activeItemId || !course) return { isCompleted: false, nextLesson: null };
+    
+    // Check if current lesson is completed
+    const isCompleted = isLessonFullyCompleted(activeItemId, course);
+    
+    // Get next lesson info with accessibility
+    const courseStructure = {
+      courseStructure: {
+        units: unitsList
+      }
+    };
+    
+    const nextLesson = getNextLessonWithAccessibility(
+      courseStructure, 
+      activeItemId, 
+      course,
+      {
+        isDeveloperBypass: isAuthorizedDeveloper && isDeveloperModeActive,
+        staffOverrides: {},
+        progressionExemptions: course?.progressionExemptions || {}
+      }
+    );
+    
+    return {
+      isCompleted,
+      nextLesson
+    };
+  }, [activeItemId, course, unitsList, isAuthorizedDeveloper, isDeveloperModeActive, realtimeGradebook, dataUpdateTrigger]);
+
+  // Simple next lesson finder with accessibility check
+  const findNextLesson = useMemo(() => {
+    if (!activeItemId || !allCourseItems.length) return null;
+    
+    // Find current lesson index
+    const currentIndex = allCourseItems.findIndex(item => item.itemId === activeItemId);
+    
+    if (currentIndex === -1 || currentIndex === allCourseItems.length - 1) {
+      return null; // No next lesson
+    }
+    
+    // Get next lesson
+    const nextItem = allCourseItems[currentIndex + 1];
+    
+    if (!nextItem) return null;
+    
+    // Get the unit for the next lesson
+    const nextUnit = unitsList.find(unit => 
+      unit.items && unit.items.some(item => item.itemId === nextItem.itemId)
+    );
+    
+    // Check accessibility of the next lesson
+    const accessInfo = lessonAccessibility[nextItem.itemId] || { accessible: true, reason: 'Default access' };
+    
+    return {
+      itemId: nextItem.itemId,
+      title: nextItem.title,
+      type: nextItem.type,
+      unitTitle: nextUnit?.name || nextUnit?.title,
+      accessible: accessInfo.accessible,
+      accessReason: accessInfo.reason
+    };
+  }, [activeItemId, allCourseItems, unitsList, lessonAccessibility]);
+
+  // Check if current lesson is the last lesson in the course
+  const isLastLesson = useMemo(() => {
+    if (!activeItemId || !allCourseItems.length) return false;
+    
+    const currentIndex = allCourseItems.findIndex(item => item.itemId === activeItemId);
+    return currentIndex === allCourseItems.length - 1;
+  }, [activeItemId, allCourseItems]);
+
+  // Check if the entire course is complete (100% completion)
+  const isCourseFullyComplete = useMemo(() => {
+    if (!allCourseItems.length) return false;
+    
+    // Use realtime gradebook if available, otherwise fall back to course.Gradebook
+    const gradebookToUse = realtimeGradebook || course?.Gradebook;
+    
+    if (!gradebookToUse?.items) return false;
+    
+    // Check if ALL items are completed
+    const allItemsCompleted = allCourseItems.every(item => {
+      const itemGradeData = gradebookToUse.items[item.itemId];
+      return itemGradeData?.completed === true || 
+             itemGradeData?.status === 'completed' || 
+             itemGradeData?.status === 'manually_graded';
+    });
+    
+    return allItemsCompleted;
+  }, [allCourseItems, course, realtimeGradebook, dataUpdateTrigger]);
+
   // Get current unit index
   const currentUnitIndex = useMemo(() => {
     if (!activeItemId) {
@@ -1314,8 +1436,8 @@ const FirebaseCourseWrapperContent = ({
           />
         )}
 
-        {/* Main content */}
-        <main className="flex-1 p-6">
+        {/* Main content - add padding bottom when course complete bar is shown */}
+        <main className={`flex-1 p-6 ${isLastLesson && isCourseFullyComplete ? 'pb-32' : ''}`}>
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
           
@@ -1330,8 +1452,50 @@ const FirebaseCourseWrapperContent = ({
                   return null;
                 }
                 
-                // Use simplified lesson score from cloud function data
-                const lessonScore = getLessonScore(currentActiveItem.itemId, course);
+                // Use realtimeGradebook for reactive updates
+                const gradebookToUse = realtimeGradebook || course?.Gradebook;
+
+                // Get the lesson score directly from gradebook items
+                let lessonScore = null;
+                if (gradebookToUse?.items) {
+                  // Try original itemId first
+                  let item = gradebookToUse.items[currentActiveItem.itemId];
+                  
+                  // If not found, try converting hyphens to underscores
+                  if (!item && currentActiveItem.itemId.includes('-')) {
+                    const underscoreItemId = currentActiveItem.itemId.replace(/-/g, '_');
+                    item = gradebookToUse.items[underscoreItemId];
+                  }
+                  
+                  // If still not found, try converting underscores to hyphens
+                  if (!item && currentActiveItem.itemId.includes('_')) {
+                    const hyphenItemId = currentActiveItem.itemId.replace(/_/g, '-');
+                    item = gradebookToUse.items[hyphenItemId];
+                  }
+                  
+                  if (item) {
+                    lessonScore = {
+                      score: item.score || 0,
+                      total: item.total || 0,
+                      percentage: item.percentage || 0,
+                      attempted: item.attempted || 0,
+                      totalQuestions: item.totalQuestions || item.total || 0,
+                      valid: true
+                    };
+                  }
+                }
+
+                // Default if no item found
+                if (!lessonScore) {
+                  lessonScore = {
+                    score: 0,
+                    total: 0,
+                    percentage: 0,
+                    attempted: 0,
+                    totalQuestions: 0,
+                    valid: false
+                  };
+                }
                 
                 // DEBUG: Log lesson score data for troubleshooting
                 
@@ -1400,7 +1564,11 @@ const FirebaseCourseWrapperContent = ({
                     createAskAIButtonFromElement: createAskAIButtonFromElement,
                     // AI Accordion support
                     AIAccordion: AIAccordion,
-                    onAIAccordionContent: handleAIAccordionContent
+                    onAIAccordionContent: handleAIAccordionContent,
+                    // Next lesson navigation props
+                    currentLessonCompleted: currentLessonCompletion.isCompleted,
+                    nextLessonInfo: currentLessonCompletion.nextLesson,
+                    courseProgress: overallProgress
                   };
                   
                   // Use pre-loaded components
@@ -1591,6 +1759,29 @@ const FirebaseCourseWrapperContent = ({
         </button>
       )}
       
+      {/* Floating Next Lesson Button - shows when there's a next lesson, greys out if not accessible */}
+      <NextLessonButtonFloating
+        currentLessonInfo={currentActiveItem}
+        nextLessonInfo={findNextLesson}
+        isAccessible={findNextLesson?.accessible}
+        accessReason={findNextLesson?.accessReason}
+        onExpandNavigation={() => {
+          // Expand navigation panel to show context
+          setNavExpanded(true);
+        }}
+        onNavigateToNext={(nextItemId) => {
+          handleItemSelect(nextItemId);
+          setActiveTab('content');
+        }}
+      />
+      
+      {/* Return to Dashboard Button - shows when course is complete and on last lesson */}
+      <ReturnToDashboardButton
+        isLastLesson={isLastLesson}
+        isCourseComplete={isCourseFullyComplete}
+        courseTitle={courseTitle}
+        completionPercentage={overallProgress}
+      />
 
  
       
@@ -1608,25 +1799,26 @@ const FirebaseCourseWrapperContent = ({
         onClose={() => setIsResourcesOpen(false)}
       />
       
-      {/* AI Chat Assistant Sheet */}
-      <Sheet open={isChatOpen} onOpenChange={setIsChatOpen}>
-        {/* Floating AI Assistant Button - Trigger */}
-        <SheetTrigger asChild>
-          <button
-            className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-110"
-            aria-label="Open AI Assistant"
-          >
-            <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
-            {/* Pulse animation ring */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
-            
-            {/* Tooltip */}
-            <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              {getAIAssistantName()}
-              <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-            </div>
-          </button>
-        </SheetTrigger>
+      {/* AI Chat Assistant Sheet - Only show if AI is enabled */}
+      {isAIEnabled && (
+        <Sheet open={isChatOpen} onOpenChange={setIsChatOpen}>
+          {/* Floating AI Assistant Button - Trigger */}
+          <SheetTrigger asChild>
+            <button
+              className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-110"
+              aria-label="Open AI Assistant"
+            >
+              <Bot className="w-7 h-7 transition-transform group-hover:scale-110" />
+              {/* Pulse animation ring */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 animate-ping opacity-20"></div>
+              
+              {/* Tooltip */}
+              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                {getAIAssistantName()}
+                <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </button>
+          </SheetTrigger>
         
         {/* Sheet Content with AI Chat */}
         <SheetContent 
@@ -1764,6 +1956,7 @@ const FirebaseCourseWrapperContent = ({
           </div>
         </SheetContent>
       </Sheet>
+      )}
     </div>
   );
 };

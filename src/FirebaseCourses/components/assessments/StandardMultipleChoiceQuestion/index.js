@@ -1351,7 +1351,8 @@ This student answered correctly! Reinforce their understanding and help them con
             {isExamMode && (
               <Clipboard className="w-6 h-6 text-white" title="Assessment Session" />
             )}
-            {question && question.enableAIChat !== false && !isExamMode && (
+            {question && question.enableAIChat !== false && !isExamMode && 
+             course?.courseDetails?.['course-config']?.aiFeatures?.enabled === true && (
               <Button
                 onClick={handleAskAI}
                 size="sm"

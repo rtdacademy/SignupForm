@@ -114,7 +114,7 @@ const setTemporaryPassword = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
-    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+    "https://rtd-connect.com"
   ]
 }, async (request) => {
   const callerInfo = await verifyAdminPermissions(request);
@@ -207,6 +207,7 @@ const deleteFirebaseAuthUser = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
 }, async (request) => {
@@ -274,6 +275,7 @@ const toggleUserAccountStatus = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
 }, async (request) => {
@@ -347,6 +349,7 @@ const getUserSignInMethods = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
 }, async (request) => {
@@ -450,6 +453,7 @@ const getAdminAuditLog = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
 }, async (request) => {
@@ -503,6 +507,7 @@ const sendTempPasswordEmail = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ],
   secrets: ["SENDGRID_KEY"]
@@ -755,6 +760,7 @@ const createUserWithTempPassword = onCall({
   cors: [
     "https://yourway.rtdacademy.com", 
     "http://localhost:3000", 
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ],
   secrets: ["SENDGRID_KEY"]
@@ -1105,6 +1111,7 @@ const verifyUserEmail = onCall({
   concurrency: 50,
   cors: [
     "https://yourway.rtdacademy.com", 
+    "https://rtd-connect.com",
     "http://localhost:3000", 
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
@@ -1181,7 +1188,7 @@ const removeTempPasswordClaim = onCall({
   enforceAppCheck: false,
   cors: [
     "https://yourway.rtdacademy.com",
-    "https://rtdconnect.rtdacademy.com",
+    "https://rtd-connect.com",
     "http://localhost:3000", 
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
@@ -1281,8 +1288,8 @@ const updateUserCustomClaims = onCall({
   enforceAppCheck: false,
   cors: [
     "https://yourway.rtdacademy.com",
-    "https://rtdconnect.rtdacademy.com",
     "http://localhost:3000",
+    "https://rtd-connect.com",
     "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
   ]
 }, async (request) => {

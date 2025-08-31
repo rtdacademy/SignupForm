@@ -742,7 +742,14 @@ export function AuthProvider({ children }) {
     if (auth.currentUser) {
       try {
         await auth.currentUser.getIdToken(true);
-        // The auth state change listener will handle the rest
+        
+        // Add a small delay to ensure claims are fully propagated
+        // then navigate to dashboard
+        setTimeout(() => {
+          console.log('Navigating to dashboard after password change');
+          navigate('/dashboard');
+        }, 1000); // 1 second delay for claims to propagate
+        
       } catch (error) {
         console.error('Error refreshing token after password change:', error);
       }

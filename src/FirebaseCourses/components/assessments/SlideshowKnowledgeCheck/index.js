@@ -193,6 +193,10 @@ const SlideshowKnowledgeCheck = ({
   // Disable preloading entirely - questions will load on demand
   const [preloadingQuestions, setPreloadingQuestions] = useState(false);
   const [preloadingErrors, setPreloadingErrors] = useState([]);
+  
+  // Use courseId from course object if available, otherwise fall back to prop
+  // Ensure it's always a string for consistency
+  const effectiveCourseId = String(course?.CourseID || courseId || '');
 
   // Get theme configuration
   const themeConfig = getThemeConfig(theme);
@@ -200,9 +204,7 @@ const SlideshowKnowledgeCheck = ({
 
   // Helper function to get assessment data from course prop
   const getQuestionAssessmentData = (questionId) => {
-    
     if (!course?.Assessments || !questionId) {
-      console.log(`⚠️ Missing course.Assessments or questionId`);
       return null;
     }
     
@@ -258,7 +260,6 @@ const SlideshowKnowledgeCheck = ({
   const getQuestionStatus = (questionId) => {
     // We need either Assessments data OR Grades data to determine status
     if (!course) {
-      console.log(`❌ No course object for ${questionId}`);
       return { 
         attempted: false, 
         correct: null, 
@@ -317,7 +318,7 @@ const SlideshowKnowledgeCheck = ({
     if (questionIdPrefix) {
       return `${questionIdPrefix}${index + 1}`;
     }
-    const coursePrefix = `course${courseId}`;
+    const coursePrefix = `course${effectiveCourseId}`;
     const lessonPrefix = lessonPath.replace(/[^a-zA-Z0-9]/g, '_');
     return `${coursePrefix}_${lessonPrefix}_question${index + 1}`;
   };
@@ -341,7 +342,6 @@ const SlideshowKnowledgeCheck = ({
           const questionNumber = index + 1;
           const questionId = question.questionId || generateQuestionId(index);
           const status = getQuestionStatus(questionId);
-          
           
           if (status.attempted) {
             newQuestionsCompleted[`question${questionNumber}`] = true;
@@ -433,7 +433,7 @@ const SlideshowKnowledgeCheck = ({
           return (
             <StandardMultipleChoiceQuestion
               key={questionId}
-              courseId={courseId}
+              courseId={effectiveCourseId}
               cloudFunctionName={cloudFunctionName}
               assessmentId={originalQuestionId}
               title={question.title || `Question ${questionNumber}`}
@@ -458,7 +458,7 @@ const SlideshowKnowledgeCheck = ({
         return (
           <AIShortAnswerQuestion
             key={questionId}
-            courseId={courseId}
+            courseId={effectiveCourseId}
             cloudFunctionName={aiCloudFunctionName}
             assessmentId={originalAIQuestionId}
             title={question.title || `Question ${questionNumber}`}
@@ -480,7 +480,7 @@ const SlideshowKnowledgeCheck = ({
         return (
           <AILongAnswerQuestion
             key={questionId}
-            courseId={courseId}
+            courseId={effectiveCourseId}
             cloudFunctionName={aiLongCloudFunctionName}
             assessmentId={originalAILongQuestionId}
             title={question.title || `Question ${questionNumber}`}

@@ -1,0 +1,378 @@
+{
+  "courseId": "5",
+  "title": "Introduction to Data Science",
+  "credits": 3,
+  "courseStructure": {
+    "units": [
+      {
+        "unitId": "unit_1_foundations",
+        "name": "Foundations of Data Science",
+        "order": 1,
+        "items": [
+          {
+            "itemId": "01_data_science_introduction_overview",
+            "title": "Introduction to Data Science",
+            "type": "lesson",
+            "order": 1,
+            "estimatedTime": 45,
+            "description": "Overview of data science, its applications, and career paths",
+            "questions": [
+              {
+                "questionId": "course5_01_introduction_knowledge_check",
+                "title": "Data Science Fundamentals",
+                "points": 1,
+                "subject": "Data Science",
+                "gradeLevel": "University"
+              },
+              {
+                "questionId": "course5_01_introduction_applications",
+                "title": "Applications of Data Science",
+                "points": 1,
+                "subject": "Data Science",
+                "gradeLevel": "University"
+              }
+            ]
+          },
+          {
+            "itemId": "02_data_science_python_basics",
+            "title": "Python Programming Basics",
+            "type": "lesson",
+            "order": 2,
+            "estimatedTime": 60,
+            "description": "Introduction to Python programming for data science",
+            "questions": [
+              {
+                "questionId": "course5_02_python_syntax",
+                "title": "Python Syntax and Variables",
+                "points": 1
+              },
+              {
+                "questionId": "course5_02_python_data_structures",
+                "title": "Python Data Structures",
+                "points": 1
+              },
+              {
+                "questionId": "course5_02_python_functions",
+                "title": "Functions and Control Flow",
+                "points": 2
+              }
+            ]
+          },
+          {
+            "itemId": "03_data_science_statistics_review",
+            "title": "Statistics Review",
+            "type": "lesson",
+            "order": 3,
+            "estimatedTime": 50,
+            "description": "Review of essential statistical concepts for data science",
+            "questions": [
+              {
+                "questionId": "course5_03_statistics_descriptive",
+                "title": "Descriptive Statistics",
+                "points": 1
+              },
+              {
+                "questionId": "course5_03_statistics_probability",
+                "title": "Probability Concepts",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "04_data_science_unit1_assignment",
+            "title": "Unit 1 Assignment: Data Analysis Project",
+            "type": "assignment",
+            "order": 4,
+            "estimatedTime": 120,
+            "description": "Apply foundational concepts to analyze a real dataset",
+            "questions": [
+              {
+                "questionId": "course5_04_assignment_data_exploration",
+                "title": "Data Exploration",
+                "points": 5
+              },
+              {
+                "questionId": "course5_04_assignment_analysis",
+                "title": "Statistical Analysis",
+                "points": 5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "unitId": "unit_2_data_manipulation",
+        "name": "Data Manipulation and Visualization",
+        "order": 2,
+        "items": [
+          {
+            "itemId": "05_data_science_pandas_introduction",
+            "title": "Introduction to Pandas",
+            "type": "lesson",
+            "order": 5,
+            "estimatedTime": 55,
+            "description": "Working with dataframes using Pandas library",
+            "questions": [
+              {
+                "questionId": "course5_05_pandas_dataframes",
+                "title": "Working with DataFrames",
+                "points": 1
+              },
+              {
+                "questionId": "course5_05_pandas_operations",
+                "title": "Data Operations",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "06_data_science_data_cleaning",
+            "title": "Data Cleaning and Preprocessing",
+            "type": "lesson",
+            "order": 6,
+            "estimatedTime": 60,
+            "description": "Techniques for cleaning and preparing data for analysis",
+            "questions": [
+              {
+                "questionId": "course5_06_cleaning_missing_data",
+                "title": "Handling Missing Data",
+                "points": 1
+              },
+              {
+                "questionId": "course5_06_cleaning_outliers",
+                "title": "Dealing with Outliers",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "07_data_science_visualization_basics",
+            "title": "Data Visualization with Matplotlib",
+            "type": "lesson",
+            "order": 7,
+            "estimatedTime": 50,
+            "description": "Creating effective visualizations using Matplotlib",
+            "questions": [
+              {
+                "questionId": "course5_07_visualization_plots",
+                "title": "Basic Plot Types",
+                "points": 1
+              },
+              {
+                "questionId": "course5_07_visualization_customization",
+                "title": "Customizing Visualizations",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "08_data_science_pandas_lab",
+            "title": "Lab: Data Manipulation with Pandas",
+            "type": "lab",
+            "order": 8,
+            "estimatedTime": 90,
+            "description": "Hands-on practice with real-world data manipulation",
+            "questions": [
+              {
+                "questionId": "course5_08_lab_data_import",
+                "title": "Data Import and Initial Analysis",
+                "points": 3
+              },
+              {
+                "questionId": "course5_08_lab_transformation",
+                "title": "Data Transformation Tasks",
+                "points": 3
+              }
+            ]
+          },
+          {
+            "itemId": "09_data_science_unit2_quiz",
+            "title": "Unit 2 Quiz",
+            "type": "quiz",
+            "order": 9,
+            "estimatedTime": 30,
+            "description": "Assessment of data manipulation and visualization concepts",
+            "questions": [
+              {
+                "questionId": "course5_09_quiz_question1",
+                "title": "Pandas Operations",
+                "points": 2
+              },
+              {
+                "questionId": "course5_09_quiz_question2",
+                "title": "Data Cleaning Concepts",
+                "points": 2
+              },
+              {
+                "questionId": "course5_09_quiz_question3",
+                "title": "Visualization Best Practices",
+                "points": 2
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "unitId": "unit_3_machine_learning",
+        "name": "Introduction to Machine Learning",
+        "order": 3,
+        "items": [
+          {
+            "itemId": "10_data_science_ml_fundamentals",
+            "title": "Machine Learning Fundamentals",
+            "type": "lesson",
+            "order": 10,
+            "estimatedTime": 60,
+            "description": "Introduction to machine learning concepts and workflows",
+            "questions": [
+              {
+                "questionId": "course5_10_ml_types",
+                "title": "Types of Machine Learning",
+                "points": 1
+              },
+              {
+                "questionId": "course5_10_ml_workflow",
+                "title": "ML Workflow and Best Practices",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "11_data_science_final_exam",
+            "title": "Final Exam",
+            "type": "exam",
+            "order": 11,
+            "estimatedTime": 120,
+            "description": "Comprehensive assessment of course material",
+            "questions": [
+              {
+                "questionId": "course5_11_exam_section1",
+                "title": "Foundations and Programming",
+                "points": 10
+              },
+              {
+                "questionId": "course5_11_exam_section2",
+                "title": "Data Manipulation",
+                "points": 10
+              },
+              {
+                "questionId": "course5_11_exam_section3",
+                "title": "Machine Learning Concepts",
+                "points": 10
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "attemptLimits": {
+    "lesson": 999,
+    "assignment": 3,
+    "lab": 3,
+    "quiz": 2,
+    "exam": 1
+  },
+  "weights": {
+    "lesson": 0.2,
+    "assignment": 0.3,
+    "lab": 0.2,
+    "quiz": 0.1,
+    "exam": 0.2
+  },
+  "themes": {
+    "default": {
+      "primaryColor": "blue",
+      "secondaryColor": "indigo",
+      "accent": "#3b82f6",
+      "background": "#f0f9ff",
+      "border": "#bfdbfe"
+    },
+    "lesson": {
+      "primaryColor": "purple",
+      "secondaryColor": "indigo",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
+    "assignment": {
+      "primaryColor": "blue",
+      "secondaryColor": "sky",
+      "accent": "#3b82f6",
+      "background": "#f0f9ff",
+      "border": "#bfdbfe"
+    },
+    "lab": {
+      "primaryColor": "green",
+      "secondaryColor": "emerald",
+      "accent": "#10b981",
+      "background": "#ecfdf5",
+      "border": "#a7f3d0"
+    },
+    "quiz": {
+      "primaryColor": "amber",
+      "secondaryColor": "yellow",
+      "accent": "#f59e0b",
+      "background": "#fffbeb",
+      "border": "#fde68a"
+    },
+    "exam": {
+      "primaryColor": "red",
+      "secondaryColor": "rose",
+      "accent": "#ef4444",
+      "background": "#fef2f2",
+      "border": "#fecaca"
+    },
+    "customCSS": ""
+  },
+  "progressionRequirements": {
+    "enabled": true,
+    "defaultCriteria": {
+      "minimumPercentage": 70,
+      "requireAllQuestions": false,
+      "lesson": {
+        "minimumPercentage": 60,
+        "requireAllQuestions": true
+      }
+    },
+    "lessonOverrides": {
+      "10_data_science_ml_fundamentals": {
+        "minimumPercentage": 80,
+        "requireAllQuestions": true
+      }
+    },
+    "visibility": {}
+  },
+  "aiFeatures": {
+    "enabled": true,
+    "allowAIAssistance": true,
+    "aiTutorEnabled": true,
+    "adaptiveHints": true
+  },
+  "notifications": {
+    "enableEmailNotifications": true,
+    "enableInAppNotifications": true,
+    "notifyOnGrade": true,
+    "notifyOnFeedback": true,
+    "notifyOnAnnouncement": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "status": "development",
+    "createdDate": "2025-01-31T00:00:00.000Z",
+    "lastModified": "2025-01-31T00:00:00.000Z",
+    "lastUpdated": "2025-01-31T00:00:00.000Z",
+    "author": "Course Creator",
+    "department": "Computer Science",
+    "prerequisites": ["Basic programming knowledge", "High school mathematics"],
+    "learningOutcomes": [
+      "Understand fundamental data science concepts and workflows",
+      "Proficiently use Python for data manipulation and analysis",
+      "Create effective data visualizations",
+      "Apply basic machine learning techniques"
+    ],
+    "targetAudience": "Undergraduate students or professionals new to data science",
+    "estimatedDuration": "12 weeks",
+    "language": "English"
+  }
+}

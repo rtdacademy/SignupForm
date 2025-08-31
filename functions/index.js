@@ -127,10 +127,6 @@ const familyEmailFunctions = require('./familyEmails');
 exports.sendFamilyEmailsV2 = familyEmailFunctions.sendFamilyEmailsV2;
 exports.handleFamilyWebhookEvents = familyEmailFunctions.handleFamilyWebhookEvents;
 
-// Email tracking webhook
-const { trackEmailOpens } = require('./trackEmailOpens');
-exports.trackEmailOpens = trackEmailOpens;
-
 // Payment functions
 exports.handleStripeWebhookV2 = stripeFunctions.handleStripeWebhookV2;
 exports.handleOneTimePaymentV2 = stripeFunctions.handleOneTimePaymentV2;
@@ -326,7 +322,10 @@ exports.saveStudentScheduleV2 = studentScheduleV2Functions.saveStudentScheduleV2
 // Gradebook functions - NEW SERVER-SIDE SYSTEM
 exports.updateGradebookOnSessionComplete = gradebookFunctions.updateGradebookOnSessionComplete;
 exports.updateGradebookOnAssessmentScore = gradebookFunctions.updateGradebookOnAssessmentScore;
+exports.updateGradebooksOnProgressionChange = gradebookFunctions.updateGradebooksOnProgressionChange;
+exports.updateGradebooksOnStructureChange = gradebookFunctions.updateGradebooksOnStructureChange;
 exports.recalculateStudentGradebook = gradebookFunctions.recalculateStudentGradebook;
+exports.recalculateCourseGradebooksOptimized = gradebookFunctions.recalculateCourseGradebooksOptimized;
 
 
 // Exam session management functions

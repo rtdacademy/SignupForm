@@ -442,7 +442,7 @@ const CollapsibleNavigation = ({
     const isNextItem = !isCompleted && hasStarted;
     
     // Use the calculated lesson percentage
-    const gradePercentage = lessonPercentage > 0 ? lessonPercentage : null;
+    const gradePercentage = lessonPercentage >= 0 ? lessonPercentage : null;
     
     // Get grade color
     const getGradeColor = (percentage) => {
@@ -566,7 +566,7 @@ const CollapsibleNavigation = ({
                   <span className="text-xs font-semibold text-red-600">
                     ERROR
                   </span>
-                ) : !hasCalculationError && gradePercentage !== null && gradePercentage > 0 ? (
+                ) : !hasCalculationError && gradePercentage !== null && (gradeData || attemptedQuestions > 0) ? (
                   <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
                     {formatScore(gradePercentage)}%
                   </span>

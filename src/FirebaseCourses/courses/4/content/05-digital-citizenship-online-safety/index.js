@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 // useProgress removed - completion tracking is now handled automatically
 
-const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) => {
+const CoursePrerequisitesAndRequirements = ({ course, courseId, itemId, activeItem, onNavigateToLesson, onNavigateToNext, onAIAccordionContent }) => {
   // markCompleted removed - completion tracking is now handled automatically
   const [activeSection, setActiveSection] = useState('importance');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionsCompleted, setQuestionsCompleted] = useState({
     question1: false,
     question2: false,
@@ -1792,108 +1791,43 @@ const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) =>
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto">
-              {/* Question Progress Indicator */}
-              <div className="flex justify-center mb-6">
-                <div className="flex space-x-2">
-                  {[0, 1, 2].map((index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                        index === currentQuestionIndex
-                          ? 'bg-indigo-600 scale-125'
-                          : questionResults[`question${index + 1}`] === 'correct'
-                          ? 'bg-green-500'
-                          : questionResults[`question${index + 1}`] === 'incorrect'
-                          ? 'bg-red-500'
-                          : 'bg-gray-300 hover:bg-gray-400'
-                      }`}
-                      aria-label={`Go to question ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Question Display */}
-              <div className="relative">
-                {currentQuestionIndex === 0 && (
-                  <StandardMultipleChoiceQuestion
-                    courseId={courseId}
-                    cloudFunctionName="course4_05_course_prerequisites_question1"
-                    title="Scenario: Missing Math Prerequisites"
-                    theme="indigo"
-                    onAttempt={(isCorrect) => {
-                      handleQuestionComplete(1);
-                      setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
-                    }}
-                  />
-                )}
-                
-                {currentQuestionIndex === 1 && (
-                  <StandardMultipleChoiceQuestion
-                    courseId={courseId}
-                    cloudFunctionName="course4_05_course_prerequisites_question2"
-                    title="Scenario: Physics Prerequisites Decision"
-                    theme="indigo"
-                    onAttempt={(isCorrect) => {
-                      handleQuestionComplete(2);
-                      setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
-                    }}
-                  />
-                )}
-                
-                {currentQuestionIndex === 2 && (
-                  <StandardMultipleChoiceQuestion
-                    courseId={courseId}
-                    cloudFunctionName="course4_05_course_prerequisites_question3"
-                    title="Scenario: Academic Pathway Planning"
-                    theme="indigo"
-                    onAttempt={(isCorrect) => {
-                      handleQuestionComplete(3);
-                      setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Navigation Controls */}
-              <div className="flex justify-between items-center mt-6">
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-                  disabled={currentQuestionIndex === 0}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-
-                <div className="text-sm text-gray-500">
-                  Question {currentQuestionIndex + 1} of 3
-                </div>
-
-                <button
-                  onClick={() => setCurrentQuestionIndex(Math.min(2, currentQuestionIndex + 1))}
-                  disabled={currentQuestionIndex === 2}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    currentQuestionIndex === 2
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                  }`}
-                >
-                  Next
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-          </div>
+          <SlideshowKnowledgeCheck
+            courseId={courseId}
+            lessonPath="05-digital-citizenship-online-safety"
+            course={course}
+            // onAIAccordionContent={onAIAccordionContent}  // Commented out to hide "Ask AI" button
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_05_course_prerequisites_question1',
+                title: 'Question 1: Purpose of Course Prerequisites'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_05_course_prerequisites_question2',
+                title: 'Question 2: Sequential Learning Benefits'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course4_05_course_prerequisites_question3',
+                title: 'Question 3: Handling Missing Prerequisites'
+              }
+            ]}
+            onComplete={(score, results) => {
+              console.log(`Knowledge Check completed with ${score}%`);
+              // Check if all questions are completed successfully
+              const totalQuestions = 3;
+              const correctCount = Object.values(results).filter(result => result === 'correct').length;
+              if (correctCount >= 2 || score >= 67) {  // 67% passing threshold for 3 questions
+                // Mark all questions as completed
+                for (let i = 1; i <= totalQuestions; i++) {
+                  setQuestionsCompleted(prev => ({...prev, [`question${i}`]: true}));
+                }
+                setQuestionResults(results);
+              }
+            }}
+            theme="indigo"
+          />
         </section>
       )}
 

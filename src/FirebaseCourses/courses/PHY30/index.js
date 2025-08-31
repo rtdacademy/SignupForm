@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
+import NextLessonButton from '../../components/NextLessonButton';
 
 // Import the course structure as a fallback
 import courseStructure from './structure.json';
@@ -21,7 +22,11 @@ const PHY30Course = ({
   activeItemId: externalActiveItemId,
   onItemSelect,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  // Next lesson navigation props
+  currentLessonCompleted = false,
+  nextLessonInfo = null,
+  courseProgress = 0
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course.CourseID;
@@ -128,6 +133,20 @@ const PHY30Course = ({
             courseId={courseId}
             isStaffView={isStaffView}
             devMode={devMode}
+          />
+          
+          {/* Next Lesson Button */}
+          <NextLessonButton
+            currentLessonCompleted={currentLessonCompleted}
+            nextLessonInfo={nextLessonInfo}
+            onNavigateToNext={(nextItemId) => {
+              if (onItemSelect) {
+                onItemSelect(nextItemId);
+              } else {
+                setInternalActiveItemId(nextItemId);
+              }
+            }}
+            courseProgress={courseProgress}
           />
         </div>
       );

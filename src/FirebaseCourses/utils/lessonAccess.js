@@ -494,6 +494,93 @@ export const getHighestAccessibleLesson = (courseStructure, course, options = {}
 };
 
 /**
+ * Gets the next lesson in the course structure after the current lesson
+ * @param {Object} courseStructure - Course structure
+ * @param {string} currentItemId - Current lesson's item ID
+ * @returns {Object|null} - Next lesson info or null if none exists
+ */
+export const getNextLessonInfo = (courseStructure, currentItemId) => {
+  if (!courseStructure || !currentItemId) return null;
+  
+  const allItems = getAllCourseItems(courseStructure);
+  const currentIndex = allItems.findIndex(item => item.itemId === currentItemId);
+  
+  if (currentIndex === -1 || currentIndex === allItems.length - 1) {
+    return null; // Current item not found or is the last item
+  }
+  
+  const nextItem = allItems[currentIndex + 1];
+  const nextUnit = findItemUnit(courseStructure, nextItem.itemId);
+  
+  return {
+    itemId: nextItem.itemId,
+    title: nextItem.title,
+    type: nextItem.type,
+    unitTitle: nextUnit?.title || nextUnit?.name,
+    unitIndex: nextUnit?.index || 0
+  };
+};
+
+/**
+ * Checks if the current lesson is fully completed
+ * @param {string} itemId - The lesson item ID
+ * @param {Object} course - Full course object with Gradebook
+ * @returns {boolean} - Whether the lesson is completed
+ */
+export const isLessonFullyCompleted = (itemId, course) => {
+  if (!itemId || !course?.Gradebook?.items) return false;
+  
+  const gradebookItem = course.Gradebook.items[itemId];
+  if (!gradebookItem) return false;
+  
+  // Check multiple completion indicators
+  const isCompleted = gradebookItem.completed === true || 
+                     gradebookItem.status === 'completed' ||
+                     gradebookItem.status === 'manually_graded';
+  
+  // Also check if all questions are attempted
+  const allQuestionsAttempted = gradebookItem.totalQuestions > 0 && 
+                                gradebookItem.attempted >= gradebookItem.totalQuestions;
+  
+  // Check if meets percentage requirements
+  const progressionRequirements = course?.courseDetails?.['course-config']?.progressionRequirements;
+  if (progressionRequirements?.enabled) {
+    const itemType = getItemType(itemId, course);
+    const criteria = getCompletionCriteria(itemId, itemType, progressionRequirements);
+    
+    if (itemType === 'lesson') {
+      const meetsPercentage = gradebookItem.percentage >= (criteria.minimumPercentage || 50);
+      const meetsQuestions = !criteria.requireAllQuestions || allQuestionsAttempted;
+      return isCompleted && meetsPercentage && meetsQuestions;
+    }
+  }
+  
+  return isCompleted && allQuestionsAttempted;
+};
+
+/**
+ * Gets complete next lesson information including accessibility
+ * @param {Object} courseStructure - Course structure
+ * @param {string} currentItemId - Current lesson's item ID
+ * @param {Object} course - Full course object
+ * @param {Object} options - Options for accessibility check
+ * @returns {Object|null} - Complete next lesson info with accessibility status
+ */
+export const getNextLessonWithAccessibility = (courseStructure, currentItemId, course, options = {}) => {
+  const nextLessonInfo = getNextLessonInfo(courseStructure, currentItemId);
+  if (!nextLessonInfo) return null;
+  
+  const accessibility = getLessonAccessibility(courseStructure, course, options);
+  const nextLessonAccess = accessibility[nextLessonInfo.itemId];
+  
+  return {
+    ...nextLessonInfo,
+    accessible: nextLessonAccess?.accessible || false,
+    reason: nextLessonAccess?.reason || 'Unknown'
+  };
+};
+
+/**
  * Legacy functions maintained for backward compatibility
  */
 export const shouldBypassAccessControl = (isStaffView, devMode) => {

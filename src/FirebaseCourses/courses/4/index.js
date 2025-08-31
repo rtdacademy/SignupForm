@@ -23,6 +23,7 @@ const typeColors = {
 const LessonContentWrapper = ({ 
   activeItem, 
   ContentComponent, 
+  course,
   courseId, 
   isStaffView, 
   devMode, 
@@ -30,7 +31,13 @@ const LessonContentWrapper = ({
   setInternalActiveItemId, 
   findNextLesson,
   gradebookItems = {},
-  courseStructure
+  courseStructure,
+  // AI-related props
+  onPrepopulateMessage,
+  createAskAIButton,
+  createAskAIButtonFromElement,
+  AIAccordion,
+  onAIAccordionContent
 }) => {
   // SEQUENTIAL_ACCESS_UPDATE: Temporarily commented out to isolate Firebase permission issue
   // const { trackLessonAccess, progress } = useProgress();
@@ -114,6 +121,7 @@ const LessonContentWrapper = ({
       {/* Content */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <ContentComponent 
+          course={course}
           courseId={courseId}
           itemId={activeItem.itemId}
           activeItem={activeItem}
@@ -138,6 +146,12 @@ const LessonContentWrapper = ({
               }
             }
           }}
+          // AI-related props
+          onPrepopulateMessage={onPrepopulateMessage}
+          createAskAIButton={createAskAIButton}
+          createAskAIButtonFromElement={createAskAIButtonFromElement}
+          AIAccordion={AIAccordion}
+          onAIAccordionContent={onAIAccordionContent}
         />
       </div>
     </div>
@@ -158,7 +172,17 @@ const Course4 = ({
   onItemSelect,
   isStaffView = false,
   devMode = false,
-  gradebookItems = {}
+  gradebookItems = {},
+  // AI-related props
+  onPrepopulateMessage,
+  createAskAIButton,
+  createAskAIButtonFromElement,
+  AIAccordion,
+  onAIAccordionContent,
+  // Next lesson navigation props
+  currentLessonCompleted = false,
+  nextLessonInfo = null,
+  courseProgress = 0
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course?.CourseID || '4';
@@ -279,6 +303,7 @@ const Course4 = ({
       <LessonContentWrapper 
           activeItem={activeItem}
           ContentComponent={ContentComponent}
+          course={course}
           courseId={courseId}
           isStaffView={isStaffView}
           devMode={devMode}
@@ -287,6 +312,12 @@ const Course4 = ({
           findNextLesson={findNextLesson}
           gradebookItems={gradebookItems}
           courseStructure={{ courseStructure: { units: structure } }}
+          // AI-related props
+          onPrepopulateMessage={onPrepopulateMessage}
+          createAskAIButton={createAskAIButton}
+          createAskAIButtonFromElement={createAskAIButtonFromElement}
+          AIAccordion={AIAccordion}
+          onAIAccordionContent={onAIAccordionContent}
         />
     );
   };

@@ -16,7 +16,7 @@ const contentRegistry = {
   '05_physics_30_digital_citizenship_online_safety': DigitalCitizenshipOnlineSafety,
   '07_physics_30_technology_readiness_assistive_tools': TechnologyReadinessAssistiveTools,
   '08_physics_30_cell_phone_policy_exam_proctoring': CellPhonePolicyExamProctoringProcedures,
-  '09_physics_30_academic_integrity_violation_consequences': null, // Missing content - needs to be created
+  //'09_physics_30_academic_integrity_violation_consequences': null, // Missing content - needs to be created
   '10_physics_30_exams_rewrites_student_support': ExamsRewritesStudentSupportResources,
 };
 

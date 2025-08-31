@@ -17,7 +17,8 @@ import {
   FaSync,
   FaDatabase,
   FaGraduationCap,
-  FaPercentage
+  FaPercentage,
+  FaRobot
 } from 'react-icons/fa';
 import { BookOpen, RotateCcw } from 'lucide-react';
 import Modal from 'react-modal';
@@ -1943,6 +1944,86 @@ function Courses({
       });
   };
 
+  // Handler for AI features toggle (Firebase courses only)
+  const handleAIFeaturesChange = async (checked) => {
+    if (!courseIsEditing || !courseData?.firebaseCourse) return;
+
+    try {
+      const db = getDatabase();
+      const configRef = ref(db, `courses/${selectedCourseId}/course-config`);
+      await update(configRef, { aiFeatures: { enabled: checked } });
+      
+      // Update local state
+      const updatedData = {
+        ...courseData,
+        'course-config': {
+          ...courseData['course-config'],
+          aiFeatures: { enabled: checked }
+        }
+      };
+      onCourseUpdate(updatedData);
+      
+      toast.success(`AI features ${checked ? 'enabled' : 'disabled'} successfully`);
+      console.log(`Successfully updated AI features: ${checked}`);
+    } catch (error) {
+      console.error('Error updating AI features:', error);
+      toast.error('Failed to update AI features');
+    }
+  };
+
+  // Function to recalculate gradebooks for all students in a Firebase course
+  const handleRecalculateAllGradebooks = async () => {
+    if (!selectedCourseId || !courseData?.firebaseCourse) {
+      toast.error('This action is only available for Firebase courses');
+      return;
+    }
+
+    const toastId = toast.loading('Starting gradebook recalculation...', {
+      description: 'Please wait while we process all students'
+    });
+
+    try {
+      const functions = getFunctions();
+      const recalculateFunction = httpsCallable(functions, 'recalculateCourseGradebooksOptimized');
+      
+      const result = await recalculateFunction({
+        courseId: parseInt(selectedCourseId)
+      });
+
+      if (result.data.success) {
+        const { stats, totalStudentCount } = result.data;
+        
+        toast.success('Gradebook recalculation completed!', {
+          id: toastId,
+          description: `Successfully processed ${stats.successful} of ${totalStudentCount} students`,
+          duration: 5000
+        });
+
+        // Show warning if some failed
+        if (stats.failed > 0) {
+          toast.warning(`${stats.failed} student(s) failed to update`, {
+            description: 'Check the console for details',
+            duration: 7000
+          });
+          console.log('Failed students:', result.data.failedStudents);
+        }
+      } else {
+        toast.error('Recalculation failed', {
+          id: toastId,
+          description: result.data.message || 'An error occurred',
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      console.error('Error recalculating gradebooks:', error);
+      toast.error('Failed to recalculate gradebooks', {
+        id: toastId,
+        description: error.message || 'An unexpected error occurred',
+        duration: 5000
+      });
+    }
+  };
+
   const inputClass = `mt-1 block w-full p-2 border ${
     courseIsEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
@@ -3064,6 +3145,59 @@ function Courses({
                 {courseData.firebaseCourse ? (
                   // Firebase Course - Show database configuration with sync controls
                   <div className="space-y-8">
+                    {/* Gradebook Management Section */}
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FaGraduationCap className="text-blue-600 text-xl" />
+                          <div>
+                            <h3 className="font-semibold text-gray-800">Gradebook Management</h3>
+                            <p className="text-sm text-gray-600">Recalculate gradebooks for all enrolled students</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleRecalculateAllGradebooks}
+                          variant="default"
+                          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <FaSync className="mr-2" />
+                          Recalculate All Gradebooks
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* AI Features Toggle Section */}
+                    <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FaRobot className="text-purple-600 text-xl" />
+                          <div>
+                            <h3 className="font-semibold text-gray-800">AI Features</h3>
+                            <p className="text-sm text-gray-600">Enable AI-powered learning assistants and smart features</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            {courseData?.['course-config']?.aiFeatures?.enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                          <Switch
+                            checked={courseData?.['course-config']?.aiFeatures?.enabled || false}
+                            onCheckedChange={handleAIFeaturesChange}
+                            disabled={!courseIsEditing}
+                            className="data-[state=checked]:bg-purple-600"
+                          />
+                        </div>
+                      </div>
+                      {courseData?.['course-config']?.aiFeatures?.enabled && (
+                        <div className="mt-3 pt-3 border-t border-purple-100">
+                          <p className="text-xs text-gray-500">
+                            AI features include: Interactive AI tutors, smart question generation, automated feedback, 
+                            and personalized learning recommendations.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <FirebaseCourseConfigEditor 
                         courseId={selectedCourseId} 

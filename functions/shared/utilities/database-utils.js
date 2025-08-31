@@ -1171,6 +1171,112 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       category.percentageByPoints = category.total > 0 ? (category.score / category.total) * 100 : 0;
     });
     
+    // Calculate progression based on completion requirements
+    let progressionData = {
+      itemsCompleted: 0,
+      totalItems: 0,
+      progression: 0,
+      itemsStatus: {} // Track which items are completed for debugging
+    };
+    
+    // Get progression requirements if they exist
+    const progressionRequirements = courseConfig.progressionRequirements || {};
+    const progressionEnabled = progressionRequirements.enabled !== false; // Default to true if not specified
+    
+    if (progressionEnabled) {
+      const defaultCriteria = progressionRequirements.defaultCriteria || {
+        lesson: {
+          minimumPercentage: 0,
+          requireAllQuestions: true
+        },
+        minimumPercentage: 0,
+        requireAllQuestions: true
+      };
+      
+      const lessonOverrides = progressionRequirements.lessonOverrides || {};
+      const visibility = progressionRequirements.visibility || {};
+      
+      // Count progression for each item
+      Object.entries(itemStructure).forEach(([itemId, itemConfig]) => {
+        const { type } = itemConfig;
+        const itemScore = itemScores[itemId];
+        
+        // Skip items that are always visible (don't count toward progression)
+        if (visibility[itemId] === 'always') {
+          console.log(`⏭️ Skipping always-visible item from progression: ${itemId}`);
+          return;
+        }
+        
+        // Skip omitted items
+        if (itemScore && itemScore.isOmitted) {
+          console.log(`⏭️ Skipping omitted item from progression: ${itemId}`);
+          return;
+        }
+        
+        // Count this as a progressable item
+        progressionData.totalItems++;
+        
+        // Determine completion criteria for this item
+        let criteria;
+        
+        // Check for specific lesson override
+        if (lessonOverrides[itemId]) {
+          criteria = lessonOverrides[itemId];
+        } 
+        // Check for type-specific default criteria
+        else if (defaultCriteria[type]) {
+          criteria = defaultCriteria[type];
+        } 
+        // Use general default criteria
+        else {
+          criteria = {
+            minimumPercentage: defaultCriteria.minimumPercentage || 0,
+            requireAllQuestions: defaultCriteria.requireAllQuestions !== false
+          };
+        }
+        
+        // Check if item meets progression requirements
+        let isCompleted = false;
+        
+        if (itemScore) {
+          const meetsPercentageRequirement = itemScore.percentage >= (criteria.minimumPercentage || 0);
+          
+          let meetsAttemptRequirement = true;
+          if (criteria.requireAllQuestions) {
+            // For session-based items (exams, assignments, quizzes), completion means the session exists
+            if (itemScore.source === 'session') {
+              meetsAttemptRequirement = itemScore.completed === true;
+            } 
+            // For individual question items (lessons), check if all questions are attempted
+            else {
+              meetsAttemptRequirement = itemScore.attempted >= itemScore.totalQuestions;
+            }
+          }
+          
+          isCompleted = meetsPercentageRequirement && meetsAttemptRequirement;
+          
+          if (isCompleted) {
+            progressionData.itemsCompleted++;
+            progressionData.itemsStatus[itemId] = 'completed';
+            console.log(`✅ Item completed for progression: ${itemId} (${itemScore.percentage.toFixed(1)}%, ${itemScore.attempted}/${itemScore.totalQuestions} attempted)`);
+          } else {
+            progressionData.itemsStatus[itemId] = `incomplete (${itemScore.percentage.toFixed(1)}%, ${itemScore.attempted}/${itemScore.totalQuestions} attempted, needs ${criteria.minimumPercentage}% and ${criteria.requireAllQuestions ? 'all' : 'any'} questions)`;
+          }
+        } else {
+          progressionData.itemsStatus[itemId] = 'not_started';
+        }
+      });
+      
+      // Calculate progression percentage
+      progressionData.progression = progressionData.totalItems > 0 
+        ? (progressionData.itemsCompleted / progressionData.totalItems) * 100 
+        : 0;
+      
+      console.log(`📊 Progression: ${progressionData.itemsCompleted}/${progressionData.totalItems} items completed (${progressionData.progression.toFixed(1)}%)`);
+    } else {
+      console.log('⏭️ Progression tracking disabled for this course');
+    }
+    
     // Calculate two types of weighted grades
     let currentPerformanceWeighted = 0;  // Based on attempted work only
     let projectedFinalWeighted = 0;      // If remaining work scores 0%
@@ -1203,6 +1309,23 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     const projectedFinalGrade = totalWeightUsed > 0 ? projectedFinalWeighted / totalWeightUsed : 0;
     const currentPerformanceGrade = attemptedWeightUsed > 0 ? currentPerformanceWeighted / attemptedWeightUsed : 0;
     
+    // Determine if course is completed
+    let courseCompleted = false;
+    
+    // For course 4, check if the last lesson is completed
+    if (courseId === '4') {
+      const lastLessonId = '10_physics_30_exams_rewrites_student_support';
+      courseCompleted = progressionData.itemsStatus[lastLessonId] === 'completed';
+    } else {
+      // For other courses, use 100% progression as completion criteria
+      courseCompleted = progressionData.progression >= 100;
+    }
+    
+    // Log course completion status change
+    if (courseCompleted) {
+      console.log(`🎓 Course ${courseId} marked as COMPLETED for student ${studentKey}`);
+    }
+    
     // Save pre-calculated results to database
     const gradebookData = {
       items: itemScores,
@@ -1213,17 +1336,23 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
         percentage: projectedFinalGrade, // Default to projected for compatibility
         totalWeightUsed: totalWeightUsed,
         attemptedWeightUsed: attemptedWeightUsed,
-        isWeighted: true
+        isWeighted: true,
+        // Add progression data
+        progression: progressionData.progression,
+        itemsCompleted: progressionData.itemsCompleted,
+        totalItems: progressionData.totalItems,
+        courseCompleted: courseCompleted // NEW: Add course completion flag
       },
       metadata: {
         lastCalculated: getServerTimestamp(),
-        calculationVersion: '1.0'
+        calculationVersion: '1.2', // Bumped version for course completion feature
+        progressionEnabled: progressionEnabled
       }
     };
     
     await db.ref(`${basePath}/Gradebook`).update(gradebookData);
     
-    console.log(`✅ Gradebook recalculation completed for ${studentKey}/${courseId}: Current=${currentPerformanceGrade.toFixed(1)}%, Projected=${projectedFinalGrade.toFixed(1)}%`);
+    console.log(`✅ Gradebook recalculation completed for ${studentKey}/${courseId}: Current=${currentPerformanceGrade.toFixed(1)}%, Projected=${projectedFinalGrade.toFixed(1)}%, Progression=${progressionData.progression.toFixed(1)}%`);
     
   } catch (error) {
     console.error('Error in recalculateFullGradebook:', error);
