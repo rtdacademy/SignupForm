@@ -1016,9 +1016,7 @@ function generateCourse(configPath) {
     });
   });
   
-  // Save database configuration
-  const dbConfigPath = path.join(PATHS.configDir, `course-${courseId}-generated.json`);
-  writeFileWithTracking(dbConfigPath, JSON.stringify(config, null, 2), generatedFiles);
+  // No need to save a duplicate config - use the original config file directly
   
   // Save generation manifest
   const manifestPath = saveGenerationManifest(courseId, configPath, generatedFiles);
@@ -1031,9 +1029,10 @@ function generateCourse(configPath) {
   log.info('2. Add actual question content to assessment files');
   log.info('3. Import the course in FirebaseCourseWrapperImproved.js:');
   log.info(`   const Course${courseId} = React.lazy(() => import('./courses/${courseId}'));`);
-  log.info(`4. Upload configuration to Firebase:`);
-  log.info(`   firebase database:set /courses/${courseId}/course-config ${dbConfigPath}`);
+  log.info(`4. (Optional) Upload configuration to Firebase when ready:`);
+  log.info(`   firebase database:set /courses/${courseId}/course-config ${configPath}`);
   log.info('5. Test the course with a student account');
+  log.info('\nNote: The script does NOT modify your database. All changes are local only.');
   
   // Stats
   const totalLessons = config.courseStructure.units.reduce(

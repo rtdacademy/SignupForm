@@ -324,26 +324,33 @@ const RTD_ACADEMY_RUBRICS = {
 
 ## Adding New Courses
 
-### Step 1: Create Course Configuration
-Create a JSON file with course structure following the configuration schema above.
+### Database-First Development Process
 
-### Step 2: Create Frontend Structure
+The recommended workflow follows a database-first approach:
+
+### Step 1: Create Configuration in Firebase Database
+1. Navigate to Firebase Console or use CLI
+2. Create course structure at `/courses/{courseId}/course-config/`
+3. Build the complete course configuration following the schema
+4. Test the configuration in your live application
+
+### Step 2: Download Configuration for Code Generation
 ```bash
-src/FirebaseCourses/courses/{courseId}/
-├── index.js              # Copy from course 4, update courseId
-└── content/
-    ├── index.js          # Create content registry
-    └── {lesson-folders}/ # Create for each lesson
-        └── index.js      # Lesson components
+# Export the database configuration to local file
+firebase database:get /courses/{courseId}/course-config > course-generator/configs/course-{courseId}-config.json
 ```
 
-### Step 3: Create Backend Structure
+### Step 3: Generate Course Structure
+Use the course generator script to create all necessary files:
 ```bash
-functions/courses/{courseId}/
-├── assessment-mapping.js  # Map all question IDs
-└── {lesson-folders}/
-    └── assessments.js     # Question pools and configs
+# Generate frontend and backend structure
+node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/course-{courseId}-config.json
 ```
+
+This automatically creates:
+- Frontend: `src/FirebaseCourses/courses/{courseId}/`
+- Backend: `functions/courses/{courseId}/`
+- All boilerplate code and structure
 
 ### Step 4: Import in Main Wrapper
 Add to `FirebaseCourseWrapperImproved.js`:
@@ -351,9 +358,11 @@ Add to `FirebaseCourseWrapperImproved.js`:
 const Course5 = React.lazy(() => import('./courses/5'));
 ```
 
-### Step 5: Upload Configuration to Database
-Upload the course configuration JSON to:
-`/courses/{courseId}/course-config/`
+### Step 5: Customize and Deploy
+1. Add lesson content to generated components
+2. Create assessment questions in backend files
+3. Deploy code changes (configuration already in database)
+4. Test complete course functionality
 
 ### Best Practices
 

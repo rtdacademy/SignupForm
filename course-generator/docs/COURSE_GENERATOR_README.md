@@ -14,13 +14,14 @@ This will create all necessary frontend and backend files for your course, allow
 
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
-3. [Configuration File Structure](#configuration-file-structure)
-4. [Running the Generator](#running-the-generator)
-5. [Generated File Structure](#generated-file-structure)
-6. [Post-Generation Steps](#post-generation-steps)
-7. [Customization Guide](#customization-guide)
-8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+3. [Database-First Workflow](#database-first-workflow)
+4. [Configuration File Structure](#configuration-file-structure)
+5. [Running the Generator](#running-the-generator)
+6. [Generated File Structure](#generated-file-structure)
+7. [Post-Generation Steps](#post-generation-steps)
+8. [Customization Guide](#customization-guide)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -41,7 +42,57 @@ Before using the generator:
 1. **Node.js**: Ensure Node.js is installed (version 14+)
 2. **Project Setup**: The script should be run from the project root
 3. **Firebase Project**: Have your Firebase project configured
-4. **Understanding**: Read `COURSE_ARCHITECTURE.md` for system overview
+4. **Firebase CLI**: Install and authenticate with `firebase login`
+5. **Understanding**: Read `COURSE_ARCHITECTURE.md` for system overview
+
+## Database-First Workflow
+
+This system follows a **database-first approach** where you:
+
+1. **Create in Database**: Build your course configuration directly in Firebase Realtime Database
+2. **Download for Generation**: Export the config to a local JSON file
+3. **Generate Code**: Use the downloaded config to generate frontend and backend files
+4. **Customize**: Add content to the generated structure
+5. **Deploy**: Push code changes (database already has the config)
+
+### Why Database-First?
+
+- **Live Testing**: Test your course structure immediately in the application
+- **Validation**: Firebase validates your configuration in real-time
+- **Collaboration**: Multiple team members can view/edit the config
+- **Version Control**: Database maintains the source of truth
+- **No Upload Needed**: Eliminates the risk of overwriting production configs
+
+### Step-by-Step Process
+
+1. **Create Configuration in Firebase Console or CLI**
+   ```bash
+   # Option 1: Use Firebase Console UI
+   # Navigate to /courses/{courseId}/course-config and create structure
+   
+   # Option 2: Use Firebase CLI with a draft JSON
+   firebase database:set /courses/{courseId}/course-config draft-config.json
+   ```
+
+2. **Test the Configuration**
+   - Access your application
+   - Verify the course appears correctly
+   - Check navigation and structure
+
+3. **Download Configuration**
+   ```bash
+   firebase database:get /courses/{courseId}/course-config > course-generator/configs/course-{courseId}-config.json
+   ```
+
+4. **Generate Code Structure**
+   ```bash
+   node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/course-{courseId}-config.json
+   ```
+
+5. **Develop and Deploy**
+   - Add lesson content
+   - Create assessments
+   - Deploy code (config already in database)
 
 ## Configuration File Structure
 
@@ -236,12 +287,10 @@ project-root/
 │   ├── 02-another-lesson/
 │   │   └── assessments.js
 │   └── ...
-├── course-generator/
-│   ├── configs/
-│   │   └── course-{courseId}-generated.json  # Generated config
-│   ├── backups/                              # Automatic backups
-│   └── manifests/                            # Generation tracking
-└── ...
+└── course-generator/
+    ├── configs/                              # Course configuration files
+    ├── backups/                              # Automatic backups
+    └── manifests/                            # Generation tracking
 ```
 
 ## Post-Generation Steps
@@ -258,15 +307,13 @@ const Course5 = React.lazy(() => import('./courses/5'));
 {courseId === '5' && <Course5 {...props} />}
 ```
 
-### 2. Upload Configuration to Firebase
+### 2. Verify Configuration in Firebase
 
-Upload the generated configuration to Firebase Realtime Database:
+**Note: The configuration should already be in your Firebase database since you created it there first.**
 
-```bash
-firebase database:set /courses/5/course-config course-generator/configs/course-5-generated.json
-```
+The course configuration exists at: `/courses/{courseId}/course-config/`
 
-Or use Firebase Console to import at path: `/courses/5/course-config/`
+Since you created the config in the database first and downloaded it for generation, the database already has the correct structure. No upload is needed.
 
 ### 3. Customize Lesson Components
 

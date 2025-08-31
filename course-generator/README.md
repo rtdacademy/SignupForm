@@ -39,6 +39,7 @@ course-generator/
 - Backend assessment configurations
 - Automatic file organization
 - Boilerplate code generation
+- **Local only** - No database modifications
 
 ### 🔄 Rollback Support
 - Automatic backup before overwriting
@@ -122,47 +123,57 @@ See `configs/course-sample-config.json` for a complete example.
 
 ### Creating a New Course
 
-1. **Create Configuration**
+1. **Create Configuration in Firebase Database**
+   - Create your course structure directly in Firebase Realtime Database at `/courses/{courseId}/course-config/`
+   - Use Firebase Console or CLI to build the configuration
+   - Test and refine the structure in the database
+
+2. **Download Configuration for Local Generation**
    ```bash
-   cp course-generator/configs/course-sample-config.json course-generator/configs/my-course.json
-   # Edit my-course.json with your course structure
+   # Download the config from Firebase to local JSON file
+   firebase database:get /courses/{courseId}/course-config > course-generator/configs/course-{courseId}-config.json
    ```
 
-2. **Generate Course**
+3. **Generate Course Structure**
    ```bash
-   node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/my-course.json
+   # Use the downloaded config to generate frontend and backend files
+   node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/course-{courseId}-config.json
    ```
 
-3. **Customize Content**
+4. **Customize Content**
    - Edit lesson components in `src/FirebaseCourses/courses/{courseId}/content/`
    - Add questions to `functions/courses/{courseId}/*/assessments.js`
 
-4. **Test and Deploy**
+5. **Test and Deploy**
    - Import course in `FirebaseCourseWrapperImproved.js`
-   - Upload config to Firebase
-   - Test with student account
+   - Test with student account (config already in database)
+   - Deploy frontend and backend changes
 
 ### Updating an Existing Course
 
-1. **Modify Configuration**
+1. **Update Configuration in Firebase**
+   - Modify the course structure in Firebase Realtime Database at `/courses/{courseId}/course-config/`
+   - Test changes with the live application
+
+2. **Download Updated Configuration**
    ```bash
-   # Edit the config file
-   vim course-generator/configs/course-5-config.json
+   # Download the updated config from Firebase
+   firebase database:get /courses/{courseId}/course-config > course-generator/configs/course-{courseId}-config.json
    ```
 
-2. **Regenerate with Backup**
+3. **Regenerate with Backup**
    ```bash
-   # Automatically backs up existing files
-   node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/course-5-config.json
+   # Automatically backs up existing files before regenerating
+   node course-generator/scripts/generate-course-with-rollback.js generate course-generator/configs/course-{courseId}-config.json
    ```
 
-3. **If Issues Arise**
+4. **If Issues Arise**
    ```bash
    # Rollback to remove generated files
-   node course-generator/scripts/generate-course-with-rollback.js rollback 5
+   node course-generator/scripts/generate-course-with-rollback.js rollback {courseId}
    
    # Or completely clean
-   node course-generator/scripts/generate-course-with-rollback.js clean 5
+   node course-generator/scripts/generate-course-with-rollback.js clean {courseId}
    ```
 
 ## Safety Features
