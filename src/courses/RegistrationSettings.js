@@ -22,13 +22,13 @@ import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
 import { 
   getSchoolYearOptions, 
   STUDENT_TYPE_OPTIONS, 
@@ -45,7 +45,9 @@ import {
   Calendar,
   CalendarClock,
   Copy,
-  CheckCircle
+  CheckCircle,
+  ArrowRight,
+  FileText
 } from 'lucide-react';
 
 // Enhanced Quill editor modules and formats configuration - removed indent options
@@ -99,7 +101,16 @@ function RegistrationSettings() {
   // State for copy functionality
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copySourceType, setCopySourceType] = useState('');
+  const [copySourceYear, setCopySourceYear] = useState('');
+  const [availableSourceYears, setAvailableSourceYears] = useState([]);
+  const [availableSourceTypes, setAvailableSourceTypes] = useState([]);
   const [isCopying, setIsCopying] = useState(false);
+  const [isLoadingCopyOptions, setIsLoadingCopyOptions] = useState(false);
+  
+  // State for smart period mapping
+  const [copyMappingMode, setCopyMappingMode] = useState('smart'); // 'smart', 'direct', 'custom'
+  const [periodMappingPreview, setPeriodMappingPreview] = useState(null);
+  const [isSequentialYear, setIsSequentialYear] = useState(false);
   
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
@@ -430,6 +441,95 @@ function RegistrationSettings() {
     }
   };
   
+  // Helper function to check if years are sequential
+  const areYearsSequential = (fromYear, toYear) => {
+    // Convert formats like "24_25" to "24/25" for comparison
+    const fromFormatted = fromYear.replace('_', '/');
+    const toFormatted = toYear.replace('_', '/');
+    
+    // Extract the end year from source and start year from target
+    const fromEndYear = parseInt(fromFormatted.split('/')[1]);
+    const toStartYear = parseInt(toFormatted.split('/')[0]);
+    
+    // Check if target year starts where source year ends
+    return toStartYear === fromEndYear;
+  };
+  
+  // Helper function to adjust date by years
+  const adjustDateByYears = (dateString, yearsToAdd) => {
+    if (!dateString) return dateString;
+    
+    // Special handling for "start from today" dates (1900-01-01)
+    if (dateString === '1900-01-01') {
+      return '1900-01-01';
+    }
+    
+    const date = new Date(dateString);
+    date.setFullYear(date.getFullYear() + yearsToAdd);
+    return date.toISOString().split('T')[0];
+  };
+  
+  // Helper function to transform periods based on mapping mode
+  const transformPeriodsForCopy = (sourceConfig, mappingMode, fromYear, toYear) => {
+    if (!sourceConfig || !sourceConfig.timeSections) return sourceConfig;
+    
+    const isSequential = areYearsSequential(fromYear, toYear);
+    const yearDifference = isSequential ? 1 : 0;
+    
+    if (mappingMode === 'direct') {
+      // Direct copy - no transformation
+      return sourceConfig;
+    }
+    
+    if (mappingMode === 'smart' && isSequential) {
+      // Smart mapping for sequential years
+      const transformedConfig = {
+        ...sourceConfig,
+        allowNextYearRegistration: false, // Reset for new year
+        timeSections: []
+      };
+      
+      // Map Next Year periods from source to Current Year in target
+      const nextYearSections = sourceConfig.timeSections.filter(s => s.isForNextYear);
+      const currentYearSections = sourceConfig.timeSections.filter(s => !s.isForNextYear);
+      
+      // Transform next year sections to current year
+      // Note: Next Year periods already have the correct dates for the target year
+      nextYearSections.forEach(section => {
+        transformedConfig.timeSections.push({
+          ...section,
+          isForNextYear: false,
+          startFromToday: true, // Always set to true for new year registration
+          startBegins: '1900-01-01', // Special date for "start from today"
+          // Keep the existing dates - they're already correct for the next year
+          startEnds: section.startEnds,
+          completionBegins: section.completionBegins,
+          completionEnds: section.completionEnds,
+          title: section.title.replace('Next Year', 'Current Year').replace('Registration Period', 'Period')
+        });
+      });
+      
+      // If no next year sections, fall back to copying current year sections with date adjustment
+      if (nextYearSections.length === 0) {
+        currentYearSections.forEach(section => {
+          transformedConfig.timeSections.push({
+            ...section,
+            startFromToday: true, // Always set to true for new year registration
+            startBegins: '1900-01-01', // Special date for "start from today"
+            startEnds: adjustDateByYears(section.startEnds, yearDifference),
+            completionBegins: adjustDateByYears(section.completionBegins, yearDifference),
+            completionEnds: adjustDateByYears(section.completionEnds, yearDifference)
+          });
+        });
+      }
+      
+      return transformedConfig;
+    }
+    
+    // Default to direct copy if no special mapping
+    return sourceConfig;
+  };
+  
   // Get color for validity visual indicator
   const getSectionStatusColor = (section) => {
     if (section.startFromToday) {
@@ -456,29 +556,177 @@ function RegistrationSettings() {
     return formConfig?.timeSections.filter(section => section.isForNextYear) || [];
   };
   
+  // Fetch available years and types for copying
+  const fetchCopyOptions = async () => {
+    setIsLoadingCopyOptions(true);
+    try {
+      const db = getDatabase();
+      const settingsRef = ref(db, 'registrationSettings');
+      const snapshot = await get(settingsRef);
+      
+      if (snapshot.exists()) {
+        const allSettings = snapshot.val();
+        const years = Object.keys(allSettings);
+        
+        // Set available years
+        setAvailableSourceYears(years.map(year => ({
+          value: year,
+          label: year.replace('_', '/'),
+          isCurrent: year === selectedYear.replace('/', '_')
+        })));
+        
+        // Set default source year to current year
+        if (!copySourceYear && years.length > 0) {
+          setCopySourceYear(years.includes(selectedYear.replace('/', '_')) 
+            ? selectedYear.replace('/', '_') 
+            : years[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching copy options:', error);
+      toast.error('Failed to load copy options');
+    } finally {
+      setIsLoadingCopyOptions(false);
+    }
+  };
+  
+  // Fetch student types for selected source year and detect sequential years
+  useEffect(() => {
+    if (!copySourceYear || !isCopyDialogOpen) return;
+    
+    const fetchSourceTypes = async () => {
+      try {
+        const db = getDatabase();
+        const yearRef = ref(db, `registrationSettings/${copySourceYear}`);
+        const snapshot = await get(yearRef);
+        
+        if (snapshot.exists()) {
+          const yearData = snapshot.val();
+          const types = Object.keys(yearData).map(type => ({
+            value: type,
+            label: type.replace(/-/g, ' '),
+            isCurrent: type === selectedStudentType.replace(/\s+/g, '-')
+          }));
+          setAvailableSourceTypes(types);
+          
+          // Check if years are sequential
+          const targetYear = selectedYear.replace('/', '_');
+          const sequential = areYearsSequential(copySourceYear, targetYear);
+          setIsSequentialYear(sequential);
+          
+          // Set default mapping mode based on sequential detection
+          if (sequential) {
+            setCopyMappingMode('smart');
+          } else {
+            setCopyMappingMode('direct');
+          }
+          
+          // Set default source type if not set
+          if (!copySourceType && types.length > 0) {
+            // Try to select the same type if available, otherwise first type
+            const sameType = types.find(t => t.value === selectedStudentType.replace(/\s+/g, '-'));
+            setCopySourceType(sameType ? sameType.value : types[0].value);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching source types:', error);
+      }
+    };
+    
+    fetchSourceTypes();
+  }, [copySourceYear, isCopyDialogOpen, selectedStudentType, copySourceType, selectedYear]);
+  
+  // Generate preview when source is selected
+  useEffect(() => {
+    if (!copySourceYear || !copySourceType || !isCopyDialogOpen) {
+      setPeriodMappingPreview(null);
+      return;
+    }
+    
+    const generatePreview = async () => {
+      try {
+        const db = getDatabase();
+        const sourceConfigRef = ref(db, `registrationSettings/${copySourceYear}/${copySourceType}`);
+        const snapshot = await get(sourceConfigRef);
+        
+        if (snapshot.exists()) {
+          const sourceConfig = snapshot.val();
+          const targetYear = selectedYear.replace('/', '_');
+          
+          // Generate preview based on mapping mode
+          const preview = {
+            source: {
+              year: copySourceYear.replace('_', '/'),
+              type: copySourceType.replace(/-/g, ' '),
+              currentPeriods: sourceConfig.timeSections?.filter(s => !s.isForNextYear) || [],
+              nextYearPeriods: sourceConfig.timeSections?.filter(s => s.isForNextYear) || []
+            },
+            target: {
+              year: selectedYear,
+              type: selectedStudentType
+            },
+            isSequential: areYearsSequential(copySourceYear, targetYear),
+            mappingMode: copyMappingMode,
+            transformedConfig: transformPeriodsForCopy(sourceConfig, copyMappingMode, copySourceYear, targetYear)
+          };
+          
+          setPeriodMappingPreview(preview);
+        }
+      } catch (error) {
+        console.error('Error generating preview:', error);
+      }
+    };
+    
+    generatePreview();
+  }, [copySourceYear, copySourceType, copyMappingMode, isCopyDialogOpen, selectedYear, selectedStudentType]);
+  
   // Copy settings from another student type
   const handleCopySettings = async () => {
-    if (!selectedYear || !selectedStudentType || !copySourceType) return;
+    if (!selectedYear || !selectedStudentType || !copySourceType || !copySourceYear) return;
     
     setIsCopying(true);
     try {
-      const formattedYear = selectedYear.replace('/', '_');
-      const formattedSourceType = copySourceType.replace(/\s+/g, '-');
+      const formattedTargetYear = selectedYear.replace('/', '_');
+      const formattedTargetType = selectedStudentType.replace(/\s+/g, '-');
       
       const db = getDatabase();
-      const sourceConfigRef = ref(db, `registrationSettings/${formattedYear}/${formattedSourceType}`);
+      const sourceConfigRef = ref(db, `registrationSettings/${copySourceYear}/${copySourceType}`);
       const snapshot = await get(sourceConfigRef);
       
       if (snapshot.exists()) {
-        // Copy the configuration
-        setFormConfig(snapshot.val());
+        const sourceConfig = snapshot.val();
         
-        toast.success(`Settings copied from ${copySourceType}`);
+        // Apply transformation based on mapping mode
+        const transformedConfig = transformPeriodsForCopy(
+          sourceConfig, 
+          copyMappingMode, 
+          copySourceYear, 
+          formattedTargetYear
+        );
         
-        // Close the dialog
+        // Set the transformed configuration
+        setFormConfig(transformedConfig);
+        
+        const sourceYearLabel = copySourceYear.replace('_', '/');
+        const sourceTypeLabel = copySourceType.replace(/-/g, ' ');
+        
+        // Provide more informative success message based on mapping mode
+        if (copyMappingMode === 'smart' && isSequentialYear) {
+          toast.success(`Smart copy applied: Next Year periods from ${sourceYearLabel} are now Current Year periods for ${selectedYear}`);
+        } else {
+          toast.success(`Settings copied from ${sourceYearLabel} - ${sourceTypeLabel}`);
+        }
+        
+        // Close the dialog and reset copy state
         setIsCopyDialogOpen(false);
+        setCopySourceType('');
+        setCopySourceYear('');
+        setCopyMappingMode('smart');
+        setPeriodMappingPreview(null);
       } else {
-        toast.error(`No settings found for ${copySourceType}`);
+        const sourceYearLabel = copySourceYear.replace('_', '/');
+        const sourceTypeLabel = copySourceType.replace(/-/g, ' ');
+        toast.error(`No settings found for ${sourceYearLabel} - ${sourceTypeLabel}`);
       }
     } catch (error) {
       console.error('Error copying registration config:', error);
@@ -561,7 +809,10 @@ function RegistrationSettings() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setIsCopyDialogOpen(true)}
+                    onClick={() => {
+                      setIsCopyDialogOpen(true);
+                      fetchCopyOptions();
+                    }}
                     className="ml-2"
                   >
                     <Copy className="w-4 h-4 mr-2" />
@@ -1158,65 +1409,256 @@ function RegistrationSettings() {
         )}
       </div>
       
-      {/* Copy Settings Dialog */}
-      <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Copy Settings from Another Student Type</DialogTitle>
-            <DialogDescription>
-              Select a student type to copy settings from. This will replace your current settings.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Copy Settings Sheet */}
+      <Sheet open={isCopyDialogOpen} onOpenChange={(open) => {
+        setIsCopyDialogOpen(open);
+        if (!open) {
+          // Reset states when closing
+          setCopySourceType('');
+          setCopySourceYear('');
+          setCopyMappingMode('smart');
+          setPeriodMappingPreview(null);
+          setIsSequentialYear(false);
+        }
+      }}>
+        <SheetContent className="w-[500px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Copy Registration Settings</SheetTitle>
+            <SheetDescription>
+              Copy settings from any year and student type combination
+            </SheetDescription>
+          </SheetHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="source-type-select">Copy from:</Label>
-              <Select 
-                value={copySourceType} 
-                onValueChange={setCopySourceType}
-                id="source-type-select"
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select student type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STUDENT_TYPE_OPTIONS
-                    .filter(option => option.value !== selectedStudentType)
-                    .map(option => {
-                      const Icon = option.icon;
-                      return (
-                        <SelectItem 
-                          key={option.value} 
-                          value={option.value}
-                        >
-                          <div className="flex items-center gap-2">
-                            {Icon && <Icon className="w-4 h-4" style={{ color: option.color }} />}
-                            <span>{option.value}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })
-                  }
-                </SelectContent>
-              </Select>
+          {isLoadingCopyOptions ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading available options...</span>
             </div>
-            
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-sm text-amber-700">
-                This will replace all current settings for <strong>{selectedStudentType}</strong> students 
-                with settings from the selected student type.
-              </AlertDescription>
-            </Alert>
-          </div>
+          ) : (
+            <div className="space-y-4 py-6">
+              {/* Source Selection */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Copy From:</Label>
+                  
+                  {/* Year Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="source-year-select" className="text-sm font-normal">School Year</Label>
+                    <Select 
+                      value={copySourceYear} 
+                      onValueChange={setCopySourceYear}
+                      id="source-year-select"
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select school year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSourceYears.map(year => (
+                          <SelectItem 
+                            key={year.value} 
+                            value={year.value}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-gray-500" />
+                              <span>{year.label}</span>
+                              {year.isCurrent && (
+                                <span className="text-xs text-blue-600 ml-1">(Current Year)</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Student Type Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="source-type-select" className="text-sm font-normal">Student Type</Label>
+                    <Select 
+                      value={copySourceType} 
+                      onValueChange={setCopySourceType}
+                      id="source-type-select"
+                      disabled={!copySourceYear}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={copySourceYear ? "Select student type" : "Select a year first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSourceTypes.map(type => {
+                          // Find the icon from STUDENT_TYPE_OPTIONS
+                          const studentTypeOption = STUDENT_TYPE_OPTIONS.find(
+                            opt => opt.value === type.label
+                          );
+                          const Icon = studentTypeOption?.icon;
+                          
+                          return (
+                            <SelectItem 
+                              key={type.value} 
+                              value={type.value}
+                            >
+                              <div className="flex items-center gap-2">
+                                {Icon && <Icon className="w-4 h-4" style={{ color: studentTypeOption?.color }} />}
+                                <span>{type.label}</span>
+                                {type.isCurrent && (
+                                  <span className="text-xs text-blue-600 ml-1">(Same Type)</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* Visual Copy Indicator */}
+                {copySourceYear && copySourceType && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center justify-center gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">
+                          {copySourceYear.replace('_', '/')} - {copySourceType.replace(/-/g, ' ')}
+                        </span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <span className="font-medium">
+                          {selectedYear} - {selectedStudentType}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Period Mapping Options - only show when sequential year detected */}
+              {copySourceYear && copySourceType && isSequentialYear && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Period Mapping Options</Label>
+                  
+                  <div className="space-y-2">
+                    <div 
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        copyMappingMode === 'smart' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => setCopyMappingMode('smart')}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input 
+                          type="radio" 
+                          checked={copyMappingMode === 'smart'} 
+                          onChange={() => setCopyMappingMode('smart')}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">Smart Mapping (Recommended)</div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            Next Year periods from {copySourceYear.replace('_', '/')} will become Current Year periods for {selectedYear}.
+                            Registration will start from "today" with dates already configured for {selectedYear}.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div 
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        copyMappingMode === 'direct' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => setCopyMappingMode('direct')}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input 
+                          type="radio" 
+                          checked={copyMappingMode === 'direct'} 
+                          onChange={() => setCopyMappingMode('direct')}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">Direct Copy</div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            Copy all settings exactly as they are, without any transformation.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Period Mapping Preview */}
+              {periodMappingPreview && copyMappingMode === 'smart' && isSequentialYear && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Preview of Changes</Label>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-2">
+                    {periodMappingPreview.source.nextYearPeriods.length > 0 ? (
+                      <>
+                        <div className="font-medium text-blue-600">
+                          {periodMappingPreview.source.nextYearPeriods.length} Next Year period(s) will become Current Year:
+                        </div>
+                        {periodMappingPreview.source.nextYearPeriods.map((period, idx) => (
+                          <div key={idx} className="ml-3 text-gray-700">
+                            • {period.title} ({period.term})
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-medium text-amber-600">
+                          No Next Year periods found. Will copy Current Year periods instead:
+                        </div>
+                        {periodMappingPreview.source.currentPeriods.map((period, idx) => (
+                          <div key={idx} className="ml-3 text-gray-700">
+                            • {period.title} ({period.term})
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    <div className="text-gray-500 italic mt-2">
+                      {periodMappingPreview.source.nextYearPeriods.length > 0 ? (
+                        <>
+                          • Dates are already set for {selectedYear}<br/>
+                          • Registration will start from "today" (whenever opened)
+                        </>
+                      ) : (
+                        <>
+                          • Dates will be adjusted forward by 1 year<br/>
+                          • Registration will start from "today" (whenever opened)
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <Alert className="bg-amber-50 border-amber-200">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-sm text-amber-700">
+                  This will replace <strong>all current settings</strong> for {selectedStudentType} students 
+                  in {selectedYear} with the selected configuration.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>
+          <SheetFooter className="mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsCopyDialogOpen(false);
+                setCopySourceType('');
+                setCopySourceYear('');
+                setCopyMappingMode('smart');
+                setPeriodMappingPreview(null);
+                setIsSequentialYear(false);
+              }}
+            >
               Cancel
             </Button>
             <Button 
               onClick={handleCopySettings} 
-              disabled={!copySourceType || isCopying}
+              disabled={!copySourceType || !copySourceYear || isCopying || isLoadingCopyOptions}
               className="ml-2"
             >
               {isCopying ? (
@@ -1231,9 +1673,9 @@ function RegistrationSettings() {
                 </>
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       
       {/* Add CSS for the ReactQuill editor to ensure proper styling */}
       <style jsx global>{`

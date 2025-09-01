@@ -1,0 +1,17 @@
+{
+  "courseId": "6",
+  "generatedAt": "2025-09-01T12:19:28.589Z",
+  "configFile": "course-generator/configs/course-inf2020-config.json",
+  "files": [
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/6/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/6/content/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/6/content/01_keyboarding_basics/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/6/content/02_keyboarding_practice/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/src/FirebaseCourses/courses/6/content/03_keyboarding_final_assessment/index.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/6/assessment-mapping.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/6/01_keyboarding_basics/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/6/02_keyboarding_practice/assessments.js",
+    "/mnt/c/Users/kyle_/Documents/GitHub/SignupForm/functions/courses/6/03_keyboarding_final_assessment/assessments.js"
+  ],
+  "version": "1.0.0"
+}

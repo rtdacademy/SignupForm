@@ -1,0 +1,85 @@
+{
+  "courseId": "6",
+  "courseCode": "INF2020",
+  "title": "Keyboarding",
+  "credits": 1,
+  "courseStructure": {
+    "units": [
+      {
+        "unitId": "unit_1_keyboarding",
+        "name": "Keyboarding Fundamentals",
+        "order": 1,
+        "items": [
+          {
+            "itemId": "01_keyboarding_basics",
+            "title": "Typing Basics and Hand Position",
+            "type": "lesson",
+            "order": 1,
+            "estimatedTime": 30,
+            "description": "Learn proper hand positioning, posture, and basic typing techniques",
+            "questions": [
+              {
+                "questionId": "inf2020_01_hand_position",
+                "title": "Hand Position Knowledge Check",
+                "points": 1
+              },
+              {
+                "questionId": "inf2020_01_typing_technique",
+                "title": "Typing Technique Assessment",
+                "points": 1
+              }
+            ]
+          },
+          {
+            "itemId": "02_keyboarding_practice",
+            "title": "Typing Practice and Speed Building",
+            "type": "lesson",
+            "order": 2,
+            "estimatedTime": 45,
+            "description": "Practice typing skills and work on increasing speed and accuracy",
+            "questions": [
+              {
+                "questionId": "inf2020_02_speed_test",
+                "title": "Speed Test Practice",
+                "points": 2
+              },
+              {
+                "questionId": "inf2020_02_accuracy_test",
+                "title": "Accuracy Assessment",
+                "points": 2
+              }
+            ]
+          },
+          {
+            "itemId": "03_keyboarding_final_assessment",
+            "title": "Keyboarding Final Assessment",
+            "type": "quiz",
+            "order": 3,
+            "estimatedTime": 30,
+            "description": "Final typing assessment - test your speed and accuracy",
+            "questions": [
+              {
+                "questionId": "inf2020_03_final_speed",
+                "title": "Final Speed Test",
+                "points": 5
+              },
+              {
+                "questionId": "inf2020_03_final_accuracy",
+                "title": "Final Accuracy Test",
+                "points": 5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "attemptLimits": {
+    "lesson": 999,
+    "quiz": 999
+  },
+  "weights": {
+    "lesson": 0,
+    "quiz": 1
+  }
+}
