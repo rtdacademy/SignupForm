@@ -16,18 +16,11 @@ export const loadCourseConfig = async (courseId) => {
     return configCache.get(courseId);
   }
 
-  try {
-    // Import the course config dynamically
-    const configModule = await import(`../../../functions/courses-config/${courseId}/course-config.json`);
-    const config = configModule.default || configModule;
-    
-    // Cache the result
-    configCache.set(courseId, config);
-    return config;
-  } catch (error) {
-    console.error(`Failed to load course config for course ${courseId}:`, error);
-    return null;
-  }
+  // Legacy function - courses-config directory no longer exists
+  // Configurations are now loaded from Firebase database
+  console.warn(`loadCourseConfig called for course ${courseId} - returning null (legacy method, use Firebase database instead)`);
+  configCache.set(courseId, null);
+  return null;
 };
 
 /**

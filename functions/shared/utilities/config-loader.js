@@ -34,14 +34,10 @@ async function loadAssessmentDefaults() {
  * @returns {Promise<Object>} The loaded course configuration
  */
 async function loadCourseConfig(courseId, configFileName = 'course-config.json') {
-  try {
-    const configPath = path.join(__dirname, `../courses-config/${courseId}/${configFileName}`);
-    const configData = await fs.readFile(configPath, 'utf8');
-    return JSON.parse(configData);
-  } catch (error) {
-    console.warn(`Could not load ${configFileName} for course ${courseId}:`, error.message);
-    return {};
-  }
+  // Legacy function - courses-config directory no longer exists
+  // Returning empty object as configurations are now handled differently
+  console.warn(`loadCourseConfig called for course ${courseId} - returning empty object (legacy method)`);
+  return {};
 }
 
 /**

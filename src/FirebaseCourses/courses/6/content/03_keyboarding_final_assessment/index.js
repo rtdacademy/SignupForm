@@ -28,13 +28,13 @@ const PASSING_CRITERIA = {
   minAccuracy: 80
 };
 
-// Multiple test texts for variety (shortened for testing, no math equations)
+// Multiple test texts for variety (3 sentences each, no numbers or formulas)
 const FINAL_TEST_TEXTS = [
-  `The quick fox jumps. Type 123 and 456. Use asdf jkl; keys for typing!`,
-  `Hello world! Practice 789 and 321. Home row keys: asdf jkl; are important.`,
-  `Type fast and accurate. Numbers: 246, 135, 789. Ready? Start typing now!`,
-  `Good typing skills matter. Type 100, 50, and 150. Use all fingers on asdf jkl; row.`,
-  `Test your speed now! Count: 111, 222, 333. Keep hands steady on home keys.`
+  `The quick brown fox jumps over the lazy dog near the river. Practice makes perfect when you work hard every single day. Success comes to those who never give up on their dreams.`,
+  `Learning to type fast requires dedication and daily practice sessions. Your fingers will remember the keys through muscle memory development. Keep your hands on the home row for the best typing posture.`,
+  `Technology has changed how we communicate with people around the world. Writing emails and messages is now an essential skill for everyone. Good typing speed helps you express your thoughts more efficiently.`,
+  `Reading books can expand your knowledge and improve your vocabulary significantly. Every page you read opens new doors to different worlds and ideas. The more you read, the better writer and thinker you will become.`,
+  `Time management is crucial for achieving your goals and staying productive. Breaking large tasks into smaller steps makes them easier to complete. Focus on one task at a time to maintain quality and efficiency.`
 ];
 
 /**
@@ -72,6 +72,7 @@ const KeyboardingFinalAssessment = ({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isPassing, setIsPassing] = useState(false);
+  const [percentageScore, setPercentageScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [showCourseCompleteMessage, setShowCourseCompleteMessage] = useState(false);
@@ -242,6 +243,7 @@ const KeyboardingFinalAssessment = ({
     setCorrectKeystrokes(0);
     setElapsedSeconds(0);
     setIsPassing(false);
+    setPercentageScore(0);
     setSubmitError(null);
   };
 
@@ -300,10 +302,52 @@ const KeyboardingFinalAssessment = ({
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     
-    // Check if passing
-    const passing = finalWpm >= PASSING_CRITERIA.minWpm && finalAccuracy >= PASSING_CRITERIA.minAccuracy;
+    // Calculate percentage score using weighted system
+    const calculatePercentageScore = () => {
+      // Scoring weights
+      const WEIGHT_ACCURACY = 0.6;  // 60% weight for accuracy
+      const WEIGHT_WPM = 0.4;       // 40% weight for speed
+      
+      // WPM scoring scale (linear interpolation)
+      const WPM_SCALE = {
+        min: 10,     // 0% at 10 WPM or below
+        target: 30,  // 100% at 30 WPM or above
+        passing: 18  // Still need 18 to pass
+      };
+      
+      // Normalize WPM to 0-100 scale
+      const wpmScore = Math.min(100, Math.max(0, 
+        ((finalWpm - WPM_SCALE.min) / (WPM_SCALE.target - WPM_SCALE.min)) * 100
+      ));
+      
+      // Accuracy is already 0-100
+      const accuracyScore = finalAccuracy;
+      
+      // Weighted average
+      const percentageScore = Math.round(
+        (accuracyScore * WEIGHT_ACCURACY) + (wpmScore * WEIGHT_WPM)
+      );
+      
+      // Still enforce minimum requirements for passing
+      const meetsMinimums = finalWpm >= PASSING_CRITERIA.minWpm && 
+                            finalAccuracy >= PASSING_CRITERIA.minAccuracy;
+      
+      // If they don't meet minimums, cap score at 59%
+      const finalScore = meetsMinimums ? percentageScore : Math.min(percentageScore, 59);
+      
+      return {
+        score: finalScore / 100,  // 0-1 for Firebase (e.g., 0.6 for 60%)
+        percentage: finalScore,   // 0-100 for display
+        passed: finalScore >= 60  // 60% is passing
+      };
+    };
+    
+    // Calculate the score
+    const scoreResult = calculatePercentageScore();
+    const score = scoreResult.score;  // This is now 0-1 decimal (e.g., 0.75 for 75%)
+    const passing = scoreResult.passed;
     setIsPassing(passing);
-    const score = passing ? 1 : 0;
+    setPercentageScore(scoreResult.percentage);  // Store percentage for display
     
     // Save to Firebase
     if (currentUser && currentUser.uid) {
@@ -322,7 +366,8 @@ const KeyboardingFinalAssessment = ({
           errors: errors.length,
           textLength: currentText.length,
           passed: passing,
-          score: score,
+          score: score,  // Decimal score (0-1)
+          percentageScore: scoreResult.percentage,  // Percentage score (0-100)
           timestamp: serverTimestamp(),
           completedAt: endTimestamp
         };
@@ -357,6 +402,7 @@ const KeyboardingFinalAssessment = ({
           metadata: {
             wpm: finalWpm,
             accuracy: finalAccuracy,
+            percentageScore: scoreResult.percentage,  // Add percentage score to metadata
             duration: Math.round((endTimestamp - startTime) / 1000),
             totalKeystrokes: totalKeystrokes,
             correctKeystrokes: correctKeystrokes,
@@ -375,7 +421,8 @@ const KeyboardingFinalAssessment = ({
         await set(completionRef, {
           completed: true,
           passed: passing,
-          score: score,
+          score: score,  // Decimal score (0-1)
+          percentageScore: scoreResult.percentage,  // Percentage score (0-100)
           wpm: finalWpm,
           accuracy: finalAccuracy,
           timestamp: serverTimestamp()
@@ -622,9 +669,14 @@ const KeyboardingFinalAssessment = ({
           : 'bg-gradient-to-r from-orange-50 to-red-50'
       }`}>
         <Trophy className={`mx-auto mb-4 ${isPassing ? "text-yellow-500" : "text-gray-400"}`} size={64} />
-        <h2 className="text-3xl font-bold text-gray-800 mb-4">
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">
           {isPassing ? 'Congratulations! Assessment Passed' : 'Assessment Complete'}
         </h2>
+        <p className="text-2xl font-semibold mb-4">
+          Score: <span className={isPassing ? "text-green-600" : "text-orange-600"}>
+            {percentageScore}%
+          </span>
+        </p>
         
         {submitError && (
           <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">

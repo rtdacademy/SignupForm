@@ -40,13 +40,10 @@ import GoogleAIChatApp from '../edbotz/GoogleAIChat/GoogleAIChatApp';
 import { AIAccordion } from '../components/ui/AIAccordion';
 
 // Lazy load course components at module level to prevent re-importing
-const Course0 = React.lazy(() => import('./courses/PHY30'));
 const Course2 = React.lazy(() => import('./courses/2'));
-const Course3 = React.lazy(() => import('./courses/3'));
 const Course4 = React.lazy(() => import('./courses/4'));
 const Course5 = React.lazy(() => import('./courses/5'));
 const Course6 = React.lazy(() => import('./courses/6'));
-const Course100 = React.lazy(() => import('./courses/100'));
 
 // Skeleton fallback component for lazy loading
 const CourseLoadingSkeleton = () => (
@@ -434,14 +431,6 @@ const FirebaseCourseWrapperContent = ({
         case '2':
           modulePromise = import('./courses/2');
           break;
-        case 3:
-        case '3':
-          modulePromise = import('./courses/3');
-          break;
-        case 0:
-        case '0':
-          modulePromise = import('./courses/PHY30');
-          break;
         case 5:
         case '5':
           modulePromise = import('./courses/5');
@@ -449,10 +438,6 @@ const FirebaseCourseWrapperContent = ({
         case 6:
         case '6':
           modulePromise = import('./courses/6');
-          break;
-        case 100:
-        case '100':
-          modulePromise = import('./courses/100');
           break;
         default:
           setCourseModuleLoaded(true); // No module to load
@@ -1647,14 +1632,6 @@ const FirebaseCourseWrapperContent = ({
                     case '2':
                       return <Course2 {...courseProps} />;
                     case 3:
-                    case '3':
-                      return <Course3 {...courseProps} />;
-                    case 0:
-                    case '0':
-                      return <Course0 {...courseProps} />;
-                    case 100:
-                    case '100':
-                      return <Course100 {...courseProps} />;
                     default:
                       return (
                         <div className="p-8">

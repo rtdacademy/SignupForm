@@ -566,7 +566,7 @@ const CollapsibleNavigation = ({
                   <span className="text-xs font-semibold text-red-600">
                     ERROR
                   </span>
-                ) : !hasCalculationError && gradePercentage !== null && gradeData && (gradeData.attempted > 0 || gradeData.score > 0 || gradeData.completed) ? (
+                ) : !hasCalculationError && gradePercentage !== null && gradeData && (gradeData.attempted > 0 || gradeData.score > 0 || gradeData.completed) && item.type !== 'practice' && item.type !== 'info' ? (
                   <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
                     {formatScore(gradePercentage)}%
                   </span>

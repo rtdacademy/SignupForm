@@ -74,8 +74,6 @@ const surveySubmissionFunctions = require('./surveySubmissions');
 // Course code loader
 const courseCodeLoaderFunctions = require('./courseCodeLoader');
 
-// Course configuration functions
-const courseConfigFunctions = require('./courseConfig');
 
 //==============================================================================
 // Export functions by category
@@ -201,10 +199,6 @@ exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationS
 // Course code loader functions
 exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 
-// Course configuration functions
-exports.getCourseConfigV2 = courseConfigFunctions.getCourseConfigV2;
-exports.syncCourseConfigToDatabase = courseConfigFunctions.syncCourseConfigToDatabase;
-exports.checkCourseConfigSyncStatus = courseConfigFunctions.checkCourseConfigSyncStatus;
 
 // JSX transformation is now handled automatically by autoTransformSectionCode trigger
 // No manual transformation endpoint needed

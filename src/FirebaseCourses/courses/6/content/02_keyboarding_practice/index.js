@@ -44,7 +44,7 @@ const PASSING_CRITERIA = {
   homeRow: { minWpm: 20, minAccuracy: 75 },
   beginner: { minWpm: 15, minAccuracy: 70 },
   numbers: { minWpm: 15, minAccuracy: 70 },
-  math: { minWpm: 12, minAccuracy: 65 },
+  math: { minWpm: 10, minAccuracy: 65 },
   sentences: { minWpm: 18, minAccuracy: 72 }
 };
 
@@ -54,43 +54,45 @@ const PRACTICE_TEXTS = {
     icon: Home,
     color: 'green',
     texts: [
-      "asdf jkl; asdf jkl; sad dad",
-      "ask dad; all fall; sad lad",
-      "flask falls; dad asks all"
+      "asdf jkl; asdf jkl; sad dad asks all. flask falls; dad had salad.",
+      "ask dad; all fall; sad lad had a flask. Jack asks dad; sad fall.",
+      "flask falls; dad asks all lads. sad jack; all dads ask; fall flask."
     ]
   },
   beginner: {
     icon: BookOpen,
     color: 'blue',
     texts: [
-      "The quick brown fox jumps over the lazy dog."
+      "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+      "How vexingly quick daft zebras jump. The five boxing wizards jump quickly.",
+      "Sphinx of black quartz, judge my vow. Waltz, bad nymph, for quick jigs vex."
     ]
   },
   numbers: {
     icon: Hash,
     color: 'purple',
     texts: [
-      "The year 2024 had 365 days and 12 months with 52 weeks.",
-      "Phone numbers have 10 digits like 555-123-4567.",
-      "Pi equals 3.14159 and continues infinitely."
+      "The year 2024 had 365 days and 12 months with 52 weeks. Each week contains exactly 7 days and 168 hours total.",
+      "Phone numbers have 10 digits like 555-123-4567. Area codes range from 201 to 999 across regions.",
+      "Pi equals 3.14159 and continues infinitely. The golden ratio is approximately 1.618 in mathematics."
     ]
   },
   math: {
     icon: Hash,
     color: 'orange',
     texts: [
-      "The formula is x = 2 + 3 * 4 - 5 / 2 = 11.5",
-      "Calculate: (10 + 5) * 2 - 8 / 4 = 28",
-      "Solve for x: 3x + 7 = 22, so x = 5"
+      "The formula is x = 2 + 3 * 4 - 5 / 2 = 11.5 when calculated.",
+      "Calculate: (10 + 5) * 2 - 8 / 4 = 28 using proper order.",
+      "Solve for x: 3x + 7 = 22, so x = 5 after simplification."
     ]
   },
   sentences: {
     icon: FileText,
     color: 'indigo',
     texts: [
-      "Practice makes perfect when you work hard every day.",
-      "The early bird catches the worm, but the second mouse gets the cheese.",
-      "Success comes to those who never give up on their dreams."
+      "Practice makes perfect when you work hard every day. Consistency is the key to mastering any skill in life.",
+      "The early bird catches the worm, but the second mouse gets the cheese. Sometimes patience pays off more than rushing ahead.",
+      "Success comes to those who never give up on their dreams. Every failure is just another step toward your ultimate goal."
     ]
   }
 };

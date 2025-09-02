@@ -500,6 +500,51 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
                                 Lab
                               </span>
                             )}
+                            {lesson.type === 'quiz' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                Quiz
+                              </span>
+                            )}
+                            {lesson.type === 'info' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-cyan-100 text-cyan-700'
+                              }`}>
+                                Info
+                              </span>
+                            )}
+                            {lesson.type === 'review' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-indigo-100 text-indigo-700'
+                              }`}>
+                                Review
+                              </span>
+                            )}
+                            {lesson.type === 'practice' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-pink-100 text-pink-700'
+                              }`}>
+                                Practice
+                              </span>
+                            )}
+                            {lesson.type === 'assessment' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                isDisabled 
+                                  ? 'bg-gray-100 text-gray-400' 
+                                  : 'bg-teal-100 text-teal-700'
+                              }`}>
+                                Assessment
+                              </span>
+                            )}
                             {isAlreadySelected && !isCurrentSelection && (
                               <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
                                 Already Selected
@@ -536,7 +581,8 @@ function LessonOverrideEditor({ lessonId, override, onChange, onDelete, onLesson
           const selectedLesson = availableLessons.find(lesson => lesson.itemId === lessonId);
           const lessonType = selectedLesson?.type || 'lesson';
           
-          if (lessonType === 'lesson') {
+          if (lessonType === 'lesson' || lessonType === 'info' || lessonType === 'review' || 
+              lessonType === 'practice' || lessonType === 'assessment') {
             return (
               <div className="flex space-x-4">
                 <div className="flex-1">
@@ -721,6 +767,22 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
           },
           lab: {
             requiresSubmission: true
+          },
+          info: {
+            minimumPercentage: 0,
+            requireAllQuestions: false
+          },
+          review: {
+            minimumPercentage: 50,
+            requireAllQuestions: true
+          },
+          practice: {
+            minimumPercentage: 0,
+            requireAllQuestions: false
+          },
+          assessment: {
+            minimumPercentage: 50,
+            requireAllQuestions: true
           }
         },
         lessonOverrides: {},
@@ -755,8 +817,10 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
                     itemTypes.add(item.type);
                   }
                   
-                  // Include lessons, assignments, exams, quizzes, and labs that can have questions
-                  if (item.type === 'lesson' || item.type === 'assignment' || item.type === 'exam' || item.type === 'quiz' || item.type === 'lab') {
+                  // Include all item types that can have questions or progression requirements
+                  if (item.type === 'lesson' || item.type === 'assignment' || item.type === 'exam' || 
+                      item.type === 'quiz' || item.type === 'lab' || item.type === 'info' || 
+                      item.type === 'review' || item.type === 'practice' || item.type === 'assessment') {
                     lessons.push({
                       itemId: item.itemId,
                       title: item.title,
@@ -920,7 +984,9 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
 
     // Set default values based on item type
     let defaultOverride;
-    if (availableLesson.type === 'lesson') {
+    if (availableLesson.type === 'lesson' || availableLesson.type === 'info' || 
+        availableLesson.type === 'review' || availableLesson.type === 'practice' || 
+        availableLesson.type === 'assessment') {
       defaultOverride = {
         minimumPercentage: 0,
         requireAllQuestions: false
@@ -1159,6 +1225,150 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
                         </div>
                       </div>
                     )}
+
+                    {/* Info Defaults - Only show if course has info items */}
+                    {detectedItemTypes.has('info') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Info (Informational)</h5>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex-1 min-w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Minimum Percentage
+                            </label>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={requirements.defaultCriteria?.info?.minimumPercentage ?? 0}
+                                onChange={(e) => handleDefaultCriteriaChange('info', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                disabled={!courseIsEditing}
+                                className="flex-1"
+                              />
+                              <FaPercentage className="text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-6">
+                            <Switch
+                              checked={requirements.defaultCriteria?.info?.requireAllQuestions || false}
+                              onCheckedChange={(checked) => handleDefaultCriteriaChange('info', 'requireAllQuestions', checked)}
+                              disabled={!courseIsEditing}
+                            />
+                            <label className="text-sm font-medium text-gray-700">
+                              Require All Questions
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Review Defaults - Only show if course has review items */}
+                    {detectedItemTypes.has('review') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Review</h5>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex-1 min-w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Minimum Percentage
+                            </label>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={requirements.defaultCriteria?.review?.minimumPercentage ?? 50}
+                                onChange={(e) => handleDefaultCriteriaChange('review', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                disabled={!courseIsEditing}
+                                className="flex-1"
+                              />
+                              <FaPercentage className="text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-6">
+                            <Switch
+                              checked={requirements.defaultCriteria?.review?.requireAllQuestions || false}
+                              onCheckedChange={(checked) => handleDefaultCriteriaChange('review', 'requireAllQuestions', checked)}
+                              disabled={!courseIsEditing}
+                            />
+                            <label className="text-sm font-medium text-gray-700">
+                              Require All Questions
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Practice Defaults - Only show if course has practice items */}
+                    {detectedItemTypes.has('practice') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Practice</h5>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex-1 min-w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Minimum Percentage
+                            </label>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={requirements.defaultCriteria?.practice?.minimumPercentage ?? 0}
+                                onChange={(e) => handleDefaultCriteriaChange('practice', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                disabled={!courseIsEditing}
+                                className="flex-1"
+                              />
+                              <FaPercentage className="text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-6">
+                            <Switch
+                              checked={requirements.defaultCriteria?.practice?.requireAllQuestions || false}
+                              onCheckedChange={(checked) => handleDefaultCriteriaChange('practice', 'requireAllQuestions', checked)}
+                              disabled={!courseIsEditing}
+                            />
+                            <label className="text-sm font-medium text-gray-700">
+                              Require All Questions
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Assessment Defaults - Only show if course has assessment items */}
+                    {detectedItemTypes.has('assessment') && (
+                      <div className="bg-white p-4 rounded-lg border border-blue-100">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-3">Assessment (Non-session)</h5>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex-1 min-w-48">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Minimum Percentage
+                            </label>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={requirements.defaultCriteria?.assessment?.minimumPercentage ?? 50}
+                                onChange={(e) => handleDefaultCriteriaChange('assessment', 'minimumPercentage', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                disabled={!courseIsEditing}
+                                className="flex-1"
+                              />
+                              <FaPercentage className="text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-6">
+                            <Switch
+                              checked={requirements.defaultCriteria?.assessment?.requireAllQuestions || false}
+                              onCheckedChange={(checked) => handleDefaultCriteriaChange('assessment', 'requireAllQuestions', checked)}
+                              disabled={!courseIsEditing}
+                            />
+                            <label className="text-sm font-medium text-gray-700">
+                              Require All Questions
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Show message if no item types detected yet */}
                     {detectedItemTypes.size === 0 && (
@@ -1303,6 +1513,26 @@ function ProgressionRequirementsManager({ courseId, progressionRequirements, cou
                                     Quiz
                                   </span>
                                 )}
+                                {lesson.type === 'info' && (
+                                  <span className="text-xs px-2 py-1 bg-cyan-100 text-cyan-700 rounded">
+                                    Info
+                                  </span>
+                                )}
+                                {lesson.type === 'review' && (
+                                  <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded">
+                                    Review
+                                  </span>
+                                )}
+                                {lesson.type === 'practice' && (
+                                  <span className="text-xs px-2 py-1 bg-pink-100 text-pink-700 rounded">
+                                    Practice
+                                  </span>
+                                )}
+                                {lesson.type === 'assessment' && (
+                                  <span className="text-xs px-2 py-1 bg-teal-100 text-teal-700 rounded">
+                                    Assessment
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -1370,60 +1600,23 @@ function DatabaseCourseConfig({ courseId, courseIsEditing }) {
   const [error, setError] = useState(null);
 
   const checkSyncStatus = async () => {
+    // Sync functionality removed - configurations are now only in Firebase database
     if (!courseId) return;
     
-    try {
-      setCheckingSync(true);
-      
-      const functions = getFunctions();
-      const checkSyncFunction = httpsCallable(functions, 'checkCourseConfigSyncStatus');
-      
-      const result = await checkSyncFunction({ courseId });
-      
-      if (!result.data.success) {
-        setSyncStatus({ 
-          error: result.data.error,
-          status: result.data.status 
-        });
-        toast.error('Sync status check failed', {
-          description: result.data.error || 'Unable to check configuration sync status'
-        });
-        return;
-      }
-      
-      // Map the cloud function result to our component state
-      const { status, message, fileVersion, dbVersion, needsSync, lastSynced } = result.data;
-      
-      setSyncStatus({
-        status,
-        message,
-        fileVersion,
-        dbVersion: dbVersion || 'Not synced',
-        needsSync,
-        lastSynced,
-        upToDate: !needsSync,
-        error: null
-      });
-
-      // Show toast notification when configuration is out of sync
-      if (needsSync) {
-        toast.warning('Configuration Out of Sync', {
-          description: `File version ${fileVersion} is newer than database version ${dbVersion || 'Not synced'}. Consider syncing to update the database.`
-        });
-      }
-      
-    } catch (err) {
-      console.error('Error checking sync status:', err);
-      setSyncStatus({ 
-        error: err.message,
-        status: 'error'
-      });
-      toast.error('Sync status error', {
-        description: err.message || 'An error occurred while checking sync status'
-      });
-    } finally {
-      setCheckingSync(false);
-    }
+    setCheckingSync(true);
+    
+    setSyncStatus({
+      status: 'database_only',
+      message: 'Configuration stored in Firebase database',
+      fileVersion: 'N/A',
+      dbVersion: 'Current',
+      needsSync: false,
+      lastSynced: new Date().toISOString(),
+      upToDate: true,
+      error: null
+    });
+    
+    setCheckingSync(false);
   };
 
   const fetchCourseConfigFromDatabase = async () => {
@@ -1467,38 +1660,15 @@ function DatabaseCourseConfig({ courseId, courseIsEditing }) {
   };
 
   const manualSync = async () => {
-    try {
-      setSyncing(true);
-      const functions = getFunctions();
-      const syncFunction = httpsCallable(functions, 'syncCourseConfigToDatabase');
-      
-      // Force sync when user manually triggers
-      const result = await syncFunction({ courseId, force: true });
-      
-      if (result.data.success) {
-        console.log('Manual sync successful:', result.data);
-        // Refresh the data and sync status after sync
-        await Promise.all([
-          fetchCourseConfigFromDatabase(),
-          checkSyncStatus()
-        ]);
-        toast.success('Sync successful!', {
-          description: result.data.results[0]?.message || 'Configuration updated successfully'
-        });
-      } else {
-        console.error('Manual sync failed:', result.data);
-        toast.error('Sync failed', {
-          description: result.data.error || 'Failed to sync configuration'
-        });
-      }
-    } catch (err) {
-      console.error('Error during manual sync:', err);
-      toast.error('Sync error', {
-        description: err.message || 'An error occurred during sync'
-      });
-    } finally {
-      setSyncing(false);
-    }
+    // Sync functionality removed - configurations are now only in Firebase database
+    toast.info('Sync not needed', {
+      description: 'Configurations are now stored directly in Firebase database'
+    });
+    
+    // Just refresh the database config
+    await fetchCourseConfigFromDatabase();
+    
+    return;
   };
 
   useEffect(() => {

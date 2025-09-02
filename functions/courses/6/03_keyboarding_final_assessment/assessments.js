@@ -8,7 +8,7 @@
  */
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
-const ACTIVITY_TYPE = 'lesson';
+const ACTIVITY_TYPE = 'assessment';
 
 /**
  * Assessment Configurations for Universal Assessment Function

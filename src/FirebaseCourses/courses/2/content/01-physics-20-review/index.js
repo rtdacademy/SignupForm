@@ -25,7 +25,7 @@ AIAccordion, onAIAccordionContent }) => {
   const dynamicQuestionId = 'q1_physics_calculation';
 
   // Get courseId from the course object - check different possible formats
-  const effectiveCourseId = String(course?.CourseID || course?.courseId || course?.id || courseId || 'PHY30');
+  const effectiveCourseId = String(course?.CourseID || course?.courseId || course?.id || courseId || '2');
 
   // TEMPORARY FIX: Commented out authentication check to avoid permission errors
   useEffect(() => {

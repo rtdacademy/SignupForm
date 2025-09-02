@@ -169,13 +169,29 @@ exports.universal_assessments = onCall({
     const assessmentType = assessmentConfig.type || 'multiple-choice'; // Default to multiple choice
     console.log(`Assessment type: ${assessmentType} for ${assessmentId}`);
     
+    // Extract operation parameters (needed for ALL assessment types)
+    const params = {
+      courseId: courseId,
+      assessmentId: assessmentId,
+      operation: data.operation,
+      studentEmail: data.studentEmail,
+      studentKey: sanitizeEmail(data.studentEmail),
+      userId: data.userId,
+      topic: data.topic || 'general',
+      difficulty: data.difficulty || 'intermediate',
+      answer: data.answer, // For evaluation operations
+      examMode: data.examMode || false,
+      assessmentType: assessmentType,
+      isStaff: data.isStaff || false
+    };
+    
     // Check if this is a true-false question (can be specified in params or config)
     const requestedType = data.questionType || assessmentConfig.questionType || assessmentConfig.type;
     
     // If true-false is requested, handle it directly
     if (requestedType === 'true-false') {
       try {
-        const result = await TrueFalseCore.handle(data, assessmentConfig);
+        const result = await TrueFalseCore.handle(params, assessmentConfig);
         console.log(`True/False question processed successfully for: ${assessmentId}`);
         return result;
       } catch (error) {
@@ -211,22 +227,6 @@ exports.universal_assessments = onCall({
       console.log(`Score updated successfully for: ${assessmentId}`);
       return result;
     }
-    
-    // Extract operation parameters
-    const params = {
-      courseId: courseId,
-      assessmentId: assessmentId,
-      operation: data.operation,
-      studentEmail: data.studentEmail,
-      studentKey: sanitizeEmail(data.studentEmail),
-      userId: data.userId,
-      topic: data.topic || 'general',
-      difficulty: data.difficulty || 'intermediate',
-      answer: data.answer, // For evaluation operations
-      examMode: data.examMode || false,
-      assessmentType: assessmentType,
-      isStaff: data.isStaff || false
-    };
     
     // Handle the request based on operation type
     if (params.operation === 'generate') {

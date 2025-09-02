@@ -3,7 +3,7 @@ import AssessmentSession from '../../../../components/AssessmentSession';
 
 const L14CumulativeAssignment = ({ courseId, studentEmail, course }) => {
   const assessmentConfig = {
-    assessmentId: 'assignment_l1_4',
+    assessmentId: 'assignment_l1_4_cumulative',
     activityType: 'assignment',
     title: 'L1-4 Cumulative Assignment - Momentum and Impulse',
     description: 'Comprehensive assessment covering all concepts from Lessons 1-4: momentum conservation, collisions, impulse, and problem-solving applications.',

@@ -7,7 +7,7 @@
  */
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
-const ACTIVITY_TYPE = 'lesson';
+const ACTIVITY_TYPE = 'info';
 
 // Default settings for this activity type
 const activityDefaults = {

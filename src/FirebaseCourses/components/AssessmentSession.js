@@ -590,7 +590,8 @@ const AssessmentSession = ({
         const questionPath = `students/${studentKey}/courses/${courseId}/Assessments/${question.questionId}`;
         const questionRef = ref(db, questionPath);
         
-        const unsubscribe = onValue(questionRef, (snapshot) => {
+        let unsubscribe;
+        unsubscribe = onValue(questionRef, (snapshot) => {
           const data = snapshot.val();
           // For exam mode, we're more lenient with what constitutes "ready"
           // since questions might be in different states during generation
@@ -1037,7 +1038,8 @@ const AssessmentSession = ({
             }
           }, 10000); // 10 second timeout
           
-          const unsubscribe = onValue(sessionRef, (snapshot) => {
+          let unsubscribe;
+          unsubscribe = onValue(sessionRef, (snapshot) => {
             if (snapshot.exists() && !isResolved) {
               console.log('✅ Results confirmed in database');
               clearTimeout(timeoutId);

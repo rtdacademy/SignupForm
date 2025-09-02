@@ -4,6 +4,9 @@
  * Score is binary: 1 (pass) or 0 (fail) based on performance criteria
  */
 
+// ===== ACTIVITY TYPE CONFIGURATION =====
+const ACTIVITY_TYPE = 'practice';
+
 const assessmentConfigs = {
   // Beginner text practice
   'course6_02_keyboarding_beginner': {
@@ -21,7 +24,7 @@ const assessmentConfigs = {
       description: 'Complete a typing exercise with general text',
       category: 'beginner',
       points: 1,
-      activityType: 'practice'
+      activityType: ACTIVITY_TYPE
     }
   },
 
@@ -41,7 +44,7 @@ const assessmentConfigs = {
       description: 'Master the home row keys with focused exercises',
       category: 'homeRow',
       points: 1,
-      activityType: 'practice'
+      activityType: ACTIVITY_TYPE
     }
   },
 
@@ -61,7 +64,7 @@ const assessmentConfigs = {
       description: 'Practice typing numbers and numerical data',
       category: 'numbers',
       points: 1,
-      activityType: 'practice'
+      activityType: ACTIVITY_TYPE
     }
   },
 
@@ -81,7 +84,7 @@ const assessmentConfigs = {
       description: 'Type mathematical expressions and formulas',
       category: 'math',
       points: 1,
-      activityType: 'practice'
+      activityType: ACTIVITY_TYPE
     }
   },
 
@@ -101,7 +104,7 @@ const assessmentConfigs = {
       description: 'Practice typing complete sentences with proper punctuation',
       category: 'sentences',
       points: 1,
-      activityType: 'practice'
+      activityType: ACTIVITY_TYPE
     }
   }
 };
