@@ -17,18 +17,7 @@
             "order": 1,
             "estimatedTime": 30,
             "description": "Learn proper hand positioning, posture, and basic typing techniques",
-            "questions": [
-              {
-                "questionId": "inf2020_01_hand_position",
-                "title": "Hand Position Knowledge Check",
-                "points": 1
-              },
-              {
-                "questionId": "inf2020_01_typing_technique",
-                "title": "Typing Technique Assessment",
-                "points": 1
-              }
-            ]
+            "questions": []
           },
           {
             "itemId": "02_keyboarding_practice",
@@ -39,14 +28,29 @@
             "description": "Practice typing skills and work on increasing speed and accuracy",
             "questions": [
               {
-                "questionId": "inf2020_02_speed_test",
-                "title": "Speed Test Practice",
-                "points": 2
+                "questionId": "course6_02_keyboarding_beginner",
+                "title": "Beginner Typing Practice",
+                "points": 1
               },
               {
-                "questionId": "inf2020_02_accuracy_test",
-                "title": "Accuracy Assessment",
-                "points": 2
+                "questionId": "course6_02_keyboarding_homerow",
+                "title": "Home Row Practice",
+                "points": 1
+              },
+              {
+                "questionId": "course6_02_keyboarding_numbers",
+                "title": "Number Typing Practice",
+                "points": 1
+              },
+              {
+                "questionId": "course6_02_keyboarding_math",
+                "title": "Math Formula Practice",
+                "points": 1
+              },
+              {
+                "questionId": "course6_02_keyboarding_sentences",
+                "title": "Sentence Typing Practice",
+                "points": 1
               }
             ]
           },
@@ -59,14 +63,9 @@
             "description": "Final typing assessment - test your speed and accuracy",
             "questions": [
               {
-                "questionId": "inf2020_03_final_speed",
-                "title": "Final Speed Test",
-                "points": 5
-              },
-              {
-                "questionId": "inf2020_03_final_accuracy",
-                "title": "Final Accuracy Test",
-                "points": 5
+                "questionId": "course6_03_final_typing_assessment",
+                "title": "Final Typing Assessment",
+                "points": 10
               }
             ]
           }

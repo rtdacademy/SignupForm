@@ -1,72 +1,148 @@
 /**
- * Device detection utilities for optimizing authentication flow
+ * Device detection utilities for determining if a device has keyboard capabilities
  */
 
-/**
- * Detects if the user is on a mobile device
- * @returns {boolean} true if mobile device, false otherwise
- */
+// Legacy function for backward compatibility with StaffLogin.js
 export const isMobileDevice = () => {
-  // Check if it's a touch device
-  const hasTouchScreen = 'ontouchstart' in window || 
-    navigator.maxTouchPoints > 0 || 
-    navigator.msMaxTouchPoints > 0;
+  const userAgent = navigator.userAgent.toLowerCase();
+  const mobileKeywords = [
+    'mobile', 'android', 'iphone', 'ipod', 'blackberry', 
+    'windows phone', 'webos', 'opera mini', 'opera mobi'
+  ];
   
-  // Check user agent for mobile keywords
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
-  const isMobileUserAgent = mobileRegex.test(userAgent.toLowerCase());
-  
-  // Check screen width (consider tablets as desktop for auth purposes)
-  const isSmallScreen = window.innerWidth <= 768;
-  
-  // Additional check for Android specifically
-  const isAndroid = /android/i.test(userAgent);
-  
-  // Return true if any strong mobile indicators are present
-  return (isMobileUserAgent && hasTouchScreen) || (isSmallScreen && hasTouchScreen) || isAndroid;
+  return mobileKeywords.some(keyword => userAgent.includes(keyword));
 };
 
-/**
- * Detects if the user is specifically on an Android device
- * @returns {boolean} true if Android device, false otherwise
- */
-export const isAndroidDevice = () => {
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  return /android/i.test(userAgent.toLowerCase());
+export const detectDeviceType = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  const platform = navigator.platform.toLowerCase();
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  const touchPoints = navigator.maxTouchPoints || 0;
+  
+  // Check for mobile user agents
+  const mobileKeywords = [
+    'mobile', 'android', 'iphone', 'ipod', 'blackberry', 
+    'windows phone', 'webos', 'opera mini', 'opera mobi'
+  ];
+  
+  const isMobileUserAgent = mobileKeywords.some(keyword => userAgent.includes(keyword));
+  
+  // Check for tablet user agents (tablets might be okay for typing)
+  const isTablet = /ipad|tablet|kindle|silk/i.test(userAgent) && !/mobile/i.test(userAgent);
+  
+  // Check for desktop indicators
+  const isDesktopUserAgent = /windows nt|macintosh|mac os x|linux/i.test(userAgent) && !isMobileUserAgent;
+  
+  // Screen size checks (accounting for landscape mode)
+  const minDimension = Math.min(screenWidth, screenHeight);
+  const maxDimension = Math.max(screenWidth, screenHeight);
+  
+  // Phone typically has min dimension < 500px even in landscape
+  const isPhoneScreen = minDimension < 500;
+  
+  // Additional checks
+  const hasMouseSupport = window.matchMedia("(pointer: fine)").matches;
+  const hasHoverSupport = window.matchMedia("(hover: hover)").matches;
+  
+  // Comprehensive device detection
+  const deviceInfo = {
+    userAgent,
+    platform,
+    screenWidth,
+    screenHeight,
+    minDimension,
+    maxDimension,
+    touchPoints,
+    isMobileUserAgent,
+    isTablet,
+    isDesktopUserAgent,
+    isPhoneScreen,
+    hasMouseSupport,
+    hasHoverSupport,
+    devicePixelRatio: window.devicePixelRatio || 1
+  };
+  
+  // Determine if device can properly support typing course
+  const canSupportTypingCourse = () => {
+    // Definitely support: Desktop/Laptop
+    if (isDesktopUserAgent && (hasMouseSupport || hasHoverSupport)) {
+      return true;
+    }
+    
+    // Maybe support: Tablets with external keyboards
+    if (isTablet && maxDimension >= 768) {
+      return true; // Allow tablets, they might have keyboards
+    }
+    
+    // Don't support: Phones
+    if (isMobileUserAgent && isPhoneScreen) {
+      return false;
+    }
+    
+    // Edge case: Small windows on desktop (like your 847x744)
+    // Check if it's actually a desktop with a small window
+    if (hasMouseSupport && hasHoverSupport && !isMobileUserAgent) {
+      return true; // It's a desktop with a small window
+    }
+    
+    // Default to checking screen size
+    return minDimension >= 600; // Reasonable minimum for typing
+  };
+  
+  return {
+    ...deviceInfo,
+    isPhone: isMobileUserAgent && isPhoneScreen && !isTablet,
+    isTablet,
+    isDesktop: isDesktopUserAgent || (hasMouseSupport && hasHoverSupport),
+    canSupportTyping: canSupportTypingCourse(),
+    deviceSummary: getDeviceSummary(deviceInfo)
+  };
 };
 
-/**
- * Detects if the user is on iOS (iPhone/iPad)
- * @returns {boolean} true if iOS device, false otherwise
- */
-export const isIOSDevice = () => {
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  return /iphone|ipad|ipod/i.test(userAgent.toLowerCase()) && !window.MSStream;
-};
-
-/**
- * Checks if popup windows are likely to work properly
- * @returns {boolean} true if popups should work, false otherwise
- */
-export const canUsePopups = () => {
-  // Mobile devices often have issues with popups
-  if (isMobileDevice()) {
-    return false;
+const getDeviceSummary = (deviceInfo) => {
+  if (deviceInfo.isDesktopUserAgent || (deviceInfo.hasMouseSupport && deviceInfo.hasHoverSupport)) {
+    return 'Desktop/Laptop';
   }
-  
-  // Some browsers block popups by default
-  // This is a heuristic - actual popup blocking can only be detected when attempting to open one
-  return true;
+  if (deviceInfo.isTablet) {
+    return 'Tablet';
+  }
+  if (deviceInfo.isMobileUserAgent && deviceInfo.isPhoneScreen) {
+    return 'Phone';
+  }
+  return 'Unknown Device';
 };
 
-/**
- * Get device type string for logging/analytics
- * @returns {string} Device type description
- */
-export const getDeviceType = () => {
-  if (isAndroidDevice()) return 'Android';
-  if (isIOSDevice()) return 'iOS';
-  if (isMobileDevice()) return 'Mobile';
-  return 'Desktop';
+// Fun messages for phone users trying to access typing course
+export const getPhoneBlockMessage = () => {
+  const messages = [
+    {
+      title: "Nice try! 📱",
+      message: "A typing course on a phone? That's like trying to play piano with your nose. Technically possible, but nobody wants to see it.",
+      submessage: "Please switch to a device with a real keyboard. Your thumbs will thank you."
+    },
+    {
+      title: "Hold up there, thumb warrior! 👍",
+      message: "We admire your confidence, but typing 60 WPM with two thumbs isn't quite what we had in mind.",
+      submessage: "Come back on a laptop or desktop for the full typing experience."
+    },
+    {
+      title: "Plot twist! 🔄",
+      message: "You've discovered our secret: this typing course doesn't work on phones. Because... physics.",
+      submessage: "Find a device with an actual keyboard and let's do this properly."
+    },
+    {
+      title: "Achievement Locked! 🔒",
+      message: "Prerequisites not met: Requires a keyboard larger than a candy bar.",
+      submessage: "Switch to a computer to unlock this course."
+    },
+    {
+      title: "Error 418: I'm a teapot ☕",
+      message: "Your phone refuses to brew typing lessons. It says it's not that kind of device.",
+      submessage: "Try again with a computer - they're much better at this sort of thing."
+    }
+  ];
+  
+  // Return a random message
+  return messages[Math.floor(Math.random() * messages.length)];
 };

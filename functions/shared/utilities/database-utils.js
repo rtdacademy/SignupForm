@@ -54,6 +54,10 @@ function extractParameters(data, context) {
     difficulty = 'intermediate',
     examMode = false,
     examSessionId = null,
+    score,  // Add score for direct score updates
+    metadata,  // Add metadata for direct score updates
+    interactionData,  // Add interactionData for direct score updates
+    verificationToken,  // Add verificationToken for direct score updates
   } = actualData;
 
   // Log the received data for debugging
@@ -141,7 +145,11 @@ function extractParameters(data, context) {
     isEmulator,
     isStaff,
     examMode,
-    examSessionId
+    examSessionId,
+    score,  // Include score for direct score updates
+    metadata,  // Include metadata for direct score updates
+    interactionData,  // Include interactionData for direct score updates
+    verificationToken  // Include verificationToken for direct score updates
   };
 }
 

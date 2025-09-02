@@ -301,6 +301,8 @@ const FirebaseCourseWrapperContent = ({
   const [contentContextData, setContentContextData] = useState(null);
   // State for forcing new chat sessions
   const [forceNewChatSession, setForceNewChatSession] = useState(false);
+  // State for controlling lesson progress display (can be overridden by course components)
+  const [showLessonProgress, setShowLessonProgress] = useState(true);
   
   // ALL useEffect HOOKS MUST BE DECLARED HERE - BEFORE ANY CONDITIONAL RETURNS
   // This prevents "Rendered more hooks than during the previous render" error
@@ -1175,6 +1177,48 @@ const FirebaseCourseWrapperContent = ({
   console.log('Course object:', course);
   console.log('Profile object:', profile);
   
+  // Log Firebase token details for device detection
+  useEffect(() => {
+    const logTokenInfo = async () => {
+      if (currentUser) {
+        try {
+          // Get the ID token result which includes claims
+          const tokenResult = await currentUser.getIdTokenResult();
+          console.log('🔐 Firebase Token Claims:', tokenResult.claims);
+          console.log('🔐 Token Issued At:', new Date(tokenResult.issuedAtTime));
+          console.log('🔐 Token Expiration:', new Date(tokenResult.expirationTime));
+          console.log('🔐 Sign-in Provider:', tokenResult.signInProvider);
+          console.log('🔐 Auth Time:', new Date(tokenResult.authTime));
+          
+          // Log the full token result for inspection
+          console.log('🔐 Full Token Result:', tokenResult);
+          
+          // Also log user metadata
+          console.log('📱 User Metadata:', {
+            creationTime: currentUser.metadata.creationTime,
+            lastSignInTime: currentUser.metadata.lastSignInTime,
+            providerId: currentUser.providerId,
+            providerData: currentUser.providerData
+          });
+          
+          // Log user agent for device detection
+          console.log('📱 User Agent:', navigator.userAgent);
+          console.log('📱 Platform:', navigator.platform);
+          console.log('📱 Is Mobile (detected):', isMobile);
+          console.log('📱 Screen Size:', {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio
+          });
+        } catch (error) {
+          console.error('Error getting token info:', error);
+        }
+      }
+    };
+    
+    logTokenInfo();
+  }, [currentUser, isMobile]);
+  
   // Now that all hooks are declared, we can do conditional returns
   // Show loading state if course is temporarily unavailable during transitions
   if (courseData.loading) {
@@ -1457,7 +1501,7 @@ const FirebaseCourseWrapperContent = ({
           
               
               {/* Lesson Progress Bars - Hidden for AssessmentSession lessons and labs */}
-              {currentActiveItem && (() => {
+              {currentActiveItem && showLessonProgress && (() => {
                 // Hide progress bars for assignments, exams, quizzes, and labs
                 if (currentActiveItem.type === 'assignment' || 
                     currentActiveItem.type === 'exam' || 
@@ -1582,7 +1626,10 @@ const FirebaseCourseWrapperContent = ({
                     // Next lesson navigation props
                     currentLessonCompleted: currentLessonCompletion.isCompleted,
                     nextLessonInfo: currentLessonCompletion.nextLesson,
-                    courseProgress: overallProgress
+                    courseProgress: overallProgress,
+                    // Progress display control
+                    showLessonProgress: showLessonProgress,
+                    setShowLessonProgress: setShowLessonProgress
                   };
                   
                   // Use pre-loaded components

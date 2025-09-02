@@ -16,9 +16,17 @@ module.exports = {
   // Lesson 02: Typing Practice and Speed Building
   'inf2020_02_speed_test': '02_keyboarding_practice/assessments',
   'inf2020_02_accuracy_test': '02_keyboarding_practice/assessments',
+  
+  // Direct score assessments for each typing category
+  'course6_02_keyboarding_beginner': '02_keyboarding_practice/assessments',
+  'course6_02_keyboarding_homerow': '02_keyboarding_practice/assessments',
+  'course6_02_keyboarding_numbers': '02_keyboarding_practice/assessments',
+  'course6_02_keyboarding_math': '02_keyboarding_practice/assessments',
+  'course6_02_keyboarding_sentences': '02_keyboarding_practice/assessments',
 
   // Quiz 03: Keyboarding Final Assessment
   'inf2020_03_final_speed': '03_keyboarding_final_assessment/assessments',
   'inf2020_03_final_accuracy': '03_keyboarding_final_assessment/assessments',
+  'course6_03_final_typing_assessment': '03_keyboarding_final_assessment/assessments',
 
 };

@@ -200,8 +200,11 @@ const useRegistrationSettings = (studentType) => {
     // First check if the section is explicitly marked as inactive
     if (timeSection.isActive === false) return false;
     
+    // Create today's date consistently with how we handle other dates
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDateString = toDateString(today);
+    const todayMidnight = toEdmontonDate(todayDateString);
+    todayMidnight.setHours(0, 0, 0, 0);
     
     // If startFromToday is true or startBegins is set to 1900-01-01, 
     // we only need to check the end date
@@ -209,8 +212,8 @@ const useRegistrationSettings = (studentType) => {
       const startEnds = toEdmontonDate(timeSection.startEnds);
       startEnds.setHours(23, 59, 59, 999);
       
-      // Only check if today is before the end date
-      return today <= startEnds;
+      // Only check if today is before or on the end date
+      return todayMidnight <= startEnds;
     }
     
     // Otherwise check the normal date range
@@ -219,7 +222,7 @@ const useRegistrationSettings = (studentType) => {
     startBegins.setHours(0, 0, 0, 0);
     startEnds.setHours(23, 59, 59, 999);
     
-    return today >= startBegins && today <= startEnds;
+    return todayMidnight >= startBegins && todayMidnight <= startEnds;
   }, []);
 
   // Get date constraints for a time section
@@ -1133,15 +1136,6 @@ const NonPrimaryStudentForm = forwardRef(({
       setDateErrors(prev => ({
         ...prev,
         startDate: 'Please select a diploma exam date first'
-      }));
-      return;
-    }
-    
-    // Check if there's an active registration window
-    if (!hasActiveWindow) {
-      setDateErrors(prev => ({
-        ...prev,
-        startDate: 'There are currently no active registration windows for your student type'
       }));
       return;
     }
@@ -2163,12 +2157,6 @@ const NonPrimaryStudentForm = forwardRef(({
     
     // Get date constraints
     const { hasActiveWindow } = getEffectiveDateConstraints();
-    
-    // Check if there's an active registration window first
-    if (!hasActiveWindow) {
-      newDateErrors.startDate = 'There are currently no active registration windows for your student type';
-      valid = false;
-    }
 
     if (!formData.startDate) {
       // Don't show inline message, just mark as invalid
@@ -2904,16 +2892,6 @@ const NonPrimaryStudentForm = forwardRef(({
                     <InfoIcon className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-sm text-amber-700">
                       {dateErrors.summerNotice}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {!getEffectiveDateConstraints().hasActiveWindow && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-sm text-amber-700">
-                      There are currently no active registration windows for your student type. 
-                      Please check back later or contact support for assistance.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -4299,10 +4277,6 @@ const DatePickerWithInfo = ({
   // Get appropriate warning message based on student type and constraints
   // Get appropriate warning message based on student type and constraints
 const getWarningMessage = () => {
-  if (!hasActiveWindow) {
-    return "There are currently no active registration windows for your student type.";
-  }
-  
   if (isRegistrationDeadline && maxDate) {
     return `Note: You must register by ${formatDateForDisplay(maxDate)} to qualify for this diploma exam.`;
   }

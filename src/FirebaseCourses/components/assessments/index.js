@@ -10,6 +10,8 @@ import AIMultipleChoiceQuestion from './AIMultipleChoiceQuestion/index';
 import AILongAnswerQuestion from './AILongAnswerQuestion/index';
 import AIShortAnswerQuestion from './AIShortAnswerQuestion/index';
 import StandardMultipleChoiceQuestion from './StandardMultipleChoiceQuestion/index';
+import StandardTrueFalseQuestion from './StandardTrueFalseQuestion/index';
+import AcknowledgmentQuestion from './AcknowledgmentQuestion/index';
 
 export {
   MultipleChoiceQuestion,
@@ -18,4 +20,6 @@ export {
   AILongAnswerQuestion,
   AIShortAnswerQuestion,
   StandardMultipleChoiceQuestion,
+  StandardTrueFalseQuestion,
+  AcknowledgmentQuestion,
 };

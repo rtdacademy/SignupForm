@@ -136,6 +136,26 @@ const assessmentConfigs = {
       '[Learning objective 3]'
     ]
   },
+  
+  // Final typing assessment using direct score
+  'course6_03_final_typing_assessment': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 60000, // 60 seconds minimum for final assessment
+    minimumInteractions: 100, // At least 100 keystrokes for final
+    passingCriteria: {
+      minWpm: 25,  // Higher requirement for final assessment
+      minAccuracy: 80  // Higher accuracy requirement
+    },
+    metadata: {
+      title: 'Final Typing Assessment',
+      description: 'Complete a comprehensive typing test with sentences to demonstrate proficiency',
+      category: 'final_assessment',
+      points: 10,  // Worth more points as final assessment
+      activityType: ACTIVITY_TYPE
+    }
+  }
 };
 
 /**

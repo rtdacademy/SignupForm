@@ -1,146 +1,111 @@
 /**
- * Assessment Functions for Typing Practice and Speed Building
- * Course: 6 
- * Content: 02_keyboarding_practice
- * 
- * This module provides assessments for this lesson
- * using the shared assessment system.
+ * Assessment Configuration for Keyboarding Practice
+ * Each category is a separate assessment that uses direct score update
+ * Score is binary: 1 (pass) or 0 (fail) based on performance criteria
  */
 
-// ===== ACTIVITY TYPE CONFIGURATION =====
-const ACTIVITY_TYPE = 'lesson';
-
-// Default settings for this activity type
-const activityDefaults = {
-  theme: 'purple',
-  maxAttempts: 3,
-  pointsValue: 1
-};
-
-
-// Question pool 1: Speed Test Practice
-const questionPool1 = [
-  {
-    questionText: "[Add question text here]",
-    options: [
-      { 
-        id: 'a', 
-        text: '[Option A text]', 
-        feedback: '[Feedback for option A]' 
-      },
-      { 
-        id: 'b', 
-        text: '[Option B text]', 
-        feedback: '[Feedback for option B]' 
-      },
-      { 
-        id: 'c', 
-        text: '[Option C text]', 
-        feedback: '[Feedback for option C]' 
-      },
-      { 
-        id: 'd', 
-        text: '[Option D text]', 
-        feedback: '[Feedback for option D]' 
-      }
-    ],
-    correctOptionId: 'a', // Change to correct option
-    explanation: '[Detailed explanation of the correct answer]',
-    difficulty: 'intermediate',
-    tags: ['topic1', 'topic2']
-  },
-  // Add more questions to this pool as needed
-];
-
-// Question pool 2: Accuracy Assessment
-const questionPool2 = [
-  {
-    questionText: "[Add question text here]",
-    options: [
-      { 
-        id: 'a', 
-        text: '[Option A text]', 
-        feedback: '[Feedback for option A]' 
-      },
-      { 
-        id: 'b', 
-        text: '[Option B text]', 
-        feedback: '[Feedback for option B]' 
-      },
-      { 
-        id: 'c', 
-        text: '[Option C text]', 
-        feedback: '[Feedback for option C]' 
-      },
-      { 
-        id: 'd', 
-        text: '[Option D text]', 
-        feedback: '[Feedback for option D]' 
-      }
-    ],
-    correctOptionId: 'a', // Change to correct option
-    explanation: '[Detailed explanation of the correct answer]',
-    difficulty: 'intermediate',
-    tags: ['topic1', 'topic2']
-  },
-  // Add more questions to this pool as needed
-];
-
-/**
- * Assessment Configurations for Universal Assessment Function
- */
 const assessmentConfigs = {
-  'inf2020_02_speed_test': {
-    type: 'multiple-choice',
-    questions: questionPool1,
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    activityType: ACTIVITY_TYPE,
-    maxAttempts: 999,
-    pointsValue: 2,
-    showFeedback: true,
-    enableHints: true,
-    enableAIChat: true,
-    attemptPenalty: 0,
-    theme: activityDefaults.theme,
-    subject: 'General',
-    gradeLevel: 'Multi-Grade',
-    topic: 'Speed Test Practice',
-    learningObjectives: [
-      '[Learning objective 1]',
-      '[Learning objective 2]',
-      '[Learning objective 3]'
-    ]
+  // Beginner text practice
+  'course6_02_keyboarding_beginner': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 30000, // 30 seconds minimum
+    minimumInteractions: 50, // At least 50 keystrokes
+    passingCriteria: {
+      minWpm: 15,
+      minAccuracy: 70
+    },
+    metadata: {
+      title: 'Beginner Typing Practice',
+      description: 'Complete a typing exercise with general text',
+      category: 'beginner',
+      points: 1,
+      activityType: 'practice'
+    }
   },
-  'inf2020_02_accuracy_test': {
-    type: 'multiple-choice',
-    questions: questionPool2,
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    activityType: ACTIVITY_TYPE,
-    maxAttempts: 999,
-    pointsValue: 2,
-    showFeedback: true,
-    enableHints: true,
-    enableAIChat: true,
-    attemptPenalty: 0,
-    theme: activityDefaults.theme,
-    subject: 'General',
-    gradeLevel: 'Multi-Grade',
-    topic: 'Accuracy Assessment',
-    learningObjectives: [
-      '[Learning objective 1]',
-      '[Learning objective 2]',
-      '[Learning objective 3]'
-    ]
+
+  // Home row practice
+  'course6_02_keyboarding_homerow': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 30000, // 30 seconds minimum
+    minimumInteractions: 50,
+    passingCriteria: {
+      minWpm: 20,
+      minAccuracy: 75
+    },
+    metadata: {
+      title: 'Home Row Practice',
+      description: 'Master the home row keys with focused exercises',
+      category: 'homeRow',
+      points: 1,
+      activityType: 'practice'
+    }
   },
+
+  // Numbers practice
+  'course6_02_keyboarding_numbers': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 30000,
+    minimumInteractions: 50,
+    passingCriteria: {
+      minWpm: 15,
+      minAccuracy: 70
+    },
+    metadata: {
+      title: 'Number Typing Practice',
+      description: 'Practice typing numbers and numerical data',
+      category: 'numbers',
+      points: 1,
+      activityType: 'practice'
+    }
+  },
+
+  // Math formulas practice
+  'course6_02_keyboarding_math': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 30000,
+    minimumInteractions: 50,
+    passingCriteria: {
+      minWpm: 12,
+      minAccuracy: 65
+    },
+    metadata: {
+      title: 'Math Formula Practice',
+      description: 'Type mathematical expressions and formulas',
+      category: 'math',
+      points: 1,
+      activityType: 'practice'
+    }
+  },
+
+  // Sentences practice
+  'course6_02_keyboarding_sentences': {
+    type: 'direct-score',
+    allowDirectScoring: true,
+    requiresVerification: false,
+    minimumInteractionTime: 30000,
+    minimumInteractions: 50,
+    passingCriteria: {
+      minWpm: 18,
+      minAccuracy: 72
+    },
+    metadata: {
+      title: 'Sentence Typing Practice',
+      description: 'Practice typing complete sentences with proper punctuation',
+      category: 'sentences',
+      points: 1,
+      activityType: 'practice'
+    }
+  }
 };
 
-/**
- * Export the assessment configurations for the universal assessment function
- */
 module.exports = {
   assessmentConfigs
 };

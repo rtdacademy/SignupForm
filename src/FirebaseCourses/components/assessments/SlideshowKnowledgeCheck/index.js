@@ -4,6 +4,8 @@ import { useAuth } from '../../../../context/AuthContext';
 import StandardMultipleChoiceQuestion from '../StandardMultipleChoiceQuestion';
 import AIShortAnswerQuestion from '../AIShortAnswerQuestion';
 import AILongAnswerQuestion from '../AILongAnswerQuestion';
+import StandardTrueFalseQuestion from '../StandardTrueFalseQuestion';
+import AcknowledgmentQuestion from '../AcknowledgmentQuestion';
 import { Sheet, SheetContent, SheetTrigger } from '../../../../components/ui/sheet';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -194,6 +196,9 @@ const SlideshowKnowledgeCheck = ({
   const [preloadingQuestions, setPreloadingQuestions] = useState(false);
   const [preloadingErrors, setPreloadingErrors] = useState([]);
   
+  // Track if we've already called onComplete to prevent infinite loops
+  const hasCalledOnComplete = useRef(false);
+  
   // Use courseId from course object if available, otherwise fall back to prop
   // Ensure it's always a string for consistency
   const effectiveCourseId = String(course?.CourseID || courseId || '');
@@ -328,6 +333,8 @@ const SlideshowKnowledgeCheck = ({
     const loadProgressFromCourse = () => {
       setLoadingProgress(true);
       
+      // Reset the onComplete flag when questions change or progress is reloaded
+      hasCalledOnComplete.current = false;
       
       try {
         if (!course || !questions || questions.length === 0) {
@@ -397,9 +404,10 @@ const SlideshowKnowledgeCheck = ({
   ) || false;
 
   useEffect(() => {
-    if (allQuestionsCompleted && onComplete) {
+    if (allQuestionsCompleted && onComplete && !hasCalledOnComplete.current) {
       const correctCount = Object.values(questionResults).filter(result => result === 'correct').length;
       const totalScore = (correctCount / questions.length) * 100;
+      hasCalledOnComplete.current = true;
       onComplete(totalScore, questionResults);
     }
   }, [allQuestionsCompleted, questionResults, questions?.length, onComplete]);
@@ -490,6 +498,56 @@ const SlideshowKnowledgeCheck = ({
               handleQuestionComplete(questionNumber);
               // For AI Long Answer questions, consider them correct if they receive any score
               handleQuestionResult(questionNumber, result.score > 0);
+            }}
+          />
+        );
+      
+      case 'true-false':
+        const originalTFQuestionId = question.questionId || questionId;
+        const tfCloudFunctionName = originalTFQuestionId;
+        
+        return (
+          <StandardTrueFalseQuestion
+            key={questionId}
+            courseId={effectiveCourseId}
+            cloudFunctionName={tfCloudFunctionName}
+            assessmentId={originalTFQuestionId}
+            title={question.title || `Question ${questionNumber}`}
+            theme={themeConfig.name}
+            displayStyle={question.displayStyle || 'buttons'}  // Pass displayStyle from question config
+            maxAttempts={9999}
+            course={course}
+            onAIAccordionContent={onAIAccordionContent}
+            skipInitialGeneration={false}
+            onAttempt={(isCorrect) => {
+              handleQuestionComplete(questionNumber);
+              handleQuestionResult(questionNumber, isCorrect);
+            }}
+          />
+        );
+      
+      case 'acknowledgment':
+        const ackQuestionId = question.questionId || questionId;
+        
+        return (
+          <AcknowledgmentQuestion
+            key={questionId}
+            courseId={effectiveCourseId}
+            assessmentId={ackQuestionId}
+            course={course}
+            displayStyle={question.displayStyle || 'checkbox'}
+            theme={themeConfig.name}
+            confirmButtonText={question.confirmButtonText || 'I Confirm'}
+            skipInitialGeneration={false}
+            onComplete={() => {
+              handleQuestionComplete(questionNumber);
+              handleQuestionResult(questionNumber, true);
+            }}
+            onAttempt={(isCorrect) => {
+              if (isCorrect) {
+                handleQuestionComplete(questionNumber);
+                handleQuestionResult(questionNumber, true);
+              }
             }}
           />
         );

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { useAuth } from '../../../../../context/AuthContext';
+import { motion } from 'framer-motion';
+import { Lock, AlertCircle } from 'lucide-react';
 
 /**
  * Keyboarding Final Assessment
@@ -16,6 +20,9 @@ const KeyboardingFinalAssessment = ({
   onNavigateToNext, 
   onAIAccordionContent 
 }) => {
+  const { currentUser } = useAuth();
+  const [previousLessonAcknowledged, setPreviousLessonAcknowledged] = useState(false);
+  const [checkingAcknowledgment, setCheckingAcknowledgment] = useState(true);
   const [activeSection, setActiveSection] = useState('overview');
   const [questionsCompleted, setQuestionsCompleted] = useState({});
 
@@ -23,12 +30,94 @@ const KeyboardingFinalAssessment = ({
   const allQuestionsCompleted = Object.keys(questionsCompleted).length === 2 && 
     Object.values(questionsCompleted).every(completed => completed === true);
 
+  // Check if previous lesson (practice) is acknowledged
+  useEffect(() => {
+    if (!currentUser || !currentUser.uid) {
+      setCheckingAcknowledgment(false);
+      return;
+    }
+
+    const db = getDatabase();
+    const acknowledgmentPath = `users/${currentUser.uid}/firebaseCourses/${courseId || '6'}/02_keyboarding_practice/acknowledgments/lesson_complete_acknowledgment`;
+    const acknowledgmentRef = ref(db, acknowledgmentPath);
+
+    const unsubscribe = onValue(acknowledgmentRef, (snapshot) => {
+      const data = snapshot.val();
+      setPreviousLessonAcknowledged(data?.acknowledged === true);
+      setCheckingAcknowledgment(false);
+    }, (error) => {
+      console.error("Error checking acknowledgment:", error);
+      setCheckingAcknowledgment(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, courseId]);
+
   const handleQuestionComplete = (questionId) => {
     setQuestionsCompleted(prev => ({
       ...prev,
       [questionId]: true
     }));
   };
+
+  // Show loading state while checking acknowledgment
+  if (checkingAcknowledgment) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking lesson progress...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show locked state if previous lesson not acknowledged
+  if (!previousLessonAcknowledged) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-3xl mx-auto">
+          <motion.div 
+            className="bg-white rounded-xl p-8 shadow-lg border-2 border-yellow-400"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="text-center">
+              <div className="mb-6 inline-flex items-center justify-center w-20 h-20 bg-yellow-100 rounded-full">
+                <Lock className="w-10 h-10 text-yellow-600" />
+              </div>
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                Assessment Locked
+              </h2>
+              
+              <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <AlertCircle className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
+                <p className="text-gray-700 mb-2">
+                  You need to complete the <strong>Typing Practice Arena</strong> lesson before accessing the Final Assessment.
+                </p>
+                <p className="text-sm text-gray-600">
+                  Please go back and complete the practice exercises. Look for the "Complete Lesson" button to acknowledge your completion.
+                </p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  if (onNavigateToLesson) {
+                    onNavigateToLesson('02_keyboarding_practice');
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg inline-flex items-center gap-2"
+              >
+                Go to Typing Practice Arena
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-gray-50">

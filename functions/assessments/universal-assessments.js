@@ -29,6 +29,8 @@ if (!admin.apps.length) {
 // Import core assessment handlers
 const { StandardMultipleChoiceCore } = require('../shared/assessment-types/standard-multiple-choice');
 const { StandardLongAnswerCore } = require('../shared/assessment-types/standard-long-answer');
+const { TrueFalseCore } = require('../shared/assessment-types/true-false');
+const { directScoreUpdate } = require('../utilities/directScoreUpdate');
 
 /**
  * Loads the course-specific assessment mapping
@@ -167,6 +169,21 @@ exports.universal_assessments = onCall({
     const assessmentType = assessmentConfig.type || 'multiple-choice'; // Default to multiple choice
     console.log(`Assessment type: ${assessmentType} for ${assessmentId}`);
     
+    // Check if this is a true-false question (can be specified in params or config)
+    const requestedType = data.questionType || assessmentConfig.questionType || assessmentConfig.type;
+    
+    // If true-false is requested, handle it directly
+    if (requestedType === 'true-false') {
+      try {
+        const result = await TrueFalseCore.handle(data, assessmentConfig);
+        console.log(`True/False question processed successfully for: ${assessmentId}`);
+        return result;
+      } catch (error) {
+        console.error(`Error processing true-false question for ${assessmentId}:`, error);
+        throw new Error(`Failed to process true-false question: ${error.message}`);
+      }
+    }
+    
     // Create the appropriate core handler based on assessment type
     let coreHandler;
     try {
@@ -181,6 +198,18 @@ exports.universal_assessments = onCall({
     } catch (configError) {
       console.error(`Error creating ${assessmentType} core handler for ${assessmentId}:`, configError);
       throw new Error(`Failed to create assessment handler: ${configError.message}`);
+    }
+    
+    // Handle direct score update if requested
+    if (data.operation === 'directScore') {
+      console.log(`Direct score update for: ${assessmentId} in course ${courseId}`);
+      // For Firebase Functions v2, context is in request.auth
+      const context = {
+        auth: request.auth
+      };
+      const result = await directScoreUpdate(data, context);
+      console.log(`Score updated successfully for: ${assessmentId}`);
+      return result;
     }
     
     // Extract operation parameters

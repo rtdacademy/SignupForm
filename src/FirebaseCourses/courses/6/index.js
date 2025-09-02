@@ -6,6 +6,8 @@ import {
   getHighestAccessibleLesson,
   shouldBypassAccessControl 
 } from '../../utils/lessonAccess';
+import { detectDeviceType } from '../../../utils/deviceDetection';
+import PhoneAccessBlock from '../../components/PhoneAccessBlock';
 
 // Type-specific styling
 const typeColors = {
@@ -166,10 +168,45 @@ const Course6 = ({
   // Next lesson navigation props
   currentLessonCompleted = false,
   nextLessonInfo = null,
-  courseProgress = 0
+  courseProgress = 0,
+  // Progress display control
+  showLessonProgress,
+  setShowLessonProgress
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
+  const [deviceInfo, setDeviceInfo] = useState(null);
+  const [isCheckingDevice, setIsCheckingDevice] = useState(true);
   const courseId = course?.CourseID || '6';
+  
+  // Check device compatibility on mount
+  useEffect(() => {
+    const checkDevice = () => {
+      const info = detectDeviceType();
+      console.log('🖥️ Keyboarding Course - Device Detection:', info);
+      setDeviceInfo(info);
+      setIsCheckingDevice(false);
+    };
+    
+    // Check immediately
+    checkDevice();
+    
+    // Also check on resize (in case they rotate device)
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+  
+  // Disable progress bars for Keyboarding course
+  useEffect(() => {
+    if (setShowLessonProgress) {
+      setShowLessonProgress(false);
+    }
+    // Re-enable when component unmounts (switching to another course)
+    return () => {
+      if (setShowLessonProgress) {
+        setShowLessonProgress(true);
+      }
+    };
+  }, [setShowLessonProgress]);
   
   // Get course structure from course object (database-driven)
   const structure = course?.courseDetails?.['course-config']?.courseStructure?.units || 
@@ -230,6 +267,38 @@ const Course6 = ({
 
   // Render content based on active item
   const renderContent = () => {
+    // Check if device is still being detected
+    if (isCheckingDevice) {
+      return (
+        <div className="text-center p-10">
+          <h2 className="text-xl font-semibold text-gray-700">
+            Checking device compatibility...
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Just a moment while we check your keyboard setup
+          </p>
+        </div>
+      );
+    }
+    
+    // Check if device is a phone (not suitable for typing course)
+    // Allow staff/dev mode to bypass this check
+    if (deviceInfo && !deviceInfo.canSupportTyping && !isStaffView && !devMode) {
+      return (
+        <PhoneAccessBlock 
+          deviceInfo={deviceInfo}
+          onRetry={() => {
+            setIsCheckingDevice(true);
+            setTimeout(() => {
+              const info = detectDeviceType();
+              setDeviceInfo(info);
+              setIsCheckingDevice(false);
+            }, 500);
+          }}
+        />
+      );
+    }
+    
     if (!activeItem) {
       return (
         <div className="text-center p-10">

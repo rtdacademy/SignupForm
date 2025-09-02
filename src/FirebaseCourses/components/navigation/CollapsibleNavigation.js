@@ -566,7 +566,7 @@ const CollapsibleNavigation = ({
                   <span className="text-xs font-semibold text-red-600">
                     ERROR
                   </span>
-                ) : !hasCalculationError && gradePercentage !== null && (gradeData || attemptedQuestions > 0) ? (
+                ) : !hasCalculationError && gradePercentage !== null && gradeData && (gradeData.attempted > 0 || gradeData.score > 0 || gradeData.completed) ? (
                   <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
                     {formatScore(gradePercentage)}%
                   </span>
@@ -721,24 +721,24 @@ const CollapsibleNavigation = ({
                       </>
                     )}
                   </>
-                ) : (lessonScore > 0 || attemptedQuestions > 0 || gradeData) && (
+                ) : (gradeData && (gradeData.attempted > 0 || gradeData.score > 0 || gradeData.completed)) ? (
                   <>
-                    {(lessonScore > 0 || totalQuestions > 0) && (
+                    {(lessonScore > 0 || attemptedQuestions > 0) && (
                       <>
                         <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({formatScore(gradePercentage || 0)}%)</p>
                         <p className="text-sm">Questions: {attemptedQuestions}/{totalQuestions} attempted</p>
                       </>
                     )}
-                    {gradeData && (
+                    {gradeData.attempts > 0 && (
                       <>
-                        <p className="text-sm">Individual Attempts: {gradeData.attempts || attemptedQuestions}</p>
+                        <p className="text-sm">Individual Attempts: {gradeData.attempts}</p>
                         {gradeData.lastAttempt && (
                           <p className="text-sm">Last attempt: {new Date(gradeData.lastAttempt).toLocaleDateString()}</p>
                         )}
                       </>
                     )}
                   </>
-                )}
+                ) : null}
               </>
             )}
             {!isCompleted && isAccessible && (

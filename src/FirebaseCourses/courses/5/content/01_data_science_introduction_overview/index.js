@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import { AcknowledgmentQuestion } from '../../../../components/assessments';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 /**
@@ -18,6 +18,7 @@ const IntroductiontoDataScience = ({
 }) => {
   const [activeSection, setActiveSection] = useState('overview');
   const [questionsCompleted, setQuestionsCompleted] = useState({});
+  const [overviewAcknowledged, setOverviewAcknowledged] = useState(false);
 
   // Check if all questions are completed
   const allQuestionsCompleted = Object.keys(questionsCompleted).length === 2 && 
@@ -65,25 +66,39 @@ const IntroductiontoDataScience = ({
                 Overview
               </button>
               <button
-                onClick={() => setActiveSection('content')}
+                onClick={() => {
+                  if (overviewAcknowledged) {
+                    setActiveSection('content');
+                  }
+                }}
+                disabled={!overviewAcknowledged}
                 className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                   activeSection === 'content'
                     ? 'border-blue-500 text-blue-600'
+                    : !overviewAcknowledged
+                    ? 'border-transparent text-gray-300 cursor-not-allowed'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Main Content
+                Main Content {!overviewAcknowledged && '🔒'}
               </button>
               
               <button
-                onClick={() => setActiveSection('assessment')}
+                onClick={() => {
+                  if (overviewAcknowledged) {
+                    setActiveSection('assessment');
+                  }
+                }}
+                disabled={!overviewAcknowledged}
                 className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                   activeSection === 'assessment'
                     ? 'border-blue-500 text-blue-600'
+                    : !overviewAcknowledged
+                    ? 'border-transparent text-gray-300 cursor-not-allowed'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Knowledge Check
+                Knowledge Check {!overviewAcknowledged && '🔒'}
               </button>
             </nav>
           </div>
@@ -134,6 +149,33 @@ const IntroductiontoDataScience = ({
                     </ul>
                   </div>
                 </div>
+              </div>
+              
+              {/* Overview Acknowledgment */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-yellow-800 mb-4">
+                  ⚠️ Important: Please confirm before proceeding
+                </h3>
+                <AcknowledgmentQuestion
+                  courseId={courseId}
+                  itemId="01_data_science_introduction_overview"
+                  questionId="overview_acknowledgment"
+                  questionText="I have read and understood the lesson overview and learning outcomes."
+                  displayStyle="checkbox"
+                  onComplete={() => {
+                    console.log('Overview acknowledgment completed');
+                    setOverviewAcknowledged(true);
+                  }}
+                  onAttempt={(acknowledged) => {
+                    setOverviewAcknowledged(acknowledged);
+                  }}
+                />
+                
+                {!overviewAcknowledged && (
+                  <p className="mt-4 text-sm text-yellow-700">
+                    Please acknowledge the overview before accessing other sections.
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -192,9 +234,10 @@ const IntroductiontoDataScience = ({
                     title: 'Data Science Fundamentals'
                   },
                   {
-                    type: 'multiple-choice',
+                    type: 'true-false',
                     questionId: 'course5_01_introduction_applications',
-                    title: 'Applications of Data Science'
+                    title: 'True or False: Data Science Concepts',
+                    displayStyle: 'dropdown'  // Using dropdown style in knowledge check
                   }
                 ]}
                 onComplete={(score, results) => {
@@ -207,6 +250,24 @@ const IntroductiontoDataScience = ({
                 }}
                 theme="purple"
               />
+
+              {/* Acknowledgment Section - Outside Knowledge Check */}
+              <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-4">
+                  📝 Lesson Acknowledgment
+                </h3>
+                <AcknowledgmentQuestion
+                  courseId={courseId}
+                  itemId="01_data_science_introduction_overview"
+                  questionId="lesson_complete_acknowledgment"
+                  questionText="I have reviewed and understood the Introduction to Data Science lesson content."
+                  displayStyle="checkbox"
+                  onComplete={() => {
+                    console.log('Lesson acknowledgment completed');
+                    handleQuestionComplete('course5_01_introduction_acknowledgment');
+                  }}
+                />
+              </div>
             </section>
           )}
 

@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { sanitizeEmail } from '../../utils/sanitizeEmail';
 import { getAttemptLimitForAssessment, findAssessmentTypeInCourseStructure } from '../../utils/attemptLimitsUtils';
 import { Button } from '../../components/ui/button';
-import { StandardMultipleChoiceQuestion, AIShortAnswerQuestion, AILongAnswerQuestion } from './assessments';
+import { StandardMultipleChoiceQuestion, AIShortAnswerQuestion, AILongAnswerQuestion, StandardTrueFalseQuestion } from './assessments';
 import StandardLongAnswerQuestion from './assessments/StandardLongAnswerQuestion';
 import { Clock, AlertCircle, CheckCircle, FileText, ArrowRight, ArrowLeft, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
@@ -1886,6 +1886,19 @@ const AssessmentSession = ({
                       examMode={true}
                       examSessionId={assessmentSession.sessionId}
                       onAssessmentAnswerSave={handleAnswerSave}
+                      theme="slate"
+                      hasExistingAnswer={!!(pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId])}
+                      currentSavedAnswer={pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId]}
+                    />
+                  )}
+                  {currentQuestion.type === 'true-false' && (
+                    <StandardTrueFalseQuestion
+                      courseId={courseId}
+                      cloudFunctionName="course2_assessments"
+                      assessmentId={currentQuestion.questionId}
+                      examMode={true}
+                      examSessionId={assessmentSession.sessionId}
+                      onExamAnswerSave={handleAnswerSave}
                       theme="slate"
                       hasExistingAnswer={!!(pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId])}
                       currentSavedAnswer={pendingAnswers[currentQuestion.questionId] || savedAnswers[currentQuestion.questionId]}

@@ -30,9 +30,7 @@ import {
   getNextQuestionNumber,
   validateItemId,
   extractItemIdPrefix,
-  extractTitleFromItemId,
-  generateContentPath,
-  generateContentPathWithOrder
+  extractTitleFromItemId
 } from '../utils/firebaseCourseConfigUtils';
 import QuestionForm from './components/QuestionForm';
 import QuestionImportModal from './components/QuestionImportModal';
@@ -48,6 +46,8 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
   const [importTarget, setImportTarget] = useState(null); // {unitIndex, itemIndex}
   const [addingItem, setAddingItem] = useState(null); // unitIndex when showing add item form
   const [addItemForm, setAddItemForm] = useState({});
+  const [showTimeEstimates, setShowTimeEstimates] = useState(true); // Toggle for showing time estimates
+  const [editingInlineTime, setEditingInlineTime] = useState(null); // Track which item's time is being edited inline
 
   const units = structure?.units || [];
 
@@ -123,19 +123,16 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
     const currentUnit = units[unitIndex];
     const itemNumber = (currentUnit.items?.length || 0) + 1;
     
-    const { itemId, title, type, estimatedTime, contentPath } = addItemForm;
+    const { itemId, title, type, estimatedTime, description } = addItemForm;
     
     // If no title provided, extract it from itemId
     const finalTitle = title || extractTitleFromItemId(itemId) || 'New Item';
-    
-    // Auto-generate contentPath if not provided
-    const finalContentPath = contentPath || generateContentPathWithOrder(itemId, itemNumber);
     
     const newItem = {
       itemId: itemId,
       type: type || 'lesson',
       title: finalTitle,
-      contentPath: finalContentPath,
+      description: description || '',
       estimatedTime: parseInt(estimatedTime) || 30,
       order: itemNumber,
       questions: []
@@ -205,7 +202,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
       itemId: item.itemId,
       title: item.title,
       type: item.type,
-      contentPath: item.contentPath || generateContentPathWithOrder(item.itemId, item.order),
+      description: item.description || '',
       estimatedTime: item.estimatedTime
     });
   };
@@ -258,7 +255,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
     
     const updates = { ...editForm };
     
-    // If itemId changed, auto-populate title and contentPath if they are empty
+    // If itemId changed, auto-populate title if it's empty
     if (updates.itemId && updates.itemId !== currentItem.itemId) {
       // Validate the new itemId
       const validation = validateItemId(updates.itemId, structure, unitIndex, itemIndex);
@@ -274,17 +271,12 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
           updates.title = extractedTitle;
         }
       }
-      
-      // If contentPath is empty or matches old auto-generated path, update it
-      const oldAutoContentPath = generateContentPathWithOrder(currentItem.itemId, currentItem.order);
-      if (!updates.contentPath || updates.contentPath === oldAutoContentPath) {
-        updates.contentPath = generateContentPathWithOrder(updates.itemId, currentItem.order);
-      }
     }
     
     updatedUnits[unitIndex].items[itemIndex] = { 
       ...currentItem, 
-      ...updates 
+      ...updates,
+      order: currentItem.order // Preserve the order
     };
     
     onUpdate({
@@ -560,6 +552,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
       case 'assignment': return <FaClipboardList className="h-3 w-3 text-blue-500" />;
       case 'lab': return <FaFlask className="h-3 w-3 text-green-500" />;
       case 'exam': return <FaGraduationCap className="h-3 w-3 text-red-500" />;
+      case 'quiz': return <FaQuestionCircle className="h-3 w-3 text-orange-500" />;
       default: return <FaQuestionCircle className="h-3 w-3 text-gray-500" />;
     }
   };
@@ -616,7 +609,18 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
-        <h4 className="text-lg font-semibold">Course Structure</h4>
+        <div className="flex items-center gap-4">
+          <h4 className="text-lg font-semibold">Course Structure</h4>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowTimeEstimates(!showTimeEstimates)}
+            className="text-xs"
+            title="Toggle time estimates display"
+          >
+            {showTimeEstimates ? '⏱️ Hide Times' : '⏱️ Show Times'}
+          </Button>
+        </div>
         {isEditing && (
           <div className="flex gap-2">
             <Button onClick={addUnit} size="sm">
@@ -663,7 +667,7 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                         <div className="flex items-center gap-2">
                           <span className={`font-medium ${colors.text}`}>{unit.name}</span>
                           <span className={`text-sm ${colors.accent}`}>
-                            ({(unit.items || []).length} items)
+                            ({(unit.items || []).length} items{showTimeEstimates && `, ${(unit.items || []).reduce((sum, item) => sum + (item.estimatedTime || 0), 0)} min`})
                           </span>
                         </div>
                         
@@ -743,32 +747,17 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                 onChange={(e) => {
                                   const newItemId = e.target.value;
                                   setEditForm(prev => {
-                                    const oldAutoContentPath = generateContentPathWithOrder(item.itemId, item.order);
-                                    const newAutoContentPath = generateContentPathWithOrder(newItemId, item.order);
-                                    
                                     return {
                                       ...prev,
                                       itemId: newItemId,
                                       // Auto-populate title if it hasn't been manually changed
-                                      title: prev.title === item.title ? extractTitleFromItemId(newItemId) || prev.title : prev.title,
-                                      // Auto-populate contentPath if it matches the old auto-generated one
-                                      contentPath: prev.contentPath === oldAutoContentPath ? newAutoContentPath : prev.contentPath
+                                      title: prev.title === item.title ? extractTitleFromItemId(newItemId) || prev.title : prev.title
                                     };
                                   });
                                 }}
                                 placeholder="Enter any itemId format you want"
                               />
                               <p className="text-xs text-gray-500 mt-1">Any format allowed - title will auto-update</p>
-                            </div>
-                            
-                            <div>
-                              <label className="block text-sm font-medium mb-1">Content Path</label>
-                              <Input
-                                value={editForm.contentPath || ''}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, contentPath: e.target.value }))}
-                                placeholder="Auto-generated from Item ID"
-                              />
-                              <p className="text-xs text-gray-500 mt-1">Path to content component (auto-generated, can be customized)</p>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
@@ -795,9 +784,19 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                     <SelectItem value="assignment">Assignment</SelectItem>
                                     <SelectItem value="lab">Lab</SelectItem>
                                     <SelectItem value="exam">Exam</SelectItem>
+                                    <SelectItem value="quiz">Quiz</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Description</label>
+                              <Input
+                                value={editForm.description || ''}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                placeholder="Brief description of the item"
+                              />
                             </div>
                             
                             <div>
@@ -838,9 +837,38 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                   <span className="font-medium">{item.title}</span>
                                   <span className="text-xs text-gray-400">ID: {item.itemId}</span>
                                 </div>
-                                <span className="text-sm text-gray-500">
-                                  ({item.estimatedTime || 0} min)
-                                </span>
+                                {showTimeEstimates && (
+                                  editingInlineTime === `${unitIndex}-${itemIndex}` ? (
+                                    <Input
+                                      type="number"
+                                      value={item.estimatedTime || 0}
+                                      onChange={(e) => {
+                                        const updatedUnits = [...units];
+                                        updatedUnits[unitIndex].items[itemIndex].estimatedTime = parseInt(e.target.value) || 0;
+                                        onUpdate({
+                                          ...structure,
+                                          units: updatedUnits
+                                        });
+                                      }}
+                                      onBlur={() => setEditingInlineTime(null)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          setEditingInlineTime(null);
+                                        }
+                                      }}
+                                      className="w-16 h-6 text-sm"
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span 
+                                      className="text-sm text-gray-500 cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      onClick={() => isEditing && setEditingInlineTime(`${unitIndex}-${itemIndex}`)}
+                                      title={isEditing ? "Click to edit time" : ""}
+                                    >
+                                      ({item.estimatedTime || 0} min)
+                                    </span>
+                                  )
+                                )}
                               </div>
                               
                               {isEditing && (
@@ -1032,31 +1060,17 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                             value={addItemForm.itemId || ''}
                             onChange={(e) => {
                               const newItemId = e.target.value;
-                              const currentUnit = units[unitIndex];
-                              const nextItemNumber = (currentUnit.items?.length || 0) + 1;
                               
                               setAddItemForm(prev => ({
                                 ...prev,
                                 itemId: newItemId,
                                 // Auto-populate title if it's empty
-                                title: prev.title || extractTitleFromItemId(newItemId),
-                                // Auto-populate contentPath if it's empty or was auto-generated
-                                contentPath: prev.contentPath || generateContentPathWithOrder(newItemId, nextItemNumber)
+                                title: prev.title || extractTitleFromItemId(newItemId)
                               }));
                             }}
                             placeholder="Enter any itemId format you want"
                           />
                           <p className="text-xs text-gray-500 mt-1">Any format allowed - title will auto-generate</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Content Path</label>
-                          <Input
-                            value={addItemForm.contentPath || ''}
-                            onChange={(e) => setAddItemForm(prev => ({ ...prev, contentPath: e.target.value }))}
-                            placeholder="Auto-generated from Item ID"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Path to content component (auto-generated, can be customized)</p>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
@@ -1083,9 +1097,19 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                 <SelectItem value="assignment">Assignment</SelectItem>
                                 <SelectItem value="lab">Lab</SelectItem>
                                 <SelectItem value="exam">Exam</SelectItem>
+                                <SelectItem value="quiz">Quiz</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Description</label>
+                          <Input
+                            value={addItemForm.description || ''}
+                            onChange={(e) => setAddItemForm(prev => ({ ...prev, description: e.target.value }))}
+                            placeholder="Brief description of the item"
+                          />
                         </div>
                         
                         <div>
