@@ -307,9 +307,26 @@ class TrueFalseCore {
     // Get feedback based on the answer
     let feedback = '';
     if (originalQuestion && originalQuestion.feedback) {
-      feedback = answer ? originalQuestion.feedback.true : originalQuestion.feedback.false;
+      // Support both formats: {correct/incorrect} and {true/false}
+      if (originalQuestion.feedback.correct !== undefined) {
+        feedback = isCorrect ? originalQuestion.feedback.correct : originalQuestion.feedback.incorrect;
+      } else if (originalQuestion.feedback.true !== undefined) {
+        feedback = answer ? originalQuestion.feedback.true : originalQuestion.feedback.false;
+      } else {
+        // If feedback is a single string, use it
+        feedback = typeof originalQuestion.feedback === 'string' ? originalQuestion.feedback : '';
+      }
+      // If feedback is explicitly empty, keep it empty (for acknowledgment checkboxes)
+      if (feedback === '') {
+        feedback = '';
+      }
     } else {
-      // Default feedback if not provided
+      // Default feedback if not provided in config
+      feedback = isCorrect ? 'Correct!' : 'Incorrect. Try again.';
+    }
+    
+    // Don't add default feedback if it was explicitly set to empty
+    if (feedback === undefined || feedback === null) {
       feedback = isCorrect ? 'Correct!' : 'Incorrect. Try again.';
     }
 
@@ -319,14 +336,19 @@ class TrueFalseCore {
       isCorrect: isCorrect,
       correctAnswer: assessmentData.correctAnswer,
       feedback: feedback,
-      explanation: isCorrect && originalQuestion ? originalQuestion.explanation : null,
       pointsEarned: pointsEarned,
       timestamp: getServerTimestamp()
     };
+    
+    // Only add explanation if it exists (Firebase doesn't accept undefined values)
+    if (originalQuestion && originalQuestion.explanation) {
+      submission.explanation = originalQuestion.explanation;
+    }
 
     // Update assessment with new attempt
+    const updatedAttempts = currentAttempts + 1;
     const updates = {
-      attempts: currentAttempts + 1,
+      attempts: updatedAttempts,
       lastSubmission: submission,
       status: isCorrect ? 'completed' : 'attempted',
       correctOverall: isCorrect || assessmentData.correctOverall || false
@@ -334,24 +356,110 @@ class TrueFalseCore {
 
     await assessmentRef.update(updates);
 
-    // Update gradebook if correct
+    // CRITICAL: Update grade in /Grades/assessments/ to trigger gradebook recalculation
+    // This follows the same pattern as standard-multiple-choice.js
+    const gradeRef = getDatabaseRef('studentGrade', sanitizedEmail, courseId, assessmentId, isStaff);
+    
+    // Calculate current attempt score
+    const currentScore = isCorrect ? pointsEarned : 0;
+    
+    // Implement best score policy - never allow grade to decrease
+    let shouldUpdateGrade = false;
+    let finalScore = currentScore;
+    
+    try {
+      const existingGradeSnapshot = await gradeRef.once('value');
+      const existingGrade = existingGradeSnapshot.val();
+      
+      if (existingGrade === null || existingGrade === undefined) {
+        // First attempt - always save (even if 0)
+        shouldUpdateGrade = true;
+        console.log(`First attempt: saving grade ${currentScore}/${pointsEarned}`);
+      } else if (currentScore > existingGrade) {
+        // Better score - save the improvement
+        shouldUpdateGrade = true;
+        finalScore = currentScore;
+        console.log(`Improved score: ${existingGrade} → ${currentScore}`);
+      } else {
+        // Same or worse score - keep existing grade (never allow grade to decrease)
+        shouldUpdateGrade = false;
+        finalScore = existingGrade;
+        console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+      }
+    } catch (error) {
+      console.error('Error checking existing grade:', error);
+      // If we can't read existing grade, save current score
+      shouldUpdateGrade = true;
+    }
+    
+    // Update grade record if needed
+    if (shouldUpdateGrade) {
+      await gradeRef.set(finalScore);
+      console.log(`✅ Grade updated in /Grades/assessments/${assessmentId}: ${finalScore}`);
+    }
+    
+    // Update grade metadata for audit trail
+    const gradeMetadataRef = getDatabaseRef('gradeMetadata', sanitizedEmail, courseId, assessmentId, isStaff);
+    
+    try {
+      // Get existing metadata to preserve history
+      const existingMetadataSnapshot = await gradeMetadataRef.once('value');
+      const existingMetadata = existingMetadataSnapshot.val() || {};
+      
+      // Build grade history entry
+      const historyEntry = {
+        score: currentScore,
+        timestamp: getServerTimestamp(),
+        attempt: updatedAttempts,
+        isCorrect: isCorrect,
+        answer: answer
+      };
+      
+      // Preserve existing history and add new entry
+      const gradeHistory = existingMetadata.gradeHistory || [];
+      gradeHistory.push(historyEntry);
+      
+      const gradeMetadata = {
+        bestScore: finalScore,
+        currentScore: currentScore,
+        achievedAt: shouldUpdateGrade ? getServerTimestamp() : (existingMetadata.achievedAt || getServerTimestamp()),
+        achievedOnAttempt: shouldUpdateGrade ? updatedAttempts : (existingMetadata.achievedOnAttempt || updatedAttempts),
+        sourceAssessmentId: assessmentId,
+        sourceActivityType: assessmentData.settings?.activityType || 'lesson',
+        totalAttempts: updatedAttempts,
+        pointsValue: pointsEarned,
+        lastAttemptAt: getServerTimestamp(),
+        gradeHistory: gradeHistory.slice(-10) // Keep last 10 attempts
+      };
+      
+      await gradeMetadataRef.set(gradeMetadata);
+      console.log(`📝 Grade metadata updated for ${assessmentId}`);
+    } catch (error) {
+      console.error('Failed to update grade metadata:', error);
+      // Don't fail the whole operation if metadata update fails
+    }
+
+    // Note: updateGradebookItem is now a no-op, but we keep it for backward compatibility
+    // The real gradebook update will be triggered by the database trigger watching /Grades/assessments/
     if (isCorrect) {
       try {
         await updateGradebookItem(
-          studentEmail,
+          sanitizedEmail,
           courseId,
           assessmentId,
-          pointsEarned
+          finalScore
         );
       } catch (error) {
-        console.error('Failed to update gradebook:', error);
+        console.error('Failed to call updateGradebookItem:', error);
       }
     }
 
     return {
       success: true,
       result: submission,
-      attemptsMade: currentAttempts + 1
+      attemptsMade: updatedAttempts,
+      gradeUpdated: shouldUpdateGrade,
+      finalScore: finalScore
     };
   }
 

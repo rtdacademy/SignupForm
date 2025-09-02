@@ -670,11 +670,6 @@ const CollapsibleNavigation = ({
             {!isAccessible && !isInDevelopment && !accessInfo.isNeverVisible && (
               <>
                 <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
-                {accessInfo.requiredPercentage && accessInfo.requiredPercentage > 0 && (
-                  <p className="text-xs text-red-500">
-                    Requires {accessInfo.requiredPercentage}% to unlock
-                  </p>
-                )}
               </>
             )}
             {isInDevelopment && isAccessible && (
@@ -817,31 +812,36 @@ const CollapsibleNavigation = ({
                                           true
                     };
                     
-                    // Generate requirement text
-                    let requirementParts = [];
-                    
-                    // Only show score requirement if minimumPercentage > 0
-                    if (criteria.minimumPercentage > 0) {
-                      requirementParts.push(`${criteria.minimumPercentage}% score`);
+                    // Generate requirement text based on criteria
+                    if (criteria.minimumPercentage === 0 && criteria.requireAllQuestions) {
+                      // When only completion is required (no minimum score)
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ✅ Answer all questions to unlock next lesson
+                        </p>
+                      );
+                    } else if (criteria.minimumPercentage > 0 && criteria.requireAllQuestions) {
+                      // When both score and all questions are required
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          📊 Need {criteria.minimumPercentage}% score + all questions to unlock next lesson
+                        </p>
+                      );
+                    } else if (criteria.minimumPercentage > 0 && !criteria.requireAllQuestions) {
+                      // When only minimum score is required
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          📊 Need {criteria.minimumPercentage}% score to unlock next lesson
+                        </p>
+                      );
+                    } else {
+                      // Default case
+                      return (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ✅ Complete lesson to unlock next
+                        </p>
+                      );
                     }
-                    
-                    if (criteria.requireAllQuestions) {
-                      requirementParts.push('all questions');
-                    }
-                    
-                    // If no score requirement and only completion requirement, use simpler text
-                    const requirementText = requirementParts.length > 0 
-                      ? requirementParts.join(' + ')
-                      : 'completion';
-                    
-                    return (
-                      <p className="text-xs text-blue-600 mt-1">
-                        {criteria.minimumPercentage > 0 
-                          ? `📊 Need ${requirementText} to unlock next lesson`
-                          : `✅ Answer ${requirementText} to unlock next lesson`
-                        }
-                      </p>
-                    );
                   }
                 })()}
               </>

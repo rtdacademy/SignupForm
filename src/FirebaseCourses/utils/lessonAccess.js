@@ -208,7 +208,10 @@ export const getLessonAccessibility = (courseStructure, course, options = {}) =>
         const currentPercentage = Math.round(previousItemData.percentage || 0);
         const requiredPercentage = criteria.minimumPercentage || 50;
         
-        if (criteria.requireAllQuestions) {
+        if (criteria.minimumPercentage === 0 && criteria.requireAllQuestions) {
+          // When only completion is required (no minimum score)
+          detailedReason = `Answer all questions in "${previousItem.title}" (currently ${previousItemData.attempted}/${previousItemData.totalQuestions} questions)`;
+        } else if (criteria.requireAllQuestions) {
           detailedReason = `Need ${requiredPercentage}% score + all questions in "${previousItem.title}" (currently ${currentPercentage}%, ${previousItemData.attempted}/${previousItemData.totalQuestions} questions)`;
         } else {
           detailedReason = `Need ${requiredPercentage}% score in "${previousItem.title}" (currently ${currentPercentage}%)`;

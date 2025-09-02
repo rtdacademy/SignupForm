@@ -10,12 +10,8 @@
 
 module.exports = {
   // Lesson 01: Typing Basics and Hand Position
-  'inf2020_01_hand_position': '01_keyboarding_basics/assessments',
-  'inf2020_01_typing_technique': '01_keyboarding_basics/assessments',
+  'course6_01_keyboarding_basics': '01_keyboarding_basics/assessments',
 
-  // Lesson 02: Typing Practice and Speed Building
-  'inf2020_02_speed_test': '02_keyboarding_practice/assessments',
-  'inf2020_02_accuracy_test': '02_keyboarding_practice/assessments',
   
   // Direct score assessments for each typing category
   'course6_02_keyboarding_beginner': '02_keyboarding_practice/assessments',
@@ -25,8 +21,6 @@ module.exports = {
   'course6_02_keyboarding_sentences': '02_keyboarding_practice/assessments',
 
   // Quiz 03: Keyboarding Final Assessment
-  'inf2020_03_final_speed': '03_keyboarding_final_assessment/assessments',
-  'inf2020_03_final_accuracy': '03_keyboarding_final_assessment/assessments',
   'course6_03_final_typing_assessment': '03_keyboarding_final_assessment/assessments',
 
 };

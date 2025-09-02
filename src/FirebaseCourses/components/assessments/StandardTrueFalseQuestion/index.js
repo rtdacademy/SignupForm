@@ -916,8 +916,8 @@ The student answered correctly! Reinforce their understanding.
 
       case 'checkbox':
         return (
-          <div className="flex flex-col items-center">
-            <div className={`relative ${!result && !question?.status ? 'animate-gentleBounce' : ''}`}>
+          <div>
+            <div className={`relative inline-block ${!result && !question?.status ? 'animate-gentleBounce' : ''}`}>
               <label className="cursor-pointer">
                 <input
                   type="checkbox"
@@ -943,16 +943,7 @@ The student answered correctly! Reinforce their understanding.
                 <div className={`absolute inset-0 rounded-md bg-${themeConfig.accent} animate-ping opacity-25 pointer-events-none`}></div>
               )}
             </div>
-            {/* Result feedback */}
-            {!isExamMode && result && (
-              <div className="mt-2 text-sm text-center">
-                {result.isCorrect ? (
-                  <span className="text-green-600 font-medium">✓ Correct!</span>
-                ) : (
-                  <span className="text-red-600 font-medium">✗ Answer: {result.correctAnswer ? 'true' : 'false'}</span>
-                )}
-              </div>
-            )}
+            {/* Result feedback - completely hidden for acknowledgment checkboxes */}
           </div>
         );
 
@@ -985,15 +976,7 @@ The student answered correctly! Reinforce their understanding.
                 True
               </span>
             </div>
-            {!isExamMode && result && (
-              <div className="mt-2 text-sm">
-                {result.isCorrect ? (
-                  <span className="text-green-600 font-medium">✓ Correct!</span>
-                ) : (
-                  <span className="text-red-600 font-medium">✗ Answer: {result.correctAnswer ? 'True' : 'False'}</span>
-                )}
-              </div>
-            )}
+            {/* Result feedback - hidden for acknowledgment checkboxes */}
           </div>
         );
 
@@ -1190,55 +1173,25 @@ The student answered correctly! Reinforce their understanding.
   };
 
   return (
-    <div ref={componentRef} className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName} bg-white/75 backdrop-blur-sm border-${themeConfig.border}`}>
-      {/* Header */}
-      <div className={`px-4 py-3 border-b bg-gradient-to-r ${themeConfig.gradient} bg-opacity-75 border-${themeConfig.border}`}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-medium text-white">
-            {question?.title || title || 'True/False Question'}
-          </h3>
-          <div className="flex items-center gap-2">
-            {isExamMode && (
-              <Clipboard className="w-6 h-6 text-white" title="Assessment Session" />
-            )}
-            {question && question.enableAIChat !== false && !isExamMode && 
-             course?.courseDetails?.['course-config']?.aiFeatures?.enabled === true && (
-              <Button
-                onClick={handleAskAI}
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-1"
-                title="Ask AI about this question"
-              >
-                <Bot className="w-4 h-4" />
-                <span className="hidden sm:inline">Ask AI</span>
-              </Button>
-            )}
-          </div>
-        </div>
-        
-        {/* Display attempts counter when question is loaded (hidden in exam mode) */}
-        {question && !isExamMode && (
-          <div className="flex items-center text-xs text-white/90 mt-1">
-            <span className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
-              <span className="mx-1">/</span>
-              {question.maxAttempts && question.maxAttempts > 500 ? (
-                <Infinity className="h-3.5 w-3.5 inline-block text-white/90" />
-              ) : (
-                <span className="font-medium">{question.maxAttempts}</span>
-              )}
-            </span>
+    <div ref={componentRef} className={`rounded-lg overflow-hidden shadow-lg ${questionClassName} bg-white border border-gray-200`}>
+      {/* Content - No Header */}
+      <div ref={contentRef} className="p-5 relative">
+        {/* AI Assistant Button - Positioned in top right corner if enabled */}
+        {question && question.enableAIChat !== false && !isExamMode && 
+         course?.courseDetails?.['course-config']?.aiFeatures?.enabled === true && (
+          <div className="absolute top-3 right-3 z-10">
+            <Button
+              onClick={handleAskAI}
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-1"
+              title="Ask AI about this question"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">Ask AI</span>
+            </Button>
           </div>
         )}
-      </div>
-
-      {/* Content */}
-      <div ref={contentRef} className="p-5 bg-white/80">
         {error && !isExamMode && (
           <div className="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-300">
             {error}
@@ -1301,12 +1254,14 @@ The student answered correctly! Reinforce their understanding.
 
               {/* For checkbox and toggle styles, display side by side */}
               {(displayStyle === 'checkbox' || displayStyle === 'toggle') ? (
-                <div className="flex items-start gap-6 mb-5">
-                  <div className="flex-1 text-gray-800 text-lg font-medium">
-                    {renderEnhancedText(question.questionText)}
-                  </div>
+                <div className="flex items-center gap-4 mb-5">
                   <div className="flex-shrink-0">
                     {renderAnswerOptions()}
+                  </div>
+                  <div className="relative flex-1 pl-4 border-l-2 border-gray-300">
+                    <div className="text-gray-800 text-lg font-medium text-left">
+                      {renderEnhancedText(question.questionText)}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1359,8 +1314,8 @@ The student answered correctly! Reinforce their understanding.
                 </motion.div>
               )}
 
-              {/* Result feedback */}
-              {(result && (!isExamMode || question?.showExamFeedback)) && (
+              {/* Result feedback - only show if there's actual meaningful feedback */}
+              {(result && (!isExamMode || question?.showExamFeedback) && result.feedback && result.feedback.trim() !== '' && result.feedback.trim() !== 'Correct!') && (
                 <motion.div
                   variants={animations.slideUp}
                   initial="hidden"
@@ -1372,10 +1327,7 @@ The student answered correctly! Reinforce their understanding.
                       : 'bg-red-50 border border-red-100 text-red-800'
                   }`}
                 >
-                  <p className="font-medium text-base mb-1">
-                    {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-                  </p>
-                  <div className="mb-3 text-sm">
+                  <div className="text-sm">
                     {renderEnhancedText(result.feedback)}
                   </div>
 

@@ -1,10 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
-import { getDatabase, ref, onValue } from 'firebase/database';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Keyboard, 
+  Trophy, 
+  Target, 
+  Timer, 
+  Gauge,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Play,
+  Lock
+} from 'lucide-react';
+import { getDatabase, ref, set, serverTimestamp, onValue, push } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../../../../context/AuthContext';
-import { motion } from 'framer-motion';
-import { Lock, AlertCircle } from 'lucide-react';
+import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
+
+// Assessment ID for this final test
+const ASSESSMENT_ID = 'course6_03_final_typing_assessment';
+
+// Passing criteria for final assessment (higher than practice)
+const PASSING_CRITERIA = {
+  minWpm: 18,
+  minAccuracy: 80
+};
+
+// Multiple test texts for variety (shortened for testing, no math equations)
+const FINAL_TEST_TEXTS = [
+  `The quick fox jumps. Type 123 and 456. Use asdf jkl; keys for typing!`,
+  `Hello world! Practice 789 and 321. Home row keys: asdf jkl; are important.`,
+  `Type fast and accurate. Numbers: 246, 135, 789. Ready? Start typing now!`,
+  `Good typing skills matter. Type 100, 50, and 150. Use all fingers on asdf jkl; row.`,
+  `Test your speed now! Count: 111, 222, 333. Keep hands steady on home keys.`
+];
 
 /**
  * Keyboarding Final Assessment
@@ -23,12 +54,32 @@ const KeyboardingFinalAssessment = ({
   const { currentUser } = useAuth();
   const [previousLessonAcknowledged, setPreviousLessonAcknowledged] = useState(false);
   const [checkingAcknowledgment, setCheckingAcknowledgment] = useState(true);
-  const [activeSection, setActiveSection] = useState('overview');
-  const [questionsCompleted, setQuestionsCompleted] = useState({});
-
-  // Check if all questions are completed
-  const allQuestionsCompleted = Object.keys(questionsCompleted).length === 2 && 
-    Object.values(questionsCompleted).every(completed => completed === true);
+  const [testStatus, setTestStatus] = useState('ready'); // ready, testing, completed
+  const [currentText, setCurrentText] = useState(() => {
+    // Select a random text on initial load
+    return FINAL_TEST_TEXTS[Math.floor(Math.random() * FINAL_TEST_TEXTS.length)];
+  });
+  const [userInput, setUserInput] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [errors, setErrors] = useState([]);
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
+  const [wpm, setWpm] = useState(0);
+  const [accuracy, setAccuracy] = useState(100);
+  const [totalKeystrokes, setTotalKeystrokes] = useState(0);
+  const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isPassing, setIsPassing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [showCourseCompleteMessage, setShowCourseCompleteMessage] = useState(false);
+  
+  const audioContext = useRef(null);
+  const inputRef = useRef(null);
+  const statsInterval = useRef(null);
+  const timerInterval = useRef(null);
 
   // Check if previous lesson (practice) is acknowledged
   useEffect(() => {
@@ -53,11 +104,299 @@ const KeyboardingFinalAssessment = ({
     return () => unsubscribe();
   }, [currentUser, courseId]);
 
-  const handleQuestionComplete = (questionId) => {
-    setQuestionsCompleted(prev => ({
-      ...prev,
-      [questionId]: true
-    }));
+  // Initialize audio
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.AudioContext) {
+      audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return () => {
+      if (audioContext.current) {
+        audioContext.current.close();
+      }
+      if (statsInterval.current) {
+        clearInterval(statsInterval.current);
+      }
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+      }
+    };
+  }, []);
+
+  const playSound = useCallback((frequency, duration) => {
+    if (!soundEnabled || !audioContext.current) return;
+    
+    const oscillator = audioContext.current.createOscillator();
+    const gainNode = audioContext.current.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.current.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.05, audioContext.current.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + duration);
+    
+    oscillator.start(audioContext.current.currentTime);
+    oscillator.stop(audioContext.current.currentTime + duration);
+  }, [soundEnabled]);
+
+  const calculateStats = useCallback(() => {
+    if (!startTime || !isActive) return;
+    
+    const currentTime = Date.now();
+    const timeInMinutes = (currentTime - startTime) / 60000;
+    const wordsTyped = correctKeystrokes / 5;
+    const currentWpm = Math.round(wordsTyped / timeInMinutes) || 0;
+    const currentAccuracy = totalKeystrokes > 0 
+      ? Math.round((correctKeystrokes / totalKeystrokes) * 100)
+      : 100;
+    
+    setWpm(currentWpm);
+    setAccuracy(currentAccuracy);
+  }, [startTime, isActive, correctKeystrokes, totalKeystrokes]);
+
+  useEffect(() => {
+    if (isActive && startTime) {
+      statsInterval.current = setInterval(calculateStats, 500);
+    } else {
+      if (statsInterval.current) {
+        clearInterval(statsInterval.current);
+      }
+    }
+    return () => {
+      if (statsInterval.current) {
+        clearInterval(statsInterval.current);
+      }
+    };
+  }, [isActive, startTime, calculateStats]);
+
+  // Timer for elapsed seconds
+  useEffect(() => {
+    if (isActive && startTime) {
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedSeconds(seconds);
+      
+      timerInterval.current = setInterval(() => {
+        const seconds = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedSeconds(seconds);
+      }, 1000);
+    } else {
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+      }
+    }
+    return () => {
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+      }
+    };
+  }, [isActive, startTime]);
+
+  const startTest = () => {
+    // Select a new random text that's different from the current one
+    let newText = currentText;
+    while (newText === currentText && FINAL_TEST_TEXTS.length > 1) {
+      newText = FINAL_TEST_TEXTS[Math.floor(Math.random() * FINAL_TEST_TEXTS.length)];
+    }
+    setCurrentText(newText);
+    
+    setTestStatus('testing');
+    setUserInput('');
+    setCurrentIndex(0);
+    setErrors([]);
+    setStartTime(null);
+    setEndTime(null);
+    setIsActive(false);
+    setWpm(0);
+    setAccuracy(100);
+    setTotalKeystrokes(0);
+    setCorrectKeystrokes(0);
+    setElapsedSeconds(0);
+    setSubmitError(null);
+    
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const resetTest = () => {
+    // Select a new random text when resetting
+    let newText = currentText;
+    while (newText === currentText && FINAL_TEST_TEXTS.length > 1) {
+      newText = FINAL_TEST_TEXTS[Math.floor(Math.random() * FINAL_TEST_TEXTS.length)];
+    }
+    setCurrentText(newText);
+    
+    setTestStatus('ready');
+    setUserInput('');
+    setCurrentIndex(0);
+    setErrors([]);
+    setStartTime(null);
+    setEndTime(null);
+    setIsActive(false);
+    setWpm(0);
+    setAccuracy(100);
+    setTotalKeystrokes(0);
+    setCorrectKeystrokes(0);
+    setElapsedSeconds(0);
+    setIsPassing(false);
+    setSubmitError(null);
+  };
+
+  const handleInput = (e) => {
+    const value = e.target.value;
+    
+    if (!isActive && value.length > 0) {
+      setStartTime(Date.now());
+      setIsActive(true);
+    }
+    
+    if (value.length > userInput.length) {
+      const newChar = value[value.length - 1];
+      const expectedChar = currentText[currentIndex];
+      
+      setTotalKeystrokes(prev => prev + 1);
+      
+      if (newChar === expectedChar) {
+        playSound(600, 0.05);
+        setCorrectKeystrokes(prev => prev + 1);
+        setCurrentIndex(prev => prev + 1);
+        
+        if (currentIndex + 1 === currentText.length) {
+          completeTest();
+        }
+      } else {
+        playSound(300, 0.1);
+        setErrors(prev => [...prev, currentIndex]);
+      }
+    }
+    
+    setUserInput(value);
+  };
+
+  const completeTest = async () => {
+    const endTimestamp = Date.now();
+    setEndTime(endTimestamp);
+    setIsActive(false);
+    
+    // Clear intervals immediately to stop stats updates
+    if (statsInterval.current) {
+      clearInterval(statsInterval.current);
+      statsInterval.current = null;
+    }
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = null;
+    }
+    
+    // Calculate final stats as a snapshot
+    const finalTime = (endTimestamp - startTime) / 60000;
+    const finalWpm = Math.round((correctKeystrokes / 5) / finalTime) || 0;
+    const finalAccuracy = Math.round((correctKeystrokes / totalKeystrokes) * 100) || 0;
+    
+    // Set final stats (these won't change anymore since intervals are cleared)
+    setWpm(finalWpm);
+    setAccuracy(finalAccuracy);
+    
+    // Check if passing
+    const passing = finalWpm >= PASSING_CRITERIA.minWpm && finalAccuracy >= PASSING_CRITERIA.minAccuracy;
+    setIsPassing(passing);
+    const score = passing ? 1 : 0;
+    
+    // Save to Firebase
+    if (currentUser && currentUser.uid) {
+      setSubmitting(true);
+      
+      try {
+        const db = getDatabase();
+        
+        // Save detailed attempt data (similar to practice mode)
+        const attemptData = {
+          wpm: finalWpm,
+          accuracy: finalAccuracy,
+          duration: Math.round((endTimestamp - startTime) / 1000), // duration in seconds
+          totalKeystrokes,
+          correctKeystrokes,
+          errors: errors.length,
+          textLength: currentText.length,
+          passed: passing,
+          score: score,
+          timestamp: serverTimestamp(),
+          completedAt: endTimestamp
+        };
+        
+        // Save attempt with unique ID
+        const attemptsPath = `users/${currentUser.uid}/firebaseCourses/${courseId || '6'}/03_keyboarding_final_assessment/attempts`;
+        const attemptsRef = push(ref(db, attemptsPath));
+        await set(attemptsRef, attemptData);
+        
+        // Now submit to assessment system
+        const functions = getFunctions();
+        const universalAssessments = httpsCallable(functions, 'universal_assessments');
+        
+        // Prepare interaction data for security validation
+        const interactionData = {
+          startTime: startTime,
+          endTime: endTimestamp,
+          duration: endTimestamp - startTime,
+          events: ['start', 'typing', 'complete'],
+          interactionCount: totalKeystrokes
+        };
+        
+        // Submit the score
+        const assessmentResult = await universalAssessments({
+          operation: 'directScore',
+          courseId: String(courseId || '6'),
+          assessmentId: ASSESSMENT_ID,
+          score: score,
+          studentEmail: currentUser.email,
+          userId: currentUser.uid,
+          interactionData: interactionData,
+          metadata: {
+            wpm: finalWpm,
+            accuracy: finalAccuracy,
+            duration: Math.round((endTimestamp - startTime) / 1000),
+            totalKeystrokes: totalKeystrokes,
+            correctKeystrokes: correctKeystrokes,
+            errors: errors.length,
+            textLength: currentText.length,
+            passingCriteria: PASSING_CRITERIA,
+            isPassing: passing
+          }
+        });
+        
+        console.log('Final assessment score submitted:', assessmentResult.data);
+        
+        // Also save completion status (db already defined above)
+        const completionPath = `users/${currentUser.uid}/firebaseCourses/${courseId || '6'}/03_keyboarding_final_assessment/completed`;
+        const completionRef = ref(db, completionPath);
+        await set(completionRef, {
+          completed: true,
+          passed: passing,
+          score: score,
+          wpm: finalWpm,
+          accuracy: finalAccuracy,
+          timestamp: serverTimestamp()
+        });
+        
+        // Check if course was marked as completed by the cloud function
+        if (assessmentResult.data?.courseCompleted) {
+          console.log('🎓 Course 6 has been marked as completed!');
+          setShowCourseCompleteMessage(true);
+        }
+        
+        playSound(passing ? 1200 : 800, 0.3);
+      } catch (error) {
+        console.error('Error submitting assessment score:', error);
+        setSubmitError('Failed to submit score. Please try again.');
+      } finally {
+        setSubmitting(false);
+      }
+    }
+    
+    setTestStatus('completed');
   };
 
   // Show loading state while checking acknowledgment
@@ -95,10 +434,10 @@ const KeyboardingFinalAssessment = ({
               <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <AlertCircle className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
                 <p className="text-gray-700 mb-2">
-                  You need to complete the <strong>Typing Practice Arena</strong> lesson before accessing the Final Assessment.
+                  You need to pass all categories in the <strong>Typing Practice Arena</strong> lesson before accessing the Final Assessment.
                 </p>
                 <p className="text-sm text-gray-600">
-                  Please go back and complete the practice exercises. Look for the "Complete Lesson" button to acknowledge your completion.
+                  Please go back and complete all practice categories with the required speed and accuracy.
                 </p>
               </div>
               
@@ -119,216 +458,263 @@ const KeyboardingFinalAssessment = ({
     );
   }
 
-  return (
-    <div className="min-h-screen w-full bg-gray-50">
-      {/* Main Content Area */}
-      <div className="w-full max-w-7xl mx-auto">
-        <div className="space-y-8 p-4 sm:p-6 lg:p-8">
-          
-          {/* Hero Section */}
-          <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-4 sm:p-6 md:p-8">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">
-              Keyboarding Final Assessment
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl mb-4 sm:mb-6">
-              [Add a brief description of this quiz]
-            </p>
-            <div className="bg-white/10 backdrop-blur rounded-lg p-3 sm:p-4">
-              <p className="text-sm sm:text-base md:text-lg">
-                🎯 <strong>Learning Objective:</strong> [Add the main learning objective here]
-              </p>
+  const renderReady = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto space-y-6"
+    >
+      <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <Keyboard className="text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">Final Typing Assessment</h2>
+          <p className="text-gray-600 mb-6">
+            Complete this comprehensive typing test to demonstrate your keyboarding proficiency.
+            The test includes letters, numbers, and punctuation.
+          </p>
+        </div>
+        
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-blue-900 mb-3">Assessment Requirements</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              <Gauge className="text-blue-600" size={20} />
+              <span className="text-gray-700">Minimum Speed: <strong>{PASSING_CRITERIA.minWpm} WPM</strong></span>
             </div>
-          </section>
-
-          {/* Navigation Tabs */}
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-4 sm:space-x-6 md:space-x-8 overflow-x-auto pb-1">
-              <button
-                onClick={() => setActiveSection('overview')}
-                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
-                  activeSection === 'overview'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Overview
-              </button>
-              <button
-                onClick={() => setActiveSection('content')}
-                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
-                  activeSection === 'content'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Main Content
-              </button>
-              
-              <button
-                onClick={() => setActiveSection('assessment')}
-                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
-                  activeSection === 'assessment'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Knowledge Check
-              </button>
-            </nav>
+            <div className="flex items-center gap-2">
+              <Target className="text-green-600" size={20} />
+              <span className="text-gray-700">Minimum Accuracy: <strong>{PASSING_CRITERIA.minAccuracy}%</strong></span>
+            </div>
           </div>
+        </div>
+        
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-amber-800">
+            <strong>Tips for Success:</strong>
+          </p>
+          <ul className="mt-2 ml-4 list-disc text-sm text-amber-800">
+            <li>Take a deep breath and relax before starting</li>
+            <li>Focus on accuracy over speed</li>
+            <li>Use proper finger positioning on the home row</li>
+            <li>Type at a steady, comfortable pace</li>
+          </ul>
+        </div>
+        
+        <button
+          onClick={startTest}
+          className="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-lg flex items-center justify-center gap-2"
+        >
+          <Play size={24} />
+          Start Final Assessment
+        </button>
+      </div>
+    </motion.div>
+  );
 
-          {/* Overview Section */}
-          {activeSection === 'overview' && (
-            <section className="space-y-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-2xl font-bold mb-4">📚 Quiz Overview</h2>
-                <p className="text-gray-700 mb-4">
-                  [Add an overview of what this quiz covers]
-                </p>
-                
-                <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3 text-sm sm:text-base">Key Topics:</h4>
-                    <ul className="space-y-2 text-xs sm:text-sm text-gray-700">
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Topic 1]
-                      </li>
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Topic 2]
-                      </li>
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Topic 3]
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-green-50 rounded-lg p-3 sm:p-4">
-                    <h4 className="font-semibold text-green-800 mb-3 text-sm sm:text-base">Learning Outcomes:</h4>
-                    <ul className="space-y-2 text-xs sm:text-sm text-gray-700">
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Outcome 1]
-                      </li>
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Outcome 2]
-                      </li>
-                      <li className="flex items-center">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
-                        [Outcome 3]
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Main Content Section */}
-          {activeSection === 'content' && (
-            <section className="space-y-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-2xl font-bold mb-4">📖 Main Content</h2>
-                
-                {/* Add your main content here */}
-                <div className="prose max-w-none">
-                  <p className="text-gray-700">
-                    [Add the main content for this quiz. You can include:]
-                  </p>
-                  <ul className="mt-4 space-y-2">
-                    <li>Text explanations</li>
-                    <li>Images and diagrams</li>
-                    <li>Videos</li>
-                    <li>Interactive elements</li>
-                    <li>Examples and practice problems</li>
-                  </ul>
-                  
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-                    <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-                      💡 Key Concept
-                    </h3>
-                    <p className="text-gray-700">
-                      [Highlight important concepts or tips here]
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
+  const renderTesting = () => (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Final Typing Assessment</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
+          >
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+          <button
+            onClick={resetTest}
+            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw size={20} />
+            Reset
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-6 bg-white rounded-xl shadow-lg">
+        <div className="text-lg font-mono leading-relaxed mb-6 p-4 bg-gray-50 rounded-lg" style={{ minHeight: '150px' }}>
+          {currentText.split('').map((char, index) => {
+            let textColor = 'text-gray-400';
+            
+            if (index < currentIndex) {
+              textColor = errors.includes(index) ? 'text-red-500' : 'text-green-600';
+            } else if (index === currentIndex) {
+              textColor = 'text-blue-600 font-bold';
+            }
+            
+            return (
+              <span key={index} className={textColor}>
+                {char}
+              </span>
+            );
+          })}
+        </div>
+        
+        <input
+          ref={inputRef}
+          type="text"
+          value={userInput}
+          onChange={handleInput}
+          className="w-full p-4 text-xl font-mono border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+          placeholder="Start typing here..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+        
+        <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Gauge size={20} />
+              <span className="font-semibold text-lg">{wpm} WPM</span>
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              Required: {PASSING_CRITERIA.minWpm} WPM
+            </div>
+          </div>
           
-          {/* Knowledge Check Section */}
-          {activeSection === 'assessment' && (
-            <section className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold mb-4">🎯 Knowledge Check</h2>
-                <p className="text-gray-600 max-w-2xl mx-auto mb-6">
-                  Test your understanding of the key concepts from this quiz.
-                </p>
-              </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-green-700">
+              <Target size={20} />
+              <span className="font-semibold text-lg">{accuracy}%</span>
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              Required: {PASSING_CRITERIA.minAccuracy}%
+            </div>
+          </div>
+          
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-purple-700">
+              <Timer size={20} />
+              <span className="font-semibold text-lg">{elapsedSeconds}s</span>
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              Time Elapsed
+            </div>
+          </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="mt-4">
+          <div className="text-xs text-gray-500 mb-1">Progress: {Math.round((currentIndex / currentText.length) * 100)}%</div>
+          <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+            <motion.div 
+              className="bg-gradient-to-r from-blue-500 to-blue-600 h-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${(currentIndex / currentText.length) * 100}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
-              <SlideshowKnowledgeCheck
-                courseId={courseId}
-                lessonPath="03_keyboarding_final_assessment"
-                course={course}
-                questions={[
-                  {
-                    type: 'multiple-choice',
-                    questionId: 'inf2020_03_final_speed',
-                    title: 'Final Speed Test'
-                  },
-                  {
-                    type: 'multiple-choice',
-                    questionId: 'inf2020_03_final_accuracy',
-                    title: 'Final Accuracy Test'
-                  }
-                ]}
-                onComplete={(score, results) => {
-                  console.log(`Knowledge Check completed with ${score}%`);
-                  const allCorrect = Object.values(results).every(result => result === 'correct');
-                  if (allCorrect || score >= 80) {
-                    handleQuestionComplete('inf2020_03_final_speed');
-                    handleQuestionComplete('inf2020_03_final_accuracy');
-                  }
-                }}
-                theme="amber"
-              />
-            </section>
-          )}
-
-          {/* Completion Section */}
-          {allQuestionsCompleted && (
-            <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-6 sm:p-8">
-              <h2 className="text-2xl font-bold mb-4 text-center">
-                Quiz Complete! 🎉
-              </h2>
-              
-              <div className="text-center mb-6">
-                <p className="text-lg mb-4">
-                  Great job completing this quiz!
-                </p>
-                
-                <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-6">
-                  <p className="text-base">
-                    You're ready to move on to the next section.
-                  </p>
-                </div>
-              </div>
-
-              <div className="text-center">
-                <button
-                  onClick={() => onNavigateToNext()}
-                  className="bg-white text-blue-600 hover:bg-blue-50 font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
-                >
-                  Continue to Next Section →
-                </button>
-              </div>
-            </section>
+  const renderCompleted = () => (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="max-w-4xl mx-auto space-y-6"
+    >
+      <div className={`p-8 rounded-xl text-center ${
+        isPassing 
+          ? 'bg-gradient-to-r from-green-50 to-blue-50' 
+          : 'bg-gradient-to-r from-orange-50 to-red-50'
+      }`}>
+        <Trophy className={`mx-auto mb-4 ${isPassing ? "text-yellow-500" : "text-gray-400"}`} size={64} />
+        <h2 className="text-3xl font-bold text-gray-800 mb-4">
+          {isPassing ? 'Congratulations! Assessment Passed' : 'Assessment Complete'}
+        </h2>
+        
+        {submitError && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
+            <p className="text-red-700">{submitError}</p>
+          </div>
+        )}
+        
+        {submitting && (
+          <div className="mb-4 text-gray-600">
+            Submitting your score...
+          </div>
+        )}
+        
+        <div className="mb-6 p-4 bg-white/70 rounded-lg">
+          <p className="text-lg text-gray-600 mb-4">
+            {isPassing 
+              ? "Excellent work! You've successfully demonstrated proficient keyboarding skills."
+              : "Keep practicing to improve your speed and accuracy. You can retake the assessment when ready."}
+          </p>
+          
+          <div className="flex justify-center gap-8 text-sm">
+            <div className={`flex items-center gap-2 ${wpm >= PASSING_CRITERIA.minWpm ? 'text-green-600' : 'text-red-600'}`}>
+              {wpm >= PASSING_CRITERIA.minWpm ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+              <span className="font-medium">Speed: {wpm >= PASSING_CRITERIA.minWpm ? 'Pass' : 'Not Met'}</span>
+            </div>
+            <div className={`flex items-center gap-2 ${accuracy >= PASSING_CRITERIA.minAccuracy ? 'text-green-600' : 'text-red-600'}`}>
+              {accuracy >= PASSING_CRITERIA.minAccuracy ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+              <span className="font-medium">Accuracy: {accuracy >= PASSING_CRITERIA.minAccuracy ? 'Pass' : 'Not Met'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 my-8">
+          <div className="bg-white/80 p-4 rounded-lg">
+            <p className="text-gray-600 text-sm">Final Speed</p>
+            <p className={`text-3xl font-bold ${wpm >= PASSING_CRITERIA.minWpm ? 'text-blue-600' : 'text-gray-600'}`}>
+              {wpm} WPM
+            </p>
+          </div>
+          <div className="bg-white/80 p-4 rounded-lg">
+            <p className="text-gray-600 text-sm">Accuracy</p>
+            <p className={`text-3xl font-bold ${accuracy >= PASSING_CRITERIA.minAccuracy ? 'text-green-600' : 'text-gray-600'}`}>
+              {accuracy}%
+            </p>
+          </div>
+          <div className="bg-white/80 p-4 rounded-lg">
+            <p className="text-gray-600 text-sm">Total Keys</p>
+            <p className="text-3xl font-bold text-purple-600">{totalKeystrokes}</p>
+          </div>
+          <div className="bg-white/80 p-4 rounded-lg">
+            <p className="text-gray-600 text-sm">Time</p>
+            <p className="text-3xl font-bold text-orange-600">{elapsedSeconds}s</p>
+          </div>
+        </div>
+        
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={startTest}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+          >
+            Try Again
+          </button>
+          
+          {isPassing && (
+            <button
+              onClick={() => {
+                // Navigate to dashboard
+                window.location.href = '/dashboard';
+              }}
+              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+            >
+              🎉 Complete Course & Return to Dashboard
+            </button>
           )}
         </div>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Keyboarding Course</h1>
+          <p className="text-gray-600">Final Assessment</p>
+        </div>
+        
+        {testStatus === 'ready' && renderReady()}
+        {testStatus === 'testing' && renderTesting()}
+        {testStatus === 'completed' && renderCompleted()}
       </div>
     </div>
   );

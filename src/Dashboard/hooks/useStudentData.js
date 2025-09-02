@@ -638,6 +638,10 @@ export const useStudentData = (userEmailKey) => {
 
       // Set up optimized course listeners - listen to specific paths only to avoid large payloads
       const setupOptimizedCourseListeners = async () => {
+        // State to accumulate course data from multiple listeners
+        // IMPORTANT: Declare this at the top to avoid reference errors
+        const courseDataAccumulator = {};
+        
         // First, get the list of courses the student is enrolled in (initial fetch is OK)
         const coursesListRef = ref(db, `students/${userEmailKey}/courses`);
         const coursesListSnapshot = await get(coursesListRef);
@@ -718,9 +722,6 @@ export const useStudentData = (userEmailKey) => {
 
         // Track all unsubscribe functions
         const courseUnsubscribers = [];
-        
-        // State to accumulate course data from multiple listeners
-        const courseDataAccumulator = {};
         
         // Initialize accumulator with course IDs
         courseIds.forEach(courseId => {

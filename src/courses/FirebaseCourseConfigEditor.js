@@ -39,7 +39,11 @@ const FirebaseCourseConfigEditor = ({ courseId, courseData, isEditing }) => {
             assignment: 3,
             exam: 1,
             quiz: 2,
-            lab: 3
+            lab: 3,
+            info: 999,        // Informational content - unlimited attempts
+            review: 999,      // Review content - unlimited attempts
+            practice: 999,    // Practice exercises - unlimited attempts
+            assessment: 3     // Non-session assessments - limited attempts
           }
         };
         setConfig(loadedConfig);

@@ -200,6 +200,31 @@ async function directScoreUpdate(data, context) {
     metadata
   };
 
+  // Check if this is Course 6 final assessment and mark course completed if passed
+  if (courseId === '6' && assessmentId === 'course6_03_final_typing_assessment' && isPassing) {
+    console.log('Course 6 final assessment passed - marking course as completed');
+    
+    // Mark the lesson as completed
+    const lessonId = '03_keyboarding_final_assessment';
+    updates[`students/${sanitizedEmail}/courses/${courseId}/CourseItemsStatus/${lessonId}`] = 'completed';
+    
+    // Update course completion status
+    updates[`students/${sanitizedEmail}/courses/${courseId}/courseCompleted`] = true;
+    updates[`students/${sanitizedEmail}/courses/${courseId}/completedAt`] = timestamp;
+    
+    // Update gradebook with course completion
+    const gradebookPath = `students/${sanitizedEmail}/courses/${courseId}/Gradebook/overall`;
+    const gradebookSnapshot = await admin.database().ref(gradebookPath).once('value');
+    const currentGradebook = gradebookSnapshot.val() || {};
+    
+    updates[`${gradebookPath}/courseCompleted`] = true;
+    updates[`${gradebookPath}/progression`] = 100;
+    updates[`${gradebookPath}/itemsCompleted`] = 3; // All 3 lessons completed
+    updates[`${gradebookPath}/totalItems`] = 3;
+    
+    console.log('Course 6 completion updates added');
+  }
+
   // Log the updates we're about to make
   console.log('Direct score update - updates to apply:', JSON.stringify(updates, null, 2));
   
@@ -216,7 +241,8 @@ async function directScoreUpdate(data, context) {
     success: true,
     score,
     assessmentId,
-    message: `Score of ${(score * 100).toFixed(1)}% recorded for ${assessmentId}`
+    message: `Score of ${(score * 100).toFixed(1)}% recorded for ${assessmentId}`,
+    courseCompleted: (courseId === '6' && assessmentId === 'course6_03_final_typing_assessment' && isPassing)
   };
   
   console.log('Direct score update - returning result:', result);

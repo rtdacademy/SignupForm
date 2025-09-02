@@ -21,7 +21,7 @@ import {
   MousePointer,
   Hash
 } from 'lucide-react';
-import { AcknowledgmentQuestion } from '../../../../components/assessments';
+import { StandardTrueFalseQuestion } from '../../../../components/assessments';
 
 // Keyboard layout for reference
 const KEYBOARD_LAYOUT = [
@@ -140,6 +140,16 @@ const TUTORIAL_STEPS = [
     practiceKeys: ['Tab', 'Enter', 'Backspace'],
     typingPrompt: 'Try typing a sentence with capital letters!',
     explorationMode: true
+  },
+  {
+    id: 'completion',
+    title: 'Lesson Complete',
+    description: 'Congratulations! You\'ve learned the fundamentals of touch typing.',
+    focusKeys: [],
+    practiceKeys: [],
+    typingPrompt: '',
+    explorationMode: false,
+    isCompletionStep: true
   }
 ];
 
@@ -273,8 +283,7 @@ const TypingDisplay = ({ typedText, keyHistory, onClear, typingPrompt, charCount
 // Main Component
 const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [lessonAcknowledged, setLessonAcknowledged] = useState(false);
-  const [showAcknowledgmentPanel, setShowAcknowledgmentPanel] = useState(false);
+  const [lessonCompleted, setLessonCompleted] = useState(false);
   const [highlightedKeys, setHighlightedKeys] = useState([]);
   const [targetKey, setTargetKey] = useState(null);
   const [score, setScore] = useState(0);
@@ -535,75 +544,6 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
-      {/* Floating Acknowledgment Button - Centered at Bottom */}
-      {currentStep === TUTORIAL_STEPS.length - 1 && !lessonAcknowledged && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full shadow-lg flex items-center gap-2 transition-colors"
-          onClick={() => setShowAcknowledgmentPanel(!showAcknowledgmentPanel)}
-        >
-          <CheckCircle size={20} />
-          <span className="font-semibold">Ready for Practice Arena</span>
-        </motion.button>
-      )}
-      
-      {/* Acknowledgment Panel */}
-      <AnimatePresence>
-        {showAcknowledgmentPanel && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowAcknowledgmentPanel(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Lesson Completion
-              </h3>
-              
-              <div className="mb-4">
-                <p className="text-gray-600 mb-4">
-                  Before proceeding to the practice arena, please confirm that you've completed the typing fundamentals tutorial.
-                </p>
-                
-                <AcknowledgmentQuestion
-                  courseId={courseId || '6'}
-                  itemId="01_keyboarding_basics"
-                  questionId="lesson_complete_acknowledgment"
-                  questionText="I have completed the Touch Typing Fundamentals lesson and understand the basics of proper typing technique."
-                  displayStyle="checkbox"
-                  onComplete={() => {
-                    console.log('Keyboarding basics lesson acknowledged');
-                    setLessonAcknowledged(true);
-                    setShowAcknowledgmentPanel(false);
-                  }}
-                  onAttempt={(acknowledged) => {
-                    setLessonAcknowledged(acknowledged);
-                    if (acknowledged) {
-                      setTimeout(() => setShowAcknowledgmentPanel(false), 500);
-                    }
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={() => setShowAcknowledgmentPanel(false)}
-                className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -654,20 +594,20 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
 
         {/* Progress Bar */}
         <div className="mb-6 bg-white rounded-full p-1 shadow-md">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center gap-2">
             {TUTORIAL_STEPS.map((step, index) => (
               <div
                 key={step.id}
-                className={`flex-1 text-center py-2 px-4 rounded-full transition-all cursor-pointer
-                  ${index === currentStep ? 'bg-blue-600 text-white shadow-lg' : 
-                    index < currentStep ? 'bg-green-500 text-white' : 'text-gray-400'}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-full transition-all cursor-pointer
+                  ${index === currentStep ? 'bg-blue-600 text-white shadow-lg scale-110' : 
+                    index < currentStep ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}
                 onClick={() => {
                   setCurrentStep(index);
                   setCompletedKeys([]);
                   setFeedback(null);
                 }}
               >
-                <div className="text-xs font-semibold">{index + 1}</div>
+                <div className="text-sm font-bold">{index + 1}</div>
               </div>
             ))}
           </div>
@@ -735,9 +675,78 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
               charCount={typedText.length}
             />
           )}
+          
+          {/* Show Completion Content for final step */}
+          {currentStepData.isCompletionStep && (
+            <div className="space-y-6">
+              {/* True/False Question for Lesson Completion */}
+              <StandardTrueFalseQuestion
+                courseId={courseId || '6'}
+                cloudFunctionName="course6_01_keyboarding_basics"
+                theme="blue"
+                title="Lesson Completion"
+                displayStyle="checkbox"
+                onCorrectAnswer={() => {
+                  setLessonCompleted(true);
+                }}
+                onAttempt={(isCorrect) => {
+                  if (isCorrect) {
+                    setLessonCompleted(true);
+                  }
+                }}
+              />
+              
+              {lessonCompleted && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="p-4 bg-green-50 border border-green-300 rounded-lg">
+                    <p className="text-green-800 font-medium flex items-center gap-2">
+                      <CheckCircle className="text-green-600" size={20} />
+                      Great! You've completed the Touch Typing Fundamentals lesson.
+                    </p>
+                  </div>
+                  
+                  <div className="p-6 bg-blue-50 border-2 border-blue-300 rounded-xl">
+                    <h4 className="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
+                      <ChevronRight className="text-blue-600" size={24} />
+                      Ready to Continue?
+                    </h4>
+                    <p className="text-blue-800 mb-4">
+                      You have more lessons to complete in this course! Continue your journey to master touch typing.
+                    </p>
+                    <div className="space-y-3">
+                      <button 
+                        onClick={() => {
+                          // Navigate to lesson 2 (keyboarding practice)
+                          if (onNavigateToLesson) {
+                            onNavigateToLesson('02_keyboarding_practice');
+                          } else {
+                            console.log('Navigation handler not available - please check course configuration');
+                          }
+                        }}
+                        className="w-full px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold transition-colors shadow-lg inline-flex items-center justify-center gap-2"
+                      >
+                        Continue to Practice Arena
+                        <ChevronRight size={20} />
+                      </button>
+                      
+                      <div className="text-center text-sm text-gray-600">
+                        
+                        <p>You can also open the <span className="font-semibold">navigation menu</span> to see all lessons</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
         </motion.div>
 
-        {/* Interactive Keyboard */}
+        {/* Interactive Keyboard - Hide on completion step */}
+        {!currentStepData.isCompletionStep && (
         <motion.div 
           className="p-6 bg-white rounded-2xl shadow-lg"
           initial={{ y: 20, opacity: 0 }}
@@ -856,8 +865,10 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
             </div>
           </div>
         </motion.div>
+        )}
 
-        {/* Tips Section */}
+        {/* Tips Section - Hide on completion step */}
+        {!currentStepData.isCompletionStep && (
         <motion.div 
           className="mt-6 grid grid-cols-2 gap-4"
           initial={{ y: 20, opacity: 0 }}
@@ -888,6 +899,7 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
             </div>
           </div>
         </motion.div>
+        )}
 
         {/* Navigation */}
         <div className="mt-8 flex justify-between items-center">
@@ -921,42 +933,6 @@ const KeyboardingBasics = ({ courseId, onNavigateToLesson }) => {
           </button>
         </div>
 
-        {/* Completion Message */}
-        {currentStep === TUTORIAL_STEPS.length - 1 && (
-          <motion.div 
-            className="mt-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl text-center"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              🎉 Tutorial Complete!
-            </h3>
-            <p className="text-gray-600 mb-6">
-              You've finished all the tutorial steps. Great job learning the fundamentals of touch typing!
-            </p>
-            
-            {lessonAcknowledged ? (
-              <button 
-                onClick={() => {
-                  // Navigate to lesson 2 (keyboarding practice)
-                  if (onNavigateToLesson) {
-                    onNavigateToLesson('02_keyboarding_practice');
-                  } else {
-                    console.log('Navigation handler not available - please check course configuration');
-                  }
-                }}
-                className="px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold transition-colors shadow-lg"
-              >
-                Continue to Practice Arena →
-              </button>
-            ) : (
-              <p className="text-sm text-gray-500">
-                Click the "Ready for Practice Arena" button below to proceed to the next lesson.
-              </p>
-            )}
-          </motion.div>
-        )}
       </div>
     </div>
   );

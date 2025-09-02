@@ -12,7 +12,11 @@ import {
   FaTimes,
   FaUpload,
   FaFileImport,
-  FaChevronDown
+  FaChevronDown,
+  FaInfoCircle,
+  FaRedoAlt,
+  FaDumbbell,
+  FaCheckSquare
 } from 'react-icons/fa';
 import { 
   MoveUp, 
@@ -553,6 +557,10 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
       case 'lab': return <FaFlask className="h-3 w-3 text-green-500" />;
       case 'exam': return <FaGraduationCap className="h-3 w-3 text-red-500" />;
       case 'quiz': return <FaQuestionCircle className="h-3 w-3 text-orange-500" />;
+      case 'info': return <FaInfoCircle className="h-3 w-3 text-cyan-500" />;
+      case 'review': return <FaRedoAlt className="h-3 w-3 text-indigo-500" />;
+      case 'practice': return <FaDumbbell className="h-3 w-3 text-pink-500" />;
+      case 'assessment': return <FaCheckSquare className="h-3 w-3 text-teal-500" />;
       default: return <FaQuestionCircle className="h-3 w-3 text-gray-500" />;
     }
   };
@@ -785,6 +793,10 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                     <SelectItem value="lab">Lab</SelectItem>
                                     <SelectItem value="exam">Exam</SelectItem>
                                     <SelectItem value="quiz">Quiz</SelectItem>
+                                    <SelectItem value="info">Info (Informational)</SelectItem>
+                                    <SelectItem value="review">Review</SelectItem>
+                                    <SelectItem value="practice">Practice</SelectItem>
+                                    <SelectItem value="assessment">Assessment (Non-session)</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -1098,6 +1110,10 @@ const CourseStructureBuilder = ({ courseId, structure, onUpdate, isEditing }) =>
                                 <SelectItem value="lab">Lab</SelectItem>
                                 <SelectItem value="exam">Exam</SelectItem>
                                 <SelectItem value="quiz">Quiz</SelectItem>
+                                <SelectItem value="info">Info (Informational)</SelectItem>
+                                <SelectItem value="review">Review</SelectItem>
+                                <SelectItem value="practice">Practice</SelectItem>
+                                <SelectItem value="assessment">Assessment (Non-session)</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>

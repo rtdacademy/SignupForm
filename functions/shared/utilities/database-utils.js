@@ -892,7 +892,18 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
     
     // Transform courseStructure into gradebook itemStructure format
     let itemStructure = {};
-    const defaultWeights = { lesson: 0, assignment: 0, exam: 0, project: 0, lab: 0, quiz: 0 };
+    const defaultWeights = { 
+      lesson: 0, 
+      assignment: 0, 
+      exam: 0, 
+      project: 0, 
+      lab: 0, 
+      quiz: 0,
+      info: 0,        // Informational content with no weight
+      review: 0,      // Review content, can be weighted
+      practice: 0,    // Practice exercises with no weight  
+      assessment: 0   // Non-session based assessments
+    };
     
     // Priority: courseConfig.weights > gradebook.weights > defaultWeights
     let weights = courseConfig.weights || courseConfig.gradebook?.weights || defaultWeights;
@@ -1020,6 +1031,7 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       let itemScore = { score: 0, total: 0, percentage: 0, attempted: 0, completed: false };
       
       // Check if this item should use session-based scoring
+      // Note: New types (info, review, practice, assessment) are NOT session-based
       const shouldUseSession = type === 'assignment' || type === 'exam' || type === 'quiz';
       
       if (shouldUseSession) {

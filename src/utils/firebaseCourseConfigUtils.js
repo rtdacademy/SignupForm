@@ -14,14 +14,23 @@ export const getDefaultCourseConfig = (courseId, title = 'New Course') => ({
     lesson: 0,
     assignment: 0.3,
     lab: 0.2,
-    exam: 0.5
+    exam: 0.5,
+    quiz: 0,
+    info: 0,          // Informational content with no weight
+    review: 0,        // Review content, can be weighted
+    practice: 0,      // Practice exercises with no weight
+    assessment: 0     // Non-session assessments, can be weighted
   },
   attemptLimits: {
     lesson: 999,      // Unlimited for lessons
     assignment: 3,    // 3 attempts for assignments
     exam: 1,          // 1 attempt for exams
     quiz: 2,          // 2 attempts for quizzes
-    lab: 3            // 3 attempts for labs
+    lab: 3,           // 3 attempts for labs
+    info: 999,        // Unlimited for informational content
+    review: 999,      // Unlimited for review content
+    practice: 999,    // Unlimited for practice exercises
+    assessment: 3     // Limited attempts for non-session assessments
   },
   courseStructure: {
     units: []

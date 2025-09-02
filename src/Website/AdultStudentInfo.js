@@ -249,7 +249,7 @@ const AdultStudentInfo = () => {
               <ul className="list-disc ml-6 space-y-2">
                 <li>One-time payment: <span className="font-semibold text-primary">${oneTimePrice}</span></li>
                 <li>Monthly payments: <span className="font-semibold text-primary">${monthlyPayment.toFixed(2)}</span> per month for {subscriptionLengthMonths} months (total ${subscriptionTotal})</li>
-                <li>Cancel anytime during the {subscriptionLengthMonths}-month period</li>
+               
               </ul>
             </FeatureCard>
 
