@@ -2,6 +2,7 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
+const { sanitizeEmail } = require('./utils');
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
@@ -1278,6 +1279,781 @@ const removeTempPasswordClaim = onCall({
 });
 
 /**
+ * Cloud Function: changeUserEmail
+ * 
+ * Changes a user's email address while preserving custom claims and updating all related database records
+ * Staff only function
+ */
+const changeUserEmail = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com",
+    "http://localhost:3000",
+    "https://rtd-connect.com",
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ],
+  secrets: ["SENDGRID_KEY"]
+}, async (request) => {
+  const callerInfo = await verifyAdminPermissions(request);
+  const { originalEmail, newEmail, familyId, reason, authMethod = 'password' } = request.data;
+  
+  // Validate inputs
+  if (!originalEmail || !newEmail) {
+    throw new HttpsError('invalid-argument', 'Both original and new email addresses are required.');
+  }
+  
+  if (originalEmail === newEmail) {
+    throw new HttpsError('invalid-argument', 'New email must be different from original email.');
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newEmail)) {
+    throw new HttpsError('invalid-argument', 'Invalid new email format.');
+  }
+  
+  // Validate auth method
+  const validAuthMethods = ['google', 'microsoft', 'password'];
+  if (!validAuthMethods.includes(authMethod)) {
+    throw new HttpsError('invalid-argument', 'Invalid authentication method. Must be google, microsoft, or password.');
+  }
+  
+  console.log(`Admin ${callerInfo.callerEmail} changing email from ${originalEmail} to ${newEmail}`);
+  
+  try {
+    // Step 1: Get the original user
+    let originalUser;
+    try {
+      originalUser = await admin.auth().getUserByEmail(originalEmail);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        throw new HttpsError('not-found', 'Original user not found.');
+      }
+      throw error;
+    }
+    
+    // Step 2: Check if new email already exists
+    let newUser = null;
+    let newUserExists = false;
+    try {
+      newUser = await admin.auth().getUserByEmail(newEmail);
+      newUserExists = true;
+      console.log(`User with email ${newEmail} already exists. Will merge claims.`);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        console.log(`User with email ${newEmail} does not exist. Will create new user.`);
+        newUserExists = false;
+      } else {
+        throw error;
+      }
+    }
+    
+    // Step 3: Get original user's custom claims
+    const originalClaims = originalUser.customClaims || {};
+    console.log('Original user claims:', originalClaims);
+    
+    // Validate that the user is a primary guardian
+    if (originalClaims.familyRole !== 'primary_guardian') {
+      throw new HttpsError('invalid-argument', 
+        'Email change through this method is only available for primary guardians. ' +
+        `Current role: ${originalClaims.familyRole || 'none'}`);
+    }
+    
+    // Step 4: Create or update new user
+    if (!newUserExists) {
+      // Handle user creation based on auth method
+      if (authMethod === 'password') {
+        // Create with temp password for email/password auth
+        const tempPassword = generateTempPassword();
+        newUser = await admin.auth().createUser({
+          email: newEmail,
+          password: tempPassword,
+          emailVerified: true, // Auto-verify since admin is changing
+          disabled: false
+        });
+        
+        console.log(`Created new user ${newUser.uid} for email ${newEmail} with temp password`);
+        
+        // Set custom claims including temp password requirement
+        const newClaims = {
+          ...originalClaims,
+          tempPasswordRequired: true,
+          tempPasswordSetAt: Date.now(),
+          tempPasswordSetBy: callerInfo.callerEmail,
+          emailChangedFrom: originalEmail,
+          emailChangedAt: Date.now(),
+          authMethod: authMethod
+        };
+        
+        await admin.auth().setCustomUserClaims(newUser.uid, newClaims);
+        
+        // Store temp password for response
+        newUser.tempPassword = tempPassword;
+      } else {
+        // For Google/Microsoft auth, create user without password
+        newUser = await admin.auth().createUser({
+          email: newEmail,
+          emailVerified: true, // Auto-verify since admin is changing
+          disabled: false
+        });
+        
+        console.log(`Created new user ${newUser.uid} for email ${newEmail} for ${authMethod} authentication`);
+        
+        // Set custom claims without temp password requirement
+        const newClaims = {
+          ...originalClaims,
+          emailChangedFrom: originalEmail,
+          emailChangedAt: Date.now(),
+          authMethod: authMethod,
+          authProvider: authMethod // Track which provider they should use
+        };
+        
+        await admin.auth().setCustomUserClaims(newUser.uid, newClaims);
+        
+        // No temp password for provider auth
+        newUser.tempPassword = null;
+      }
+    } else {
+      // Merge claims with existing user
+      const existingClaims = newUser.customClaims || {};
+      const mergedClaims = {
+        ...existingClaims, // Keep existing claims
+        ...originalClaims, // Add/override with original user's claims
+        emailChangedFrom: originalEmail,
+        emailChangedAt: Date.now(),
+        claimsMergedAt: Date.now()
+      };
+      
+      // Remove temp password requirement if merging to existing user
+      delete mergedClaims.tempPasswordRequired;
+      delete mergedClaims.tempPasswordSetAt;
+      delete mergedClaims.tempPasswordSetBy;
+      
+      await admin.auth().setCustomUserClaims(newUser.uid, mergedClaims);
+      console.log(`Merged claims for existing user ${newUser.uid}`);
+    }
+    
+    // Step 5: Update database records
+    const db = admin.database();
+    const updates = {};
+    
+    // Update guardian records if familyId provided
+    if (familyId) {
+      const oldEmailKey = sanitizeEmail(originalEmail);
+      const newEmailKey = sanitizeEmail(newEmail);
+      
+      console.log(`Migrating guardian data from ${oldEmailKey} to ${newEmailKey}`);
+      
+      // Get original guardian data
+      const guardianPath = `homeEducationFamilies/familyInformation/${familyId}/guardians/${oldEmailKey}`;
+      const guardianSnapshot = await db.ref(guardianPath).once('value');
+      
+      if (guardianSnapshot.exists()) {
+        const guardianData = guardianSnapshot.val();
+        
+        // Move old guardian to previousGuardians node with timestamp
+        const timestamp = Date.now();
+        const previousGuardianPath = `homeEducationFamilies/familyInformation/${familyId}/previousGuardians/${oldEmailKey}`;
+        updates[previousGuardianPath] = {
+          ...guardianData,
+          movedToPreviousAt: timestamp,
+          emailChangedTo: newEmail,
+          emailChangedBy: callerInfo.callerEmail,
+          emailChangedByUid: callerInfo.callerUid,
+          reasonForMove: 'email_change',
+          originalEmail: originalEmail,
+          newEmail: newEmail
+        };
+        
+        // Remove the old guardian entry
+        updates[guardianPath] = null;
+        
+        // Create new guardian entry with updated email
+        const newGuardianPath = `homeEducationFamilies/familyInformation/${familyId}/guardians/${newEmailKey}`;
+        updates[newGuardianPath] = {
+          ...guardianData,
+          email: newEmail,
+          emailKey: newEmailKey,
+          guardianType: 'primary_guardian',
+          emailChangedFrom: originalEmail,
+          updatedAt: timestamp,
+          updatedBy: callerInfo.callerUid
+        };
+        
+        console.log(`Prepared guardian migration: moving ${oldEmailKey} to previousGuardians and creating new entry ${newEmailKey}`);
+      }
+    }
+    
+    // Update user profile if exists
+    const originalUserPath = `users/${originalUser.uid}`;
+    const originalUserSnapshot = await db.ref(originalUserPath).once('value');
+    
+    if (originalUserSnapshot.exists()) {
+      const userData = originalUserSnapshot.val();
+      
+      // Mark original user profile as migrated
+      updates[`${originalUserPath}/emailChangedTo`] = newEmail;
+      updates[`${originalUserPath}/emailChangedAt`] = Date.now();
+      updates[`${originalUserPath}/profileMigrated`] = true;
+      
+      // Create/update new user profile
+      const newUserPath = `users/${newUser.uid}`;
+      updates[newUserPath] = {
+        ...userData,
+        email: newEmail,
+        emailChangedFrom: originalEmail,
+        lastUpdated: Date.now()
+      };
+      
+      console.log(`Prepared user profile migration from ${originalUserPath} to ${newUserPath}`);
+    }
+    
+    // Apply all database updates atomically
+    if (Object.keys(updates).length > 0) {
+      await db.ref().update(updates);
+      console.log('Database updates applied successfully');
+    }
+    
+    // Step 6: Remove claims from original user
+    const cleanedOriginalClaims = {};
+    // Keep only non-family related claims for original user
+    for (const [key, value] of Object.entries(originalClaims)) {
+      if (!['familyId', 'familyRole', 'guardianId', 'guardianType'].includes(key)) {
+        if (key === 'isStaffUser' && value === true) {
+          // Keep staff status if they are staff
+          cleanedOriginalClaims[key] = value;
+        }
+      }
+    }
+    
+    // Mark original user as having email changed
+    cleanedOriginalClaims.emailChangedTo = newEmail;
+    cleanedOriginalClaims.emailChangedAt = Date.now();
+    
+    await admin.auth().setCustomUserClaims(originalUser.uid, cleanedOriginalClaims);
+    
+    // Step 7: Optionally disable original account
+    // Uncomment if you want to disable the original account
+    // await admin.auth().updateUser(originalUser.uid, { disabled: true });
+    
+    // Step 8: Log the action
+    await logAdminAction('changeUserEmail', originalUser, callerInfo, {
+      reason: reason || 'Email change requested',
+      originalEmail,
+      newEmail,
+      familyId,
+      authMethod,
+      newUserCreated: !newUserExists,
+      newUserUid: newUser.uid,
+      claimsMigrated: true,
+      databaseUpdated: Object.keys(updates).length > 0,
+      guardianMovedToPrevious: familyId ? true : false
+    });
+    
+    // Step 9: Send notification emails based on auth method
+    let emailSent = false;
+    let emailError = null;
+    
+    if (authMethod === 'password' && !newUserExists && newUser.tempPassword) {
+      // Send temp password email for new users with password auth
+      try {
+        console.log(`Sending temp password email to ${newEmail}`);
+        
+        // Initialize SendGrid
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_KEY);
+        
+        const db = admin.database();
+        const emailId = db.ref('emails').push().key;
+        
+        // Get guardian name if available
+        let userFirstName = 'Guardian';
+        if (familyId) {
+          const newEmailKey = sanitizeEmail(newEmail);
+          const guardianRef = db.ref(`homeEducationFamilies/familyInformation/${familyId}/guardians/${newEmailKey}`);
+          const guardianSnapshot = await guardianRef.once('value');
+          if (guardianSnapshot.exists()) {
+            const guardianData = guardianSnapshot.val();
+            userFirstName = guardianData.firstName || 'Guardian';
+          }
+        }
+        
+        // Determine the login URL based on target site
+        const targetSite = 'rtdconnect'; // Default to rtdconnect for primary guardians
+        const loginUrl = targetSite === 'rtdconnect' 
+          ? 'https://rtd-connect.com/login' 
+          : 'https://yourway.rtdacademy.com/login';
+        
+        const siteName = targetSite === 'rtdconnect' 
+          ? 'RTD Connect' 
+          : 'RTD Academy';
+        
+        const subject = `Your ${siteName} Email Has Been Changed - Temporary Password`;
+        
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Address Changed</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border-left: 5px solid #007bff;">
+              <h2 style="color: #007bff; margin-top: 0;">🔐 Your Email Address Has Been Updated</h2>
+              
+              <p>Dear ${userFirstName},</p>
+              
+              <p>An administrator has updated your primary guardian email address for ${siteName}. Your new login credentials are below.</p>
+              
+              <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 2px solid #e9ecef; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #495057;">📧 Your New Login Information:</h3>
+                <p><strong>Previous Email:</strong> <span style="text-decoration: line-through; color: #6c757d;">${originalEmail}</span></p>
+                <p><strong>New Email:</strong> ${newEmail}</p>
+                <p><strong>Temporary Password:</strong> <code style="background-color: #f8f9fa; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 16px; color: #e83e8c;">${newUser.tempPassword}</code></p>
+              </div>
+              
+              <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
+                <h4 style="margin-top: 0; color: #856404;">⚠️ Important Security Notice:</h4>
+                <ul style="margin-bottom: 0; color: #856404;">
+                  <li>This is a temporary password that expires after your first use</li>
+                  <li>You must create a new secure password when you log in</li>
+                  <li>Do not share this password with anyone</li>
+                  <li>For security, this email should be deleted after you log in</li>
+                </ul>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${loginUrl}" 
+                   style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                  🚀 Log In to Your Account
+                </a>
+              </div>
+              
+              <p>All your permissions and family data have been transferred to this new email address. You are still the primary guardian for your family.</p>
+              
+              <p>${targetSite === 'rtdconnect' 
+                ? 'If you have any questions or need assistance, please contact your facilitator.' 
+                : 'If you have any questions or need assistance, please contact RTD Academy support.'}</p>
+              
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
+              
+              <div style="text-align: center; color: #6c757d; font-size: 14px;">
+                <p><strong>${siteName}</strong><br>
+                ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}</p>
+                <p style="font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+        
+        const textContent = `
+Your ${siteName} Email Has Been Changed
+
+Dear ${userFirstName},
+
+An administrator has updated your primary guardian email address for ${siteName}. Your new login credentials are below.
+
+Your New Login Information:
+Previous Email: ${originalEmail}
+New Email: ${newEmail}
+Temporary Password: ${newUser.tempPassword}
+
+IMPORTANT SECURITY NOTICE:
+- This is a temporary password that expires after your first use
+- You must create a new secure password when you log in
+- Do not share this password with anyone
+- For security, this email should be deleted after you log in
+
+Login at: ${loginUrl}
+
+All your permissions and family data have been transferred to this new email address. You are still the primary guardian for your family.
+
+${targetSite === 'rtdconnect' 
+  ? 'If you have any questions or need assistance, please contact your facilitator.' 
+  : 'If you have any questions or need assistance, please contact RTD Academy support.'}
+
+${siteName} - ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}
+This is an automated message. Please do not reply to this email.
+        `;
+        
+        // Send email via SendGrid
+        const emailConfig = {
+          personalizations: [{
+            to: [{ email: newEmail }],
+            subject: subject,
+            custom_args: { emailId }
+          }],
+          from: {
+            email: 'noreply@rtdacademy.com',
+            name: 'RTD Academy (Do Not Reply)'
+          },
+          content: [
+            { type: 'text/plain', value: textContent },
+            { type: 'text/html', value: htmlContent }
+          ],
+          trackingSettings: {
+            openTracking: {
+              enable: true,
+              substitutionTag: '%open-track%'
+            }
+          }
+        };
+        
+        await sgMail.send(emailConfig);
+        emailSent = true;
+        console.log(`Temporary password email sent successfully to ${newEmail}`);
+        
+        // Store email tracking records
+        const timestamp = Date.now();
+        const recipientKey = sanitizeEmail(newEmail);
+        const senderKey = sanitizeEmail(callerInfo.callerEmail);
+        
+        await db.ref(`sendGridTracking/${emailId}`).set({
+          emailId,
+          recipientKey,
+          senderKey,
+          recipientEmail: newEmail,
+          senderEmail: callerInfo.callerEmail,
+          timestamp,
+          subject,
+          sent: true,
+          events: {
+            sent: {
+              timestamp,
+              success: true
+            }
+          },
+          metadata: {
+            emailType: 'email_change_temp_password',
+            sentByAdmin: true,
+            originalEmail: originalEmail
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error sending temp password email:', error);
+        emailError = error.message;
+        // Don't throw - we still want to return success for the email change
+      }
+    } else if ((authMethod === 'google' || authMethod === 'microsoft') && !newUserExists) {
+      // For Google/Microsoft, we don't send an email - they just sign in with their provider
+      console.log(`No email sent for ${authMethod} authentication - user will sign in with provider`);
+    }
+    
+    return {
+      success: true,
+      message: `Email successfully changed from ${originalEmail} to ${newEmail}`,
+      originalUser: {
+        uid: originalUser.uid,
+        email: originalEmail,
+        claimsRemoved: true
+      },
+      newUser: {
+        uid: newUser.uid,
+        email: newEmail,
+        created: !newUserExists,
+        tempPassword: newUser.tempPassword || null,
+        claimsMerged: newUserExists,
+        authMethod: authMethod
+      },
+      databaseUpdates: Object.keys(updates).length,
+      familyId: familyId || null,
+      authMethod: authMethod,
+      emailSent: emailSent,
+      emailError: emailError
+    };
+    
+  } catch (error) {
+    console.error('Error changing user email:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', `An error occurred while changing email: ${error.message}`);
+  }
+});
+
+/**
+ * Cloud Function: sendAuthProviderEmailChangeNotification
+ * 
+ * Sends email notification for users who will sign in with Google or Microsoft
+ */
+const sendAuthProviderEmailChangeNotification = onCall({
+  concurrency: 50,
+  cors: [
+    "https://yourway.rtdacademy.com",
+    "http://localhost:3000",
+    "https://rtd-connect.com",
+    "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"
+  ],
+  secrets: ["SENDGRID_KEY"]
+}, async (request) => {
+  const callerInfo = await verifyAdminPermissions(request);
+  const { targetEmail, authMethod, originalEmail, targetSite } = request.data;
+  
+  if (!targetEmail || !authMethod) {
+    throw new HttpsError('invalid-argument', 'Target email and authentication method are required.');
+  }
+  
+  if (authMethod === 'password') {
+    throw new HttpsError('invalid-argument', 'This function is only for Google/Microsoft authentication.');
+  }
+
+  console.log(`Admin ${callerInfo.callerEmail} sending ${authMethod} auth email to: ${targetEmail}`);
+  
+  try {
+    // Initialize SendGrid
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_KEY);
+
+    const db = admin.database();
+    const emailId = db.ref('emails').push().key;
+    
+    // Determine the login URL based on target site
+    const loginUrl = targetSite === 'rtdconnect' 
+      ? 'https://rtd-connect.com/login' 
+      : 'https://yourway.rtdacademy.com/login';
+    
+    const siteName = targetSite === 'rtdconnect' 
+      ? 'RTD Connect' 
+      : 'RTD Academy';
+    
+    const providerName = authMethod === 'google' ? 'Google' : 'Microsoft';
+    const providerColor = authMethod === 'google' ? '#4285f4' : '#00a4ef';
+    const providerIcon = authMethod === 'google' ? '🇬' : 'Ⓜ️';
+    
+    // Create email content
+    const subject = `Your ${siteName} Email Has Been Updated`;
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Email Address Updated</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border-left: 5px solid ${providerColor};">
+          <h2 style="color: ${providerColor}; margin-top: 0;">${providerIcon} Email Address Updated</h2>
+          
+          <p>Your primary guardian email address for ${siteName} has been updated by an administrator.</p>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 2px solid #e9ecef; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #495057;">📧 Your Updated Login Information:</h3>
+            ${originalEmail ? `<p><strong>Previous Email:</strong> <span style="text-decoration: line-through; color: #6c757d;">${originalEmail}</span></p>` : ''}
+            <p><strong>New Email:</strong> ${targetEmail}</p>
+            <p><strong>Sign In Method:</strong> <span style="color: ${providerColor}; font-weight: bold;">Sign in with ${providerName}</span></p>
+          </div>
+          
+          <div style="background-color: #d1ecf1; padding: 15px; border-radius: 8px; border-left: 4px solid #bee5eb; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #0c5460;">🔐 How to Sign In:</h4>
+            <ol style="margin-bottom: 0; color: #0c5460;">
+              <li>Go to the ${siteName} login page</li>
+              <li>Click the <strong>"Sign in with ${providerName}"</strong> button</li>
+              <li>Use your ${providerName} account: <strong>${targetEmail}</strong></li>
+              <li>You'll be automatically signed in - no password needed!</li>
+            </ol>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #856404;">⚠️ Important Notes:</h4>
+            <ul style="margin-bottom: 0; color: #856404;">
+              <li><strong>No password required</strong> - You'll sign in using your ${providerName} account</li>
+              <li>Make sure you have access to your ${providerName} account (${targetEmail})</li>
+              <li>All your permissions and data have been transferred to this new email</li>
+              <li>If you don't have a ${providerName} account for this email, you'll need to create one first</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" 
+               style="background-color: ${providerColor}; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              ${providerIcon} Sign In with ${providerName}
+            </a>
+          </div>
+          
+          <p>${targetSite === 'rtdconnect' 
+            ? 'If you have any questions or issues signing in, please contact your facilitator.' 
+            : 'If you have any questions or issues signing in, please contact RTD Academy support.'}</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
+          
+          <div style="text-align: center; color: #6c757d; font-size: 14px;">
+            <p><strong>${siteName}</strong><br>
+            ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}</p>
+            <p style="font-size: 12px;">This is an automated message sent because your email address was updated. Please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    const textContent = `
+Your ${siteName} Email Has Been Updated
+
+Your primary guardian email address for ${siteName} has been updated by an administrator.
+
+Your Updated Login Information:
+${originalEmail ? `Previous Email: ${originalEmail}` : ''}
+New Email: ${targetEmail}
+Sign In Method: Sign in with ${providerName}
+
+HOW TO SIGN IN:
+1. Go to the ${siteName} login page
+2. Click the "Sign in with ${providerName}" button
+3. Use your ${providerName} account: ${targetEmail}
+4. You'll be automatically signed in - no password needed!
+
+IMPORTANT NOTES:
+- No password required - You'll sign in using your ${providerName} account
+- Make sure you have access to your ${providerName} account (${targetEmail})
+- All your permissions and data have been transferred to this new email
+- If you don't have a ${providerName} account for this email, you'll need to create one first
+
+Login at: ${loginUrl}
+
+${targetSite === 'rtdconnect' 
+  ? 'If you have any questions or issues signing in, please contact your facilitator.' 
+  : 'If you have any questions or issues signing in, please contact RTD Academy support.'}
+
+${siteName} - ${targetSite === 'rtdconnect' ? 'Home Education Support Platform' : 'Your Way Learning Platform'}
+This is an automated message. Please do not reply to this email.
+    `;
+
+    // Prepare email configuration
+    const emailConfig = {
+      personalizations: [{
+        to: [{ email: targetEmail }],
+        subject: subject,
+        custom_args: { emailId }
+      }],
+      from: {
+        email: 'noreply@rtdacademy.com',
+        name: 'RTD Academy (Do Not Reply)'
+      },
+      content: [
+        {
+          type: 'text/plain',
+          value: textContent
+        },
+        {
+          type: 'text/html',
+          value: htmlContent
+        }
+      ],
+      trackingSettings: {
+        openTracking: {
+          enable: true,
+          substitutionTag: '%open-track%'
+        }
+      }
+    };
+
+    // Send email via SendGrid
+    await sgMail.send(emailConfig);
+
+    const timestamp = Date.now();
+    const recipientKey = targetEmail.replace(/[.#$[\]]/g, ',');
+    const senderKey = callerInfo.callerEmail.replace(/[.#$[\]]/g, ',');
+
+    // Store tracking record
+    await db.ref(`sendGridTracking/${emailId}`).set({
+      emailId,
+      recipientKey,
+      senderKey,
+      recipientEmail: targetEmail,
+      senderEmail: callerInfo.callerEmail,
+      senderName: callerInfo.callerEmail,
+      timestamp,
+      subject,
+      sent: true,
+      events: {
+        sent: {
+          timestamp,
+          success: true
+        }
+      },
+      metadata: {
+        emailType: 'email_change_provider_auth',
+        authMethod: authMethod,
+        sentByAdmin: true
+      },
+      recipients: {
+        [recipientKey]: {
+          email: targetEmail,
+          status: 'sent',
+          timestamp
+        }
+      }
+    });
+
+    // Store email records
+    const emailRecord = {
+      subject,
+      text: textContent,
+      html: htmlContent,
+      timestamp,
+      sender: 'noreply@rtdacademy.com',
+      senderName: 'RTD Academy (Do Not Reply)',
+      status: 'sent',
+      emailType: 'email_change_provider_auth'
+    };
+
+    await Promise.all([
+      // Store recipient's copy
+      db.ref(`userEmails/${recipientKey}/${emailId}`).set(emailRecord),
+      
+      // Store sender's copy
+      db.ref(`userEmails/${senderKey}/sent/${emailId}`).set({
+        ...emailRecord,
+        to: targetEmail,
+        sentByAdmin: true
+      }),
+      
+      // Create notification
+      db.ref(`notifications/${recipientKey}/${emailId}`).set({
+        type: 'new_email',
+        emailId,
+        sender: 'noreply@rtdacademy.com',
+        senderName: 'RTD Academy',
+        subject,
+        preview: 'Your email address has been updated...',
+        timestamp,
+        read: false
+      })
+    ]);
+
+    // Log the action
+    await logAdminAction('sendAuthProviderEmail', { email: targetEmail, uid: 'N/A' }, callerInfo, {
+      emailId,
+      authMethod,
+      emailChanged: true
+    });
+
+    return {
+      success: true,
+      message: `${providerName} authentication email sent successfully`,
+      emailId,
+      recipientEmail: targetEmail,
+      authMethod
+    };
+
+  } catch (error) {
+    console.error('Error sending provider auth email:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', 'An error occurred while sending the authentication email.');
+  }
+});
+
+/**
  * Cloud Function: updateUserCustomClaims
  * 
  * Allows admins to manually update a user's custom claims
@@ -1389,5 +2165,7 @@ module.exports = {
   createUserWithTempPassword,
   removeTempPasswordClaim,
   verifyUserEmail,
-  updateUserCustomClaims
+  updateUserCustomClaims,
+  changeUserEmail,
+  sendAuthProviderEmailChangeNotification
 };

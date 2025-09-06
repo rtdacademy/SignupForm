@@ -32,7 +32,8 @@ import {
   Home,
   Activity,
   UserCog,
-  Archive
+  Archive,
+  CreditCard
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -54,6 +55,8 @@ import StaffPermissionsManager from './StaffPermissionsManager';
 import AuthActivityDashboard from './AuthActivityDashboard';
 import AdminUserManagement from './AdminUserManagement';
 import ArchiveManagement from './ArchiveManagement';
+import PricingManager from './PricingManager';
+import PaymentManagementDashboard from './PaymentManagementDashboard';
 
 
 function TeacherDashboard() {
@@ -265,6 +268,8 @@ function TeacherDashboard() {
     if (hasAdminAccess()) {
       const adminSubItems = [
         { icon: UserCog, label: 'User Management', key: 'user-management' },
+        { icon: DollarSign, label: 'Pricing Config', key: 'pricing-config' },
+        { icon: CreditCard, label: 'Payment Management', key: 'payment-management' },
         { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
         { icon: Activity, label: 'Auth Activity', key: 'auth-activity' },
         { icon: Archive, label: 'Archive Recovery', key: 'archive-recovery' },
@@ -290,7 +295,7 @@ function TeacherDashboard() {
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery']; 
+    const adminOnlySections = ['user-management', 'pricing-config', 'payment-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
     }
@@ -322,6 +327,10 @@ function TeacherDashboard() {
         return <Notifications />;
       case 'user-management':
         return <AdminUserManagement />;
+      case 'pricing-config':
+        return <PricingManager />;
+      case 'payment-management':
+        return <PaymentManagementDashboard />;
       case 'contractor-invoices':
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
       case 'templates':
@@ -350,7 +359,7 @@ function TeacherDashboard() {
   };
 
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['user-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery'];
+    const adminOnlySections = ['user-management', 'pricing-config', 'payment-management', 'contractor-invoices', 'auth-activity', 'sso-testing', 'archive-recovery'];
     const superAdminOnlySections = ['staff-permissions'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {

@@ -404,7 +404,7 @@ async function handleInvoicePaid(stripe, invoice) {
     // Merge metadata sources (subscription_details takes precedence)
     const fullMetadata = { ...lineItemMetadata, ...metadata };
     
-    const { userEmail, courseId, paymentType, courseName, userId } = fullMetadata;
+    const { userEmail, courseId, paymentType, courseName, firebaseUID } = fullMetadata;
     
     if (!userEmail || !courseId) {
       console.log('Missing required metadata, skipping invoice processing');
@@ -435,7 +435,7 @@ async function handleInvoicePaid(stripe, invoice) {
       subscription_id: subscriptionId,
       customer_id: invoice.customer,
       courseName: courseName,
-      userId: userId,
+      firebaseUID: firebaseUID,
       payment_count: paymentInfo.count,
       invoice_id: invoice.id,
       // Add Stripe dashboard links for easy admin access
@@ -473,16 +473,19 @@ async function handleInvoicePaid(stripe, invoice) {
     
     // Check if this is a 3-payment subscription and we've reached the limit
     if (paymentType === 'subscription_3_month' && paymentInfo.count >= 3) {
-      console.log(`3rd payment received for subscription ${subscriptionId}. Marking as paid and canceling subscription if needed.`);
+      console.log(`3rd payment received for subscription ${subscriptionId}. Canceling immediately without proration.`);
       
       try {
         // First check if subscription still exists and is active
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         
         if (subscription && subscription.status !== 'canceled') {
-          // Cancel the subscription immediately to prevent further charges
-          const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId);
-          console.log(`Subscription ${subscriptionId} canceled after 3rd payment - marking as fully paid`);
+          // Cancel immediately with proration disabled to prevent any partial charges
+          const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId, {
+            prorate: false,      // Prevent proration charges for partial period
+            invoice_now: false   // Don't create a final invoice
+          });
+          console.log(`Subscription ${subscriptionId} canceled without proration - marking as fully paid`);
         } else {
           console.log(`Subscription ${subscriptionId} already canceled - marking as fully paid`);
         }
@@ -492,6 +495,7 @@ async function handleInvoicePaid(stripe, invoice) {
         paymentData.canceled_at = Date.now();
         paymentData.cancellation_reason = 'completed_3_payments'; // Clearer reason - payments completed successfully
         paymentData.final_payment_count = paymentInfo.count;
+        paymentData.no_proration = true; // Flag that we prevented proration
         
       } catch (cancelError) {
         // Check if error is because subscription doesn't exist (already canceled)
@@ -503,6 +507,7 @@ async function handleInvoicePaid(stripe, invoice) {
           paymentData.canceled_at = Date.now();
           paymentData.cancellation_reason = 'completed_3_payments';
           paymentData.final_payment_count = paymentInfo.count;
+          paymentData.no_proration = true;
         } else {
           // Log other errors but continue processing
           console.error(`Error handling subscription ${subscriptionId}:`, cancelError.message);
@@ -515,6 +520,13 @@ async function handleInvoicePaid(stripe, invoice) {
     
     // Store payment data
     await updatePaymentStatus(userEmail, courseId, paymentData, 'invoice.paid');
+    
+    // Trigger credit recalculation for the student
+    // This is important for adult and international students who pay per course
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    const db = admin.database();
+    await db.ref(`creditRecalculations/${sanitizedEmail}/trigger`).set(Date.now());
+    console.log(`Triggered credit recalculation for ${sanitizedEmail} after invoice payment`);
     
     return { 
       success: true, 
@@ -557,6 +569,14 @@ async function handleOneTimePayment(stripe, charge, eventType = 'charge.succeede
     };
 
     await updatePaymentStatus(userEmail, metadata.courseId, paymentData, eventType);
+    
+    // Trigger credit recalculation for the student
+    // This is important for adult and international students who pay per course
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    const db = admin.database();
+    await db.ref(`creditRecalculations/${sanitizedEmail}/trigger`).set(Date.now());
+    console.log(`Triggered credit recalculation for ${sanitizedEmail} after one-time payment`);
+    
     return { success: true };
   } catch (error) {
     console.error('Error handling one-time payment:', error);
@@ -808,7 +828,181 @@ const handleStripeWebhookV2 = onRequest({
         const session = event.data.object;
         console.log('Checkout session completed:', session);
         
-        if (session.subscription) {
+        // Check if this is a credit payment
+        let metadata = session.metadata || {};
+        
+        // If metadata is empty but we have a payment_intent, try to get metadata from the payment intent
+        if ((!metadata || Object.keys(metadata).length === 0) && session.payment_intent) {
+          console.log('Session metadata is empty, fetching payment intent for metadata...');
+          try {
+            const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+            if (paymentIntent.metadata) {
+              metadata = paymentIntent.metadata;
+              console.log('Found metadata in payment intent:', metadata);
+            }
+            
+            // If still no metadata, try the charges
+            if ((!metadata || Object.keys(metadata).length === 0) && paymentIntent.charges && paymentIntent.charges.data.length > 0) {
+              metadata = paymentIntent.charges.data[0].metadata || {};
+              console.log('Found metadata in charge:', metadata);
+            }
+          } catch (error) {
+            console.error('Error fetching payment intent:', error);
+          }
+        }
+        
+        if (metadata.paymentType === 'credits') {
+          console.log('Processing credit payment:', metadata);
+          
+          const creditsPurchased = parseInt(metadata.creditsAmount) || 0;
+          const studentEmailKey = sanitizeEmail(metadata.userEmail);
+          const schoolYear = metadata.schoolYear;
+          const studentType = metadata.studentType;
+          
+          try {
+            // Format school year for database key (e.g., "25/26" → "25_26")
+            const schoolYearKey = schoolYear ? schoolYear.replace('/', '_') : null;
+            
+            // Map display names to pricing node keys (same as in creditTracking.js)
+            const typeMapping = {
+              'Non-Primary': 'nonPrimaryStudents',
+              'Home Education': 'homeEducationStudents',
+              'Summer School': 'summerSchoolStudents',
+              'Adult Student': 'adultStudents',
+              'International Student': 'internationalStudents'
+            };
+            
+            // Determine the sanitized type - check if it's already sanitized or needs mapping
+            let sanitizedType = studentType;
+            if (typeMapping[studentType]) {
+              sanitizedType = typeMapping[studentType];
+            } else if (!studentType.endsWith('Students')) {
+              sanitizedType = studentType.replace(/\s+/g, '_').toLowerCase() + 'Students';
+            }
+            
+            // Retrieve charge ID from payment intent if available
+            let chargeId = null;
+            if (session.payment_intent) {
+              try {
+                const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+                if (paymentIntent.charges && paymentIntent.charges.data.length > 0) {
+                  chargeId = paymentIntent.charges.data[0].id;
+                  console.log(`Retrieved charge ID ${chargeId} for credit payment`);
+                }
+              } catch (error) {
+                console.error('Error retrieving charge from payment intent:', error);
+              }
+            }
+            
+            const db = admin.database();
+            const updates = {};
+            
+            // Update paid credits total in profile
+            const paidCreditsPath = `students/${studentEmailKey}/profile/creditsPaid/${schoolYearKey}/${sanitizedType}`;
+            const currentPaidRef = db.ref(paidCreditsPath);
+            const currentPaidSnapshot = await currentPaidRef.once('value');
+            const currentPaidCredits = currentPaidSnapshot.val() || 0;
+            
+            updates[paidCreditsPath] = currentPaidCredits + creditsPurchased;
+            
+            // Record the payment transaction in profile with complete Stripe identifiers
+            const paymentId = db.ref().push().key;
+            updates[`students/${studentEmailKey}/profile/creditPayments/${paymentId}`] = {
+              stripeSessionId: session.id,
+              amount: session.amount_total,
+              currency: session.currency,
+              receiptUrl: session.receipt || session.url,
+              coursesToUnlock: metadata.coursesToUnlock ? metadata.coursesToUnlock.split(',') : [],
+              payment_intent: session.payment_intent,
+              customer_id: session.customer,  // Added: Essential for Stripe API operations
+              charge_id: chargeId,             // Added: For refunds and payment lookups
+              payment_method: session.payment_method_types?.[0] || 'card',
+              creditsPurchased,
+              schoolYear,
+              studentType,
+              timestamp: admin.database.ServerValue.TIMESTAMP
+            };
+            
+            // Apply updates
+            await db.ref().update(updates);
+            
+            // Trigger credit recalculation through the database trigger
+            await db.ref(`creditRecalculations/${studentEmailKey}/trigger`).set(Date.now());
+            
+            console.log(`✅ Processed credit payment for ${studentEmailKey}: ${creditsPurchased} credits for ${schoolYear} ${studentType}`);
+            
+            // Create payment note for the student AND save to payments path
+            if (metadata.userEmail && metadata.coursesToUnlock) {
+              const paymentData = {
+                type: 'credit_payment',
+                payment_id: session.payment_intent || session.id,
+                amount_paid: session.amount_total,
+                currency: session.currency,
+                receipt_url: session.receipt || session.url,
+                credits_purchased: creditsPurchased,
+                school_year: schoolYear,
+                student_type: studentType,
+                status: 'paid'
+              };
+              
+              // Add payment notes to each course that was unlocked
+              const coursesUnlocked = metadata.coursesToUnlock.split(',');
+              for (const courseId of coursesUnlocked) {
+                if (courseId) {
+                  const trimmedCourseId = courseId.trim();
+                  
+                  // Fetch the actual course title from the database
+                  let courseTitle = `Course ${trimmedCourseId}`; // Default fallback
+                  try {
+                    const courseTitleSnapshot = await db.ref(`courses/${trimmedCourseId}/Title`).once('value');
+                    if (courseTitleSnapshot.exists()) {
+                      courseTitle = courseTitleSnapshot.val();
+                      console.log(`Fetched course title for ${trimmedCourseId}: ${courseTitle}`);
+                    } else {
+                      console.log(`Course title not found for ${trimmedCourseId}, using default`);
+                    }
+                  } catch (error) {
+                    console.error(`Error fetching course title for ${trimmedCourseId}:`, error);
+                  }
+                  
+                  // Save payment data to /payments/{email}/courses/{courseId}
+                  // This centralizes all payment information in one location
+                  const coursePaymentData = {
+                    status: 'paid',
+                    type: 'credits',  // Distinguish from 'one_time' payments
+                    last_updated: admin.database.ServerValue.TIMESTAMP,
+                    amount_paid: session.amount_total,
+                    receipt_url: session.receipt || session.url,
+                    payment_date: Date.now(),
+                    customer_id: session.customer,  // Using the customer_id we added earlier
+                    payment_id: chargeId || session.payment_intent,  // Using charge_id if available, otherwise payment_intent
+                    payment_intent: session.payment_intent,
+                    courseName: courseTitle,  // Now using the fetched course title
+                    payment_method: session.payment_method_types?.[0] || 'card',
+                    // Credit-specific fields
+                    credits_purchased: creditsPurchased,
+                    school_year: schoolYear,
+                    student_type: studentType,
+                    stripe_session_id: session.id
+                  };
+                  
+                  const paymentPath = `payments/${studentEmailKey}/courses/${trimmedCourseId}`;
+                  await db.ref(paymentPath).set(coursePaymentData);
+                  console.log(`Saved credit payment data to ${paymentPath}`);
+                  
+                  // Also add payment note (existing functionality)
+                  await addPaymentNote(metadata.userEmail, trimmedCourseId, paymentData, {
+                    ...metadata,
+                    courseName: `${creditsPurchased} Credits Purchased`
+                  });
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error processing credit payment:', error);
+            // Don't throw - let the webhook complete successfully
+          }
+        } else if (session.subscription) {
           // Retrieve the subscription to process it
           let subscription = await stripe.subscriptions.retrieve(session.subscription);
           console.log('Initial subscription data:', {
@@ -819,12 +1013,30 @@ const handleStripeWebhookV2 = onRequest({
           
           // Process the subscription update
           await handleSubscriptionUpdate(stripe, { subscription }, event.type);
+          
+          // Trigger credit recalculation for subscription payments
+          // Important for adult and international students
+          if (subscription.metadata?.userEmail) {
+            const sanitizedEmail = sanitizeEmail(subscription.metadata.userEmail);
+            const db = admin.database();
+            await db.ref(`creditRecalculations/${sanitizedEmail}/trigger`).set(Date.now());
+            console.log(`Triggered credit recalculation for ${sanitizedEmail} after subscription checkout`);
+          }
         } else if (session.payment_intent) {
           // Handle one-time payment if needed
           const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
           if (paymentIntent.charges && paymentIntent.charges.data.length > 0) {
             const charge = paymentIntent.charges.data[0];
             await handleOneTimePayment(stripe, charge, 'checkout.session.completed');
+            
+            // Trigger credit recalculation for one-time payments
+            // Important for adult and international students
+            if (charge.metadata?.userEmail) {
+              const sanitizedEmail = sanitizeEmail(charge.metadata.userEmail);
+              const db = admin.database();
+              await db.ref(`creditRecalculations/${sanitizedEmail}/trigger`).set(Date.now());
+              console.log(`Triggered credit recalculation for ${sanitizedEmail} after one-time checkout`);
+            }
           }
         }
         break;
@@ -832,6 +1044,13 @@ const handleStripeWebhookV2 = onRequest({
       case 'charge.succeeded':
         const charge = event.data.object;
         console.log('Charge succeeded:', charge.id);
+        
+        // Check if this is a credit payment - skip if it is (handled by checkout.session.completed)
+        if (charge.metadata && charge.metadata.paymentType === 'credits') {
+          console.log('Skipping charge.succeeded for credit payment - will be handled by checkout.session.completed');
+          break;
+        }
+        
         // Only process if it's not part of a subscription invoice
         if (!charge.invoice) {
           await handleOneTimePayment(stripe, charge, event.type);

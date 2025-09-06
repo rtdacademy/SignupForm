@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaPlusCircle } from 'react-icons/fa';
-import { NotebookPen, AlertCircle, CheckCircle, Clock, UserX } from 'lucide-react';
+import { NotebookPen, AlertCircle, CheckCircle, Clock, UserX, InfoIcon } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -19,7 +19,7 @@ import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
 import { ImportantDatesCard } from './ImportantDatesCard';
 import Header from '../Layout/Header';
-import NotificationCenter from './NotificationCenter';
+import CreditPaymentDialog from './CreditPaymentDialog';
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
@@ -161,6 +161,36 @@ const Dashboard = () => {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
 
   const [forceProfileOpen, setForceProfileOpen] = useState(false);
+  
+  // Credit payment dialog state
+  const [showCreditPaymentDialog, setShowCreditPaymentDialog] = useState(false);
+  const [creditPaymentData, setCreditPaymentData] = useState(null);
+  
+  // Get current school year for credit tracking
+  const getCurrentSchoolYear = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const startYear = month >= 9 ? year : year - 1;
+    return `${startYear.toString().substr(-2)}/${(startYear + 1).toString().substr(-2)}`;
+  };
+  
+  // Use credit tracking hook for current Non-Primary or Home Ed students
+  // Get unique student types from courses for credit tracking
+  const studentTypesWithCredits = useMemo(() => {
+    if (!profile || !courses.length) return [];
+    
+    const types = new Set();
+    courses.forEach(course => {
+      const type = course.StudentType?.Value;
+      // Track all types now, not just Non-Primary and Home Education
+      if (type && course.School_x0020_Year?.Value === getCurrentSchoolYear()) {
+        types.add(type);
+      }
+    });
+    
+    return Array.from(types);
+  }, [profile, courses]);
 
   // Get the current course object from the real-time courses array
   // Memoize to prevent unnecessary re-renders during course data updates
@@ -335,6 +365,13 @@ const Dashboard = () => {
     // Clear URL parameters to go back to dashboard
     setSearchParams({});
   }, [setSearchParams]);
+  
+  // Handler for opening credit payment dialog from Header/CreditSummaryCard
+  const handleOpenCreditPaymentDialog = useCallback((paymentData) => {
+    console.log('Opening credit payment dialog with data:', paymentData);
+    setCreditPaymentData(paymentData);
+    setShowCreditPaymentDialog(true);
+  }, []);
 
   // Handler for Firebase courses
   const handleGoToFirebaseCourse = useCallback((course) => {
@@ -389,6 +426,16 @@ const Dashboard = () => {
           portalType="Student Portal"
           isEmulating={isEmulating}
           isStaffUser={false}
+          // Props for student credit and notification components
+          getCurrentSchoolYear={getCurrentSchoolYear()}
+          courses={courses}
+          profile={profile}
+          markNotificationAsSeen={markNotificationAsSeen}
+          submitSurveyResponse={submitSurveyResponse}
+          forceRefresh={forceRefresh}
+          allNotifications={allNotifications}
+          studentExists={studentExists}
+          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Verifying authentication...</div>
@@ -408,6 +455,16 @@ const Dashboard = () => {
           portalType="Student Portal"
           isEmulating={isEmulating}
           isStaffUser={false}
+          // Props for student credit and notification components
+          getCurrentSchoolYear={getCurrentSchoolYear()}
+          courses={courses}
+          profile={profile}
+          markNotificationAsSeen={markNotificationAsSeen}
+          submitSurveyResponse={submitSurveyResponse}
+          forceRefresh={forceRefresh}
+          allNotifications={allNotifications}
+          studentExists={studentExists}
+          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Loading your courses...</div>
@@ -427,6 +484,16 @@ const Dashboard = () => {
           portalType="Student Portal"
           isEmulating={isEmulating}
           isStaffUser={false}
+          // Props for student credit and notification components
+          getCurrentSchoolYear={getCurrentSchoolYear()}
+          courses={courses}
+          profile={profile}
+          markNotificationAsSeen={markNotificationAsSeen}
+          submitSurveyResponse={submitSurveyResponse}
+          forceRefresh={forceRefresh}
+          allNotifications={allNotifications}
+          studentExists={studentExists}
+          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
@@ -456,6 +523,15 @@ const Dashboard = () => {
           onProfileClick={() => setIsProfileOpen(true)}
           profile={profile}
           hasIncompleteProfile={!hasRequiredFields}
+          // Props for student credit and notification components
+          getCurrentSchoolYear={getCurrentSchoolYear()}
+          courses={courses}
+          markNotificationAsSeen={markNotificationAsSeen}
+          submitSurveyResponse={submitSurveyResponse}
+          forceRefresh={forceRefresh}
+          allNotifications={allNotifications}
+          studentExists={studentExists}
+          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
         />
         <div className="flex-1">
           {courseTypeLoading ? (
@@ -531,6 +607,15 @@ const Dashboard = () => {
         onProfileClick={() => setIsProfileOpen(true)}
         profile={profile}
         hasIncompleteProfile={!hasRequiredFields}
+        // Props for student credit and notification components
+        getCurrentSchoolYear={getCurrentSchoolYear()}
+        courses={courses}
+        markNotificationAsSeen={markNotificationAsSeen}
+        submitSurveyResponse={submitSurveyResponse}
+        forceRefresh={forceRefresh}
+        allNotifications={allNotifications}
+        studentExists={studentExists}
+        onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
       />
       
       {/* Migration Welcome Dialog */}
@@ -577,45 +662,34 @@ const Dashboard = () => {
     </div>
   )}
 
-  {/* Add the NotificationCenter here */}
-  {studentExists && (
-    <div className="flex items-center gap-4 mb-6">
-      <NotificationCenter
-        courses={courses}
-        profile={profile}
-        markNotificationAsSeen={markNotificationAsSeen}
-        submitSurveyResponse={submitSurveyResponse}
-        forceRefresh={forceRefresh}
-        allNotifications={allNotifications}
-      />
-      
-      {/* Parent Account Indicator */}
-      {profile && profile.age && profile.age < 18 && profile.parentApprovalStatus && (
-        <div className="flex items-center gap-2 text-sm">
-          {profile.parentApprovalStatus.status === 'approved' ? (
-            <>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-gray-600">
-                Parent account linked
-                {profile.parentApprovalStatus.linkedParentEmail && (
-                  <span className="text-gray-500 ml-1">
-                    ({profile.parentApprovalStatus.linkedParentEmail})
-                  </span>
-                )}
-              </span>
-            </>
-          ) : profile.parentApprovalStatus.status === 'pending' && profile.parentApprovalStatus.required ? (
-            <>
-              <Clock className="h-4 w-4 text-amber-600" />
-              <span className="text-gray-600">
-                Parent approval pending
-              </span>
-            </>
-          ) : null}
-        </div>
-      )}
-    </div>
-  )}
+  {/* Parent Account Indicator - moved to standalone without credit/notifications which are now in header */}
+  <div className="flex items-center justify-end mb-6">
+    {/* Parent Account Indicator */}
+    {studentExists && profile && profile.age && profile.age < 18 && profile.parentApprovalStatus && (
+      <div className="flex items-center gap-2 text-sm">
+        {profile.parentApprovalStatus.status === 'approved' ? (
+          <>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-gray-600">
+              Parent account linked
+              {profile.parentApprovalStatus.linkedParentEmail && (
+                <span className="text-gray-500 ml-1">
+                  ({profile.parentApprovalStatus.linkedParentEmail})
+                </span>
+              )}
+            </span>
+          </>
+        ) : profile.parentApprovalStatus.status === 'pending' && profile.parentApprovalStatus.required ? (
+          <>
+            <Clock className="h-4 w-4 text-amber-600" />
+            <span className="text-gray-600">
+              Parent approval pending
+            </span>
+          </>
+        ) : null}
+      </div>
+    )}
+  </div>
 
   {/* Check if all available courses are required courses */}
   {(() => {
@@ -744,6 +818,34 @@ const Dashboard = () => {
       profile={profile}
     />
   )}
+  
+  {/* Credit Payment Dialog */}
+  <CreditPaymentDialog 
+    isOpen={showCreditPaymentDialog}
+    onOpenChange={(open) => {
+      setShowCreditPaymentDialog(open);
+      if (!open) {
+        setCreditPaymentData(null);
+      }
+    }}
+    user={creditPaymentData?.user || currentUser}
+    creditsRequired={creditPaymentData?.creditsRequired || 1}
+    coursesToUnlock={creditPaymentData?.coursesToUnlock || []}
+    coursePaymentDetails={creditPaymentData?.coursePaymentDetails || {}}
+    courses={courses} // Pass all courses for name lookup
+    schoolYear={creditPaymentData?.schoolYear || getCurrentSchoolYear()}
+    studentType={creditPaymentData?.studentType || creditPaymentData?.sanitizedType || 'nonPrimaryStudents'}
+    mode="total"
+    onPaymentSuccess={() => {
+      setShowCreditPaymentDialog(false);
+      setCreditPaymentData(null);
+    }}
+    // Course-based payment props (for adult/international students)
+    isCourseBased={creditPaymentData?.isCourseBased || false}
+    coursesToPay={creditPaymentData?.coursesToPay || {}}
+    unpaidCourses={creditPaymentData?.unpaidCourses || 0}
+    sanitizedType={creditPaymentData?.sanitizedType || ''}
+  />
 </div>
       </div>
     </div>

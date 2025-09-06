@@ -288,6 +288,8 @@ exports.createUserWithTempPassword = adminUserManagementFunctions.createUserWith
 exports.removeTempPasswordClaim = adminUserManagementFunctions.removeTempPasswordClaim;
 exports.verifyUserEmail = adminUserManagementFunctions.verifyUserEmail;
 exports.updateUserCustomClaims = adminUserManagementFunctions.updateUserCustomClaims;
+exports.changeUserEmail = adminUserManagementFunctions.changeUserEmail;
+exports.sendAuthProviderEmailChangeNotification = adminUserManagementFunctions.sendAuthProviderEmailChangeNotification;
 
 // Student profile update functions
 exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfile;
@@ -295,6 +297,14 @@ exports.updateStudentProfile = updateStudentProfileFunctions.updateStudentProfil
 // Student Registration functions
 const studentRegistrationFunctions = require('./submitStudentRegistration');
 exports.submitStudentRegistration = studentRegistrationFunctions.submitStudentRegistration;
+
+// Payment Management functions
+const paymentDetailsFunctions = require('./getStudentPaymentDetails');
+exports.getStudentPaymentDetailsV2 = paymentDetailsFunctions.getStudentPaymentDetailsV2;
+exports.createStripePaymentLinkV2 = paymentDetailsFunctions.createStripePaymentLinkV2;
+
+const paymentHistoryFunctions = require('./getStudentPaymentHistory');
+exports.getStudentPaymentHistory = paymentHistoryFunctions.getStudentPaymentHistory;
 
 // Reimbursement submission function
 const reimbursementFunctions = require('./submitReimbursement');
@@ -308,6 +318,7 @@ exports.updateStudentProfile = studentProfileFunctions.updateStudentProfile;
 // Student Schedule functions
 const studentScheduleFunctions = require('./saveStudentSchedule');
 const studentScheduleV2Functions = require('./saveStudentScheduleV2');
+
 exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
 exports.saveStudentScheduleV2 = studentScheduleV2Functions.saveStudentScheduleV2;
 

@@ -3,6 +3,7 @@ import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Progress } from "../components/ui/progress";
 import { Loader2, AlertTriangle, X, InfoIcon, CheckCircle } from "lucide-react";
+import { CreditSummaryCard } from '../Dashboard/CreditSummaryCard';
 import StudentTypeSelector from './StudentTypeSelector';
 import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 //import AdultStudentForm from './AdultStudentForm';
@@ -14,6 +15,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
 import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { useCreditTracking, getCourseCredits, isExemptCourse } from '../hooks/useCreditTracking';
 import {
   Sheet,
   SheetContent,
@@ -52,6 +54,28 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
   const [existingRegistration, setExistingRegistration] = useState(null);
   const [completionPercentage, setCompletionPercentage] = useState(0);
   const formRef = React.useRef(null);
+  
+  // Get current school year for credit tracking
+  const getCurrentSchoolYear = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    let startYear = month >= 9 ? year : year - 1;
+    
+    // If we have formData with enrollmentYear, use that
+    if (formData?.enrollmentYear) {
+      return formData.enrollmentYear;
+    }
+    
+    // Otherwise calculate current year
+    return `${startYear.toString().substr(-2)}/${(startYear + 1).toString().substr(-2)}`;
+  };
+  
+  // Use credit tracking hook with student type
+  const { creditData, remainingFreeCredits, atCreditLimit, hasLimit } = useCreditTracking(
+    getCurrentSchoolYear(),
+    selectedStudentType
+  );
 
   // Use the new registration windows hook
   const { 
@@ -639,7 +663,20 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
         )}
       </div>
     </>  )}
-</SheetHeader>            {/* Compact Progress Bar - Only show during form step */}
+</SheetHeader>
+            {/* Credit Usage Display for Non-Primary and Home Education */}
+            {currentStep === 'form' && 
+             hasLimit && (
+              <div className="mx-1 mb-3">
+                <CreditSummaryCard 
+                  schoolYear={getCurrentSchoolYear()}
+                  compactMode={true}
+                  fullWidth={true}
+                />
+              </div>
+            )}
+            
+            {/* Compact Progress Bar - Only show during form step */}
             {currentStep === 'form' && (
               <div className="px-1 pb-3">
                 <div className="space-y-1">

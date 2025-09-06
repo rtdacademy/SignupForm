@@ -38,6 +38,7 @@ import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
 import YourWayProgress from '../Schedule/YourWayProgress';
 import PaymentOptionsDialog from './PaymentOptionsDialog';
 import PaymentDetailsDialog from './PaymentDetailsDialog';
+import CreditPaymentDialog from './CreditPaymentDialog';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -113,6 +114,7 @@ const CourseCard = ({
   const [showCreateScheduleDialog, setShowCreateScheduleDialog] = useState(false);
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showCreditPaymentDialog, setShowCreditPaymentDialog] = useState(false);
   
   // New states for schedule management
   const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
@@ -143,6 +145,10 @@ const CourseCard = ({
   const isInternationalStudent = studentType.toLowerCase().includes('international');
   const schoolYear = course.School_x0020_Year?.Value || 'N/A';
   const isOnTranscript = course.PASI?.Value === 'Yes';
+  
+  // Check if course requires credit payment
+  const creditsRequiredToUnlock = course.CreditsRequiredToUnlock?.Value || 0;
+  const requiresCreditPayment = creditsRequiredToUnlock > 0;
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
@@ -502,8 +508,27 @@ const CourseCard = ({
     return hours;
   };
 
-  // Update renderPaymentButton to hide payment UI for legacy courses
+  // Update renderPaymentButton to handle both credit and regular payments
   const renderPaymentButton = () => {
+    // Check if this is a Non-Primary or Home Education student with credit requirements
+    const isNonPrimary = studentType === 'Non-Primary';
+    const isHomeEducation = studentType === 'Home Education';
+    const hasCreditSystem = isNonPrimary || isHomeEducation;
+    
+    // If course requires credit payment, show credit payment button
+    if (hasCreditSystem && requiresCreditPayment) {
+      return (
+        <Button
+          onClick={() => setShowCreditPaymentDialog(true)}
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg transition-all duration-200 flex items-center justify-center"
+        >
+          <FaCreditCard className="mr-2" />
+          Pay {creditsRequiredToUnlock} Credit{creditsRequiredToUnlock > 1 ? 's' : ''} to Unlock
+        </Button>
+      );
+    }
+    
+    // Original logic for Adult/International students
     const isAdultOrInternational = isAdultStudent || isInternationalStudent;
     
     if (!isAdultOrInternational) return null;
@@ -1395,6 +1420,23 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
         onOpenChange={setShowPaymentDialog}
         course={course}
         user={currentUser} 
+      />
+
+      <CreditPaymentDialog 
+        isOpen={showCreditPaymentDialog}
+        onOpenChange={setShowCreditPaymentDialog}
+        user={currentUser}
+        creditsRequired={creditsRequiredToUnlock}
+        coursesToUnlock={[courseId]}
+        schoolYear={schoolYear}
+        studentType={studentType}
+        mode="course"
+        courseName={courseName}
+        courseId={courseId}
+        onPaymentSuccess={() => {
+          setShowCreditPaymentDialog(false);
+          toast.success(`Payment complete! ${courseName} will be unlocked shortly.`);
+        }}
       />
 
       <ProofOfEnrollmentDialog

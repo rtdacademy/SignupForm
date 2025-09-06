@@ -17,6 +17,8 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "../components/ui/tooltip";
+import { CreditSummaryCard } from '../Dashboard/CreditSummaryCard';
+import NotificationCenterSheet from '../Dashboard/NotificationCenterSheet';
 
 const RTDLogo = () => (
   <svg 
@@ -48,7 +50,16 @@ function Header({
   parentInfo,
   hasParentAccount,
   rtdLearningTheme = false,
-  logoUrl
+  logoUrl,
+  // Props for student credit and notification components
+  getCurrentSchoolYear,
+  courses,
+  markNotificationAsSeen,
+  submitSurveyResponse,
+  forceRefresh,
+  allNotifications,
+  studentExists,
+  onOpenCreditPaymentDialog
 }) {
   const navigate = useNavigate();
 
@@ -345,6 +356,32 @@ function Header({
           {/* Right section */}
           {user && (
             <div className="flex items-center space-x-6">
+              {/* Credit Summary and Notifications for Students */}
+              {!isStaffUser && studentExists && (
+                <div className="flex items-center space-x-2">
+                  {/* Credit Summary Card */}
+                  {getCurrentSchoolYear && (
+                    <CreditSummaryCard 
+                      schoolYear={getCurrentSchoolYear}
+                      compactMode={true}
+                      onOpenPaymentDialog={onOpenCreditPaymentDialog}
+                    />
+                  )}
+                  
+                  {/* Notification Center Sheet */}
+                  {courses && profile && (
+                    <NotificationCenterSheet
+                      courses={courses}
+                      profile={profile}
+                      markNotificationAsSeen={markNotificationAsSeen}
+                      submitSurveyResponse={submitSurveyResponse}
+                      forceRefresh={forceRefresh}
+                      allNotifications={allNotifications}
+                    />
+                  )}
+                </div>
+              )}
+              
               {isStaffUser && (
                 <button
                   onClick={() => navigate('/employee-portal')}

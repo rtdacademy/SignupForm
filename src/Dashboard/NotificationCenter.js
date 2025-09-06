@@ -968,7 +968,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
 
 // Regular notification dialog now handles all notifications
 
-const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSurveyResponse, forceRefresh, allNotifications }) => {
+const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSurveyResponse, forceRefresh, allNotifications, renderAsSheet = false }) => {
   // Track if user has manually toggled the accordion
   const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
@@ -1790,32 +1790,332 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
   // Always show the notification center, even when there are no active notifications
   // This allows students to see their notification history
 
-  // Compact view for when all notifications are read and acknowledged
-  if (isCompactView) {
+  // When rendered as a sheet, always show the full content without card wrapper
+  if (renderAsSheet) {
     return (
-      <div className="flex justify-end mb-4">
-        <Button 
-          variant="outline" 
-          className="flex items-center gap-2 bg-white shadow-sm hover:bg-gray-50"
-          onClick={() => {
-            setUserToggled(true);
-            setIsExpanded(true);
-            setIsCompactView(false);
-          }}
-        >
-          <div className="relative">
-            <Bell className="h-5 w-5 text-gray-600" />
-            {activeNotifications.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-gray-400 rounded-full" />
-            )}
-          </div>
-          <span className="text-sm font-medium">Notifications ({activeNotifications.length})</span>
-        </Button>
+      <div>
+        <Tabs 
+          defaultValue="all" 
+          value={activeTab} 
+          onValueChange={(value) => {
+            setActiveTab(value);
+            setUserChangedTab(true);
+          }} 
+          className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              <span>All ({activeNotifications.length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="important" className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>Important ({activeNotifications.filter(n => isImportantNotification(n)).length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="surveys" className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              <span>Surveys ({activeNotifications.filter(n => n.type === 'survey' || n.type === 'weekly-survey').length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="acknowledged" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span>History</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="all" className="mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {activeNotifications.map((notification, index) => (
+                <NotificationPreview
+                  key={`${notification.id}-${index}`}
+                  notification={notification}
+                  onClick={(notification) => {
+                    setSelectedNotification(notification);
+                    markAsRead(notification);
+                  }}
+                  onDismiss={dismissNotification}
+                  isRead={notification.hasSeen}
+                />
+              ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="important" className="mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {activeNotifications
+                .filter(n => isImportantNotification(n))
+                .map((notification, index) => (
+                  <NotificationPreview
+                    key={`important-${notification.id}-${index}`}
+                    notification={notification}
+                    onClick={(notification) => {
+                      setSelectedNotification(notification);
+                      markAsRead(notification);
+                    }}
+                    onDismiss={dismissNotification}
+                    isRead={notification.hasSeen}
+                  />
+                ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="surveys" className="mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {activeNotifications
+                .filter(n => n.type === 'survey' || n.type === 'weekly-survey')
+                .map((notification, index) => (
+                  <NotificationPreview
+                    key={`survey-${notification.id}-${index}`}
+                    notification={notification}
+                    onClick={(notification) => {
+                      setSelectedNotification(notification);
+                      markAsRead(notification);
+                    }}
+                    onDismiss={dismissNotification}
+                    isRead={notification.hasSeen}
+                  />
+                ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="acknowledged" className="mt-0">
+            <div className="border rounded-md overflow-hidden">
+              <div className="max-h-[600px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status / Date</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {/* Map through individual notification items instead of groups */}
+                    {historyItems.items.map((item, index) => {
+                      // Get formatted notification type description
+                      const getTypeIconAndLabel = (item) => {
+                        if (item.type === 'survey' || item.type === 'weekly-survey') {
+                          return {
+                            icon: <ClipboardList className="h-4 w-4 text-purple-600" />,
+                            label: item.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'
+                          };
+                        } else if (item.type === 'notification' || item.type === 'once') {
+                          return {
+                            icon: <Bell className="h-4 w-4 text-amber-600" />,
+                            label: 'Notification'
+                          };
+                        } else if (item.type === 'recurring') {
+                          return {
+                            icon: <RefreshCw className="h-4 w-4 text-blue-600" />,
+                            label: 'Recurring'
+                          };
+                        }
+                        return { icon: <Bell className="h-4 w-4 text-gray-600" />, label: 'Other' };
+                      };
+                      
+                      const { icon, label } = getTypeIconAndLabel(item);
+                      
+                      // Get course info
+                      const courseInfo = getCourseInfo(item.courseId);
+                      
+                      // Get status text
+                      const getStatusText = (item) => {
+                        if (item.surveyCompleted) {
+                          return {
+                            icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
+                            text: "Survey Completed"
+                          };
+                        } else if (item.hasAcknowledged) {
+                          return {
+                            icon: <CheckCircle2 className="h-4 w-4 text-blue-600" />,
+                            text: "Acknowledged"
+                          };
+                        } else {
+                          return {
+                            icon: <History className="h-4 w-4 text-gray-600" />,
+                            text: "Read"
+                          };
+                        }
+                      };
+                      
+                      // Get the status
+                      const { icon: statusIcon, text: statusText } = getStatusText(item);
+
+                      // Format date for display
+                      const formatDate = (dateString) => {
+                        if (!dateString) return "Unknown date";
+                        const date = new Date(dateString);
+                        return date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                      };
+                      
+                      // Handle view action for a specific item
+                      const handleView = (item) => {
+                        // Find course details from our courses array - this is critical for proper display
+                        const findCourseInfo = (courseIdStr) => {
+                          // Try to find a matching course, handling string/number conversion
+                          const courseId = courseIdStr.toString();
+                          let matchingCourse = null;
+                          
+                          // Look through all available courses
+                          if (courses && courses.length > 0) {
+                            // First try exact string match
+                            matchingCourse = courses.find(c => c.CourseID?.toString() === courseId || c.id?.toString() === courseId);
+                            
+                            // If no match, try numeric comparison
+                            if (!matchingCourse && !isNaN(courseId)) {
+                              const numericCourseId = parseInt(courseId);
+                              matchingCourse = courses.find(c => {
+                                const cId = c.CourseID || c.id;
+                                return !isNaN(cId) && parseInt(cId) === numericCourseId;
+                              });
+                            }
+                          }
+                          
+                          return matchingCourse;
+                        };
+
+                        const matchingCourse = findCourseInfo(item.courseId);
+                        
+                        // Reconstruct notification object from history item
+                        const reconstructedNotification = {
+                          // Basic notification info
+                          id: item.notificationId,
+                          uniqueId: `${item.notificationId}_${item.courseId}_history`,
+                          originalNotificationId: item.notificationId,
+                          title: item.title,
+                          content: item.content || "Content not available in history",
+                          type: item.type,
+                          
+                          // State information
+                          hasSeen: item.hasSeen,
+                          hasAcknowledged: item.hasAcknowledged,
+                          surveyCompleted: item.surveyCompleted,
+                          surveyCompletedAt: item.surveyCompletedAt,
+                          acknowledgedAt: item.acknowledgedAt,
+                          
+                          // Important flags
+                          important: item.important || item.Important,
+                          Important: item.Important || item.important,
+                          
+                          // Course information
+                          courses: [{
+                            id: item.courseId,
+                            title: matchingCourse?.courseDetails?.Title || matchingCourse?.title || `Course ${item.courseId}`,
+                            studentDashboardNotificationsResults: matchingCourse?.studentDashboardNotificationsResults || {}
+                          }],
+                          
+                          // Survey data if available
+                          surveyQuestions: item.surveyQuestions || [],
+                          answers: item.answers || item.surveyAnswers || {},
+                          surveyAnswers: item.surveyAnswers || item.answers || {},
+                          
+                          // Display config
+                          displayConfig: item.displayConfig,
+                          renewalConfig: item.renewalConfig,
+                          repeatInterval: item.repeatInterval
+                        };
+
+                        // Add submissions if available
+                        if (item.submissions) {
+                          reconstructedNotification.submissions = item.submissions;
+                        }
+                        
+                        // Open the notification dialog
+                        setSelectedNotification(reconstructedNotification);
+                      };
+
+                      return (
+                        <tr key={`history-${index}-${item.notificationId}-${item.courseId}`}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {icon}
+                              <span className="text-sm text-gray-900">{label}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900 max-w-xs truncate" title={item.title}>
+                              {item.title}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900">
+                              {courseInfo?.label || `Course ${item.courseId}`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                {statusIcon}
+                                <span className="text-sm text-gray-900">{statusText}</span>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {formatDate(item.surveyCompletedAt || item.acknowledgedAt || item.seenAt)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleView(item)}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {historyItems.items.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <History className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No notification history yet</p>
+                    <p className="text-sm mt-2">Acknowledged notifications will appear here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        {/* Notification Dialog */}
+        <NotificationDialog
+          notification={selectedNotification}
+          isOpen={!!selectedNotification}
+          onClose={() => setSelectedNotification(null)}
+          onSurveySubmit={handleSurveySubmit}
+          onDismiss={dismissNotification}
+        />
       </div>
     );
   }
 
-  // Full expanded view
+  // Compact view for when all notifications are read and acknowledged (original behavior)
+  if (isCompactView) {
+    return (
+      <Button 
+        variant="outline" 
+        className="h-10 flex items-center gap-2 bg-white shadow-sm hover:bg-gray-50 px-3"
+        onClick={() => {
+          setUserToggled(true);
+          setIsExpanded(true);
+          setIsCompactView(false);
+        }}
+      >
+        <div className="relative">
+          <Bell className="h-5 w-5 text-gray-600" />
+          {activeNotifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-gray-400 rounded-full" />
+          )}
+        </div>
+        <span className="text-sm font-medium">Notifications ({activeNotifications.length})</span>
+      </Button>
+    );
+  }
+
+  // Full expanded view (original behavior)
   return (
     <Card className="mb-6 shadow-lg border-t-4 border-t-blue-500">
       <div 

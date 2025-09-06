@@ -46,6 +46,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import TempPasswordModal from './TempPasswordModal';
+import ChangeEmailModal from './ChangeEmailModal';
 
 const AdminUserManagement = ({ defaultTargetSite }) => {
   const { user, hasAdminAccess, isSuperAdminUser } = useAuth();
@@ -70,6 +71,7 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
   const [editingClaims, setEditingClaims] = useState('');
   const [claimsError, setClaimsError] = useState('');
   const [updatingClaims, setUpdatingClaims] = useState(false);
+  const [changeEmailModal, setChangeEmailModal] = useState({ open: false, currentEmail: '', userInfo: null });
 
   // Clear messages after a delay
   const clearMessages = useCallback(() => {
@@ -539,6 +541,71 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
       if (!claimsError) {
         clearMessages();
       }
+    }
+  };
+
+  // Handle email change
+  const handleChangeEmail = async (data) => {
+    setChangeEmailModal({ open: false, currentEmail: '', userInfo: null });
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const changeEmail = httpsCallable(functions, 'changeUserEmail');
+      
+      const result = await changeEmail(data);
+      
+      if (result.data.success) {
+        let successMessage = result.data.message;
+        
+        // Handle different auth methods
+        if (result.data.authMethod === 'password') {
+          if (result.data.newUser.created && result.data.newUser.tempPassword) {
+            // Store the temp password for display
+            setCurrentTempPassword(result.data.newUser.tempPassword);
+            setShowTempPassword(false);
+            setPasswordCopied(false);
+            
+            // Check if email was sent from the cloud function
+            if (result.data.emailSent) {
+              setEmailSent(true);
+              successMessage += `. Temporary password email sent to ${data.newEmail}.`;
+            } else if (result.data.emailError) {
+              successMessage += `. Temporary password created but email failed to send: ${result.data.emailError}`;
+            } else {
+              successMessage += `. Temporary password created for new account.`;
+            }
+          }
+        } else {
+          // For Google/Microsoft, no email is sent - they just sign in with their provider
+          if (result.data.newUser.created) {
+            successMessage += `. The guardian can now sign in using their ${result.data.authMethod === 'google' ? 'Google' : 'Microsoft'} account.`;
+          }
+        }
+        
+        setSuccess(successMessage);
+        
+        // Clear search results since the email has changed
+        setSearchResults(null);
+        setSearchEmail('');
+      }
+    } catch (error) {
+      console.error('Error changing email:', error);
+      if (error.code === 'functions/permission-denied') {
+        setError('Access denied. You do not have permission to change email addresses.');
+      } else if (error.code === 'functions/not-found') {
+        setError('Original user not found.');
+      } else if (error.code === 'functions/invalid-argument') {
+        setError(`Invalid input: ${error.message || 'Please check your inputs'}`);
+      } else {
+        setError(`Error changing email: ${error.message || 'An unexpected error occurred'}`);
+      }
+    } finally {
+      setLoading(false);
+      clearMessages();
     }
   };
 
@@ -1107,6 +1174,35 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
                   </Card>
                 )}
 
+                {/* Change Email Address - Only for Primary Guardians */}
+                {searchResults?.currentClaims?.familyRole === 'primary_guardian' && (
+                  <Card className="p-4 border-purple-200 bg-purple-50">
+                    <div className="flex items-start space-x-3">
+                      <Mail className="w-5 h-5 text-purple-600 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-purple-900">Change Primary Guardian Email</h4>
+                        <p className="text-sm text-purple-700 mt-1">
+                          Update the primary guardian's email address and transfer all permissions.
+                        </p>
+                        <p className="text-xs text-purple-600 mt-2">
+                          <strong>Use when:</strong> Primary guardian needs to change their login email
+                        </p>
+                        <Button 
+                          size="sm" 
+                          className="mt-3 bg-purple-600 hover:bg-purple-700"
+                          onClick={() => setChangeEmailModal({ 
+                            open: true, 
+                            currentEmail: searchResults.email, 
+                            userInfo: searchResults 
+                          })}
+                        >
+                          Change Guardian Email
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
                 {/* Set Temporary Password */}
                 <Card className="p-4 border-blue-200 bg-blue-50">
                   <div className="flex items-start space-x-3">
@@ -1252,6 +1348,15 @@ const AdminUserManagement = ({ defaultTargetSite }) => {
         isNewUser={tempPasswordModal.isNewUser}
         defaultTargetSite={defaultTargetSite}
         onConfirm={handleTempPasswordConfirm}
+      />
+
+      {/* Change Email Modal */}
+      <ChangeEmailModal
+        open={changeEmailModal.open}
+        onClose={() => setChangeEmailModal({ open: false, currentEmail: '', userInfo: null })}
+        currentEmail={changeEmailModal.currentEmail}
+        userInfo={changeEmailModal.userInfo}
+        onConfirm={handleChangeEmail}
       />
 
       {/* Edit Custom Claims Dialog */}

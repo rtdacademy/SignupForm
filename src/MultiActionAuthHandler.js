@@ -177,25 +177,10 @@ function MultiActionAuthHandler() {
       // This is the critical missing line that confirms the password reset
       await confirmPasswordReset(auth, actionCode, newPassword);
       
-      setStatus('Password reset successful! You can now sign in with your new password.');
+      setStatus('Password reset successful!');
+      // Always show site selection after password reset
+      setShowSiteSelection(true);
       
-      // Check which portal this password reset is for by looking at localStorage flags
-      const isParentReset = localStorage.getItem('parentPortalSignup') === 'true';
-      const isRtdConnectReset = localStorage.getItem('rtdConnectPortalSignup') === 'true';
-      
-      let redirectUrl;
-      if (isRtdConnectReset) {
-        redirectUrl = 'https://rtd-connect.com/login';
-      } else if (isParentReset) {
-        redirectUrl = 'https://yourway.rtdacademy.com/parent-login';
-      } else {
-        redirectUrl = 'https://yourway.rtdacademy.com/login';
-      }
-      
-      setTimeout(() => {
-        // Use window.location.href for external redirects
-        window.location.href = redirectUrl;
-      }, 3000);
     } catch (error) {
       console.error("Error confirming password reset:", error);
       switch (error.code) {
@@ -251,68 +236,149 @@ function MultiActionAuthHandler() {
             </div>
 
             {showSiteSelection ? (
-              // Site selection interface
+              // Enhanced site selection interface
               <div className="space-y-6">
+                {/* Success message for password reset */}
+                {mode === 'resetPassword' && status.includes('successful') && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <svg className="flex-shrink-0 h-5 w-5 text-green-600 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-green-800">
+                          Password successfully updated!
+                        </h3>
+                        <p className="mt-1 text-xs text-green-700">
+                          Your new password will work for all RTD portals where you have an account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success message for email verification */}
+                {mode === 'verifyEmail' && status.includes('successfully') && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <svg className="flex-shrink-0 h-5 w-5 text-green-600 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-green-800">
+                          Email verified successfully!
+                        </h3>
+                        <p className="mt-1 text-xs text-green-700">
+                          You can now sign in to your account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="text-center">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    Choose Your Portal
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Select Your Portal
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Please select which portal you'd like to sign in to:
+                    Choose the portal that matches your needs:
                   </p>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* RTD Connect - Home Education Portal */}
                   <button
                     onClick={() => window.location.href = 'https://rtd-connect.com/login'}
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 transition-all duration-200 text-left"
+                    className="w-full group relative overflow-hidden border-2 border-gray-200 rounded-xl hover:border-purple-400 transition-all duration-300 hover:shadow-lg"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="h-12 w-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">RC</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-50 via-purple-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative p-5 text-left">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-14 w-14 bg-gradient-to-br from-pink-500 via-purple-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">RTD Connect</h4>
-                        <p className="text-sm text-gray-600">Home Education Portal</p>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-bold text-gray-900 mb-1">RTD Connect</h4>
+                          <p className="text-sm font-medium text-purple-600 mb-2">Home Education Portal</p>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Manage your family's home education program, submit reimbursements, and access support services
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2 italic">
+                            For: Parents and guardians
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </button>
                   
+                  {/* RTD Academy - Student Portal */}
                   <button
                     onClick={() => window.location.href = 'https://yourway.rtdacademy.com/login'}
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 text-left"
+                    className="w-full group relative overflow-hidden border-2 border-gray-200 rounded-xl hover:border-teal-400 transition-all duration-300 hover:shadow-lg"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="h-12 w-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">RA</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-50 to-teal-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative p-5 text-left">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-14 w-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">RTD Academy</h4>
-                        <p className="text-sm text-gray-600">Student Learning Portal</p>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-bold text-gray-900 mb-1">RTD Academy</h4>
+                          <p className="text-sm font-medium text-teal-600 mb-2">Student Learning Portal</p>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Access your courses, complete assignments, view grades, and track your educational progress
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2 italic">
+                            For: Students enrolled in courses
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </button>
                   
+                  {/* Parent Portal - Progress Monitoring */}
                   <button
                     onClick={() => window.location.href = 'https://yourway.rtdacademy.com/parent-login'}
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 text-left"
+                    className="w-full group relative overflow-hidden border-2 border-gray-200 rounded-xl hover:border-green-400 transition-all duration-300 hover:shadow-lg"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="h-12 w-12 bg-green-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">PP</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-50 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative p-5 text-left">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Parent Portal</h4>
-                        <p className="text-sm text-gray-600">Monitor student progress</p>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-bold text-gray-900 mb-1">Parent Portal</h4>
+                          <p className="text-sm font-medium text-green-600 mb-2">Progress Monitoring</p>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Monitor your child's academic progress, view grades, and track course completion
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2 italic">
+                            For: Parents of RTD Academy students
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </button>
+                </div>
+                
+                {/* Info message about unified password */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800 text-center">
+                    <strong>Note:</strong> If you have accounts in multiple portals, your password works for all of them.
+                  </p>
                 </div>
                 
                 <div className="text-center text-xs text-gray-500 mt-4">

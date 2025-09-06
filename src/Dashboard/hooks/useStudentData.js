@@ -1127,6 +1127,9 @@ export const useStudentData = (userEmailKey) => {
     //   ).length || 0
     // });
 
+    // Log the entire student profile and courses objects
+    console.log('👤 STUDENT PROFILE:', studentData.profile);
+    console.log('📚 STUDENT COURSES:', studentData.courses);
   }
   
 

@@ -1498,6 +1498,13 @@ const NonPrimaryStudentForm = forwardRef(({
               return;
             }
 
+            // Check if the course excludes this student type
+            const excludedStudentTypes = courseData.excludedStudentTypes || [];
+            if (excludedStudentTypes.includes(studentType) && !isDeveloperAccess) {
+              console.log(`Course ${courseData.Title} excludes student type ${studentType}`);
+              return;
+            }
+
             coursesData.push({
               id: courseId,
               title: courseData.Title,
@@ -1506,7 +1513,8 @@ const NonPrimaryStudentForm = forwardRef(({
               recommendedCompletionMonths: courseData.recommendedCompletionMonths || null,
               minCompletionMonths: courseData.minCompletionMonths || null,
               isDeveloperAccess: isDeveloperAccess,
-              onRegistrationStatus: courseData.OnRegistration
+              onRegistrationStatus: courseData.OnRegistration,
+              excludedStudentTypes: excludedStudentTypes
             });
           });
 

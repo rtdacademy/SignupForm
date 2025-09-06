@@ -6,6 +6,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 const { initializeGradebook } = require('./shared/utilities/database-utils');
+const { updateCreditTracking } = require('./utils/creditTracking');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
@@ -448,7 +449,22 @@ const submitStudentRegistration = onCall({
     }
 
     // Execute all database operations in a single update
-    await db.ref().update(batch);    // Initialize gradebooks for all enrolled courses
+    await db.ref().update(batch);
+
+    // Update credit tracking for ALL students (not just Non-Primary and Home Education)
+    const coursesToTrack = [numericCourseId, ...requiredCourses.map(c => Number(c.courseId))];
+    const schoolYear = formData.enrollmentYear || '';
+    const studentType = formData.studentType || 'Unknown';
+    
+    try {
+      await updateCreditTracking(studentEmailKey, schoolYear, studentType, coursesToTrack);
+      console.log(`📊 Credit tracking updated for ${studentEmailKey} (${studentType}) in ${schoolYear}`);
+    } catch (creditError) {
+      console.error('Error updating credit tracking:', creditError);
+      // Don't fail registration if credit tracking fails
+    }
+
+    // Initialize gradebooks for all enrolled courses
     const coursesToInitialize = [numericCourseId, ...requiredCourses.map(c => c.courseId)];
     
     console.log(`🎓 Initializing gradebooks for courses: ${coursesToInitialize.join(', ')}`);

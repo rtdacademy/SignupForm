@@ -20,9 +20,9 @@ import {
   doc
 } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { firestore, database } from '../firebase'; // Import both firestore and database
+import { firestore, database } from '../firebase';
 import { ref, get } from 'firebase/database';
-import { sanitizeEmail } from '../utils/sanitizeEmail'; // Use the standard sanitization
+import { getPaymentOptionsForStudentType, formatPrice as formatCurrency } from '../config/paymentConfig';
 
 // Loading Overlay Component
 const LoadingOverlay = ({ isVisible }) => {
@@ -60,37 +60,20 @@ const calculateSubscriptionEndDate = () => {
   return endDate;
 };
 
-// Format price helper function
-const formatPrice = (amount) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'CAD',
-  }).format(amount);
-};
+// Use formatPrice from config
+const formatPrice = formatCurrency;
 
-// Payment options configuration
-const paymentOptions = {
-  onetime: {
-    id: 'price_1QNT5yFQ2LFjAOXoBBSx1W5a',
-    name: 'One-time Payment',
-    amount: 650,
-    description: 'Pay full amount upfront and save $50'
-  },
-  subscription: {
-    id: 'price_1QNT5nFQ2LFjAOXoa9eGZork',
-    name: 'Monthly Payments',
-    amount: 233.33,
-    total: 700,
-    description: '3 monthly payments of $233.33'
-  }
-};
-
-const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
+const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user, studentType = 'adultStudents' }) => {
   const [selectedOption, setSelectedOption] = useState('onetime');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [checkoutSessionUnsubscribe, setCheckoutSessionUnsubscribe] = useState(null);
+  
+  // Get payment options from config
+  const paymentOptions = getPaymentOptionsForStudentType(studentType);
+
+  // No need to fetch payment options - they come from config
 
   useEffect(() => {
     return () => {
@@ -122,11 +105,16 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
         throw new Error('You must be logged in to make a purchase');
       }
 
+      if (!paymentOptions) {
+        throw new Error('Payment options are not available. Please try again.');
+      }
+
       const isSubscription = selectedOption === 'subscription';
       
       // Check for existing subscriptions for this course before creating a new one
       if (isSubscription) {
-        const sanitizedEmail = sanitizeEmail(user.email);
+        // Simple email sanitization for database path
+        const sanitizedEmail = user.email.replace(/[.#$\[\]]/g, '_');
         const paymentRef = ref(database, `payments/${sanitizedEmail}/courses/${course.CourseID}`);
         
         try {
@@ -239,6 +227,7 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
         </DialogHeader>
 
         <div className="space-y-6">
+          {paymentOptions ? (
           <RadioGroup
             value={selectedOption}
             onValueChange={setSelectedOption}
@@ -276,6 +265,11 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
               </div>
             ))}
           </RadioGroup>
+          ) : (
+            <Alert variant="destructive">
+              <AlertDescription>Unable to load payment options. Please try again later.</AlertDescription>
+            </Alert>
+          )}
 
           {paymentError && (
             <Alert variant="destructive">
@@ -294,7 +288,7 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
           </Button>
           <Button 
             onClick={handleCheckout}
-            disabled={paymentLoading || isRedirecting}
+            disabled={!paymentOptions || paymentLoading || isRedirecting}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           >
             {paymentLoading ? (

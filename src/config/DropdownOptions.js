@@ -266,7 +266,8 @@ export const COURSE_OPTIONS = [
     color: "#3B82F6",
     icon: Calculator,
     courseId: 82,
-    pasiCode: "KAE1782"
+    pasiCode: "KAE1782",
+    credits: 5
   },
   { 
     value: "Math 10-3",
@@ -276,7 +277,8 @@ export const COURSE_OPTIONS = [
     color: "#3B82F6",
     icon: Calculator,
     courseId: 78,
-    pasiCode: "MAT1793"
+    pasiCode: "MAT1793",
+    credits: 5
   },
   { 
     value: "Math 10C",
@@ -286,7 +288,8 @@ export const COURSE_OPTIONS = [
     color: "#3B82F6",
     icon: Calculator,
     courseId: 97,
-    pasiCode: "MAT1791"
+    pasiCode: "MAT1791",
+    credits: 5
   },
   { 
     value: "Math 15",
@@ -296,7 +299,8 @@ export const COURSE_OPTIONS = [
     color: "#3B82F6",
     icon: Calculator,
     courseId: 90,
-    pasiCode: "LDC1515"
+    pasiCode: "LDC1515",
+    credits: 3
   },
 /*
   { 
@@ -318,7 +322,8 @@ export const COURSE_OPTIONS = [
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 84,
-    pasiCode: "KAE2782"
+    pasiCode: "KAE2782",
+    credits: 5
   },
   { 
     value: "Math 20-3",
@@ -328,7 +333,8 @@ export const COURSE_OPTIONS = [
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 96,
-    pasiCode: "MAT2793"
+    pasiCode: "MAT2793",
+    credits: 5
   },
   { 
     value: "Math 20-2",
@@ -338,7 +344,8 @@ export const COURSE_OPTIONS = [
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 98,
-    pasiCode: "MAT2792"
+    pasiCode: "MAT2792",
+    credits: 5
   },
   { 
     value: "Math 20-1",
@@ -348,7 +355,8 @@ export const COURSE_OPTIONS = [
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 95,
-    pasiCode: "MAT2791"
+    pasiCode: "MAT2791",
+    credits: 5
   },
   // New Physics 20 Course
   { 
@@ -359,7 +367,8 @@ export const COURSE_OPTIONS = [
     color: "#8B5CF6", // Using the grade 11 color scheme (purple)
     icon: Beaker,
     courseId: 137,
-    pasiCode: "SCN2797"
+    pasiCode: "SCN2797",
+    credits: 5
   },
 
   // Grade 12 Courses - Green theme
@@ -371,7 +380,8 @@ export const COURSE_OPTIONS = [
     color: "#10B981",
     icon: Calculator,
     courseId: 86,
-    pasiCode: "MAT3793"
+    pasiCode: "MAT3793",
+    credits: 5
   },
   { 
     value: "Math 30-2",
@@ -381,7 +391,8 @@ export const COURSE_OPTIONS = [
     color: "#10B981",
     icon: Calculator,
     courseId: 87,
-    pasiCode: "MAT3792"
+    pasiCode: "MAT3792",
+    credits: 5
   },
   { 
     value: "Math 30-1",
@@ -391,7 +402,8 @@ export const COURSE_OPTIONS = [
     color: "#10B981",
     icon: Calculator,
     courseId: 89,
-    pasiCode: "MAT3791"
+    pasiCode: "MAT3791",
+    credits: 5
   },
   { 
     value: "Math 31",
@@ -401,7 +413,8 @@ export const COURSE_OPTIONS = [
     color: "#10B981",
     icon: Calculator,
     courseId: 93,
-    pasiCode: "MAT3211"
+    pasiCode: "MAT3211",
+    credits: 5
   },
   { 
     value: "Physics 30",
@@ -411,7 +424,8 @@ export const COURSE_OPTIONS = [
     color: "#10B981",
     icon: Beaker,
     courseId: 2,
-    pasiCode: "SCN3797"
+    pasiCode: "SCN3797",
+    credits: 5
   },
   { 
     value: "COM1255 - E-Learning",
@@ -421,7 +435,19 @@ export const COURSE_OPTIONS = [
     color: "#3B82F6",
     icon: Code,
     courseId: 4,
-    pasiCode: "COM1255"
+    pasiCode: "COM1255",
+    credits: 1
+  },
+  { 
+    value: "INF2020 - Keyboarding",
+    label: "INF2020 - Keyboarding", 
+    courseType: "Options",
+    grade: 10,
+    color: "#8B5CF6",
+    icon: Keyboard,
+    courseId: 6,
+    pasiCode: "INF2020",
+    credits: 1
   },
 ];
 

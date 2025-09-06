@@ -24,6 +24,7 @@ import { BookOpen, RotateCcw } from 'lucide-react';
 import Modal from 'react-modal';
 // Keep react-select for multi-select fields.
 import ReactSelect from 'react-select';
+import { STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
 import { Switch } from '../components/ui/switch';
 import {
   Sheet,
@@ -1988,6 +1989,26 @@ function Courses({
       });
   };
 
+  const handleExcludedStudentTypesChange = (selectedOptions) => {
+    const values = selectedOptions ? selectedOptions.map((option) => option.value) : [];
+    const updatedData = {
+      ...courseData,
+      excludedStudentTypes: values,
+    };
+    onCourseUpdate(updatedData);
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { excludedStudentTypes: values })
+      .then(() => {
+        console.log('Successfully updated excluded student types');
+      })
+      .catch((error) => {
+        console.error('Error updating excluded student types:', error);
+        alert('An error occurred while updating excluded student types.');
+      });
+  };
+
   const handleUnitsChange = (newUnits) => {
     const updatedData = {
       ...courseData,
@@ -2488,6 +2509,27 @@ function Courses({
                     </p>
                   </div>
 
+                  {/* Course Credits */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Credits
+                    </label>
+                    <input
+                      type="number"
+                      name="courseCredits"
+                      value={courseData.courseCredits || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!courseIsEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter number of credits"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the number of credits this course is worth
+                    </p>
+                  </div>
+
                   {/* Development emails - Only show when course access is restricted */}
                   {courseData.restrictCourseAccess === true && (
                     <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
@@ -2544,6 +2586,34 @@ function Courses({
                             When enabled, student access to this course will be restricted. Developers can still access.
                           </p>
                         </div>
+                      </div>
+
+                      {/* Excluded Student Types */}
+                      <div className="w-full mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Excluded Student Types
+                        </label>
+                        <ReactSelect
+                          isMulti
+                          name="excludedStudentTypes"
+                          options={STUDENT_TYPE_OPTIONS.map(type => ({
+                            value: type.value,
+                            label: type.value
+                          }))}
+                          value={STUDENT_TYPE_OPTIONS
+                            .filter(type => courseData.excludedStudentTypes && courseData.excludedStudentTypes.includes(type.value))
+                            .map(type => ({ value: type.value, label: type.value }))}
+                          onChange={handleExcludedStudentTypesChange}
+                          isDisabled={!courseIsEditing}
+                          className="mt-1"
+                          placeholder="Select student types to exclude..."
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Students with these types will not be able to access this course. 
+                          {courseData.excludedStudentTypes && courseData.excludedStudentTypes.length > 0
+                            ? ` Currently excluding: ${courseData.excludedStudentTypes.join(', ')}`
+                            : ' Course is available to all student types.'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2861,6 +2931,27 @@ function Courses({
                     />
                   </div>
 
+                  {/* Course Credits */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Credits
+                    </label>
+                    <input
+                      type="number"
+                      name="courseCredits"
+                      value={courseData.courseCredits || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!courseIsEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter number of credits"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the number of credits this course is worth
+                    </p>
+                  </div>
+
                   {/* Email Restrictions - Only show when course access is restricted */}
                   {courseData.restrictCourseAccess === true && (
                     <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
@@ -2917,6 +3008,34 @@ function Courses({
                             When enabled, student access to this course will be restricted. Developers can still access.
                           </p>
                         </div>
+                      </div>
+
+                      {/* Excluded Student Types */}
+                      <div className="w-full mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Excluded Student Types
+                        </label>
+                        <ReactSelect
+                          isMulti
+                          name="excludedStudentTypes"
+                          options={STUDENT_TYPE_OPTIONS.map(type => ({
+                            value: type.value,
+                            label: type.value
+                          }))}
+                          value={STUDENT_TYPE_OPTIONS
+                            .filter(type => courseData.excludedStudentTypes && courseData.excludedStudentTypes.includes(type.value))
+                            .map(type => ({ value: type.value, label: type.value }))}
+                          onChange={handleExcludedStudentTypesChange}
+                          isDisabled={!courseIsEditing}
+                          className="mt-1"
+                          placeholder="Select student types to exclude..."
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Students with these types will not be able to access this course. 
+                          {courseData.excludedStudentTypes && courseData.excludedStudentTypes.length > 0
+                            ? ` Currently excluding: ${courseData.excludedStudentTypes.join(', ')}`
+                            : ' Course is available to all student types.'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -3039,27 +3158,6 @@ function Courses({
                     </label>
                     <p className="text-xs text-gray-500 mt-1">
                       Indicate that all LTI links have been created for this course
-                    </p>
-                  </div>
-
-                  {/* Course Credits - NEW FIELD */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Course Credits
-                    </label>
-                    <input
-                      type="number"
-                      name="courseCredits"
-                      value={courseData.courseCredits || ''}
-                      onChange={handleNumberInputChange}
-                      disabled={!courseIsEditing}
-                      className={inputClass}
-                      min="0"
-                      step="1"
-                      placeholder="Enter number of credits"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Enter the number of credits this course is worth
                     </p>
                   </div>
 
