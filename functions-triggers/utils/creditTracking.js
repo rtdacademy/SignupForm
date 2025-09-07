@@ -94,13 +94,104 @@ function isPerCoursePaymentStudent(studentType) {
 }
 
 /**
+ * Check if a course has a payment override
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} courseId - Course ID
+ * @param {string} schoolYear - School year (e.g., "25/26")
+ * @param {string} studentType - Student type
+ * @returns {Object} Override information or null
+ */
+async function checkCoursePaymentOverride(studentEmailKey, courseId, schoolYear, studentType) {
+  const db = admin.database();
+  const schoolYearKey = formatSchoolYear(schoolYear);
+  const sanitizedType = sanitizeStudentType(studentType);
+  
+  try {
+    const overrideRef = db.ref(`students/${studentEmailKey}/profile/creditOverrides/${schoolYearKey}/${sanitizedType}/courseOverrides/${courseId}`);
+    const snapshot = await overrideRef.once('value');
+    const override = snapshot.val();
+    
+    if (!override) return null;
+    
+    // No expiration checking needed - overrides are school year specific
+    return override;
+  } catch (error) {
+    console.error(`Error checking course payment override for ${studentEmailKey}, course ${courseId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Check if a student has additional free credits override
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} schoolYear - School year (e.g., "25/26")
+ * @param {string} studentType - Student type
+ * @returns {number} Additional free credits (0 if no override)
+ */
+async function checkCreditLimitOverride(studentEmailKey, schoolYear, studentType) {
+  const db = admin.database();
+  const schoolYearKey = formatSchoolYear(schoolYear);
+  const sanitizedType = sanitizeStudentType(studentType);
+  
+  try {
+    const overrideRef = db.ref(`students/${studentEmailKey}/profile/creditOverrides/${schoolYearKey}/${sanitizedType}/creditAdjustments`);
+    const snapshot = await overrideRef.once('value');
+    const adjustments = snapshot.val();
+    
+    if (!adjustments) return 0;
+    
+    // No expiration checking needed - overrides are school year specific
+    return adjustments.additionalFreeCredits || 0;
+  } catch (error) {
+    console.error(`Error checking credit limit override for ${studentEmailKey}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Get effective free credits limit including overrides
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} schoolYear - School year
+ * @param {string} studentType - Student type
+ * @param {number} baseFreeCredits - Base free credits from pricing config
+ * @returns {number} Total free credits including overrides
+ */
+async function getEffectiveFreeCreditsLimit(studentEmailKey, schoolYear, studentType, baseFreeCredits) {
+  const additionalCredits = await checkCreditLimitOverride(studentEmailKey, schoolYear, studentType);
+  return (baseFreeCredits || 0) + additionalCredits;
+}
+
+/**
  * Check payment status for a specific course
  * @param {string} studentEmailKey - Sanitized email key
  * @param {string} courseId - Course ID
+ * @param {string} schoolYear - School year (optional, for override checking)
+ * @param {string} studentType - Student type (optional, for override checking)
  * @returns {Object} Payment status information
  */
-async function checkCoursePaymentStatus(studentEmailKey, courseId) {
+async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = null, studentType = null) {
   const db = admin.database();
+  
+  // First check for manual override if school year and student type are provided
+  if (schoolYear && studentType) {
+    const override = await checkCoursePaymentOverride(studentEmailKey, courseId, schoolYear, studentType);
+    if (override && override.isPaid) {
+      return {
+        isPaid: true,
+        paymentType: 'manual_override',
+        status: 'paid',
+        paymentMethod: 'override',
+        lastUpdated: override.overriddenAt,
+        overrideDetails: {
+          reason: override.reason,
+          overriddenBy: override.overriddenBy,
+          overriddenAt: override.overriddenAt,
+          schoolYear: override.schoolYear || schoolYear
+        }
+      };
+    }
+  }
+  
   // Check the payments node where Stripe stores payment data
   const paymentRef = db.ref(`payments/${studentEmailKey}/courses/${courseId}`);
   const snapshot = await paymentRef.once('value');
@@ -113,6 +204,89 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId) {
     paymentMethod: paymentData?.payment_method || null,
     lastUpdated: paymentData?.last_updated || null
   };
+}
+
+/**
+ * Check if a course has been paid in previous school years and carry over payment status
+ * Only applies to Adult and International students who pay per course
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} courseId - Course ID to check
+ * @param {string} currentSchoolYear - Current school year (e.g., "25/26")
+ * @param {string} studentType - Student type (must be Adult or International)
+ * @returns {Object} Carryover information including payment status and metadata
+ */
+async function checkAndCarryOverCoursePayment(studentEmailKey, courseId, currentSchoolYear, studentType) {
+  // Only process for per-course payment students
+  if (!isPerCoursePaymentStudent(studentType)) {
+    return {
+      shouldCarryOver: false,
+      isPaid: false
+    };
+  }
+  
+  const db = admin.database();
+  const currentYearKey = formatSchoolYear(currentSchoolYear);
+  const sanitizedType = sanitizeStudentType(studentType);
+  
+  try {
+    // Get all credit tracking data for this student's profile
+    const profileCreditsRef = db.ref(`students/${studentEmailKey}/profile/creditsPerStudent`);
+    const snapshot = await profileCreditsRef.once('value');
+    const allCreditsData = snapshot.val() || {};
+    
+    // Track found paid courses from previous years
+    let paidInPreviousYear = null;
+    let originalSchoolYear = null;
+    
+    // Search through all school years for this course
+    for (const [yearKey, yearData] of Object.entries(allCreditsData)) {
+      // Skip current year
+      if (yearKey === currentYearKey) continue;
+      
+      // Check if this student type has data for this year
+      if (yearData[sanitizedType]?.courses?.[courseId]) {
+        const courseData = yearData[sanitizedType].courses[courseId];
+        
+        // Check if the course was paid in this year
+        if (courseData.isPaid) {
+          // Prefer the earliest paid year as the original
+          if (!paidInPreviousYear || yearKey < originalSchoolYear) {
+            paidInPreviousYear = courseData;
+            originalSchoolYear = yearKey;
+          }
+        }
+      }
+    }
+    
+    // If we found a paid course in a previous year, return carryover info
+    if (paidInPreviousYear && originalSchoolYear) {
+      return {
+        shouldCarryOver: true,
+        isPaid: true,
+        carriedOver: {
+          from: originalSchoolYear.replace('_', '/'), // Convert back to display format
+          carriedAt: admin.database.ServerValue.TIMESTAMP,
+          originalCourseId: parseInt(courseId)
+        },
+        originalSchoolYearKey: originalSchoolYear,
+        originalCourseData: paidInPreviousYear
+      };
+    }
+    
+    // No paid course found in previous years
+    return {
+      shouldCarryOver: false,
+      isPaid: false
+    };
+    
+  } catch (error) {
+    console.error(`Error checking course carryover for ${studentEmailKey}, course ${courseId}:`, error);
+    return {
+      shouldCarryOver: false,
+      isPaid: false,
+      error: error.message
+    };
+  }
 }
 
 /**
@@ -276,8 +450,16 @@ async function identifyCoursesRequiringPayment(studentEmailKey, courseIds, freeC
   const paymentDetails = {};
   let nonExemptCreditsAccumulated = 0;
   
-  // Calculate effective limit including paid credits
-  const effectiveLimit = (freeCreditsLimit || 0) + totalPaidCredits;
+  // Get effective free credits limit including overrides
+  const effectiveFreeCreditsLimit = await getEffectiveFreeCreditsLimit(
+    studentEmailKey, 
+    schoolYear, 
+    studentType, 
+    freeCreditsLimit
+  );
+  
+  // Calculate effective limit including paid credits and overrides
+  const effectiveLimit = effectiveFreeCreditsLimit + totalPaidCredits;
   
   for (const course of coursesWithData) {
     // Exempt courses never require payment
@@ -353,10 +535,74 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
     const courseData = {};
     let paidCourses = 0;
     let unpaidCourses = 0;
+    const carryoverUpdates = {}; // Track updates for original courses
+    const overridesApplied = []; // Track which overrides were applied
     
     // Check payment status for each course
     for (const courseId of courseIds) {
-      const paymentStatus = await checkCoursePaymentStatus(studentEmailKey, courseId);
+      // First check if this course has been paid in a previous year
+      const carryoverInfo = await checkAndCarryOverCoursePayment(
+        studentEmailKey, 
+        courseId, 
+        schoolYear, 
+        studentType
+      );
+      
+      let paymentStatus;
+      let coursePaymentData;
+      
+      if (carryoverInfo.shouldCarryOver && carryoverInfo.isPaid) {
+        // Course was paid in a previous year - carry over the payment
+        paymentStatus = {
+          isPaid: true,
+          status: 'paid',
+          paymentType: 'carried_over',
+          paymentMethod: 'carryover',
+          lastUpdated: admin.database.ServerValue.TIMESTAMP
+        };
+        
+        // Prepare update for the original course entry
+        const origYearKey = carryoverInfo.originalSchoolYearKey;
+        
+        // We need to fetch existing carriedTo array and update it
+        const origProfilePath = `students/${studentEmailKey}/profile/creditsPerStudent/${origYearKey}/${sanitizedType}/courses/${courseId}/original/carriedTo`;
+        const origAdminPath = `creditsPerStudent/${origYearKey}/${sanitizedType}/${studentEmailKey}/courses/${courseId}/original/carriedTo`;
+        
+        // Get existing carriedTo array
+        const existingRef = db.ref(origProfilePath);
+        const existingSnapshot = await existingRef.once('value');
+        const existingCarriedTo = existingSnapshot.val() || [];
+        
+        // Add current year if not already present
+        const carriedToArray = Array.isArray(existingCarriedTo) ? existingCarriedTo : [];
+        const currentYearDisplay = schoolYear; // Use display format (e.g., "25/26")
+        if (!carriedToArray.includes(currentYearDisplay)) {
+          carriedToArray.push(currentYearDisplay);
+        }
+        
+        // Update both locations with the original metadata
+        carryoverUpdates[origProfilePath] = carriedToArray;
+        carryoverUpdates[origAdminPath] = carriedToArray;
+        carryoverUpdates[`${origProfilePath.replace('/carriedTo', '/lastCarriedAt')}`] = admin.database.ServerValue.TIMESTAMP;
+        carryoverUpdates[`${origAdminPath.replace('/carriedTo', '/lastCarriedAt')}`] = admin.database.ServerValue.TIMESTAMP;
+        
+        coursePaymentData = {
+          ...carryoverInfo.carriedOver
+        };
+      } else {
+        // Check current payment status with override support
+        paymentStatus = await checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear, studentType);
+        coursePaymentData = null;
+        
+        // Track if an override was applied
+        if (paymentStatus.overrideDetails) {
+          overridesApplied.push({
+            courseId,
+            type: 'payment',
+            details: paymentStatus.overrideDetails
+          });
+        }
+      }
       
       // Get course name from database
       const courseRef = db.ref(`students/${studentEmailKey}/courses/${courseId}/CourseName/Value`);
@@ -368,7 +614,8 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
         paymentStatus: paymentStatus.status,
         paymentType: paymentStatus.paymentType,
         isPaid: paymentStatus.isPaid,
-        lastChecked: paymentStatus.lastUpdated || null
+        lastChecked: paymentStatus.lastUpdated || null,
+        ...(coursePaymentData && { carriedOver: coursePaymentData })
       };
       
       if (paymentStatus.isPaid) {
@@ -387,6 +634,8 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
       paidCourses,
       unpaidCourses,
       requiresPayment: unpaidCourses > 0,
+      hasOverrides: overridesApplied.length > 0,
+      ...(overridesApplied.length > 0 && { overridesApplied }),
       lastUpdated: admin.database.ServerValue.TIMESTAMP
     };
     
@@ -412,6 +661,9 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
       };
     }
     
+    // Add carryover updates for original courses
+    Object.assign(updates, carryoverUpdates);
+    
     await db.ref().update(updates);
     
     return perCourseData;
@@ -434,16 +686,29 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
     // Get pricing config for this student type
     const pricingConfig = await getPricingConfig(studentType);
     
+    // Check for credit limit overrides
+    const additionalFreeCredits = await checkCreditLimitOverride(studentEmailKey, schoolYear, studentType);
+    const effectiveFreeCreditsLimit = (pricingConfig?.freeCreditsLimit || 0) + additionalFreeCredits;
+    
+    // Track if credit override was applied
+    const hasCreditsOverride = additionalFreeCredits > 0;
+    const creditsOverrideDetails = hasCreditsOverride ? {
+      additionalFreeCredits,
+      originalLimit: pricingConfig?.freeCreditsLimit || 0,
+      effectiveLimit: effectiveFreeCreditsLimit
+    } : null;
+    
     // Identify courses requiring payment if there's a limit
     let coursesRequiringPayment = [];
     let coursePaymentDetails = {};
     let totalCreditsRequiringPayment = 0;
     
-    if (pricingConfig?.freeCreditsLimit) {
+    if (effectiveFreeCreditsLimit > 0) {
+      // Pass the base limit to the function (it will apply overrides internally)
       coursePaymentDetails = await identifyCoursesRequiringPayment(
         studentEmailKey, 
         courseIds, 
-        pricingConfig.freeCreditsLimit,
+        pricingConfig?.freeCreditsLimit || 0,
         schoolYear,
         studentType
       );
@@ -462,23 +727,27 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
     const paidCreditsSnapshot = await paidCreditsRef.once('value');
     const totalPaidCredits = paidCreditsSnapshot.val() || 0;
     
-    // Calculate effective paid credits required (after accounting for what's already paid)
-    const effectivePaidCreditsRequired = Math.max(0, totals.nonExemptCredits - (pricingConfig?.freeCreditsLimit || 0) - totalPaidCredits);
+    // Calculate effective paid credits required (after accounting for what's already paid and overrides)
+    const effectivePaidCreditsRequired = Math.max(0, totals.nonExemptCredits - effectiveFreeCreditsLimit - totalPaidCredits);
     
     // Add summary fields with pricing info
     Object.assign(creditData, {
       ...totals,
       studentType,
       uid: uid || null,
-      freeCreditsLimit: pricingConfig?.freeCreditsLimit || null,
+      freeCreditsLimit: effectiveFreeCreditsLimit,
+      baseFreeCreditsLimit: pricingConfig?.freeCreditsLimit || null,
+      additionalFreeCredits: additionalFreeCredits,
       totalPaidCredits: totalPaidCredits,
-      remainingFreeCredits: pricingConfig?.freeCreditsLimit ? 
-        Math.max(0, (pricingConfig.freeCreditsLimit - totals.nonExemptCredits)) : null,
+      remainingFreeCredits: effectiveFreeCreditsLimit ? 
+        Math.max(0, (effectiveFreeCreditsLimit - totals.nonExemptCredits)) : null,
       paidCreditsRequired: effectivePaidCreditsRequired,
       requiresPayment: effectivePaidCreditsRequired > 0,
       coursesRequiringPayment: coursesRequiringPayment,
       coursePaymentDetails: coursePaymentDetails,
       totalCreditsRequiringPayment: Math.max(0, totalCreditsRequiringPayment - totalPaidCredits),
+      hasOverrides: hasCreditsOverride,
+      ...(hasCreditsOverride && { creditsOverrideDetails }),
       lastUpdated: admin.database.ServerValue.TIMESTAMP
     });
     
@@ -667,7 +936,11 @@ module.exports = {
   clearCreditsCache,
   sanitizeStudentType,
   isPerCoursePaymentStudent,
+  checkCoursePaymentOverride,
+  checkCreditLimitOverride,
+  getEffectiveFreeCreditsLimit,
   checkCoursePaymentStatus,
+  checkAndCarryOverCoursePayment,
   getPricingConfig,
   getCourseCredits,
   isExemptCourse,

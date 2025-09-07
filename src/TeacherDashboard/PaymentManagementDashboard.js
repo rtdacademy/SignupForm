@@ -18,9 +18,12 @@ import {
   Eye,
   Clock,
   Calendar,
-  User
+  User,
+  Shield,
+  Zap
 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import StudentPaymentDetails from './StudentPaymentDetails';
 import PaymentActions from './PaymentActions';
 
@@ -214,6 +217,8 @@ const PaymentManagementDashboard = () => {
             exemptCredits: studentData.exemptCredits || 0,
             freeCreditsUsed: studentData.freeCreditsUsed || 0,
             freeCreditsLimit: studentData.freeCreditsLimit || 10,
+            baseFreeCreditsLimit: studentData.baseFreeCreditsLimit || 10,
+            additionalFreeCredits: studentData.additionalFreeCredits || 0,
             paidCreditsRequired: studentData.paidCreditsRequired || 0,
             totalPaidCredits: studentData.totalPaidCredits || 0,
             totalCreditsRequiringPayment: studentData.totalCreditsRequiringPayment || 0,
@@ -222,6 +227,9 @@ const PaymentManagementDashboard = () => {
             paidCourses: paidCourses || studentData.paidCourses || 0,
             unpaidCourses: unpaidCourses || studentData.unpaidCourses || 0,
             requiresPayment: studentData.requiresPayment || false,
+            hasOverrides: studentData.hasOverrides || false,
+            overridesApplied: studentData.overridesApplied || [],
+            creditsOverrideDetails: studentData.creditsOverrideDetails || null,
             lastUpdated: studentData.lastUpdated || Date.now(),
             rawData: studentData
           };
@@ -575,19 +583,66 @@ const PaymentManagementDashboard = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(student.paymentStatus)}`}>
-                          {getStatusIcon(student.paymentStatus)}
-                          {student.paymentStatus === 'free' ? 'Free' : student.paymentStatus.charAt(0).toUpperCase() + student.paymentStatus.slice(1)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(student.paymentStatus)}`}>
+                            {getStatusIcon(student.paymentStatus)}
+                            {student.paymentStatus === 'free' ? 'Free' : student.paymentStatus.charAt(0).toUpperCase() + student.paymentStatus.slice(1)}
+                          </span>
+                          {student.hasOverrides && (
+                            <button
+                              onClick={() => {
+                                setSelectedStudent(student);
+                                setShowActions(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors cursor-pointer"
+                              title="Click to manage overrides"
+                            >
+                              <Shield className="h-3 w-3" />
+                              Override
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         {student.paymentModel === 'credit' ? (
                           <div className="text-sm">
-                            <p className="font-medium">{student.totalCredits} / {student.freeCreditsLimit}</p>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="font-medium cursor-help inline-flex items-center">
+                                    {student.totalCredits} / {student.freeCreditsLimit + student.totalPaidCredits}
+                                    {student.additionalFreeCredits > 0 && (
+                                      <Zap className="h-3 w-3 text-yellow-600 ml-1" />
+                                    )}
+                                  </p>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-gray-900 text-white">
+                                  <div className="space-y-1">
+                                    <div>Base Free Credits: {student.baseFreeCreditsLimit || 10}</div>
+                                    {student.additionalFreeCredits > 0 && (
+                                      <div className="text-yellow-400">Override Credits: +{student.additionalFreeCredits}</div>
+                                    )}
+                                    {student.totalPaidCredits > 0 && (
+                                      <div className="text-green-400">Paid Credits: +{student.totalPaidCredits}</div>
+                                    )}
+                                    <div className="border-t pt-1 mt-1 font-semibold">
+                                      Total Limit: {student.freeCreditsLimit + student.totalPaidCredits}
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             <p className="text-xs text-gray-500">
-                              {student.totalCredits > student.freeCreditsLimit ? 
-                                `${student.totalCredits - student.freeCreditsLimit} beyond free limit` : 
-                                `${student.freeCreditsLimit - student.totalCredits} free remaining`}
+                              {(() => {
+                                const effectiveLimit = student.freeCreditsLimit + student.totalPaidCredits;
+                                if (student.totalCredits > effectiveLimit) {
+                                  return `${student.totalCredits - effectiveLimit} credits needed`;
+                                } else if (student.totalCredits > student.freeCreditsLimit) {
+                                  return `Using ${student.totalCredits - student.freeCreditsLimit} paid credits`;
+                                } else {
+                                  return `${student.freeCreditsLimit - student.totalCredits} free remaining`;
+                                }
+                              })()}
                             </p>
                           </div>
                         ) : (
@@ -642,19 +697,24 @@ const PaymentManagementDashboard = () => {
                               <>
                                 <div>
                                   <p className="font-medium text-gray-700">Free Credits Used</p>
-                                  <p>{student.freeCreditsUsed} / 10</p>
+                                  <p>{student.freeCreditsUsed} / {student.baseFreeCreditsLimit || 10}</p>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-700">Free Credit Limit</p>
+                                  <p>
+                                    {student.baseFreeCreditsLimit || 10}
+                                    {student.additionalFreeCredits > 0 && (
+                                      <span className="text-yellow-600"> + {student.additionalFreeCredits} = {student.freeCreditsLimit}</span>
+                                    )}
+                                  </p>
                                 </div>
                                 <div>
                                   <p className="font-medium text-gray-700">Paid Credits Required</p>
-                                  <p>{student.paidCreditsRequired}</p>
+                                  <p>{student.totalCreditsRequiringPayment || 0}</p>
                                 </div>
                                 <div>
-                                  <p className="font-medium text-gray-700">Total Paid Credits</p>
+                                  <p className="font-medium text-gray-700">Paid Credits</p>
                                   <p>{student.totalPaidCredits}</p>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-gray-700">Exempt Credits</p>
-                                  <p>{student.exemptCredits}</p>
                                 </div>
                               </>
                             ) : (
@@ -678,6 +738,28 @@ const PaymentManagementDashboard = () => {
                               </>
                             )}
                           </div>
+                          {/* Override Details */}
+                          {student.hasOverrides && (
+                            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                              <p className="font-medium text-sm text-yellow-800 mb-2">Active Overrides:</p>
+                              {student.creditsOverrideDetails && (
+                                <div className="text-xs text-yellow-700">
+                                  <p>• Additional Free Credits: +{student.creditsOverrideDetails.additionalFreeCredits}</p>
+                                  <p>• New Limit: {student.creditsOverrideDetails.effectiveLimit} (was {student.creditsOverrideDetails.originalLimit})</p>
+                                </div>
+                              )}
+                              {student.overridesApplied && student.overridesApplied.length > 0 && (
+                                <div className="text-xs text-yellow-700 mt-2">
+                                  {student.overridesApplied.map((override, idx) => (
+                                    <div key={idx}>
+                                      <p>• Course {override.courseId}: Marked as paid</p>
+                                      <p className="ml-2 text-gray-600">Reason: {override.details?.reason}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           <div className="mt-4 text-xs text-gray-500">
                             Last Updated: {new Date(student.lastUpdated).toLocaleString()}
                           </div>

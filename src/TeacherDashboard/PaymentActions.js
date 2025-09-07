@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, set, update, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { 
   X,
@@ -8,27 +9,40 @@ import {
   RefreshCw,
   Link,
   AlertTriangle,
+  AlertCircle,
   Check,
   Calculator,
   CreditCard,
   FileText,
   Shield,
   Edit,
-  Save
+  Save,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetDescription,
+  SheetFooter 
+} from '../components/ui/sheet';
 
 const PaymentActions = ({ student, schoolYear, onClose }) => {
   const [processing, setProcessing] = useState(false);
   const [activeAction, setActiveAction] = useState(null);
   const [message, setMessage] = useState(null);
+  const [existingOverride, setExistingOverride] = useState(null);
   const [creditAdjustment, setCreditAdjustment] = useState({
     amount: 0,
     reason: ''
   });
   const [manualOverride, setManualOverride] = useState({
     enabled: false,
-    reason: ''
+    reason: '',
+    selectedCourses: [] // For per-course overrides
   });
   const [paymentLinkData, setPaymentLinkData] = useState({
     amount: student.amountDue || 0,
@@ -37,10 +51,20 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
   });
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
   
-  // Load customer ID from Firebase payment data on mount
+  // Load customer ID and existing overrides on mount
   useEffect(() => {
     loadCustomerId();
-  }, [student]);
+    loadExistingOverrides();
+    
+    // Reset form state when component unmounts
+    return () => {
+      setCreditAdjustment({ amount: 0, reason: '' });
+      setManualOverride({ enabled: false, reason: '', selectedCourses: [] });
+      setPaymentLinkData({ amount: student.amountDue || 0, description: '', courses: [] });
+      setActiveAction(null);
+      setMessage(null);
+    };
+  }, [student, schoolYear]);
   
   const loadCustomerId = async () => {
     try {
@@ -71,8 +95,60 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     }
   };
 
+  const loadExistingOverrides = async () => {
+    try {
+      const db = getDatabase();
+      const emailKey = sanitizeEmail(student.email);
+      const schoolYearKey = schoolYear.replace('/', '_');
+      
+      // Check for credit adjustment overrides
+      if (student.paymentModel === 'credit') {
+        const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/creditAdjustments`;
+        const overrideRef = ref(db, overridePath);
+        const snapshot = await get(overrideRef);
+        
+        if (snapshot.exists()) {
+          const override = snapshot.val();
+          setExistingOverride({
+            type: 'credit',
+            data: override
+          });
+          // Pre-fill the form with existing values
+          setCreditAdjustment({
+            amount: override.additionalFreeCredits || 0,
+            reason: override.reason || ''
+          });
+        }
+      } else if (student.paymentModel === 'course') {
+        // Check for course payment overrides
+        const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/courseOverrides`;
+        const overrideRef = ref(db, overridePath);
+        const snapshot = await get(overrideRef);
+        
+        if (snapshot.exists()) {
+          const overrides = snapshot.val();
+          const overriddenCourses = Object.keys(overrides);
+          setExistingOverride({
+            type: 'course',
+            data: overrides,
+            courses: overriddenCourses
+          });
+          // Pre-fill the form
+          setManualOverride({
+            enabled: true,
+            reason: overrides[overriddenCourses[0]]?.reason || '',
+            selectedCourses: overriddenCourses
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing overrides:', error);
+    }
+  };
+
   const handleCreditAdjustment = async () => {
-    if (!creditAdjustment.amount || !creditAdjustment.reason) {
+    // Allow 0 for removing override, but still require reason
+    if (creditAdjustment.amount === null || creditAdjustment.amount === undefined || !creditAdjustment.reason) {
       setMessage({ type: 'error', text: 'Please provide amount and reason for adjustment' });
       return;
     }
@@ -80,19 +156,49 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     setProcessing(true);
     try {
       const db = getDatabase();
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      const currentUserEmail = currentUser?.email || 'unknown';
+      
       const emailKey = sanitizeEmail(student.email);
       const schoolYearKey = schoolYear.replace('/', '_');
       
-      // Update paid credits
-      const creditPath = `students/${emailKey}/profile/creditsPaid/${schoolYearKey}/${student.typeKey}`;
-      const creditRef = ref(db, creditPath);
-      
-      // Get current paid credits
-      const snapshot = await creditRef.get();
-      const currentCredits = snapshot.val() || 0;
-      const newCredits = currentCredits + parseInt(creditAdjustment.amount);
-      
-      await set(creditRef, Math.max(0, newCredits));
+      // For credit-based students, we add/update/remove additional free credits via override
+      if (student.paymentModel === 'credit') {
+        const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/creditAdjustments`;
+        
+        if (creditAdjustment.amount === 0) {
+          // Remove override if amount is 0
+          await set(ref(db, overridePath), null);
+          setMessage({ type: 'success', text: 'Credit override removed successfully' });
+        } else {
+          // Add or update override
+          const overrideData = {
+            additionalFreeCredits: parseInt(creditAdjustment.amount),
+            reason: creditAdjustment.reason,
+            overriddenBy: currentUserEmail,
+            overriddenAt: Date.now(),
+            schoolYear: schoolYear // Store the school year for clarity
+          };
+          
+          await set(ref(db, overridePath), overrideData);
+          const successMessage = existingOverride ? 
+            `Override updated: ${creditAdjustment.amount} additional credits` : 
+            `Override applied: ${creditAdjustment.amount} additional credits`;
+          setMessage({ type: 'success', text: successMessage });
+        }
+      } else {
+        // For paid credits (purchasing credits), update the paid credits directly
+        const creditPath = `students/${emailKey}/profile/creditsPaid/${schoolYearKey}/${student.typeKey}`;
+        const creditRef = ref(db, creditPath);
+        
+        // Get current paid credits
+        const snapshot = await creditRef.get();
+        const currentCredits = snapshot.val() || 0;
+        const newCredits = currentCredits + parseInt(creditAdjustment.amount);
+        
+        await set(creditRef, Math.max(0, newCredits));
+      }
       
       // Log the adjustment
       const adjustmentId = Date.now();
@@ -100,19 +206,18 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
       await set(ref(db, adjustmentPath), {
         amount: creditAdjustment.amount,
         reason: creditAdjustment.reason,
-        adjustedBy: 'staff', // In production, use actual staff user ID
+        adjustedBy: currentUserEmail,
         timestamp: Date.now(),
-        previousValue: currentCredits,
-        newValue: newCredits,
         schoolYear,
-        studentType: student.typeKey
+        studentType: student.typeKey,
+        adjustmentType: creditAdjustment.amount > 0 ? 'freeCreditsOverride' : 'paidCreditsAdjustment'
       });
       
       // Trigger credit recalculation
       await set(ref(db, `creditRecalculations/${emailKey}/trigger`), Date.now());
       
       setMessage({ type: 'success', text: 'Credit adjustment applied successfully' });
-      setCreditAdjustment({ amount: 0, reason: '' });
+      // Don't reset the form until after closing
       
       setTimeout(() => {
         onClose();
@@ -133,34 +238,71 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     setProcessing(true);
     try {
       const db = getDatabase();
-      const emailKey = sanitizeEmail(student.email);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      const currentUserEmail = currentUser?.email || 'unknown';
       
-      // Set manual payment override for each course
-      const updates = {};
+      const emailKey = sanitizeEmail(student.email);
+      const schoolYearKey = schoolYear.replace('/', '_');
       
       if (student.paymentModel === 'course') {
-        // For course-based students
-        Object.keys(student.courses).forEach(courseId => {
-          updates[`payments/${emailKey}/courses/${courseId}/manual`] = manualOverride.enabled;
-          updates[`payments/${emailKey}/courses/${courseId}/manualReason`] = manualOverride.reason;
-          updates[`payments/${emailKey}/courses/${courseId}/manualTimestamp`] = Date.now();
-        });
+        // For course-based students (Adult/International), set override for specific courses
+        const coursesToOverride = manualOverride.selectedCourses.length > 0 
+          ? manualOverride.selectedCourses 
+          : Object.keys(student.courses);
+        
+        for (const courseId of coursesToOverride) {
+          const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/courseOverrides/${courseId}`;
+          
+          if (manualOverride.enabled) {
+            const overrideData = {
+              isPaid: true,
+              reason: manualOverride.reason,
+              overriddenBy: currentUserEmail,
+              overriddenAt: Date.now(),
+              schoolYear: schoolYear // Store the school year for clarity
+            };
+            
+            await set(ref(db, overridePath), overrideData);
+          } else {
+            // Remove override
+            await set(ref(db, overridePath), null);
+          }
+        }
       } else {
-        // For credit-based students
-        updates[`students/${emailKey}/profile/paymentOverride`] = {
-          enabled: manualOverride.enabled,
-          reason: manualOverride.reason,
-          timestamp: Date.now(),
-          setBy: 'staff' // In production, use actual staff user ID
-        };
+        // For credit-based students, this would be additional free credits
+        // Use the credit adjustment function for this case
+        setMessage({ 
+          type: 'info', 
+          text: 'For credit-based students, use the "Adjust Credits" option to grant additional free credits' 
+        });
+        setProcessing(false);
+        return;
       }
       
-      await update(ref(db), updates);
+      // Log the override action
+      const overrideLogId = Date.now();
+      const logPath = `paymentOverrides/${emailKey}/${overrideLogId}`;
+      await set(ref(db, logPath), {
+        action: manualOverride.enabled ? 'enabled' : 'disabled',
+        reason: manualOverride.reason,
+        overriddenBy: currentUserEmail,
+        timestamp: Date.now(),
+        schoolYear,
+        studentType: student.typeKey,
+        courses: manualOverride.selectedCourses.length > 0 
+          ? manualOverride.selectedCourses 
+          : Object.keys(student.courses)
+      });
+      
+      // Trigger credit recalculation
+      await set(ref(db, `creditRecalculations/${emailKey}/trigger`), Date.now());
       
       setMessage({ 
         type: 'success', 
         text: manualOverride.enabled ? 'Payment override enabled' : 'Payment override disabled' 
       });
+      // Don't reset the form until after closing
       
       setTimeout(() => {
         onClose();
@@ -281,24 +423,94 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
       case 'adjust':
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-700">Adjust Paid Credits</h3>
-            <p className="text-sm text-gray-600">
-              Add or subtract paid credits for this student. Current paid credits: {student.totalPaidCredits || 0}
-            </p>
+            <h3 className="font-medium text-gray-700">
+              {student.paymentModel === 'credit' ? 
+                (existingOverride ? 'Edit Free Credits Override' : 'Grant Additional Free Credits') : 
+                'Adjust Paid Credits'}
+            </h3>
+            {student.paymentModel === 'credit' ? (
+              <>
+                <p className="text-sm text-gray-600">
+                  {existingOverride ? 'Modify or remove the existing' : 'Grant'} additional free credits to this student for <strong>{schoolYear}</strong> school year. 
+                  Current free credit limit: {student.freeCreditsLimit || 10}
+                  {existingOverride && ` (includes +${existingOverride.data.additionalFreeCredits} override)`}
+                </p>
+                
+                {existingOverride && (
+                  <Alert className="border-yellow-500">
+                    <Shield className="h-4 w-4 text-yellow-500" />
+                    <AlertDescription className="text-yellow-700">
+                      <strong>Existing Override:</strong><br />
+                      Additional Credits: +{existingOverride.data.additionalFreeCredits}<br />
+                      Applied by: {existingOverride.data.overriddenBy}<br />
+                      Date: {new Date(existingOverride.data.overriddenAt).toLocaleDateString()}<br />
+                      Reason: {existingOverride.data.reason}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <Alert className="border-blue-500">
+                  <AlertCircle className="h-4 w-4 text-blue-500" />
+                  <AlertDescription className="text-blue-700">
+                    {existingOverride ? 
+                      'Update the override amount or set to 0 to remove the override entirely.' :
+                      `This will increase the student's free credit limit for the ${schoolYear} school year only, 
+                      allowing them to register for more courses without payment.`}
+                  </AlertDescription>
+                </Alert>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600">
+                Adjust payment records for this student.
+              </p>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Credit Adjustment (use negative for reduction)
+                {student.paymentModel === 'credit' ? 'Additional Free Credits' : 'Credit Adjustment'}
               </label>
-              <input
-                type="number"
-                value={creditAdjustment.amount}
-                onChange={(e) => setCreditAdjustment({
-                  ...creditAdjustment,
-                  amount: parseInt(e.target.value) || 0
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="e.g., 5 or -3"
-              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreditAdjustment({
+                    ...creditAdjustment,
+                    amount: Math.max(0, creditAdjustment.amount - 1)
+                  })}
+                  className="p-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all hover:scale-105 active:scale-95"
+                  disabled={student.paymentModel === 'credit' && creditAdjustment.amount <= 0}
+                >
+                  <Minus className="w-5 h-5" />
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    value={creditAdjustment.amount}
+                    readOnly
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center text-xl font-bold bg-white cursor-default"
+                    min={student.paymentModel === 'credit' ? 0 : undefined}
+                  />
+                  <span className="absolute -top-2 left-1/2 transform -translate-x-1/2 text-xs bg-white px-2 text-gray-500">
+                    Credits
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreditAdjustment({
+                    ...creditAdjustment,
+                    amount: creditAdjustment.amount + 1
+                  })}
+                  className="p-3 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all hover:scale-105 active:scale-95"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                {creditAdjustment.amount === 0 && existingOverride ? 
+                  <span className="text-red-600 font-medium">Setting to 0 will remove the existing override</span> :
+                  creditAdjustment.amount === 0 ? 
+                  'Use + button to add credits' :
+                  `Will grant ${creditAdjustment.amount} additional free credit${creditAdjustment.amount !== 1 ? 's' : ''}`
+                }
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -317,7 +529,7 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
             </div>
             <button
               onClick={handleCreditAdjustment}
-              disabled={processing || !creditAdjustment.amount || !creditAdjustment.reason}
+              disabled={processing || (creditAdjustment.amount === null || creditAdjustment.amount === undefined) || !creditAdjustment.reason}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {processing ? (
@@ -328,7 +540,8 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Apply Adjustment
+                  {creditAdjustment.amount === 0 ? 'Remove Override' : 
+                   (existingOverride ? 'Update Override' : 'Apply Adjustment')}
                 </>
               )}
             </button>
@@ -338,13 +551,69 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
       case 'override':
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-700">Manual Payment Override</h3>
-            <Alert className="border-yellow-500">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              <AlertDescription className="text-yellow-700">
-                This will bypass automatic payment checks. Use with caution.
-              </AlertDescription>
-            </Alert>
+            <h3 className="font-medium text-gray-700">
+              {student.paymentModel === 'course' ? 'Mark Courses as Paid' : 'Manual Payment Override'}
+            </h3>
+            
+            {student.paymentModel === 'course' ? (
+              <>
+                <p className="text-sm text-gray-600">
+                  Mark specific courses as paid for <strong>{schoolYear}</strong> school year without processing payment through Stripe.
+                </p>
+                <Alert className="border-yellow-500">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-yellow-700">
+                    This will bypass automatic payment checks. Use only when payment has been received through alternative means.
+                  </AlertDescription>
+                </Alert>
+                
+                {/* Course selection for per-course payment students */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Courses to Override
+                  </label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                    {Object.entries(student.courses || {}).map(([courseId, courseData]) => (
+                      <label key={courseId} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={manualOverride.selectedCourses.includes(courseId)}
+                          onChange={(e) => {
+                            const newSelected = e.target.checked
+                              ? [...manualOverride.selectedCourses, courseId]
+                              : manualOverride.selectedCourses.filter(id => id !== courseId);
+                            setManualOverride({
+                              ...manualOverride,
+                              selectedCourses: newSelected
+                            });
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">
+                          {courseData.courseName || `Course ${courseId}`}
+                          {courseData.isPaid && <span className="text-green-600 ml-2">(Already Paid)</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {manualOverride.selectedCourses.length === 0 
+                      ? 'No courses selected - will apply to all courses' 
+                      : `${manualOverride.selectedCourses.length} course(s) selected`}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <Alert className="border-blue-500">
+                  <AlertCircle className="h-4 w-4 text-blue-500" />
+                  <AlertDescription className="text-blue-700">
+                    For credit-based students, use the "Adjust Credits" option to grant additional free credits instead.
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
+            
             <div>
               <label className="flex items-center gap-2">
                 <input
@@ -355,12 +624,14 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
                     enabled: e.target.checked
                   })}
                   className="rounded"
+                  disabled={student.paymentModel !== 'course'}
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Enable manual payment override
+                  {manualOverride.enabled ? 'Mark as paid' : 'Remove override'}
                 </span>
               </label>
             </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Reason for Override
@@ -373,12 +644,16 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
                 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 rows="3"
-                placeholder="Explain why payment is being manually overridden..."
+                placeholder={student.paymentModel === 'course' 
+                  ? "e.g., Payment received via check, Alternative payment arrangement..." 
+                  : "Use 'Adjust Credits' for credit-based students"}
+                disabled={student.paymentModel !== 'course'}
               />
             </div>
+            
             <button
               onClick={handleManualOverride}
-              disabled={processing || !manualOverride.reason}
+              disabled={processing || !manualOverride.reason || student.paymentModel !== 'course'}
               className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {processing ? (
@@ -389,7 +664,7 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
               ) : (
                 <>
                   <Shield className="h-4 w-4" />
-                  Apply Override
+                  {student.paymentModel === 'course' ? 'Apply Override' : 'Not Available for Credit Students'}
                 </>
               )}
             </button>
@@ -640,24 +915,19 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
-        {/* Header */}
-        <div className="px-6 py-4 border-b flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Payment Actions</h2>
-            <p className="text-sm text-gray-600 mt-1">{student.email}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Sheet open={true} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-full sm:w-2/3 lg:w-1/2 xl:w-2/5 overflow-hidden flex flex-col">
+        <SheetHeader className="pb-4 border-b">
+          <SheetTitle>Payment Actions</SheetTitle>
+          <SheetDescription className="flex flex-col gap-1">
+            <span>{student.email}</span>
+            <span className="text-xs">
+              {student.studentType} • {schoolYear} • {student.paymentModel === 'credit' ? 'Credit-Based' : 'Course-Based'}
+            </span>
+          </SheetDescription>
+        </SheetHeader>
 
-        {/* Content */}
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto py-6 px-1">
           {message && (
             <Alert className={`mb-4 ${message.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
               {message.type === 'success' ? (
@@ -674,25 +944,18 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
           {renderActionContent()}
         </div>
 
-        {/* Footer */}
         {activeAction && (
-          <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
+          <div className="border-t pt-4 mt-auto">
             <button
               onClick={() => setActiveAction(null)}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
             >
               ← Back to Actions
             </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-            >
-              Close
-            </button>
           </div>
         )}
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 

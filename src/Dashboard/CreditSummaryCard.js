@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InfoIcon, CreditCard, TrendingUp, BookOpen, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { InfoIcon, CreditCard, TrendingUp, BookOpen, CheckCircle, XCircle, AlertCircle, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { 
@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { useAllStudentCredits } from '../hooks/useCreditTracking';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { useAuth } from '../context/AuthContext';
@@ -337,24 +338,42 @@ export const CreditSummaryCard = ({
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-600">Credits:</span>
-                              <div className="flex items-center gap-1">
-                                <span className={`px-2 py-0.5 ${
-                                  creditsUsed > effectiveLimit 
-                                    ? 'bg-red-100 text-red-700' 
-                                    : 'bg-blue-100 text-blue-700'
-                                } rounded-md text-sm font-semibold`}>
-                                  {creditsUsed}
-                                </span>
-                                <span className="text-gray-400 text-sm">/</span>
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-sm font-semibold">
-                                  {effectiveLimit}
-                                </span>
-                                {data.totalPaidCredits > 0 && (
-                                  <span className="text-[10px] text-gray-500 ml-0.5">
-                                    (incl. {data.totalPaidCredits} paid)
-                                  </span>
-                                )}
-                              </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1 cursor-help">
+                                      <span className={`px-2 py-0.5 ${
+                                        creditsUsed > effectiveLimit 
+                                          ? 'bg-red-100 text-red-700' 
+                                          : 'bg-blue-100 text-blue-700'
+                                      } rounded-md text-sm font-semibold`}>
+                                        {creditsUsed}
+                                      </span>
+                                      <span className="text-gray-400 text-sm">/</span>
+                                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-sm font-semibold">
+                                        {effectiveLimit}
+                                      </span>
+                                      {data.additionalFreeCredits > 0 && (
+                                        <Zap className="h-3 w-3 text-yellow-600 ml-1" />
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="bg-gray-900 text-white">
+                                    <div className="space-y-1">
+                                      <div>Base Free Credits: {data.baseFreeCreditsLimit || 10}</div>
+                                      {data.additionalFreeCredits > 0 && (
+                                        <div className="text-yellow-400">Override Credits: +{data.additionalFreeCredits}</div>
+                                      )}
+                                      {data.totalPaidCredits > 0 && (
+                                        <div className="text-green-400">Paid Credits: +{data.totalPaidCredits}</div>
+                                      )}
+                                      <div className="border-t pt-1 mt-1 font-semibold">
+                                        Total Limit: {effectiveLimit}
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                             
                             {/* Show payment info if over limit */}
@@ -609,24 +628,42 @@ export const CreditSummaryCard = ({
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Credits:</span>
-                        <div className="flex items-center gap-1">
-                          <span className={`px-2 py-0.5 ${
-                            creditsUsed > effectiveLimit 
-                              ? 'bg-red-100 text-red-700' 
-                              : 'bg-blue-100 text-blue-700'
-                          } rounded-md text-sm font-semibold`}>
-                            {creditsUsed}
-                          </span>
-                          <span className="text-gray-400 text-sm">/</span>
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-sm font-semibold">
-                            {effectiveLimit}
-                          </span>
-                          {data.totalPaidCredits > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              (includes {data.totalPaidCredits} paid)
-                            </span>
-                          )}
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1 cursor-help">
+                                <span className={`px-2 py-0.5 ${
+                                  creditsUsed > effectiveLimit 
+                                    ? 'bg-red-100 text-red-700' 
+                                    : 'bg-blue-100 text-blue-700'
+                                } rounded-md text-sm font-semibold`}>
+                                  {creditsUsed}
+                                </span>
+                                <span className="text-gray-400 text-sm">/</span>
+                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-sm font-semibold">
+                                  {effectiveLimit}
+                                </span>
+                                {data.additionalFreeCredits > 0 && (
+                                  <Zap className="h-3 w-3 text-yellow-600 ml-1" />
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-gray-900 text-white">
+                              <div className="space-y-1">
+                                <div>Base Free Credits: {data.baseFreeCreditsLimit || 10}</div>
+                                {data.additionalFreeCredits > 0 && (
+                                  <div className="text-yellow-400">Override Credits: +{data.additionalFreeCredits}</div>
+                                )}
+                                {data.totalPaidCredits > 0 && (
+                                  <div className="text-green-400">Paid Credits: +{data.totalPaidCredits}</div>
+                                )}
+                                <div className="border-t pt-1 mt-1 font-semibold">
+                                  Total Limit: {effectiveLimit}
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                       
                       {/* Show payment info if over limit */}
