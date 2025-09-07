@@ -13,7 +13,7 @@ import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRigh
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import AddressPicker from '../components/AddressPicker';
-import FamilyCreationSheet from './FamilyCreationSheet';
+import FamilyManagementWrapper from './FamilyManagementWrapper';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
@@ -3085,8 +3085,8 @@ Check console for full details.
           </SheetContent>
         </Sheet>
 
-        {/* Family Creation Sheet - opened from facilitator selection */}
-        <FamilyCreationSheet
+        {/* Family Management - opened from facilitator selection */}
+        <FamilyManagementWrapper
           isOpen={showFamilyCreation}
           onOpenChange={setShowFamilyCreation}
           familyKey={hasRegisteredFamily ? familyKey : null}
@@ -3294,8 +3294,8 @@ Check console for full details.
           </SheetContent>
         </Sheet>
 
-        {/* Family Creation Sheet */}
-        <FamilyCreationSheet
+        {/* Family Management */}
+        <FamilyManagementWrapper
           isOpen={showFamilyCreation}
           onOpenChange={setShowFamilyCreation}
           familyKey={hasRegisteredFamily ? familyKey : null}
@@ -4767,9 +4767,9 @@ Check console for full details.
         </SheetContent>
       </Sheet>
 
-      {/* Family Creation Sheet - Primary Guardians and Staff */}
+      {/* Family Management - Primary Guardians and Staff */}
       {(customClaims?.familyRole === 'primary_guardian' || isStaff()) && (
-        <FamilyCreationSheet
+        <FamilyManagementWrapper
           isOpen={showFamilyCreation}
           onOpenChange={setShowFamilyCreation}
           familyKey={hasRegisteredFamily ? (isStaffViewing ? effectiveFamilyId : familyKey) : null}
