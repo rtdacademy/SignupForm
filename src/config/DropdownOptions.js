@@ -27,7 +27,8 @@ import {
   Umbrella,         // for Summer
   Ban,
   CreditCard,      // for Payment Active
-  BanknoteIcon     // for Payment Unpaid
+  BanknoteIcon,    // for Payment Unpaid
+  Keyboard         // for Keyboarding course
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [

@@ -9,6 +9,7 @@ import {
   setMockDate,
   resetNotificationAcknowledgment
 } from '../../utils/notificationFilterUtils';
+import { ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../../config/DropdownOptions';
 
 export const useStudentData = (userEmailKey) => {
   const { isEmulating } = useAuth();
@@ -388,8 +389,9 @@ export const useStudentData = (userEmailKey) => {
           const status = course.ActiveFutureArchived?.Value;
           // Only include courses with valid enrollment statuses
           // This filters out courses that only have metadata (like categories) but no actual enrollment
-          return status === 'Active' || status === 'Future' || 
-                 status === 'Archived' || status === 'Registration';
+          // Using values from ACTIVE_FUTURE_ARCHIVED_OPTIONS configuration
+          const validStatuses = ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => option.value);
+          return validStatuses.includes(status);
         });
     }
 

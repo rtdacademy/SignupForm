@@ -19,7 +19,6 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../compone
 import ScheduleMaker from '../Schedule/ScheduleMaker';
 import SchedCombined from '../Schedule/schedCombined';
 import ScheduleDisplay from '../Schedule/ScheduleDisplay';
-import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
  
 import StudentGradesDisplay from './StudentGradesDisplay';
@@ -133,8 +132,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
   
   // Payment sheet state
-  // Documents sheet state (for international docs)
-  const [isDocumentsSheetOpen, setIsDocumentsSheetOpen] = useState(false);
   
   // Sheet states for full-screen overlays
   const [isScheduleSheetOpen, setIsScheduleSheetOpen] = useState(false);
@@ -182,9 +179,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
   // Check if student has a schedule
   const hasSchedule = !!studentData?.courses?.[courseId]?.ScheduleJSON;
-  
-  // Check if student has international documents
-  const hasInternationalDocs = !!studentData?.profile?.internationalDocuments;
 
 
   const handleStudentStatsChange = (checked) => {
@@ -907,19 +901,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
               
-              {/* Documents Button - Visible for students with international docs */}
-              {hasInternationalDocs && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDocumentsSheetOpen(true)}
-                  className={getRegularButtonStyles()}
-                >
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  Documents
-                </Button>
-              )}
-              
             </div>
             
             {/* Staff Badges - Fixed width */}
@@ -952,19 +933,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           <>
             {/* Action buttons in a row */}
             <div className="flex flex-wrap gap-2 w-full mb-2">
-              
-              {/* Documents Button - Visible for students with international docs */}
-              {hasInternationalDocs && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDocumentsSheetOpen(true)}
-                  className={getRegularButtonStylesMobile()}
-                >
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  Docs
-                </Button>
-              )}
               
             </div>
             
@@ -1289,30 +1257,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
 
 
-        {/* Documents Sheet (International) */}
-        {hasInternationalDocs && (
-          <Sheet open={isDocumentsSheetOpen} onOpenChange={setIsDocumentsSheetOpen}>
-            <SheetContent 
-              side="right" 
-              className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col"
-            >
-              <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="mb-4 flex-shrink-0">
-                  <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
-                    <ClipboardList className="h-5 w-5 mr-2" />
-                    International Documents
-                  </h2>
-                </div>
-                
-                {/* Documents Content */}
-                <div className="flex-1 overflow-auto">
-                  <InternationalDocuments documents={studentData.profile.internationalDocuments} />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
 
         {/* Comparison Sheet - Wide Sheet for Side by Side Comparison */}
         <Sheet open={isComparisonSheetOpen} onOpenChange={setIsComparisonSheetOpen}>

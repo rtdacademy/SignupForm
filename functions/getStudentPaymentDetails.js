@@ -452,7 +452,8 @@ const getStudentPaymentDetailsV2 = onCall({
 });
 
 /**
- * Create a Stripe payment link for a student
+ * Create a Stripe checkout session for a student
+ * Updated to use Checkout Sessions instead of Payment Links for better metadata handling
  */
 const createStripePaymentLinkV2 = onCall({
   concurrency: 50,
@@ -463,13 +464,13 @@ const createStripePaymentLinkV2 = onCall({
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
   
   try {
-    const { email, uid, customerId, amount, description, metadata } = request.data;
+    const { email, uid, customerId, amount, description, productDescription, metadata } = request.data;
     
     if (!email || !amount) {
       throw new Error('Email and amount are required');
     }
     
-    console.log(`Creating payment link for ${email}, amount: ${amount}, customerId: ${customerId}`);
+    console.log(`Creating checkout session for ${email}, amount: ${amount} CAD, customerId: ${customerId}`);
     
     // Use provided customer ID or create/retrieve customer
     let customer;
@@ -519,47 +520,107 @@ const createStripePaymentLinkV2 = onCall({
       }
     }
     
-    // Create a price for this payment
-    const price = await stripe.prices.create({
-      unit_amount: amount,
-      currency: 'usd',
-      product_data: {
-        name: description || 'Payment'
-      }
-    });
+    // Build product name and description with student/course info
+    const courseName = metadata?.courseName || 'Course Payment';
+    const schoolYear = metadata?.schoolYear || 'Current';
+    const studentType = metadata?.studentType || '';
     
-    // Create payment link
-    const paymentLink = await stripe.paymentLinks.create({
+    // Create product name that clearly identifies what's being paid for
+    const productName = description || 
+      (metadata?.paymentType === 'credits' ? 
+        `${metadata.creditsAmount || ''} Credits - ${courseName}` : 
+        courseName);
+    
+    // Use custom product description if provided, otherwise use default
+    const checkoutDescription = productDescription || 
+      metadata?.customProductDescription || 
+      `Student: ${email}${schoolYear ? `\nSchool Year: ${schoolYear}` : ''}${studentType ? `\nType: ${studentType}` : ''}`;
+    
+    // Create a Checkout Session instead of Payment Link for better control
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
       line_items: [{
-        price: price.id,
+        price_data: {
+          currency: 'cad', // Canadian dollars
+          product_data: {
+            name: productName,
+            description: checkoutDescription,
+          },
+          unit_amount: amount // amount should be in cents
+        },
         quantity: 1
       }],
-      customer_creation: 'if_required',
+      mode: 'payment',
+      customer: customer.id,
+      success_url: `${process.env.APP_URL || 'https://rtdacademy.com'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.APP_URL || 'https://rtdacademy.com'}/payment-cancelled`,
+      
+      // CRITICAL: Pass metadata to the Payment Intent for webhook processing
+      payment_intent_data: {
+        metadata: {
+          // Include all fields needed by webhooks
+          firebaseUID: uid || '',
+          userEmail: email,
+          courseId: metadata?.courseId || '',
+          courseName: metadata?.courseName || '',
+          studentType: metadata?.studentType || '',
+          schoolYear: metadata?.schoolYear || '',
+          paymentType: metadata?.paymentType || 'manual',
+          // For credit payments specifically
+          ...(metadata?.paymentType === 'credits' && {
+            creditsAmount: metadata.creditsAmount || '',
+            coursesToUnlock: metadata.coursesToUnlock || ''
+          }),
+          // Spread any additional metadata
+          ...metadata
+        },
+        description: `${productName} - ${email}`
+      },
+      
+      // Also keep metadata on Checkout Session for reference
       metadata: {
         ...metadata,
-        firebaseUID: uid,
+        firebaseUID: uid || '',
         userEmail: email
       },
-      after_completion: {
-        type: 'redirect',
-        redirect: {
-          url: `${process.env.APP_URL || 'https://rtdacademy.com'}/payment-success`
+      
+      // Add custom text for submit button to show CAD amount
+      custom_text: {
+        submit: {
+          message: `Complete payment of $${(amount/100).toFixed(2)} CAD`
+        }
+      },
+      
+      // Enable invoice creation for better documentation
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `${courseName} - ${schoolYear}`,
+          metadata: {
+            studentEmail: email,
+            courseId: metadata?.courseId || '',
+            firebaseUID: uid || ''
+          },
+          footer: `Payment for ${email} - ${schoolYear} school year`
         }
       }
     });
     
+    console.log(`Created checkout session: ${session.id} with URL: ${session.url}`);
+    
     return {
       success: true,
-      url: paymentLink.url,
-      id: paymentLink.id,
-      customerId: customer.id
+      url: session.url,
+      id: session.id,
+      customerId: customer.id,
+      sessionId: session.id
     };
     
   } catch (error) {
-    console.error('Error creating payment link:', error);
+    console.error('Error creating checkout session:', error);
     return {
       success: false,
-      message: error.message || 'Failed to create payment link',
+      message: error.message || 'Failed to create checkout session',
       error: error.toString()
     };
   }

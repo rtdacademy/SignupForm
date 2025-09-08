@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getDatabase, ref, set, update, get } from 'firebase/database';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, set, get } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { 
-  X,
-  DollarSign,
-  RefreshCw,
-  Link,
   AlertTriangle,
   AlertCircle,
   Check,
-  Calculator,
-  CreditCard,
-  FileText,
   Shield,
   Edit,
   Save,
@@ -44,56 +37,19 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     reason: '',
     selectedCourses: [] // For per-course overrides
   });
-  const [paymentLinkData, setPaymentLinkData] = useState({
-    amount: student.amountDue || 0,
-    description: '',
-    courses: []
-  });
-  const [stripeCustomerId, setStripeCustomerId] = useState(null);
   
-  // Load customer ID and existing overrides on mount
+  // Load existing overrides on mount
   useEffect(() => {
-    loadCustomerId();
     loadExistingOverrides();
     
     // Reset form state when component unmounts
     return () => {
       setCreditAdjustment({ amount: 0, reason: '' });
       setManualOverride({ enabled: false, reason: '', selectedCourses: [] });
-      setPaymentLinkData({ amount: student.amountDue || 0, description: '', courses: [] });
       setActiveAction(null);
       setMessage(null);
     };
   }, [student, schoolYear]);
-  
-  const loadCustomerId = async () => {
-    try {
-      const db = getDatabase();
-      const emailKey = sanitizeEmail(student.email);
-      
-      // Get course IDs from student data
-      let courseIds = [];
-      if (student.courses && typeof student.courses === 'object') {
-        courseIds = Object.keys(student.courses);
-      } else if (student.rawData?.coursePaymentDetails) {
-        courseIds = Object.keys(student.rawData.coursePaymentDetails);
-      }
-      
-      // Try to find a customer_id from any course payment
-      for (const courseId of courseIds) {
-        const paymentRef = ref(db, `payments/${emailKey}/courses/${courseId}`);
-        const snapshot = await get(paymentRef);
-        
-        if (snapshot.exists() && snapshot.val().customer_id) {
-          setStripeCustomerId(snapshot.val().customer_id);
-          console.log('Found customer ID:', snapshot.val().customer_id);
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading customer ID:', error);
-    }
-  };
 
   const loadExistingOverrides = async () => {
     try {
@@ -229,6 +185,61 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     setProcessing(false);
   };
 
+  const handleRemoveOverride = async () => {
+    if (manualOverride.selectedCourses.length === 0) {
+      setMessage({ type: 'error', text: 'Please select courses to remove override' });
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const db = getDatabase();
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      const currentUserEmail = currentUser?.email || 'unknown';
+      
+      const emailKey = sanitizeEmail(student.email);
+      const schoolYearKey = schoolYear.replace('/', '_');
+      
+      // Remove overrides for selected courses
+      for (const courseId of manualOverride.selectedCourses) {
+        const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/courseOverrides/${courseId}`;
+        await set(ref(db, overridePath), null);
+      }
+      
+      // Log the removal action
+      const overrideLogId = Date.now();
+      const logPath = `paymentOverrides/${emailKey}/${overrideLogId}`;
+      await set(ref(db, logPath), {
+        action: 'removed',
+        removedCourses: manualOverride.selectedCourses,
+        removedBy: currentUserEmail,
+        timestamp: Date.now(),
+        schoolYear,
+        studentType: student.typeKey
+      });
+      
+      // Trigger credit recalculation
+      await set(ref(db, `creditRecalculations/${emailKey}/trigger`), Date.now());
+      
+      setMessage({ 
+        type: 'success', 
+        text: `Override removed for ${manualOverride.selectedCourses.length} course(s)` 
+      });
+      
+      // Reset and go back to main override view
+      setTimeout(() => {
+        setManualOverride({ enabled: false, reason: '', selectedCourses: [] });
+        loadExistingOverrides(); // Reload to show updated state
+        setActiveAction('override');
+      }, 1500);
+    } catch (error) {
+      console.error('Error removing override:', error);
+      setMessage({ type: 'error', text: 'Failed to remove override' });
+    }
+    setProcessing(false);
+  };
+
   const handleManualOverride = async () => {
     if (!manualOverride.reason) {
       setMessage({ type: 'error', text: 'Please provide a reason for manual override' });
@@ -254,20 +265,16 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
         for (const courseId of coursesToOverride) {
           const overridePath = `students/${emailKey}/profile/creditOverrides/${schoolYearKey}/${student.typeKey}/courseOverrides/${courseId}`;
           
-          if (manualOverride.enabled) {
-            const overrideData = {
-              isPaid: true,
-              reason: manualOverride.reason,
-              overriddenBy: currentUserEmail,
-              overriddenAt: Date.now(),
-              schoolYear: schoolYear // Store the school year for clarity
-            };
-            
-            await set(ref(db, overridePath), overrideData);
-          } else {
-            // Remove override
-            await set(ref(db, overridePath), null);
-          }
+          // When submitting with courses and reason, we're enabling the override
+          const overrideData = {
+            isPaid: true,
+            reason: manualOverride.reason,
+            overriddenBy: currentUserEmail,
+            overriddenAt: Date.now(),
+            schoolYear: schoolYear // Store the school year for clarity
+          };
+          
+          await set(ref(db, overridePath), overrideData);
         }
       } else {
         // For credit-based students, this would be additional free credits
@@ -284,7 +291,7 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
       const overrideLogId = Date.now();
       const logPath = `paymentOverrides/${emailKey}/${overrideLogId}`;
       await set(ref(db, logPath), {
-        action: manualOverride.enabled ? 'enabled' : 'disabled',
+        action: 'enabled', // Always 'enabled' when applying override
         reason: manualOverride.reason,
         overriddenBy: currentUserEmail,
         timestamp: Date.now(),
@@ -300,7 +307,7 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
       
       setMessage({ 
         type: 'success', 
-        text: manualOverride.enabled ? 'Payment override enabled' : 'Payment override disabled' 
+        text: 'Payment override enabled successfully' 
       });
       // Don't reset the form until after closing
       
@@ -314,109 +321,6 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
     setProcessing(false);
   };
 
-  const handleRecalculateCredits = async () => {
-    setProcessing(true);
-    try {
-      const db = getDatabase();
-      const emailKey = sanitizeEmail(student.email);
-      
-      // Trigger credit recalculation
-      await set(ref(db, `creditRecalculations/${emailKey}/trigger`), Date.now());
-      
-      setMessage({ type: 'success', text: 'Credit recalculation triggered successfully' });
-      
-      setTimeout(() => {
-        setMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error triggering recalculation:', error);
-      setMessage({ type: 'error', text: 'Failed to trigger recalculation' });
-    }
-    setProcessing(false);
-  };
-
-  const handleGeneratePaymentLink = async () => {
-    if (!paymentLinkData.amount || paymentLinkData.amount <= 0) {
-      setMessage({ type: 'error', text: 'Please enter a valid payment amount' });
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const functions = getFunctions();
-      const createPaymentLink = httpsCallable(functions, 'createStripePaymentLinkV2');
-      
-      const result = await createPaymentLink({
-        email: student.email,
-        uid: student.uid,
-        customerId: stripeCustomerId, // Include customer ID if available
-        amount: Math.round(paymentLinkData.amount), // Amount in cents
-        description: paymentLinkData.description || `Payment for ${student.email}`,
-        metadata: {
-          studentType: student.typeKey,
-          schoolYear,
-          firebaseUID: student.uid,
-          userEmail: student.email,
-          paymentType: student.paymentModel === 'credit' ? 'credits' : 'course'
-        }
-      });
-      
-      if (result.data.success) {
-        setMessage({ 
-          type: 'success', 
-          text: 'Payment link generated successfully',
-          link: result.data.url
-        });
-      } else {
-        throw new Error(result.data.message || 'Failed to create payment link');
-      }
-    } catch (error) {
-      console.error('Error generating payment link:', error);
-      setMessage({ type: 'error', text: 'Failed to generate payment link' });
-    }
-    setProcessing(false);
-  };
-
-  const handleSyncStripeData = async () => {
-    setProcessing(true);
-    try {
-      const functions = getFunctions();
-      const syncPayment = httpsCallable(functions, 'syncStripePaymentStatusV2');
-      
-      // Get course IDs
-      let courseIds = [];
-      if (student.courses && typeof student.courses === 'object') {
-        courseIds = Object.keys(student.courses);
-      } else if (student.rawData?.coursePaymentDetails) {
-        courseIds = Object.keys(student.rawData.coursePaymentDetails);
-      }
-      
-      // If we have a customer ID, use it for more efficient sync
-      const syncData = {
-        userEmail: student.email,
-        courseId: courseIds[0] // Use first course for sync
-      };
-      
-      if (stripeCustomerId) {
-        syncData.customerId = stripeCustomerId;
-      }
-      
-      const result = await syncPayment(syncData);
-      
-      if (result.data.success) {
-        setMessage({ 
-          type: 'success', 
-          text: `Payment data synced: ${result.data.paymentCount || 0} payments found`
-        });
-      } else {
-        throw new Error(result.data.message || 'Failed to sync payment data');
-      }
-    } catch (error) {
-      console.error('Error syncing Stripe data:', error);
-      setMessage({ type: 'error', text: 'Failed to sync Stripe data' });
-    }
-    setProcessing(false);
-  };
 
   const renderActionContent = () => {
     switch (activeAction) {
@@ -534,7 +438,7 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
             >
               {processing ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></span>
                   Processing...
                 </>
               ) : (
@@ -545,6 +449,85 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
                 </>
               )}
             </button>
+          </div>
+        );
+
+      case 'removeOverride':
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-gray-700">Remove Payment Overrides</h3>
+            
+            <p className="text-sm text-gray-600">
+              Remove payment overrides for selected courses in <strong>{schoolYear}</strong> school year.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Courses to Remove Override
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                {Object.entries(existingOverride?.data || {}).map(([courseId, override]) => {
+                  const courseInfo = COURSE_OPTIONS.find(c => c.courseId === parseInt(courseId));
+                  const courseName = courseInfo?.label || `Course ${courseId}`;
+                  
+                  return (
+                    <label key={courseId} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={manualOverride.selectedCourses.includes(courseId)}
+                        onChange={(e) => {
+                          const newSelected = e.target.checked
+                            ? [...manualOverride.selectedCourses, courseId]
+                            : manualOverride.selectedCourses.filter(id => id !== courseId);
+                          setManualOverride({
+                            ...manualOverride,
+                            selectedCourses: newSelected
+                          });
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">
+                        {courseName}
+                        <span className="text-gray-500 ml-2 text-xs">
+                          (by {override.overriddenBy} on {new Date(override.overriddenAt).toLocaleDateString()})
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {manualOverride.selectedCourses.length === 0 
+                  ? 'Select courses to remove override' 
+                  : `${manualOverride.selectedCourses.length} course(s) selected for removal`}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveAction('override')}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveOverride}
+                disabled={processing || manualOverride.selectedCourses.length === 0}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {processing ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></span>
+                    Removing...
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4" />
+                    Remove Override
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         );
 
@@ -560,48 +543,81 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
                 <p className="text-sm text-gray-600">
                   Mark specific courses as paid for <strong>{schoolYear}</strong> school year without processing payment through Stripe.
                 </p>
-                <Alert className="border-yellow-500">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                  <AlertDescription className="text-yellow-700">
-                    This will bypass automatic payment checks. Use only when payment has been received through alternative means.
-                  </AlertDescription>
-                </Alert>
-                
+
+                {/* Show existing overrides if any */}
+                {existingOverride && existingOverride.type === 'course' && (
+                  <Alert className="border-yellow-500">
+                    <Shield className="h-4 w-4 text-yellow-500" />
+                    <AlertDescription className="text-yellow-700">
+                      <strong>Existing Overrides:</strong><br />
+                      {Object.entries(existingOverride.data).map(([courseId, override]) => {
+                        const courseInfo = COURSE_OPTIONS.find(c => c.courseId === parseInt(courseId));
+                        const courseName = courseInfo?.label || `Course ${courseId}`;
+                        return (
+                          <div key={courseId} className="text-sm mt-1">
+                            • {courseName}: Marked as paid by {override.overriddenBy} on {new Date(override.overriddenAt).toLocaleDateString()}
+                          </div>
+                        );
+                      })}
+                    </AlertDescription>
+                  </Alert>
+                )}
+            
                 {/* Course selection for per-course payment students */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Courses to Override
+                    Select Courses to Mark as Paid
                   </label>
                   <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
-                    {Object.entries(student.courses || {}).map(([courseId, courseData]) => (
-                      <label key={courseId} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={manualOverride.selectedCourses.includes(courseId)}
-                          onChange={(e) => {
-                            const newSelected = e.target.checked
-                              ? [...manualOverride.selectedCourses, courseId]
-                              : manualOverride.selectedCourses.filter(id => id !== courseId);
-                            setManualOverride({
-                              ...manualOverride,
-                              selectedCourses: newSelected
-                            });
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">
-                          {courseData.courseName || `Course ${courseId}`}
-                          {courseData.isPaid && <span className="text-green-600 ml-2">(Already Paid)</span>}
-                        </span>
-                      </label>
-                    ))}
+                    {Object.entries(student.courses || {}).map(([courseId, courseData]) => {
+                      // Try to find the course in COURSE_OPTIONS by courseId
+                      const courseInfo = COURSE_OPTIONS.find(c => c.courseId === parseInt(courseId));
+                      const courseName = courseInfo?.label || courseData.courseName || `Course ${courseId}`;
+                      const hasOverride = existingOverride?.data?.[courseId];
+                      
+                      return (
+                        <label key={courseId} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={manualOverride.selectedCourses.includes(courseId)}
+                            onChange={(e) => {
+                              const newSelected = e.target.checked
+                                ? [...manualOverride.selectedCourses, courseId]
+                                : manualOverride.selectedCourses.filter(id => id !== courseId);
+                              setManualOverride({
+                                ...manualOverride,
+                                selectedCourses: newSelected
+                              });
+                            }}
+                            className="rounded"
+                          />
+                          <span className="text-sm">
+                            {courseName}
+                            {hasOverride && <span className="text-green-600 ml-2">(Currently Overridden)</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {manualOverride.selectedCourses.length === 0 
-                      ? 'No courses selected - will apply to all courses' 
+                      ? 'Select courses to mark as paid' 
                       : `${manualOverride.selectedCourses.length} course(s) selected`}
                   </p>
                 </div>
+
+                {/* Add button to remove overrides */}
+                {existingOverride && existingOverride.type === 'course' && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setActiveAction('removeOverride')}
+                      className="text-sm text-red-600 hover:text-red-700 underline"
+                    >
+                      Remove existing overrides for selected courses
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -613,24 +629,6 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
                 </Alert>
               </>
             )}
-            
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={manualOverride.enabled}
-                  onChange={(e) => setManualOverride({
-                    ...manualOverride,
-                    enabled: e.target.checked
-                  })}
-                  className="rounded"
-                  disabled={student.paymentModel !== 'course'}
-                />
-                <span className="text-sm font-medium text-gray-700">
-                  {manualOverride.enabled ? 'Mark as paid' : 'Remove override'}
-                </span>
-              </label>
-            </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -653,262 +651,67 @@ const PaymentActions = ({ student, schoolYear, onClose }) => {
             
             <button
               onClick={handleManualOverride}
-              disabled={processing || !manualOverride.reason || student.paymentModel !== 'course'}
+              disabled={processing || !manualOverride.reason || student.paymentModel !== 'course' || manualOverride.selectedCourses.length === 0}
               className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {processing ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></span>
                   Processing...
                 </>
               ) : (
                 <>
                   <Shield className="h-4 w-4" />
-                  {student.paymentModel === 'course' ? 'Apply Override' : 'Not Available for Credit Students'}
+                  {student.paymentModel === 'course' ? 
+                    (manualOverride.selectedCourses.length === 0 ? 'Select Courses First' : 'Mark Selected as Paid') : 
+                    'Not Available for Credit Students'}
                 </>
               )}
             </button>
           </div>
         );
 
-      case 'link':
-        return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-700">Generate Payment Link</h3>
-            <p className="text-sm text-gray-600">
-              Create a Stripe payment link for the student to complete payment.
-            </p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Amount (in dollars)
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="number"
-                  value={paymentLinkData.amount / 100}
-                  onChange={(e) => setPaymentLinkData({
-                    ...paymentLinkData,
-                    amount: Math.round(parseFloat(e.target.value) * 100) || 0
-                  })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="0.00"
-                  step="0.01"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <input
-                type="text"
-                value={paymentLinkData.description}
-                onChange={(e) => setPaymentLinkData({
-                  ...paymentLinkData,
-                  description: e.target.value
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Payment description..."
-              />
-            </div>
-            <button
-              onClick={handleGeneratePaymentLink}
-              disabled={processing || !paymentLinkData.amount}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {processing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Link className="h-4 w-4" />
-                  Generate Payment Link
-                </>
-              )}
-            </button>
-            {message?.link && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-green-900 mb-2">Payment link generated:</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={message.link}
-                    readOnly
-                    className="flex-1 px-3 py-2 bg-white border border-green-300 rounded-md text-sm"
-                  />
-                  <button
-                    onClick={() => navigator.clipboard.writeText(message.link)}
-                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
 
-      case 'recalculate':
-        return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-700">Recalculate Credits</h3>
-            <p className="text-sm text-gray-600">
-              Trigger a recalculation of this student's credit usage and payment requirements.
-            </p>
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-              <p className="text-sm text-blue-700">
-                This will recalculate all credits for {student.email} based on their current courses
-                and the latest pricing configuration.
-              </p>
-            </div>
-            <button
-              onClick={handleRecalculateCredits}
-              disabled={processing}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {processing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Recalculating...
-                </>
-              ) : (
-                <>
-                  <Calculator className="h-4 w-4" />
-                  Recalculate Now
-                </>
-              )}
-            </button>
-          </div>
-        );
-
-      case 'sync':
-        return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-700">Sync Stripe Data</h3>
-            <p className="text-sm text-gray-600">
-              Fetch the latest payment data from Stripe for this student.
-            </p>
-            <div className="bg-purple-50 border-l-4 border-purple-500 p-4">
-              <p className="text-sm text-purple-700">
-                This will query Stripe for all payments, subscriptions, and invoices
-                associated with this student's email address.
-              </p>
-            </div>
-            <button
-              onClick={handleSyncStripeData}
-              disabled={processing}
-              className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {processing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Sync Now
-                </>
-              )}
-            </button>
-          </div>
-        );
 
       default:
+        // Show different actions based on student payment model
+        // Credit-based (Primary/Home Ed): Show only Adjust Credits
+        // Course-based (Adult/International): Show only Manual Override
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => setActiveAction('adjust')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Edit className="h-5 w-5 text-blue-600" />
+          <div className="grid grid-cols-1 gap-4">
+            {student.paymentModel === 'credit' ? (
+              // For Primary and Home Ed students - show Adjust Credits only
+              <button
+                onClick={() => setActiveAction('adjust')}
+                className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Edit className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Adjust Credits</p>
+                    <p className="text-sm text-gray-600">Grant additional free credits for this student</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">Adjust Credits</p>
-                  <p className="text-sm text-gray-600">Manually adjust paid credits</p>
+              </button>
+            ) : (
+              // For Adult and International students - show Manual Override only
+              <button
+                onClick={() => setActiveAction('override')}
+                className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Shield className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Manual Override</p>
+                    <p className="text-sm text-gray-600">Mark courses as paid without processing payment</p>
+                  </div>
                 </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveAction('override')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Shield className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Manual Override</p>
-                  <p className="text-sm text-gray-600">Override payment requirements</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveAction('link')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Link className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Payment Link</p>
-                  <p className="text-sm text-gray-600">Generate Stripe payment link</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveAction('recalculate')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Calculator className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Recalculate</p>
-                  <p className="text-sm text-gray-600">Recalculate credit usage</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveAction('sync')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <RefreshCw className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Sync Stripe</p>
-                  <p className="text-sm text-gray-600">Fetch latest Stripe data</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left opacity-50 cursor-not-allowed"
-              disabled
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Process Refund</p>
-                  <p className="text-sm text-gray-600">Coming soon</p>
-                </div>
-              </div>
-            </button>
+              </button>
+            )}
           </div>
         );
     }

@@ -106,7 +106,7 @@ export const CreditSummaryCard = ({
   
   // Calculate total credits used and limits for compact view (only credit-based)
   const totalCreditsUsed = Object.values(creditBasedData).reduce((sum, data) => 
-    sum + (data.nonExemptCredits || data.freeCreditsUsed || data.totalCredits || 0), 0
+    sum + (data.nonExemptCredits || data.freeCreditsUsed || 0), 0
   );
   const totalCreditsLimit = Object.values(creditBasedData).reduce((sum, data) => 
     sum + (data.freeCreditsLimit || 0) + (data.totalPaidCredits || 0), 0
@@ -230,7 +230,7 @@ export const CreditSummaryCard = ({
                 const hasLimit = !isCourseBased && data.freeCreditsLimit !== null && data.freeCreditsLimit !== undefined;
                 if (!isCourseBased && !hasLimit && data.totalCredits === 0) return null;
                 
-                const creditsUsed = data.nonExemptCredits || data.freeCreditsUsed || data.totalCredits || 0;
+                const creditsUsed = data.nonExemptCredits || data.freeCreditsUsed || 0;
                 const effectiveLimit = (data.freeCreditsLimit || 0) + (data.totalPaidCredits || 0);
                 const usagePercentage = hasLimit ? (creditsUsed / effectiveLimit) * 100 : 0;
                 

@@ -828,6 +828,142 @@ async function canRegisterForFree(studentEmailKey, schoolYear, studentType, addi
 }
 
 /**
+ * Update payment status in studentCourseSummaries for a specific course
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} courseId - Course ID
+ * @param {string} studentType - Student type
+ * @param {Object} creditData - Credit tracking data for the student
+ */
+async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId, studentType, creditData) {
+  const db = admin.database();
+  
+  // Determine the payment status based on student type and credit data
+  let status = 'free';
+  let details = {
+    studentType,
+    lastUpdated: admin.database.ServerValue.TIMESTAMP
+  };
+  
+  // Check if this is a per-course payment student (Adult or International)
+  if (isPerCoursePaymentStudent(studentType)) {
+    // Per-course payment model
+    details.paymentModel = 'per_course';
+    
+    // Check if this specific course is in the credit data
+    if (creditData?.courses && creditData.courses[courseId]) {
+      const courseInfo = creditData.courses[courseId];
+      
+      if (courseInfo.isPaid) {
+        status = courseInfo.carriedOver ? 'carried_over' : 'paid';
+        details.coursePaid = true;
+        details.paymentMethod = courseInfo.paymentType || 'unknown';
+        
+        if (courseInfo.carriedOver) {
+          details.carriedOverFrom = courseInfo.carriedOver.from;
+        }
+      } else {
+        status = 'requires_payment';
+        details.coursePaid = false;
+        details.requiresPayment = true;
+      }
+    } else {
+      // Course not found in tracking, assume requires payment
+      status = 'requires_payment';
+      details.coursePaid = false;
+      details.requiresPayment = true;
+    }
+    
+    // Check for overrides
+    if (creditData?.hasOverrides) {
+      details.hasOverrides = true;
+      if (creditData.overridesApplied) {
+        const courseOverride = creditData.overridesApplied.find(o => o.courseId === courseId);
+        if (courseOverride) {
+          status = 'override';
+          details.overrideDetails = courseOverride.details;
+        }
+      }
+    }
+    
+  } else if (creditData) {
+    // Credit-based payment model (Non-Primary, Home Education, etc.)
+    details.paymentModel = 'credit_based';
+    
+    // Check if course is exempt
+    const courseIdInt = parseInt(courseId);
+    if (isExemptCourse(courseIdInt)) {
+      status = 'free';
+      details.isExempt = true;
+    } else {
+      // Get course payment details
+      const coursePaymentDetails = creditData.coursePaymentDetails?.[courseId];
+      
+      if (coursePaymentDetails) {
+        if (coursePaymentDetails.requiresPayment) {
+          // Check if student has paid credits
+          const totalPaidCredits = creditData.totalPaidCredits || 0;
+          const creditsRequired = coursePaymentDetails.creditsRequiredToUnlock || 0;
+          
+          if (totalPaidCredits >= creditsRequired) {
+            status = 'paid';
+            details.creditsRequired = creditsRequired;
+            details.creditsPaid = totalPaidCredits;
+          } else if (totalPaidCredits > 0) {
+            status = 'partial';
+            details.creditsRequired = creditsRequired;
+            details.creditsPaid = totalPaidCredits;
+            details.creditsNeeded = creditsRequired - totalPaidCredits;
+          } else {
+            status = 'requires_payment';
+            details.creditsRequired = creditsRequired;
+            details.requiresPayment = true;
+          }
+        } else {
+          status = 'free';
+          details.withinFreeLimit = true;
+        }
+      } else {
+        // Default to free if no payment details
+        status = 'free';
+      }
+      
+      // Add credit usage details
+      if (creditData.freeCreditsLimit !== undefined) {
+        details.freeCreditsLimit = creditData.freeCreditsLimit;
+        details.creditsUsed = creditData.nonExemptCredits || 0;
+        details.creditsRemaining = Math.max(0, creditData.remainingFreeCredits || 0);
+      }
+      
+      // Check for credit limit overrides
+      if (creditData.hasOverrides && creditData.creditsOverrideDetails) {
+        details.hasOverrides = true;
+        details.overrideDetails = creditData.creditsOverrideDetails;
+        if (creditData.additionalFreeCredits > 0) {
+          status = status === 'requires_payment' ? 'override' : status;
+        }
+      }
+    }
+  } else {
+    // No credit data available, default to free
+    details.paymentModel = 'free';
+  }
+  
+  // Build the summary key
+  const summaryKey = `${studentEmailKey}_${courseId}`;
+  
+  // Update the payment status in studentCourseSummaries
+  const updates = {};
+  updates[`studentCourseSummaries/${summaryKey}/payment_status`] = {
+    status,
+    details
+  };
+  
+  await db.ref().update(updates);
+  
+  return { status, details };
+}
+
+/**
  * Recalculate credits for a student based on their active courses
  * @param {string} studentEmailKey - Sanitized email key
  * @param {string} schoolYear - School year
@@ -863,7 +999,14 @@ async function recalculateCredits(studentEmailKey, schoolYear, studentType = nul
   
   // If specific student type requested, only update that
   if (studentType && coursesByType[studentType]) {
-    return await updateCreditTracking(studentEmailKey, schoolYear, studentType, coursesByType[studentType]);
+    const creditData = await updateCreditTracking(studentEmailKey, schoolYear, studentType, coursesByType[studentType]);
+    
+    // Update payment status for each course
+    for (const courseId of coursesByType[studentType]) {
+      await updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId, studentType, creditData);
+    }
+    
+    return creditData;
   }
   
   // Otherwise, update all types found
@@ -871,6 +1014,11 @@ async function recalculateCredits(studentEmailKey, schoolYear, studentType = nul
   for (const [type, courseIds] of Object.entries(coursesByType)) {
     if (type !== 'Unknown') {
       results[type] = await updateCreditTracking(studentEmailKey, schoolYear, type, courseIds);
+      
+      // Update payment status for each course of this type
+      for (const courseId of courseIds) {
+        await updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId, type, results[type]);
+      }
     }
   }
   
@@ -947,6 +1095,7 @@ module.exports = {
   calculateCreditTotals,
   identifyCoursesRequiringPayment,
   updateCreditTracking,
+  updateStudentCourseSummaryPaymentStatus,
   getStudentCredits,
   canRegisterForFree,
   recalculateCredits,

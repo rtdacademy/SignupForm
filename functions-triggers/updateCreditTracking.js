@@ -1,7 +1,7 @@
 const admin = require('firebase-admin');
 const { onValueWritten, onValueDeleted, onValueCreated } = require('firebase-functions/v2/database');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { recalculateCredits, formatSchoolYear } = require('./utils/creditTracking');
+const { recalculateCredits, formatSchoolYear, updateStudentCourseSummaryPaymentStatus, getStudentCredits, sanitizeStudentType } = require('./utils/creditTracking');
 const { sanitizeEmail } = require('./utils');
 
 // Initialize Firebase Admin if needed
@@ -190,6 +190,12 @@ const onCourseDeleted = onValueDeleted({
     return null;
   }
   
+  // Clear the payment status for the deleted course
+  const summaryKey = `${studentKey}_${courseId}`;
+  const paymentStatusRef = db.ref(`studentCourseSummaries/${summaryKey}/payment_status`);
+  await paymentStatusRef.remove();
+  console.log(`🗑️ Removed payment status for deleted course ${courseId} (${studentKey})`);
+  
   // Try to find school years and types from other courses
   const yearsAndTypes = new Set();
   if (studentData.courses) {
@@ -257,9 +263,21 @@ const onStudentDelete = onValueDeleted({
     // but we'll explicitly clean it up in case of partial deletions
     updates[`students/${studentKey}/profile/creditsPerStudent`] = null;
     
+    // Clean up payment status entries in studentCourseSummaries
+    const summariesRef = db.ref('studentCourseSummaries');
+    const summariesSnapshot = await summariesRef.orderByKey()
+      .startAt(`${studentKey}_`)
+      .endAt(`${studentKey}_\uf8ff`)
+      .once('value');
+    
+    const summaries = summariesSnapshot.val() || {};
+    for (const summaryKey of Object.keys(summaries)) {
+      updates[`studentCourseSummaries/${summaryKey}/payment_status`] = null;
+    }
+    
     if (Object.keys(updates).length > 0) {
       await db.ref().update(updates);
-      console.log(`🗑️ Removed credit tracking for deleted student: ${studentKey}`);
+      console.log(`🗑️ Removed credit tracking and payment status for deleted student: ${studentKey}`);
     }
   } catch (error) {
     console.error(`Error cleaning up credit tracking for ${studentKey}:`, error);
