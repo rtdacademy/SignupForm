@@ -35,7 +35,8 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: [] // Handles all grades equally well
-    }
+    },
+    isAvailable: false // Golda is currently full
   },
   {
     id: 'grace-anne-post',
@@ -67,7 +68,8 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: [] // Handles all grades equally well
-    }
+    },
+    isAvailable: true
   },
   {
     id: 'marian-johnson',
@@ -100,7 +102,8 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: []
-    }
+    },
+    isAvailable: true
   },
   {
     id: 'elise',
@@ -132,7 +135,8 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8'] // Can support some middle school
-    }
+    },
+    isAvailable: true
   },
   {
     id: 'kari-luther',
@@ -165,11 +169,26 @@ export const FACILITATORS = [
     gradeFocus: {
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8', '9'] // Can support some middle school
-    }
+    },
+    isAvailable: true
   }
 ];
 
 // Helper functions for facilitator management
+
+/**
+ * Shuffle array helper function for randomization
+ * @param {Array} array - Array to shuffle
+ * @returns {Array} Shuffled copy of the array
+ */
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
 /**
  * Get all facilitators
@@ -177,6 +196,33 @@ export const FACILITATORS = [
  */
 export const getAllFacilitators = () => {
   return FACILITATORS;
+};
+
+/**
+ * Get all facilitators with randomized order for available ones
+ * Available facilitators are randomized and shown first, full ones are at the bottom
+ * @returns {Array} Array of facilitator objects with available ones randomized first
+ */
+export const getAllFacilitatorsRandomized = () => {
+  const available = FACILITATORS.filter(f => f.isAvailable !== false);
+  const full = FACILITATORS.filter(f => f.isAvailable === false);
+  return [...shuffleArray(available), ...full];
+};
+
+/**
+ * Get available facilitators only
+ * @returns {Array} Array of available facilitator objects
+ */
+export const getAvailableFacilitators = () => {
+  return FACILITATORS.filter(f => f.isAvailable !== false);
+};
+
+/**
+ * Get full facilitators only
+ * @returns {Array} Array of full facilitator objects
+ */
+export const getFullFacilitators = () => {
+  return FACILITATORS.filter(f => f.isAvailable === false);
 };
 
 /**
@@ -264,8 +310,9 @@ export const getFacilitatorDropdownOptions = (studentGrade = null) => {
     description: 'Please select one of our available facilitators'
   });
   
-  // Add all facilitator options in their original order
-  FACILITATORS.forEach(facilitator => {
+  // Only add available facilitator options
+  const availableFacilitators = FACILITATORS.filter(f => f.isAvailable !== false);
+  availableFacilitators.forEach(facilitator => {
     options.push({
       value: facilitator.name,
       label: facilitator.name,
@@ -292,6 +339,9 @@ export const isValidFacilitator = (facilitatorName) => {
 export default {
   FACILITATORS,
   getAllFacilitators,
+  getAllFacilitatorsRandomized,
+  getAvailableFacilitators,
+  getFullFacilitators,
   getFacilitatorById,
   getFacilitatorByName,
   getFacilitatorByEmail,

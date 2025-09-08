@@ -197,6 +197,32 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
   const snapshot = await paymentRef.once('value');
   const paymentData = snapshot.val();
   
+  // For per-course payment students (Adult/International), validate payment type
+  if (studentType && isPerCoursePaymentStudent(studentType)) {
+    // Only accept per-course payments for Adult/International students
+    // Ignore credit-based payments from when they might have been a different student type
+    if (paymentData?.type === 'credits') {
+      return {
+        isPaid: false,
+        paymentType: null,
+        status: 'unpaid',
+        paymentMethod: null,
+        lastUpdated: null
+      };
+    }
+    // Accept per-course payments
+    if (paymentData?.type === 'per_course' && paymentData?.status === 'paid') {
+      return {
+        isPaid: true,
+        paymentType: 'per_course',
+        status: 'paid',
+        paymentMethod: paymentData?.payment_method || null,
+        lastUpdated: paymentData?.last_updated || null
+      };
+    }
+  }
+  
+  // For credit-based students or when student type not provided, return payment data as-is
   return {
     isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
     paymentType: paymentData?.type || null,
@@ -843,6 +869,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
     studentType,
     lastUpdated: admin.database.ServerValue.TIMESTAMP
   };
+  let creditsSummary = null;
   
   // Check if this is a per-course payment student (Adult or International)
   if (isPerCoursePaymentStudent(studentType)) {
@@ -888,6 +915,19 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
   } else if (creditData) {
     // Credit-based payment model (Non-Primary, Home Education, etc.)
     details.paymentModel = 'credit_based';
+    
+    // Always add creditsSummary for Non-Primary and Home Education students
+    if (studentType === 'Non-Primary' || studentType === 'Home Education') {
+      creditsSummary = {
+        totalCredits: creditData.totalCredits || 0,
+        nonExemptCredits: creditData.nonExemptCredits || 0,
+        exemptCredits: creditData.exemptCredits || 0,
+        freeCreditsLimit: creditData.freeCreditsLimit || 0,
+        creditsUsed: creditData.nonExemptCredits || 0,
+        creditsRemaining: Math.max(0, (creditData.freeCreditsLimit || 0) - (creditData.nonExemptCredits || 0)),
+        totalPaidCredits: creditData.totalPaidCredits || 0
+      };
+    }
     
     // Check if course is exempt
     const courseIdInt = parseInt(courseId);
@@ -952,15 +992,24 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
   const summaryKey = `${studentEmailKey}_${courseId}`;
   
   // Update the payment status in studentCourseSummaries
+  // Set payment_status as a string and details/creditsSummary as separate fields
   const updates = {};
-  updates[`studentCourseSummaries/${summaryKey}/payment_status`] = {
-    status,
-    details
-  };
+  updates[`studentCourseSummaries/${summaryKey}/payment_status`] = status;
+  updates[`studentCourseSummaries/${summaryKey}/payment_details`] = details;
+  
+  // Add creditsSummary as a separate field if it exists (for Non-Primary and Home Education)
+  if (creditsSummary) {
+    updates[`studentCourseSummaries/${summaryKey}/credits_summary`] = creditsSummary;
+  }
   
   await db.ref().update(updates);
   
-  return { status, details };
+  // Return the structured data
+  return {
+    status,
+    details,
+    ...(creditsSummary && { creditsSummary })
+  };
 }
 
 /**

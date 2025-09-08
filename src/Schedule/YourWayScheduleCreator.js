@@ -68,10 +68,7 @@ const YourWayScheduleCreator = ({
         if (onScheduleSaved) {
           onScheduleSaved(result.data.scheduleData);
         }
-        // Refresh the page after successful save
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500); // Wait 1.5 seconds to let user see the success message
+        // Page refresh removed - real-time updates now working properly
       } else {
         toast.error(result.data.message || `Failed to ${isScheduleUpdate ? 'update' : 'save'} schedule`);
       }

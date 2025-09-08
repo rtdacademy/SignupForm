@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { ScrollArea } from '../components/ui/scroll-area';
 import { Checkbox } from '../components/ui/checkbox';
 import { 
   Collapsible,
@@ -336,8 +335,7 @@ const PaymentInfo = ({
   }
 
   return (
-    <ScrollArea className="flex-1 -mx-4 h-full">
-      <div className="space-y-6 px-4 pb-4">
+    <div className="space-y-6">
         {/* Main Status Display */}
         <div className="flex items-center justify-between border-b pb-4">
           <div className="flex items-center gap-3">
@@ -782,8 +780,7 @@ const PaymentInfo = ({
             </div>
           </Card>
         )}
-      </div>
-    </ScrollArea>
+    </div>
   );
 };
 

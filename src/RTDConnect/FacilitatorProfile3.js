@@ -13,11 +13,17 @@ import {
   Trees,
   Flower2,
   Users,
-  Award
+  Award,
+  Ban
 } from 'lucide-react';
+import { getFacilitatorById } from '../config/facilitators';
 
 const FacilitatorProfile3 = () => {
   const navigate = useNavigate();
+  
+  // Get Grace-Anne's data from the config
+  const facilitatorData = getFacilitatorById('grace-anne-post');
+  const isFull = facilitatorData?.isAvailable === false;
 
   const handleGoBack = () => {
     navigate('/bio');
@@ -63,7 +69,15 @@ const FacilitatorProfile3 = () => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Grace-Anne Post</h1>
               <p className="text-xl text-green-600 font-semibold mb-2">K-12 Home Education Teacher/Facilitator</p>
               <p className="text-lg text-gray-600 mb-1">B.Ed, E.C.E</p>
-              <p className="text-lg text-gray-600 mb-6">25 years experience</p>
+              <p className="text-lg text-gray-600 mb-2">25 years experience</p>
+              
+              {/* Full Badge */}
+              {isFull && (
+                <div className="inline-flex items-center px-3 py-1 bg-red-100 border border-red-300 rounded-full mb-4">
+                  <Ban className="w-4 h-4 text-red-600 mr-2" />
+                  <span className="text-sm font-medium text-red-800">Currently Full - Not Accepting New Families</span>
+                </div>
+              )}
               
               <div className="flex justify-center md:justify-start">
                 <button

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getAllFacilitators, getFacilitatorById, getFacilitatorProfileUrl } from '../config/facilitators';
-import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award } from 'lucide-react';
+import { getAllFacilitators, getAllFacilitatorsRandomized, getFacilitatorById, getFacilitatorProfileUrl } from '../config/facilitators';
+import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award, Ban } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 
 const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) => {
   const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
   const isComingSoon = facilitator.experience === 'Profile Coming Soon';
+  const isFull = facilitator.isAvailable === false;
   
   // Map icon names to components
   const iconMap = {
@@ -23,8 +24,16 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
         isSelected ? 'ring-2 ring-purple-500' : ''
       }`}
     >
+      {/* Full Badge */}
+      {isFull && (
+        <div className="absolute top-4 left-4 z-10 bg-red-100 border border-red-300 text-red-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+          <Ban className="w-3 h-3 mr-1" />
+          Currently Full
+        </div>
+      )}
+      
       {/* Coming Soon Badge */}
-      {isComingSoon && (
+      {!isFull && isComingSoon && (
         <div className="absolute top-4 left-4 z-10 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
           <Clock className="w-3 h-3 mr-1" />
           Coming Soon
@@ -125,14 +134,17 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
             View Full Profile
           </button>
           <button
-            onClick={() => onSelect(facilitator)}
+            onClick={() => !isFull && onSelect(facilitator)}
+            disabled={isFull}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              isSelected 
+              isFull
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : isSelected 
                 ? 'bg-purple-600 text-white hover:bg-purple-700' 
                 : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600'
             }`}
           >
-            {isSelected ? 'Selected' : 'Select'}
+            {isFull ? 'Currently Full' : isSelected ? 'Selected' : 'Select'}
           </button>
         </div>
       </div>
@@ -291,8 +303,8 @@ const FacilitatorSelection = ({
   const [viewingFacilitator, setViewingFacilitator] = useState(null);
 
   useEffect(() => {
-    // Load all facilitators
-    const allFacilitators = getAllFacilitators();
+    // Load all facilitators with randomized order for available ones
+    const allFacilitators = getAllFacilitatorsRandomized();
     setFacilitators(allFacilitators);
 
     // Set initial selection if provided

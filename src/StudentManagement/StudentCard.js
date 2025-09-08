@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getPaymentStatusInfo } from '../config/DropdownOptions';
+import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
+import { 
+  getPaymentStatusConfig, 
+  formatPaymentTooltip, 
+  isPaymentStatusAccessible,
+  getEnhancedStatusConfig,
+  formatCreditUsage
+} from '../config/paymentStatusConfig';
 import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity, DollarSign,
   // Seasonal icons
   Snowflake, Flower, Sun, Leaf,
@@ -54,6 +61,7 @@ import PasiActionButtons from '../components/PasiActionButtons';
 import PasiRecordDetails from '../TeacherDashboard/PasiRecordDetails';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import PaymentInfo from './PaymentInfo';
+import StudentPaymentDetails from '../TeacherDashboard/StudentPaymentDetails';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -192,11 +200,45 @@ const GenderBadge = ({ gender }) => {
 };
 
 // PaymentStatusBadge Component
-const PaymentStatusBadge = ({ paymentStatus, onClick }) => {
+const PaymentStatusBadge = ({ paymentStatus, paymentDetails, creditsSummary, onClick }) => {
   if (!paymentStatus) return null;
 
-  const paymentInfo = getPaymentStatusInfo(paymentStatus);
-  const IconComponent = paymentInfo.icon;
+  // Handle both old format (object) and new format (string) for backwards compatibility
+  let status = paymentStatus;
+  let details = paymentDetails || {};
+  let creditsSum = creditsSummary || null;
+  
+  // If paymentStatus is still an object (old format), extract the parts
+  if (typeof paymentStatus === 'object' && paymentStatus !== null) {
+    status = paymentStatus.status || 'unknown';
+    details = paymentStatus.details || paymentDetails || {};
+    creditsSum = paymentStatus.creditsSummary || creditsSummary || null;
+  }
+
+  // Use enhanced status config for credit-based students with credit usage
+  const statusConfig = creditsSum 
+    ? getEnhancedStatusConfig(status, creditsSum)
+    : getPaymentStatusConfig(status);
+  
+  // If getEnhancedStatusConfig returns null, don't show the badge
+  // This happens for Non-Primary/Home Ed with 0 credits and free status
+  if (!statusConfig) return null;
+    
+  const IconComponent = statusConfig.icon;
+  
+  // Build enhanced tooltip
+  let tooltip = statusConfig.tooltip;
+  if (creditsSum) {
+    const { totalCredits, nonExemptCredits, exemptCredits, creditsRemaining, totalPaidCredits } = creditsSum;
+    tooltip = `${statusConfig.tooltip}\n`;
+    tooltip += `Total Credits: ${totalCredits} (${nonExemptCredits} non-exempt, ${exemptCredits} exempt)\n`;
+    tooltip += `Credits Remaining: ${creditsRemaining}`;
+    if (totalPaidCredits > 0) {
+      tooltip += ` (+${totalPaidCredits} paid)`;
+    }
+  } else {
+    tooltip = formatPaymentTooltip(status, details);
+  }
 
   const handleClick = (e) => {
     e.stopPropagation(); // Prevent card click
@@ -212,18 +254,24 @@ const PaymentStatusBadge = ({ paymentStatus, onClick }) => {
           <Badge 
             className="inline-flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded w-auto cursor-pointer hover:opacity-80 transition-opacity"
             style={{
-              backgroundColor: `${paymentInfo.color}15`,
-              color: paymentInfo.color
+              backgroundColor: statusConfig.bgColor,
+              color: statusConfig.color
             }}
             onClick={handleClick}
           >
             <IconComponent className="w-3 h-3 flex-shrink-0" />
-            <span>Payment</span>
+            <span>{statusConfig.label}</span>
           </Badge>
         </TooltipTrigger>
         <TooltipContent>
           <div className="text-xs">
-            <div>{paymentInfo.tooltip}</div>
+            <div className="whitespace-pre-line">{tooltip}</div>
+            {details.carriedOverFrom && (
+              <div className="text-blue-400 mt-1">From {details.carriedOverFrom}</div>
+            )}
+            {details.creditsNeeded && (
+              <div className="text-amber-400 mt-1">{details.creditsNeeded} more credits needed</div>
+            )}
             <div className="text-gray-400 mt-1">Click to view details</div>
           </div>
         </TooltipContent>
@@ -490,6 +538,9 @@ const StudentCard = React.memo(({
   
   // State for payment info sheet
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
+  
+  // State for payment details modal
+  const [isPaymentDetailsOpen, setIsPaymentDetailsOpen] = useState(false);
   
   // State for PASI details sheet
   const [isPasiDetailsSheetOpen, setIsPasiDetailsSheetOpen] = useState(false);
@@ -1522,9 +1573,19 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   paymentStatus={
                     student.payment_status || 
                     ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
-                      getSafeValue(student.StudentType_Value) === "International Student") ? "unpaid" : null)
+                      getSafeValue(student.StudentType_Value) === "International Student") 
+                      ? "requires_payment"
+                      : null)
                   }
-                  onClick={() => setIsPaymentSheetOpen(true)}
+                  paymentDetails={
+                    student.payment_details || 
+                    ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
+                      getSafeValue(student.StudentType_Value) === "International Student") 
+                      ? { studentType: getSafeValue(student.StudentType_Value), paymentModel: "per_course" }
+                      : {})
+                  }
+                  creditsSummary={student.credits_summary}
+                  onClick={() => setIsPaymentDetailsOpen(true)}
                 />
               </div>
             )}
@@ -2650,10 +2711,62 @@ const handleStatusChange = useCallback(async (newStatus) => {
         </Dialog>
       )}
       
+      {/* Student Payment Details Sheet */}
+      <StudentPaymentDetails
+        isOpen={isPaymentDetailsOpen}
+        student={{
+          ...student,
+          email: student.StudentEmail || student.email || '',
+          uid: student.uid || student.LMSStudentID || '',
+          studentType: getSafeValue(student.StudentType_Value) || 'Unknown',
+          typeKey: (() => {
+            const type = getSafeValue(student.StudentType_Value);
+            if (type === 'Non-Primary') return 'nonPrimaryStudents';
+            if (type === 'Home Education') return 'homeEducationStudents';
+            if (type === 'Summer School') return 'summerSchoolStudents';
+            if (type === 'Adult Student') return 'adultStudents';
+            if (type === 'International Student') return 'internationalStudents';
+            return 'nonPrimaryStudents'; // default
+          })(),
+          paymentModel: (() => {
+            const type = getSafeValue(student.StudentType_Value);
+            if (type === 'Adult Student' || type === 'International Student') {
+              return 'course';
+            }
+            return 'credit';
+          })(),
+          paymentStatus: student.payment_status || 'unknown',
+          amountDue: 0,
+          amountPaid: 0,
+          totalCredits: student.credits_summary?.totalCredits || 0,
+          nonExemptCredits: student.credits_summary?.nonExemptCredits || 0,
+          exemptCredits: student.credits_summary?.exemptCredits || 0,
+          freeCreditsUsed: student.credits_summary?.creditsUsed || 0,
+          freeCreditsLimit: student.credits_summary?.freeCreditsLimit || 10,
+          baseFreeCreditsLimit: 10,
+          additionalFreeCredits: 0,
+          paidCreditsRequired: 0,
+          totalPaidCredits: student.credits_summary?.totalPaidCredits || 0,
+          totalCreditsRequiringPayment: Math.max(0, (student.credits_summary?.nonExemptCredits || 0) - (student.credits_summary?.freeCreditsLimit || 10)),
+          courses: { [student.CourseID || student.courseId]: true },
+          totalCourses: 0,
+          paidCourses: 0,
+          unpaidCourses: 0,
+          requiresPayment: false,
+          hasOverrides: false,
+          overridesApplied: [],
+          creditsOverrideDetails: null,
+          lastUpdated: student.lastUpdated || Date.now(),
+          rawData: student
+        }}
+        schoolYear={student.School_x0020_Year_Value ? student.School_x0020_Year_Value.replace('/', '_') : '25_26'}
+        onClose={() => setIsPaymentDetailsOpen(false)}
+      />
+      
       {/* Payment Info Sheet */}
       <Sheet open={isPaymentSheetOpen} onOpenChange={setIsPaymentSheetOpen}>
-        <SheetContent className="w-full sm:max-w-md flex flex-col h-full p-0">
-          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
             <SheetTitle className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5 text-blue-600" />
               <span>Payment Information</span>
@@ -2663,7 +2776,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
             </SheetDescription>
           </SheetHeader>
           
-          <div className="flex-1 px-6 pb-6 overflow-hidden">
+          <div className="mt-6 overflow-y-auto max-h-[calc(100vh-200px)]">
             <PaymentInfo
               studentKey={student.StudentEmail ? sanitizeEmail(student.StudentEmail) : null}
               courseId={student.CourseID || student.courseId || student.id?.slice(student.id.lastIndexOf('_') + 1)}

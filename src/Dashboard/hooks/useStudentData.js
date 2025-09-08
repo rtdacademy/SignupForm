@@ -742,7 +742,10 @@ export const useStudentData = (userEmailKey) => {
             'School_x0020_Year/Value',
             'Status/Value',
             'StudentType/Value',
-            'TeacherComments'
+            'TeacherComments',
+            'ScheduleJSON',  // Listen for schedule changes
+            'ScheduleStartDate',  // Listen for schedule start date changes
+            'ScheduleEndDate'  // Listen for schedule end date changes
           ];
 
           // Listen to each specific path
@@ -777,6 +780,7 @@ export const useStudentData = (userEmailKey) => {
               if (!isMounted) return;
               
               const value = snapshot.exists() ? snapshot.val() : null;
+              // Convert slash to underscore for processing, but updateCourseData will handle the reconstruction
               updateCourseData(courseId, propertyPath.replace('/', '_'), value);
             }, handleError);
             
@@ -795,8 +799,26 @@ export const useStudentData = (userEmailKey) => {
           if (path === 'root') {
             // For root level properties like Created, Course, etc.
             courseDataAccumulator[courseId] = { ...courseDataAccumulator[courseId], ...value };
+          } else if (path.includes('_')) {
+            // For nested paths that were converted from slash notation (e.g., 'ActiveFutureArchived_Value')
+            // We need to reconstruct the nested object structure
+            const parts = path.split('_');
+            if (parts.length === 2) {
+              // Handle two-level nesting (e.g., 'ActiveFutureArchived_Value')
+              const [parent, child] = parts;
+              
+              // Preserve existing nested values if the parent already exists
+              const existingParent = courseDataAccumulator[courseId][parent] || {};
+              courseDataAccumulator[courseId][parent] = {
+                ...existingParent,
+                [child]: value
+              };
+            } else {
+              // For other patterns, store as-is
+              courseDataAccumulator[courseId][path] = value;
+            }
           } else {
-            // For nested paths
+            // For simple non-nested paths
             courseDataAccumulator[courseId][path] = value;
           }
           

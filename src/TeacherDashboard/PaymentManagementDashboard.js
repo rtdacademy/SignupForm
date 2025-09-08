@@ -610,7 +610,7 @@ const PaymentManagementDashboard = () => {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <p className="font-medium cursor-help inline-flex items-center">
-                                    {student.totalCredits} / {student.freeCreditsLimit + student.totalPaidCredits}
+                                    {student.totalCredits - student.exemptCredits} / {student.freeCreditsLimit + student.totalPaidCredits}
                                     {student.additionalFreeCredits > 0 && (
                                       <Zap className="h-3 w-3 text-yellow-600 ml-1" />
                                     )}
@@ -634,13 +634,14 @@ const PaymentManagementDashboard = () => {
                             </TooltipProvider>
                             <p className="text-xs text-gray-500">
                               {(() => {
+                                const nonExemptCredits = student.totalCredits - student.exemptCredits;
                                 const effectiveLimit = student.freeCreditsLimit + student.totalPaidCredits;
-                                if (student.totalCredits > effectiveLimit) {
-                                  return `${student.totalCredits - effectiveLimit} credits needed`;
-                                } else if (student.totalCredits > student.freeCreditsLimit) {
-                                  return `Using ${student.totalCredits - student.freeCreditsLimit} paid credits`;
+                                if (nonExemptCredits > effectiveLimit) {
+                                  return `${nonExemptCredits - effectiveLimit} credits needed`;
+                                } else if (nonExemptCredits > student.freeCreditsLimit) {
+                                  return `Using ${nonExemptCredits - student.freeCreditsLimit} paid credits`;
                                 } else {
-                                  return `${student.freeCreditsLimit - student.totalCredits} free remaining`;
+                                  return `${student.freeCreditsLimit - nonExemptCredits} free remaining`;
                                 }
                               })()}
                             </p>

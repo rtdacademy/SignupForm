@@ -14,12 +14,18 @@ import {
   Copy,
   Check,
   BookOpen,
-  Award
+  Award,
+  Ban
 } from 'lucide-react';
+import { getFacilitatorById } from '../config/facilitators';
 
 const FacilitatorProfile2 = () => {
   const navigate = useNavigate();
   const [copiedPhone, setCopiedPhone] = useState(false);
+  
+  // Get Marian's data from the config
+  const facilitatorData = getFacilitatorById('marian-johnson');
+  const isFull = facilitatorData?.isAvailable === false;
 
   const handleGoBack = () => {
     navigate('/bio');
@@ -70,7 +76,15 @@ const FacilitatorProfile2 = () => {
             
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Marian Johnson</h1>
             <p className="text-xl text-blue-600 font-semibold mb-2">Alberta Certified Teacher | Home Education Facilitator Since 2020</p>
-            <p className="text-lg text-gray-600 mb-6">Community Connector | Experiential Learning Advocate</p>
+            <p className="text-lg text-gray-600 mb-2">Community Connector | Experiential Learning Advocate</p>
+            
+            {/* Full Badge */}
+            {isFull && (
+              <div className="inline-flex items-center px-3 py-1 bg-red-100 border border-red-300 rounded-full mb-4">
+                <Ban className="w-4 h-4 text-red-600 mr-2" />
+                <span className="text-sm font-medium text-red-800">Currently Full - Not Accepting New Families</span>
+              </div>
+            )}
             
             <p className="text-lg text-gray-700 mb-8 max-w-3xl mx-auto leading-relaxed">
               Marian Johnson is a dynamic Home Education Facilitator who has been dedicated to supporting homeschooling families across rural Alberta since 2020. 

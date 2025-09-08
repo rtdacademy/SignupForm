@@ -13,11 +13,17 @@ import {
   Award,
   Lightbulb,
   School,
-  Target
+  Target,
+  Ban
 } from 'lucide-react';
+import { getFacilitatorById } from '../config/facilitators';
 
 const FacilitatorProfile1 = () => {
   const navigate = useNavigate();
+  
+  // Get Golda's data from the config
+  const facilitatorData = getFacilitatorById('golda-david');
+  const isFull = facilitatorData?.isAvailable === false;
 
   const handleGoBack = () => {
     navigate('/bio');
@@ -63,7 +69,15 @@ const FacilitatorProfile1 = () => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Golda David</h1>
               <p className="text-xl text-purple-600 font-semibold mb-2">Senior Home Education Facilitator</p>
               <p className="text-lg text-gray-600 mb-1">B.Ed, M.Ed</p>
-              <p className="text-lg text-gray-600 mb-6">20+ years experience · Educator since 2004</p>
+              <p className="text-lg text-gray-600 mb-2">20+ years experience · Educator since 2004</p>
+              
+              {/* Full Badge */}
+              {isFull && (
+                <div className="inline-flex items-center px-3 py-1 bg-red-100 border border-red-300 rounded-full mb-4">
+                  <Ban className="w-4 h-4 text-red-600 mr-2" />
+                  <span className="text-sm font-medium text-red-800">Currently Full - Not Accepting New Families</span>
+                </div>
+              )}
               
               <div className="flex justify-center md:justify-start">
                 <button

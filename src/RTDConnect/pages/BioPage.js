@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -16,15 +16,13 @@ import {
   Award,
   UserCircle,
   Copy,
-  Check
+  Check,
+  Ban
 } from 'lucide-react';
 
 // Import configuration
 import { CONTACT_INFO } from '../../config/HomeEducation';
-import { getAllFacilitators } from '../../config/facilitators';
-
-// Get facilitator data from centralized config
-const facilitators = getAllFacilitators();
+import { getAllFacilitatorsRandomized } from '../../config/facilitators';
 
 // RTD Connect Logo
 const RTDConnectLogo = () => (
@@ -47,6 +45,13 @@ const BioPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(null);
+  const [facilitators, setFacilitators] = useState([]);
+
+  // Load facilitators with randomized order on mount
+  useEffect(() => {
+    const loadedFacilitators = getAllFacilitatorsRandomized();
+    setFacilitators(loadedFacilitators);
+  }, []);
 
   const handleHomeClick = () => {
     navigate('/');
@@ -228,7 +233,12 @@ const BioPage = () => {
                             <UserCircle className="w-24 h-24 text-gray-400" />
                           </div>
                         )}
-                        {facilitator.experience !== 'Profile Coming Soon' ? (
+                        {facilitator.isAvailable === false ? (
+                          <div className="absolute bottom-0 right-1/4 w-auto px-3 py-1 bg-red-100 border border-red-300 rounded-full flex items-center shadow-lg">
+                            <Ban className="w-4 h-4 text-red-600 mr-1" />
+                            <span className="text-xs font-medium text-red-800">Currently Full</span>
+                          </div>
+                        ) : facilitator.experience !== 'Profile Coming Soon' ? (
                           <div className={`absolute bottom-0 right-1/4 w-12 h-12 bg-gradient-to-r ${facilitator.gradients.card} rounded-full flex items-center justify-center shadow-lg`}>
                             <Award className="w-6 h-6 text-white" />
                           </div>

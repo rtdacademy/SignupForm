@@ -1416,7 +1416,12 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     }
     
     if (conditions.courses && conditions.courses.length > 0) {
-      conditionTexts.push(`${conditions.courses.length} ${conditions.courses.length === 1 ? 'Course' : 'Courses'}: ${conditions.courses.join(', ')}`);
+      // Map course IDs to course names
+      const courseNames = conditions.courses.map(courseId => {
+        const course = COURSE_OPTIONS.find(c => c.courseId === courseId);
+        return course ? course.label : `Course ${courseId}`;
+      });
+      conditionTexts.push(`${conditions.courses.length} ${conditions.courses.length === 1 ? 'Course' : 'Courses'}: ${courseNames.join(', ')}`);
     }
     
     if (conditions.schoolYears && conditions.schoolYears.length > 0) {
@@ -2761,6 +2766,137 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                       </AccordionContent>
                     </AccordionItem>
                     
+                    {/* Courses */}
+                    <AccordionItem value="courses" className="mb-4 border border-purple-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors">
+                        Courses
+                        {selectedCourses.length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {selectedCourses.length} selected
+                          </Badge>
+                        )}
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-white">
+                        <div className="space-y-4">
+                          <Alert variant="info" className="bg-purple-50 border-purple-200">
+                            <AlertDescription className="text-sm text-purple-700">
+                              Select specific courses to target students enrolled in those courses. The notification will be shown to students in any of the selected courses.
+                            </AlertDescription>
+                          </Alert>
+                          
+                          {/* Group courses by grade */}
+                          {[10, 11, 12].map(grade => {
+                            const gradeCourses = COURSE_OPTIONS.filter(course => course.grade === grade);
+                            if (gradeCourses.length === 0) return null;
+                            
+                            return (
+                              <div key={grade} className="space-y-2">
+                                <h4 className="text-sm font-medium text-gray-700">Grade {grade}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {gradeCourses.map(course => {
+                                    const Icon = course.icon;
+                                    const isSelected = selectedCourses.includes(course.courseId);
+                                    
+                                    return (
+                                      <div 
+                                        key={course.courseId}
+                                        className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
+                                          isSelected ? 'bg-purple-50 border-purple-300' : 'hover:bg-gray-50'
+                                        }`}
+                                        onClick={() => {
+                                          setConditionsChanged(true);
+                                          setFiltersModified(true);
+                                          
+                                          if (isSelected) {
+                                            setSelectedCourses(selectedCourses.filter(id => id !== course.courseId));
+                                          } else {
+                                            setSelectedCourses([...selectedCourses, course.courseId]);
+                                          }
+                                        }}
+                                      >
+                                        <div 
+                                          className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
+                                            isSelected ? 'bg-purple-500 text-white' : 'border border-gray-300'
+                                          }`}
+                                        >
+                                          {isSelected && <CheckCircle className="w-4 h-4" />}
+                                        </div>
+                                        {Icon && <Icon className="h-4 w-4 mr-2" style={{ color: course.color }} />}
+                                        <span className="text-sm">{course.label}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Courses without grade specified */}
+                          {(() => {
+                            const otherCourses = COURSE_OPTIONS.filter(course => !course.grade);
+                            if (otherCourses.length === 0) return null;
+                            
+                            return (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium text-gray-700">Other Courses</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {otherCourses.map(course => {
+                                    const Icon = course.icon;
+                                    const isSelected = selectedCourses.includes(course.courseId);
+                                    
+                                    return (
+                                      <div 
+                                        key={course.courseId}
+                                        className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
+                                          isSelected ? 'bg-purple-50 border-purple-300' : 'hover:bg-gray-50'
+                                        }`}
+                                        onClick={() => {
+                                          setConditionsChanged(true);
+                                          setFiltersModified(true);
+                                          
+                                          if (isSelected) {
+                                            setSelectedCourses(selectedCourses.filter(id => id !== course.courseId));
+                                          } else {
+                                            setSelectedCourses([...selectedCourses, course.courseId]);
+                                          }
+                                        }}
+                                      >
+                                        <div 
+                                          className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
+                                            isSelected ? 'bg-purple-500 text-white' : 'border border-gray-300'
+                                          }`}
+                                        >
+                                          {isSelected && <CheckCircle className="w-4 h-4" />}
+                                        </div>
+                                        {Icon && <Icon className="h-4 w-4 mr-2" style={{ color: course.color }} />}
+                                        <span className="text-sm">{course.label}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        
+                        {selectedCourses.length > 0 && (
+                          <div className="mt-3 flex">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCourses([]);
+                                setConditionsChanged(true);
+                                setFiltersModified(true);
+                              }}
+                            >
+                              Clear Selection
+                            </Button>
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                    
                     {/* Student State section moved to the top */}
                     {/* Schedule End Date Range */}
                     <AccordionItem value="date-range" className="mb-4 border border-rose-200 rounded-lg overflow-hidden">
@@ -3279,7 +3415,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       
       {/* Survey Results Sheet */}
       <Sheet open={surveyResultsSheetOpen} onOpenChange={setSurveyResultsSheetOpen}>
-        <SheetContent side="right" className="w-[95%] p-0 max-w-screen overflow-hidden flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-full p-0 overflow-hidden flex flex-col">
           <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-center">
               <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />

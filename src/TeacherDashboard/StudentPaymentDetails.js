@@ -22,8 +22,14 @@ import {
   Cloud
 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
 
-const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
+const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [stripeData, setStripeData] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(true); // Add separate loading state for Stripe
@@ -129,7 +135,7 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
               // Add to courses list
               coursesList.push({
                 courseId,
-                courseName: courseData.courseName || `Course ${courseId}`,
+                courseName: getCourseNameById(courseId),
                 amount: courseData.amount_paid || 0,
                 status: courseData.status || 'unknown',
                 type: courseData.type || 'unknown',
@@ -161,7 +167,7 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
                   history.push({
                     type: 'invoice',
                     courseId,
-                    courseName: courseData.courseName,
+                    courseName: getCourseNameById(courseId),
                     ...invoice
                   });
                 });
@@ -171,7 +177,7 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
                 history.push({
                   type: 'one_time',
                   courseId,
-                  courseName: courseData.courseName,
+                  courseName: getCourseNameById(courseId),
                   amount_paid: courseData.amount_paid,
                   payment_date: courseData.payment_date,
                   receipt_url: courseData.receipt_url
@@ -223,29 +229,40 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
       let customerId = null;
       let courseIds = [];
       
-      // If we have specific courses from the student data, use those
-      // Check rawData.coursePaymentDetails first as it's more reliable
-      if (student.rawData?.coursePaymentDetails && Object.keys(student.rawData.coursePaymentDetails).length > 0) {
-        courseIds = Object.keys(student.rawData.coursePaymentDetails);
-        console.log('Course IDs from rawData.coursePaymentDetails:', courseIds);
-      } else if (student.courses && typeof student.courses === 'object' && Object.keys(student.courses).length > 0) {
-        courseIds = Object.keys(student.courses);
-        console.log('Course IDs from student.courses:', courseIds);
+      // First, try to get ALL courses from the payments path directly
+      // This ensures we get all courses with payment data, not just the current course
+      const paymentsRef = ref(db, `payments/${emailKey}/courses`);
+      const paymentsSnapshot = await get(paymentsRef);
+      
+      if (paymentsSnapshot.exists()) {
+        const allPaymentCourses = paymentsSnapshot.val();
+        courseIds = Object.keys(allPaymentCourses);
+        console.log('Found courses with payment data:', courseIds);
       } else {
-        // Fallback: check for course IDs directly in rawData (like "2": 5, "84": 5)
-        if (student.rawData) {
-          courseIds = Object.keys(student.rawData).filter(key => {
-            // Filter out non-course properties
-            return !isNaN(key) && key !== 'coursePaymentDetails' && 
-                   typeof student.rawData[key] === 'number';
-          });
-          if (courseIds.length > 0) {
-            console.log('Course IDs extracted from rawData numeric keys:', courseIds);
+        // Fallback to checking student data for course IDs
+        // Check rawData.coursePaymentDetails first as it's more reliable
+        if (student.rawData?.coursePaymentDetails && Object.keys(student.rawData.coursePaymentDetails).length > 0) {
+          courseIds = Object.keys(student.rawData.coursePaymentDetails);
+          console.log('Course IDs from rawData.coursePaymentDetails:', courseIds);
+        } else if (student.courses && typeof student.courses === 'object' && Object.keys(student.courses).length > 0) {
+          courseIds = Object.keys(student.courses);
+          console.log('Course IDs from student.courses:', courseIds);
+        } else {
+          // Fallback: check for course IDs directly in rawData (like "2": 5, "84": 5)
+          if (student.rawData) {
+            courseIds = Object.keys(student.rawData).filter(key => {
+              // Filter out non-course properties
+              return !isNaN(key) && key !== 'coursePaymentDetails' && 
+                     typeof student.rawData[key] === 'number';
+            });
+            if (courseIds.length > 0) {
+              console.log('Course IDs extracted from rawData numeric keys:', courseIds);
+            }
           }
-        }
-        
-        if (courseIds.length === 0) {
-          console.log('No courses found in student data');
+          
+          if (courseIds.length === 0) {
+            console.log('No courses found in student data');
+          }
         }
       }
       
@@ -322,18 +339,29 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
       // Get customer_ids from Firebase payment data (same logic as loadStripeData)
       let courseIds = [];
       
-      // Check rawData.coursePaymentDetails first as it's more reliable
-      if (student.rawData?.coursePaymentDetails && Object.keys(student.rawData.coursePaymentDetails).length > 0) {
-        courseIds = Object.keys(student.rawData.coursePaymentDetails);
-      } else if (student.courses && typeof student.courses === 'object' && Object.keys(student.courses).length > 0) {
-        courseIds = Object.keys(student.courses);
+      // First, try to get ALL courses from the payments path directly
+      const paymentsRef = ref(db, `payments/${emailKey}/courses`);
+      const paymentsSnapshot = await get(paymentsRef);
+      
+      if (paymentsSnapshot.exists()) {
+        const allPaymentCourses = paymentsSnapshot.val();
+        courseIds = Object.keys(allPaymentCourses);
+        console.log('Found courses with payment data for history:', courseIds);
       } else {
-        // Fallback: check for course IDs directly in rawData
-        if (student.rawData) {
-          courseIds = Object.keys(student.rawData).filter(key => {
-            return !isNaN(key) && key !== 'coursePaymentDetails' && 
-                   typeof student.rawData[key] === 'number';
-          });
+        // Fallback to checking student data
+        // Check rawData.coursePaymentDetails first as it's more reliable
+        if (student.rawData?.coursePaymentDetails && Object.keys(student.rawData.coursePaymentDetails).length > 0) {
+          courseIds = Object.keys(student.rawData.coursePaymentDetails);
+        } else if (student.courses && typeof student.courses === 'object' && Object.keys(student.courses).length > 0) {
+          courseIds = Object.keys(student.courses);
+        } else {
+          // Fallback: check for course IDs directly in rawData
+          if (student.rawData) {
+            courseIds = Object.keys(student.rawData).filter(key => {
+              return !isNaN(key) && key !== 'coursePaymentDetails' && 
+                     typeof student.rawData[key] === 'number';
+            });
+          }
         }
       }
       
@@ -461,28 +489,19 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" size="xl" className="w-full sm:w-[95%] max-w-none overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Payment Details</h2>
-            <p className="text-sm text-gray-600 mt-1">{student.email}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <SheetHeader className="px-6 py-4 border-b">
+          <SheetTitle className="text-xl font-bold">Payment Details</SheetTitle>
+          <p className="text-sm text-gray-600 mt-1">{student.email}</p>
+        </SheetHeader>
 
         {/* Tabs */}
         <div className="border-b">
           <div className="flex space-x-1 px-6">
             {[
               { id: 'overview', label: 'Overview', icon: Database, source: 'local' },
-              { id: 'credits', label: 'Credits', icon: Database, source: 'local' },
               { id: 'stripe', label: 'Stripe', icon: Cloud, source: 'live' },
               { id: 'history', label: 'History', icon: Cloud, source: 'live' }
             ].map((tab) => (
@@ -658,7 +677,7 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-blue-600">Total Credits</p>
-                          <p className="text-2xl font-bold text-blue-700">{student.totalCredits}</p>
+                          <p className="text-2xl font-bold text-blue-700">{student.totalCredits - student.exemptCredits}</p>
                         </div>
                         <TrendingUp className="h-8 w-8 text-blue-400" />
                       </div>
@@ -765,96 +784,6 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Credits Tab */}
-              {activeTab === 'credits' && (
-                <div className="space-y-6">
-                  {/* Data Source Banner */}
-                  <div className="bg-blue-50 border-l-4 border-blue-400 p-3 flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm text-blue-700">
-                      This credit information is from your local Firebase database
-                    </p>
-                  </div>
-                  
-                  {student.paymentModel === 'credit' ? (
-                    <>
-                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-                        <h3 className="font-medium text-blue-900 mb-2">Credit-Based Payment Model</h3>
-                        <p className="text-sm text-blue-700">
-                          This student pays per credit. They receive {student.rawData?.freeCreditsLimit || 10} free credits
-                          and must pay ${(student.rawData?.costPerCredit || 100) / 100} per additional credit.
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="font-medium text-gray-700">Course Details</h3>
-                        {student.rawData?.coursePaymentDetails && (
-                          <div className="overflow-x-auto">
-                            <table className="w-full border rounded-lg">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Credits to Unlock</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                {Object.entries(student.rawData.coursePaymentDetails).map(([courseId, details]) => (
-                                  <tr key={courseId} className="hover:bg-gray-50">
-                                    <td className="px-4 py-2 text-sm font-medium">{getCourseNameById(courseId)}</td>
-                                    <td className="px-4 py-2 text-sm">{student.rawData[courseId] || 0}</td>
-                                    <td className="px-4 py-2">
-                                      {details.requiresPayment ? (
-                                        <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">Requires Payment</span>
-                                      ) : (
-                                        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">Available</span>
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">{details.creditsRequiredToUnlock}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="bg-purple-50 border-l-4 border-purple-500 p-4">
-                        <h3 className="font-medium text-purple-900 mb-2">Course-Based Payment Model</h3>
-                        <p className="text-sm text-purple-700">
-                          This student pays per course. Each course requires individual payment or subscription.
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="font-medium text-gray-700">Course Payment Status</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Object.entries(student.courses).map(([courseId, courseData]) => (
-                            <div key={courseId} className="border rounded-lg p-4">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <p className="font-medium">{getCourseNameById(courseId)}</p>
-                                  <p className="text-sm text-gray-600">Course ID: {courseId}</p>
-                                </div>
-                                {getStatusBadge(courseData.paymentStatus || (courseData.isPaid ? 'paid' : 'unpaid'))}
-                              </div>
-                              {courseData.paymentType && (
-                                <p className="text-xs text-gray-500 mt-2">
-                                  Type: {courseData.paymentType}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
                   )}
                 </div>
               )}
@@ -1182,7 +1111,7 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
                                   <DollarSign className="h-4 w-4 text-gray-400" />
                                 )}
                                 <p className="font-medium">
-                                  {payment.courseName || `Course ${payment.courseId}`}
+                                  {payment.courseName || (payment.courseId ? getCourseNameById(payment.courseId) : 'Payment')}
                                 </p>
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1267,8 +1196,8 @@ const StudentPaymentDetails = ({ student, schoolYear, onClose }) => {
             Close
           </button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 
