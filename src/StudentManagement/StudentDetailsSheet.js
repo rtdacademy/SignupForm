@@ -156,11 +156,12 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
 
   const handlePaymentStatusUpdate = (newStatus) => {
     // Update local state immediately for real-time UI updates
+    // Store payment_status as a string, not an object
     setCourseEnrollmentData(prev => ({
       ...prev,
-      payment_status: {
-        ...prev.payment_status,
-        status: newStatus,
+      payment_status: newStatus,
+      payment_details: {
+        ...prev.payment_details,
         last_updated: Date.now()
       }
     }));

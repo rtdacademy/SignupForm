@@ -160,8 +160,10 @@ const PaymentInfo = ({
   const updatePaymentStatusV2 = async (status) => {
     const db = getDatabase();
     const updates = {
-      [`students/${studentKey}/courses/${courseId}/payment_status/status`]: status,
-      [`students/${studentKey}/courses/${courseId}/payment_status/last_updated`]: Date.now()
+      // Store payment_status as a string, not nested object
+      [`students/${studentKey}/courses/${courseId}/payment_status`]: status,
+      // Store metadata in separate payment_details field
+      [`students/${studentKey}/courses/${courseId}/payment_details/last_updated`]: Date.now()
     };
     
     try {
@@ -175,21 +177,21 @@ const PaymentInfo = ({
   const handleStatusChange = async (newStatus) => {
     const db = getDatabase();
     const updates = {
-      // Update in students path
-      [`students/${studentKey}/courses/${courseId}/payment_status/status`]: newStatus,
-      [`students/${studentKey}/courses/${courseId}/payment_status/last_updated`]: Date.now(),
+      // Update payment_status as string in students path
+      [`students/${studentKey}/courses/${courseId}/payment_status`]: newStatus,
+      [`students/${studentKey}/courses/${courseId}/payment_details/last_updated`]: Date.now(),
       // Also update in payments path
       [`payments/${studentKey}/courses/${courseId}/status`]: newStatus,
       [`payments/${studentKey}/courses/${courseId}/last_updated`]: Date.now()
     };
     
-    // Set manual flag when status is 'paid'
+    // Set manual flag in payment_details when status is 'paid'
     if (newStatus === 'paid') {
-      updates[`students/${studentKey}/courses/${courseId}/payment_status/manual`] = true;
+      updates[`students/${studentKey}/courses/${courseId}/payment_details/manual`] = true;
       updates[`payments/${studentKey}/courses/${courseId}/manual`] = true;
     } else {
       // Remove manual flag for other statuses
-      updates[`students/${studentKey}/courses/${courseId}/payment_status/manual`] = null;
+      updates[`students/${studentKey}/courses/${courseId}/payment_details/manual`] = null;
       updates[`payments/${studentKey}/courses/${courseId}/manual`] = null;
     }
     
@@ -210,9 +212,10 @@ const PaymentInfo = ({
   const handleManualToggle = async (checked) => {
     const db = getDatabase();
     const updates = {
-      [`students/${studentKey}/courses/${courseId}/payment_status/manual`]: checked ? true : null,
+      // Store manual flag in payment_details, not payment_status
+      [`students/${studentKey}/courses/${courseId}/payment_details/manual`]: checked ? true : null,
       [`payments/${studentKey}/courses/${courseId}/manual`]: checked ? true : null,
-      [`students/${studentKey}/courses/${courseId}/payment_status/last_updated`]: Date.now(),
+      [`students/${studentKey}/courses/${courseId}/payment_details/last_updated`]: Date.now(),
       [`payments/${studentKey}/courses/${courseId}/last_updated`]: Date.now()
     };
     
@@ -279,11 +282,12 @@ const PaymentInfo = ({
             determinedStatus = data.status === 'paid' ? 'paid' : 'unpaid';
           }
           
-          // Update payment_status in both locations
+          // Update payment_status as string in both locations
           const db2 = getDatabase();
           const updates = {
-            [`students/${studentKey}/courses/${courseId}/payment_status/status`]: determinedStatus,
-            [`students/${studentKey}/courses/${courseId}/payment_status/last_updated`]: Date.now(),
+            // Store payment_status as string
+            [`students/${studentKey}/courses/${courseId}/payment_status`]: determinedStatus,
+            [`students/${studentKey}/courses/${courseId}/payment_details/last_updated`]: Date.now(),
             [`payments/${studentKey}/courses/${courseId}/status`]: determinedStatus,
             [`payments/${studentKey}/courses/${courseId}/last_updated`]: Date.now()
           };

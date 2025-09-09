@@ -4332,22 +4332,45 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                   
                                   {/* Payment Status Cell */}
                                   <TableCell className="p-1 truncate min-w-12 max-w-20">
-                                    {record.payment_status ? (
-                                      <Badge 
-                                        variant="outline"
-                                        className={`text-xs py-0 px-1.5 truncate`}
-                                        style={{
-                                          backgroundColor: `${getPaymentStatusColor(record.payment_status)}20`,
-                                          color: getPaymentStatusColor(record.payment_status),
-                                          borderColor: `${getPaymentStatusColor(record.payment_status)}40`
-                                        }}
-                                        title={record.payment_status || 'N/A'}
-                                      >
-                                        {record.payment_status}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-xs text-gray-400">Not Set</span>
-                                    )}
+                                    {(() => {
+                                      // Check if payment_status is an object (old format) and log it
+                                      let paymentStatusValue = record.payment_status;
+                                      
+                                      if (paymentStatusValue && typeof paymentStatusValue === 'object') {
+                                        // Log the problematic record for debugging
+                                        console.warn('⚠️ Found payment_status as object (should be string):', {
+                                          studentName: record.studentName || `${record.firstName} ${record.lastName}`,
+                                          asn: record.asn,
+                                          courseCode: record.courseCode || record.Course_Value,
+                                          studentEmail: record.StudentEmail || record.studentEmail,
+                                          payment_status_object: paymentStatusValue,
+                                          recordId: record.id,
+                                          uid: record.uid
+                                        });
+                                        
+                                        // Extract the status string from the object
+                                        paymentStatusValue = paymentStatusValue.status || paymentStatusValue.details || 'unknown';
+                                      }
+                                      
+                                      if (paymentStatusValue && typeof paymentStatusValue === 'string') {
+                                        return (
+                                          <Badge 
+                                            variant="outline"
+                                            className={`text-xs py-0 px-1.5 truncate`}
+                                            style={{
+                                              backgroundColor: `${getPaymentStatusColor(paymentStatusValue)}20`,
+                                              color: getPaymentStatusColor(paymentStatusValue),
+                                              borderColor: `${getPaymentStatusColor(paymentStatusValue)}40`
+                                            }}
+                                            title={paymentStatusValue || 'N/A'}
+                                          >
+                                            {paymentStatusValue}
+                                          </Badge>
+                                        );
+                                      } else {
+                                        return <span className="text-xs text-gray-400">Not Set</span>;
+                                      }
+                                    })()}
                                   </TableCell>
                                   
                                   {/* Grade Cell - only show when PASI columns should be shown */}
