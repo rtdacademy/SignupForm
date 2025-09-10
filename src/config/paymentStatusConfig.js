@@ -117,6 +117,27 @@ export const PAYMENT_STATUS_CONFIG = {
     bgColor: '#FEE2E2', // red-100
     tooltip: 'One-time payment required'
   },
+  'unpaid': {
+    label: 'Unpaid',
+    icon: AlertCircle,
+    color: '#EF4444', // red-500
+    bgColor: '#FEE2E2', // red-100
+    tooltip: 'Payment required'
+  },
+  'trial_period': {
+    label: 'Trial Period',
+    icon: Clock,
+    color: '#10B981', // emerald-500
+    bgColor: '#D1FAE5', // emerald-100
+    tooltip: 'Free trial period active'
+  },
+  'unpaid_before_start_date': {
+    label: 'Unpaid (Not Started)',
+    icon: Pause,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Trial ended, course not yet started'
+  },
   'one_time_no_stripe': {
     label: 'Payment Not Found',
     icon: HelpCircle,

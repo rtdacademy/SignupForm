@@ -390,6 +390,34 @@ async function fetchPaymentStatusFromStripe(paymentData) {
 }
 
 /**
+ * Determine payment status based on trial period and schedule dates
+ * @param {string} created - ISO date string when course was created
+ * @param {string} scheduleStartDate - ISO date string when course starts
+ * @param {number} trialPeriodDays - Number of trial days (default 10)
+ * @returns {string} Payment status detailed value
+ */
+function determineTrialPaymentStatus(created, scheduleStartDate, trialPeriodDays = 10) {
+  const now = new Date();
+  const createdDate = new Date(created);
+  const trialEndDate = new Date(createdDate);
+  trialEndDate.setDate(trialEndDate.getDate() + trialPeriodDays);
+  const startDate = new Date(scheduleStartDate);
+  
+  // Check if we're still in trial period
+  if (now <= trialEndDate) {
+    return 'trial_period';
+  } 
+  // Check if trial ended but course hasn't started
+  else if (now < startDate) {
+    return 'unpaid_before_start_date';
+  } 
+  // Trial ended and course has started
+  else {
+    return 'unpaid';
+  }
+}
+
+/**
  * Check payment status for a specific course
  * @param {string} studentEmailKey - Sanitized email key
  * @param {string} courseId - Course ID
@@ -490,11 +518,26 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
     // Only accept per-course payments for Adult/International students
     // Ignore credit-based payments from when they might have been a different student type
     if (paymentData?.type === 'credits') {
+      // Check for trial period for unpaid Adult/International students
+      const summaryKey = `${studentEmailKey}_${courseId}`;
+      const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
+      const summarySnapshot = await summaryRef.once('value');
+      const summaryData = summarySnapshot.val();
+      
+      let detailedStatus = 'unpaid';
+      if (summaryData?.Created && summaryData?.ScheduleStartDate) {
+        detailedStatus = determineTrialPaymentStatus(
+          summaryData.Created,
+          summaryData.ScheduleStartDate,
+          10 // Trial period days
+        );
+      }
+      
       return {
         isPaid: false,
         paymentType: null,
         status: 'unpaid',
-        status_detailed: 'unpaid',
+        status_detailed: detailedStatus,
         paymentMethod: null,
         lastUpdated: null
       };
@@ -510,9 +553,65 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
         lastUpdated: paymentData?.last_updated || null
       };
     }
+    
+    // No payment data found - check for trial period
+    const summaryKey = `${studentEmailKey}_${courseId}`;
+    const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
+    const summarySnapshot = await summaryRef.once('value');
+    const summaryData = summarySnapshot.val();
+    
+    let detailedStatus = 'unpaid';
+    if (summaryData?.Created && summaryData?.ScheduleStartDate) {
+      detailedStatus = determineTrialPaymentStatus(
+        summaryData.Created,
+        summaryData.ScheduleStartDate,
+        10 // Trial period days
+      );
+    }
+    
+    // Return unpaid with appropriate trial status
+    return {
+      isPaid: false,
+      paymentType: null,
+      status: 'unpaid',
+      status_detailed: detailedStatus,
+      paymentMethod: null,
+      lastUpdated: null
+    };
   }
   
   // For credit-based students or when student type not provided, return payment data as-is
+  // But still check for trial periods if no payment data exists
+  if (!paymentData || (!paymentData.status && !paymentData.status_detailed)) {
+    // Try to get student type and check if they should have trial period
+    const summaryKey = `${studentEmailKey}_${courseId}`;
+    const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
+    const summarySnapshot = await summaryRef.once('value');
+    const summaryData = summarySnapshot.val();
+    
+    // Check if this is an Adult/International student without payment
+    if (summaryData?.StudentType_Value === 'Adult Student' || 
+        summaryData?.StudentType_Value === 'International Student') {
+      let detailedStatus = 'unpaid';
+      if (summaryData?.Created && summaryData?.ScheduleStartDate) {
+        detailedStatus = determineTrialPaymentStatus(
+          summaryData.Created,
+          summaryData.ScheduleStartDate,
+          10 // Trial period days
+        );
+      }
+      
+      return {
+        isPaid: false,
+        paymentType: null,
+        status: 'unpaid',
+        status_detailed: detailedStatus,
+        paymentMethod: null,
+        lastUpdated: null
+      };
+    }
+  }
+  
   return {
     isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
     paymentType: paymentData?.type || null,
@@ -1208,14 +1307,52 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
       } else {
         status = 'requires_payment';
         // Preserve the detailed status from the course data if available
-        status_detailed = courseInfo.paymentStatusDetailed || courseInfo.paymentStatus || 'requires_payment';
+        // But also check if we need to preserve trial period statuses
+        if (courseInfo.paymentStatusDetailed) {
+          status_detailed = courseInfo.paymentStatusDetailed;
+        } else {
+          // For Adult/International students, check current database for trial statuses
+          const summaryKey = `${studentEmailKey}_${courseId}`;
+          const currentStatusRef = db.ref(`studentCourseSummaries/${summaryKey}/payment_status_detailed`);
+          const currentStatusSnapshot = await currentStatusRef.once('value');
+          const currentDetailedStatus = currentStatusSnapshot.val();
+          
+          // Preserve trial period statuses if they exist
+          if (currentDetailedStatus === 'trial_period' || 
+              currentDetailedStatus === 'unpaid_before_start_date') {
+            status_detailed = currentDetailedStatus;
+          } else {
+            status_detailed = courseInfo.paymentStatus || 'unpaid';
+          }
+        }
         details.coursePaid = false;
         details.requiresPayment = true;
       }
     } else {
-      // Course not found in tracking, assume requires payment
+      // Course not found in tracking, check for trial period status
+      // For Adult/International students, we need to preserve trial period statuses
       status = 'requires_payment';
-      status_detailed = 'requires_payment';
+      
+      // Check if we should determine trial period status
+      if (isPerCoursePaymentStudent(studentType)) {
+        // Get the current detailed status from the database to preserve trial statuses
+        const summaryKey = `${studentEmailKey}_${courseId}`;
+        const currentStatusRef = db.ref(`studentCourseSummaries/${summaryKey}/payment_status_detailed`);
+        const currentStatusSnapshot = await currentStatusRef.once('value');
+        const currentDetailedStatus = currentStatusSnapshot.val();
+        
+        // Preserve trial period statuses if they exist
+        if (currentDetailedStatus === 'trial_period' || 
+            currentDetailedStatus === 'unpaid_before_start_date') {
+          status_detailed = currentDetailedStatus;
+        } else {
+          // Otherwise default to unpaid or requires_payment
+          status_detailed = 'unpaid';
+        }
+      } else {
+        status_detailed = 'requires_payment';
+      }
+      
       details.coursePaid = false;
       details.requiresPayment = true;
     }
@@ -1407,6 +1544,33 @@ async function recalculateCredits(studentEmailKey, schoolYear, studentType = nul
 }
 
 /**
+ * Update payment status for trial period courses
+ * Used by scheduled function to update statuses based on trial period
+ * @param {string} studentEmailKey - Sanitized email key
+ * @param {string} courseId - Course ID
+ * @param {string} newStatus - New payment status detailed value
+ * @returns {Promise<boolean>} Success indicator
+ */
+async function updateTrialPaymentStatus(studentEmailKey, courseId, newStatus) {
+  const db = admin.database();
+  const summaryKey = `${studentEmailKey}_${courseId}`;
+  
+  try {
+    const updates = {};
+    updates[`studentCourseSummaries/${summaryKey}/payment_status_detailed`] = newStatus;
+    updates[`studentCourseSummaries/${summaryKey}/payment_details/lastTrialCheck`] = admin.database.ServerValue.TIMESTAMP;
+    
+    await db.ref().update(updates);
+    
+    console.log(`✅ Updated trial payment status for ${summaryKey} to ${newStatus}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error updating trial payment status for ${summaryKey}:`, error);
+    return false;
+  }
+}
+
+/**
  * Process a credit payment and update tracking
  * @param {string} studentEmailKey - Sanitized email key
  * @param {string} schoolYear - School year (e.g., "25/26")
@@ -1477,6 +1641,7 @@ module.exports = {
   identifyCoursesRequiringPayment,
   updateCreditTracking,
   updateStudentCourseSummaryPaymentStatus,
+  updateTrialPaymentStatus,
   getStudentCredits,
   canRegisterForFree,
   recalculateCredits,

@@ -319,8 +319,37 @@ const recalculateStudentCredits = onCall({
 });
 
 /**
+ * Determine payment status based on trial period and schedule dates
+ * @param {string} created - ISO date string when course was created
+ * @param {string} scheduleStartDate - ISO date string when course starts
+ * @param {number} trialPeriodDays - Number of trial days (default 10)
+ * @returns {string} Payment status detailed value
+ */
+function determineTrialPaymentStatus(created, scheduleStartDate, trialPeriodDays = 10) {
+  const now = new Date();
+  const createdDate = new Date(created);
+  const trialEndDate = new Date(createdDate);
+  trialEndDate.setDate(trialEndDate.getDate() + trialPeriodDays);
+  const startDate = new Date(scheduleStartDate);
+  
+  // Check if we're still in trial period
+  if (now <= trialEndDate) {
+    return 'trial_period';
+  } 
+  // Check if trial ended but course hasn't started
+  else if (now < startDate) {
+    return 'unpaid_before_start_date';
+  } 
+  // Trial ended and course has started
+  else {
+    return 'unpaid';
+  }
+}
+
+/**
  * Cloud Function: Trigger credit recalculation via toggle mechanism
  * Used for batch processing of credit updates
+ * Now also updates trial period status for Adult/International students
  */
 const onCreditRecalcToggle = onValueWritten({
   ref: '/creditRecalculations/{studentKey}/trigger',
@@ -344,22 +373,66 @@ const onCreditRecalcToggle = onValueWritten({
     
     const summaries = summariesSnapshot.val() || {};
     
-    // Extract unique school years and student types
+    // Extract unique school years and student types, and track courses for trial updates
     const yearTypeSet = new Set();
+    const trialUpdateCourses = []; // Track Adult/International courses that need trial status update
     
-    for (const summary of Object.values(summaries)) {
+    for (const [summaryKey, summary] of Object.entries(summaries)) {
       const schoolYear = summary.School_x0020_Year_Value;
       const studentType = summary.StudentType_Value;
       
       if (schoolYear && studentType) {
         yearTypeSet.add(`${schoolYear}|${studentType}`);
+        
+        // Check if this is an Adult/International student that needs trial period status update
+        if ((studentType === 'Adult Student' || studentType === 'International Student') &&
+            summary.payment_status === 'requires_payment' &&
+            summary.Created && summary.ScheduleStartDate) {
+          
+          // Extract courseId from summaryKey (format: studentKey_courseId)
+          const parts = summaryKey.split('_');
+          const courseId = parts[parts.length - 1];
+          
+          trialUpdateCourses.push({
+            summaryKey,
+            courseId,
+            created: summary.Created,
+            scheduleStartDate: summary.ScheduleStartDate,
+            currentDetailedStatus: summary.payment_status_detailed
+          });
+        }
       }
-      
-      // Clear reference to help garbage collection
-      delete summaries[Object.keys(summaries)[0]];
     }
     
-    // Recalculate credits for each unique combination
+    // First, update trial period statuses for Adult/International students
+    if (trialUpdateCourses.length > 0) {
+      const trialUpdates = {};
+      let trialUpdatesCount = 0;
+      
+      for (const course of trialUpdateCourses) {
+        const newStatus = determineTrialPaymentStatus(
+          course.created,
+          course.scheduleStartDate,
+          10 // Trial period days
+        );
+        
+        // Only update if status has changed
+        if (course.currentDetailedStatus !== newStatus) {
+          trialUpdates[`studentCourseSummaries/${course.summaryKey}/payment_status_detailed`] = newStatus;
+          trialUpdates[`studentCourseSummaries/${course.summaryKey}/payment_details/lastTrialCheck`] = admin.database.ServerValue.TIMESTAMP;
+          trialUpdatesCount++;
+          console.log(`📅 Updating trial status for ${course.summaryKey}: ${course.currentDetailedStatus || 'none'} → ${newStatus}`);
+        }
+      }
+      
+      // Apply trial status updates
+      if (Object.keys(trialUpdates).length > 0) {
+        await db.ref().update(trialUpdates);
+        console.log(`✅ Updated trial period status for ${trialUpdatesCount} courses`);
+      }
+    }
+    
+    // Then, recalculate credits for each unique school year/type combination
     for (const yearType of yearTypeSet) {
       const [schoolYear, studentType] = yearType.split('|');
       
