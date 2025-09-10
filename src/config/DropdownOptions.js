@@ -28,7 +28,12 @@ import {
   Ban,
   CreditCard,      // for Payment Active
   BanknoteIcon,    // for Payment Unpaid
-  Keyboard         // for Keyboarding course
+  Keyboard,         // for Keyboarding course
+  DollarSign,      // for Paid statuses
+  RefreshCw,       // for Subscription renewals
+  Package,         // for Credit-based payments
+  ShieldCheck,     // for Overrides
+  Clock            // for Pending/partial payments
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -58,6 +63,186 @@ export const PAYMENT_STATUS_OPTIONS = [
   }
 ];
 
+// New detailed payment status options
+export const PAYMENT_STATUS_DETAILED_OPTIONS = [
+  // Subscription statuses - Active (Green - good standing)
+  { 
+    value: "sub_active_0", 
+    label: "Subscription Active (0/3)",
+    color: "#10B981",     // Green
+    icon: RefreshCw,
+    tooltip: "Subscription active - No payments received yet"
+  },
+  { 
+    value: "sub_active_1", 
+    label: "Subscription Active (1/3)",
+    color: "#10B981",     // Green
+    icon: RefreshCw,
+    tooltip: "Subscription active - 1 of 3 payments received"
+  },
+  { 
+    value: "sub_active_2", 
+    label: "Subscription Active (2/3)",
+    color: "#10B981",     // Green
+    icon: RefreshCw,
+    tooltip: "Subscription active - 2 of 3 payments received"
+  },
+  { 
+    value: "sub_complete", 
+    label: "Subscription Complete",
+    color: "#10B981",     // Green
+    icon: CheckCircle2,
+    tooltip: "All 3 subscription payments completed"
+  },
+  
+  // Subscription statuses - Canceled (Yellow - partial payment)
+  { 
+    value: "sub_canceled_0", 
+    label: "Subscription Canceled (0/3)",
+    color: "#F59E0B",     // Yellow
+    icon: Ban,
+    tooltip: "Subscription canceled - No payments received"
+  },
+  { 
+    value: "sub_canceled_1", 
+    label: "Subscription Canceled (1/3)",
+    color: "#F59E0B",     // Yellow
+    icon: Ban,
+    tooltip: "Subscription canceled - 1 of 3 payments received"
+  },
+  { 
+    value: "sub_canceled_2", 
+    label: "Subscription Canceled (2/3)",
+    color: "#F59E0B",     // Yellow
+    icon: Ban,
+    tooltip: "Subscription canceled - 2 of 3 payments received"
+  },
+  
+  // Subscription statuses - Past Due (Red - payment issues)
+  { 
+    value: "sub_past_due_1", 
+    label: "Subscription Past Due (1/3)",
+    color: "#EF4444",     // Red
+    icon: AlertOctagon,
+    tooltip: "Subscription past due - 1 payment received, next payment failed"
+  },
+  { 
+    value: "sub_past_due_2", 
+    label: "Subscription Past Due (2/3)",
+    color: "#EF4444",     // Red
+    icon: AlertOctagon,
+    tooltip: "Subscription past due - 2 payments received, next payment failed"
+  },
+  
+  // Subscription statuses - Other
+  { 
+    value: "sub_incomplete", 
+    label: "Subscription Pending",
+    color: "#F59E0B",     // Yellow
+    icon: Clock,
+    tooltip: "Subscription created but first payment pending"
+  },
+  { 
+    value: "sub_no_stripe", 
+    label: "Subscription Not Found",
+    color: "#6B7280",     // Gray
+    icon: MinusCircle,
+    tooltip: "Subscription data not found in Stripe"
+  },
+  
+  // One-time payment statuses
+  { 
+    value: "one_time_paid", 
+    label: "One-Time Paid",
+    color: "#10B981",     // Green
+    icon: DollarSign,
+    tooltip: "One-time payment completed"
+  },
+  { 
+    value: "one_time_unpaid", 
+    label: "One-Time Unpaid",
+    color: "#EF4444",     // Red
+    icon: BanknoteIcon,
+    tooltip: "One-time payment required"
+  },
+  { 
+    value: "one_time_no_stripe", 
+    label: "Payment Not Found",
+    color: "#6B7280",     // Gray
+    icon: MinusCircle,
+    tooltip: "Payment data not found in Stripe"
+  },
+  
+  // Credit-based statuses
+  { 
+    value: "credit_free", 
+    label: "Within Free Credits",
+    color: "#10B981",     // Green
+    icon: Package,
+    tooltip: "Course is within free credit limit"
+  },
+  { 
+    value: "credit_requires_payment", 
+    label: "Credits Required",
+    color: "#EF4444",     // Red
+    icon: AlertCircle,
+    tooltip: "Additional credits required for this course"
+  },
+  { 
+    value: "credit_paid", 
+    label: "Credits Purchased",
+    color: "#10B981",     // Green
+    icon: Package,
+    tooltip: "Credits purchased - Course accessible"
+  },
+  { 
+    value: "credit_partial", 
+    label: "Partial Credits",
+    color: "#F59E0B",     // Yellow
+    icon: Clock,
+    tooltip: "Some credits purchased but more needed"
+  },
+  { 
+    value: "credit_override", 
+    label: "Credit Override",
+    color: "#10B981",     // Green
+    icon: ShieldCheck,
+    tooltip: "Additional free credits granted"
+  },
+  
+  // Special statuses
+  { 
+    value: "carried_over", 
+    label: "Carried Over",
+    color: "#10B981",     // Green
+    icon: RefreshCw,
+    tooltip: "Payment carried over from previous school year"
+  },
+  { 
+    value: "manual_override", 
+    label: "Manual Override",
+    color: "#10B981",     // Green
+    icon: ShieldCheck,
+    tooltip: "Manual payment override by administrator"
+  },
+  { 
+    value: "exempt", 
+    label: "Exempt",
+    color: "#10B981",     // Green
+    icon: CheckCircle2,
+    tooltip: "Course exempt from payment requirements"
+  },
+  
+  // Fallback/Unknown
+  { 
+    value: "unknown", 
+    label: "Unknown",
+    color: "#6B7280",     // Gray
+    icon: MinusCircle,
+    tooltip: "Payment status unknown"
+  }
+];
+
 // Add the helper function for payment status colors
 export const getPaymentStatusColor = (status) => {
   const option = PAYMENT_STATUS_OPTIONS.find(opt => opt.value === status);
@@ -72,6 +257,22 @@ export const getPaymentStatusInfo = (status) => {
     icon: option ? option.icon : MinusCircle,
     tooltip: option ? option.tooltip : "Unknown payment status",
     value: option ? option.value : status
+  };
+};
+
+// Helper function to get detailed payment status info
+export const getPaymentStatusDetailedInfo = (status) => {
+  const option = PAYMENT_STATUS_DETAILED_OPTIONS.find(opt => opt.value === status);
+  if (!option) {
+    // Fallback to basic status if detailed not found
+    return getPaymentStatusInfo(status);
+  }
+  return {
+    label: option.label,
+    color: option.color,
+    icon: option.icon,
+    tooltip: option.tooltip,
+    value: option.value
   };
 };
 

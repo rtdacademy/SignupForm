@@ -1,4 +1,5 @@
 // Utility functions for checking course payment status using the centralized credit tracking system
+import { getTrialPeriodDays } from '../config/paymentConfig';
 
 /**
  * Get the current school year in YY_YY format
@@ -23,6 +24,69 @@ const getStudentTypeKey = (studentType) => {
     'International Student': 'internationalStudents'
   };
   return typeMapping[studentType] || null;
+};
+
+/**
+ * Calculate trial period status for a course
+ * @param {Object} course - The course object with Created field
+ * @param {string} studentType - The student type
+ * @returns {Object} - Trial status information
+ */
+export const calculateTrialStatus = (course, studentType) => {
+  // Only check trial for adult and international students
+  if (studentType !== 'Adult Student' && studentType !== 'International Student') {
+    return { isInTrial: false, trialDaysRemaining: 0, trialEndDate: null };
+  }
+
+  // Get trial period days from config
+  const trialDays = getTrialPeriodDays(studentType);
+  
+  if (!trialDays || trialDays === 0) {
+    return { isInTrial: false, trialDaysRemaining: 0, trialEndDate: null };
+  }
+
+  // Get course creation date
+  const createdDate = course.Created ? new Date(course.Created) : null;
+  
+  if (!createdDate) {
+    // If no creation date, assume course was just created (start trial)
+    const now = new Date();
+    const trialEndDate = new Date(now.getTime() + (trialDays * 24 * 60 * 60 * 1000));
+    
+    return {
+      isInTrial: true,
+      trialDaysRemaining: trialDays,
+      trialEndDate: trialEndDate.toISOString()
+    };
+  }
+
+  // Calculate trial end date
+  // Parse the ISO string and add trial days worth of milliseconds
+  const createdTime = new Date(createdDate).getTime();
+  const trialDurationMs = trialDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+  const trialEndTime = createdTime + trialDurationMs;
+  const trialEndDate = new Date(trialEndTime);
+
+  // Get current time for comparison
+  const now = new Date();
+  const nowTime = now.getTime();
+  
+  // Check if we're still in trial period
+  const isInTrial = nowTime < trialEndTime;
+  
+  // Calculate days remaining
+  // Use floor + 1 to ensure "last day" shows as 1 day remaining, not 0
+  const msRemaining = trialEndTime - nowTime;
+  const daysRemaining = isInTrial 
+    ? Math.max(1, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  return {
+    isInTrial,
+    trialDaysRemaining: daysRemaining,
+    trialEndDate: trialEndDate.toISOString(),
+    trialExpired: !isInTrial && createdDate !== null
+  };
 };
 
 /**
@@ -84,6 +148,12 @@ export const isCourseUnlocked = (course, profile) => {
 
   // For course-based payment systems (Adult, International)
   if (sanitizedType === 'adultStudents' || sanitizedType === 'internationalStudents') {
+    // First check if course is in trial period
+    const trialStatus = calculateTrialStatus(course, studentType);
+    if (trialStatus.isInTrial) {
+      return true; // Unlock during trial period
+    }
+    
     // Check if this specific course is paid
     const coursePaymentData = creditData.courses?.[courseId];
     
@@ -140,12 +210,19 @@ export const getCoursePaymentStatus = (course, profile) => {
   // For course-based systems
   if (sanitizedType === 'adultStudents' || sanitizedType === 'internationalStudents') {
     const coursePaymentData = creditData.courses?.[courseId];
+    const trialStatus = calculateTrialStatus(course, studentType);
+    
     return {
       isUnlocked,
-      requiresPayment: !coursePaymentData?.isPaid,
+      requiresPayment: !coursePaymentData?.isPaid && !trialStatus.isInTrial,
       paymentType: 'course',
       paymentStatus: coursePaymentData?.paymentStatus || 'unpaid',
-      paymentMethod: coursePaymentData?.paymentType || null
+      paymentMethod: coursePaymentData?.paymentType || null,
+      // Add trial information
+      isInTrial: trialStatus.isInTrial,
+      trialDaysRemaining: trialStatus.trialDaysRemaining,
+      trialEndDate: trialStatus.trialEndDate,
+      trialExpired: trialStatus.trialExpired
     };
   }
 

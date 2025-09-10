@@ -1,3 +1,11 @@
+// Load global dependencies before any other imports
+import $ from 'jquery';
+window.jQuery = window.$ = $;
+
+import katex from 'katex';
+import 'katex/dist/katex.css';
+window.katex = katex;
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router } from 'react-router-dom';

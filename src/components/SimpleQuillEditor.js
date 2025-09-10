@@ -8,22 +8,15 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Save } from 'lucide-react';
 import { ScrollArea } from '../components/ui/scroll-area';
 
-// KaTeX dependency
-import katex from "katex";
-window.katex = katex;
-import "katex/dist/katex.css";
+// jQuery and KaTeX are loaded globally in index.js
 
-// MathQuill dependency
+// MathQuill dependency - requires jQuery to be loaded first
 import '@edtr-io/mathquill/build/mathquill.js';
 import '@edtr-io/mathquill/build/mathquill.css';
 
 // mathquill4quill
 import mathquill4quill from "mathquill4quill";
 import "mathquill4quill/mathquill4quill.css";
-
-// jQuery setup
-import $ from "jquery";
-window.jQuery = window.$ = $;
 
 // Import our custom image resizing module
 import '../courses/CourseEditor/ImageResize';

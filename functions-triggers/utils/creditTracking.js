@@ -3,6 +3,24 @@ const admin = require('firebase-admin');
 // Course IDs that are exempt from credit limits
 const EXEMPT_COURSE_IDS = [4, 6]; // COM1255 and INF2020
 
+// Stripe instance - will be initialized on first use
+let stripeInstance = null;
+
+/**
+ * Get or initialize Stripe instance
+ */
+function getStripe() {
+  if (!stripeInstance) {
+    // Use the STRIPE_SECRET_KEY from environment (secrets in v2 functions)
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      throw new Error('Stripe secret key not configured - ensure STRIPE_SECRET_KEY is set in secrets');
+    }
+    stripeInstance = require('stripe')(stripeKey);
+  }
+  return stripeInstance;
+}
+
 // Cache for course credits to avoid repeated database lookups
 const courseCreditsCache = new Map();
 
@@ -162,6 +180,216 @@ async function getEffectiveFreeCreditsLimit(studentEmailKey, schoolYear, student
 }
 
 /**
+ * Fetch payment status directly from Stripe
+ * @param {Object} paymentData - Payment data from database containing IDs
+ * @returns {Object} Fresh payment status from Stripe
+ */
+async function fetchPaymentStatusFromStripe(paymentData) {
+  if (!paymentData) return null;
+  
+  try {
+    const stripe = getStripe();
+    
+    // Handle subscription payments
+    if (paymentData.subscription_id) {
+      const subscriptionId = paymentData.subscription_id;
+      
+      // Fetch subscription details
+      let subscription;
+      let subscriptionExists = true;
+      try {
+        subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      } catch (error) {
+        if (error.code === 'resource_missing' || error.statusCode === 404) {
+          // Subscription doesn't exist in Stripe
+          console.log(`Subscription ${subscriptionId} not found in Stripe`);
+          subscriptionExists = false;
+        } else {
+          throw error;
+        }
+      }
+      
+      // Try to fetch invoices even if subscription doesn't exist
+      let invoices;
+      let invoicesExist = true;
+      try {
+        invoices = await stripe.invoices.list({
+          subscription: subscriptionId,
+          limit: 100,
+          expand: ['data.charge'] // Expand charge data for more details
+        });
+      } catch (error) {
+        console.log(`Error fetching invoices for subscription ${subscriptionId}:`, error.message);
+        invoicesExist = false;
+      }
+      
+      // If no subscription and no invoices exist in Stripe, return no_payment status
+      if (!subscriptionExists && (!invoicesExist || !invoices?.data?.length)) {
+        return {
+          isPaid: false,
+          status: 'no_payment',
+          status_detailed: 'sub_no_stripe',
+          paymentType: 'subscription',
+          paymentCount: 0,
+          invoices: [],
+          subscription_id: subscriptionId,
+          error: 'Subscription and invoices not found in Stripe',
+          lastUpdated: Date.now()
+        };
+      }
+      
+      // Filter for truly paid invoices (not draft, not void, not uncollectible)
+      // According to Stripe docs, only 'paid' status with amount_paid > 0 counts
+      const paidInvoices = invoices?.data?.filter(inv => {
+        // Must have 'paid' status
+        if (inv.status !== 'paid') return false;
+        
+        // Must have actual payment amount (not $0 invoices)
+        if (!inv.amount_paid || inv.amount_paid <= 0) return false;
+        
+        // Must not be a test/draft that somehow got marked paid
+        if (inv.billing_reason === 'manual' && !inv.charge) return false;
+        
+        return true;
+      }) || [];
+      
+      // Sort by payment date
+      paidInvoices.sort((a, b) => {
+        const aDate = a.status_transitions?.paid_at || a.created || 0;
+        const bDate = b.status_transitions?.paid_at || b.created || 0;
+        return bDate - aDate;
+      });
+      
+      const paymentCount = paidInvoices.length;
+      
+      // ALL subscriptions are 3-month plans - no need to check type
+      console.log(`Subscription ${subscriptionId}: ${paymentCount} paid invoices found`);
+      
+      // Determine status based on payment count
+      // Simple logic: ALL subscriptions need exactly 3 payments to be complete
+      let status;
+      let status_detailed;
+      
+      if (paymentCount >= 3) {
+        // Fully paid after 3 successful payments
+        status = 'paid';
+        status_detailed = 'sub_complete';
+      } else if (paymentCount === 0) {
+        // No payments at all
+        if (subscription?.status === 'canceled') {
+          status = 'canceled_unpaid'; // Canceled without any payment
+          status_detailed = 'sub_canceled_0';
+        } else {
+          status = 'incomplete'; // Waiting for first payment
+          status_detailed = 'sub_incomplete';
+        }
+      } else if (paymentCount < 3) {
+        // Has 1 or 2 payments
+        if (subscription?.status === 'canceled') {
+          // Canceled before completing all 3 payments
+          status = `canceled_partial_${paymentCount}`; // e.g., 'canceled_partial_2' for 2 payments
+          status_detailed = `sub_canceled_${paymentCount}`;
+        } else if (subscription?.status === 'past_due') {
+          status = 'past_due'; // Payment failed, still trying
+          status_detailed = `sub_past_due_${paymentCount}`;
+        } else {
+          status = 'active'; // Still collecting remaining payments
+          status_detailed = `sub_active_${paymentCount}`;
+        }
+      }
+      
+      return {
+        isPaid: status === 'paid' || (status === 'active' && paymentCount > 0),
+        status: status,
+        status_detailed: status_detailed,
+        paymentType: 'subscription',
+        paymentCount: paymentCount,
+        invoices: paidInvoices.map(inv => ({
+          id: inv.id,
+          amount_paid: inv.amount_paid,
+          paid_at: inv.status_transitions?.paid_at || inv.created,
+          hosted_invoice_url: inv.hosted_invoice_url,
+          invoice_pdf: inv.invoice_pdf
+        })),
+        subscription_id: subscriptionId,
+        customer_id: subscription?.customer || paymentData.customer_id,
+        lastUpdated: Date.now()
+      };
+    }
+    
+    // Handle one-time payments
+    if (paymentData.payment_id) {
+      // payment_id could be either a PaymentIntent ID or a Charge ID
+      let paymentInfo = null;
+      
+      try {
+        // Try as PaymentIntent first
+        if (paymentData.payment_id.startsWith('pi_')) {
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentData.payment_id);
+          paymentInfo = {
+            isPaid: paymentIntent.status === 'succeeded',
+            status: paymentIntent.status === 'succeeded' ? 'paid' : paymentIntent.status,
+            status_detailed: paymentIntent.status === 'succeeded' ? 'one_time_paid' : 'one_time_unpaid',
+            amount_paid: paymentIntent.amount,
+            created: paymentIntent.created * 1000
+          };
+        } 
+        // Try as Charge
+        else if (paymentData.payment_id.startsWith('ch_')) {
+          const charge = await stripe.charges.retrieve(paymentData.payment_id);
+          paymentInfo = {
+            isPaid: charge.status === 'succeeded' && charge.paid,
+            status: charge.paid ? 'paid' : 'unpaid',
+            status_detailed: charge.paid ? 'one_time_paid' : 'one_time_unpaid',
+            amount_paid: charge.amount,
+            receipt_url: charge.receipt_url,
+            created: charge.created * 1000
+          };
+        }
+      } catch (error) {
+        if (error.code === 'resource_missing' || error.statusCode === 404) {
+          // Payment doesn't exist in Stripe
+          console.log(`Payment ${paymentData.payment_id} not found in Stripe`);
+          return {
+            isPaid: false,
+            status: 'no_payment',
+            status_detailed: 'one_time_no_stripe',
+            paymentType: 'one_time',
+            payment_id: paymentData.payment_id,
+            error: 'Payment not found in Stripe',
+            lastUpdated: Date.now()
+          };
+        }
+        throw error;
+      }
+      
+      if (paymentInfo) {
+        return {
+          ...paymentInfo,
+          paymentType: 'one_time',
+          payment_id: paymentData.payment_id,
+          customer_id: paymentData.customer_id,
+          lastUpdated: Date.now()
+        };
+      }
+    }
+    
+    // If only customer_id is available, check for any payments
+    if (paymentData.customer_id && !paymentData.subscription_id && !paymentData.payment_id) {
+      // This is a fallback - ideally we should have more specific IDs
+      console.log(`Only customer_id available for payment check: ${paymentData.customer_id}`);
+      return null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching payment status from Stripe:', error);
+    // Return null to fall back to database data
+    return null;
+  }
+}
+
+/**
  * Check payment status for a specific course
  * @param {string} studentEmailKey - Sanitized email key
  * @param {string} courseId - Course ID
@@ -180,6 +408,7 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
         isPaid: true,
         paymentType: 'manual_override',
         status: 'paid',
+        status_detailed: 'manual_override',
         paymentMethod: 'override',
         lastUpdated: override.overriddenAt,
         overrideDetails: {
@@ -195,7 +424,66 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
   // Check the payments node where Stripe stores payment data
   const paymentRef = db.ref(`payments/${studentEmailKey}/courses/${courseId}`);
   const snapshot = await paymentRef.once('value');
-  const paymentData = snapshot.val();
+  let paymentData = snapshot.val();
+  
+  // If we have payment data with Stripe IDs, fetch fresh data from Stripe
+  if (paymentData && (paymentData.subscription_id || paymentData.payment_id)) {
+    const stripeData = await fetchPaymentStatusFromStripe(paymentData);
+    
+    if (stripeData) {
+      // Update database with fresh Stripe data
+      const updates = {
+        status: stripeData.status,
+        status_detailed: stripeData.status_detailed,
+        last_updated: stripeData.lastUpdated,
+        last_stripe_sync: stripeData.lastUpdated
+      };
+      
+      // Add subscription-specific fields
+      if (stripeData.paymentType === 'subscription') {
+        updates.payment_count = stripeData.paymentCount;
+        updates.invoices = stripeData.invoices;
+        updates.successful_invoice_ids = stripeData.invoices.map(inv => inv.id);
+        
+        // ALL subscriptions are 3-month plans
+        // Mark as paid if 3 payments completed
+        if (stripeData.paymentCount >= 3) {
+          updates.status = 'paid';
+          updates.final_payment_count = stripeData.paymentCount;
+          updates.completed_at = Date.now();
+          
+          console.log(`Marking subscription ${paymentData.subscription_id} as fully paid with ${stripeData.paymentCount} payments`);
+        } else if (stripeData.status) {
+          // Use the status from Stripe (could be canceled_partial_1, canceled_partial_2, etc.)
+          updates.status = stripeData.status;
+        }
+      }
+      
+      // Add one-time payment fields
+      if (stripeData.paymentType === 'one_time') {
+        updates.amount_paid = stripeData.amount_paid;
+        if (stripeData.receipt_url) {
+          updates.receipt_url = stripeData.receipt_url;
+        }
+      }
+      
+      // Update the database with fresh data
+      await paymentRef.update(updates);
+      
+      // Also update the student's payment_status node
+      const studentPaymentStatusRef = db.ref(`students/${studentEmailKey}/courses/${courseId}/payment_status`);
+      await studentPaymentStatusRef.update({
+        status: stripeData.status,
+        status_detailed: stripeData.status_detailed,
+        last_checked: stripeData.lastUpdated,
+        payment_count: stripeData.paymentCount || null,
+        last_stripe_sync: stripeData.lastUpdated
+      });
+      
+      // Use fresh Stripe data for the return value
+      paymentData = { ...paymentData, ...updates };
+    }
+  }
   
   // For per-course payment students (Adult/International), validate payment type
   if (studentType && isPerCoursePaymentStudent(studentType)) {
@@ -206,6 +494,7 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
         isPaid: false,
         paymentType: null,
         status: 'unpaid',
+        status_detailed: 'unpaid',
         paymentMethod: null,
         lastUpdated: null
       };
@@ -216,6 +505,7 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
         isPaid: true,
         paymentType: 'per_course',
         status: 'paid',
+        status_detailed: paymentData?.status_detailed || 'paid',
         paymentMethod: paymentData?.payment_method || null,
         lastUpdated: paymentData?.last_updated || null
       };
@@ -227,6 +517,7 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
     isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
     paymentType: paymentData?.type || null,
     status: paymentData?.status || 'unpaid',
+    status_detailed: paymentData?.status_detailed || paymentData?.status || 'unpaid',
     paymentMethod: paymentData?.payment_method || null,
     lastUpdated: paymentData?.last_updated || null
   };
@@ -638,6 +929,7 @@ async function updateCreditTracking(studentEmailKey, schoolYear, studentType, co
       courseData[courseId] = {
         courseName,
         paymentStatus: paymentStatus.status,
+        paymentStatusDetailed: paymentStatus.status_detailed,
         paymentType: paymentStatus.paymentType,
         isPaid: paymentStatus.isPaid,
         lastChecked: paymentStatus.lastUpdated || null,
@@ -865,6 +1157,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
   
   // Determine the payment status based on student type and credit data
   let status = 'free';
+  let status_detailed = 'credit_free'; // Default detailed status
   let details = {
     studentType,
     lastUpdated: admin.database.ServerValue.TIMESTAMP
@@ -882,6 +1175,30 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
       
       if (courseInfo.isPaid) {
         status = courseInfo.carriedOver ? 'carried_over' : 'paid';
+        // Set detailed status based on payment type
+        if (courseInfo.carriedOver) {
+          status_detailed = 'carried_over';
+        } else if (courseInfo.paymentStatusDetailed) {
+          // Use the detailed status if available
+          status_detailed = courseInfo.paymentStatusDetailed;
+        } else if (courseInfo.paymentType === 'subscription') {
+          // Fallback: For subscription, check the actual payment status
+          const paymentStatus = courseInfo.paymentStatus;
+          if (paymentStatus === 'paid') {
+            status_detailed = 'sub_complete';
+          } else if (paymentStatus?.startsWith('active')) {
+            // Extract payment count from status like 'active' 
+            // Since we don't have count in the creditData, default to active_1
+            status_detailed = 'sub_active_1';
+          } else if (paymentStatus?.includes('canceled_partial')) {
+            const match = paymentStatus.match(/canceled_partial_(\d+)/);
+            status_detailed = match ? `sub_canceled_${match[1]}` : 'sub_canceled_1';
+          } else {
+            status_detailed = 'sub_complete'; // Default for paid subscriptions
+          }
+        } else {
+          status_detailed = 'one_time_paid';
+        }
         details.coursePaid = true;
         details.paymentMethod = courseInfo.paymentType || 'unknown';
         
@@ -890,12 +1207,15 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
         }
       } else {
         status = 'requires_payment';
+        // Preserve the detailed status from the course data if available
+        status_detailed = courseInfo.paymentStatusDetailed || courseInfo.paymentStatus || 'requires_payment';
         details.coursePaid = false;
         details.requiresPayment = true;
       }
     } else {
       // Course not found in tracking, assume requires payment
       status = 'requires_payment';
+      status_detailed = 'requires_payment';
       details.coursePaid = false;
       details.requiresPayment = true;
     }
@@ -907,6 +1227,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
         const courseOverride = creditData.overridesApplied.find(o => o.courseId === courseId);
         if (courseOverride) {
           status = 'override';
+          status_detailed = 'manual_override';
           details.overrideDetails = courseOverride.details;
         }
       }
@@ -933,6 +1254,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
     const courseIdInt = parseInt(courseId);
     if (isExemptCourse(courseIdInt)) {
       status = 'free';
+      status_detailed = 'exempt';
       details.isExempt = true;
     } else {
       // Get course payment details
@@ -946,25 +1268,30 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
           
           if (totalPaidCredits >= creditsRequired) {
             status = 'paid';
+            status_detailed = 'credit_paid';
             details.creditsRequired = creditsRequired;
             details.creditsPaid = totalPaidCredits;
           } else if (totalPaidCredits > 0) {
             status = 'partial';
+            status_detailed = 'credit_partial';
             details.creditsRequired = creditsRequired;
             details.creditsPaid = totalPaidCredits;
             details.creditsNeeded = creditsRequired - totalPaidCredits;
           } else {
             status = 'requires_payment';
+            status_detailed = 'credit_requires_payment';
             details.creditsRequired = creditsRequired;
             details.requiresPayment = true;
           }
         } else {
           status = 'free';
+          status_detailed = 'credit_free';
           details.withinFreeLimit = true;
         }
       } else {
         // Default to free if no payment details
         status = 'free';
+        status_detailed = 'credit_free';
       }
       
       // Add credit usage details
@@ -979,7 +1306,10 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
         details.hasOverrides = true;
         details.overrideDetails = creditData.creditsOverrideDetails;
         if (creditData.additionalFreeCredits > 0) {
-          status = status === 'requires_payment' ? 'override' : status;
+          if (status === 'requires_payment') {
+            status = 'override';
+            status_detailed = 'credit_override';
+          }
         }
       }
     }
@@ -995,6 +1325,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
   // Set payment_status as a string and details/creditsSummary as separate fields
   const updates = {};
   updates[`studentCourseSummaries/${summaryKey}/payment_status`] = status;
+  updates[`studentCourseSummaries/${summaryKey}/payment_status_detailed`] = status_detailed;
   updates[`studentCourseSummaries/${summaryKey}/payment_details`] = details;
   
   // Add creditsSummary as a separate field if it exists (for Non-Primary and Home Education)
@@ -1007,6 +1338,7 @@ async function updateStudentCourseSummaryPaymentStatus(studentEmailKey, courseId
   // Return the structured data
   return {
     status,
+    status_detailed,
     details,
     ...(creditsSummary && { creditsSummary })
   };

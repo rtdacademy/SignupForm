@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -58,7 +58,9 @@ import {
   Clock,
   XCircle
 } from 'lucide-react';
-import QuillEditor from '../../courses/CourseEditor/QuillEditor';
+
+// Lazy load QuillEditor to ensure jQuery loads first
+const QuillEditor = lazy(() => import('../../courses/CourseEditor/QuillEditor'));
 import { useAuth } from '../../context/AuthContext';
 import { useFamilyNotes } from './useFamilyNotes';
 import { formatDistanceToNow } from 'date-fns';
@@ -547,13 +549,19 @@ const FamilyNotesModal = ({ isOpen, onClose, family, familyId }) => {
 
           <div className="flex-1 min-h-0 p-4">
             <div style={{ height: 'calc(100% - 1rem)' }}>
-              <QuillEditor
-                ref={quillRef}
-                initialContent={editorContent}
-                onContentChange={setEditorContent}
-                hideSaveButton={true}
-                fixedHeight="calc(100vh - 28rem)"
-              />
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              }>
+                <QuillEditor
+                  ref={quillRef}
+                  initialContent={editorContent}
+                  onContentChange={setEditorContent}
+                  hideSaveButton={true}
+                  fixedHeight="calc(100vh - 28rem)"
+                />
+              </Suspense>
             </div>
           </div>
 

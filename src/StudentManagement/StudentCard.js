@@ -1565,12 +1565,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
               </div>
 
              {/* Payment Status Badge in header */}
-             {(student.payment_status || 
+             {(student.payment_status_detailed || student.payment_status || 
               (getSafeValue(student.StudentType_Value) === "Adult Student") || 
               (getSafeValue(student.StudentType_Value) === "International Student")) && (
               <div className="mt-1 inline-block">
                 <PaymentStatusBadge 
                   paymentStatus={
+                    student.payment_status_detailed ||
                     student.payment_status || 
                     ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
                       getSafeValue(student.StudentType_Value) === "International Student") 
@@ -2735,7 +2736,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
             }
             return 'credit';
           })(),
-          paymentStatus: student.payment_status || 'unknown',
+          paymentStatus: student.payment_status_detailed || student.payment_status || 'unknown',
           amountDue: 0,
           amountPaid: 0,
           totalCredits: student.credits_summary?.totalCredits || 0,
@@ -2781,6 +2782,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
               studentKey={student.StudentEmail ? sanitizeEmail(student.StudentEmail) : null}
               courseId={student.CourseID || student.courseId || student.id?.slice(student.id.lastIndexOf('_') + 1)}
               paymentStatus={
+                student.payment_status_detailed || 
                 student.payment_status || 
                 ((getSafeValue(student.StudentType_Value) === "Adult Student" || 
                   getSafeValue(student.StudentType_Value) === "International Student") ? "unpaid" : null)

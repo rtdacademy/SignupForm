@@ -4,6 +4,7 @@ export const PAYMENT_CONFIG = {
   // Course-based payment options (for adult and international students)
   coursePaymentOptions: {
     adultStudents: {
+      trialPeriodDays: 10, // 10-day free trial for adult students
       onetime: {
         id: 'price_1QNT5yFQ2LFjAOXoBBSx1W5a',
         name: 'One-time Payment',
@@ -21,6 +22,7 @@ export const PAYMENT_CONFIG = {
       }
     },
     internationalStudents: {
+      trialPeriodDays: 10, // 10-day free trial for international students
       onetime: {
         id: 'price_1QNT5yFQ2LFjAOXoBBSx1W5a', // Update with actual Stripe price ID
         name: 'One-time Payment',
@@ -58,6 +60,17 @@ export const getPaymentOptionsForStudentType = (studentType) => {
 // Helper function to get credit pricing
 export const getCreditPricing = () => {
   return PAYMENT_CONFIG.creditPricing;
+};
+
+// Helper function to get trial period days for a student type
+export const getTrialPeriodDays = (studentType) => {
+  // Normalize the student type (handle both 'adultStudents' and 'Adult Student' formats)
+  const normalizedType = studentType.replace(' Student', 'Students')
+    .replace('Students', 'Students')
+    .replace(' ', '')
+    .charAt(0).toLowerCase() + studentType.replace(' Student', 'Students').replace(' ', '').slice(1);
+  
+  return PAYMENT_CONFIG.coursePaymentOptions[normalizedType]?.trialPeriodDays || 0;
 };
 
 // Helper function to format currency

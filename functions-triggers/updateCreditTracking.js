@@ -327,7 +327,8 @@ const onCreditRecalcToggle = onValueWritten({
   region: 'us-central1',
   maxInstances: 50, // Higher limit for batch processing
   memory: '512MiB', // Increased memory for processing large datasets
-  timeoutSeconds: 300 // 5 minutes timeout for complex calculations
+  timeoutSeconds: 300, // 5 minutes timeout for complex calculations
+  secrets: ['STRIPE_SECRET_KEY'] // Add secret for Stripe API access
 }, async (event) => {
   const { studentKey } = event.params;
   const db = admin.database();

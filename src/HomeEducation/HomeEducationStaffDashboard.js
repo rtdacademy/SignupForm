@@ -62,9 +62,11 @@ import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
 import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
-import FamilyNotesModal from './FamilyNotes/FamilyNotesModal';
 import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
 import FamilyMessaging from './FamilyMessaging';
+
+// Lazy load FamilyNotesModal to prevent MathQuill/jQuery loading issues
+const FamilyNotesModal = React.lazy(() => import('./FamilyNotes/FamilyNotesModal'));
 import StaffDocumentReview from './StaffDocumentReview';
 import {
   Table,
@@ -2486,12 +2488,18 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
       </div>
       
     {/* Family Notes Modal */}
-    <FamilyNotesModal
-      isOpen={notesModalOpen}
-      onClose={() => setNotesModalOpen(false)}
-      family={selectedNotesFamily}
-      familyId={selectedNotesFamilyId}
-    />
+    <React.Suspense fallback={
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    }>
+      <FamilyNotesModal
+        isOpen={notesModalOpen}
+        onClose={() => setNotesModalOpen(false)}
+        family={selectedNotesFamily}
+        familyId={selectedNotesFamilyId}
+      />
+    </React.Suspense>
     
     {/* Bulk Action Confirmation Dialog */}
     <AlertDialog open={showBulkConfirmDialog} onOpenChange={setShowBulkConfirmDialog}>

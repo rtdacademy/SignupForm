@@ -43,18 +43,30 @@ const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
+    if (!isOpen) {
+      // Reset data when modal closes
+      setStripeData(null);
+      setStripePaymentHistory(null);
+      setPaymentHistory([]);
+      setCoursePayments({});
+      setPaymentSummary(null);
+      setError(null);
+      setActiveTab('overview');
+      return;
+    }
+    
     if (!student) return;
     
     loadStudentData();
     loadStripeData();
-  }, [student]);
+  }, [student, isOpen]);
 
   // Load Stripe payment history when History tab is selected
   useEffect(() => {
-    if (activeTab === 'history' && !stripePaymentHistory && !stripeHistoryLoading) {
+    if (isOpen && activeTab === 'history' && !stripePaymentHistory && !stripeHistoryLoading) {
       loadStripePaymentHistory();
     }
-  }, [activeTab]);
+  }, [isOpen, activeTab]);
 
   const loadStudentData = async () => {
     try {

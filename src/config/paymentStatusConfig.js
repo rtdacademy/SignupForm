@@ -16,6 +16,153 @@ import {
  * Each status has a unique color scheme and icon
  */
 export const PAYMENT_STATUS_CONFIG = {
+  // === SUBSCRIPTION STATUSES ===
+  // Active subscriptions (Green - good standing)
+  'sub_active_0': {
+    label: 'Sub Active (0/3)',
+    icon: RefreshCw,
+    color: '#10B981', // emerald-500
+    bgColor: '#D1FAE5', // emerald-100
+    tooltip: 'Subscription active - No payments received yet'
+  },
+  'sub_active_1': {
+    label: 'Sub Active (1/3)',
+    icon: RefreshCw,
+    color: '#10B981', // emerald-500
+    bgColor: '#D1FAE5', // emerald-100
+    tooltip: 'Subscription active - 1 of 3 payments received'
+  },
+  'sub_active_2': {
+    label: 'Sub Active (2/3)',
+    icon: RefreshCw,
+    color: '#10B981', // emerald-500
+    bgColor: '#D1FAE5', // emerald-100
+    tooltip: 'Subscription active - 2 of 3 payments received'
+  },
+  'sub_complete': {
+    label: 'Sub Complete',
+    icon: CheckCircle,
+    color: '#059669', // emerald-600
+    bgColor: '#A7F3D0', // emerald-200
+    tooltip: 'All 3 subscription payments completed'
+  },
+  
+  // Canceled subscriptions (Yellow - partial payment)
+  'sub_canceled_0': {
+    label: 'Sub Canceled (0/3)',
+    icon: AlertCircle,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Subscription canceled - No payments received'
+  },
+  'sub_canceled_1': {
+    label: 'Sub Canceled (1/3)',
+    icon: AlertCircle,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Subscription canceled - 1 of 3 payments received'
+  },
+  'sub_canceled_2': {
+    label: 'Sub Canceled (2/3)',
+    icon: AlertCircle,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Subscription canceled - 2 of 3 payments received'
+  },
+  
+  // Past due subscriptions (Red - payment issues)
+  'sub_past_due_1': {
+    label: 'Sub Past Due (1/3)',
+    icon: AlertCircle,
+    color: '#EF4444', // red-500
+    bgColor: '#FEE2E2', // red-100
+    tooltip: 'Subscription past due - 1 payment received, next payment failed'
+  },
+  'sub_past_due_2': {
+    label: 'Sub Past Due (2/3)',
+    icon: AlertCircle,
+    color: '#EF4444', // red-500
+    bgColor: '#FEE2E2', // red-100
+    tooltip: 'Subscription past due - 2 payments received, next payment failed'
+  },
+  
+  // Other subscription statuses
+  'sub_incomplete': {
+    label: 'Sub Pending',
+    icon: Clock,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Subscription created but first payment pending'
+  },
+  'sub_no_stripe': {
+    label: 'Sub Not Found',
+    icon: HelpCircle,
+    color: '#6B7280', // gray-500
+    bgColor: '#F3F4F6', // gray-100
+    tooltip: 'Subscription data not found in Stripe'
+  },
+  
+  // === ONE-TIME PAYMENT STATUSES ===
+  'one_time_paid': {
+    label: 'One-Time Paid',
+    icon: DollarSign,
+    color: '#059669', // emerald-600
+    bgColor: '#A7F3D0', // emerald-200
+    tooltip: 'One-time payment completed'
+  },
+  'one_time_unpaid': {
+    label: 'One-Time Unpaid',
+    icon: AlertCircle,
+    color: '#EF4444', // red-500
+    bgColor: '#FEE2E2', // red-100
+    tooltip: 'One-time payment required'
+  },
+  'one_time_no_stripe': {
+    label: 'Payment Not Found',
+    icon: HelpCircle,
+    color: '#6B7280', // gray-500
+    bgColor: '#F3F4F6', // gray-100
+    tooltip: 'Payment data not found in Stripe'
+  },
+  
+  // === CREDIT-BASED STATUSES ===
+  'credit_free': {
+    label: 'Within Credits',
+    icon: Package,
+    color: '#10B981', // emerald-500
+    bgColor: '#D1FAE5', // emerald-100
+    tooltip: 'Course is within free credit limit'
+  },
+  'credit_requires_payment': {
+    label: 'Credits Required',
+    icon: AlertCircle,
+    color: '#EF4444', // red-500
+    bgColor: '#FEE2E2', // red-100
+    tooltip: 'Additional credits required for this course'
+  },
+  'credit_paid': {
+    label: 'Credits Paid',
+    icon: Package,
+    color: '#059669', // emerald-600
+    bgColor: '#A7F3D0', // emerald-200
+    tooltip: 'Credits purchased - Course accessible'
+  },
+  'credit_partial': {
+    label: 'Partial Credits',
+    icon: Clock,
+    color: '#F59E0B', // amber-500
+    bgColor: '#FED7AA', // amber-100
+    tooltip: 'Some credits purchased but more needed'
+  },
+  'credit_override': {
+    label: 'Credit Override',
+    icon: ShieldCheck,
+    color: '#8B5CF6', // violet-500
+    bgColor: '#EDE9FE', // violet-100
+    tooltip: 'Additional free credits granted'
+  },
+  
+  // === EXISTING STATUSES (kept for backward compatibility) ===
   // Fully paid/free statuses (green variants)
   'free': {
     label: 'Free',

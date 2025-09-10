@@ -145,6 +145,9 @@ const CourseCard = ({
   // Check if course is unlocked based on payment status
   const paymentStatus = getCoursePaymentStatus(course, profile);
   const isUnlocked = paymentStatus.isUnlocked;
+  
+  // Extract trial information for display
+  const { isInTrial, trialDaysRemaining, trialExpired } = paymentStatus;
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
@@ -266,7 +269,11 @@ const CourseCard = ({
 
     // Check if course is locked due to payment
     if (!isUnlocked && !isDeveloper) {
-      toast.error("This course requires payment. Please complete payment using the credit summary in the header.");
+      if (trialExpired) {
+        toast.error("Your free trial has expired. Please complete payment using the credit summary in the header to continue accessing this course.");
+      } else {
+        toast.error("This course requires payment. Please complete payment using the credit summary in the header.");
+      }
       return;
     }
 
@@ -385,6 +392,51 @@ const CourseCard = ({
     return hours;
   };
 
+
+  // Function to render trial status info (only shows during active trial)
+  const renderTrialStatus = () => {
+    // Only show for adult and international students
+    if (studentType !== 'Adult Student' && studentType !== 'International Student') {
+      return null;
+    }
+
+    // Only show if currently in trial
+    if (!isInTrial) {
+      return null;
+    }
+
+    const isEndingSoon = trialDaysRemaining <= 3;
+    
+    return (
+      <Alert className={`mb-4 ${isEndingSoon ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+        <div className="flex items-center gap-2">
+          {isEndingSoon ? (
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+          ) : (
+            <FaInfoCircle className="h-4 w-4 text-blue-500" />
+          )}
+          <div className="flex-1">
+            <AlertDescription className={isEndingSoon ? 'text-amber-700' : 'text-blue-700'}>
+              <p className="font-medium mb-1">
+                {isEndingSoon ? '⚠️ Trial Ending Soon' : '🎉 Free Trial Active'}
+              </p>
+              <p className="text-sm">
+                {isEndingSoon 
+                  ? `Your trial ends in ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''}. Payment will be required to continue access.`
+                  : `You have ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} remaining in your free trial.`
+                }
+              </p>
+              {isEndingSoon && (
+                <p className="text-xs mt-1 text-amber-600">
+                  Please complete payment using the <strong>Credit & Payment Summary</strong> in the header to avoid interruption.
+                </p>
+              )}
+            </AlertDescription>
+          </div>
+        </div>
+      </Alert>
+    );
+  };
 
   // Function to render subtle grace period info
   const renderGracePeriodInfo = () => {
@@ -965,10 +1017,19 @@ const CourseCard = ({
                   <FaFileAlt className="mr-2 h-4 w-4" /> Enrollment
                 </Button>
                 {!isUnlocked && !isDeveloper ? (
-                  <Badge variant="outline" className="bg-orange-100 text-orange-800 border border-orange-300">
-                    <Lock className="h-3 w-3 mr-1" />
-                    Locked
-                  </Badge>
+                  isInTrial ? (
+                    <Badge variant="outline" className={trialDaysRemaining <= 3 
+                      ? "bg-amber-100 text-amber-800 border border-amber-300"
+                      : "bg-blue-100 text-blue-800 border border-blue-300"}>
+                      <FaClock className="h-3 w-3 mr-1" />
+                      Trial: {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border border-orange-300">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Locked
+                    </Badge>
+                  )
                 ) : (
                   <Badge variant="outline" className={getStatusColor(status, course.isRequiredCourse)}>
                     {course.isRequiredCourse ? "Required" : status}
@@ -1060,8 +1121,8 @@ const CourseCard = ({
               </Alert>
             )}
 
-            {/* Payment Required Message */}
-            {!isUnlocked && !isDeveloper && (
+            {/* Consolidated Payment Required Message - Shows for both expired trial and regular payment required */}
+            {!isUnlocked && !isDeveloper && !isInTrial && (
               <Alert className="mb-4 bg-orange-50 border-orange-200">
                 <Lock className="h-4 w-4 text-orange-600" />
                 <AlertDescription className="text-orange-700">
@@ -1070,7 +1131,9 @@ const CourseCard = ({
                     <p className="text-orange-700 mt-0 mb-2">
                       {paymentStatus.paymentType === 'credit' 
                         ? `This course requires ${paymentStatus.creditsRequired || 'credit'} payment to unlock.`
-                        : 'This course requires payment to access.'}
+                        : trialExpired 
+                          ? 'Your 10-day free trial has ended. Payment is now required to access this course.'
+                          : 'This course requires payment to access.'}
                     </p>
                     <p className="text-sm text-orange-600">
                       Please use the <strong>Credit & Payment Summary</strong> in the header to complete payment.
@@ -1081,6 +1144,8 @@ const CourseCard = ({
             )}
 
             {renderTransitionMessage()}
+            {/* Only show trial status if currently in trial */}
+            {isInTrial && renderTrialStatus()}
             {renderScheduleRequiredMessage()}
             {renderRegistrationMessage()}
             {renderParentApprovalStatus()}
@@ -1192,7 +1257,7 @@ const CourseCard = ({
                         : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active')
                     ))}
                   >
-                    {!isUnlocked && !isDeveloper ? (
+                    {!isUnlocked && !isDeveloper && !isInTrial ? (
                       <Lock className="h-4 w-4" />
                     ) : (
                       <FaExternalLinkAlt className="h-4 w-4" />
@@ -1201,7 +1266,9 @@ const CourseCard = ({
                       {courseDetailsLoading
                         ? 'Loading Course...'
                         : !isUnlocked && !isDeveloper
-                          ? 'Payment Required'
+                          ? isInTrial
+                            ? `Go to Course (Trial: ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''})`
+                            : 'Payment Required'
                         : course.isRequiredCourse
                           ? 'Go to Required Course'
                           : isDeveloper
