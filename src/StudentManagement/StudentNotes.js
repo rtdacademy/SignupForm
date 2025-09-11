@@ -571,10 +571,10 @@ const StudentNotes = ({
   // Main Render
   // --------------------------------------------------------------------------
   return (
-    <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'h-full overflow-hidden' : 'space-y-2'}`} ref={containerRef}>
+    <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'h-full' : 'space-y-2'}`} ref={containerRef}>
       {/* Header with student name */}
       {studentName && !singleNoteMode && (
-        <div className="mb-3">
+        <div className="mb-3 flex-shrink-0">
           <h3 className="text-lg font-medium text-gray-900">{studentName}</h3>
         </div>
       )}
@@ -601,7 +601,7 @@ const StudentNotes = ({
           />
         </div>
       ) : (
-        <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'h-full' : ''}`}>
+        <div className={`flex flex-col w-full max-w-full ${isExpanded ? 'flex-1 min-h-0' : ''}`}>
 
           {/* ADD NOTE SECTION */}
           <div className="flex mb-1 space-x-1 items-center flex-shrink-0">
@@ -640,7 +640,7 @@ const StudentNotes = ({
             defaultValue="all" 
             value={activeTab}
             onValueChange={setActiveTab}
-            className={`w-full ${isExpanded ? 'flex flex-col flex-1 overflow-hidden' : ''}`}
+            className={`w-full ${isExpanded ? 'flex flex-col flex-1 min-h-0' : ''}`}
           >
             <TabsList className="grid grid-cols-2 mb-2 w-full flex-shrink-0">
               <TabsTrigger value="all" className="flex justify-center items-center">
@@ -656,12 +656,12 @@ const StudentNotes = ({
             {/* NOTES LIST */}
             <TabsContent 
               value={activeTab} 
-              className={`mt-0 ${isExpanded ? 'flex-1 overflow-hidden' : ''}`}
+              className={`mt-0 ${isExpanded ? 'flex flex-col flex-1 min-h-0' : 'h-[350px]'}`}
             >
               <ScrollArea 
-                className={`${isExpanded ? 'h-[calc(100vh-250px)]' : 'h-[350px]'} w-full`}
+                className={`${isExpanded ? 'h-full' : 'h-full'} w-full`}
               >
-                <div className="space-y-2 pb-24 pr-4 w-full">
+                <div className="space-y-2 pr-4 pb-4 w-full">
                   {filteredNotes.length === 0 ? (
                     <div className="text-center text-gray-500 p-2 text-sm">
                       {activeTab === 'important' 

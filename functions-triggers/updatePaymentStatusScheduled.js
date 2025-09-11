@@ -86,7 +86,9 @@ async function processBatch(records, db) {
       // Only update if status has changed
       if (record.payment_status_detailed !== newStatus) {
         updates[`studentCourseSummaries/${key}/payment_status_detailed`] = newStatus;
-        updates[`studentCourseSummaries/${key}/payment_details/lastTrialCheck`] = admin.database.ServerValue.TIMESTAMP;
+        // Use ServerValue.TIMESTAMP if available, otherwise fallback to Date.now()
+        updates[`studentCourseSummaries/${key}/payment_details/lastTrialCheck`] = 
+          admin.database?.ServerValue?.TIMESTAMP || Date.now();
         stats.updated++;
       } else {
         stats.skipped++;
@@ -224,7 +226,7 @@ exports.updateTrialPaymentStatuses = onSchedule({
     
     // Log summary to database for monitoring
     await db.ref('systemLogs/scheduledJobs/updateTrialPaymentStatuses').push({
-      timestamp: admin.database.ServerValue.TIMESTAMP,
+      timestamp: admin.database?.ServerValue?.TIMESTAMP || Date.now(),
       date: new Date().toISOString(),
       stats: totalStats,
       duration: duration,
@@ -236,7 +238,7 @@ exports.updateTrialPaymentStatuses = onSchedule({
     
     // Log error to database for monitoring
     await db.ref('systemLogs/scheduledJobs/updateTrialPaymentStatuses').push({
-      timestamp: admin.database.ServerValue.TIMESTAMP,
+      timestamp: admin.database?.ServerValue?.TIMESTAMP || Date.now(),
       date: new Date().toISOString(),
       error: error.message,
       success: false

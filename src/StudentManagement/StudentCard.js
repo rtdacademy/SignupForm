@@ -7,7 +7,7 @@ import {
   getEnhancedStatusConfig,
   formatCreditUsage
 } from '../config/paymentStatusConfig';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity, DollarSign,
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame, ChevronRight, Eye, RefreshCw, Copy, FileJson, Activity, DollarSign, Lock,
   // Seasonal icons
   Snowflake, Flower, Sun, Leaf,
   // Student Management icons
@@ -1568,7 +1568,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
              {(student.payment_status_detailed || student.payment_status || 
               (getSafeValue(student.StudentType_Value) === "Adult Student") || 
               (getSafeValue(student.StudentType_Value) === "International Student")) && (
-              <div className="mt-1 inline-block">
+              <div className="mt-1 flex items-center gap-2">
                 <PaymentStatusBadge 
                   paymentStatus={
                     student.payment_status_detailed ||
@@ -1588,6 +1588,29 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   creditsSummary={student.credits_summary}
                   onClick={() => setIsPaymentDetailsOpen(true)}
                 />
+                
+                {/* Lock badge for courses requiring payment */}
+                {student.payment_details?.requiresPayment === true && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        className="inline-flex items-center justify-center px-1.5 py-0.5 h-5 w-5 border-0 rounded animate-pulse"
+                        style={{
+                          backgroundColor: '#FEF3C7',
+                          color: '#92400E'
+                        }}
+                      >
+                        <Lock className="w-3 h-3" />
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs">
+                        <div className="font-semibold">Course Locked</div>
+                        <div className="text-gray-400 mt-1">This course requires payment to unlock</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             )}
 

@@ -515,9 +515,29 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
   
   // For per-course payment students (Adult/International), validate payment type
   if (studentType && isPerCoursePaymentStudent(studentType)) {
-    // Only accept per-course payments for Adult/International students
-    // Ignore credit-based payments from when they might have been a different student type
-    if (paymentData?.type === 'credits') {
+    // For Adult/International students, we need to use the Stripe data if it exists
+    // The type might be 'credits' from an old enrollment, but if there's Stripe data, use it
+    
+    // If we have payment data with Stripe details already fetched above, use it
+    if (paymentData && (paymentData.subscription_id || paymentData.payment_id)) {
+      // We already fetched fresh Stripe data above, so paymentData has been updated
+      // Check if we have a valid payment status
+      if (paymentData.status_detailed) {
+        return {
+          isPaid: paymentData.status === 'paid' || paymentData.status === 'active',
+          paymentType: 'per_course',
+          status: paymentData.status || 'unpaid',
+          status_detailed: paymentData.status_detailed,
+          paymentMethod: paymentData.payment_method || null,
+          lastUpdated: paymentData.last_updated || null,
+          paymentCount: paymentData.payment_count || null,
+          invoices: paymentData.invoices || null
+        };
+      }
+    }
+    
+    // If type is 'credits' and no Stripe data, this is likely old data
+    if (paymentData?.type === 'credits' && !paymentData?.subscription_id && !paymentData?.payment_id) {
       // Check for trial period for unpaid Adult/International students
       const summaryKey = `${studentEmailKey}_${courseId}`;
       const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
@@ -542,16 +562,47 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
         lastUpdated: null
       };
     }
-    // Accept per-course payments
-    if (paymentData?.type === 'per_course' && paymentData?.status === 'paid') {
-      return {
-        isPaid: true,
-        paymentType: 'per_course',
-        status: 'paid',
-        status_detailed: paymentData?.status_detailed || 'paid',
-        paymentMethod: paymentData?.payment_method || null,
-        lastUpdated: paymentData?.last_updated || null
-      };
+    // Accept per-course payments - including those with Stripe payment info
+    if (paymentData?.type === 'per_course') {
+      // If we have valid Stripe payment data, use it as-is
+      // This preserves statuses like sub_active_1, sub_canceled_2, etc.
+      if (paymentData?.status_detailed) {
+        return {
+          isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
+          paymentType: 'per_course',
+          status: paymentData?.status || 'unpaid',
+          status_detailed: paymentData?.status_detailed,
+          paymentMethod: paymentData?.payment_method || null,
+          lastUpdated: paymentData?.last_updated || null,
+          paymentCount: paymentData?.payment_count || null,
+          invoices: paymentData?.invoices || null
+        };
+      }
+      // Only use trial period logic if no Stripe status exists
+      else if (paymentData?.status === 'unpaid' || !paymentData?.status) {
+        const summaryKey = `${studentEmailKey}_${courseId}`;
+        const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
+        const summarySnapshot = await summaryRef.once('value');
+        const summaryData = summarySnapshot.val();
+        
+        let detailedStatus = 'unpaid';
+        if (summaryData?.Created && summaryData?.ScheduleStartDate) {
+          detailedStatus = determineTrialPaymentStatus(
+            summaryData.Created,
+            summaryData.ScheduleStartDate,
+            10 // Trial period days
+          );
+        }
+        
+        return {
+          isPaid: paymentData?.status === 'paid',
+          paymentType: 'per_course',
+          status: paymentData?.status || 'unpaid',
+          status_detailed: detailedStatus,
+          paymentMethod: paymentData?.payment_method || null,
+          lastUpdated: paymentData?.last_updated || null
+        };
+      }
     }
     
     // No payment data found - check for trial period
@@ -612,6 +663,52 @@ async function checkCoursePaymentStatus(studentEmailKey, courseId, schoolYear = 
     }
   }
   
+  // If we have Stripe payment data with status_detailed, preserve it
+  // This keeps statuses like sub_active_1, sub_canceled_2, etc.
+  if (paymentData?.status_detailed) {
+    return {
+      isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
+      paymentType: paymentData?.type || null,
+      status: paymentData?.status || 'unpaid',
+      status_detailed: paymentData?.status_detailed,
+      paymentMethod: paymentData?.payment_method || null,
+      lastUpdated: paymentData?.last_updated || null,
+      paymentCount: paymentData?.payment_count || null,
+      invoices: paymentData?.invoices || null
+    };
+  }
+  
+  // Only apply trial period logic if status is unpaid and no detailed status exists
+  if (paymentData?.status === 'unpaid' && !paymentData?.status_detailed) {
+    const summaryKey = `${studentEmailKey}_${courseId}`;
+    const summaryRef = db.ref(`studentCourseSummaries/${summaryKey}`);
+    const summarySnapshot = await summaryRef.once('value');
+    const summaryData = summarySnapshot.val();
+    
+    // Check if this is an Adult/International student
+    if (summaryData?.StudentType_Value === 'Adult Student' || 
+        summaryData?.StudentType_Value === 'International Student') {
+      let detailedStatus = 'unpaid';
+      if (summaryData?.Created && summaryData?.ScheduleStartDate) {
+        detailedStatus = determineTrialPaymentStatus(
+          summaryData.Created,
+          summaryData.ScheduleStartDate,
+          10 // Trial period days
+        );
+      }
+      
+      return {
+        isPaid: false,
+        paymentType: paymentData?.type || null,
+        status: 'unpaid',
+        status_detailed: detailedStatus,
+        paymentMethod: paymentData?.payment_method || null,
+        lastUpdated: paymentData?.last_updated || null
+      };
+    }
+  }
+  
+  // Default return for all other cases
   return {
     isPaid: paymentData?.status === 'paid' || paymentData?.status === 'active',
     paymentType: paymentData?.type || null,
