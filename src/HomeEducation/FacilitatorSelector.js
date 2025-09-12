@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { getDatabase, ref, update } from 'firebase/database';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, User } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
+import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 
 const FacilitatorSelector = ({ 
   family, 
@@ -88,58 +89,143 @@ const FacilitatorSelector = ({
     await updateFamilyFacilitator(emailToSave);
   };
 
-  // All staff members get the full dropdown with colors
+  // Get facilitator initials
+  const getFacilitatorInitials = (facilitator) => {
+    if (!facilitator) return 'UN';
+    const names = facilitator.name.split(' ');
+    if (names.length >= 2) {
+      return names[0][0] + names[names.length - 1][0];
+    }
+    return facilitator.name.substring(0, 2).toUpperCase();
+  };
+
+  // Get avatar background gradient
+  const getAvatarGradient = (facilitatorId) => {
+    switch(facilitatorId) {
+      case 'golda-david':
+        return 'from-purple-500 to-blue-500';
+      case 'grace-anne-post':
+        return 'from-green-500 to-teal-500';
+      case 'marian-johnson':
+        return 'from-blue-500 to-cyan-500';
+      case 'elise':
+        return 'from-pink-500 to-purple-500';
+      case 'kari-luther':
+        return 'from-emerald-500 to-teal-500';
+      default:
+        return 'from-gray-400 to-gray-500';
+    }
+  };
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSelectFacilitator = async (email) => {
+    await handleFacilitatorChange(email);
+    setIsOpen(false);
+  };
+
+  // Compact badge display with avatar
   return (
     <div className="relative">
-      <Select
-        value={currentFacilitatorEmail || 'unassigned'}
-        onValueChange={handleFacilitatorChange}
-        disabled={isUpdating}
-      >
-        <SelectTrigger className="h-7 text-xs w-[180px] focus:ring-1 focus:ring-purple-500">
-          <SelectValue>
-            {currentFacilitatorEmail ? (
-              <span className={getFacilitatorColor(currentFacilitatorEmail)}>
-                {currentFacilitator?.name || currentFacilitatorEmail}
-                {isMyFamily && ' (Me)'}
-              </span>
-            ) : (
-              <span className="text-gray-500 italic">Unassigned</span>
-            )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="unassigned" className="text-xs">
-            <span className="text-gray-500 italic">Unassigned</span>
-          </SelectItem>
-          {facilitators.map((facilitator) => (
-            <SelectItem 
-              key={facilitator.contact.email} 
-              value={facilitator.contact.email}
-              className="text-xs"
-            >
-              <div className="flex items-center space-x-2">
-                <div 
-                  className={`w-2 h-2 rounded-full ${
-                    facilitator.id === 'golda-david' ? 'bg-purple-500' :
-                    facilitator.id === 'grace-anne-post' ? 'bg-green-500' :
-                    facilitator.id === 'marian-johnson' ? 'bg-blue-500' :
-                    'bg-gray-500'
-                  }`}
-                />
-                <span className={getFacilitatorColor(facilitator.contact.email)}>
-                  {facilitator.name}
-                  {facilitator.contact.email === currentUserEmail && ' (Me)'}
-                </span>
+      <TooltipProvider>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button 
+                  className="flex items-center space-x-1.5 hover:opacity-80 transition-opacity"
+                  disabled={isUpdating}
+                >
+                  {currentFacilitator ? (
+                    <Avatar className="h-7 w-7 border-2 border-white shadow-sm">
+                      <AvatarImage 
+                        src={currentFacilitator.image} 
+                        alt={currentFacilitator.name}
+                        className="object-cover object-center"
+                      />
+                      <AvatarFallback 
+                        className={`bg-gradient-to-br ${getAvatarGradient(currentFacilitator.id)} text-white text-xs font-medium`}
+                      >
+                        {getFacilitatorInitials(currentFacilitator)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm">
+                      <User className="h-4 w-4 text-gray-500" />
+                    </div>
+                  )}
+                  {isUpdating && (
+                    <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
+                  )}
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <div className="text-xs">
+                <p className="font-medium">
+                  {currentFacilitator ? currentFacilitator.name : 'Unassigned'}
+                  {isMyFamily && currentFacilitator && ' (My Family)'}
+                </p>
+                {currentFacilitator && (
+                  <p className="text-gray-500">Click to change</p>
+                )}
               </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      
-      {isUpdating && (
-        <Loader2 className="absolute right-8 top-1/2 transform -translate-y-1/2 w-3 h-3 animate-spin text-purple-500" />
-      )}
+            </TooltipContent>
+          </Tooltip>
+          
+          <PopoverContent className="w-64 p-2" align="start">
+            <div className="space-y-1">
+              <button
+                onClick={() => handleSelectFacilitator('unassigned')}
+                className="w-full flex items-center space-x-3 px-2 py-2 hover:bg-gray-50 rounded-md transition-colors text-left"
+              >
+                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-4 w-4 text-gray-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-500 italic">Unassigned</p>
+                  <p className="text-xs text-gray-400">No facilitator selected</p>
+                </div>
+              </button>
+              
+              {facilitators.map((facilitator) => (
+                <button
+                  key={facilitator.contact.email}
+                  onClick={() => handleSelectFacilitator(facilitator.contact.email)}
+                  className="w-full flex items-center space-x-3 px-2 py-2 hover:bg-gray-50 rounded-md transition-colors text-left"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage 
+                      src={facilitator.image} 
+                      alt={facilitator.name}
+                      className="object-cover object-center"
+                    />
+                    <AvatarFallback 
+                      className={`bg-gradient-to-br ${getAvatarGradient(facilitator.id)} text-white text-xs font-medium`}
+                    >
+                      {getFacilitatorInitials(facilitator)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {facilitator.name}
+                      {facilitator.contact.email === currentUserEmail && (
+                        <span className="ml-1 text-xs text-purple-600">(Me)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {facilitator.isAvailable === false ? 'Currently Full' : 'Available'}
+                    </p>
+                  </div>
+                  {facilitator.contact.email === currentFacilitatorEmail && (
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </TooltipProvider>
       
       {showError && (
         <div className="absolute top-full left-0 mt-1 bg-red-50 border border-red-200 rounded px-2 py-1 z-10">

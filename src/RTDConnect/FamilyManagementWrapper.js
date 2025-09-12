@@ -22,7 +22,8 @@ const FamilyManagementWrapper = ({
   onComplete,
   selectedFacilitator,
   staffMode = false,
-  isStaffViewing = false
+  isStaffViewing = false,
+  onEditProfile
 }) => {
   const { user } = useAuth();
   const [shouldUseDirectMode, setShouldUseDirectMode] = useState(false);
@@ -98,6 +99,7 @@ const FamilyManagementWrapper = ({
         onOpenChange={onOpenChange}
         familyKey={familyKey}
         isStaffMode={staffMode || isStaffViewing}
+        onEditProfile={onEditProfile}
       />
     );
   }
@@ -115,6 +117,7 @@ const FamilyManagementWrapper = ({
       selectedFacilitator={selectedFacilitator}
       staffMode={staffMode}
       isStaffViewing={isStaffViewing}
+      onEditProfile={onEditProfile}
     />
   );
 };

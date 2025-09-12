@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
-import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, update } from 'firebase/database';
+import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, update, set, remove } from 'firebase/database';
 import { TableVirtuoso } from 'react-virtuoso';
 import { useAuth } from '../context/AuthContext';
 import { useStaffClaims } from '../customClaims/useStaffClaims';
@@ -28,9 +28,11 @@ import {
   ToggleRight,
   X,
   ChevronDown,
+  ChevronRight,
   FilterX,
   Settings,
   UserPlus,
+  Plus,
   MessageSquare,
   Edit,
   MoreVertical,
@@ -47,7 +49,43 @@ import {
   ClipboardCheck,
   Check,
   Copy,
-  Cake
+  Cake,
+  Tag,
+  Tags,
+  Circle,
+  Square,
+  Triangle,
+  Trophy,
+  Target,
+  Brain,
+  Lightbulb,
+  BarChart,
+  TrendingUp,
+  MessageCircle,
+  Presentation,
+  Bookmark,
+  Snowflake,
+  Flower,
+  Sun,
+  Leaf,
+  Award,
+  Flag,
+  Zap,
+  Pause,
+  Play,
+  AlertOctagon,
+  Heart,
+  Sparkles,
+  ShieldAlert,
+  Rocket,
+  Hourglass,
+  Palette,
+  Calculator,
+  School,
+  Video,
+  Headphones,
+  Grid2X2,
+  BookOpenCheck
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
@@ -60,14 +98,16 @@ import {
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
+import { getAllAlbertaCourses } from '../config/albertaCourses';
 import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
 import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
 import FamilyMessaging from './FamilyMessaging';
-
-// Lazy load FamilyNotesModal to prevent MathQuill/jQuery loading issues
+// Lazy load components to prevent circular dependencies and loading issues
 const FamilyNotesModal = React.lazy(() => import('./FamilyNotes/FamilyNotesModal'));
+const HomeEducationCategoryManagerLazy = React.lazy(() => import('./HomeEducationCategoryManager'));
 import StaffDocumentReview from './StaffDocumentReview';
+import CSVColumnSelector from './CSVColumnSelector';
 import {
   Table,
   TableBody,
@@ -109,6 +149,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal
 } from '../components/ui/dropdown-menu';
 import {
   Select,
@@ -118,6 +162,58 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
+
+// Icon mapping for categories
+const iconMap = {
+  'circle': Circle,
+  'square': Square,
+  'triangle': Triangle,
+  'book-open': BookOpen,
+  'graduation-cap': GraduationCap,
+  'trophy': Trophy,
+  'target': Target,
+  'clipboard-check': ClipboardCheck,
+  'brain': Brain,
+  'lightbulb': Lightbulb,
+  'clock': Clock,
+  'calendar': Calendar,
+  'bar-chart': BarChart,
+  'trending-up': TrendingUp,
+  'alert-circle': AlertCircle,
+  'help-circle': HelpCircle,
+  'message-circle': MessageCircle,
+  'users': Users,
+  'presentation': Presentation,
+  'file-text': FileText,
+  'bookmark': Bookmark,
+  'snowflake': Snowflake,
+  'flower': Flower,
+  'sun': Sun,
+  'leaf': Leaf,
+  'award': Award,
+  'flag': Flag,
+  'star': Star,
+  'zap': Zap,
+  'pause': Pause,
+  'play': Play,
+  'alert-octagon': AlertOctagon,
+  'heart': Heart,
+  'sparkles': Sparkles,
+  'shield-alert': ShieldAlert,
+  'rocket': Rocket,
+  'hourglass': Hourglass,
+  'map-pin': MapPin,
+  'palette': Palette,
+  'calculator': Calculator,
+  'globe': Globe,
+  'home': Home,
+  'school': School,
+  'video': Video,
+  'headphones': Headphones,
+  'user-check': UserCheck,
+  'user-plus': UserPlus,
+  'grid-2x2': Grid2X2
+};
 
 // Utility function to generate consistent color from string
 const stringToColor = (str) => {
@@ -352,28 +448,57 @@ const RegistrationStatusBadge = ({ registrationStatus }) => {
     }
   };
   
+  // Get shortened status text
+  const getShortStatus = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'Done';
+      case 'ready':
+        return 'Ready';
+      case 'incomplete':
+        return 'Inc.';
+      case 'queue':
+        return 'Queue';
+      default:
+        return 'N/A';
+    }
+  };
+
+  // Get full status text for tooltip
+  const getFullStatus = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'Registration Completed';
+      case 'ready':
+        return 'Ready for PASI Submission';
+      case 'incomplete':
+        return 'Incomplete Registration';
+      case 'queue':
+        return 'In Queue for Processing';
+      default:
+        return 'Not Available';
+    }
+  };
+
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ${getStatusStyles(registrationStatus.status)}`}>
+          <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${getStatusStyles(registrationStatus.status)}`}>
             {getStatusIcon(registrationStatus.status)}
             <span className="text-xs font-medium">
-              {registrationStatus.status === 'queue' && 'Queue'}
-              {registrationStatus.status === 'ready' && 'Ready'}
-              {registrationStatus.status === 'incomplete' && 'Incomplete'}
-              {registrationStatus.status === 'completed' && 'Completed'}
+              {getShortStatus(registrationStatus.status)}
             </span>
-            {registrationStatus.statusCounts && (
+            {registrationStatus.statusCounts && registrationStatus.totalStudents > 1 && (
               <span className="text-xs opacity-75">
-                ({registrationStatus.statusCounts[registrationStatus.status]}/{registrationStatus.totalStudents})
+                {registrationStatus.statusCounts[registrationStatus.status]}/{registrationStatus.totalStudents}
               </span>
             )}
           </div>
         </TooltipTrigger>
         <TooltipContent className="max-w-sm">
           <div className="space-y-2">
-            <p className="font-semibold">{registrationStatus.label}</p>
+            <p className="font-semibold">{getFullStatus(registrationStatus.status)}</p>
             {registrationStatus.studentStatuses && registrationStatus.studentStatuses.length > 0 && (
               <div className="space-y-1 text-xs">
                 <p className="font-medium">Student Details:</p>
@@ -1540,10 +1665,145 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStuden
 
 StudentDetailsRow.displayName = 'StudentDetailsRow';
 
+// Expanded Row Content Component
+const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd, onCategoryRemove }) => {
+  const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
+  const familyCategories = row.categories || [];
+  
+  return (
+    <React.Fragment>
+      <td colSpan="9" className="px-3 py-0 bg-gray-50">
+        <div className="py-4 px-6">
+          {/* Categories Section */}
+          {familyCategories.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">All Categories</h4>
+              <div className="flex flex-wrap gap-1">
+                {familyCategories.map((category) => (
+                  <Badge
+                    key={`expanded-${category.facilitatorKey}-${category.id}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs"
+                    style={{
+                      backgroundColor: `${category.color}20`,
+                      color: category.color,
+                      borderColor: category.color
+                    }}
+                    variant="outline"
+                  >
+                    {category.icon && iconMap[category.icon] && 
+                      React.createElement(iconMap[category.icon], { 
+                        style: { color: category.color }, 
+                        className: 'w-3 h-3' 
+                      })
+                    }
+                    <span>{category.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCategoryRemove(row.familyId, category.id, category.facilitatorKey);
+                      }}
+                      className="ml-1 hover:opacity-70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Students Section */}
+          {students.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Students ({students.length})</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {students.map((student, idx) => {
+                  const age = calculateAge(student.birthday);
+                  const hasASN = student.asn && student.asn.trim() !== '';
+                  const isReadyForPASI = student.readyForPASI === true;
+                  
+                  return (
+                    <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-sm">
+                            {student.firstName} {student.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Grade {student.grade || 'N/A'} 
+                            {age !== null && ` • ${age} years old`}
+                          </p>
+                          {student.birthday && (
+                            <p className="text-xs text-gray-500">
+                              Birthday: {student.birthday}
+                            </p>
+                          )}
+                        </div>
+                        {(hasASN || isReadyForPASI) && (
+                          <Badge variant="outline" className={`text-xs ${isReadyForPASI && !hasASN ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}>
+                            {student.asn ? formatASNDisplay(student.asn) : isReadyForPASI ? 'Ready for PASI' : 'No ASN'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Contact Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Primary Guardian</h4>
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-sm font-medium">{row.primaryGuardian}</p>
+                <p className="text-xs text-gray-500 mt-1">{row.guardianEmail}</p>
+                {row.rawFamily?.guardianPhone && (
+                  <p className="text-xs text-gray-500">{row.rawFamily.guardianPhone}</p>
+                )}
+              </div>
+            </div>
+            
+            {row.rawFamily?.secondaryGuardian && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">Secondary Guardian</h4>
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <p className="text-sm font-medium">{row.rawFamily.secondaryGuardian}</p>
+                  {row.rawFamily?.secondaryEmail && (
+                    <p className="text-xs text-gray-500 mt-1">{row.rawFamily.secondaryEmail}</p>
+                  )}
+                  {row.rawFamily?.secondaryPhone && (
+                    <p className="text-xs text-gray-500">{row.rawFamily.secondaryPhone}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Additional Information */}
+          {row.rawFamily?.address && (
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Address</h4>
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <p className="text-sm">{row.rawFamily.address}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </td>
+    </React.Fragment>
+  );
+});
+
+ExpandedRowContent.displayName = 'ExpandedRowContent';
+
 // Memoized table row component for better performance
 const FamilyTableRow = memo(({ 
   row, 
   isSelected,
+  isExpanded,
+  onToggleExpand,
   comprehensiveStatus,
   onSelectFamily, 
   onViewDashboard, 
@@ -1556,13 +1816,28 @@ const FamilyTableRow = memo(({
   loadingStatuses,
   togglingAssistance,
   isAdmin,
-  effectiveEmail
+  effectiveEmail,
+  categories,
+  categoryTypes,
+  onCategoryAdd,
+  onCategoryRemove
 }) => {
   // Get student details
   const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
   
   const familyBgColor = stringToColor(row.familyName);
   const initials = row.familyName ? row.familyName.substring(0, 2).toUpperCase() : 'FF';
+  
+  // State for category dropdown
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  
+  // Get family categories
+  const familyCategories = row.categories || [];
+  
+  // Limit categories shown in collapsed state
+  const maxCollapsedCategories = 2;
+  const visibleCategories = isExpanded ? familyCategories : familyCategories.slice(0, maxCollapsedCategories);
+  const hiddenCategoriesCount = familyCategories.length - maxCollapsedCategories;
   
   return (
     <React.Fragment>
@@ -1574,29 +1849,38 @@ const FamilyTableRow = memo(({
         />
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center space-x-2">
-                <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: familyBgColor }}
-                >
-                  {initials}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onToggleExpand(row.familyId)}
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: familyBgColor }}
+                  >
+                    {initials}
+                  </div>
+                  {row.isMyFamily && (
+                    <Badge variant="outline" className="text-xs px-1 py-0 text-purple-600 border-purple-300">
+                      Mine
+                    </Badge>
+                  )}
                 </div>
-                {row.isMyFamily && (
-                  <Badge variant="outline" className="text-xs px-1 py-0 text-purple-600 border-purple-300">
-                    Mine
-                  </Badge>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="font-semibold">{row.familyName}</p>
-              {row.isMyFamily && <p className="text-xs text-purple-600">My Family</p>}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="font-semibold">{row.familyName}</p>
+                {row.isMyFamily && <p className="text-xs text-purple-600">My Family</p>}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
         <div>
@@ -1646,6 +1930,261 @@ const FamilyTableRow = memo(({
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
         <RegistrationStatusBadge registrationStatus={row.registrationStatus} />
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <div className="flex flex-wrap gap-1">
+          {visibleCategories.map((category) => (
+            <Badge
+              key={`${category.facilitatorKey}-${category.id}`}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs"
+              style={{
+                backgroundColor: `${category.color}20`,
+                color: category.color,
+                borderColor: category.color
+              }}
+              variant="outline"
+              title={category.name} // Show full name on hover
+            >
+              {category.icon && iconMap[category.icon] && 
+                React.createElement(iconMap[category.icon], { 
+                  style: { color: category.color }, 
+                  className: 'w-3 h-3 flex-shrink-0' 
+                })
+              }
+              <span className="truncate max-w-[3rem]">
+                {category.name.length > 5 ? `${category.name.substring(0, 5)}...` : category.name}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCategoryRemove(row.familyId, category.id, category.facilitatorKey);
+                }}
+                className="ml-0.5 hover:opacity-70 flex-shrink-0"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </Badge>
+          ))}
+          {!isExpanded && hiddenCategoriesCount > 0 && (
+            <Badge variant="outline" className="text-xs px-2 py-0.5">
+              +{hiddenCategoriesCount} more
+            </Badge>
+          )}
+          <DropdownMenu open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs border border-dashed border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                <Plus className="w-3 h-3" />
+                Add
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              {/* By Facilitator option */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Users className="h-4 w-4 mr-2" />
+                  By Facilitator
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                    {categories && Object.entries(categories).map(([facilitatorKey, facilitatorCategories]) => {
+                      // Filter out already added categories
+                      const availableCategories = Object.entries(facilitatorCategories || {})
+                        .filter(([categoryId, category]) => {
+                          const isAdded = familyCategories.some(fc => 
+                            fc.id === categoryId && fc.facilitatorKey === facilitatorKey
+                          );
+                          return !category.archived && !isAdded;
+                        })
+                        .map(([categoryId, category]) => ({
+                          id: categoryId,
+                          ...category
+                        }));
+
+                      if (availableCategories.length === 0) return null;
+
+                      return (
+                        <DropdownMenuSub key={facilitatorKey}>
+                          <DropdownMenuSubTrigger className="w-full">
+                            <div className="truncate">
+                              {facilitatorKey.replace(',', '.')}
+                            </div>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              {availableCategories.map(category => (
+                                <DropdownMenuItem
+                                  key={category.id}
+                                  onSelect={() => {
+                                    onCategoryAdd(row.familyId, category.id, facilitatorKey);
+                                    setCategoryDropdownOpen(false);
+                                  }}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <div className="flex items-center">
+                                    {category.icon && iconMap[category.icon] && 
+                                      React.createElement(iconMap[category.icon], { 
+                                        style: { color: category.color }, 
+                                        className: 'w-4 h-4 mr-2' 
+                                      })
+                                    }
+                                    <span>{category.name}</span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                      );
+                    })}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              {/* By Type option */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Grid2X2 className="h-4 w-4 mr-2" />
+                  By Type
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                    {categoryTypes && categoryTypes.map((type) => {
+                      // Get all categories of this type across all facilitators
+                      const categoriesOfType = [];
+                      if (categories) {
+                        Object.entries(categories).forEach(([facilitatorKey, facilitatorCategories]) => {
+                          Object.entries(facilitatorCategories || {}).forEach(([categoryId, category]) => {
+                            if (category.type === type.id && !category.archived) {
+                              const isAdded = familyCategories.some(fc => 
+                                fc.id === categoryId && fc.facilitatorKey === facilitatorKey
+                              );
+                              if (!isAdded) {
+                                categoriesOfType.push({
+                                  ...category,
+                                  id: categoryId,
+                                  facilitatorKey
+                                });
+                              }
+                            }
+                          });
+                        });
+                      }
+
+                      if (categoriesOfType.length === 0) return null;
+
+                      return (
+                        <DropdownMenuSub key={type.id}>
+                          <DropdownMenuSubTrigger className="w-full">
+                            <div className="flex items-center">
+                              {type.icon && iconMap[type.icon] && 
+                                React.createElement(iconMap[type.icon], { 
+                                  className: "h-4 w-4 mr-2 flex-shrink-0",
+                                  style: { color: type.color }
+                                })
+                              }
+                              <span className="truncate">{type.name}</span>
+                            </div>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              {categoriesOfType.map(category => (
+                                <DropdownMenuItem
+                                  key={`${category.facilitatorKey}-${category.id}`}
+                                  onSelect={() => {
+                                    onCategoryAdd(row.familyId, category.id, category.facilitatorKey);
+                                    setCategoryDropdownOpen(false);
+                                  }}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <div className="flex items-center">
+                                    {category.icon && iconMap[category.icon] && 
+                                      React.createElement(iconMap[category.icon], { 
+                                        style: { color: category.color }, 
+                                        className: 'w-4 h-4 mr-2' 
+                                      })
+                                    }
+                                    <span className="truncate">{category.name}</span>
+                                    <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                      ({category.facilitatorKey.replace(',', '.')})
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                      );
+                    })}
+
+                    {/* Uncategorized section */}
+                    {(() => {
+                      const uncategorizedItems = [];
+                      if (categories) {
+                        Object.entries(categories).forEach(([facilitatorKey, facilitatorCategories]) => {
+                          Object.entries(facilitatorCategories || {}).forEach(([categoryId, category]) => {
+                            if (!category.type && !category.archived) {
+                              const isAdded = familyCategories.some(fc => 
+                                fc.id === categoryId && fc.facilitatorKey === facilitatorKey
+                              );
+                              if (!isAdded) {
+                                uncategorizedItems.push({
+                                  ...category,
+                                  id: categoryId,
+                                  facilitatorKey
+                                });
+                              }
+                            }
+                          });
+                        });
+                      }
+
+                      if (uncategorizedItems.length === 0) return null;
+
+                      return (
+                        <DropdownMenuSub key="uncategorized">
+                          <DropdownMenuSubTrigger>
+                            <Circle className="h-4 w-4 mr-2" />
+                            Uncategorized
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              {uncategorizedItems.map(category => (
+                                <DropdownMenuItem
+                                  key={`${category.facilitatorKey}-${category.id}`}
+                                  onSelect={() => {
+                                    onCategoryAdd(row.familyId, category.id, category.facilitatorKey);
+                                    setCategoryDropdownOpen(false);
+                                  }}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <div className="flex items-center">
+                                    {category.icon && iconMap[category.icon] && 
+                                      React.createElement(iconMap[category.icon], { 
+                                        style: { color: category.color }, 
+                                        className: 'w-4 h-4 mr-2' 
+                                      })
+                                    }
+                                    <span className="truncate">{category.name}</span>
+                                    <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                      ({category.facilitatorKey.replace(',', '.')})
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                      );
+                    })()}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
         {loadingStatuses ? (
@@ -1705,7 +2244,7 @@ const FamilyTableRow = memo(({
 FamilyTableRow.displayName = 'FamilyTableRow';
 
 // Family Table Component
-const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentReview, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet }) => {
+const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentReview, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet, facilitatorCategories, categoryTypes }) => {
   const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [familyStatuses, setFamilyStatuses] = useState({});
@@ -1726,6 +2265,10 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
   
   // Bulk selection state
   const [selectedFamilies, setSelectedFamilies] = useState(new Set());
+  
+  // Row expansion state
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [expandAll, setExpandAll] = useState(false);
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showBulkConfirmDialog, setShowBulkConfirmDialog] = useState(false);
@@ -2003,6 +2546,27 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
 
       // Note: comprehensiveStatus removed from here to prevent re-renders during lazy loading
       // It will be accessed directly from familyStatuses in the row component
+      
+      // Map category references to actual category objects
+      const familyCategories = [];
+      if (family.categories && facilitatorCategories) {
+        Object.entries(family.categories).forEach(([facilitatorKey, categoryIds]) => {
+          if (facilitatorCategories[facilitatorKey]) {
+            Object.entries(categoryIds).forEach(([categoryId, enabled]) => {
+              if (enabled && facilitatorCategories[facilitatorKey][categoryId]) {
+                const category = facilitatorCategories[facilitatorKey][categoryId];
+                if (!category.archived) {
+                  familyCategories.push({
+                    ...category,
+                    id: categoryId,
+                    facilitatorKey: facilitatorKey
+                  });
+                }
+              }
+            });
+          }
+        });
+      }
 
       return {
         familyId,
@@ -2023,44 +2587,63 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         studentsWithMissingASN,
         studentsNoASNYet,
         registrationStatus,
+        categories: familyCategories, // Add the mapped categories
         rawFamily: { ...family, students: studentsObj }, // Pass the updated students with local ASN and readyForPASI
         localASNUpdates: localASNUpdates, // Pass the local ASN updates to the row
         localReadyForPASIUpdates: localReadyForPASIUpdates // Pass the local readyForPASI updates to the row
       };
     });
-  }, [families, effectiveEmail, activeSchoolYear, localASNUpdates, localReadyForPASIUpdates]);
+  }, [families, effectiveEmail, activeSchoolYear, localASNUpdates, localReadyForPASIUpdates, facilitatorCategories]);
 
   // Sort functionality
   const sortedRows = useMemo(() => {
-    if (!sortConfig.key) return familyRows;
+    let rows = familyRows;
     
-    return [...familyRows].sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
-      
-      // Handle null/undefined values
-      if (aVal === null || aVal === undefined) aVal = '';
-      if (bVal === null || bVal === undefined) bVal = '';
-      
-      // Special handling for date fields (lastUpdated)
-      if (sortConfig.key === 'lastUpdated') {
-        // Convert to timestamps for consistent comparison
-        aVal = aVal ? new Date(aVal).getTime() : 0;
-        bVal = bVal ? new Date(bVal).getTime() : 0;
+    // Sort if needed
+    if (sortConfig.key) {
+      rows = [...familyRows].sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+        
+        // Handle null/undefined values
+        if (aVal === null || aVal === undefined) aVal = '';
+        if (bVal === null || bVal === undefined) bVal = '';
+        
+        // Special handling for date fields (lastUpdated)
+        if (sortConfig.key === 'lastUpdated') {
+          // Convert to timestamps for consistent comparison
+          aVal = aVal ? new Date(aVal).getTime() : 0;
+          bVal = bVal ? new Date(bVal).getTime() : 0;
+        }
+        
+        // Special handling for numeric fields
+        if (sortConfig.key === 'studentCount') {
+          aVal = Number(aVal) || 0;
+          bVal = Number(bVal) || 0;
+        }
+        
+        // Compare values
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    // Inject expanded rows
+    const rowsWithExpanded = [];
+    rows.forEach(row => {
+      rowsWithExpanded.push(row);
+      if (expandedRows.has(row.familyId)) {
+        rowsWithExpanded.push({
+          ...row,
+          isExpandedRow: true,
+          parentId: row.familyId
+        });
       }
-      
-      // Special handling for numeric fields
-      if (sortConfig.key === 'studentCount') {
-        aVal = Number(aVal) || 0;
-        bVal = Number(bVal) || 0;
-      }
-      
-      // Compare values
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
     });
-  }, [familyRows, sortConfig]);
+    
+    return rowsWithExpanded;
+  }, [familyRows, sortConfig, expandedRows]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -2082,6 +2665,31 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
       return newSelection;
     });
   }, []);
+
+  // Toggle individual row expansion
+  const toggleRow = useCallback((familyId) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(familyId)) {
+        newSet.delete(familyId);
+      } else {
+        newSet.add(familyId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Toggle all rows expansion
+  const toggleAllRows = useCallback(() => {
+    if (expandAll) {
+      setExpandedRows(new Set());
+      setExpandAll(false);
+    } else {
+      const allFamilyIds = familyRows.map(f => f.familyId);
+      setExpandedRows(new Set(allFamilyIds));
+      setExpandAll(true);
+    }
+  }, [familyRows, expandAll]);
 
   const handleSelectAll = useCallback((allRows) => {
     setIsAllSelected(prev => {
@@ -2277,6 +2885,18 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
     )),
     TableRow: React.forwardRef((props, ref) => {
       const { item, ...restProps } = props;
+      
+      // Handle expanded content rows differently
+      if (item?.isExpandedRow) {
+        return (
+          <tr 
+            {...restProps} 
+            ref={ref}
+            className="bg-gray-50 border-b border-gray-200"
+          />
+        );
+      }
+      
       const isSelected = item ? selectedFamilies.has(item.familyId) : false;
       return (
         <tr 
@@ -2317,14 +2937,25 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         />
       </th>
       <th 
-        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-20"
-        onClick={() => handleSort('familyName')}
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
       >
-        <div className="flex items-center space-x-1">
-          <span>Family</span>
-          {sortConfig.key === 'familyName' && (
-            <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-          )}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={toggleAllRows}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title={expandAll ? "Collapse all rows" : "Expand all rows"}
+          >
+            {expandAll ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          </button>
+          <div 
+            className="flex items-center space-x-1 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+            onClick={() => handleSort('familyName')}
+          >
+            <span>Family</span>
+            {sortConfig.key === 'familyName' && (
+              <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+            )}
+          </div>
         </div>
       </th>
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guardian</th>
@@ -2340,18 +2971,21 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         </div>
       </th>
       <th 
-        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-16"
         onClick={() => handleSort('facilitatorEmail')}
       >
         <div className="flex items-center space-x-1">
-          <span>Facilitator</span>
+          <span>Fac.</span>
           {sortConfig.key === 'facilitatorEmail' && (
             <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
           )}
         </div>
       </th>
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-        <span>Registration</span>
+        <span>Reg.</span>
+      </th>
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <span>Categories</span>
       </th>
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
         <span>Forms</span>
@@ -2378,8 +3012,53 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
     }
   }, [onOpenEmailSheet]);
 
+  // Handle category add
+  const handleCategoryAdd = useCallback(async (familyId, categoryId, facilitatorKey) => {
+    const db = getDatabase();
+    const family = families[familyId];
+    if (!family) return;
+
+    try {
+      // Update category assignment in Firebase
+      const categoryRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/categories/${facilitatorKey}/${categoryId}`);
+      await set(categoryRef, true);
+      
+      console.log('Category added successfully');
+    } catch (error) {
+      console.error('Error adding category:', error);
+    }
+  }, [families]);
+
+  // Handle category remove
+  const handleCategoryRemove = useCallback(async (familyId, categoryId, facilitatorKey) => {
+    const db = getDatabase();
+    
+    try {
+      // Remove category assignment in Firebase
+      const categoryRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/categories/${facilitatorKey}/${categoryId}`);
+      await remove(categoryRef);
+      
+      console.log('Category removed successfully');
+    } catch (error) {
+      console.error('Error removing category:', error);
+    }
+  }, []);
+
   // Row renderer - Note: We use inline functions here since these handlers are defined within FamilyTable
   const rowContent = useCallback((index, row) => {
+    // Check if this is an expanded content row
+    if (row.isExpandedRow) {
+      return (
+        <ExpandedRowContent 
+          row={row}
+          categories={facilitatorCategories}
+          categoryTypes={categoryTypes}
+          onCategoryAdd={handleCategoryAdd}
+          onCategoryRemove={handleCategoryRemove}
+        />
+      );
+    }
+    
     const isSelected = selectedFamilies.has(row.familyId);
     // Get the comprehensive status for this specific row
     const comprehensiveStatus = familyStatuses[row.familyId] || {
@@ -2394,6 +3073,8 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
       <FamilyTableRow
         row={row}
         isSelected={isSelected}
+        isExpanded={expandedRows.has(row.familyId)}
+        onToggleExpand={toggleRow}
         comprehensiveStatus={comprehensiveStatus}
         onSelectFamily={handleSelectFamily}
         onViewDashboard={(familyId, family) => {
@@ -2414,9 +3095,13 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         togglingAssistance={togglingAssistance}
         isAdmin={isAdmin}
         effectiveEmail={effectiveEmail}
+        categories={facilitatorCategories}
+        categoryTypes={categoryTypes}
+        onCategoryAdd={handleCategoryAdd}
+        onCategoryRemove={handleCategoryRemove}
       />
     );
-  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, onDocumentReview, handleEmailFamily, handleASNUpdate, handleOpenASNSheet, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail]);
+  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, onDocumentReview, handleEmailFamily, handleASNUpdate, handleOpenASNSheet, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail, facilitatorCategories, categoryTypes, handleCategoryAdd, handleCategoryRemove, expandedRows, toggleRow]);
 
   // Handle range changes for lazy loading with extra buffer
   const handleRangeChanged = useCallback((range) => {
@@ -3070,17 +3755,22 @@ const HomeEducationStaffDashboard = ({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [familyStatuses, setFamilyStatuses] = useState({});
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [showCSVColumnSelector, setShowCSVColumnSelector] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showDocumentReview, setShowDocumentReview] = useState(false);
   const [documentReviewFamilyId, setDocumentReviewFamilyId] = useState(null);
   const [documentReviewFamily, setDocumentReviewFamily] = useState(null);
   const [activeSchoolYear, setActiveSchoolYear] = useState('');
   const [filters, setFilters] = useState({
-    registrationStatus: 'all', // all, queue, ready, incomplete, completed
-    gradeLevel: 'all', // all, k, elementary, middle, high
-    location: 'all', // all, specific provinces/cities
-    facilitatorAssigned: 'all', // all, assigned, unassigned
-    assistanceRequired: 'all', // all, yes, no
-    missingASN: 'all' // all, yes, no
+    registrationStatus: [], // Multiple statuses can be selected
+    gradeLevel: [], // Multiple grade levels
+    location: [], // Multiple locations
+    facilitatorAssigned: [], // Multiple facilitator states
+    assistanceRequired: [], // Multiple assistance states
+    missingASN: [], // Multiple ASN states
+    categories: [], // Selected categories for filtering
+    followsAlbertaPrograms: [], // Filter by Alberta Programs enrollment
+    albertaCourses: [] // Filter by specific Alberta courses
   });
   const [stats, setStats] = useState({
     totalFamilies: 0,
@@ -3094,6 +3784,11 @@ const HomeEducationStaffDashboard = ({
   });
   const [showEmailSheet, setShowEmailSheet] = useState(false);
   const [selectedFamiliesForEmail, setSelectedFamiliesForEmail] = useState(new Set());
+  
+  // Category state
+  const [facilitatorCategories, setFacilitatorCategories] = useState({});
+  const [categoryTypes, setCategoryTypes] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   // Initialize active school year
   useEffect(() => {
@@ -3102,6 +3797,71 @@ const HomeEducationStaffDashboard = ({
     const targetSchoolYear = openRegistrationYear || currentYear;
     setActiveSchoolYear(targetSchoolYear);
     console.log('Active school year set to:', targetSchoolYear);
+  }, []);
+  
+  // Function to reload categories from Firebase
+  const loadCategoriesFromFirebase = useCallback(() => {
+    const db = getDatabase();
+    const categoriesRef = ref(db, 'homeEducationCategories');
+    
+    get(categoriesRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const categoriesByFacilitator = {};
+        
+        Object.entries(data).forEach(([facilitatorKey, categories]) => {
+          // Store categories as objects, not arrays
+          categoriesByFacilitator[facilitatorKey] = categories;
+        });
+        
+        setFacilitatorCategories(categoriesByFacilitator);
+      } else {
+        setFacilitatorCategories({});
+      }
+    });
+  }, []);
+
+  // Load categories for facilitators
+  useEffect(() => {
+    const db = getDatabase();
+    const categoriesRef = ref(db, 'homeEducationCategories');
+    const typesRef = ref(db, 'homeEducationCategoryTypes');
+    
+    // Load all categories grouped by facilitator
+    const unsubscribeCategories = onValue(categoriesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const categoriesByFacilitator = {};
+        
+        Object.entries(data).forEach(([facilitatorKey, categories]) => {
+          // Store categories as objects to maintain ID references
+          categoriesByFacilitator[facilitatorKey] = categories;
+        });
+        
+        setFacilitatorCategories(categoriesByFacilitator);
+      } else {
+        setFacilitatorCategories({});
+      }
+    });
+    
+    // Load category types
+    const unsubscribeTypes = onValue(typesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const typesArray = Object.entries(data).map(([id, type]) => ({
+          ...type,
+          id
+        }));
+        setCategoryTypes(typesArray);
+      } else {
+        setCategoryTypes([]);
+      }
+    });
+    
+    return () => {
+      unsubscribeCategories();
+      unsubscribeTypes();
+    };
   }, []);
 
   // Fetch comprehensive status data for all families
@@ -3416,46 +4176,110 @@ const HomeEducationStaffDashboard = ({
     result = Object.fromEntries(
       Object.entries(result).filter(([familyId, family]) => {
         // Registration Status Filter - Now using detailed PASI statuses
-        if (filters.registrationStatus !== 'all') {
+        if (filters.registrationStatus && filters.registrationStatus.length > 0) {
           const registrationStatus = determineFamilyRegistrationStatus(family, currentYear);
-          if (filters.registrationStatus !== registrationStatus.status) return false;
+          if (!filters.registrationStatus.includes(registrationStatus.status)) return false;
         }
 
         // Grade Level Filter
-        if (filters.gradeLevel !== 'all') {
+        if (filters.gradeLevel && filters.gradeLevel.length > 0) {
           const students = family.students ? Object.values(family.students) : [];
           const hasMatchingGrade = students.some(student => {
             const grade = student.grade?.toString().toLowerCase();
-            if (filters.gradeLevel === 'k') return grade === 'k' || grade === 'kindergarten' || grade === '0';
-            if (filters.gradeLevel === 'elementary') return ['1', '2', '3', '4', '5', '6'].includes(grade);
-            if (filters.gradeLevel === 'middle') return ['7', '8', '9'].includes(grade);
-            if (filters.gradeLevel === 'high') return ['10', '11', '12'].includes(grade);
-            return false;
+            return filters.gradeLevel.some(level => {
+              if (level === 'k') return grade === 'k' || grade === 'kindergarten' || grade === '0';
+              if (level === 'elementary') return ['1', '2', '3', '4', '5', '6'].includes(grade);
+              if (level === 'middle') return ['7', '8', '9'].includes(grade);
+              if (level === 'high') return ['10', '11', '12'].includes(grade);
+              return false;
+            });
           });
           if (!hasMatchingGrade) return false;
         }
 
         // Facilitator Assignment Filter
-        if (filters.facilitatorAssigned !== 'all') {
+        if (filters.facilitatorAssigned && filters.facilitatorAssigned.length > 0) {
           const hasAssignedFacilitator = !!family.facilitatorEmail;
-          if (filters.facilitatorAssigned === 'assigned' && !hasAssignedFacilitator) return false;
-          if (filters.facilitatorAssigned === 'unassigned' && hasAssignedFacilitator) return false;
+          const matchesFilter = filters.facilitatorAssigned.some(value => {
+            if (value === 'assigned') return hasAssignedFacilitator;
+            if (value === 'unassigned') return !hasAssignedFacilitator;
+            return false;
+          });
+          if (!matchesFilter) return false;
         }
 
         // Assistance Required Filter
-        if (filters.assistanceRequired !== 'all') {
+        if (filters.assistanceRequired && filters.assistanceRequired.length > 0) {
           const familyStatus = familyStatuses[familyId];
           const hasAssistanceRequired = familyStatus?.assistanceRequired || false;
-          if (filters.assistanceRequired === 'yes' && !hasAssistanceRequired) return false;
-          if (filters.assistanceRequired === 'no' && hasAssistanceRequired) return false;
+          const matchesFilter = filters.assistanceRequired.some(value => {
+            if (value === 'yes') return hasAssistanceRequired;
+            if (value === 'no') return !hasAssistanceRequired;
+            return false;
+          });
+          if (!matchesFilter) return false;
         }
 
         // Missing ASN Filter
-        if (filters.missingASN !== 'all') {
+        if (filters.missingASN && filters.missingASN.length > 0) {
           const students = family.students ? Object.values(family.students) : [];
           const hasMissingASN = students.some(student => !student.asn || student.asn === '');
-          if (filters.missingASN === 'yes' && !hasMissingASN) return false;
-          if (filters.missingASN === 'no' && hasMissingASN) return false;
+          const matchesFilter = filters.missingASN.some(value => {
+            if (value === 'yes') return hasMissingASN;
+            if (value === 'no') return !hasMissingASN;
+            return false;
+          });
+          if (!matchesFilter) return false;
+        }
+
+        // Category Filter
+        if (filters.categories && filters.categories.length > 0) {
+          const familyCategories = family.categories || {};
+          const hasMatchingCategory = filters.categories.some(facilitatorCat => {
+            const [facilitatorEmail, categoryData] = Object.entries(facilitatorCat)[0];
+            const [categoryId] = Object.keys(categoryData);
+            return familyCategories[facilitatorEmail]?.[categoryId];
+          });
+          if (!hasMatchingCategory) return false;
+        }
+
+        // Alberta Programs Filter
+        if (filters.followsAlbertaPrograms && filters.followsAlbertaPrograms.length > 0) {
+          const soloPlans = family.SOLO_EDUCATION_PLANS?.[currentYear];
+          if (!soloPlans) return false;
+          
+          const hasAlbertaPrograms = Object.values(soloPlans).some(plan => 
+            plan.followAlbertaPrograms === true
+          );
+          
+          const matchesFilter = filters.followsAlbertaPrograms.some(value => {
+            if (value === 'yes') return hasAlbertaPrograms;
+            if (value === 'no') return !hasAlbertaPrograms;
+            return false;
+          });
+          if (!matchesFilter) return false;
+        }
+
+        // Alberta Courses Filter
+        if (filters.albertaCourses && filters.albertaCourses.length > 0) {
+          const soloPlans = family.SOLO_EDUCATION_PLANS?.[currentYear];
+          if (!soloPlans) return false;
+          
+          const familyCourses = [];
+          Object.values(soloPlans).forEach(plan => {
+            if (plan.selectedAlbertaCourses) {
+              Object.values(plan.selectedAlbertaCourses).forEach(subjectCourses => {
+                if (Array.isArray(subjectCourses)) {
+                  familyCourses.push(...subjectCourses);
+                }
+              });
+            }
+          });
+          
+          const hasMatchingCourse = filters.albertaCourses.some(courseId => 
+            familyCourses.includes(courseId)
+          );
+          if (!hasMatchingCourse) return false;
         }
 
         return true;
@@ -3570,52 +4394,251 @@ const HomeEducationStaffDashboard = ({
 
   const clearAllFilters = () => {
     setFilters({
-      registrationStatus: 'all',
-      gradeLevel: 'all',
-      location: 'all',
-      facilitatorAssigned: 'all',
-      assistanceRequired: 'all'
+      registrationStatus: [],
+      gradeLevel: [],
+      location: [],
+      facilitatorAssigned: [],
+      assistanceRequired: [],
+      missingASN: [],
+      categories: [],
+      followsAlbertaPrograms: [],
+      albertaCourses: []
     });
     setSearchTerm('');
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== 'all') || searchTerm.trim();
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
+    return Array.isArray(value) && value.length > 0;
+  }) || searchTerm.trim();
 
-  // Export functionality
-  const handleExportFamilies = () => {
+  // Export functionality with selected columns
+  const handleExportFamilies = (selectedColumns) => {
     const familyEntries = Object.entries(filteredFamilies);
     
     const csvData = familyEntries.map(([familyId, family]) => {
       const students = family.students ? Object.values(family.students) : [];
       const guardians = family.guardians ? Object.values(family.guardians) : [];
       const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+      const secondaryGuardians = guardians.filter(g => g.guardianType !== 'primary_guardian');
       
       // Get comprehensive status
       const status = familyStatuses[familyId] || {
         notificationForm: 'pending',
         programPlan: 'pending',
         citizenshipDocs: 'pending',
-        paymentSetup: 'not_started'
+        paymentSetup: 'not_started',
+        assistanceRequired: false
       };
 
-      return {
-        'Family ID': familyId,
-        'Family Name': family.familyName || 'Unnamed Family',
-        'Primary Guardian': primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` : '',
-        'Guardian Email': primaryGuardian?.email || '',
-        'Guardian Phone': primaryGuardian?.phone || '',
-        'City': primaryGuardian?.address?.city || '',
-        'Province': primaryGuardian?.address?.province || '',
-        'Student Count': students.length,
-        'Guardian Count': guardians.length,
-        'Facilitator Email': family.facilitatorEmail || 'Unassigned',
-        'Notification Form': status.notificationForm,
-        'Program Plan': status.programPlan,
-        'Citizenship Docs': status.citizenshipDocs,
-        'Payment Setup': status.paymentSetup,
-        'Last Updated': family.lastUpdated ? new Date(family.lastUpdated).toLocaleDateString() : '',
-        'Created Date': family.createdAt ? new Date(family.createdAt).toLocaleDateString() : ''
-      };
+      // Calculate funding information
+      const fundingEligibleStudents = students.filter(s => s.fundingEligible);
+      const totalFunding = students.reduce((sum, s) => sum + (s.fundingAmount || 0), 0);
+      
+      // Get meeting information
+      const dbSchoolYear = activeSchoolYear.replace('/', '_');
+      const facilitatorMeetings = family.FACILITATOR_MEETINGS?.[dbSchoolYear];
+      const meetings = facilitatorMeetings ? Object.values(facilitatorMeetings) : [];
+      const meeting1 = meetings[0];
+      const meeting2 = meetings[1];
+
+      // Build row data based on selected columns
+      const rowData = {};
+      
+      selectedColumns.forEach(columnId => {
+        switch(columnId) {
+          // Family Information
+          case 'familyId':
+            rowData['Family ID'] = familyId;
+            break;
+          case 'familyName':
+            rowData['Family Name'] = family.familyName || 'Unnamed Family';
+            break;
+          case 'status':
+            rowData['Status'] = family.status || 'active';
+            break;
+          case 'createdAt':
+            rowData['Created Date'] = family.createdAt ? new Date(family.createdAt).toLocaleDateString() : '';
+            break;
+          case 'lastUpdated':
+            rowData['Last Updated'] = family.lastUpdated ? new Date(family.lastUpdated).toLocaleDateString() : '';
+            break;
+          case 'totalStudents':
+            rowData['Total Students'] = students.length;
+            break;
+          case 'totalGuardians':
+            rowData['Total Guardians'] = guardians.length;
+            break;
+            
+          // Student Information
+          case 'studentNames':
+            rowData['Student Names'] = students.map(s => `${s.firstName} ${s.lastName}`).join('; ');
+            break;
+          case 'studentASNs':
+            rowData['Student ASNs'] = students.map(s => s.asn || (s.readyForPASI ? 'Ready' : 'Missing')).join('; ');
+            break;
+          case 'studentGrades':
+            rowData['Grades'] = students.map(s => s.grade || 'N/A').join('; ');
+            break;
+          case 'studentAges':
+            rowData['Ages'] = students.map(s => {
+              if (!s.birthday) return 'N/A';
+              const age = calculateAge(s.birthday);
+              return age !== null ? age : 'N/A';
+            }).join('; ');
+            break;
+          case 'studentBirthdays':
+            rowData['Birthdays'] = students.map(s => s.birthday || 'N/A').join('; ');
+            break;
+          case 'studentGenders':
+            rowData['Genders'] = students.map(s => s.gender || 'N/A').join('; ');
+            break;
+          case 'studentEmails':
+            rowData['Student Emails'] = students.map(s => s.email || 'N/A').join('; ');
+            break;
+          case 'studentPhones':
+            rowData['Student Phones'] = students.map(s => s.phone || 'N/A').join('; ');
+            break;
+          case 'readyForPASI':
+            rowData['Ready for PASI'] = students.map(s => s.readyForPASI ? 'Yes' : 'No').join('; ');
+            break;
+            
+          // Guardian Information
+          case 'primaryGuardianName':
+            rowData['Primary Guardian'] = primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` : '';
+            break;
+          case 'primaryGuardianEmail':
+            rowData['Primary Email'] = primaryGuardian?.email || '';
+            break;
+          case 'primaryGuardianPhone':
+            rowData['Primary Phone'] = primaryGuardian?.phone || '';
+            break;
+          case 'secondaryGuardianNames':
+            rowData['Other Guardians'] = secondaryGuardians.map(g => `${g.firstName} ${g.lastName}`).join('; ');
+            break;
+          case 'secondaryGuardianEmails':
+            rowData['Other Emails'] = secondaryGuardians.map(g => g.email).join('; ');
+            break;
+          case 'guardianRelations':
+            rowData['Relations'] = guardians.map(g => g.relationToStudents || 'N/A').join('; ');
+            break;
+            
+          // Facilitator Information
+          case 'facilitatorName':
+            rowData['Facilitator Name'] = family.facilitatorName || 'Unassigned';
+            break;
+          case 'facilitatorEmail':
+            rowData['Facilitator Email'] = family.facilitatorEmail || 'Unassigned';
+            break;
+          case 'facilitatorAssignedDate':
+            rowData['Facilitator Assigned'] = family.facilitatorAssignedAt ? new Date(family.facilitatorAssignedAt).toLocaleDateString() : '';
+            break;
+          case 'lastFacilitatorUpdate':
+            rowData['Last Facilitator Update'] = family.lastFacilitatorUpdate ? new Date(family.lastFacilitatorUpdate).toLocaleDateString() : '';
+            break;
+            
+          // Registration Status
+          case 'schoolYear':
+            rowData['School Year'] = activeSchoolYear;
+            break;
+          case 'notificationFormStatus':
+            rowData['Notification Form'] = status.notificationForm;
+            break;
+          case 'educationPlanStatus':
+            rowData['Education Plan'] = status.programPlan;
+            break;
+          case 'citizenshipDocsStatus':
+            rowData['Citizenship Docs'] = status.citizenshipDocs;
+            break;
+          case 'paymentSetupStatus':
+            rowData['Payment Setup'] = status.paymentSetup;
+            break;
+          case 'pasiRegistrationStatus':
+            rowData['PASI Status'] = family.PASI_REGISTRATIONS?.[dbSchoolYear]?.status || 'pending';
+            break;
+          case 'overallRegistrationStatus':
+            rowData['Overall Status'] = determineOverallStatus(status);
+            break;
+          case 'assistanceRequired':
+            rowData['Assistance Required'] = status.assistanceRequired ? 'Yes' : 'No';
+            break;
+            
+          // Address Information
+          case 'streetAddress':
+            rowData['Street Address'] = primaryGuardian?.address?.streetAddress || '';
+            break;
+          case 'city':
+            rowData['City'] = primaryGuardian?.address?.city || '';
+            break;
+          case 'province':
+            rowData['Province'] = primaryGuardian?.address?.province || '';
+            break;
+          case 'postalCode':
+            rowData['Postal Code'] = primaryGuardian?.address?.postalCode || '';
+            break;
+          case 'country':
+            rowData['Country'] = primaryGuardian?.address?.country || '';
+            break;
+          case 'fullAddress':
+            rowData['Full Address'] = primaryGuardian?.address?.fullAddress || '';
+            break;
+            
+          // Compliance Information
+          case 'registrationDate':
+            rowData['Registration Date'] = family.registrationDate || '';
+            break;
+          case 'acceptanceStatus':
+            rowData['Acceptance Status'] = family.acceptanceStatus || '';
+            break;
+          case 'schoolCode':
+            rowData['School Code'] = '2444';
+            break;
+          case 'authorityCode':
+            rowData['Authority Code'] = '0402';
+            break;
+          case 'residentSchoolBoard':
+            rowData['School Board'] = family.residentSchoolBoard || '';
+            break;
+          case 'aboriginalDeclaration':
+            rowData['Aboriginal Declaration'] = family.aboriginalDeclaration || '';
+            break;
+          case 'francophoneEligible':
+            rowData['Francophone'] = family.francophoneEligible || '';
+            break;
+            
+          // Funding Information
+          case 'fundingEligible':
+            rowData['Funding Eligible'] = fundingEligibleStudents.length;
+            break;
+          case 'fundingAmounts':
+            rowData['Funding Amounts'] = students.map(s => s.fundingAmount || 0).join('; ');
+            break;
+          case 'totalFunding':
+            rowData['Total Funding'] = totalFunding;
+            break;
+            
+          // Meeting Information
+          case 'meeting1Date':
+            rowData['Meeting 1 Date'] = meeting1?.meeting1?.date || '';
+            break;
+          case 'meeting1Attendees':
+            rowData['Meeting 1 Attendees'] = meeting1?.meeting1?.attendees?.map(a => a.name).join(', ') || '';
+            break;
+          case 'meeting2Date':
+            rowData['Meeting 2 Date'] = meeting1?.meeting2?.date || '';
+            break;
+          case 'meeting2Attendees':
+            rowData['Meeting 2 Attendees'] = meeting1?.meeting2?.attendees?.map(a => a.name).join(', ') || '';
+            break;
+          case 'professionalJudgment':
+            rowData['Professional Judgment'] = meeting1?.professionalJudgmentAchievingOutcomes ? 'Yes' : 'No';
+            break;
+          case 'meetingComments':
+            rowData['Meeting Comments'] = meeting1?.overallComments || '';
+            break;
+        }
+      });
+      
+      return rowData;
     });
 
     // Convert to CSV
@@ -3629,7 +4652,7 @@ const HomeEducationStaffDashboard = ({
           const value = row[header] || '';
           // Convert to string and escape quotes and wrap in quotes if contains comma
           const stringValue = String(value);
-          return stringValue.includes(',') || stringValue.includes('"') ? 
+          return stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') ? 
             `"${stringValue.replace(/"/g, '""')}"` : stringValue;
         }).join(',')
       )
@@ -3642,6 +4665,19 @@ const HomeEducationStaffDashboard = ({
     link.download = `home_education_families_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+  
+  // Helper function to determine overall status
+  const determineOverallStatus = (status) => {
+    if (status.notificationForm === 'submitted' && 
+        status.programPlan === 'submitted' && 
+        status.citizenshipDocs === 'completed') {
+      return 'Complete';
+    } else if (status.notificationForm === 'submitted') {
+      return 'In Progress';
+    } else {
+      return 'Pending';
+    }
   };
 
   // Check access permissions
@@ -3743,7 +4779,7 @@ const HomeEducationStaffDashboard = ({
                 }`}
               >
                 <Filter className="w-4 h-4" />
-                <span>Advanced Filters</span>
+                <span>Filters</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
               </button>
               {hasActiveFilters && (
@@ -3756,12 +4792,20 @@ const HomeEducationStaffDashboard = ({
                 </button>
               )}
               <button 
-                onClick={handleExportFamilies}
+                onClick={() => setShowCSVColumnSelector(true)}
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
                 title={`Export ${Object.keys(filteredFamilies).length} families to CSV`}
               >
                 <Download className="w-4 h-4" />
                 <span>Export CSV</span>
+              </button>
+              <button 
+                onClick={() => setShowCategoryManager(true)}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                title="Manage Categories"
+              >
+                <Tags className="w-4 h-4" />
+                <span>Categories</span>
               </button>
             </div>
           </div>
@@ -3778,61 +4822,243 @@ const HomeEducationStaffDashboard = ({
                       <ClipboardCheck className="w-3 h-3 text-gray-500 ml-1" />
                     </span>
                   </label>
-                  <select
-                    value={filters.registrationStatus}
-                    onChange={(e) => handleFilterChange('registrationStatus', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="queue">📋 Queue - Missing Notification</option>
-                    <option value="ready">✅ Ready for PASI</option>
-                    <option value="incomplete">⚠️ Incomplete Registration</option>
-                    <option value="completed">✔️ Fully Registered</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.registrationStatus?.length > 0 
+                            ? `${filters.registrationStatus.length} selected`
+                            : 'All Statuses'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Registration Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {[
+                        { value: 'queue', label: '📋 Queue - Missing Notification' },
+                        { value: 'ready', label: '✅ Ready for PASI' },
+                        { value: 'incomplete', label: '⚠️ Incomplete Registration' },
+                        { value: 'completed', label: '✔️ Fully Registered' }
+                      ].map(status => (
+                        <DropdownMenuItem key={status.value} onSelect={(e) => e.preventDefault()}>
+                          <Checkbox
+                            checked={filters.registrationStatus.includes(status.value)}
+                            onCheckedChange={(checked) => {
+                              handleFilterChange('registrationStatus', 
+                                checked
+                                  ? [...filters.registrationStatus, status.value]
+                                  : filters.registrationStatus.filter(s => s !== status.value)
+                              );
+                            }}
+                            className="mr-2"
+                          />
+                          <span>{status.label}</span>
+                        </DropdownMenuItem>
+                      ))}
+                      {filters.registrationStatus.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('registrationStatus', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Grade Level Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
-                  <select
-                    value={filters.gradeLevel}
-                    onChange={(e) => handleFilterChange('gradeLevel', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Grades</option>
-                    <option value="k">Kindergarten</option>
-                    <option value="elementary">Elementary (1-6)</option>
-                    <option value="middle">Middle School (7-9)</option>
-                    <option value="high">High School (10-12)</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.gradeLevel?.length > 0 
+                            ? `${filters.gradeLevel.length} selected`
+                            : 'All Grades'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Grade Level</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {[
+                        { value: 'k', label: 'Kindergarten' },
+                        { value: 'elementary', label: 'Elementary (1-6)' },
+                        { value: 'middle', label: 'Middle School (7-9)' },
+                        { value: 'high', label: 'High School (10-12)' }
+                      ].map(grade => (
+                        <DropdownMenuItem key={grade.value} onSelect={(e) => e.preventDefault()}>
+                          <Checkbox
+                            checked={filters.gradeLevel.includes(grade.value)}
+                            onCheckedChange={(checked) => {
+                              handleFilterChange('gradeLevel', 
+                                checked
+                                  ? [...filters.gradeLevel, grade.value]
+                                  : filters.gradeLevel.filter(g => g !== grade.value)
+                              );
+                            }}
+                            className="mr-2"
+                          />
+                          <span>{grade.label}</span>
+                        </DropdownMenuItem>
+                      ))}
+                      {filters.gradeLevel.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('gradeLevel', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Facilitator Assignment Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Facilitator Assignment</label>
-                  <select
-                    value={filters.facilitatorAssigned}
-                    onChange={(e) => handleFilterChange('facilitatorAssigned', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Families</option>
-                    <option value="assigned">Assigned Facilitator</option>
-                    <option value="unassigned">No Facilitator</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.facilitatorAssigned?.length > 0 
+                            ? `${filters.facilitatorAssigned.length} selected`
+                            : 'All Families'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Facilitator Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.facilitatorAssigned.includes('assigned')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('facilitatorAssigned', 
+                              checked
+                                ? [...filters.facilitatorAssigned, 'assigned']
+                                : filters.facilitatorAssigned.filter(f => f !== 'assigned')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>Assigned Facilitator</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.facilitatorAssigned.includes('unassigned')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('facilitatorAssigned', 
+                              checked
+                                ? [...filters.facilitatorAssigned, 'unassigned']
+                                : filters.facilitatorAssigned.filter(f => f !== 'unassigned')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>No Facilitator</span>
+                      </DropdownMenuItem>
+                      {filters.facilitatorAssigned.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('facilitatorAssigned', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Assistance Required Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Assistance Required</label>
-                  <select
-                    value={filters.assistanceRequired}
-                    onChange={(e) => handleFilterChange('assistanceRequired', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Families</option>
-                    <option value="yes">Needs Assistance</option>
-                    <option value="no">No Assistance Needed</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.assistanceRequired?.length > 0 
+                            ? `${filters.assistanceRequired.length} selected`
+                            : 'All Families'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Assistance Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.assistanceRequired.includes('yes')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('assistanceRequired', 
+                              checked
+                                ? [...filters.assistanceRequired, 'yes']
+                                : filters.assistanceRequired.filter(a => a !== 'yes')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>Needs Assistance</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.assistanceRequired.includes('no')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('assistanceRequired', 
+                              checked
+                                ? [...filters.assistanceRequired, 'no']
+                                : filters.assistanceRequired.filter(a => a !== 'no')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>No Assistance Needed</span>
+                      </DropdownMenuItem>
+                      {filters.assistanceRequired.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('assistanceRequired', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Missing ASN Filter */}
@@ -3843,31 +5069,511 @@ const HomeEducationStaffDashboard = ({
                       <AlertTriangle className="w-3 h-3 text-amber-500 ml-1" />
                     </span>
                   </label>
-                  <select
-                    value={filters.missingASN}
-                    onChange={(e) => handleFilterChange('missingASN', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Families</option>
-                    <option value="yes">Missing ASN</option>
-                    <option value="no">ASN Complete</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.missingASN?.length > 0 
+                            ? `${filters.missingASN.length} selected`
+                            : 'All Families'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>ASN Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.missingASN.includes('yes')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('missingASN', 
+                              checked
+                                ? [...filters.missingASN, 'yes']
+                                : filters.missingASN.filter(m => m !== 'yes')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>Missing ASN</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.missingASN.includes('no')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('missingASN', 
+                              checked
+                                ? [...filters.missingASN, 'no']
+                                : filters.missingASN.filter(m => m !== 'no')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>ASN Complete</span>
+                      </DropdownMenuItem>
+                      {filters.missingASN.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('missingASN', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Location Filter Placeholder */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select
-                    value={filters.location}
-                    onChange={(e) => handleFilterChange('location', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="all">All Locations</option>
-                    <option value="alberta">Alberta</option>
-                    <option value="calgary">Calgary</option>
-                    <option value="edmonton">Edmonton</option>
-                    <option value="red-deer">Red Deer</option>
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.location?.length > 0 
+                            ? `${filters.location.length} selected`
+                            : 'All Locations'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Location</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {[
+                        { value: 'alberta', label: 'Alberta' },
+                        { value: 'calgary', label: 'Calgary' },
+                        { value: 'edmonton', label: 'Edmonton' },
+                        { value: 'red-deer', label: 'Red Deer' }
+                      ].map(location => (
+                        <DropdownMenuItem key={location.value} onSelect={(e) => e.preventDefault()}>
+                          <Checkbox
+                            checked={filters.location.includes(location.value)}
+                            onCheckedChange={(checked) => {
+                              handleFilterChange('location', 
+                                checked
+                                  ? [...filters.location, location.value]
+                                  : filters.location.filter(l => l !== location.value)
+                              );
+                            }}
+                            className="mr-2"
+                          />
+                          <span>{location.label}</span>
+                        </DropdownMenuItem>
+                      ))}
+                      {filters.location.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('location', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Categories Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Categories ({filters.categories?.length || 0} selected)
+                  </label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.categories?.length > 0 
+                            ? `${filters.categories.length} categories selected`
+                            : 'Select categories'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 max-h-[400px] overflow-y-auto">
+                      {/* By Facilitator */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Users className="h-4 w-4 mr-2" />
+                          By Facilitator
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                            {Object.entries(facilitatorCategories).map(([facilitatorEmail, categories]) => {
+                              const availableCategories = Object.entries(categories)
+                                .filter(([_, category]) => !category.archived)
+                                .map(([categoryId, category]) => ({
+                                  id: categoryId,
+                                  ...category
+                                }));
+
+                              if (availableCategories.length === 0) return null;
+
+                              return (
+                                <DropdownMenuSub key={facilitatorEmail}>
+                                  <DropdownMenuSubTrigger className="w-full">
+                                    <div className="truncate">
+                                      {facilitatorEmail.replace(',', '.')}
+                                    </div>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                      {availableCategories.map(category => {
+                                        const isSelected = filters.categories?.some(cat => 
+                                          cat[facilitatorEmail]?.[category.id]
+                                        );
+                                        
+                                        return (
+                                          <DropdownMenuItem
+                                            key={category.id}
+                                            onSelect={(e) => {
+                                              e.preventDefault(); // Prevent menu close
+                                              const newCategories = [...(filters.categories || [])];
+                                              const existingIndex = newCategories.findIndex(cat => 
+                                                cat[facilitatorEmail]?.[category.id]
+                                              );
+                                              
+                                              if (!isSelected && existingIndex === -1) {
+                                                newCategories.push({
+                                                  [facilitatorEmail]: { [category.id]: category }
+                                                });
+                                              } else if (isSelected && existingIndex > -1) {
+                                                newCategories.splice(existingIndex, 1);
+                                              }
+                                              
+                                              handleFilterChange('categories', newCategories);
+                                            }}
+                                            className="hover:bg-gray-50"
+                                          >
+                                            <div className="flex items-center justify-between w-full">
+                                              <div className="flex items-center">
+                                                {category.icon && iconMap[category.icon] && 
+                                                  React.createElement(iconMap[category.icon], { 
+                                                    style: { color: category.color }, 
+                                                    className: 'w-4 h-4 mr-2' 
+                                                  })
+                                                }
+                                                <span>{category.name}</span>
+                                              </div>
+                                              {isSelected && (
+                                                <Check className="w-4 h-4 ml-2" />
+                                              )}
+                                            </div>
+                                          </DropdownMenuItem>
+                                        );
+                                      })}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+
+                      {/* By Type */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Grid2X2 className="h-4 w-4 mr-2" />
+                          By Type
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                            {categoryTypes && categoryTypes.map((type) => {
+                              const categoriesOfType = [];
+                              Object.entries(facilitatorCategories).forEach(([facilitatorEmail, categories]) => {
+                                Object.entries(categories).forEach(([categoryId, category]) => {
+                                  if (category.type === type.id && !category.archived) {
+                                    categoriesOfType.push({
+                                      ...category,
+                                      id: categoryId,
+                                      facilitatorEmail
+                                    });
+                                  }
+                                });
+                              });
+
+                              if (categoriesOfType.length === 0) return null;
+
+                              return (
+                                <DropdownMenuSub key={type.id}>
+                                  <DropdownMenuSubTrigger className="w-full">
+                                    <div className="flex items-center">
+                                      {type.icon && iconMap[type.icon] && 
+                                        React.createElement(iconMap[type.icon], { 
+                                          className: "h-4 w-4 mr-2 flex-shrink-0",
+                                          style: { color: type.color }
+                                        })
+                                      }
+                                      <span className="truncate">{type.name}</span>
+                                    </div>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                      {categoriesOfType.map(category => {
+                                        const isSelected = filters.categories?.some(cat => 
+                                          cat[category.facilitatorEmail]?.[category.id]
+                                        );
+                                        
+                                        return (
+                                          <DropdownMenuItem
+                                            key={`${category.facilitatorEmail}-${category.id}`}
+                                            onSelect={(e) => {
+                                              e.preventDefault(); // Prevent menu close
+                                              const newCategories = [...(filters.categories || [])];
+                                              const existingIndex = newCategories.findIndex(cat => 
+                                                cat[category.facilitatorEmail]?.[category.id]
+                                              );
+                                              
+                                              if (!isSelected && existingIndex === -1) {
+                                                newCategories.push({
+                                                  [category.facilitatorEmail]: { [category.id]: category }
+                                                });
+                                              } else if (isSelected && existingIndex > -1) {
+                                                newCategories.splice(existingIndex, 1);
+                                              }
+                                              
+                                              handleFilterChange('categories', newCategories);
+                                            }}
+                                            className="hover:bg-gray-50"
+                                          >
+                                            <div className="flex items-center justify-between w-full">
+                                              <div className="flex items-center">
+                                                {category.icon && iconMap[category.icon] && 
+                                                  React.createElement(iconMap[category.icon], { 
+                                                    style: { color: category.color }, 
+                                                    className: 'w-4 h-4 mr-2' 
+                                                  })
+                                                }
+                                                <span className="truncate">{category.name}</span>
+                                                <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                                  ({category.facilitatorEmail.replace(',', '.')})
+                                                </span>
+                                              </div>
+                                              {isSelected && (
+                                                <Check className="w-4 h-4 ml-2" />
+                                              )}
+                                            </div>
+                                          </DropdownMenuItem>
+                                        );
+                                      })}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+
+                      <DropdownMenuSeparator />
+                      
+                      {/* Clear Selection */}
+                      {filters.categories?.length > 0 && (
+                        <DropdownMenuItem
+                          onSelect={() => handleFilterChange('categories', [])}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Clear Selection
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Following Alberta Programs Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center">
+                      Alberta Programs
+                      <BookOpenCheck className="w-3 h-3 text-gray-500 ml-1" />
+                    </span>
+                  </label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.followsAlbertaPrograms?.length > 0 
+                            ? `${filters.followsAlbertaPrograms.length} selected`
+                            : 'All Families'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                      <DropdownMenuLabel>Alberta Programs Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.followsAlbertaPrograms.includes('yes')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('followsAlbertaPrograms', 
+                              checked
+                                ? [...filters.followsAlbertaPrograms, 'yes']
+                                : filters.followsAlbertaPrograms.filter(f => f !== 'yes')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>Following Alberta Programs</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Checkbox
+                          checked={filters.followsAlbertaPrograms.includes('no')}
+                          onCheckedChange={(checked) => {
+                            handleFilterChange('followsAlbertaPrograms', 
+                              checked
+                                ? [...filters.followsAlbertaPrograms, 'no']
+                                : filters.followsAlbertaPrograms.filter(f => f !== 'no')
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <span>Not Following Alberta Programs</span>
+                      </DropdownMenuItem>
+                      {filters.followsAlbertaPrograms.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('followsAlbertaPrograms', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Alberta Courses Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center">
+                      Alberta Courses
+                      <BookOpen className="w-3 h-3 text-gray-500 ml-1" />
+                    </span>
+                  </label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.albertaCourses?.length > 0 
+                            ? `${filters.albertaCourses.length} courses`
+                            : 'Select courses'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 max-h-[400px] overflow-y-auto">
+                      <DropdownMenuLabel>Filter by Alberta Courses</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      
+                      {/* Group courses by grade level for better organization */}
+                      {(() => {
+                        const allCourses = getAllAlbertaCourses();
+                        const coursesByGrade = {};
+                        
+                        // Group courses by grade
+                        allCourses.forEach(course => {
+                          const gradeKey = course.grade === 'K' ? 'Kindergarten' : 
+                                          course.grade <= 6 ? `Grade ${course.grade}` :
+                                          course.grade <= 9 ? `Grade ${course.grade}` :
+                                          `Grade ${course.grade}`;
+                          
+                          if (!coursesByGrade[gradeKey]) {
+                            coursesByGrade[gradeKey] = [];
+                          }
+                          coursesByGrade[gradeKey].push(course);
+                        });
+                        
+                        return Object.entries(coursesByGrade).map(([grade, courses]) => (
+                          <DropdownMenuSub key={grade}>
+                            <DropdownMenuSubTrigger>
+                              <GraduationCap className="h-4 w-4 mr-2" />
+                              {grade}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                                {courses.map(course => {
+                                  const isSelected = filters.albertaCourses?.includes(course.code);
+                                  
+                                  return (
+                                    <DropdownMenuItem
+                                      key={course.code}
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        handleFilterChange('albertaCourses',
+                                          isSelected
+                                            ? filters.albertaCourses.filter(c => c !== course.code)
+                                            : [...(filters.albertaCourses || []), course.code]
+                                        );
+                                      }}
+                                      className="hover:bg-gray-50"
+                                    >
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => {
+                                          handleFilterChange('albertaCourses',
+                                            checked
+                                              ? [...(filters.albertaCourses || []), course.code]
+                                              : filters.albertaCourses.filter(c => c !== course.code)
+                                          );
+                                        }}
+                                        className="mr-2"
+                                      />
+                                      <span className="flex-1">
+                                        <span className="font-medium">{course.code}</span>
+                                        {' - '}
+                                        <span className="text-sm text-gray-600">{course.name}</span>
+                                      </span>
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenuSub>
+                        ));
+                      })()}
+                      
+                      {filters.albertaCourses?.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('albertaCourses', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear All ({filters.albertaCourses.length} selected)
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
               
@@ -3888,17 +5594,72 @@ const HomeEducationStaffDashboard = ({
                           </button>
                         </span>
                       )}
-                      {Object.entries(filters).filter(([_, value]) => value !== 'all').map(([key, value]) => (
-                        <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {key}: {value}
-                          <button 
-                            onClick={() => handleFilterChange(key, 'all')}
-                            className="ml-1 text-blue-600 hover:text-blue-800"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
+                      {Object.entries(filters).filter(([key, value]) => {
+                        return Array.isArray(value) && value.length > 0;
+                      }).map(([key, value]) => {
+                        if (key === 'categories') {
+                          return value.map((cat, index) => {
+                            const [facilitatorEmail, categoryData] = Object.entries(cat)[0];
+                            const [categoryId, category] = Object.entries(categoryData)[0];
+                            return (
+                              <span 
+                                key={`${facilitatorEmail}-${categoryId}-${index}`} 
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                style={{ 
+                                  backgroundColor: `${category.color}20`, 
+                                  color: category.color 
+                                }}
+                              >
+                                {category.icon && <span className="mr-1">{category.icon}</span>}
+                                {category.name}
+                                <button 
+                                  onClick={() => {
+                                    const newCategories = filters.categories.filter((_, i) => i !== index);
+                                    handleFilterChange('categories', newCategories);
+                                  }}
+                                  className="ml-1 hover:opacity-70"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            );
+                          });
+                        } else if (key === 'albertaCourses') {
+                          return (
+                            <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {value.length} courses selected
+                              <button 
+                                onClick={() => handleFilterChange(key, [])}
+                                className="ml-1 text-green-600 hover:text-green-800"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        } else {
+                          const labelMap = {
+                            registrationStatus: 'Status',
+                            gradeLevel: 'Grade',
+                            location: 'Location',
+                            facilitatorAssigned: 'Facilitator',
+                            assistanceRequired: 'Assistance',
+                            missingASN: 'ASN',
+                            followsAlbertaPrograms: 'Alberta Programs'
+                          };
+                          
+                          return (
+                            <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {labelMap[key] || key}: {value.length} selected
+                              <button 
+                                onClick={() => handleFilterChange(key, [])}
+                                className="ml-1 text-blue-600 hover:text-blue-800"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        }
+                      })}
                     </div>
                   </div>
                 </div>
@@ -3933,6 +5694,8 @@ const HomeEducationStaffDashboard = ({
           setSelectedFamiliesForEmail(selectedFamilies);
           setShowEmailSheet(true);
         }}
+        facilitatorCategories={facilitatorCategories}
+        categoryTypes={categoryTypes}
       />
 
       {/* Empty State */}
@@ -4011,6 +5774,42 @@ const HomeEducationStaffDashboard = ({
         familyId={documentReviewFamilyId}
         familyData={documentReviewFamily}
       />
+
+      {/* CSV Column Selector Modal */}
+      <CSVColumnSelector
+        isOpen={showCSVColumnSelector}
+        onClose={() => setShowCSVColumnSelector(false)}
+        onExport={handleExportFamilies}
+        families={filteredFamilies}
+        schoolYear={activeSchoolYear}
+      />
+
+      {/* Category Manager Sheet */}
+      <Sheet open={showCategoryManager} onOpenChange={setShowCategoryManager}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Manage Categories</SheetTitle>
+            <SheetDescription>
+              Create and manage categories to organize families
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            <React.Suspense fallback={
+              <div className="flex justify-center items-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              </div>
+            }>
+              <HomeEducationCategoryManagerLazy 
+                onCategoryChange={(updatedCategories) => {
+                  // Categories are already being updated via the real-time listener
+                  // No need to reload here to avoid infinite loops
+                  console.log('Categories updated:', updatedCategories?.length);
+                }}
+              />
+            </React.Suspense>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

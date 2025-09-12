@@ -75,7 +75,8 @@ const FamilyManagementDirect = ({
   isOpen, 
   onOpenChange, 
   familyKey,
-  isStaffMode = false
+  isStaffMode = false,
+  onEditProfile
 }) => {
   const { user } = useAuth();
   const db = getDatabase();
@@ -726,6 +727,12 @@ const FamilyManagementDirect = ({
   const GuardianCard = ({ guardian, guardianKey }) => {
     const isPrimary = guardian.guardianType === 'primary_guardian';
     
+    // Check if current user can edit the primary guardian profile
+    const canEditProfile = isPrimary && onEditProfile && (
+      isStaffMode || 
+      (user && sanitizeEmail(user.email) === sanitizeEmail(guardian.email))
+    );
+    
     return (
       <div className={`rounded-lg p-4 border ${isPrimary ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
         <div className="flex justify-between items-start">
@@ -745,6 +752,15 @@ const FamilyManagementDirect = ({
               <p>Phone: {guardian.phone}</p>
               <p>Relation: {guardian.relationToStudents}</p>
             </div>
+            {canEditProfile && (
+              <button
+                onClick={onEditProfile}
+                className="mt-3 flex items-center px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-100 rounded-md transition-colors"
+              >
+                <Edit3 className="w-4 h-4 mr-1" />
+                Edit Profile
+              </button>
+            )}
           </div>
           {!isPrimary && (
             <div className="flex space-x-2 ml-4">

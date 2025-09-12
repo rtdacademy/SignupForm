@@ -12,6 +12,7 @@ import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
 import AddressPicker from '../components/AddressPicker';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
+import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
 
 // Helper function to get previous school year
 const getPreviousSchoolYear = (currentYear) => {
@@ -286,6 +287,7 @@ const HomeEducationNotificationFormV2 = ({
   // Data for smart copying
   const [familyFormData, setFamilyFormData] = useState({});
   const [copyOptions, setCopyOptions] = useState({});
+  const [paymentEligibility, setPaymentEligibility] = useState(null);
   
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -323,27 +325,34 @@ const HomeEducationNotificationFormV2 = ({
           const data = snapshot.val();
           setExistingSubmission(data);
           
-          // Handle both old and new data structures
+          // Only load editable fields from the previous submission
+          // Student and guardian info should always come from live familyData
           if (data.PART_A) {
-            // New structure
+            // New structure - only load editable fields
             setValue('formType', data.PART_A.formType);
+            
+            // Load only the editable fields (not studentInfo or guardianInfo)
             Object.keys(data.PART_A.editableFields || {}).forEach(key => {
-              console.log(`Loading ${key}:`, data.PART_A.editableFields[key]);
+              console.log(`Loading editable field ${key}:`, data.PART_A.editableFields[key]);
               setValue(key, data.PART_A.editableFields[key]);
             });
+            
+            // Load program address settings if different
             if (data.PART_A.addresses) {
               setValue('programAddressDifferent', data.PART_A.addresses.programAddressDifferent);
               setValue('programAddress', data.PART_A.addresses.programAddress);
             }
+            
+            // Load declaration settings
             if (data.PART_B?.declaration) {
-              console.log('Loading PART_B data:', data.PART_B.declaration);
+              console.log('Loading PART_B declaration data:', data.PART_B.declaration);
               setValue('programAlberta', data.PART_B.declaration.programAlberta);
               setValue('programSchedule', data.PART_B.declaration.programSchedule);
               setValue('signatureAgreed', data.PART_B.declaration.signatureAgreed);
             }
             // Note: PART_D is handled separately by SOLOEducationPlanForm.js
           } else {
-            // Legacy structure support
+            // Legacy structure support - only load editable fields
             setValue('formType', data.formType);
             Object.keys(data.editableFields || {}).forEach(key => {
               setValue(key, data.editableFields[key]);
@@ -367,6 +376,12 @@ const HomeEducationNotificationFormV2 = ({
         
         // Load all family forms for copy options
         await loadFamilyFormData();
+        
+        // Calculate payment eligibility for this student and school year
+        if (selectedStudent.birthday) {
+          const eligibility = determineFundingEligibility(selectedStudent.birthday, schoolYear);
+          setPaymentEligibility(eligibility);
+        }
         
       } catch (error) {
         console.error('Error loading form data:', error);
@@ -1096,7 +1111,8 @@ const HomeEducationNotificationFormV2 = ({
       const timestamp = Date.now();
       const submissionId = existingSubmission?.submissionId || `sub_${timestamp}`;
       
-      const submissionData = {
+      // Create data structure for saving to database (without redundant info)
+      const dataToSave = {
         submissionId,
         schoolYear,
         submittedAt: existingSubmission?.submittedAt || timestamp,
@@ -1105,11 +1121,12 @@ const HomeEducationNotificationFormV2 = ({
         
         PART_A: {
           formType: data.formType,
-          studentInfo: getStudentInfo(),
-          guardianInfo: getPrimaryGuardian(),
+          // Don't save studentInfo/guardianInfo - they should always come from live data
+          // Only save references for tracking purposes
+          studentId: selectedStudent.id,
+          guardianId: getPrimaryGuardian().id || user.uid,
           addresses: {
-            studentAddress: getStudentInfo().addressInfo,
-            parentGuardianAddress: getPrimaryGuardian().address,
+            // Only save the program address if different, other addresses come from live data
             programAddressDifferent: data.programAddressDifferent,
             programAddress: data.programAddressDifferent ? (data.programAddress || null) : null
           },
@@ -1144,15 +1161,32 @@ const HomeEducationNotificationFormV2 = ({
         }
       };
 
-      // Generate PDF
+      // Create submission data with live student/guardian info for PDF generation
+      const pdfSubmissionData = {
+        ...dataToSave,
+        PART_A: {
+          ...dataToSave.PART_A,
+          // Include live student and guardian info for PDF
+          studentInfo: getStudentInfo(),
+          guardianInfo: getPrimaryGuardian(),
+          addresses: {
+            studentAddress: getStudentInfo().addressInfo,
+            parentGuardianAddress: getPrimaryGuardian().address,
+            programAddressDifferent: data.programAddressDifferent,
+            programAddress: data.programAddressDifferent ? (data.programAddress || null) : null
+          }
+        }
+      };
+
+      // Generate PDF with live data
       setGeneratingPDF(true);
-      const pdfDoc = await generatePDF(submissionData);
+      const pdfDoc = await generatePDF(pdfSubmissionData);
       
       // Save PDF to cloud storage
-      const pdfInfo = await savePDFToStorage(pdfDoc, submissionData);
+      const pdfInfo = await savePDFToStorage(pdfDoc, pdfSubmissionData);
       
       // Add PDF info to submission data
-      submissionData.pdfVersions = [
+      dataToSave.pdfVersions = [
         ...(existingSubmission?.pdfVersions || []),
         {
           ...pdfInfo,
@@ -1161,19 +1195,48 @@ const HomeEducationNotificationFormV2 = ({
       ];
 
       // Add submission status
-      submissionData.submissionStatus = 'submitted';
-      submissionData.submissionCompletedAt = new Date().toISOString();
+      dataToSave.submissionStatus = 'submitted';
+      dataToSave.submissionCompletedAt = new Date().toISOString();
+
+      // Calculate payment eligibility based on school year
+      const eligibility = determineFundingEligibility(selectedStudent.birthday, schoolYear);
+      
+      // Create payment eligibility data
+      const paymentEligibilityData = {
+        determinedAt: timestamp,
+        schoolYear,
+        birthday: selectedStudent.birthday,
+        ageOnSept1: eligibility.ageDetails?.ageOnSept1 || null,
+        ageOnDec31: eligibility.ageDetails?.ageOnDec31 || null,
+        eligibilityStatus: eligibility.ageCategory, // 'kindergarten', 'grades_1_12', 'too_young', 'too_old', or 'unknown'
+        fundingAmount: eligibility.fundingAmount,
+        fundingEligible: eligibility.fundingEligible,
+        reason: eligibility.message || `Funding amount: $${eligibility.fundingAmount}`,
+        sourceForm: submissionId,
+        studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
+        studentId: selectedStudent.id,
+        overrides: {
+          applied: false,
+          reason: null,
+          authorizedBy: null,
+          timestamp: null
+        }
+      };
 
       // Save to database
       const db = getDatabase();
       const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
-      await set(formRef, submissionData);
+      await set(formRef, dataToSave);
+      
+      // Save payment eligibility
+      const paymentRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/PAYMENT_ELIGIBILITY/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
+      await set(paymentRef, paymentEligibilityData);
 
       toast.success('Home Education Notification Form submitted successfully!', {
         description: `Form for ${selectedStudent.firstName} ${selectedStudent.lastName} has been completed and saved. You can download the PDF anytime from your dashboard.`
       });
 
-      setExistingSubmission(submissionData);
+      setExistingSubmission(dataToSave);
       
       // Close the sheet on successful submission
       setTimeout(() => {
@@ -1368,6 +1431,61 @@ const HomeEducationNotificationFormV2 = ({
                   value={student.phoneWithFallback} 
                 />
               </div>
+              
+              {/* Funding Eligibility Display */}
+              {paymentEligibility && (
+                <div className="md:col-span-2 mt-4">
+                  <div className={`p-4 rounded-lg border ${
+                    paymentEligibility.fundingEligible === false
+                      ? 'bg-red-50 border-red-200'
+                      : paymentEligibility.ageCategory === 'kindergarten'
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-start space-x-3">
+                      <div className={`flex-shrink-0 p-2 rounded-full ${
+                        paymentEligibility.fundingEligible === false
+                          ? 'bg-red-100'
+                          : paymentEligibility.ageCategory === 'kindergarten'
+                          ? 'bg-amber-100'
+                          : 'bg-green-100'
+                      }`}>
+                        {paymentEligibility.fundingEligible === false ? (
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                        ) : (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className={`font-semibold ${
+                          paymentEligibility.fundingEligible === false
+                            ? 'text-red-900'
+                            : paymentEligibility.ageCategory === 'kindergarten'
+                            ? 'text-amber-900'
+                            : 'text-green-900'
+                        }`}>
+                          Funding Eligibility for {schoolYear}
+                        </h4>
+                        <p className={`mt-1 text-sm ${
+                          paymentEligibility.fundingEligible === false
+                            ? 'text-red-800'
+                            : paymentEligibility.ageCategory === 'kindergarten'
+                            ? 'text-amber-800'
+                            : 'text-green-800'
+                        }`}>
+                          {paymentEligibility.message || `Eligible for $${paymentEligibility.fundingAmount} in funding`}
+                        </p>
+                        {paymentEligibility.ageDetails && (
+                          <div className="mt-2 text-xs text-gray-600">
+                            <p>Age on Sept 1, {schoolYear.split('/')[0]}: {paymentEligibility.ageDetails.ageOnSept1.years} years, {paymentEligibility.ageDetails.ageOnSept1.months} months</p>
+                            <p>Age on Dec 31, {schoolYear.split('/')[0]}: {paymentEligibility.ageDetails.ageOnDec31.years} years, {paymentEligibility.ageDetails.ageOnDec31.months} months</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

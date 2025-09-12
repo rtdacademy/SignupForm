@@ -130,27 +130,57 @@ export const getFundingAmount = (ageCategory) => {
 /**
  * Main function to determine funding eligibility based on student's age
  * @param {string} birthday - Student's birthday in YYYY-MM-DD format
+ * @param {string} schoolYear - Optional school year in format "YY/YY" (e.g., "25/26")
  * @returns {Object} Object containing eligibility info
  */
-export const determineFundingEligibility = (birthday) => {
+export const determineFundingEligibility = (birthday, schoolYear = null) => {
   if (!birthday) {
     return { 
       fundingEligible: true, // Default to eligible if no birthday yet
       fundingAmount: 0,
       ageCategory: 'unknown',
       message: null,
-      grade: null
+      grade: null,
+      ageDetails: null
     };
   }
 
-  const { registrationYear, septemberFirst, december31 } = getRegistrationSchoolYear();
+  let registrationYear, septemberFirst, december31;
+  
+  if (schoolYear) {
+    // Parse the provided school year (e.g., "25/26" -> 2025)
+    const [startYear] = schoolYear.split('/');
+    registrationYear = 2000 + parseInt(startYear);
+    septemberFirst = new Date(registrationYear, 8, 1); // Sept 1
+    december31 = new Date(registrationYear, 11, 31); // Dec 31
+  } else {
+    // Fallback to guessing based on current date (existing behavior)
+    const result = getRegistrationSchoolYear();
+    registrationYear = result.registrationYear;
+    septemberFirst = result.septemberFirst;
+    december31 = result.december31;
+  }
   
   // Calculate age as of September 1st
   const age = calculateAge(birthday, septemberFirst);
   const birthDate = parseISO(birthday);
   
+  // Calculate detailed ages for audit trail
+  const ageOnSept1 = {
+    years: Math.floor(age),
+    months: Math.floor((age % 1) * 12),
+    days: Math.floor(((age % 1) * 12 % 1) * 30)
+  };
+  
+  const ageOnDec31Value = calculateAge(birthday, december31);
+  const ageOnDec31 = {
+    years: Math.floor(ageOnDec31Value),
+    months: Math.floor((ageOnDec31Value % 1) * 12),
+    days: Math.floor(((ageOnDec31Value % 1) * 12 % 1) * 30)
+  };
+  
   // Check if student turns 5 by December 31st of the registration school year
-  const turningFiveByDec31 = calculateAge(birthday, december31) >= 5;
+  const turningFiveByDec31 = ageOnDec31Value >= 5;
   
   // Kindergarten: Must turn 5 by December 31st AND be under 6 years old as of September 1st
   // According to Alberta Education guidelines
@@ -162,7 +192,13 @@ export const determineFundingEligibility = (birthday) => {
         fundingAmount: FUNDING_RATES.KINDERGARTEN.amount,
         ageCategory: 'kindergarten',
         message: `This student is kindergarten age and eligible for ${FUNDING_RATES.KINDERGARTEN.formatted} in funding.`,
-        grade: 'K'
+        grade: 'K',
+        ageDetails: {
+          ageOnSept1,
+          ageOnDec31,
+          septemberFirst: septemberFirst.toISOString().split('T')[0],
+          december31: december31.toISOString().split('T')[0]
+        }
       };
     }
     
@@ -176,7 +212,13 @@ export const determineFundingEligibility = (birthday) => {
         fundingAmount: FUNDING_RATES.KINDERGARTEN.amount,
         ageCategory: 'kindergarten',
         message: `This student is kindergarten age and eligible for ${FUNDING_RATES.KINDERGARTEN.formatted} in funding.`,
-        grade: 'K'
+        grade: 'K',
+        ageDetails: {
+          ageOnSept1,
+          ageOnDec31,
+          septemberFirst: septemberFirst.toISOString().split('T')[0],
+          december31: december31.toISOString().split('T')[0]
+        }
       };
     }
     
@@ -186,7 +228,13 @@ export const determineFundingEligibility = (birthday) => {
       fundingAmount: 0,
       ageCategory: 'too_young',
       message: `This student must be at least 4 years 8 months old by September 1, ${registrationYear} to be eligible for kindergarten funding.`,
-      grade: null
+      grade: null,
+      ageDetails: {
+        ageOnSept1,
+        ageOnDec31,
+        septemberFirst: septemberFirst.toISOString().split('T')[0],
+        december31: december31.toISOString().split('T')[0]
+      }
     };
   }
   
@@ -197,7 +245,13 @@ export const determineFundingEligibility = (birthday) => {
       fundingAmount: 0,
       ageCategory: 'too_young',
       message: `This student is too young for funding. Kindergarten students must turn 5 by December 31, ${registrationYear}. They can still be added but will not receive funding.`,
-      grade: null
+      grade: null,
+      ageDetails: {
+        ageOnSept1,
+        ageOnDec31,
+        septemberFirst: septemberFirst.toISOString().split('T')[0],
+        december31: december31.toISOString().split('T')[0]
+      }
     };
   }
   
@@ -209,7 +263,13 @@ export const determineFundingEligibility = (birthday) => {
       fundingAmount: 0,
       ageCategory: 'too_old',
       message: `This student is too old for funding (20 or older as of September 1, ${registrationYear}). They can still be added but will not receive funding.`,
-      grade: '12' // Default to grade 12 for older students
+      grade: '12', // Default to grade 12 for older students
+      ageDetails: {
+        ageOnSept1,
+        ageOnDec31,
+        septemberFirst: septemberFirst.toISOString().split('T')[0],
+        december31: december31.toISOString().split('T')[0]
+      }
     };
   }
   
@@ -222,7 +282,13 @@ export const determineFundingEligibility = (birthday) => {
       fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
       ageCategory: 'grades_1_12',
       message: null, // No special message for normal funding
-      grade: estimatedGrade
+      grade: estimatedGrade,
+      ageDetails: {
+        ageOnSept1,
+        ageOnDec31,
+        septemberFirst: septemberFirst.toISOString().split('T')[0],
+        december31: december31.toISOString().split('T')[0]
+      }
     };
   }
   
@@ -232,7 +298,13 @@ export const determineFundingEligibility = (birthday) => {
     fundingAmount: 0,
     ageCategory: 'unknown',
     message: `This student does not meet the age requirements for funding.`,
-    grade: null
+    grade: null,
+    ageDetails: {
+      ageOnSept1,
+      ageOnDec31,
+      septemberFirst: septemberFirst.toISOString().split('T')[0],
+      december31: december31.toISOString().split('T')[0]
+    }
   };
 };
 

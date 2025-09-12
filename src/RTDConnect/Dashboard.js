@@ -17,6 +17,7 @@ import FamilyManagementWrapper from './FamilyManagementWrapper';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
+import FacilitatorMeetingForm from './FacilitatorMeetingForm';
 import FacilitatorSelection from './FacilitatorSelection';
 import ReceiptUploadForm from './ReceiptUploadForm';
 import StudentBudgetCard from './StudentBudgetCard';
@@ -571,6 +572,10 @@ const RTDConnectDashboard = ({
   const [showSOLOPlanForm, setShowSOLOPlanForm] = useState(false);
   const [selectedStudentForSOLO, setSelectedStudentForSOLO] = useState(null);
   const [studentSOLOPlanStatuses, setStudentSOLOPlanStatuses] = useState({});
+  // Facilitator Meetings state
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
+  const [selectedStudentForMeeting, setSelectedStudentForMeeting] = useState(null);
+  const [studentMeetingStatuses, setStudentMeetingStatuses] = useState({});
   
   // Portfolio state
   const [showPortfolio, setShowPortfolio] = useState(false);
@@ -1133,6 +1138,41 @@ const RTDConnectDashboard = ({
     loadStudentSOLOPlanStatuses();
   }, [effectiveFamilyId, familyData?.students, soloTargetSchoolYear]);
 
+  // Effect to load student Facilitator Meeting statuses
+  useEffect(() => {
+    if (!effectiveFamilyId || !familyData?.students || !soloTargetSchoolYear) {
+      return;
+    }
+
+    const loadMeetingStatuses = async () => {
+      const db = getDatabase();
+      const statuses = {};
+      for (const student of familyData.students) {
+        try {
+          const formRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/FACILITATOR_MEETINGS/${soloTargetSchoolYear.replace('/', '_')}/${student.id}`);
+          const snapshot = await get(formRef);
+          if (snapshot.exists()) {
+            const form = snapshot.val();
+            statuses[student.id] = {
+              status: form.submissionStatus || 'draft',
+              lastUpdated: form.lastUpdated,
+              submittedAt: form.submittedAt,
+              pdfVersions: form.pdfVersions || []
+            };
+          } else {
+            statuses[student.id] = { status: 'pending', lastUpdated: null, submittedAt: null, pdfVersions: [] };
+          }
+        } catch (err) {
+          console.error(`Error loading meeting form for student ${student.id}:`, err);
+          statuses[student.id] = { status: 'pending', lastUpdated: null, submittedAt: null, pdfVersions: [] };
+        }
+      }
+      setStudentMeetingStatuses(statuses);
+    };
+
+    loadMeetingStatuses();
+  }, [effectiveFamilyId, familyData?.students, soloTargetSchoolYear]);
+
   // Effect to load portfolio statuses
   useEffect(() => {
     if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
@@ -1542,15 +1582,63 @@ const RTDConnectDashboard = ({
         ...(isStaffViewing && { lastUpdatedByStaff: user.uid }) // Track who made the update
       });
 
+      // Sync with guardian data in family profile (only for primary guardians)
+      let guardianSyncSuccess = true;
+      let guardianSyncMessage = '';
+      
+      try {
+        // Unified logic for both regular users and staff - use effectiveFamilyId
+        if (effectiveFamilyId) {
+          const guardiansRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/guardians`);
+          const guardiansSnapshot = await get(guardiansRef);
+          
+          if (guardiansSnapshot.exists()) {
+            const guardians = guardiansSnapshot.val();
+            // Use appropriate email based on mode
+            const targetEmail = isStaffViewing ? emailToSave : user.email;
+            
+            // Find matching guardian by email
+            for (const [emailKey, guardian] of Object.entries(guardians)) {
+              // Only update if email matches AND guardian is primary_guardian
+              if ((guardian.email === targetEmail || guardian.email === sanitizeEmail(targetEmail)) 
+                  && guardian.guardianType === 'primary_guardian') {
+                // Update guardian data
+                const guardianRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/guardians/${emailKey}`);
+                await update(guardianRef, {
+                  firstName: profileData.firstName,
+                  lastName: profileData.lastName,
+                  phone: profileData.phone,
+                  address: profileData.address,
+                  updatedAt: Date.now(),
+                  updatedBy: isStaffViewing ? user.uid : saveUid,
+                  ...(isStaffViewing && { updatedByStaff: true })
+                });
+                console.log(`Guardian data synced for primary guardian ${emailKey} in family ${effectiveFamilyId}`);
+                guardianSyncMessage = ' Primary guardian information in family profile also updated.';
+                break;
+              } else if ((guardian.email === targetEmail || guardian.email === sanitizeEmail(targetEmail)) 
+                         && guardian.guardianType !== 'primary_guardian') {
+                // Found the guardian but they're not primary - skip update
+                console.log(`Skipping guardian sync for ${emailKey} - not a primary guardian (type: ${guardian.guardianType})`);
+              }
+            }
+          }
+        }
+      } catch (syncError) {
+        console.error('Error syncing guardian data:', syncError);
+        guardianSyncSuccess = false;
+        guardianSyncMessage = ' Note: Guardian information in family profile could not be updated.';
+      }
+
       setShowProfileForm(false);
       console.log(`Profile saved successfully for user ${saveUid}!`);
       
-      // Show success toast
+      // Show success toast with guardian sync status
       setToast({
         message: isStaffViewing 
-          ? 'Successfully updated user profile' 
-          : 'Profile saved successfully!',
-        type: 'success'
+          ? `Successfully updated user profile.${guardianSyncMessage}`
+          : `Profile saved successfully!${guardianSyncMessage}`,
+        type: guardianSyncSuccess ? 'success' : 'warning'
       });
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -1981,6 +2069,44 @@ const RTDConnectDashboard = ({
       };
       
       loadUpdatedStatuses();
+    }
+  };
+
+  // Handle opening/closing Facilitator Meeting form
+  const handleOpenMeetingForm = (student) => {
+    setSelectedStudentForMeeting(student);
+    setShowMeetingForm(true);
+  };
+  const handleMeetingFormClose = () => {
+    setShowMeetingForm(false);
+    setSelectedStudentForMeeting(null);
+    // Reload statuses to reflect changes
+    if (effectiveFamilyId && familyData?.students && soloTargetSchoolYear) {
+      (async () => {
+        const db = getDatabase();
+        const statuses = {};
+        for (const s of familyData.students) {
+          try {
+            const formRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/FACILITATOR_MEETINGS/${soloTargetSchoolYear.replace('/', '_')}/${s.id}`);
+            const snapshot = await get(formRef);
+            if (snapshot.exists()) {
+              const form = snapshot.val();
+              statuses[s.id] = {
+                status: form.submissionStatus || 'draft',
+                lastUpdated: form.lastUpdated,
+                submittedAt: form.submittedAt,
+                pdfVersions: form.pdfVersions || []
+              };
+            } else {
+              statuses[s.id] = { status: 'pending', lastUpdated: null, submittedAt: null, pdfVersions: [] };
+            }
+          } catch (err) {
+            console.error(`Error loading meeting form for student ${s.id}:`, err);
+            statuses[s.id] = { status: 'pending', lastUpdated: null, submittedAt: null, pdfVersions: [] };
+          }
+        }
+        setStudentMeetingStatuses(statuses);
+      })();
     }
   };
 
@@ -3097,6 +3223,7 @@ Check console for full details.
           selectedFacilitator={selectedFacilitator} // Pass facilitator info
           staffMode={isStaff()}
           isStaffViewing={isStaffViewing}
+          onEditProfile={() => setShowProfileForm(true)}
         />
       </div>
     );
@@ -3305,6 +3432,7 @@ Check console for full details.
           onComplete={handleFamilyComplete}
           staffMode={isStaff()}
           isStaffViewing={isStaffViewing}
+          onEditProfile={() => setShowProfileForm(true)}
         />
 
         {/* Mobile Navigation Sheet */}
@@ -4361,6 +4489,59 @@ Check console for full details.
                               )}
                             </div>
 
+                            {/* Facilitator Meetings */}
+                            <div className="mt-3 pt-3 border-t border-blue-300">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <Calendar className="w-4 h-4 text-purple-500" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Facilitator Meetings
+                                  </span>
+                                  {studentMeetingStatuses[student.id]?.status === 'submitted' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : studentMeetingStatuses[student.id]?.status === 'draft' ? (
+                                    <Clock className="w-4 h-4 text-blue-500" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                  )}
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                  studentMeetingStatuses[student.id]?.status === 'submitted' ? 'bg-green-100 text-green-700 border-green-300' : 
+                                  studentMeetingStatuses[student.id]?.status === 'draft' ? 'bg-blue-100 text-blue-700 border-blue-300' : 
+                                  'bg-orange-100 text-orange-700 border-orange-300'
+                                }`}>
+                                  {studentMeetingStatuses[student.id]?.status === 'submitted' ? 'Completed' : 
+                                   studentMeetingStatuses[student.id]?.status === 'draft' ? 'In Progress' : 'Required'}
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                <button
+                                  onClick={() => handleOpenMeetingForm(student)}
+                                  className={`w-full px-3 py-2 text-sm rounded-md transition-all shadow-sm hover:shadow-md ${
+                                    studentMeetingStatuses[student.id]?.status === 'submitted' ?
+                                    'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300 hover:border-green-400' :
+                                    studentMeetingStatuses[student.id]?.status === 'draft' ?
+                                    'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300 hover:border-blue-400' :
+                                    'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
+                                  }`}
+                                >
+                                  {isStaff() ? 'Edit Progress Report' : 'View Progress Report'}
+                                </button>
+                                {studentMeetingStatuses[student.id]?.pdfVersions?.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      const latest = studentMeetingStatuses[student.id].pdfVersions[studentMeetingStatuses[student.id].pdfVersions.length - 1];
+                                      window.open(latest.url, '_blank');
+                                    }}
+                                    className="w-full px-3 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                    <span>Download Latest PDF</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
                             {/* Learning Portfolio Section */}
                             <div className="mt-3 pt-3 border-t border-blue-300">
                               <div className="flex items-center justify-between mb-2">
@@ -4779,6 +4960,7 @@ Check console for full details.
           onComplete={handleFamilyComplete}
           staffMode={isStaff()}
           isStaffViewing={isStaffViewing}
+          onEditProfile={() => setShowProfileForm(true)}
         />
       )}
 
@@ -5165,6 +5347,20 @@ Check console for full details.
           selectedFacilitator={selectedFacilitator}
           readOnly={isStaff()}
           staffMode={isStaff()}
+        />
+      )}
+
+      {/* Facilitator Meeting Form - Everyone can open; staff edits, family comments */}
+      {showMeetingForm && (
+        <FacilitatorMeetingForm
+          isOpen={showMeetingForm}
+          onOpenChange={handleMeetingFormClose}
+          student={selectedStudentForMeeting}
+          familyId={effectiveFamilyId}
+          schoolYear={soloTargetSchoolYear}
+          staffMode={isStaff()}
+          userClaims={customClaims}
+          selectedFacilitator={selectedFacilitator}
         />
       )}
 

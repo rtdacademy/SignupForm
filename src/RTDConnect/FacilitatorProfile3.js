@@ -343,7 +343,7 @@ const FacilitatorProfile3 = () => {
               className="inline-flex items-center px-8 py-4 border border-white text-lg font-medium rounded-lg text-green-600 bg-white hover:bg-gray-50 transition-colors"
             >
               <Mail className="w-5 h-5 mr-2" />
-              grace-anne@rtdconnect.com
+              grace-anne@rtd-connect.com
             </button>
           </div>
         </div>
