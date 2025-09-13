@@ -3,14 +3,14 @@ import { getDatabase, ref, onValue, off, query, orderByChild, equalTo, get, upda
 import { TableVirtuoso } from 'react-virtuoso';
 import { useAuth } from '../context/AuthContext';
 import { useStaffClaims } from '../customClaims/useStaffClaims';
-import { 
-  Users, 
-  GraduationCap, 
-  FileText, 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
+import {
+  Users,
+  GraduationCap,
+  FileText,
+  Search,
+  Filter,
+  Download,
+  Eye,
   Calendar,
   MapPin,
   Phone,
@@ -85,7 +85,8 @@ import {
   Video,
   Headphones,
   Grid2X2,
-  BookOpenCheck
+  BookOpenCheck,
+  ExternalLink
 } from 'lucide-react';
 import { 
   getCurrentSchoolYear, 
@@ -98,14 +99,14 @@ import {
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
-import { getAllAlbertaCourses } from '../config/albertaCourses';
+import { getAllAlbertaCourses, getAlbertaCourseById } from '../config/albertaCourses';
 import FacilitatorSelector from './FacilitatorSelector';
 import { useNavigate } from 'react-router-dom';
 import FamilyNotesIcon from './FamilyNotes/FamilyNotesIcon';
 import FamilyMessaging from './FamilyMessaging';
+import HomeEducationCategoryManager from './HomeEducationCategoryManager';
 // Lazy load components to prevent circular dependencies and loading issues
 const FamilyNotesModal = React.lazy(() => import('./FamilyNotes/FamilyNotesModal'));
-const HomeEducationCategoryManagerLazy = React.lazy(() => import('./HomeEducationCategoryManager'));
 import StaffDocumentReview from './StaffDocumentReview';
 import CSVColumnSelector from './CSVColumnSelector';
 import {
@@ -152,7 +153,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuPortal
+  DropdownMenuPortal,
+  DropdownMenuLabel
 } from '../components/ui/dropdown-menu';
 import {
   Select,
@@ -1665,10 +1667,321 @@ const StudentDetailsRow = memo(({ student, familyId, onASNUpdate, idx, allStuden
 
 StudentDetailsRow.displayName = 'StudentDetailsRow';
 
+// Helper component for student detail row
+const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
+  const [formData, setFormData] = useState({
+    notificationForm: null,
+    educationPlan: null,
+    citizenshipDocs: null,
+    loading: true
+  });
+  const [showDocumentReview, setShowDocumentReview] = useState(false);
+  const [familyData, setFamilyData] = useState(null);
+
+  // Format school year for database queries
+  const dbSchoolYear = schoolYear.replace('/', '_');
+
+  useEffect(() => {
+    const fetchStudentFormData = async () => {
+      try {
+        const db = getDatabase();
+
+        // Fetch notification form status
+        const notificationRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`);
+        const notificationSnapshot = await get(notificationRef);
+
+        // Fetch education plan data
+        const educationRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/SOLO_EDUCATION_PLANS/${dbSchoolYear}/${student.id}`);
+        const educationSnapshot = await get(educationRef);
+
+        // Fetch citizenship documents status
+        const citizenshipRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+        const citizenshipSnapshot = await get(citizenshipRef);
+
+        // Fetch full family data for StaffDocumentReview
+        const familyRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}`);
+        const familySnapshot = await get(familyRef);
+
+        setFormData({
+          notificationForm: notificationSnapshot.val(),
+          educationPlan: educationSnapshot.val(),
+          citizenshipDocs: citizenshipSnapshot.val(),
+          loading: false
+        });
+
+        setFamilyData(familySnapshot.val());
+      } catch (error) {
+        console.error('Error fetching student form data:', error);
+        setFormData(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    if (student.id && familyId && schoolYear) {
+      fetchStudentFormData();
+    }
+  }, [student.id, familyId, dbSchoolYear, schoolYear]);
+
+  const age = calculateAge(student.birthday);
+  const hasASN = student.asn && student.asn.trim() !== '';
+  const isReadyForPASI = student.readyForPASI === true;
+
+  // Get form statuses
+  const notificationStatus = formData.notificationForm?.submissionStatus || 'not_started';
+  const educationPlanStatus = formData.educationPlan?.submissionStatus || 'not_started';
+
+  // Get citizenship docs status
+  const getCitizenshipDocsStatus = () => {
+    const docs = formData.citizenshipDocs;
+    if (!docs) return { status: 'not_started', label: 'Not Started', color: 'red' };
+
+    if (docs.staffApproval?.isApproved === true) {
+      return { status: 'approved', label: 'Approved', color: 'green' };
+    }
+    if (docs.staffApproval?.isApproved === false) {
+      return { status: 'rejected', label: 'Rejected', color: 'red' };
+    }
+    if (docs.documents && docs.documents.length > 0) {
+      if (docs.requiresStaffReview || docs.staffReviewRequired) {
+        return { status: 'pending_review', label: 'Pending Review', color: 'yellow' };
+      }
+      return { status: 'uploaded', label: 'Uploaded', color: 'blue' };
+    }
+    return { status: 'not_started', label: 'No Documents', color: 'gray' };
+  };
+
+  const citizenshipStatus = getCitizenshipDocsStatus();
+
+  // Map Alberta course IDs to names
+  const getCourseName = (courseId) => {
+    const course = getAlbertaCourseById(courseId);
+    return course ? `${course.name} (${course.credits} cr)` : courseId;
+  };
+
+  // Process selected Alberta courses
+  const albertaCourses = formData.educationPlan?.selectedAlbertaCourses || {};
+  const otherCourses = formData.educationPlan?.otherCourses || [];
+  const followsAlbertaPrograms = formData.educationPlan?.followAlbertaPrograms;
+
+  return (
+    <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4 mb-3 hover:bg-blue-100 transition-colors">
+      <div className="grid grid-cols-12 gap-4">
+        {/* Student Basic Info - 3 cols */}
+        <div className="col-span-12 md:col-span-3">
+          <div className="space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-semibold text-sm text-gray-900">
+                  {student.firstName} {student.lastName}
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Grade {student.grade || 'N/A'} • {age !== null ? `${age} years old` : 'Age N/A'}
+                </p>
+                {student.birthday && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    DOB: {student.birthday}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* ASN Status */}
+            <div className="mt-2">
+              {hasASN ? (
+                <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  ASN: {formatASNDisplay(student.asn)}
+                </Badge>
+              ) : isReadyForPASI ? (
+                <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                  <ClipboardCheck className="w-3 h-3 mr-1" />
+                  Ready for PASI
+                </Badge>
+              ) : (
+                <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  No ASN
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Form Statuses - 3 cols */}
+        <div className="col-span-12 md:col-span-3">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-700 mb-1">Form Status</p>
+            
+            {/* Notification Form Status */}
+            <div className="flex items-center gap-2 bg-white rounded px-2 py-1.5">
+              {notificationStatus === 'submitted' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+              ) : notificationStatus === 'in_progress' ? (
+                <Clock className="w-3.5 h-3.5 text-yellow-600" />
+              ) : (
+                <X className="w-3.5 h-3.5 text-red-600" />
+              )}
+              <span className="text-xs">
+                Notification: {' '}
+                <span className={`font-medium ${
+                  notificationStatus === 'submitted' ? 'text-green-700' :
+                  notificationStatus === 'in_progress' ? 'text-yellow-700' :
+                  'text-red-700'
+                }`}>
+                  {notificationStatus === 'submitted' ? 'Submitted' :
+                   notificationStatus === 'in_progress' ? 'In Progress' :
+                   'Not Started'}
+                </span>
+              </span>
+            </div>
+            
+            {/* Education Plan Status */}
+            <div className="flex items-center gap-2 bg-white rounded px-2 py-1.5">
+              {educationPlanStatus === 'submitted' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+              ) : educationPlanStatus === 'in_progress' ? (
+                <Clock className="w-3.5 h-3.5 text-yellow-600" />
+              ) : (
+                <X className="w-3.5 h-3.5 text-red-600" />
+              )}
+              <span className="text-xs">
+                Education Plan: {' '}
+                <span className={`font-medium ${
+                  educationPlanStatus === 'submitted' ? 'text-green-700' :
+                  educationPlanStatus === 'in_progress' ? 'text-yellow-700' :
+                  'text-red-700'
+                }`}>
+                  {educationPlanStatus === 'submitted' ? 'Submitted' :
+                   educationPlanStatus === 'in_progress' ? 'In Progress' :
+                   'Not Started'}
+                </span>
+              </span>
+            </div>
+
+            {/* Citizenship Documents Status - Clickable */}
+            <button
+              onClick={() => setShowDocumentReview(true)}
+              className="flex items-center gap-2 bg-white rounded px-2 py-1.5 hover:bg-gray-50 transition-colors w-full text-left"
+              title="Click to review citizenship documents"
+            >
+              {citizenshipStatus.status === 'approved' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+              ) : citizenshipStatus.status === 'rejected' ? (
+                <X className="w-3.5 h-3.5 text-red-600" />
+              ) : citizenshipStatus.status === 'pending_review' ? (
+                <Clock className="w-3.5 h-3.5 text-yellow-600" />
+              ) : citizenshipStatus.status === 'uploaded' ? (
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 text-gray-600" />
+              )}
+              <span className="text-xs">
+                Citizenship Docs: {' '}
+                <span className={`font-medium ${
+                  citizenshipStatus.color === 'green' ? 'text-green-700' :
+                  citizenshipStatus.color === 'red' ? 'text-red-700' :
+                  citizenshipStatus.color === 'yellow' ? 'text-yellow-700' :
+                  citizenshipStatus.color === 'blue' ? 'text-blue-700' :
+                  'text-gray-700'
+                }`}>
+                  {citizenshipStatus.label}
+                </span>
+              </span>
+              <ExternalLink className="w-3 h-3 ml-auto text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* Courses - 6 cols */}
+        <div className="col-span-12 md:col-span-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs font-semibold text-gray-700">Courses</p>
+              {followsAlbertaPrograms && (
+                <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
+                  <BookOpenCheck className="w-3 h-3 mr-1" />
+                  Following Alberta Programs
+                </Badge>
+              )}
+            </div>
+            
+            {formData.loading ? (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Loading course information...
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Alberta Courses */}
+                {Object.keys(albertaCourses).length > 0 && (
+                  <div className="bg-white rounded-lg p-2 space-y-1">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Alberta Courses:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(albertaCourses).map(([category, courseIds]) => (
+                        <div key={category} className="w-full">
+                          {Array.isArray(courseIds) && courseIds.map(courseId => (
+                            <Badge 
+                              key={courseId}
+                              variant="outline" 
+                              className="text-xs mr-1 mb-1 bg-purple-50 text-purple-700 border-purple-300"
+                            >
+                              {getCourseName(courseId)}
+                            </Badge>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Other Courses */}
+                {otherCourses.length > 0 && (
+                  <div className="bg-white rounded-lg p-2 space-y-1">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Other Courses:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {otherCourses.map((course, idx) => (
+                        <Badge 
+                          key={idx}
+                          variant="outline" 
+                          className="text-xs bg-gray-50 text-gray-700 border-gray-300"
+                        >
+                          {course.courseName} ({course.credits} cr)
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* No courses message */}
+                {Object.keys(albertaCourses).length === 0 && otherCourses.length === 0 && !formData.loading && (
+                  <p className="text-xs text-gray-500 italic">No courses registered yet</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Staff Document Review Modal */}
+      {showDocumentReview && (
+        <StaffDocumentReview
+          isOpen={showDocumentReview}
+          onOpenChange={setShowDocumentReview}
+          familyId={familyId}
+          familyData={familyData}
+          initialStudentId={student.id}
+        />
+      )}
+    </div>
+  );
+});
+
+StudentDetailRow.displayName = 'StudentDetailRow';
+
 // Expanded Row Content Component
 const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd, onCategoryRemove }) => {
   const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
   const familyCategories = row.categories || [];
+  const schoolYear = getCurrentSchoolYear();
   
   return (
     <React.Fragment>
@@ -1712,42 +2025,28 @@ const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd
             </div>
           )}
           
-          {/* Students Section */}
+          {/* Enhanced Students Section with Detailed Rows */}
           {students.length > 0 && (
             <div className="mb-4">
-              <h4 className="text-xs font-semibold text-gray-700 mb-2">Students ({students.length})</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {students.map((student, idx) => {
-                  const age = calculateAge(student.birthday);
-                  const hasASN = student.asn && student.asn.trim() !== '';
-                  const isReadyForPASI = student.readyForPASI === true;
-                  
-                  return (
-                    <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium text-sm">
-                            {student.firstName} {student.lastName}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Grade {student.grade || 'N/A'} 
-                            {age !== null && ` • ${age} years old`}
-                          </p>
-                          {student.birthday && (
-                            <p className="text-xs text-gray-500">
-                              Birthday: {student.birthday}
-                            </p>
-                          )}
-                        </div>
-                        {(hasASN || isReadyForPASI) && (
-                          <Badge variant="outline" className={`text-xs ${isReadyForPASI && !hasASN ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}>
-                            {student.asn ? formatASNDisplay(student.asn) : isReadyForPASI ? 'Ready for PASI' : 'No ASN'}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-gray-800">
+                  Student Details ({students.length})
+                </h4>
+                <Badge className="bg-gray-100 text-gray-700 text-xs">
+                  School Year: {schoolYear}
+                </Badge>
+              </div>
+              
+              {/* Detailed student rows */}
+              <div className="space-y-2 border-t border-gray-200 pt-3">
+                {students.map((student, idx) => (
+                  <StudentDetailRow 
+                    key={student.id || idx} 
+                    student={student} 
+                    familyId={row.familyId}
+                    schoolYear={schoolYear}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -3766,6 +4065,7 @@ const HomeEducationStaffDashboard = ({
     gradeLevel: [], // Multiple grade levels
     location: [], // Multiple locations
     facilitatorAssigned: [], // Multiple facilitator states
+    facilitatorEmails: [], // Specific facilitator emails
     assistanceRequired: [], // Multiple assistance states
     missingASN: [], // Multiple ASN states
     categories: [], // Selected categories for filtering
@@ -4208,6 +4508,14 @@ const HomeEducationStaffDashboard = ({
           if (!matchesFilter) return false;
         }
 
+        // Specific Facilitator Filter
+        if (filters.facilitatorEmails && filters.facilitatorEmails.length > 0) {
+          const familyFacilitator = family.facilitatorEmail?.toLowerCase();
+          if (!familyFacilitator || !filters.facilitatorEmails.includes(familyFacilitator)) {
+            return false;
+          }
+        }
+
         // Assistance Required Filter
         if (filters.assistanceRequired && filters.assistanceRequired.length > 0) {
           const familyStatus = familyStatuses[familyId];
@@ -4245,7 +4553,8 @@ const HomeEducationStaffDashboard = ({
 
         // Alberta Programs Filter
         if (filters.followsAlbertaPrograms && filters.followsAlbertaPrograms.length > 0) {
-          const soloPlans = family.SOLO_EDUCATION_PLANS?.[currentYear];
+          const dbSchoolYear = currentYear.replace('/', '_');
+          const soloPlans = family.SOLO_EDUCATION_PLANS?.[dbSchoolYear];
           if (!soloPlans) return false;
           
           const hasAlbertaPrograms = Object.values(soloPlans).some(plan => 
@@ -4262,7 +4571,8 @@ const HomeEducationStaffDashboard = ({
 
         // Alberta Courses Filter
         if (filters.albertaCourses && filters.albertaCourses.length > 0) {
-          const soloPlans = family.SOLO_EDUCATION_PLANS?.[currentYear];
+          const dbSchoolYear = currentYear.replace('/', '_');
+          const soloPlans = family.SOLO_EDUCATION_PLANS?.[dbSchoolYear];
           if (!soloPlans) return false;
           
           const familyCourses = [];
@@ -4840,10 +5150,10 @@ const HomeEducationStaffDashboard = ({
                       <DropdownMenuLabel>Registration Status</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {[
-                        { value: 'queue', label: '📋 Queue - Missing Notification' },
-                        { value: 'ready', label: '✅ Ready for PASI' },
-                        { value: 'incomplete', label: '⚠️ Incomplete Registration' },
-                        { value: 'completed', label: '✔️ Fully Registered' }
+                        { value: 'queue', label: 'Queue - Missing Notification', icon: Clock },
+                        { value: 'ready', label: 'Ready for PASI', icon: ClipboardCheck },
+                        { value: 'incomplete', label: 'Incomplete Registration', icon: AlertTriangle },
+                        { value: 'completed', label: 'Fully Registered', icon: CheckCircle2 }
                       ].map(status => (
                         <DropdownMenuItem key={status.value} onSelect={(e) => e.preventDefault()}>
                           <Checkbox
@@ -4857,7 +5167,10 @@ const HomeEducationStaffDashboard = ({
                             }}
                             className="mr-2"
                           />
-                          <span>{status.label}</span>
+                          <div className="flex items-center gap-2">
+                            {React.createElement(status.icon, { className: 'w-4 h-4' })}
+                            <span>{status.label}</span>
+                          </div>
                         </DropdownMenuItem>
                       ))}
                       {filters.registrationStatus.length > 0 && (
@@ -4986,6 +5299,82 @@ const HomeEducationStaffDashboard = ({
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={() => handleFilterChange('facilitatorAssigned', [])}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Clear Selection
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Specific Facilitator Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Facilitator</label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full p-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white flex items-center justify-between"
+                      >
+                        <span>
+                          {filters.facilitatorEmails?.length > 0 
+                            ? `${filters.facilitatorEmails.length} selected`
+                            : 'All Facilitators'}
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 max-h-80 overflow-y-auto">
+                      <DropdownMenuLabel>Select Facilitators</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {(() => {
+                        // Get unique facilitator emails from families
+                        const facilitatorEmails = new Set();
+                        Object.values(families).forEach(family => {
+                          if (family.facilitatorEmail) {
+                            facilitatorEmails.add(family.facilitatorEmail);
+                          }
+                        });
+                        const sortedFacilitators = Array.from(facilitatorEmails).sort();
+                        
+                        // Get facilitator info
+                        const facilitators = getAllFacilitators();
+                        
+                        return sortedFacilitators.map(email => {
+                          const facilitator = facilitators.find(f => f.email === email);
+                          const displayName = facilitator ? `${facilitator.firstName} ${facilitator.lastName}` : email;
+                          
+                          return (
+                            <DropdownMenuItem key={email} onSelect={(e) => e.preventDefault()}>
+                              <Checkbox
+                                checked={filters.facilitatorEmails.includes(email.toLowerCase())}
+                                onCheckedChange={(checked) => {
+                                  handleFilterChange('facilitatorEmails', 
+                                    checked
+                                      ? [...filters.facilitatorEmails, email.toLowerCase()]
+                                      : filters.facilitatorEmails.filter(f => f !== email.toLowerCase())
+                                  );
+                                }}
+                                className="mr-2"
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-sm">{displayName}</span>
+                                {facilitator && (
+                                  <span className="text-xs text-gray-500">{email}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          );
+                        });
+                      })()}
+                      {filters.facilitatorEmails.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleFilterChange('facilitatorEmails', [])}
                             className="text-red-600 hover:bg-red-50"
                           >
                             <X className="w-4 h-4 mr-2" />
@@ -5520,17 +5909,17 @@ const HomeEducationStaffDashboard = ({
                             <DropdownMenuPortal>
                               <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
                                 {courses.map(course => {
-                                  const isSelected = filters.albertaCourses?.includes(course.code);
+                                  const isSelected = filters.albertaCourses?.includes(course.id);
                                   
                                   return (
                                     <DropdownMenuItem
-                                      key={course.code}
+                                      key={course.id}
                                       onSelect={(e) => {
                                         e.preventDefault();
                                         handleFilterChange('albertaCourses',
                                           isSelected
-                                            ? filters.albertaCourses.filter(c => c !== course.code)
-                                            : [...(filters.albertaCourses || []), course.code]
+                                            ? filters.albertaCourses.filter(c => c !== course.id)
+                                            : [...(filters.albertaCourses || []), course.id]
                                         );
                                       }}
                                       className="hover:bg-gray-50"
@@ -5540,8 +5929,8 @@ const HomeEducationStaffDashboard = ({
                                         onCheckedChange={(checked) => {
                                           handleFilterChange('albertaCourses',
                                             checked
-                                              ? [...(filters.albertaCourses || []), course.code]
-                                              : filters.albertaCourses.filter(c => c !== course.code)
+                                              ? [...(filters.albertaCourses || []), course.id]
+                                              : filters.albertaCourses.filter(c => c !== course.id)
                                           );
                                         }}
                                         className="mr-2"
@@ -5794,19 +6183,13 @@ const HomeEducationStaffDashboard = ({
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">
-            <React.Suspense fallback={
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              </div>
-            }>
-              <HomeEducationCategoryManagerLazy 
-                onCategoryChange={(updatedCategories) => {
-                  // Categories are already being updated via the real-time listener
-                  // No need to reload here to avoid infinite loops
-                  console.log('Categories updated:', updatedCategories?.length);
-                }}
-              />
-            </React.Suspense>
+            <HomeEducationCategoryManager
+              onCategoryChange={(updatedCategories) => {
+                // Categories are already being updated via the real-time listener
+                // No need to reload here to avoid infinite loops
+                console.log('Categories updated:', updatedCategories?.length);
+              }}
+            />
           </div>
         </SheetContent>
       </Sheet>

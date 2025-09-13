@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, onValue, off, set, update, push, serverTimestamp } from 'firebase/database';
+import { getDatabase, ref, onValue, off, set, update, push, serverTimestamp, get } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
-import { 
-  Calendar, CheckCircle2, AlertCircle, Download, Save, MessageSquare, 
+import {
+  Calendar, CheckCircle2, AlertCircle, Download, Save, MessageSquare,
   ChevronDown, ChevronRight, Plus, X, Loader2, Users, BookOpen,
   ClipboardCheck, FileText, User, CalendarDays, UserPlus,
   AlertTriangle, CheckCircle, Clock, Eye, EyeOff, Expand, Minimize2, UserCheck,
-  CheckSquare, FileWarning
+  CheckSquare, FileWarning, Shield, ExternalLink, Info, XCircle
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -16,6 +16,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { getFacilitatorByEmail } from '../config/facilitators';
 import { toast } from 'sonner';
+import StaffDocumentReview from '../HomeEducation/StaffDocumentReview';
 
 // Styled card component matching SOLO theme
 const StyledCard = ({ children, className = '', variant = 'default' }) => {
@@ -442,7 +443,15 @@ const DateInput = ({ value, onChange, readOnly, placeholder = "Select date" }) =
 };
 
 // Attendee Selector Component
-const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], readOnly }) => {
+const AttendeeSelector = ({ 
+  attendees = [], 
+  onUpdateAttendees, 
+  guardians = [], 
+  readOnly, 
+  isStaff = false,
+  facilitatorInfo = null,
+  studentInfo = null 
+}) => {
   const [showSelector, setShowSelector] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customRole, setCustomRole] = useState('');
@@ -452,9 +461,29 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
       type: 'guardian',
       name: guardian.name,
       email: guardian.email,
-      relationToStudents: guardian.relationToStudents
+      relationToStudents: guardian.relationToStudents,
+      isPrimary: guardian.isPrimary || false
     };
     onUpdateAttendees([...attendees, newAttendee]);
+  };
+
+  const handleAddDefaultAttendee = (type, info) => {
+    let newAttendee;
+    if (type === 'facilitator' && facilitatorInfo) {
+      newAttendee = {
+        type: 'facilitator',
+        name: facilitatorInfo.name
+      };
+    } else if (type === 'student' && studentInfo) {
+      newAttendee = {
+        type: 'student',
+        name: studentInfo.name
+      };
+    }
+    if (newAttendee) {
+      onUpdateAttendees([...attendees, newAttendee]);
+      setShowSelector(false);
+    }
   };
 
   const handleAddCustom = () => {
@@ -471,9 +500,9 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
   };
 
   const handleRemoveAttendee = (index) => {
-    // Don't allow removing facilitator, student, or primary guardian (first three if primary guardian exists)
+    // Staff can remove any attendee; non-staff cannot remove facilitator, student, or primary guardian
     const attendee = attendees[index];
-    if (index < 2 || attendee?.isPrimary) return;
+    if (!isStaff && (index < 2 || attendee?.isPrimary)) return;
     const updated = attendees.filter((_, i) => i !== index);
     onUpdateAttendees(updated);
   };
@@ -481,7 +510,23 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
   // Filter out already added guardians
   const availableGuardians = guardians.filter(
     g => !attendees.some(a => a.email === g.email)
-  );
+  ).map(g => ({
+    ...g,
+    isPrimary: g.guardianType === 'primary_guardian'
+  }));
+
+  // Check which default attendees are missing (for staff mode)
+  const missingDefaultAttendees = [];
+  if (isStaff) {
+    // Check if facilitator is missing
+    if (!attendees.some(a => a.type === 'facilitator') && facilitatorInfo) {
+      missingDefaultAttendees.push({ type: 'facilitator', info: facilitatorInfo });
+    }
+    // Check if student is missing
+    if (!attendees.some(a => a.type === 'student') && studentInfo) {
+      missingDefaultAttendees.push({ type: 'student', info: studentInfo });
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -505,7 +550,7 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
                 <span className="text-xs text-gray-500">({attendee.role})</span>
               )}
             </div>
-            {index >= 2 && !attendee?.isPrimary && !readOnly && (
+            {(isStaff || (index >= 2 && !attendee?.isPrimary)) && !readOnly && (
               <button
                 type="button"
                 onClick={() => handleRemoveAttendee(index)}
@@ -532,6 +577,47 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
             </button>
           ) : (
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
+              {/* Missing Default Attendees (for staff) */}
+              {isStaff && missingDefaultAttendees.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Add Default Attendees</label>
+                  <div className="space-y-2">
+                    {missingDefaultAttendees.map((item) => (
+                      <button
+                        key={item.type}
+                        type="button"
+                        onClick={() => handleAddDefaultAttendee(item.type, item.info)}
+                        className="w-full text-left p-2 bg-white hover:bg-gray-50 rounded-md border border-gray-200 transition-colors duration-200"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {item.type === 'facilitator' && <User className="w-4 h-4 text-purple-500" />}
+                            {item.type === 'student' && <UserCheck className="w-4 h-4 text-blue-500" />}
+                            <span className="text-sm font-medium text-gray-900">{item.info.name}</span>
+                            <span className="text-xs text-gray-500">
+                              ({item.type === 'facilitator' ? 'Facilitator' : 'Student'})
+                            </span>
+                          </div>
+                          <Plus className="w-4 h-4 text-purple-500" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Divider between default attendees and guardians */}
+              {isStaff && missingDefaultAttendees.length > 0 && availableGuardians.length > 0 && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-purple-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-2 bg-purple-50 text-purple-600">AND</span>
+                  </div>
+                </div>
+              )}
+
               {/* Guardian selector */}
               {availableGuardians.length > 0 && (
                 <div>
@@ -561,7 +647,7 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
               )}
 
               {/* Divider */}
-              {availableGuardians.length > 0 && (
+              {(availableGuardians.length > 0 || (isStaff && missingDefaultAttendees.length > 0)) && (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-purple-200"></div>
@@ -622,7 +708,7 @@ const AttendeeSelector = ({ attendees = [], onUpdateAttendees, guardians = [], r
 };
 
 // Student Info Header Component
-const StudentInfoHeader = ({ student, facilitator, primaryGuardian }) => {
+const StudentInfoHeader = ({ student, facilitator, primaryGuardian, citizenshipDocStatus, onCitizenshipDocsClick, followingAlbertaPrograms }) => {
   // Format ASN as 1234-5678-9
   const formatASN = (asn) => {
     if (!asn || asn === '') return 'No ASN added yet';
@@ -631,6 +717,29 @@ const StudentInfoHeader = ({ student, facilitator, primaryGuardian }) => {
     if (cleanASN.length !== 9) return asn; // Return as-is if not 9 digits
     return `${cleanASN.slice(0, 4)}-${cleanASN.slice(4, 8)}-${cleanASN.slice(8)}`;
   };
+
+  // Determine citizenship doc status display
+  const getStatusDisplay = () => {
+    if (!citizenshipDocStatus) {
+      return { text: 'Loading...', color: 'text-gray-500', icon: Loader2, bgColor: 'bg-gray-100' };
+    }
+    if (!citizenshipDocStatus.hasDocuments) {
+      return { text: 'No Documents', color: 'text-orange-600', icon: AlertCircle, bgColor: 'bg-orange-50' };
+    }
+    if (citizenshipDocStatus.isApproved) {
+      return { text: 'Approved', color: 'text-green-600', icon: CheckCircle, bgColor: 'bg-green-50' };
+    }
+    if (citizenshipDocStatus.isRejected) {
+      return { text: 'Rejected', color: 'text-red-600', icon: XCircle, bgColor: 'bg-red-50' };
+    }
+    if (citizenshipDocStatus.requiresReview) {
+      return { text: 'Pending Review', color: 'text-yellow-600', icon: Clock, bgColor: 'bg-yellow-50' };
+    }
+    return { text: 'Documents Uploaded', color: 'text-blue-600', icon: FileText, bgColor: 'bg-blue-50' };
+  };
+
+  const status = getStatusDisplay();
+  const StatusIcon = status.icon;
 
   return (
     <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
@@ -673,6 +782,40 @@ const StudentInfoHeader = ({ student, facilitator, primaryGuardian }) => {
               <span className="font-medium">Email:</span> {facilitator?.contact?.email || facilitator?.email || 'N/A'}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Additional Info Row */}
+      <div className="mt-4 pt-4 border-t border-purple-200 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* Courses Label with Following Alberta Programs Badge */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-700">Courses</h3>
+            {followingAlbertaPrograms && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                <BookOpen className="w-3 h-3 mr-1" />
+                Following Alberta Programs
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Citizenship Documents Status */}
+        <div>
+          <button
+            onClick={onCitizenshipDocsClick}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${status.bgColor} ${status.color} text-sm font-medium hover:opacity-80 transition-opacity cursor-pointer border border-current border-opacity-20`}
+            title="Click to review citizenship documents"
+          >
+            <StatusIcon className="w-4 h-4" />
+            <span>Citizenship Docs: {status.text}</span>
+            {citizenshipDocStatus?.lastReviewDate && (
+              <span className="text-xs opacity-75">
+                ({new Date(citizenshipDocStatus.lastReviewDate).toLocaleDateString()})
+              </span>
+            )}
+            <ExternalLink className="w-3 h-3 ml-1" />
+          </button>
         </div>
       </div>
     </div>
@@ -818,15 +961,16 @@ const ProgressIndicator = ({ data, activeTab }) => {
 };
 
 // Main component
-const FacilitatorMeetingForm = ({ 
-  isOpen, 
-  onOpenChange, 
-  student, 
-  familyId, 
-  schoolYear, 
-  staffMode = false, 
-  userClaims = {}, 
-  selectedFacilitator = null 
+const FacilitatorMeetingForm = ({
+  isOpen,
+  onOpenChange,
+  student,
+  familyId,
+  schoolYear,
+  staffMode = false,
+  userClaims = {},
+  selectedFacilitator = null,
+  familyData = null
 }) => {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -838,7 +982,10 @@ const FacilitatorMeetingForm = ({
   const [familyGuardians, setFamilyGuardians] = useState([]);
   const [showAttendeesSelector, setShowAttendeesSelector] = useState({ fall: false, spring: false });
   const [showPDFModal, setShowPDFModal] = useState(false);
-  
+  const [citizenshipDocStatus, setCitizenshipDocStatus] = useState(null);
+  const [showDocumentReview, setShowDocumentReview] = useState(false);
+  const [followingAlbertaPrograms, setFollowingAlbertaPrograms] = useState(false);
+
   // Local state for overall comments to prevent lag
   const [localOverallComments, setLocalOverallComments] = useState('');
 
@@ -947,6 +1094,58 @@ const FacilitatorMeetingForm = ({
     });
     return () => off(guardiansRef, 'value', unsub);
   }, [familyId, isOpen]);
+
+  // Load citizenship document status
+  useEffect(() => {
+    if (!familyId || !student?.id || !isOpen) return;
+
+    const loadCitizenshipDocStatus = async () => {
+      try {
+        const db = getDatabase();
+        const docsRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
+        const snapshot = await get(docsRef);
+
+        if (snapshot.exists()) {
+          const docData = snapshot.val();
+          const status = {
+            hasDocuments: docData.documents && docData.documents.length > 0,
+            isApproved: docData.staffApproval?.isApproved === true,
+            isRejected: docData.staffApproval?.isApproved === false && docData.staffApproval !== undefined,
+            requiresReview: docData.requiresStaffReview || docData.staffReviewRequired,
+            lastReviewDate: docData.staffApproval?.approvedAt || docData.lastUpdated,
+            documentCount: docData.documents?.length || 0
+          };
+          setCitizenshipDocStatus(status);
+        } else {
+          setCitizenshipDocStatus({
+            hasDocuments: false,
+            isApproved: false,
+            isRejected: false,
+            requiresReview: false,
+            documentCount: 0
+          });
+        }
+      } catch (error) {
+        console.error('Error loading citizenship doc status:', error);
+        setCitizenshipDocStatus({
+          hasDocuments: false,
+          isApproved: false,
+          isRejected: false,
+          requiresReview: false,
+          documentCount: 0
+        });
+      }
+    };
+
+    loadCitizenshipDocStatus();
+  }, [familyId, student?.id, isOpen]);
+
+  // Check if following Alberta Programs
+  useEffect(() => {
+    if (!student) return;
+    // Check if student has followAlbertaPrograms set to true
+    setFollowingAlbertaPrograms(student.followAlbertaPrograms === true);
+  }, [student]);
 
   // Initialize attendees with facilitator, student, and primary guardian
   useEffect(() => {
@@ -1364,10 +1563,13 @@ const FacilitatorMeetingForm = ({
             
 
                 {/* Student and Facilitator Info Header */}
-                <StudentInfoHeader 
-                  student={student} 
+                <StudentInfoHeader
+                  student={student}
                   facilitator={selectedFacilitator || { name: data.facilitatorName, email: data.facilitatorEmail }}
                   primaryGuardian={familyGuardians.find(g => g.guardianType === 'primary_guardian')}
+                  citizenshipDocStatus={citizenshipDocStatus}
+                  followingAlbertaPrograms={followingAlbertaPrograms}
+                  onCitizenshipDocsClick={() => setShowDocumentReview(true)}
                 />
 
                 {/* Evaluation Checklist - Applies to Both Visits */}
@@ -1460,13 +1662,20 @@ const FacilitatorMeetingForm = ({
                     <FormField 
                       label="Visit Attendees" 
                       icon={Users}
-                      description="Facilitator and student are included by default"
+                      description={staffMode ? "Staff can modify all attendees" : "Facilitator and student are included by default"}
                     >
                       <AttendeeSelector
                         attendees={activeTab === 'fall' ? (data.meeting1?.attendees || []) : (data.meeting2?.attendees || [])}
                         onUpdateAttendees={(attendees) => setField(activeTab === 'fall' ? 'meeting1.attendees' : 'meeting2.attendees', attendees)}
                         guardians={familyGuardians}
                         readOnly={!canEdit}
+                        isStaff={staffMode}
+                        facilitatorInfo={{
+                          name: selectedFacilitator?.name || data.facilitatorName || 'Facilitator'
+                        }}
+                        studentInfo={{
+                          name: student?.preferredName || `${student?.firstName} ${student?.lastName}` || 'Student'
+                        }}
                       />
                     </FormField>
                   </div>
@@ -1542,24 +1751,107 @@ const FacilitatorMeetingForm = ({
                   </div>
                 </StyledCard>
 
-                {/* Professional Judgment */}
-                <StyledCard className="mb-6">
+                {/* Professional Judgment - Digital Signature */}
+                <StyledCard className="mb-6 border-2 border-purple-300">
                   <div className="flex items-center space-x-3 mb-4">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <h3 className="font-semibold text-gray-900">Professional Judgment</h3>
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Professional Judgment & Certification</h3>
+                      <p className="text-xs text-gray-600">Your digital signature on this assessment</p>
+                    </div>
                   </div>
-                  <label className="flex items-start space-x-3 cursor-pointer p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
-                    <input 
-                      type="checkbox" 
-                      className="mt-0.5 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                      checked={!!data.professionalJudgmentAchievingOutcomes}
-                      onChange={(e) => setField('professionalJudgmentAchievingOutcomes', e.target.checked)}
-                      disabled={!canEdit}
-                    />
-                    <span className="text-sm text-gray-800 font-medium">
-                      In my professional judgment, this student is achieving the Alberta Learning Outcomes for Home Education Students.
-                    </span>
-                  </label>
+                  
+                  <div className={`p-5 rounded-lg transition-all duration-300 ${
+                    data.professionalJudgmentAchievingOutcomes 
+                      ? 'bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-2 border-green-400 shadow-md' 
+                      : 'bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-300'
+                  }`}>
+                    <div className="space-y-4">
+                      {/* Statement */}
+                      <div className="text-sm text-gray-800 font-medium leading-relaxed">
+                        <p className="mb-3">By checking this box, I certify that:</p>
+                        <p className="pl-4 italic">
+                          "In my professional judgment, this student is achieving the Alberta Learning Outcomes for Home Education Students."
+                        </p>
+                      </div>
+                      
+                      {/* Signature Box */}
+                      <div className="pt-4 border-t border-gray-300">
+                        <label className="flex items-start space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="mt-1 h-5 w-5 text-purple-600 border-2 border-gray-400 rounded focus:ring-purple-500 focus:ring-2"
+                            checked={!!data.professionalJudgmentAchievingOutcomes}
+                            onChange={(e) => {
+                              const newValue = e.target.checked;
+                              setField('professionalJudgmentAchievingOutcomes', newValue);
+                              if (newValue) {
+                                // Store signature metadata when checked
+                                setField('professionalJudgmentSignature', {
+                                  signedBy: user?.displayName || user?.email || 'Unknown',
+                                  signedByUid: user?.uid,
+                                  signedAt: Date.now(),
+                                  facilitatorName: data.facilitatorName || selectedFacilitator?.name,
+                                  facilitatorEmail: data.facilitatorEmail || selectedFacilitator?.contact?.email
+                                });
+                              } else {
+                                // Clear signature when unchecked
+                                setField('professionalJudgmentSignature', null);
+                              }
+                            }}
+                            disabled={!canEdit}
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm font-semibold text-gray-800">
+                              {data.professionalJudgmentAchievingOutcomes ? 'Certified' : 'Click to certify'}
+                            </span>
+                            
+                            {/* Signature Details */}
+                            {data.professionalJudgmentAchievingOutcomes && data.professionalJudgmentSignature && (
+                              <div className="mt-3 p-3 bg-white rounded-md border border-gray-200">
+                                <div className="flex items-start space-x-2">
+                                  <UserCheck className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                  <div className="text-xs space-y-1 flex-1">
+                                    <p className="font-semibold text-gray-700">
+                                      Digitally signed by: {data.professionalJudgmentSignature.facilitatorName || data.professionalJudgmentSignature.signedBy}
+                                    </p>
+                                    <p className="text-gray-600">
+                                      Role: Home Education Teacher/Facilitator
+                                    </p>
+                                    <p className="text-gray-600">
+                                      Email: {data.professionalJudgmentSignature.facilitatorEmail || data.facilitatorEmail}
+                                    </p>
+                                    <p className="text-gray-500 flex items-center space-x-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>
+                                        {data.professionalJudgmentSignature.signedAt 
+                                          ? new Date(data.professionalJudgmentSignature.signedAt).toLocaleString('en-CA', {
+                                              dateStyle: 'medium',
+                                              timeStyle: 'short'
+                                            })
+                                          : 'Date not recorded'}
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Unsigned Notice */}
+                            {!data.professionalJudgmentAchievingOutcomes && canEdit && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                This certification requires your digital signature to validate the assessment.
+                              </p>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                      
+                  
+                    </div>
+                  </div>
                 </StyledCard>
 
                 {/* Footer Actions */}
@@ -1644,6 +1936,17 @@ const FacilitatorMeetingForm = ({
                   fallComplete={fallComplete}
                   springComplete={springComplete}
                 />
+
+                {/* Staff Document Review Modal */}
+                {showDocumentReview && (
+                  <StaffDocumentReview
+                    isOpen={showDocumentReview}
+                    onOpenChange={setShowDocumentReview}
+                    familyId={familyId}
+                    familyData={familyData}
+                    initialStudentId={student?.id}
+                  />
+                )}
               </>
             )}
           </div>

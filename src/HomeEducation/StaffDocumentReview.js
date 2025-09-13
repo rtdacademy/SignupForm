@@ -87,17 +87,17 @@ const getExpiryStatus = (expiryDate) => {
   return { status: 'valid', color: 'text-green-600', message: 'Valid' };
 };
 
-const StaffDocumentReview = ({ 
-  isOpen, 
-  onOpenChange, 
-  familyId, 
-  familyData 
+const StaffDocumentReview = ({
+  isOpen,
+  onOpenChange,
+  familyId,
+  familyData,
+  initialStudentId = null
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [students, setStudents] = useState([]);
-  const [studentsWithoutDocs, setStudentsWithoutDocs] = useState([]);
+  const [allStudents, setAllStudents] = useState([]); // All students in family
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
   const [currentDocumentIndex, setCurrentDocumentIndex] = useState(0);
   const [documentData, setDocumentData] = useState(null);
@@ -145,50 +145,64 @@ const StaffDocumentReview = ({
       setLoading(true);
       try {
         const db = getDatabase();
-        const studentsWithDocuments = [];
-        const studentsWithoutDocuments = [];
-        
+        const allStudentsList = [];
+
         // Get all students in the family
         const familyStudents = familyData.students ? Object.values(familyData.students) : [];
-        
+
         for (const student of familyStudents) {
           // Check if student has any documents
           const docsRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/STUDENT_CITIZENSHIP_DOCS/${student.id}`);
           const docsSnapshot = await get(docsRef);
-          
+
+          let studentWithStatus = { ...student };
+
           if (docsSnapshot.exists()) {
             const docData = docsSnapshot.val();
-            // Include ALL students with documents, regardless of review status
             if (docData.documents && docData.documents.length > 0) {
-              studentsWithDocuments.push({
-                ...student,
-                documentData: docData
-              });
+              // Student has documents
+              studentWithStatus.documentData = docData;
+              studentWithStatus.hasDocuments = true;
             } else {
               // Student has doc node but no actual documents uploaded
-              studentsWithoutDocuments.push(student);
+              studentWithStatus.hasDocuments = false;
+              studentWithStatus.documentData = null;
             }
           } else {
             // No document node at all for this student
-            studentsWithoutDocuments.push(student);
+            studentWithStatus.hasDocuments = false;
+            studentWithStatus.documentData = null;
+          }
+
+          allStudentsList.push(studentWithStatus);
+        }
+
+        // Store all students
+        setAllStudents(allStudentsList);
+
+        // If initialStudentId is provided, navigate to that student
+        if (initialStudentId) {
+          const targetIndex = allStudentsList.findIndex(
+            student => student.id === initialStudentId
+          );
+          if (targetIndex !== -1) {
+            setCurrentStudentIndex(targetIndex);
+            await loadStudentDocuments(allStudentsList[targetIndex]);
+            return; // Exit early since we found the target student
           }
         }
-        
-        // Store both lists for display purposes
-        setStudents(studentsWithDocuments);
-        setStudentsWithoutDocs(studentsWithoutDocuments);
-        
-        // Find first student that needs review (not already approved)
-        const firstUnreviewedIndex = studentsWithDocuments.findIndex(
-          student => !student.documentData?.staffApproval?.isApproved
+
+        // Otherwise, find first student that needs review (not already approved)
+        const firstUnreviewedIndex = allStudentsList.findIndex(
+          student => student.hasDocuments && !student.documentData?.staffApproval?.isApproved
         );
-        
+
         if (firstUnreviewedIndex !== -1) {
           setCurrentStudentIndex(firstUnreviewedIndex);
-          await loadStudentDocuments(studentsWithDocuments[firstUnreviewedIndex]);
-        } else if (studentsWithDocuments.length > 0) {
-          // All approved, just load the first one
-          await loadStudentDocuments(studentsWithDocuments[0]);
+          await loadStudentDocuments(allStudentsList[firstUnreviewedIndex]);
+        } else if (allStudentsList.length > 0) {
+          // Load the first student regardless of document status
+          await loadStudentDocuments(allStudentsList[0]);
         }
       } catch (error) {
         console.error('Error loading students:', error);
@@ -199,7 +213,7 @@ const StaffDocumentReview = ({
     };
 
     loadStudentsWithDocuments();
-  }, [isOpen, familyId, familyData]);
+  }, [isOpen, familyId, familyData, initialStudentId]);
 
   // Load specific student's documents and analysis
   const loadStudentDocuments = async (student) => {
@@ -242,24 +256,19 @@ const StaffDocumentReview = ({
 
   // Handle moving to next student
   const handleNextStudent = async () => {
-    // Find next student that needs review
-    let nextIndex = currentStudentIndex + 1;
-    
-    // First try to find next unreviewed student
-    while (nextIndex < students.length) {
-      if (!students[nextIndex].documentData?.staffApproval?.isApproved) {
-        setCurrentStudentIndex(nextIndex);
-        await loadStudentDocuments(students[nextIndex]);
-        return;
-      }
-      nextIndex++;
+    if (currentStudentIndex < allStudents.length - 1) {
+      const nextIndex = currentStudentIndex + 1;
+      setCurrentStudentIndex(nextIndex);
+      await loadStudentDocuments(allStudents[nextIndex]);
     }
-    
-    // If all remaining are approved, just move to next student if available
-    if (currentStudentIndex < students.length - 1) {
-      const simpleNextIndex = currentStudentIndex + 1;
-      setCurrentStudentIndex(simpleNextIndex);
-      await loadStudentDocuments(students[simpleNextIndex]);
+  };
+
+  // Handle moving to previous student
+  const handlePreviousStudent = async () => {
+    if (currentStudentIndex > 0) {
+      const prevIndex = currentStudentIndex - 1;
+      setCurrentStudentIndex(prevIndex);
+      await loadStudentDocuments(allStudents[prevIndex]);
     }
   };
 
@@ -280,10 +289,10 @@ const StaffDocumentReview = ({
 
   // Handle staff approval
   const handleApprove = async () => {
-    if (!students[currentStudentIndex]) return;
-    
+    const currentStudent = allStudents[currentStudentIndex];
+    if (!currentStudent || !currentStudent.hasDocuments) return;
+
     setIsProcessing(true);
-    const currentStudent = students[currentStudentIndex];
     
     try {
       const db = getDatabase();
@@ -313,7 +322,7 @@ const StaffDocumentReview = ({
       );
       
       // Check if there are more students to review
-      if (currentStudentIndex < students.length - 1) {
+      if (currentStudentIndex < allStudents.length - 1) {
         await handleNextStudent();
       } else {
         // All students reviewed, close the sheet
@@ -329,10 +338,10 @@ const StaffDocumentReview = ({
 
   // Handle staff rejection
   const handleReject = async () => {
-    if (!students[currentStudentIndex]) return;
-    
+    const currentStudent = allStudents[currentStudentIndex];
+    if (!currentStudent || !currentStudent.hasDocuments) return;
+
     setIsProcessing(true);
-    const currentStudent = students[currentStudentIndex];
     
     try {
       const db = getDatabase();
@@ -362,7 +371,7 @@ const StaffDocumentReview = ({
       );
       
       // Check if there are more students to review
-      if (currentStudentIndex < students.length - 1) {
+      if (currentStudentIndex < allStudents.length - 1) {
         await handleNextStudent();
       } else {
         // All students reviewed, close the sheet
@@ -388,43 +397,7 @@ const StaffDocumentReview = ({
     );
   }
 
-  if (students.length === 0 && studentsWithoutDocs.length > 0) {
-    return (
-      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-        <SheetContent side="right" size="full" className="overflow-hidden p-0">
-          <div className="sticky top-0 z-10 bg-white border-b px-6 py-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Shield className="w-5 h-5 text-purple-600" />
-              Document Review
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {familyData?.familyName}
-            </p>
-          </div>
-          <div className="flex flex-col items-center justify-center h-96">
-            <AlertCircle className="w-16 h-16 text-orange-500 mb-4" />
-            <p className="text-lg font-medium">No Documents Uploaded</p>
-            <p className="text-gray-600 text-center max-w-md">
-              This family has {studentsWithoutDocs.length} student{studentsWithoutDocs.length > 1 ? 's' : ''} registered but no citizenship documents have been uploaded yet.
-            </p>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg max-w-md">
-              <p className="text-sm text-gray-700 font-medium mb-2">Students awaiting documents:</p>
-              <ul className="text-sm text-gray-600 space-y-1">
-                {studentsWithoutDocs.map(student => (
-                  <li key={student.id} className="flex items-center gap-2">
-                    <User className="w-3 h-3" />
-                    {student.firstName} {student.lastName}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-  
-  if (students.length === 0 && studentsWithoutDocs.length === 0) {
+  if (allStudents.length === 0) {
     return (
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
         <SheetContent side="right" size="full" className="overflow-hidden p-0">
@@ -447,7 +420,10 @@ const StaffDocumentReview = ({
     );
   }
 
-  const currentStudent = students[currentStudentIndex];
+  const currentStudent = allStudents[currentStudentIndex];
+  if (!currentStudent) {
+    return null;
+  }
   const currentDoc = documentData?.documents?.[currentDocumentIndex];
   const currentAnalysis = currentDoc?._analysisId ? aiAnalysis[currentDoc._analysisId] : null;
   const currentOverride = currentDoc?._analysisId ? manualOverrides[currentDoc._analysisId] : null;
@@ -518,9 +494,9 @@ const StaffDocumentReview = ({
                     </Button>
                   </div>
                 )}
-                {students.length > 1 && (
+                {allStudents.length > 1 && (
                   <Badge variant="outline" className="text-xs">
-                    Student {currentStudentIndex + 1}/{students.length}
+                    Student {currentStudentIndex + 1}/{allStudents.length}
                   </Badge>
                 )}
               </div>
@@ -529,14 +505,50 @@ const StaffDocumentReview = ({
 
           {/* Review Actions - Compact Single Row */}
           <div className="px-6 py-3 bg-white">
-            {documentData?.staffApproval?.isApproved ? (
+            {!currentStudent.hasDocuments ? (
+              // Student has no documents - show special message
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-orange-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="font-medium">No Documents Uploaded</span>
+                  <span className="text-gray-500">
+                    This student has no citizenship documents on file
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {currentStudentIndex > 0 && (
+                    <Button
+                      onClick={handlePreviousStudent}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <ChevronLeft className="w-3 h-3 mr-1" />
+                      Previous Student
+                    </Button>
+                  )}
+                  {currentStudentIndex < allStudents.length - 1 && (
+                    <Button
+                      onClick={handleNextStudent}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Next Student
+                      <ChevronRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : documentData?.staffApproval?.isApproved ? (
               // Already approved - show status only
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-green-700">
                   <CheckCircle2 className="w-4 h-4" />
                   <span className="font-medium">Document Approved</span>
                   <span className="text-gray-500">
-                    by {documentData.staffApproval.approvedBy?.name || documentData.staffApproval.approvedBy?.email} on {formatDateForDisplay(documentData.staffApproval.approvedAt)}
+                    by {(documentData.staffApproval.approvedBy?.name &&
+                         !documentData.staffApproval.approvedBy.name.includes('undefined'))
+                         ? documentData.staffApproval.approvedBy.name
+                         : documentData.staffApproval.approvedBy?.email} on {formatDateForDisplay(documentData.staffApproval.approvedAt)}
                   </span>
                   {documentData.staffApproval.comment && (
                     <span className="text-gray-500">• "{documentData.staffApproval.comment}"</span>
@@ -552,24 +564,28 @@ const StaffDocumentReview = ({
                     <XCircle className="w-3 h-3 mr-1" />
                     Override & Reject
                   </Button>
-                  {students.length > 1 && (
-                    <>
-                      <div className="w-px h-6 bg-gray-300 mx-1" />
+                  <div className="flex items-center gap-2">
+                    {currentStudentIndex > 0 && (
+                      <Button
+                        onClick={handlePreviousStudent}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <ChevronLeft className="w-3 h-3 mr-1" />
+                        Previous
+                      </Button>
+                    )}
+                    {currentStudentIndex < allStudents.length - 1 && (
                       <Button
                         onClick={handleNextStudent}
                         size="sm"
                         variant="outline"
-                        disabled={currentStudentIndex >= students.length - 1}
                       >
-                        {students.slice(currentStudentIndex + 1).some(s => !s.documentData?.staffApproval?.isApproved) 
-                          ? 'Next Student' 
-                          : currentStudentIndex < students.length - 1 
-                            ? 'Next Student (Reviewed)' 
-                            : 'Next Student'}
+                        Next
                         <ChevronRight className="w-3 h-3 ml-1" />
                       </Button>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -616,29 +632,36 @@ const StaffDocumentReview = ({
                         </>
                       )}
                     </Button>
-                    {students.length > 1 && (
-                      <>
-                        <div className="w-px h-6 bg-gray-300 mx-1" />
+                    <div className="flex items-center gap-2">
+                      {currentStudentIndex > 0 && (
+                        <Button
+                          onClick={handlePreviousStudent}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <ChevronLeft className="w-3 h-3 mr-1" />
+                          Previous
+                        </Button>
+                      )}
+                      {currentStudentIndex < allStudents.length - 1 && (
                         <Button
                           onClick={handleNextStudent}
                           size="sm"
                           variant="outline"
-                          disabled={currentStudentIndex >= students.length - 1}
                         >
-                          {students.slice(currentStudentIndex + 1).some(s => !s.documentData?.staffApproval?.isApproved) 
-                            ? 'Next Student' 
-                            : currentStudentIndex < students.length - 1 
-                              ? 'Next Student (Reviewed)' 
-                              : 'Next Student'}
+                          Next
                           <ChevronRight className="w-3 h-3 ml-1" />
                         </Button>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
                 {documentData?.staffApproval && !documentData.staffApproval.isApproved && (
                   <div className="mt-2 text-xs text-gray-500">
-                    Previously rejected by {documentData.staffApproval.approvedBy?.name || documentData.staffApproval.approvedBy?.email} on {formatDateForDisplay(documentData.staffApproval.approvedAt)}
+                    Previously rejected by {(documentData.staffApproval.approvedBy?.name &&
+                                             !documentData.staffApproval.approvedBy.name.includes('undefined'))
+                                             ? documentData.staffApproval.approvedBy.name
+                                             : documentData.staffApproval.approvedBy?.email} on {formatDateForDisplay(documentData.staffApproval.approvedAt)}
                     {documentData.staffApproval.comment && (
                       <span className="ml-2">• "{documentData.staffApproval.comment}"</span>
                     )}
@@ -651,9 +674,72 @@ const StaffDocumentReview = ({
 
         {/* Main Content */}
         <div className="flex h-[calc(100vh-10rem)]">
-          {/* Left Column - Document Preview */}
-          <div className="w-1/2 border-r bg-gray-50 p-4 overflow-auto">
-            {/* Document Thumbnails if multiple */}
+          {!currentStudent.hasDocuments ? (
+            // Student has no documents - show special UI
+            <div className="w-full flex items-center justify-center p-8">
+              <Card className="max-w-2xl w-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                    No Documents Available
+                  </CardTitle>
+                  <CardDescription>
+                    Citizenship documents have not been uploaded for this student
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <p className="text-sm text-orange-800 font-medium mb-2">
+                      Student Information
+                    </p>
+                    <div className="space-y-1 text-sm text-gray-700">
+                      <p><strong>Name:</strong> {currentStudent.firstName} {currentStudent.lastName}</p>
+                      {currentStudent.birthday && (
+                        <p><strong>Birth Date:</strong> {formatDateForDisplay(currentStudent.birthday)}</p>
+                      )}
+                      {currentStudent.grade && (
+                        <p><strong>Grade:</strong> {currentStudent.grade}</p>
+                      )}
+                      {currentStudent.asn && (
+                        <p><strong>ASN:</strong> {currentStudent.asn}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <Info className="w-4 h-4 text-blue-600" />
+                    <AlertDescription className="text-sm">
+                      The parent/guardian needs to upload citizenship or immigration documents for this student before they can be reviewed.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="flex justify-center gap-3 pt-4">
+                    {currentStudentIndex > 0 && (
+                      <Button
+                        onClick={handlePreviousStudent}
+                        variant="outline"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous Student
+                      </Button>
+                    )}
+                    {currentStudentIndex < allStudents.length - 1 && (
+                      <Button
+                        onClick={handleNextStudent}
+                        variant="default"
+                      >
+                        Next Student
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            // Student has documents - show normal UI
+            <>
+              {/* Left Column - Document Preview */}
+              <div className="w-1/2 border-r bg-gray-50 p-4 overflow-auto">
+                {/* Document Thumbnails if multiple */}
             {totalDocs > 1 && (
               <Card className="mb-4">
                 <CardHeader className="pb-2 pt-3">
@@ -764,28 +850,6 @@ const StaffDocumentReview = ({
                   <div className="text-center text-gray-500 py-8">
                     No document available
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Student Info Card */}
-            <Card className="mt-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Student Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><strong>Name:</strong> {currentStudent.firstName} {currentStudent.lastName}</p>
-                {currentStudent.birthday && (
-                  <p><strong>Birth Date:</strong> {formatDateForDisplay(currentStudent.birthday)}</p>
-                )}
-                {currentStudent.grade && (
-                  <p><strong>Grade:</strong> {currentStudent.grade}</p>
-                )}
-                {currentStudent.asn && (
-                  <p><strong>ASN:</strong> {currentStudent.asn}</p>
                 )}
               </CardContent>
             </Card>
@@ -940,6 +1004,8 @@ const StaffDocumentReview = ({
               )}
             </div>
           </div>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

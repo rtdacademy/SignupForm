@@ -1,9 +1,9 @@
 {
   "permissions": {
-    "allow": [],
+    "allow": [
+      "WebFetch(domain:*)"
+    ],
     "deny": [],
-    "ask": [
-      "Bash(firebase database:*)"
-    ]
+    "ask": []
   }
 }
