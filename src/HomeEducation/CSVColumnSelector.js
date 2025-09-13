@@ -18,13 +18,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '../components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '../components/ui/sheet';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
@@ -424,27 +424,27 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
   const previewData = showPreview ? getPreviewData() : null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" size="xl" className="flex flex-col overflow-hidden">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-purple-600" />
             Configure CSV Export
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Select and arrange the columns you want to include in your CSV export
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col mt-4 min-h-0">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="presets">Presets</TabsTrigger>
             <TabsTrigger value="customize">Customize</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="presets" className="flex-1 mt-4">
-            <div className="space-y-4">
+          <TabsContent value="presets" className="mt-4 overflow-y-auto">
+            <div className="space-y-4 pb-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Quick Configurations</h3>
                 <Badge variant="outline">
@@ -478,31 +478,31 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
             </div>
           </TabsContent>
 
-          <TabsContent value="customize" className="flex-1 mt-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={selectAll}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAll}
-                >
-                  Clear All
-                </Button>
+          <TabsContent value="customize" className="mt-4 overflow-y-auto">
+            <div className="pb-4">
+              <div className="flex items-center justify-between mb-4 sticky top-0 bg-background z-10 pb-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAll}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAll}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+                <Badge variant="outline">
+                  {selectedColumns.size} of {allColumns.length} selected
+                </Badge>
               </div>
-              <Badge variant="outline">
-                {selectedColumns.size} of {allColumns.length} selected
-              </Badge>
-            </div>
 
-            <ScrollArea className="flex-1">
-              <div className="space-y-4 pr-4">
+              <div className="space-y-4">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -573,24 +573,25 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
                   </SortableContext>
                 </DndContext>
               </div>
-            </ScrollArea>
+            </div>
           </TabsContent>
 
-          <TabsContent value="preview" className="flex-1 mt-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium">CSV Preview</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPreview(!showPreview)}
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                {showPreview ? 'Refresh' : 'Generate'} Preview
-              </Button>
-            </div>
+          <TabsContent value="preview" className="mt-4 overflow-y-auto">
+            <div className="pb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium">CSV Preview</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPreview(!showPreview)}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  {showPreview ? 'Refresh' : 'Generate'} Preview
+                </Button>
+              </div>
 
-            {showPreview && previewData && (
-              <ScrollArea className="flex-1">
+              {showPreview && previewData && (
+                <div>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
@@ -629,23 +630,24 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
                     </div>
                   </div>
                 </div>
-              </ScrollArea>
-            )}
-
-            {!showPreview && (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <Eye className="w-12 h-12 text-gray-300 mx-auto" />
-                  <p className="text-sm text-gray-500">
-                    Click "Generate Preview" to see sample data
-                  </p>
-                </div>
               </div>
-            )}
+              )}
+
+              {!showPreview && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center space-y-2">
+                    <Eye className="w-12 h-12 text-gray-300 mx-auto" />
+                    <p className="text-sm text-gray-500">
+                      Click "Generate Preview" to see sample data
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="mt-6">
+        <SheetFooter className="pt-4 mt-6 border-t">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <Badge variant="outline">
@@ -659,7 +661,7 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleExport}
                 disabled={selectedColumns.size === 0}
                 className="bg-purple-600 hover:bg-purple-700"
@@ -669,9 +671,9 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
               </Button>
             </div>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 

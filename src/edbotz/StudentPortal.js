@@ -29,7 +29,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
-import AIChatApp from './AIChatApp';
+// Using GoogleAIChatApp wrapper instead of deprecated AIChatApp
+import AIChatAppWrapper from './AIChatAppWrapper';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 const LESSON_TYPES = {
@@ -686,7 +687,7 @@ const StudentPortal = () => {
           <div className="flex-1 h-full overflow-hidden">
             <div className="h-full bg-white">
               {selectedAssistant ? (
-                <AIChatApp
+                <AIChatAppWrapper
                   key={selectedAssistant.id} // Add key to force remount
                   assistant={selectedAssistant}
                   mode="embedded"

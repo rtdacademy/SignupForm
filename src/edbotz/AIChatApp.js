@@ -1,3 +1,15 @@
+/**
+ * @deprecated This component is deprecated. Please use AIChatAppWrapper instead.
+ * AIChatAppWrapper provides the same functionality using GoogleAIChatApp backend
+ * which uses Genkit/Firebase Functions instead of Vertex AI.
+ *
+ * Migration:
+ * Replace: import AIChatApp from './AIChatApp';
+ * With:    import AIChatAppWrapper from './AIChatAppWrapper';
+ *
+ * The wrapper accepts the same props and provides better performance and cost efficiency.
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send,
@@ -12,8 +24,8 @@ import {
   ChevronUp,
   Sparkles,
   Volume2,
-  Square, 
-  MaximizeIcon, 
+  Square,
+  MaximizeIcon,
   MinimizeIcon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';

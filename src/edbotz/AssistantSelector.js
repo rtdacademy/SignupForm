@@ -11,7 +11,8 @@ import {
   SheetTrigger,
 } from "../components/ui/sheet";
 import AIAssistantSheet from './AIAssistantSheet';
-import AIChatApp from './AIChatApp';
+// Using GoogleAIChatApp wrapper instead of deprecated AIChatApp
+import AIChatAppWrapper from './AIChatAppWrapper';
 import AssistantList from './AssistantList';
 import ContextSelector from './ContextSelector';
 import { LESSON_TYPES } from './utils/settings';
@@ -182,7 +183,7 @@ const AssistantSelector = ({ assistants = [], courses, firebaseApp, userId }) =>
             <div className="h-full bg-white">
               {selectedAssistant ? (
                 <div className="h-full">
-                  <AIChatApp
+                  <AIChatAppWrapper
                     key={selectedAssistant.id}
                     assistant={selectedAssistant}
                     mode="embedded"
