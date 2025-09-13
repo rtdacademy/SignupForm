@@ -5579,7 +5579,7 @@ const HomeEducationStaffDashboard = ({
                 {/* Categories Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Categories ({filters.categories?.length || 0} selected)
+                    Categories
                   </label>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
