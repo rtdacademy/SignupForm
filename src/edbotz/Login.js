@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
+} from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth, googleProvider, microsoftProvider } from '../firebase';
+import { auth, googleProvider, microsoftProvider, isDevelopment } from '../firebase';
 import { createOrUpdateUser } from './utils/userSetup';
 import { Loader2 } from 'lucide-react';
 
@@ -51,23 +55,109 @@ const EdBotzLogin = () => {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+
+  // Convert Firebase error codes to user-friendly messages
+  const getFriendlyErrorMessage = (error) => {
+    const errorMessages = {
+      'auth/invalid-credential': 'The email or password is incorrect. Please try again.',
+      'auth/user-disabled': 'This account has been disabled. Please contact support.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email. Try signing in with a different method.',
+      'auth/popup-closed-by-user': 'The sign-in window was closed. Please try again.',
+      'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
+      'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
+      'auth/operation-not-allowed': 'This sign-in method is not enabled. Please try another method.',
+      'auth/network-request-failed': 'Connection problem. Please check your internet and try again.',
+      'auth/internal-error': 'An unexpected error occurred. Please try again later.',
+    };
+
+    return errorMessages[error.code] || `Something went wrong. Please try again. (${error.message})`;
+  };
+
+  // Handle redirect result on component mount (only in production)
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      // Skip redirect check in development since we're using popup
+      if (isDevelopment) {
+        console.log('Skipping redirect result check in development');
+        setCheckingRedirect(false);
+        return;
+      }
+
+      try {
+        console.log('Checking for redirect result in production...');
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          console.log('Redirect sign-in successful for:', result.user.email);
+          setLoading(true);
+          await createOrUpdateUser(result.user);
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        if (error.code && error.code !== 'auth/popup-blocked' &&
+            error.code !== 'auth/redirect-cancelled-by-user') {
+          console.error("Redirect sign-in error:", error);
+          setError(getFriendlyErrorMessage(error));
+        }
+      } finally {
+        setCheckingRedirect(false);
+        setLoading(false);
+      }
+    };
+
+    handleRedirectResult();
+  }, [navigate]);
 
   const handleProviderSignIn = async (provider) => {
     setError(null);
     setLoading(true);
+
     try {
-      const result = await signInWithPopup(auth, provider);
-      if (result.user) {
-        await createOrUpdateUser(result.user);
+      if (isDevelopment) {
+        // Use popup in development to avoid cross-domain issues
+        console.log('Using popup flow for development');
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        if (!user.email) {
+          setError("Unable to retrieve email from provider. Please try again.");
+          setLoading(false);
+          return;
+        }
+
+        await createOrUpdateUser(user);
         navigate("/dashboard");
+      } else {
+        // Use redirect in production
+        console.log('Using redirect flow for production');
+        localStorage.setItem('edbotz_auth_provider', provider.providerId);
+        await signInWithRedirect(auth, provider);
+        // Loading state will persist through redirect
       }
     } catch (error) {
       console.error("Sign-in error:", error);
-      setError(`Failed to sign in with ${provider.providerId}. Please try again.`);
-    } finally {
+
+      // Handle popup blocked error specifically for development
+      if (isDevelopment && error.code === 'auth/popup-blocked') {
+        setError("Popup was blocked. Please allow popups for this site and try again.");
+      } else {
+        setError(getFriendlyErrorMessage(error));
+      }
       setLoading(false);
     }
   };
+
+  // Show loading state while checking for redirect result
+  if (checkingRedirect) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col justify-center items-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto" />
+          <p className="text-gray-600">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col justify-center items-center px-4">
@@ -94,33 +184,36 @@ const EdBotzLogin = () => {
             <button
               onClick={() => handleProviderSignIn(googleProvider)}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <img
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
                 alt="Google"
                 className="w-5 h-5"
               />
-              <span>Continue with Google</span>
+              <span>{loading ? (isDevelopment ? 'Signing in...' : 'Redirecting...') : 'Continue with Google'}</span>
             </button>
 
             <button
               onClick={() => handleProviderSignIn(microsoftProvider)}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <img
                 src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
                 alt="Microsoft"
                 className="w-5 h-5"
               />
-              <span>Continue with Microsoft</span>
+              <span>{loading ? (isDevelopment ? 'Signing in...' : 'Redirecting...') : 'Continue with Microsoft'}</span>
             </button>
           </div>
 
-          {loading && (
-            <div className="flex justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          {loading && !isDevelopment && (
+            <div className="text-center space-y-2">
+              <div className="flex justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              </div>
+              <p className="text-sm text-gray-600">Redirecting to sign in...</p>
             </div>
           )}
 

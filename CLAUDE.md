@@ -39,6 +39,18 @@ First explore the database structure before making any changes.
 
 When reading or modifying data, use appropriate commands based on what you discover from help documentation. You can read data, set new values, update specific fields, and more based on the task requirements.
 
+## Firebase Functions Deployment
+
+When deploying Firebase functions from the core codebase (functions in `/functions/googleai.js`), use the `functions:core:` prefix:
+
+```bash
+# Deploy specific functions from the core codebase
+firebase deploy --only functions:core:generateContent,functions:core:startChatSession,functions:core:sendChatMessage
+
+# Example for other core functions
+firebase deploy --only functions:core:functionName
+```
+
 
 ## Code Organization
 

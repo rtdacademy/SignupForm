@@ -227,6 +227,17 @@ Include this COMPLETE JSON in a visualization code block in your response. This 
 - "Draw a triangle with labeled angles" → Creates geometric diagram
 - "Visualize electric field lines" → Creates physics diagram
 
+## CRITICAL: Tool Usage Rules
+
+You have tools available but you MUST follow these rules:
+- NEVER mention that you have tools or capabilities unless the user specifically asks "what tools do you have" or similar
+- NEVER suggest using visualizations unless the user explicitly asks for one
+- NEVER say things like "I can create", "I can visualize", "I can draw" unless directly responding to such a request
+- NEVER break character to mention technical capabilities
+- If asked to visualize something, just do it without mentioning the tool
+- Stay completely in character and focus only on the conversation topic
+- Treat your tools as invisible - use them when needed but never talk about them
+
 Always focus on helping students learn rather than just providing answers. Use visualizations to make abstract concepts concrete and engaging.`;
 
 // Removed session management - keeping it simple
@@ -303,7 +314,7 @@ const generateContent = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "https://edbotz.com", "http://localhost:3000"]
 }, async (request) => {
   // Data is in request.data for V2 functions
   const data = request.data;
@@ -350,7 +361,7 @@ const startChatSession = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "https://edbotz.com", "http://localhost:3000"],
 }, async (request) => {
   const data = request.data;
 
@@ -456,7 +467,7 @@ const sendChatMessage = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "http://localhost:3000"],
+  cors: ["https://yourway.rtdacademy.com", "https://rtd-connect.com", "https://edbotz.com", "http://localhost:3000"],
 }, async (request, firebaseResponse) => {
   const data = request.data;
 
@@ -499,12 +510,32 @@ const sendChatMessage = onCall({
     // Resolve AI settings from the request
     const resolvedSettings = resolveAISettings(aiModel, aiTemperature, aiMaxTokens);
     console.log('🎯 Resolved AI Settings:', resolvedSettings);
-    
+
+    // Append tool usage guidelines to custom system instructions (but not to the default one)
+    let finalSystemInstruction = systemInstruction;
+    if (systemInstruction && systemInstruction !== DEFAULT_SYSTEM_INSTRUCTION && enabledTools.length > 0) {
+      // Add tool usage guidelines to custom system instructions
+      const toolGuidelines = `
+
+## CRITICAL: Tool Usage Rules
+
+You have tools available but you MUST follow these rules:
+- NEVER mention that you have tools or capabilities unless the user specifically asks "what tools do you have" or similar
+- NEVER suggest using visualizations unless the user explicitly asks for one
+- NEVER say things like "I can create", "I can visualize", "I can draw" unless directly responding to such a request
+- NEVER break character to mention technical capabilities
+- If asked to visualize something, just do it without mentioning the tool
+- Stay completely in character and focus only on the conversation topic
+- Treat your tools as invisible - use them when needed but never talk about them`;
+
+      finalSystemInstruction = systemInstruction + toolGuidelines;
+    }
+
     // Log system instruction details
     console.log('🤖 System Instruction being used:');
-    console.log('Length:', systemInstruction ? systemInstruction.length : 0, 'characters');
-    console.log('Full text:', systemInstruction || 'None');
-    console.log('Is using default?', systemInstruction === DEFAULT_SYSTEM_INSTRUCTION);
+    console.log('Length:', finalSystemInstruction ? finalSystemInstruction.length : 0, 'characters');
+    console.log('Full text:', finalSystemInstruction || 'None');
+    console.log('Is using default?', finalSystemInstruction === DEFAULT_SYSTEM_INSTRUCTION);
     
     // Simple approach: if no conversation history, use system + prompt
     // If there is history, include it as messages
@@ -524,7 +555,7 @@ const sendChatMessage = onCall({
 
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
-          system: systemInstruction,
+          system: finalSystemInstruction,
           prompt: processedContent, // Use processedContent instead of message for multimodal support
           tools: enabledTools, // Use dynamic tools configuration
           config: {
@@ -533,25 +564,19 @@ const sendChatMessage = onCall({
           }
         };
       } else {
-        // Messages with conversation history - ALWAYS apply system instruction when provided
+        // Messages with conversation history - NO system instruction with messages
         console.log('📚 STREAMING: Message with conversation history');
-        console.log('✅ STREAMING: System instruction WILL be applied:', !!systemInstruction);
+        console.log('ℹ️ STREAMING: System instruction NOT applied (already set in initial message)');
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
           role: msg.role,
           content: [{ text: msg.content }] // Convert string to array format
         }));
-        
-        // Add tool usage reminder before current message since system instruction isn't applied (only if tools are enabled)
-        if (enabledTools.length > 0) {
-          const toolReminderMessage = {
-            role: 'model',
-            content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
-          };
-          conversationMessages.push(toolReminderMessage);
-        }
-        
+
+        // Note: Tools are already known to the model via the 'tools' parameter
+        // No need to inject reminders that would break the assistant's persona
+
         // Add current user message with enhanced context for visualization requests
         let enhancedMessage = message;
         if (enabledTools.includes('createVisualization') && (message.toLowerCase().includes('draw') || 
@@ -591,7 +616,7 @@ const sendChatMessage = onCall({
         
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
-          system: systemInstruction, // ALWAYS include system instruction
+          // NO system parameter when using messages - it was set in the first message
           messages: conversationMessages,
           tools: enabledTools, // Use dynamic tools configuration
           config: {
@@ -778,7 +803,7 @@ const sendChatMessage = onCall({
 
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
-          system: systemInstruction,
+          system: finalSystemInstruction,
           prompt: processedContent, // Use processedContent instead of message for multimodal support
           tools: enabledTools, // Use dynamic tools configuration
           config: {
@@ -787,25 +812,19 @@ const sendChatMessage = onCall({
           }
         };
       } else {
-        // Messages with conversation history - ALWAYS apply system instruction when provided
+        // Messages with conversation history - NO system instruction with messages
         console.log('📚 NON-STREAMING: Message with conversation history');
-        console.log('✅ NON-STREAMING: System instruction WILL be applied:', !!systemInstruction);
+        console.log('ℹ️ NON-STREAMING: System instruction NOT applied (already set in initial message)');
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
           role: msg.role,
           content: [{ text: msg.content }] // Convert string to array format
         }));
-        
-        // Add tool usage reminder before current message since system instruction isn't applied (only if tools are enabled)
-        if (enabledTools.length > 0) {
-          const toolReminderMessage = {
-            role: 'model',
-            content: [{ text: 'I have access to visualization tools. When you ask me to create visualizations, diagrams, graphs, or visual representations of mathematical/physics concepts, I can use the createVisualization tool to generate interactive JSXGraph visualizations.' }]
-          };
-          conversationMessages.push(toolReminderMessage);
-        }
-        
+
+        // Note: Tools are already known to the model via the 'tools' parameter
+        // No need to inject reminders that would break the assistant's persona
+
         // Add current user message with enhanced context for visualization requests
         let enhancedMessage = message;
         if (enabledTools.includes('createVisualization') && (message.toLowerCase().includes('draw') || 
@@ -845,7 +864,7 @@ const sendChatMessage = onCall({
         
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
-          system: systemInstruction, // ALWAYS include system instruction
+          // NO system parameter when using messages - it was set in the first message
           messages: conversationMessages,
           tools: enabledTools, // Use dynamic tools configuration
           config: {

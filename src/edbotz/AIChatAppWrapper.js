@@ -85,15 +85,17 @@ const AIChatAppWrapper = ({
 
       // UI configuration
       showHeader: mode !== 'embedded', // Hide header in embedded mode
-      showYouTube: true,
-      showUpload: true,
+      showYouTube: assistant.studentFeatures?.allowYouTubeLinks === true, // Only show YouTube when explicitly enabled
+      showUpload: assistant.studentFeatures?.allowFileUpload !== false, // Default to true unless explicitly disabled
 
       // Session management
       sessionIdentifier: `edbotz_${assistant.id || 'default'}`, // Unique session per assistant
       forceNewSession: true, // Always start fresh for each assistant
 
-      // Tools configuration
-      enabledTools: ['createVisualization'], // Enable JSXGraph visualizations
+      // Tools configuration - use assistant's configuration or default to empty
+      enabledTools: assistant.enabledTools
+        ? Object.keys(assistant.enabledTools).filter(key => assistant.enabledTools[key])
+        : [], // Default to no tools if not configured
 
       // Message starters (if we want to display them)
       // Note: GoogleAIChatApp doesn't have built-in message starters UI,

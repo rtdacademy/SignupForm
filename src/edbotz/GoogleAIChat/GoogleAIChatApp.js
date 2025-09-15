@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Send, 
-  Loader, 
-  Bot, 
-  Info, 
-  RotateCcw, 
-  Image as ImageIcon, 
-  X, 
-  Youtube, 
+import {
+  Send,
+  Loader,
+  Bot,
+  Info,
+  RotateCcw,
+  Image as ImageIcon,
+  X,
+  Youtube,
   Link,
   FileIcon,
   FileText,
   File,
   Upload,
-  Copy, 
-  Check
+  Copy,
+  Check,
+  ChevronUp,
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -1586,6 +1589,8 @@ const GoogleAIChatApp = ({
   const [showContentPreview, setShowContentPreview] = useState(false);
   // JSXGraph library loading state
   const { isLoaded: jsxGraphLoaded, error: jsxGraphError } = useJSXGraph();
+  // Message starters state
+  const [messageStarters, setMessageStarters] = useState([]);
   
   // Removed sessionId state since we're using stateless generate() approach
   const scrollAreaRef = useRef(null);
@@ -1716,13 +1721,22 @@ const GoogleAIChatApp = ({
     if (contentContextData) {
       setContentContext(contentContextData);
       setShowContentPreview(true);
-      
+
       // Notify parent if callback is provided
       if (onContentContext) {
         onContentContext(contentContextData);
       }
     }
   }, [contentContextData, onContentContext]);
+
+  // Extract message starters from dynamicContext
+  useEffect(() => {
+    if (dynamicContext && dynamicContext.messageStarters && Array.isArray(dynamicContext.messageStarters)) {
+      setMessageStarters(dynamicContext.messageStarters);
+    } else {
+      setMessageStarters([]);
+    }
+  }, [dynamicContext]);
 
   // Reset chat
   const handleReset = useCallback(() => {
@@ -2189,6 +2203,18 @@ const GoogleAIChatApp = ({
       // Only content context, generate a helpful question
       combinedMessage = `Can you help me understand this content?\n\n🔖[CONTEXT_START:${contentContext.title}]🔖\n${contentContext.content}\n🔖[CONTEXT_END]🔖`;
     }
+  } else if (!inputMessage.trim() && allMedia.length > 0) {
+    // If no text but media files are attached, provide a default message
+    const mediaTypes = new Set(allMedia.map(item => item.type));
+    if (mediaTypes.has('image')) {
+      combinedMessage = "Please analyze this image.";
+    } else if (mediaTypes.has('document')) {
+      combinedMessage = "Please analyze this document.";
+    } else if (mediaTypes.has('youtube')) {
+      combinedMessage = "Please analyze this video.";
+    } else {
+      combinedMessage = "Please analyze this content.";
+    }
   }
   
   const userMessage = {
@@ -2353,6 +2379,15 @@ const GoogleAIChatApp = ({
         
       } catch (streamingError) {
         console.warn('⚠️ Streaming failed or not supported:', streamingError.message);
+        console.error('Full streaming error:', streamingError);
+        console.error('Error code:', streamingError.code);
+        console.error('Error details:', streamingError.details);
+
+        // Check if it's a CORS error
+        if (streamingError.code === 'functions/internal' || streamingError.message === 'internal') {
+          console.error('💡 This may be a CORS issue. Make sure edbotz.com is in the CORS configuration and the function is deployed.');
+        }
+
         streamingSupported = false;
       }
       
@@ -2691,6 +2726,92 @@ const GoogleAIChatApp = ({
     );
   };
 
+  // Component for displaying message starters
+  const MessageStarters = ({ starters, onSelect, isDisabled }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const containerRef = useRef(null);
+    const [needsExpansion, setNeedsExpansion] = useState(false);
+
+    useEffect(() => {
+      const checkHeight = () => {
+        if (containerRef.current) {
+          const height = containerRef.current.scrollHeight;
+          setNeedsExpansion(height > 80); // Approximately 2 rows
+        }
+      };
+
+      checkHeight();
+      window.addEventListener('resize', checkHeight);
+      return () => window.removeEventListener('resize', checkHeight);
+    }, [starters]);
+
+    if (!starters || starters.length === 0) return null;
+
+    return (
+      <div className="w-full">
+        <div className="text-xs font-medium text-gray-500 mb-2 flex items-center">
+          <Sparkles className="w-3 h-3 mr-1" />
+          Conversation Starters
+        </div>
+        <div
+          ref={containerRef}
+          className={cn(
+            "flex flex-wrap gap-2",
+            !isExpanded && "max-h-[80px] overflow-hidden"
+          )}
+        >
+          {starters.map((starter, index) => (
+            <Button
+              key={index}
+              variant="outline"
+              size="sm"
+              className="whitespace-normal text-left h-auto py-2 px-3 hover:bg-purple-50 hover:border-purple-300 text-sm"
+              onClick={() => onSelect(starter)}
+              disabled={isDisabled}
+            >
+              {starter}
+            </Button>
+          ))}
+        </div>
+
+        {needsExpansion && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-4 h-4 mr-2" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4 mr-2" />
+                Show More
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  // Handle message starter selection
+  const handleStarterSelect = useCallback((text) => {
+    setInputMessage(text);
+
+    // Focus the input after selection
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const length = text.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 0);
+  }, []);
+
   return (
     <div className="flex flex-col h-full relative">
       <Card className={`flex flex-col h-full ${showHeader ? 'border-0 rounded-none' : 'border-0 rounded-none'} bg-gradient-to-br from-white to-gray-50`}>
@@ -2794,86 +2915,98 @@ const GoogleAIChatApp = ({
           </ScrollArea>
         </div>
 
-        <CardFooter className="flex-shrink-0 border-t bg-white p-4 space-y-4">
-          {error && (
-            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-          
-          {/* Hidden file input */}
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            multiple
-            className="hidden"
-          />
-          
-          {/* File and image preview area */}
-          <FilePreview />
-          
-          {/* YouTube URL preview */}
-          <YouTubePreview />
-          
-          {/* YouTube URL input */}
-          <YouTubeURLInput />
-          
-          <div className="flex gap-2 w-full">
-            {showUpload && (
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={openFileDialog}
-                disabled={isLoading || isInitializing}
-                className="shrink-0 self-end border-gray-300"
-                title="Upload File or Image"
-              >
-                <Upload className="w-5 h-5 text-gray-600" />
-              </Button>
+        <CardFooter className="flex-shrink-0 border-t bg-white p-4">
+          <div className="flex flex-col space-y-4 w-full">
+            {error && (
+              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
             )}
-            
-            {showYouTube && (
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={toggleYouTubeInput}
-                disabled={isLoading || isInitializing || addingYouTube}
-                className="shrink-0 self-end border-gray-300"
-                title="Add YouTube Video"
-              >
-                <Youtube className="w-5 h-5 text-red-600" />
-              </Button>
-            )}
-            
-            <Textarea
-              ref={inputRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isInitializing ? "Initializing..." : "Type your message... (Press Enter to send)"}
-              className="resize-none min-h-[80px]"
-              disabled={isLoading || isInitializing}
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              multiple
+              className="hidden"
             />
-            <Button
-              onClick={handleSendMessage}
-              disabled={(uploadedFiles.length === 0 && youtubeURLs.length === 0 && !inputMessage.trim()) || isLoading || isInitializing}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shrink-0 self-end"
-            >
-              {isLoading ? (
-                <>
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  {isProcessing ? 'Processing...' : 'Generating...'}
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Send
-                </>
+
+            {/* File and image preview area */}
+            <FilePreview />
+
+            {/* YouTube URL preview */}
+            <YouTubePreview />
+
+            {/* YouTube URL input */}
+            <YouTubeURLInput />
+
+            {/* Input area with buttons */}
+            <div className="flex gap-2 w-full">
+              {showUpload && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={openFileDialog}
+                  disabled={isLoading || isInitializing}
+                  className="shrink-0 self-end border-gray-300"
+                  title="Upload File or Image"
+                >
+                  <Upload className="w-5 h-5 text-gray-600" />
+                </Button>
               )}
-            </Button>
+
+              {showYouTube && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={toggleYouTubeInput}
+                  disabled={isLoading || isInitializing || addingYouTube}
+                  className="shrink-0 self-end border-gray-300"
+                  title="Add YouTube Video"
+                >
+                  <Youtube className="w-5 h-5 text-red-600" />
+                </Button>
+              )}
+
+              <Textarea
+                ref={inputRef}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isInitializing ? "Initializing..." : "Type your message... (Press Enter to send)"}
+                className="resize-none min-h-[80px]"
+                disabled={isLoading || isInitializing}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={(uploadedFiles.length === 0 && youtubeURLs.length === 0 && !inputMessage.trim()) || isLoading || isInitializing}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shrink-0 self-end"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    {isProcessing ? 'Processing...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Message Starters - show below input area when there are few messages */}
+            {messageStarters.length > 0 && messages.length <= 2 && (
+              <MessageStarters
+                starters={messageStarters}
+                onSelect={handleStarterSelect}
+                isDisabled={isLoading || isInitializing}
+              />
+            )}
           </div>
         </CardFooter>
       </Card>

@@ -35,7 +35,6 @@ import ContextSelector from './ContextSelector';
 import LearnMoreSheet from './documents/LearnMoreSheet';
 import ModelTypeSheet from './documents/ModelTypeSheet';
 import QuickCreateSheet from './documents/QuickCreateSheet';
-import MessageToStudentsSheet from './documents/MessageToStudentsSheet';
 import InstructionsSheet from './documents/InstructionsSheet';
 import FirstMessageSheet from './documents/FirstMessageSheet';
 import MessageStartersSheet from './documents/MessageStartersSheet';
@@ -46,8 +45,8 @@ import {
   AccordionTrigger,
 } from "../components/ui/accordion";
 import  FileManagementSheet from './FileManagementSheet';
-// VERTEX AI DISABLED DUE TO COST ISSUES - Using Gemini API instead
-// import { getVertexAI, getGenerativeModel, Schema } from "firebase/vertexai";
+// Import Firebase Functions for AI assistant generation
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import FileManagementInfoSheet from './documents/FileManagementInfoSheet';
 import ImageManagementSheet from './ImageManagementSheet';
 import QuickCreateControls from './QuickCreateControls';
@@ -98,7 +97,7 @@ const EditableRichText = ({ label, value, onChange, className = "", placeholder 
           placeholder={placeholder}
           style={{ height: "180px" }}
         />
-        <style jsx global>{`
+        <style jsx="true">{`
           .quill-editor {
             border: 1px solid #e2e8f0;
             border-radius: 0.5rem;
@@ -188,14 +187,6 @@ const InfoSection = ({ id, title, description, activeInfoSection, setActiveInfoS
           topic={id}
         />
       )}
-      {/* Message to Students Info Sheet */}
-      {id === 'messageToStudents' && (
-        <MessageToStudentsSheet 
-          open={activeInfoSection === 'messageToStudents'}
-          onOpenChange={(open) => setActiveInfoSection(open ? 'messageToStudents' : null)}
-          topic={id}
-        />
-      )}
       {/* Instructions Info Sheet */}
       {id === 'instructions' && (
         <InstructionsSheet 
@@ -245,10 +236,9 @@ const AIAssistantSheet = ({
 }) => {
   const { user } = useAuth();
 
-  // Local state for the assistant’s fields.
+  // Local state for the assistant's fields.
   // These are our draft values that will only be committed when the user clicks Save.
   const [assistantName, setAssistantName] = useState('');
-  const [messageToStudents, setMessageToStudents] = useState('');
   const [instructions, setInstructions] = useState('');
   const [firstMessage, setFirstMessage] = useState('');
   
@@ -259,6 +249,10 @@ const AIAssistantSheet = ({
   };
   const [messageStarters, setMessageStarters] = useState(['']);
   const [selectedModel, setSelectedModel] = useState('standard');
+  const [enabledTools, setEnabledTools] = useState({ createVisualization: false });
+  const [studentFeatures, setStudentFeatures] = useState({
+    allowFileUpload: true
+  });
 
   // Location state – these determine where the assistant is created.
   const [currentTypeState, setCurrentTypeState] = useState(type); // e.g. 'course', 'unit', or 'lesson'
@@ -299,111 +293,62 @@ const calculateImageCount = (firebaseImages = {}, localImageIds = []) => {
 
 
 
-/// Vertex AI - DISABLED ////
-
-// VERTEX AI DISABLED - Using placeholder schema
-const assistantSchema = null; /* Schema.object({
-  properties: {
-    assistantName: Schema.string(),
-    instructions: Schema.string(),
-    firstMessage: Schema.string(),
-    messageStarters: Schema.array({
-      items: Schema.string()
-    })
-  }
-}); */
-
-// Updated generation function - DISABLED
-const generateAssistantConfig = async (description) => {
-  // VERTEX AI DISABLED - Return error
-  console.log('Vertex AI disabled - Quick Create with AI temporarily unavailable');
-  throw new Error('Quick Create with AI is temporarily disabled for maintenance. Please configure your assistant manually.');
-  
-  /* DISABLED CODE - DO NOT REMOVE YET
+// Generate assistant configuration using cloud function
+const generateAssistantConfig = async (description, fileContexts, imageContexts, firebaseApp) => {
   try {
-    const vertexAI = getVertexAI(firebaseApp);
-    const model = getGenerativeModel(vertexAI, {
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: assistantSchema,
-        temperature: 0.7,
-        maxOutputTokens: 1000,
-      }
+    const functions = getFunctions(firebaseApp);
+    // Note: Firebase deployed this without the edbotz- prefix
+    const generateAssistant = httpsCallable(functions, 'generateAssistant');
+
+    const result = await generateAssistant({
+      description,
+      fileContexts: fileContexts || [],
+      imageContexts: imageContexts || []
     });
 
-    let prompt = `Create an AI teaching assistant configuration based on this description: "${description}"`;
-
-    // Add file contexts if available
-    if (attachedContexts.files.length > 0) {
-      prompt += "\n\nThis assistant has access to the following documents:\n" + 
-        attachedContexts.files.map((context, i) => 
-          `Document ${i + 1}:\n${context}`
-        ).join('\n\n') +
-        "\n\nPlease consider these documents when creating the assistant's configuration.";
+    if (result.data.success) {
+      return result.data.config;
+    } else {
+      throw new Error(result.data.error || 'Failed to generate assistant configuration');
     }
-
-    // Add image contexts if available
-    if (attachedContexts.images.length > 0) {
-      prompt += "\n\nThis assistant has access to the following images:\n" + 
-        attachedContexts.images.map((context, i) => 
-          `Image ${i + 1}:\n${context}`
-        ).join('\n\n') +
-        "\n\nPlease consider these visual resources when creating the assistant's configuration.";
-    }
-
-    prompt += `\n\nRequirements:
-    - Create an educational and supportive assistant appropriate for students
-    - assistantName should be clear and descriptive
-    - instructions should define the assistant's personality, teaching approach, and expertise
-    - firstMessage should be engaging and invite interaction
-    - include 3-5 relevant messageStarters that students might use to begin the conversation
-    
-    If the assistant has access to documents or images:
-    - Reference them in the instructions to explain how the assistant will use them
-    - Include message starters that encourage students to ask about them
-    - Mention them in the first message if relevant
-    
-    Focus on making the assistant helpful and appropriate for an educational context.`;
-
-    const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
   } catch (error) {
     console.error('Error generating assistant config:', error);
+    console.error('Error details:', error.message, error.code);
     throw error;
   }
-  */
 };
 
-// Updated handler - DISABLED
+// Handler for generate button
 const handleGenerate = async () => {
   if (!assistantDescription.trim()) return;
-  
+
   setIsGenerating(true);
   try {
-    // VERTEX AI DISABLED - Show error message
-    alert('Quick Create with AI is temporarily disabled for maintenance. Please configure your assistant manually.');
-    console.log('Vertex AI disabled - cannot generate assistant config');
-    
-    /* DISABLED CODE
-    const config = await generateAssistantConfig(assistantDescription);
+    const config = await generateAssistantConfig(
+      assistantDescription,
+      attachedContexts.files,
+      attachedContexts.images,
+      firebaseApp
+    );
+
     console.log('Generated config:', config);
-    
+
+    // Update all the fields with generated values
     setAssistantName(config.assistantName);
     setInstructions(config.instructions);
     setFirstMessage(config.firstMessage);
     setMessageStarters(config.messageStarters || ['']);
-    */
-    
+
+    // Show success feedback
+    console.log('Assistant configuration generated successfully');
+
   } catch (error) {
     console.error('Error:', error);
-    alert('Quick Create with AI is temporarily disabled. Please configure your assistant manually.');
+    alert('Failed to generate assistant configuration. Please try again or configure manually.');
   } finally {
     setIsGenerating(false);
   }
 };
-
-  /////Vertex AI End////
 
   // Load courses from Firebase
   useEffect(() => {
@@ -444,11 +389,12 @@ const handleGenerate = async () => {
       if (!existingAssistantId) {
         // Reset states for new assistant
         setAssistantName('');
-        setMessageToStudents('');
         setInstructions('');
         setFirstMessage('');
         setMessageStarters(['']);
         setSelectedModel('standard');
+        setEnabledTools({ createVisualization: false });
+        setStudentFeatures({ allowFileUpload: true });
         setCurrentTypeState(type);
         setCurrentEntityIdState(entityId);
         setCurrentParentIdState(parentId);
@@ -466,15 +412,16 @@ const handleGenerate = async () => {
 
         if (assistant) {
           setAssistantName(assistant.assistantName || '');
-          setMessageToStudents(assistant.messageToStudents || '');
           setInstructions(assistant.instructions || '');
           setFirstMessage(assistant.firstMessage || '');
           setMessageStarters(assistant.messageStarters?.length ? assistant.messageStarters : ['']);
           setSelectedModel(assistant.model || 'standard');
+          setEnabledTools(assistant.enabledTools || { createVisualization: false });
+          setStudentFeatures(assistant.studentFeatures || { allowFileUpload: true });
           setCurrentTypeState(assistant.usage?.type || 'course');
           setCurrentEntityIdState(assistant.usage?.entityId || null);
           setCurrentParentIdState(assistant.usage?.parentId || null);
-          
+
           // Load files information
           if (assistant.files) {
             const fileIds = Object.keys(assistant.files).filter(key => assistant.files[key] === true);
@@ -642,13 +589,14 @@ const handleImagesUploaded = (imageIds) => {
     }, {});
 
     const assistantData = {
-      messageToStudents,
       assistantName,
       instructions,
       // firstMessage might be HTML from ReactQuill or plain text
       firstMessage,
       messageStarters: messageStarters.filter(msg => msg.trim() !== ''),
       model: selectedModel,
+      enabledTools: enabledTools,
+      studentFeatures: studentFeatures,
       usage: {
         type: currentTypeState,
         entityId: currentEntityIdState,
@@ -870,38 +818,6 @@ const handleImagesUploaded = (imageIds) => {
     );
   };
 
-const ManagementButtons = () => (
-  <div className="flex items-center gap-2">
-    <Button
-      variant="outline"
-      onClick={() => setFileSheetOpen(true)}
-      className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 relative pl-4 pr-6"
-    >
-      <FileIcon className="w-4 h-4" />
-      <span>Manage Files</span>
-      {fileCount > 0 && (
-        <div className="absolute -right-2 -top-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-          {fileCount}
-        </div>
-      )}
-    </Button>
-
-    <Button
-      variant="outline"
-      onClick={() => setImageSheetOpen(true)}
-      className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 relative pl-4 pr-6"
-    >
-      <ImageIcon className="w-4 h-4" />
-      <span>Manage Images</span>
-      {imageCount > 0 && (
-        <div className="absolute -right-2 -top-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-          {imageCount}
-        </div>
-      )}
-    </Button>
-  </div>
-);
-
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -989,22 +905,89 @@ const ManagementButtons = () => (
                   </Label>
                 </div>
               </RadioGroup>
-         
+
             </div>
 
-{/* File management button */}
-<div className="space-y-2">
-  <div className="flex items-center justify-between">
-    <div className="flex justify-start">
-      <ManagementButtons />
-    </div>
-    <InfoSection
-      id="fileManagement"
-      activeInfoSection={activeInfoSection}
-      setActiveInfoSection={setActiveInfoSection}
-    />
-  </div>
-</div>
+            {/* Assistant Options Accordion */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Assistant Options
+                </Label>
+              </div>
+              <Accordion type="single" collapsible className="border rounded-lg">
+                <AccordionItem value="options" className="border-0">
+                  <AccordionTrigger className="px-4 py-3 hover:bg-gray-50">
+                    <span className="text-sm font-medium">Configure Tools & Features</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      {/* Tools Section */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-3">Assistant Tools</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              id="visualization-tool"
+                              checked={enabledTools.createVisualization || false}
+                              onChange={(e) => setEnabledTools({
+                                ...enabledTools,
+                                createVisualization: e.target.checked
+                              })}
+                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="visualization-tool" className="flex-1">
+                              <div className="font-medium text-gray-900">Visualization Tool</div>
+                              <p className="text-sm text-gray-600">
+                                Create interactive diagrams, graphs, and visualizations. Ideal for STEM subjects.
+                              </p>
+                            </label>
+                          </div>
+                          {/* Future tools can be added here */}
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4"></div>
+
+                      {/* Student Features Section */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-3">Student Features</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              id="allow-file-upload"
+                              checked={studentFeatures.allowFileUpload}
+                              onChange={(e) => setStudentFeatures({
+                                ...studentFeatures,
+                                allowFileUpload: e.target.checked
+                              })}
+                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="allow-file-upload" className="flex-1">
+                              <div className="font-medium text-gray-900">Allow File Uploads</div>
+                              <p className="text-sm text-gray-600">
+                                Students can upload documents and images for the assistant to analyze.
+                              </p>
+                            </label>
+                          </div>
+
+                        </div>
+                      </div>
+
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600">
+                          <strong>Note:</strong> When tools are disabled, the assistant won't mention or suggest using them.
+                          Student features control what students can share with the assistant.
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+
   
             {/* Quick Create with AI */}
             <div className="space-y-2">
@@ -1078,26 +1061,6 @@ const ManagementButtons = () => (
     />
   </div>
 </div>
-  
-            {/* Message to Students */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Message to Students</Label>
-                <InfoSection
-                  id="messageToStudents"
-                  activeInfoSection={activeInfoSection}
-                  setActiveInfoSection={setActiveInfoSection}
-                />
-              </div>
-              <EditableRichText
-                value={messageToStudents}
-                onChange={setMessageToStudents}
-                placeholder="Enter a message to your students..."
-                className="mb-4"
-              />
-        
-            </div>
-  
             {/* Assistant Personality & Instructions */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">

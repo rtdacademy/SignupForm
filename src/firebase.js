@@ -26,10 +26,12 @@ const getFirebaseConfig = () => {
   };
 
   if (isDevelopment) {
-    console.log('Using development Firebase config with popup auth');
+    console.log('Using development Firebase config for localhost');
     return {
       ...baseConfig,
-      authDomain: "yourway.rtdacademy.com" // Keep existing for dev
+      // Use rtd-academy.firebaseapp.com for localhost development
+      // This is Firebase's default auth domain that handles OAuth redirects properly
+      authDomain: "rtd-academy.firebaseapp.com"
     };
   } else {
     console.log('Using production Firebase config with redirect auth');
