@@ -521,7 +521,7 @@ const sendChatMessage = onCall({
         // First message - use system + prompt approach
         console.log('✅ STREAMING: First message - Using system instruction with prompt');
         console.log('System instruction will be applied:', !!systemInstruction);
-        
+
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
@@ -533,9 +533,9 @@ const sendChatMessage = onCall({
           }
         };
       } else {
-        // Subsequent messages - use messages array approach
-        console.log('📚 STREAMING: Subsequent message - Using conversation history');
-        console.log('⚠️ STREAMING: System instruction NOT being applied to this message, but tools still available');
+        // Messages with conversation history - ALWAYS apply system instruction when provided
+        console.log('📚 STREAMING: Message with conversation history');
+        console.log('✅ STREAMING: System instruction WILL be applied:', !!systemInstruction);
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
@@ -591,6 +591,7 @@ const sendChatMessage = onCall({
         
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
+          system: systemInstruction, // ALWAYS include system instruction
           messages: conversationMessages,
           tools: enabledTools, // Use dynamic tools configuration
           config: {
@@ -774,7 +775,7 @@ const sendChatMessage = onCall({
         // First message - use system + prompt approach
         console.log('✅ NON-STREAMING: First message - Using system instruction with prompt');
         console.log('System instruction will be applied:', !!systemInstruction);
-        
+
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
           system: systemInstruction,
@@ -786,9 +787,9 @@ const sendChatMessage = onCall({
           }
         };
       } else {
-        // Subsequent messages - use messages array approach
-        console.log('📚 NON-STREAMING: Subsequent message - Using conversation history');
-        console.log('⚠️ NON-STREAMING: System instruction NOT being applied to this message, but tools still available');
+        // Messages with conversation history - ALWAYS apply system instruction when provided
+        console.log('📚 NON-STREAMING: Message with conversation history');
+        console.log('✅ NON-STREAMING: System instruction WILL be applied:', !!systemInstruction);
         
         // Ensure conversation starts with user message
         const conversationMessages = messages.map(msg => ({
@@ -844,6 +845,7 @@ const sendChatMessage = onCall({
         
         generateParams = {
           model: googleAI.model(resolvedSettings.model),
+          system: systemInstruction, // ALWAYS include system instruction
           messages: conversationMessages,
           tools: enabledTools, // Use dynamic tools configuration
           config: {

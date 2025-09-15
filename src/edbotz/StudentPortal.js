@@ -415,7 +415,7 @@ const StudentPortal = () => {
             // Process and set available assistants
             const processedAssistants = processAssistants(assistantsData, courseDataFetched);
             setAvailableAssistants(processedAssistants);
-            
+
             // Set the selected assistant based on access configuration
             const defaultAssistant = processedAssistants.find(a => a.id === accessData.entityId);
             if (defaultAssistant) {

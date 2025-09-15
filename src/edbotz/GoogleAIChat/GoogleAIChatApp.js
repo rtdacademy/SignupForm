@@ -1506,7 +1506,7 @@ const GoogleAIChatApp = ({
   // Create system message from instructions and conversation context
   const getSystemMessage = useCallback(() => {
     let systemMessage = `${instructions}`;
-    
+
     // Add dynamic context if provided
     if (dynamicContext && dynamicContext.focusedContent) {
       systemMessage += `\n\n## STUDENT FOCUS REQUEST\n`;
@@ -2771,7 +2771,15 @@ const GoogleAIChatApp = ({
             className="h-full"
           >
             <div className="p-4 space-y-6">
-              {messages.map((message) => (
+              {messages
+                .filter((message, index) => {
+                  // Skip the first message if it's from the user
+                  if (index === 0 && message.sender === 'user') {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((message) => (
                 <MessageBubble
                   key={message.id}
                   message={message}
