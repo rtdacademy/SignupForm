@@ -29,9 +29,9 @@ const getFirebaseConfig = () => {
     console.log('Using development Firebase config for localhost');
     return {
       ...baseConfig,
-      // Use rtd-academy.firebaseapp.com for localhost development
-      // This is Firebase's default auth domain that handles OAuth redirects properly
-      authDomain: "rtd-academy.firebaseapp.com"
+      // Use yourway.rtdacademy.com for localhost development
+      // This domain is already configured in both Google and Microsoft OAuth
+      authDomain: "yourway.rtdacademy.com"
     };
   } else {
     console.log('Using production Firebase config with redirect auth');

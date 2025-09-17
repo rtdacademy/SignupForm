@@ -513,31 +513,64 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
 
   // Subscribe to portfolio entries for selected structure
   useEffect(() => {
-    if (!familyId || !studentId || !selectedStructureId) return;
+    if (!familyId || !studentId || !selectedStructureId) {
+      console.log('Portfolio entries subscription skipped:', { familyId, studentId, selectedStructureId });
+      return;
+    }
+
+    console.log('Setting up portfolio entries subscription:', {
+      familyId,
+      studentId,
+      selectedStructureId
+    });
 
     // Use entries subcollection under familyId, filtered by both studentId and structureId
     const entriesRef = collection(db, 'portfolios', familyId, 'entries');
+
+    // Try a simpler query first to check if the compound index is the issue
     const q = query(
       entriesRef,
-      where('studentId', '==', studentId),
-      where('structureId', '==', selectedStructureId),
-      orderBy('order', 'asc')
+      where('structureId', '==', selectedStructureId)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log('Firestore query snapshot received:', {
+          size: snapshot.size,
+          empty: snapshot.empty,
+          selectedStructureId,
+          studentId
+        });
+
         const entries = [];
         snapshot.forEach((doc) => {
-          entries.push({
+          const data = doc.data();
+          console.log('Entry found:', {
             id: doc.id,
-            ...doc.data()
+            structureId: data.structureId,
+            studentId: data.studentId,
+            title: data.title
           });
+
+          // Only include entries for the current student
+          if (data.studentId === studentId) {
+            entries.push({
+              id: doc.id,
+              ...data
+            });
+          }
         });
+        console.log(`Loaded ${entries.length} entries for structure ${selectedStructureId}`);
         setPortfolioEntries(entries);
       },
       (err) => {
         console.error('Error loading portfolio entries:', err);
+        console.error('Query details:', {
+          familyId,
+          studentId,
+          selectedStructureId
+        });
         setError(err.message);
       }
     );
@@ -1243,7 +1276,10 @@ export const useSOLOIntegration = (familyId, studentId, schoolYear) => {
     resources: soloplanData?.resourcesAndMaterials || [],
     activityDescriptions: soloplanData?.activityDescriptions || {},
     assessmentDescriptions: soloplanData?.assessmentDescriptions || {},
-    resourceDescriptions: soloplanData?.resourceDescriptions || {}
+    resourceDescriptions: soloplanData?.resourceDescriptions || {},
+    customActivities: soloplanData?.customActivities || [],
+    customAssessments: soloplanData?.customAssessments || [],
+    customResources: soloplanData?.customResources || []
   };
 };
 

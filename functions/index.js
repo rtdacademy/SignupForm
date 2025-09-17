@@ -125,6 +125,13 @@ const familyEmailFunctions = require('./familyEmails');
 exports.sendFamilyEmailsV2 = familyEmailFunctions.sendFamilyEmailsV2;
 exports.handleFamilyWebhookEvents = familyEmailFunctions.handleFamilyWebhookEvents;
 
+// Portfolio Sharing functions
+const portfolioSharingFunctions = require('./portfolioSharing');
+exports.getPublicPortfolioEntry = portfolioSharingFunctions.getPublicPortfolioEntry;
+exports.updatePortfolioSharing = portfolioSharingFunctions.updatePortfolioSharing;
+exports.getPublicPortfolio = portfolioSharingFunctions.getPublicPortfolio;
+exports.updatePortfolioLevelSharing = portfolioSharingFunctions.updatePortfolioLevelSharing;
+
 // Payment functions
 exports.handleStripeWebhookV2 = stripeFunctions.handleStripeWebhookV2;
 exports.handleOneTimePaymentV2 = stripeFunctions.handleOneTimePaymentV2;
@@ -132,6 +139,7 @@ exports.handleSubscriptionUpdateV2 = stripeFunctions.handleSubscriptionUpdateV2;
 exports.handleSubscriptionScheduleV2 = stripeFunctions.handleSubscriptionScheduleV2;
 exports.getPaymentStatusV2 = stripeFunctions.getPaymentStatusV2;
 exports.syncStripePaymentStatusV2 = stripeFunctions.syncStripePaymentStatusV2;
+exports.linkStripeSubscriptionV2 = stripeFunctions.linkStripeSubscriptionV2;
 
 // Stripe Connect functions for parent payouts (consolidated)
 const { 

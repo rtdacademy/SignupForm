@@ -71,7 +71,10 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
     resources,
     activityDescriptions,
     assessmentDescriptions,
-    resourceDescriptions
+    resourceDescriptions,
+    customActivities,
+    customAssessments,
+    customResources
   } = useSOLOIntegration(familyId, student?.id, schoolYear);
 
   // Check for mobile viewport
@@ -231,15 +234,23 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             activityDescriptions={activityDescriptions}
             assessmentDescriptions={assessmentDescriptions}
             resourceDescriptions={resourceDescriptions}
+            customActivities={customActivities}
+            customAssessments={customAssessments}
+            customResources={customResources}
             student={student}
             portfolioStructure={portfolioStructure}
             onSelectStructure={setSelectedStructureId}
+            familyId={familyId}
             loadComments={loadComments}
             createComment={createComment}
             updateComment={updateComment}
             deleteComment={deleteComment}
             comments={comments}
             loadingComments={loadingComments}
+            onCreateStructure={createStructureItem}
+            onUpdateStructure={updateStructureItem}
+            onDeleteStructure={deleteStructureItem}
+            onReorderStructure={reorderStructure}
             onPresentationModeChange={(isPresenting) => {
               // Only auto-collapse once per session when entering presentation mode
               if (isPresenting && !sidebarCollapsed && !hasAutoCollapsed) {
@@ -324,6 +335,9 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         assessmentDescriptions={assessmentDescriptions}
         resourceDescriptions={resourceDescriptions}
         getTagSuggestions={getTagSuggestions}
+        customActivities={customActivities}
+        customAssessments={customAssessments}
+        customResources={customResources}
         preselectedStructureId={selectedStructureId}
       />
 

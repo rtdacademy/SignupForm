@@ -1219,6 +1219,141 @@ const getPaymentStatusV2 = onCall({
 });
 
 /**
+ * Manually link a Stripe subscription to a student
+ * Used when payment was made by parent or another party
+ */
+const linkStripeSubscriptionV2 = onCall({
+  concurrency: 50,
+  memory: '512MiB',
+  timeoutSeconds: 60,
+  secrets: ["STRIPE_SECRET_KEY"]
+}, async (request) => {
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+  try {
+    const { studentEmail, courseId, subscriptionId } = request.data;
+
+    if (!studentEmail || !courseId || !subscriptionId) {
+      throw new Error('Missing required parameters: studentEmail, courseId, and subscriptionId');
+    }
+
+    console.log(`Linking subscription ${subscriptionId} to ${studentEmail} for course ${courseId}`);
+
+    const sanitizedEmail = sanitizeEmail(studentEmail);
+
+    // Fetch subscription details from Stripe
+    let subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ['latest_invoice']
+      });
+    } catch (error) {
+      if (error.code === 'resource_missing' || error.statusCode === 404) {
+        throw new Error(`Subscription ${subscriptionId} not found in Stripe`);
+      }
+      throw error;
+    }
+
+    // Count successful payments for this subscription
+    const paymentInfo = await countSuccessfulPaymentsForSubscription(
+      stripe,
+      subscriptionId,
+      courseId,
+      subscription.customer
+    );
+
+    console.log(`Subscription ${subscriptionId} has ${paymentInfo.count} successful payments`);
+
+    // Get course name from database
+    const db = admin.database();
+    const courseRef = db.ref(`courses/${courseId}/Title`);
+    const courseSnapshot = await courseRef.once('value');
+    const courseName = courseSnapshot.val() || `Course ${courseId}`;
+
+    // Build payment data object
+    const paymentData = {
+      status: subscription.status === 'canceled' && paymentInfo.count >= 3 ? 'paid' :
+              subscription.status === 'active' ? 'active' :
+              subscription.status,
+      type: 'subscription',
+      last_updated: admin.database.ServerValue?.TIMESTAMP || Date.now(),
+      subscription_id: subscriptionId,
+      customer_id: subscription.customer,
+      courseName: courseName,
+      payment_count: paymentInfo.count,
+      current_period_end: subscription.current_period_end * 1000,
+      current_period_start: subscription.current_period_start * 1000,
+      cancel_at: subscription.cancel_at ? subscription.cancel_at * 1000 : null,
+      canceled_at: subscription.canceled_at ? subscription.canceled_at * 1000 : null,
+      stripe_links: {
+        customer: `https://dashboard.stripe.com/customers/${subscription.customer}`,
+        subscription: `https://dashboard.stripe.com/subscriptions/${subscriptionId}`
+      },
+      invoices: paymentInfo.invoices.map(inv => ({
+        id: inv.id,
+        amount_paid: inv.amount_paid,
+        paid_at: inv.paid_at,
+        period_start: inv.period_start,
+        period_end: inv.period_end,
+        hosted_invoice_url: inv.hosted_invoice_url || null,
+        invoice_pdf: inv.invoice_pdf || null,
+        status: inv.status || 'paid',
+        stripe_dashboard_url: `https://dashboard.stripe.com/invoices/${inv.id}`
+      })),
+      successful_invoice_ids: paymentInfo.invoices.map(inv => inv.id),
+      manually_linked: true,
+      linked_at: admin.database.ServerValue?.TIMESTAMP || Date.now(),
+      linked_by: request.auth?.uid || 'admin'
+    };
+
+    // Check if this is a completed 3-payment subscription
+    const paymentType = subscription.metadata?.paymentType || 'subscription_3_month';
+    if (paymentType === 'subscription_3_month' && paymentInfo.count >= 3) {
+      paymentData.status = 'paid';
+      paymentData.final_payment_count = paymentInfo.count;
+      paymentData.cancellation_reason = 'completed_3_payments';
+    }
+
+    // Add latest invoice if available
+    if (subscription.latest_invoice && typeof subscription.latest_invoice === 'object') {
+      const latestInvoice = subscription.latest_invoice;
+      paymentData.latest_invoice = {
+        id: latestInvoice.id,
+        amount_paid: latestInvoice.amount_paid,
+        hosted_invoice_url: latestInvoice.hosted_invoice_url,
+        invoice_pdf: latestInvoice.invoice_pdf,
+        paid_at: latestInvoice.status_transitions?.paid_at || null,
+        stripe_dashboard_url: `https://dashboard.stripe.com/invoices/${latestInvoice.id}`
+      };
+      paymentData.stripe_links.latest_invoice = `https://dashboard.stripe.com/invoices/${latestInvoice.id}`;
+    }
+
+    // Update payment status in database
+    await updatePaymentStatus(studentEmail, courseId, paymentData, 'manual_link');
+
+    // Trigger credit recalculation for the student
+    await db.ref(`creditRecalculations/${sanitizedEmail}/trigger`).set(Date.now());
+    console.log(`Triggered credit recalculation for ${sanitizedEmail} after manual subscription link`);
+
+    return {
+      success: true,
+      message: `Successfully linked subscription ${subscriptionId} to student`,
+      subscriptionStatus: subscription.status,
+      paymentCount: paymentInfo.count,
+      paymentData
+    };
+
+  } catch (error) {
+    console.error('Error linking Stripe subscription:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to link subscription',
+      error: error.toString()
+    };
+  }
+});
+
+/**
  * Sync payment status from Stripe - for legacy data migration
  * Fetches current payment data directly from Stripe API
  */
@@ -1663,5 +1798,6 @@ module.exports = {
   handleSubscriptionUpdateV2,
   handleSubscriptionScheduleV2,
   getPaymentStatusV2,
-  syncStripePaymentStatusV2
+  syncStripePaymentStatusV2,
+  linkStripeSubscriptionV2
 };

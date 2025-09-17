@@ -161,6 +161,14 @@ export function AuthProvider({ children }) {
       return true;
     }
 
+    // Check public portfolio routes
+    if (normalizedPath.startsWith('/portfolio/')) {
+      // Match both /portfolio/:familyId/:entryId and /portfolio/:familyId/course/:courseId
+      const entryPattern = /^\/portfolio\/[^/]+\/[^/]+$/i;
+      const coursePattern = /^\/portfolio\/[^/]+\/course\/[^/]+$/i;
+      return entryPattern.test(normalizedPath) || coursePattern.test(normalizedPath);
+    }
+
     return false;
   };
 

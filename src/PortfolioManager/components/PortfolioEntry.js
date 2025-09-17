@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import 'react-quill/dist/quill.snow.css'; // Import Quill styles for proper display
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import {
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '../../components/ui/accordion';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '../../components/ui/sheet';
 import {
   FileText,
   Image,
@@ -27,14 +41,23 @@ import {
   ChevronLeft,
   ChevronRight,
   Paperclip,
-  Zap
+  Zap,
+  ZoomIn,
+  Play,
+  Pause,
+  Share2,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import PortfolioComments from './PortfolioComments';
+import PortfolioTagSelector from './PortfolioTagSelector';
+import PortfolioShareButton from './PortfolioShareButton';
 
 const PortfolioEntry = ({
   entry,
   viewMode = 'grid',
   isPresentationMode = false,
+  familyId,
   onEdit,
   onDelete,
   onUpdate,
@@ -43,11 +66,25 @@ const PortfolioEntry = ({
   onCreateComment,
   onUpdateComment,
   onDeleteComment,
-  onLoadComments
+  onLoadComments,
+  onFullscreen,
+  // Props for tag selector
+  activities = [],
+  assessments = [],
+  resources = [],
+  activityDescriptions = {},
+  assessmentDescriptions = {},
+  resourceDescriptions = {},
+  getTagSuggestions,
+  customActivities = [],
+  customAssessments = [],
+  customResources = []
 }) => {
-  const [showPreview, setShowPreview] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
+  const [showTagSheet, setShowTagSheet] = useState(false);
+  const [updatingTags, setUpdatingTags] = useState(false);
+  const videoRef = useRef(null);
 
   // Load comments when component mounts or entry changes
   useEffect(() => {
@@ -69,6 +106,9 @@ const PortfolioEntry = ({
         return <Link2 className="w-4 h-4" />;
       case 'file':
         return <Upload className="w-4 h-4" />;
+      case 'unified':
+      case 'combined':
+        return <FileText className="w-4 h-4" />;
       default:
         return <FileText className="w-4 h-4" />;
     }
@@ -85,15 +125,44 @@ const PortfolioEntry = ({
     });
   };
 
-  // Get preview content
+  // Get preview content - simplified without text preview
   const getPreviewContent = () => {
-    if (entry.type === 'text' || entry.type === 'combined') {
-      // Strip HTML tags and truncate
-      const stripped = entry.content?.replace(/<[^>]*>/g, '') || '';
-      return stripped.length > 150 ? `${stripped.substring(0, 150)}...` : stripped;
+    if (entry.files?.length > 0) {
+      if (entry.type === 'image') return `${entry.files.length} image${entry.files.length > 1 ? 's' : ''}`;
+      if (entry.type === 'video') return `${entry.files.length} video${entry.files.length > 1 ? 's' : ''}`;
+      return `${entry.files.length} file${entry.files.length > 1 ? 's' : ''}`;
+    }
+    if (entry.reflections) {
+      return 'Contains reflections';
+    }
+    if (entry.content) {
+      return 'Contains content';
     }
     return '';
   };
+
+  // Render HTML content with Quill styles
+  const renderHTMLContent = (content) => {
+    if (!content) return null;
+
+    // Use Quill's own classes to properly display formatted content
+    // This ensures ql-indent-* classes and other Quill formatting work correctly
+    return (
+      <div className="ql-snow">
+        <div
+          className="ql-editor"
+          dangerouslySetInnerHTML={{ __html: content }}
+          style={{
+            padding: '12px 15px',
+            minHeight: 'auto',
+            fontSize: '14px',
+            lineHeight: '1.6'
+          }}
+        />
+      </div>
+    );
+  };
+
 
   // Count total tags
   const getTotalTagCount = () => {
@@ -103,340 +172,225 @@ const PortfolioEntry = ({
     return activities + assessments + resources;
   };
 
-  // Grid View Card
-  const GridCard = () => (
-    <Card className="group hover:shadow-lg transition-shadow duration-200">
-      {/* Card Header */}
-      <div className="p-4 border-b">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-3 flex-1">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              {getTypeIcon()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-gray-900 truncate">
-                {entry.title}
-                {entry.quickAdd && (
-                  <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-700">
-                    <Zap className="w-3 h-3 mr-1" />
-                    Quick Add
-                  </Badge>
-                )}
-              </h3>
-              <p className="text-sm text-gray-500 flex items-center mt-1">
-                <Calendar className="w-3 h-3 mr-1" />
-                {formatDate(entry.date)}
-              </p>
-            </div>
-          </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowPreview(true)}>
-                <Eye className="w-4 h-4 mr-2" />
-                Preview
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onEdit}>
-                <Edit2 className="w-4 h-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+  // Handle tag updates
+  const handleTagUpdate = async (newTags) => {
+    setUpdatingTags(true);
+    try {
+      await onUpdate({ tags: newTags });
+    } catch (error) {
+      console.error('Error updating tags:', error);
+    } finally {
+      setUpdatingTags(false);
+    }
+  };
 
-      {/* Card Body */}
-      <div className="p-4">
-        {/* Preview Content */}
+  // Expanded view for presentation mode
+  if (viewMode === 'expanded') {
+    // In expanded mode, show full content directly without accordion
+    return (
+      <div className="space-y-6 p-6">
+        {/* Title and metadata */}
+        <div className="border-b pb-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{entry.title}</h2>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              {formatDate(entry.date)}
+            </span>
+            {entry.quickAdd && (
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
+                <Zap className="w-3 h-3 mr-1" />
+                Quick Add
+              </Badge>
+            )}
+            {getTotalTagCount() > 0 && (
+              <span className="flex items-center gap-1">
+                <Tag className="w-4 h-4" />
+                {getTotalTagCount()} tags
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Content based on type */}
         {entry.type === 'image' && entry.files?.length > 0 && (
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            {entry.files.slice(0, 4).map((file, index) => (
-              <div
-                key={index}
-                className="aspect-square bg-gray-100 rounded overflow-hidden cursor-pointer"
-                onClick={() => {
-                  setCurrentImageIndex(index);
-                  setShowPreview(true);
-                }}
-              >
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform"
-                />
-              </div>
-            ))}
-            {entry.files.length > 4 && (
-              <div className="aspect-square bg-gray-100 rounded flex items-center justify-center text-gray-600">
-                +{entry.files.length - 4} more
+          <div className="space-y-4">
+            <img
+              src={entry.files[currentImageIndex]?.url}
+              alt={entry.files[currentImageIndex]?.name}
+              className="w-full rounded-lg shadow-lg"
+            />
+            {entry.files.length > 1 && (
+              <div className="flex justify-center gap-2">
+                {entry.files.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentImageIndex ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
               </div>
             )}
           </div>
         )}
 
         {entry.type === 'video' && entry.files?.length > 0 && (
-          <div className="mb-3">
-            <div className="aspect-video bg-black rounded overflow-hidden">
-              <video
-                src={entry.files[0].url}
-                className="w-full h-full"
-                controls
-                preload="metadata"
-              />
-            </div>
+          <div className="relative rounded-lg overflow-hidden bg-black">
+            <video
+              ref={videoRef}
+              src={entry.files[0]?.url}
+              className="w-full"
+              controls
+            />
           </div>
         )}
 
-        {(entry.type === 'text' || entry.type === 'combined') && entry.content && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-3">
-            {getPreviewContent()}
-          </p>
-        )}
-
-        {entry.type === 'file' && entry.files?.length > 0 && (
-          <div className="mb-3 space-y-1">
-            {entry.files.slice(0, 3).map((file, index) => (
-              <div key={index} className="flex items-center text-sm text-gray-600">
-                <Upload className="w-3 h-3 mr-2" />
-                <span className="truncate">{file.name}</span>
-              </div>
-            ))}
-            {entry.files.length > 3 && (
-              <p className="text-sm text-gray-500">
-                +{entry.files.length - 3} more files
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Tags */}
-        {getTotalTagCount() > 0 && (
-          <div className="flex items-center space-x-2 mb-3">
-            <Tag className="w-3 h-3 text-gray-400" />
-            <div className="flex flex-wrap gap-1">
-              {entry.tags?.activities?.slice(0, 2).map((tag, index) => (
-                <span key={index} className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                  {tag}
-                </span>
-              ))}
-              {entry.tags?.assessments?.slice(0, 1).map((tag, index) => (
-                <span key={index} className="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                  {tag}
-                </span>
-              ))}
-              {getTotalTagCount() > 3 && (
-                <span className="text-xs text-gray-500">
-                  +{getTotalTagCount() - 3} more
-                </span>
-              )}
-            </div>
+        {entry.content && (
+          <div className="bg-white rounded-lg">
+            {renderHTMLContent(entry.content)}
           </div>
         )}
 
         {/* Reflections */}
         {entry.reflections && (
-          <div className="flex items-start space-x-2">
-            <MessageSquare className="w-3 h-3 text-gray-400 mt-0.5" />
-            <p className="text-xs text-gray-600 line-clamp-2">
-              {entry.reflections}
-            </p>
+          <div className="bg-purple-50 rounded-lg p-6">
+            <h3 className="font-semibold text-purple-900 mb-2">Reflections</h3>
+            <p className="text-gray-700">{entry.reflections}</p>
+          </div>
+        )}
+
+        {/* Tags */}
+        {getTotalTagCount() > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {entry.tags?.activities?.map((tag, i) => (
+              <Badge key={`a-${i}`} className="bg-blue-100 text-blue-700">
+                {tag}
+              </Badge>
+            ))}
+            {entry.tags?.assessments?.map((tag, i) => (
+              <Badge key={`as-${i}`} className="bg-green-100 text-green-700">
+                {tag}
+              </Badge>
+            ))}
+            {entry.tags?.resources?.map((tag, i) => (
+              <Badge key={`r-${i}`} className="bg-purple-100 text-purple-700">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Comments */}
+        {onCreateComment && (
+          <div className="border-t pt-6">
+            <PortfolioComments
+              entryId={entry.id}
+              comments={comments}
+              loadingComments={loadingComments}
+              onCreateComment={onCreateComment}
+              onUpdateComment={onUpdateComment}
+              onDeleteComment={onDeleteComment}
+              collapsed={false}
+              onToggle={setShowComments}
+              commentCount={entry.commentCount || 0}
+            />
           </div>
         )}
       </div>
+    );
+  }
 
-      {/* Card Footer */}
-      <div className="px-4 py-2 bg-gray-50 border-t flex items-center justify-between">
-        <div className="flex items-center space-x-3 text-xs text-gray-500">
-          {entry.files?.length > 0 && (
-            <span>{entry.files.length} file{entry.files.length > 1 ? 's' : ''}</span>
-          )}
-          {entry.commentCount > 0 && (
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className="flex items-center gap-1 hover:text-gray-700"
-            >
-              <MessageSquare className="w-3 h-3" />
-              {entry.commentCount}
-            </button>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowPreview(true)}
-          className="text-xs"
-        >
-          View Details
-        </Button>
-      </div>
-
-      {/* Comments Section */}
-      {showComments && onCreateComment && (
-        <div className="border-t">
-          <PortfolioComments
-            entryId={entry.id}
-            comments={comments}
-            loadingComments={loadingComments}
-            onCreateComment={onCreateComment}
-            onUpdateComment={onUpdateComment}
-            onDeleteComment={onDeleteComment}
-            collapsed={false}
-            onToggle={setShowComments}
-            commentCount={entry.commentCount || 0}
-          />
-        </div>
-      )}
-    </Card>
-  );
-
-  // List View Row
-  const ListRow = () => (
-    <Card className="group hover:shadow-md transition-shadow duration-200">
-      <div className="p-4 flex items-center space-x-4">
-        {/* Type Icon */}
-        <div className="p-2 bg-gray-100 rounded-lg">
-          {getTypeIcon()}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">
-                {entry.title}
-              </h3>
-              <div className="flex items-center space-x-4 mt-1">
-                <p className="text-sm text-gray-500 flex items-center">
-                  <Calendar className="w-3 h-3 mr-1" />
-                  {formatDate(entry.date)}
-                </p>
-                {getTotalTagCount() > 0 && (
-                  <p className="text-sm text-gray-500 flex items-center">
-                    <Tag className="w-3 h-3 mr-1" />
-                    {getTotalTagCount()} tag{getTotalTagCount() > 1 ? 's' : ''}
-                  </p>
-                )}
-                {entry.files?.length > 0 && (
-                  <p className="text-sm text-gray-500">
-                    {entry.files.length} file{entry.files.length > 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowPreview(true)}
-              >
-                <Eye className="w-4 h-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onEdit}>
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-
-  // Full Preview Modal
-  const PreviewModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center space-x-3">
+  // Main accordion-based display
+  return (
+    <AccordionItem value={entry.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+      <AccordionTrigger className="hover:no-underline">
+        <div className="flex items-center justify-between w-full pr-4">
+          <div className="flex items-center gap-4">
+            {/* Type Icon */}
             <div className="p-2 bg-gray-100 rounded-lg">
               {getTypeIcon()}
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+
+            {/* Title and Preview */}
+            <div className="text-left">
+              <h3 className="font-medium text-gray-900 mb-1">
                 {entry.title}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {formatDate(entry.date)}
+                {entry.quickAdd && (
+                  <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-700 text-xs">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Quick
+                  </Badge>
+                )}
+              </h3>
+              <p className="text-sm text-gray-500 line-clamp-1">
+                {getPreviewContent()}
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowPreview(false)}
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Image Gallery */}
+          {/* Metadata */}
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatDate(entry.date)}
+            </span>
+            {getTotalTagCount() > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {getTotalTagCount()} tags
+              </Badge>
+            )}
+            {entry.files?.length > 0 && (
+              <Badge variant="outline" className="text-xs">
+                <Paperclip className="w-3 h-3 mr-1" />
+                {entry.files.length}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </AccordionTrigger>
+
+      <AccordionContent>
+        <div className="px-6 pb-6 space-y-4">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 pb-4 border-b">
+            <PortfolioShareButton
+              entry={entry}
+              familyId={familyId}
+              onUpdate={onUpdate}
+              buttonSize="sm"
+              buttonVariant="outline"
+            />
+            {onEdit && (
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="outline" size="sm" onClick={onDelete} className="text-red-600 hover:text-red-700">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            )}
+          </div>
+
+          {/* Content based on type */}
           {entry.type === 'image' && entry.files?.length > 0 && (
-            <div className="mb-6">
-              <div className="relative">
-                <img
-                  src={entry.files[currentImageIndex].url}
-                  alt={entry.files[currentImageIndex].name}
-                  className="w-full rounded-lg"
-                />
-                {entry.files.length > 1 && (
-                  <>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="absolute left-2 top-1/2 -translate-y-1/2"
-                      onClick={() => setCurrentImageIndex((prev) => 
-                        prev === 0 ? entry.files.length - 1 : prev - 1
-                      )}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      onClick={() => setCurrentImageIndex((prev) => 
-                        prev === entry.files.length - 1 ? 0 : prev + 1
-                      )}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
+            <div className="space-y-4">
+              <img
+                src={entry.files[currentImageIndex]?.url}
+                alt={entry.files[currentImageIndex]?.name}
+                className="w-full rounded-lg shadow-lg max-h-[600px] object-contain"
+              />
               {entry.files.length > 1 && (
-                <div className="mt-3 flex justify-center space-x-2">
+                <div className="flex justify-center gap-2">
                   {entry.files.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full ${
+                      className={`w-2 h-2 rounded-full transition-colors ${
                         index === currentImageIndex ? 'bg-purple-600' : 'bg-gray-300'
                       }`}
                     />
@@ -446,329 +400,135 @@ const PortfolioEntry = ({
             </div>
           )}
 
-          {/* Video Player */}
           {entry.type === 'video' && entry.files?.length > 0 && (
-            <div className="mb-6">
+            <div className="relative rounded-lg overflow-hidden bg-black">
               <video
-                src={entry.files[0].url}
-                className="w-full rounded-lg"
+                ref={videoRef}
+                src={entry.files[0]?.url}
+                className="w-full"
                 controls
               />
             </div>
           )}
 
-          {/* Text Content */}
           {entry.content && (
-            <div className="mb-6">
-              <h3 className="font-medium text-gray-900 mb-2">Content</h3>
-              <div 
-                className="prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: entry.content }}
-              />
-            </div>
-          )}
-
-          {/* File List */}
-          {entry.type === 'file' && entry.files?.length > 0 && (
-            <div className="mb-6">
-              <h3 className="font-medium text-gray-900 mb-2">Files</h3>
-              <div className="space-y-2">
-                {entry.files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Upload className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-                    <a
-                      href={file.url}
-                      download
-                      className="text-purple-600 hover:text-purple-700"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {getTotalTagCount() > 0 && (
-            <div className="mb-6">
-              <h3 className="font-medium text-gray-900 mb-2">Tags</h3>
-              <div className="space-y-2">
-                {entry.tags?.activities?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Activities</p>
-                    <div className="flex flex-wrap gap-2">
-                      {entry.tags.activities.map((tag, index) => (
-                        <span key={index} className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {entry.tags?.assessments?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Assessments</p>
-                    <div className="flex flex-wrap gap-2">
-                      {entry.tags.assessments.map((tag, index) => (
-                        <span key={index} className="inline-block px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {entry.tags?.resources?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Resources</p>
-                    <div className="flex flex-wrap gap-2">
-                      {entry.tags.resources.map((tag, index) => (
-                        <span key={index} className="inline-block px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="bg-gray-50 rounded-lg p-6">
+              {renderHTMLContent(entry.content)}
             </div>
           )}
 
           {/* Reflections */}
           {entry.reflections && (
-            <div>
-              <h3 className="font-medium text-gray-900 mb-2">Reflections</h3>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-700">{entry.reflections}</p>
-              </div>
+            <div className="bg-purple-50 rounded-lg p-4">
+              <h4 className="font-semibold text-purple-900 mb-2">Reflections</h4>
+              <p className="text-gray-700">{entry.reflections}</p>
             </div>
           )}
-        </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-end space-x-2 p-6 border-t">
-          <Button variant="outline" onClick={onEdit}>
-            <Edit2 className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-          <Button variant="outline" onClick={onDelete} className="text-red-600">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Presentation Mode Card - Beautiful display for showcasing
-  const PresentationCard = () => (
-    <div className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 bg-white">
-      {/* Image Type - Full Image Display */}
-      {entry.type === 'image' && entry.files?.length > 0 && (
-        <div 
-          className="aspect-[4/3] overflow-hidden cursor-pointer"
-          onClick={() => setShowPreview(true)}
-        >
-          <img
-            src={entry.files[0].url}
-            alt={entry.title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <h3 className="text-2xl font-bold mb-2">{entry.title}</h3>
-              <p className="text-sm opacity-90">{formatDate(entry.date)}</p>
-            </div>
-          </div>
-          {entry.files.length > 1 && (
-            <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-              +{entry.files.length - 1} more
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Video Type - Video Thumbnail */}
-      {entry.type === 'video' && entry.files?.length > 0 && (
-        <div 
-          className="aspect-video bg-black relative cursor-pointer group"
-          onClick={() => setShowPreview(true)}
-        >
-          <video
-            src={entry.files[0].url}
-            className="w-full h-full object-cover"
-            preload="metadata"
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-              <Video className="w-8 h-8 text-gray-800 ml-1" />
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-            <h3 className="text-xl font-bold">{entry.title}</h3>
-            <p className="text-sm opacity-90 mt-1">{formatDate(entry.date)}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Text Type - Beautiful Typography */}
-      {entry.type === 'text' && (
-        <div 
-          className="p-8 cursor-pointer min-h-[300px] flex flex-col"
-          onClick={() => setShowPreview(true)}
-        >
-          <div className="mb-4">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4">
-              <FileText className="w-6 h-6 text-purple-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2 line-clamp-2">
-              {entry.title}
-            </h3>
-            <p className="text-sm text-gray-500">{formatDate(entry.date)}</p>
-          </div>
-          
-          <div className="flex-1">
-            <div 
-              className="text-gray-600 line-clamp-6 prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ 
-                __html: entry.content?.substring(0, 300) + '...' || '' 
-              }}
-            />
-          </div>
-
-          {/* Tags in presentation mode */}
+          {/* Tags */}
           {getTotalTagCount() > 0 && (
-            <div className="mt-4 pt-4 border-t">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-900">Tags</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTagSheet(true)}
+                >
+                  <Edit2 className="w-3 h-3 mr-1" />
+                  Edit Tags
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {entry.tags?.activities?.slice(0, 2).map((tag, index) => (
-                  <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">
-                    {tag.replace(/_/g, ' ')}
-                  </span>
+                {entry.tags?.activities?.map((tag, i) => (
+                  <Badge key={`a-${i}`} className="bg-blue-100 text-blue-700">
+                    {tag}
+                  </Badge>
                 ))}
-                {entry.tags?.assessments?.slice(0, 1).map((tag, index) => (
-                  <span key={index} className="px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full font-medium">
-                    {tag.replace(/_/g, ' ')}
-                  </span>
+                {entry.tags?.assessments?.map((tag, i) => (
+                  <Badge key={`as-${i}`} className="bg-green-100 text-green-700">
+                    {tag}
+                  </Badge>
+                ))}
+                {entry.tags?.resources?.map((tag, i) => (
+                  <Badge key={`r-${i}`} className="bg-purple-100 text-purple-700">
+                    {tag}
+                  </Badge>
                 ))}
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* File Type - Document Display */}
-      {entry.type === 'file' && (
-        <div 
-          className="p-8 cursor-pointer"
-          onClick={() => setShowPreview(true)}
-        >
-          <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Upload className="w-8 h-8 text-gray-600" />
+          {/* Comments */}
+          {onCreateComment && (
+            <div className="border-t pt-4">
+              <PortfolioComments
+                entryId={entry.id}
+                comments={comments}
+                loadingComments={loadingComments}
+                onCreateComment={onCreateComment}
+                onUpdateComment={onUpdateComment}
+                onDeleteComment={onDeleteComment}
+                collapsed={false}
+                onToggle={setShowComments}
+                commentCount={entry.commentCount || 0}
+              />
             </div>
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {entry.title}
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">{formatDate(entry.date)}</p>
-              
-              <div className="space-y-2">
-                {entry.files?.slice(0, 3).map((file, index) => (
-                  <div key={index} className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded">
-                    <Paperclip className="w-4 h-4 mr-2 text-gray-400" />
-                    <span className="truncate">{file.name}</span>
-                  </div>
-                ))}
-                {entry.files?.length > 3 && (
-                  <p className="text-sm text-gray-500 pl-3">
-                    +{entry.files.length - 3} more files
-                  </p>
+          )}
+        </div>
+      </AccordionContent>
+
+      {/* Tag Editor Sheet */}
+      <Sheet open={showTagSheet} onOpenChange={setShowTagSheet}>
+        <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>Edit Tags</SheetTitle>
+            <SheetDescription>
+              Update tags for this portfolio entry
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            <PortfolioTagSelector
+              selectedTags={entry.tags || { activities: [], assessments: [], resources: [] }}
+              onChange={handleTagUpdate}
+              activities={activities}
+              assessments={assessments}
+              resources={resources}
+              activityDescriptions={activityDescriptions}
+              assessmentDescriptions={assessmentDescriptions}
+              resourceDescriptions={resourceDescriptions}
+              getTagSuggestions={getTagSuggestions}
+              customActivities={customActivities}
+              customAssessments={customAssessments}
+              customResources={customResources}
+              content={entry.content || entry.title}
+              compact={false}
+            />
+            <div className="mt-4 pt-4 border-t flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowTagSheet(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => setShowTagSheet(false)}
+                disabled={updatingTags}
+              >
+                {updatingTags ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Done'
                 )}
-              </div>
+              </Button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Combined/Mixed Type */}
-      {entry.type === 'combined' && (
-        <div className="cursor-pointer" onClick={() => setShowPreview(true)}>
-          {entry.files?.length > 0 && entry.files[0].type?.includes('image') && (
-            <div className="aspect-[16/9] overflow-hidden">
-              <img
-                src={entry.files[0].url}
-                alt={entry.title}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-              />
-            </div>
-          )}
-          <div className="p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">{entry.title}</h3>
-            <p className="text-sm text-gray-500 mb-3">{formatDate(entry.date)}</p>
-            {entry.content && (
-              <div 
-                className="text-gray-600 line-clamp-3 prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: getPreviewContent() }}
-              />
-            )}
-            {entry.files?.length > 0 && (
-              <div className="mt-3 flex items-center text-sm text-gray-500">
-                <Paperclip className="w-4 h-4 mr-1" />
-                {entry.files.length} attachment{entry.files.length > 1 ? 's' : ''}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Reflection Badge - Shows if has reflections */}
-      {entry.reflections && (
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-purple-700 shadow-lg">
-          <MessageSquare className="w-3 h-3 inline mr-1" />
-          Reflection
-        </div>
-      )}
-
-      {/* Hover Actions - Subtle in presentation mode */}
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <Button
-          variant="default"
-          size="sm"
-          className="bg-white/90 backdrop-blur-sm text-gray-700 hover:bg-white shadow-lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowPreview(true);
-          }}
-        >
-          <Eye className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-
-  // Choose which view to render
-  if (viewMode === 'presentation' || isPresentationMode) {
-    return (
-      <>
-        <PresentationCard />
-        {showPreview && <PreviewModal />}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {viewMode === 'grid' ? <GridCard /> : <ListRow />}
-      {showPreview && <PreviewModal />}
-    </>
+        </SheetContent>
+      </Sheet>
+    </AccordionItem>
   );
 };
 

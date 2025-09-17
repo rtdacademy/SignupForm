@@ -17,6 +17,8 @@ import FundingPage from '../RTDConnect/pages/FundingPage';
 import BioPage from '../RTDConnect/pages/BioPage';
 import MultiActionAuthHandler from '../MultiActionAuthHandler';
 import FlowChartPrerequisites from '../components/PrerequisiteFlowChart/FlowChartPrerequisites';
+import PublicPortfolioEntry from '../PortfolioManager/components/PublicPortfolioEntry';
+import PublicPortfolioView from '../PortfolioManager/components/PublicPortfolioView';
 
 // Legal page imports
 import PrivacyStatement from '../legal/PrivacyStatement';
@@ -48,6 +50,10 @@ function RTDConnectApp() {
         <Route path="/facilitator/golda-david" element={<FacilitatorProfile1 />} />
         <Route path="/facilitator/marian-johnson" element={<FacilitatorProfile2 />} />
         <Route path="/facilitator/grace-anne-post" element={<FacilitatorProfile3 />} />
+
+        {/* Public portfolio viewers */}
+        <Route path="/portfolio/:familyId/:entryId" element={<PublicPortfolioEntry />} />
+        <Route path="/portfolio/:familyId/course/:courseId" element={<PublicPortfolioView />} />
         <Route path="/facilitator/elise" element={<FacilitatorProfile4 />} />
         <Route path="/facilitator/kari-luther" element={<FacilitatorProfile5 />} />
         

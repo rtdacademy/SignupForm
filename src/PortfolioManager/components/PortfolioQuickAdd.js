@@ -48,6 +48,9 @@ const PortfolioQuickAdd = ({
   assessmentDescriptions = {},
   resourceDescriptions = {},
   getTagSuggestions,
+  customActivities = [],
+  customAssessments = [],
+  customResources = [],
   preselectedStructureId = null
 }) => {
   const { user } = useAuth();
@@ -158,15 +161,15 @@ const PortfolioQuickAdd = ({
         const hasVideos = files.some(f => f.type.startsWith('video/'));
         const hasDocs = files.some(f => !f.type.startsWith('image/') && !f.type.startsWith('video/'));
         
-        if (hasImages && !hasVideos && !hasDocs) {
-          finalEntryType = 'image';
-        } else if (hasVideos && !hasImages && !hasDocs) {
-          finalEntryType = 'video';
-        } else if (hasDocs && !hasImages && !hasVideos) {
-          finalEntryType = 'file';
-        } else {
-          finalEntryType = 'combined';
-        }
+      if (hasImages && !hasVideos && !hasDocs) {
+        finalEntryType = 'image';
+      } else if (hasVideos && !hasImages && !hasDocs) {
+        finalEntryType = 'video';
+      } else if (hasDocs && !hasImages && !hasVideos) {
+        finalEntryType = 'file';
+      } else {
+        finalEntryType = 'file';
+      }
       }
 
       // Create entry data
@@ -420,6 +423,9 @@ const PortfolioQuickAdd = ({
                   getTagSuggestions={getTagSuggestions}
                   content={description || title}
                   compact={true}
+                  customActivities={customActivities}
+                  customAssessments={customAssessments}
+                  customResources={customResources}
                 />
               </div>
             )}

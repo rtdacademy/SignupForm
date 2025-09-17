@@ -447,7 +447,7 @@ const SimpleQuillEditor = forwardRef(({
             onChange={handleContentChange}
             modules={disabled ? {} : modules} // Disable modules when disabled
             readOnly={disabled} // Make read-only when disabled
-            placeholder={disabled ? "" : "Start creating your content..."}
+            placeholder={disabled ? "" : "Start adding your content..."}
             className={`h-full overflow-visible [&_.ql-editor]:max-h-[65vh] [&_.ql-editor]:overflow-y-auto ${
               disabled ? 'opacity-70 pointer-events-none' : ''
             }`}

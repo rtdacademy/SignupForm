@@ -3,7 +3,7 @@ import { getDatabase, ref, onValue, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
-import { 
+import {
   X,
   User,
   CreditCard,
@@ -19,7 +19,8 @@ import {
   Package,
   ChevronRight,
   Database,
-  Cloud
+  Cloud,
+  Link
 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import {
@@ -41,6 +42,10 @@ const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
   const [paymentSummary, setPaymentSummary] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [subscriptionIdToLink, setSubscriptionIdToLink] = useState('');
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkStatus, setLinkStatus] = useState('');
 
   useEffect(() => {
     if (!isOpen) {
@@ -461,6 +466,45 @@ const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
     }
   };
 
+  const handleLinkSubscription = async () => {
+    if (!subscriptionIdToLink.trim()) {
+      setLinkStatus('Error: Please enter a subscription ID');
+      return;
+    }
+
+    setIsLinking(true);
+    setLinkStatus('');
+
+    try {
+      const functions = getFunctions();
+      const linkSubscription = httpsCallable(functions, 'linkStripeSubscriptionV2');
+
+      const result = await linkSubscription({
+        studentEmail: student.email,
+        courseId: '2', // Default to Physics 20 for now
+        subscriptionId: subscriptionIdToLink.trim()
+      });
+
+      if (result.data.success) {
+        setLinkStatus(`Success! Linked subscription with ${result.data.paymentCount || 0} payments found.`);
+        // Reload Stripe data to show the new subscription
+        setTimeout(() => {
+          loadStripeData();
+          setShowLinkModal(false);
+          setSubscriptionIdToLink('');
+          setLinkStatus('');
+        }, 2000);
+      } else {
+        setLinkStatus(`Error: ${result.data.message || 'Failed to link subscription'}`);
+      }
+    } catch (err) {
+      console.error('Error linking subscription:', err);
+      setLinkStatus(`Error: ${err.message || 'An error occurred while linking the subscription'}`);
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'paid':
@@ -803,6 +847,17 @@ const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
               {/* Stripe Tab */}
               {activeTab === 'stripe' && (
                 <div className="space-y-6">
+                  {/* Link Subscription Button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setShowLinkModal(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      <Link className="h-4 w-4" />
+                      Link Stripe Subscription
+                    </button>
+                  </div>
+
                   {stripeLoading ? (
                     <div className="flex flex-col items-center justify-center py-12">
                       <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mb-4" />
@@ -1198,6 +1253,72 @@ const StudentPaymentDetails = ({ student, schoolYear, isOpen, onClose }) => {
             </>
           )}
         </div>
+
+        {/* Link Subscription Modal */}
+        {showLinkModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="px-6 py-4 border-b">
+                <h3 className="text-lg font-semibold">Link Stripe Subscription</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manually link a Stripe subscription to this student
+                </p>
+              </div>
+
+              <div className="px-6 py-4">
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="subscription-id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Subscription ID
+                    </label>
+                    <input
+                      id="subscription-id"
+                      type="text"
+                      value={subscriptionIdToLink}
+                      onChange={(e) => setSubscriptionIdToLink(e.target.value)}
+                      placeholder="sub_..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the Stripe subscription ID (starts with sub_)
+                    </p>
+                  </div>
+
+                  {linkStatus && (
+                    <div className={`p-3 rounded-md ${
+                      linkStatus.includes('Error') ? 'bg-red-50 text-red-700' :
+                      linkStatus.includes('Success') ? 'bg-green-50 text-green-700' :
+                      'bg-blue-50 text-blue-700'
+                    }`}>
+                      {linkStatus}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowLinkModal(false);
+                    setSubscriptionIdToLink('');
+                    setLinkStatus('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={isLinking}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLinkSubscription}
+                  disabled={!subscriptionIdToLink.trim() || isLinking}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLinking ? 'Linking...' : 'Link Subscription'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">

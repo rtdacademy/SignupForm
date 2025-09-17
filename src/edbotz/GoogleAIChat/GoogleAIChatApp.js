@@ -289,13 +289,87 @@ import {
 // Helper function to extract YouTube video ID
 const extractYouTubeVideoId = (url) => {
   if (!url) return null;
-  
+
   // Regular expression to match YouTube video IDs from various URL formats
   const regExp = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/)|(?:(?:watch)?\?v(?:i)?=|&v(?:i)?=))([^#&?]*).*/;
   const match = url.match(regExp);
-  
+
   return (match && match[1].length === 11) ? match[1] : null;
 };
+
+// Component for displaying message starters - Memoized to prevent re-renders
+const MessageStarters = React.memo(({ starters, onSelect, isDisabled }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const containerRef = useRef(null);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+
+  useEffect(() => {
+    const checkHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.scrollHeight;
+        setNeedsExpansion(height > 80); // Approximately 2 rows
+      }
+    };
+
+    checkHeight();
+    window.addEventListener('resize', checkHeight);
+    return () => window.removeEventListener('resize', checkHeight);
+  }, [starters]);
+
+  if (!starters || starters.length === 0) return null;
+
+  return (
+    <div className="w-full">
+      <div className="text-xs font-medium text-gray-500 mb-2 flex items-center">
+        <Sparkles className="w-3 h-3 mr-1" />
+        Conversation Starters
+      </div>
+      <div
+        ref={containerRef}
+        className={cn(
+          "flex flex-wrap gap-2",
+          !isExpanded && "max-h-[80px] overflow-hidden"
+        )}
+      >
+        {starters.map((starter, index) => (
+          <Button
+            key={index}
+            variant="outline"
+            size="sm"
+            className="whitespace-normal text-left h-auto py-2 px-3 hover:bg-purple-50 hover:border-purple-300 text-sm"
+            onClick={() => onSelect(starter)}
+            disabled={isDisabled}
+          >
+            {starter}
+          </Button>
+        ))}
+      </div>
+
+      {needsExpansion && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4 mr-2" />
+              Show Less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4 mr-2" />
+              Show More
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  );
+});
+
+MessageStarters.displayName = 'MessageStarters';
 
 // Get file icon based on mime type or extension
 const getFileIcon = (file) => {
@@ -2726,77 +2800,7 @@ const GoogleAIChatApp = ({
     );
   };
 
-  // Component for displaying message starters
-  const MessageStarters = ({ starters, onSelect, isDisabled }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const containerRef = useRef(null);
-    const [needsExpansion, setNeedsExpansion] = useState(false);
-
-    useEffect(() => {
-      const checkHeight = () => {
-        if (containerRef.current) {
-          const height = containerRef.current.scrollHeight;
-          setNeedsExpansion(height > 80); // Approximately 2 rows
-        }
-      };
-
-      checkHeight();
-      window.addEventListener('resize', checkHeight);
-      return () => window.removeEventListener('resize', checkHeight);
-    }, [starters]);
-
-    if (!starters || starters.length === 0) return null;
-
-    return (
-      <div className="w-full">
-        <div className="text-xs font-medium text-gray-500 mb-2 flex items-center">
-          <Sparkles className="w-3 h-3 mr-1" />
-          Conversation Starters
-        </div>
-        <div
-          ref={containerRef}
-          className={cn(
-            "flex flex-wrap gap-2",
-            !isExpanded && "max-h-[80px] overflow-hidden"
-          )}
-        >
-          {starters.map((starter, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="sm"
-              className="whitespace-normal text-left h-auto py-2 px-3 hover:bg-purple-50 hover:border-purple-300 text-sm"
-              onClick={() => onSelect(starter)}
-              disabled={isDisabled}
-            >
-              {starter}
-            </Button>
-          ))}
-        </div>
-
-        {needsExpansion && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="w-4 h-4 mr-2" />
-                Show Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4 mr-2" />
-                Show More
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-    );
-  };
+  // Component definition moved outside and memoized - see top of file
 
   // Handle message starter selection
   const handleStarterSelect = useCallback((text) => {

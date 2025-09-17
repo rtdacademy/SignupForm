@@ -25,6 +25,7 @@ const MultiActionAuthHandler = lazy(() => import('../MultiActionAuthHandler'));
 // Lazy load public forms
 const ContractorInvoiceForm = lazy(() => import('../PublicForms/ContractorInvoiceForm'));
 const AdultStudentInfo = lazy(() => import('../Website/AdultStudentInfo'));
+const StudentFAQ = lazy(() => import('../Website/StudentFAQ'));
 
 // Lazy load schedule components
 const ScheduleMaker = lazy(() => import('../Schedule/ScheduleMaker'));
@@ -70,6 +71,8 @@ const RegistrarDashboard = lazy(() => import('../HomeEducation/RegistrarDashboar
 const PrivacyStatement = lazy(() => import('../legal/PrivacyStatement'));
 const TermsAndConditions = lazy(() => import('../legal/TermsAndConditions'));
 const FlowChartPrerequisites = lazy(() => import('../components/PrerequisiteFlowChart/FlowChartPrerequisites'));
+const PublicPortfolioEntry = lazy(() => import('../PortfolioManager/components/PublicPortfolioEntry'));
+const PublicPortfolioView = lazy(() => import('../PortfolioManager/components/PublicPortfolioView'));
 
 // Firebase app import - keep this as is since it's needed for initialization
 import app from '../firebase';
@@ -356,6 +359,19 @@ function MainApp() {
           </PublicRoute>
         } />
 
+        {/* Public portfolio viewers */}
+        <Route path="/portfolio/:familyId/:entryId" element={
+          <PublicRoute>
+            <PublicPortfolioEntry />
+          </PublicRoute>
+        } />
+
+        <Route path="/portfolio/:familyId/course/:courseId" element={
+          <PublicRoute>
+            <PublicPortfolioView />
+          </PublicRoute>
+        } />
+
         {/* Public forms */}
         <Route path="/contractor-invoice" element={
           <PublicRoute>
@@ -366,6 +382,12 @@ function MainApp() {
         <Route path="/adult-students" element={
           <PublicRoute>
             <AdultStudentInfo />
+          </PublicRoute>
+        } />
+
+        <Route path="/student-faq" element={
+          <PublicRoute>
+            <StudentFAQ />
           </PublicRoute>
         } />
 

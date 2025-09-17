@@ -396,10 +396,29 @@ const useResponsiveBreakpoint = () => {
 // Format dates for responsive display
 const formatDateResponsive = (date, breakpoint = 'lg') => {
   if (!isValidDateValue(date)) return 'N/A';
-  
-  const dateObj = new Date(date);
+
+  let dateObj;
+
+  // Check if it's an ISO string with timezone (contains 'T' and ends with 'Z')
+  // These dates are already correct and should just have the date portion extracted
+  if (typeof date === 'string' && date.includes('T') && date.endsWith('Z')) {
+    // Extract just the date portion and create a date object without timezone conversion
+    const [datePart] = date.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    dateObj = new Date(year, month - 1, day);
+  }
+  // Check if it's a YYYY-MM-DD format string
+  else if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    // Parse the date components directly to avoid timezone conversion
+    const [year, month, day] = date.split('-').map(Number);
+    dateObj = new Date(year, month - 1, day);
+  }
+  else {
+    dateObj = new Date(date);
+  }
+
   if (isNaN(dateObj.getTime())) return 'N/A';
-  
+
   switch (breakpoint) {
     case 'sm':
       return dateObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
@@ -457,22 +476,22 @@ const formatStatusResponsive = (status, breakpoint = 'lg') => {
 
 // Function to get startDate based on available fields
 const getStartDate = (record) => {
-  // First check createdAt
-  if (record.createdAt && isValidDateValue(record.createdAt)) {
-    return {
-      value: record.createdAt,
-      source: 'createdAt',
-      formatted: typeof record.createdAt === 'string' && !isNaN(Date.parse(record.createdAt))
-    };
-  } 
-  // Then check Created (with capital C)
-  else if (record.Created && isValidDateValue(record.Created)) {
+  // First check Created (with capital C) - this is the primary source for registration date
+  if (record.Created && isValidDateValue(record.Created)) {
     return {
       value: record.Created,
       source: 'Created',
       formatted: false // ISO date string, not a timestamp
     };
-  } 
+  }
+  // Then check createdAt
+  else if (record.createdAt && isValidDateValue(record.createdAt)) {
+    return {
+      value: record.createdAt,
+      source: 'createdAt',
+      formatted: typeof record.createdAt === 'string' && !isNaN(Date.parse(record.createdAt))
+    };
+  }
   // Then check created (with lowercase c)
   else if (record.created && isValidDateValue(record.created)) {
     return {
@@ -480,7 +499,7 @@ const getStartDate = (record) => {
       source: 'created',
       formatted: false // ISO date string, not a timestamp
     };
-  } 
+  }
   // Finally check assignmentDate
   else if (record.assignmentDate && isValidDateValue(record.assignmentDate)) {
     return {
@@ -489,7 +508,7 @@ const getStartDate = (record) => {
       formatted: true // Already formatted correctly
     };
   }
-  
+
   return {
     value: null,
     source: null,
@@ -509,28 +528,35 @@ const formatDate = (dateValue, isFormatted = false) => {
   try {
     // Import from timeZoneUtils.js
     const { toEdmontonDate, toDateString } = require('../utils/timeZoneUtils');
-    
+
     // Check if it's a numeric timestamp (as string or number)
     if (!isNaN(dateValue) && typeof dateValue !== 'object') {
-      const date = toEdmontonDate(new Date(parseInt(dateValue)).toISOString());
+      const date = toEdmontonDate(parseInt(dateValue));
       // Check if valid date
       if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
         return toDateString(date);
       }
       return 'N/A';
     }
-    
-    // If it's a date object or ISO string
+
+    // Check if it's an ISO string with timezone (contains 'T' and ends with 'Z')
+    // These dates are already correct and should just have the date portion extracted
+    if (typeof dateValue === 'string' && dateValue.includes('T') && dateValue.endsWith('Z')) {
+      // Extract just the date portion (YYYY-MM-DD) from the ISO string
+      return dateValue.split('T')[0];
+    }
+
+    // If it's a date object or other ISO string format
     const date = toEdmontonDate(dateValue);
     if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
       return toDateString(date);
     }
-    
+
     // Fallback for strings that may already be formatted
     if (typeof dateValue === 'string' && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return dateValue;
     }
-    
+
     // Fallback
     return 'N/A';
   } catch (error) {
@@ -3936,8 +3962,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                   </TableCell>
                                   
                                   {/* ASN */}
-                                  <TableCell 
-                                    className="p-1 cursor-pointer truncate max-w-14 w-14" 
+                                  <TableCell
+                                    className="p-1 cursor-pointer truncate min-w-20 max-w-24"
                                     onClick={(e) => {
                                       handleCellClickWithSelection(record.asn, "ASN", record, e);
                                     }}
@@ -4141,8 +4167,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                   </TableCell>
                                   
                                   {/* ASN */}
-                                  <TableCell 
-                                    className="p-1 cursor-pointer truncate max-w-14 w-14" 
+                                  <TableCell
+                                    className="p-1 cursor-pointer truncate min-w-20 max-w-24"
                                     onClick={(e) => {
                                       handleCellClickWithSelection(record.asn, "ASN", record, e);
                                     }}
@@ -4187,15 +4213,15 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                   </TableCell>
                                   
                                   {/* Registration Date Cell */}
-                                  <TableCell 
-                                    className="p-1 cursor-pointer truncate min-w-12 max-w-20" 
+                                  <TableCell
+                                    className="p-1 cursor-pointer min-w-10 max-w-16"
                                     onClick={(e) => {
                                       handleCellClickWithSelection(record.startDateFormatted, "Registration Date", record, e);
                                     }}
                                   >
                                     {record.startDateFormatted && record.startDateFormatted !== 'N/A' ? (
-                                      <div 
-                                        className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                                      <div
+                                        className="inline-flex items-center rounded-full px-1 py-0.5 text-xs font-medium"
                                         style={{
                                           backgroundColor: '#dbeafe', // blue-100
                                           color: '#1e40af' // blue-800
@@ -4232,8 +4258,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                     (!customViews.find(view => view.id === activeTab) || 
                                      (customViews.find(view => view.id === activeTab)?.baseDataSource !== 'pasiOnly' && 
                                       customViews.find(view => view.id === activeTab)?.baseDataSource !== 'allPasi'))) && (
-                                    <TableCell 
-                                      className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                                    <TableCell
+                                      className="p-1 cursor-pointer min-w-24"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleCellClick(record.StudentType_Value, "Student Type");
@@ -4243,8 +4269,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                                         (() => {
                                           const { color, icon: IconComponent } = getStudentTypeInfo(record.StudentType_Value);
                                           return (
-                                            <div 
-                                              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
+                                            <div
+                                              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"
                                               style={{
                                                 backgroundColor: `${color}20`, // Add transparency
                                                 color: color,

@@ -46,7 +46,9 @@ import {
   ArchiveRestore,
   EyeOff,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  BarChart,
+  Layers
 } from 'lucide-react';
 import { getIconForSubject } from '../hooks/usePortfolio';
 import Toast from '../../components/Toast';
@@ -79,11 +81,33 @@ const PortfolioSidebar = ({
   const [showNewItemForm, setShowNewItemForm] = useState(false);
   const [newItemParentId, setNewItemParentId] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemType, setNewItemType] = useState('course');
+  const [newItemType, setNewItemType] = useState('portfolio');
   
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverItem, setDragOverItem] = useState(null);
+
+  // Helper function to get valid child types for a parent
+  const getValidChildTypes = (parentType) => {
+    switch (parentType) {
+      case 'portfolio':
+      case 'course':  // Legacy support
+        return ['collection'];
+      case 'collection':
+        return ['entry'];
+      case null:
+      case undefined:
+        return ['portfolio'];
+      default:
+        return [];
+    }
+  };
+
+  // Get the default child type for a parent
+  const getDefaultChildType = (parentType) => {
+    const validTypes = getValidChildTypes(parentType);
+    return validTypes[0] || 'portfolio';
+  };
   
   // Refresh archived items when showing and metadata indicates changes
   useEffect(() => {
@@ -128,8 +152,11 @@ const PortfolioSidebar = ({
     Wrench: Wrench,
     GraduationCap: GraduationCap,
     Folder: Folder,
+    FolderOpen: FolderOpen,
     FileText: FileText,
-    Hash: Hash
+    Hash: Hash,
+    Layers: Layers,
+    BarChart: BarChart
   };
   
   // Get icon component
@@ -141,11 +168,11 @@ const PortfolioSidebar = ({
   const getIconForType = (type) => {
     const iconMap = {
       course: 'BookOpen',
-      subject: 'GraduationCap',
-      module: 'Folder',
-      unit: 'Hash',
+      unit: 'Layers',
+      section: 'FolderOpen',
+      topic: 'Hash',
       lesson: 'FileText',
-      topic: 'Activity'
+      assessment: 'BarChart'
     };
     return iconMap[type] || 'Folder';
   };
@@ -219,6 +246,23 @@ const PortfolioSidebar = ({
   // Create new structure item
   const handleCreateNew = () => {
     if (newItemTitle.trim()) {
+      // Validate parent-child relationship
+      if (newItemParentId) {
+        const parentItem = structure.find(s => s.id === newItemParentId);
+        const validTypes = getValidChildTypes(parentItem?.type);
+
+        if (!validTypes.includes(newItemType)) {
+          alert(`Cannot add ${newItemType} to ${parentItem?.type}. Valid child types are: ${validTypes.join(', ')}`);
+          return;
+        }
+      } else {
+        // Root level - only portfolios allowed
+        if (newItemType !== 'portfolio' && newItemType !== 'course') {
+          alert('Only portfolios can be created at the root level');
+          return;
+        }
+      }
+
       onCreateStructure({
         type: newItemType,
         title: newItemTitle.trim(),
@@ -227,10 +271,10 @@ const PortfolioSidebar = ({
         icon: getIconForType(newItemType),
         color: colorPalette[Math.floor(Math.random() * colorPalette.length)]
       });
-      
+
       setShowNewItemForm(false);
       setNewItemTitle('');
-      setNewItemType('course'); // Reset to course as default
+      setNewItemType('portfolio'); // Reset to portfolio as default
       setNewItemParentId(null);
     }
   };
@@ -270,7 +314,10 @@ const PortfolioSidebar = ({
               transition-all duration-200 mb-1
               ${isSelected ? 'bg-purple-100' : 'hover:bg-gray-100'}
             `}
-            onClick={() => onSelectStructure(item.id)}
+            onClick={() => {
+              console.log('Sidebar: Selecting structure:', { id: item.id, title: item.title });
+              onSelectStructure(item.id);
+            }}
           >
             <div 
               className="w-8 h-8 rounded flex items-center justify-center"
@@ -321,7 +368,12 @@ const PortfolioSidebar = ({
             ${level > 0 ? `ml-${Math.min(level * 4, 12)}` : ''}
           `}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
-          onClick={() => !isEditing && onSelectStructure(item.id)}
+          onClick={() => {
+            if (!isEditing) {
+              console.log('Sidebar: Selecting structure:', { id: item.id, title: item.title });
+              onSelectStructure(item.id);
+            }
+          }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStart(e, item)}
           onDragOver={(e) => handleDragOver(e, item)}
@@ -450,21 +502,23 @@ const PortfolioSidebar = ({
           {/* Inline action buttons */}
           {!isEditing && (
             <div className="flex items-center space-x-1 opacity-40 group-hover:opacity-100 transition-opacity">
-              {/* Add sub-item button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-1 hover:bg-gray-200"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNewItemParentId(item.id);
-                  setNewItemType('module');
-                  setShowNewItemForm(true);
-                }}
-                title="Add sub-item"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </Button>
+              {/* Add sub-item button - only for portfolios (to add collections) */}
+              {(item.type === 'portfolio' || item.type === 'course') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1 hover:bg-gray-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNewItemParentId(item.id);
+                    setNewItemType(getDefaultChildType(item.type));
+                    setShowNewItemForm(true);
+                  }}
+                  title="Add collection"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              )}
               
               {/* More actions menu */}
               <Popover>
@@ -628,18 +682,21 @@ const PortfolioSidebar = ({
                 renderStructureItem(child, level + 1)
               )
             ) : (
-              <div 
-                className="text-xs text-gray-400 italic py-2 hover:text-gray-600 cursor-pointer"
-                style={{ paddingLeft: `${(level + 1) * 16 + 32}px` }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNewItemParentId(item.id);
-                  setNewItemType('module');
-                  setShowNewItemForm(true);
-                }}
-              >
-                Click + to add {item.type === 'course' ? 'modules' : 'sub-items'}...
-              </div>
+              // Only show add hint for portfolios (not collections)
+              (item.type === 'portfolio' || item.type === 'course') && (
+                <div
+                  className="text-xs text-gray-400 italic py-2 hover:text-gray-600 cursor-pointer"
+                  style={{ paddingLeft: `${(level + 1) * 16 + 32}px` }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNewItemParentId(item.id);
+                    setNewItemType(getDefaultChildType(item.type));
+                    setShowNewItemForm(true);
+                  }}
+                >
+                  Click + to add collections...
+                </div>
+              )
             )}
           </div>
         )}
@@ -691,12 +748,12 @@ const PortfolioSidebar = ({
             className="w-full"
             onClick={() => {
               setNewItemParentId(null);
-              setNewItemType('course'); // Force course type for top-level
+              setNewItemType('portfolio'); // Force portfolio type for top-level
               setShowNewItemForm(true);
             }}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Course
+            Add Portfolio
           </Button>
           
           {metadata?.hasArchivedItems && (
@@ -803,24 +860,43 @@ const PortfolioSidebar = ({
             
             <div className="space-y-4">
               {/* Only show type selector for sub-items */}
-              {newItemParentId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={newItemType}
-                    onChange={(e) => setNewItemType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="subject">Subject</option>
-                    <option value="module">Module</option>
-                    <option value="unit">Unit</option>
-                    <option value="lesson">Lesson</option>
-                    <option value="topic">Topic</option>
-                  </select>
-                </div>
-              )}
+              {newItemParentId && (() => {
+                // Find the parent item to determine its type
+                const parentItem = structure.find(s => s.id === newItemParentId);
+                const validTypes = getValidChildTypes(parentItem?.type);
+
+                // Only show dropdown if there are multiple valid types (which shouldn't happen in new hierarchy)
+                if (validTypes.length > 1) {
+                  return (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Type
+                      </label>
+                      <select
+                        value={newItemType}
+                        onChange={(e) => setNewItemType(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {validTypes.map(type => (
+                          <option key={type} value={type}>
+                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                } else if (validTypes.length === 1) {
+                  // Single type - just show what will be created
+                  return (
+                    <div className="mb-2">
+                      <p className="text-sm text-gray-600">
+                        Creating new <span className="font-semibold">{validTypes[0]}</span>
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

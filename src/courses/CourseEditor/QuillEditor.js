@@ -150,17 +150,25 @@ const modules = {
   formula: true,
   toolbar: {
     container: [
+      // Text formatting - most commonly used
       [{ 'header': [1, 2, 3, false] }],
       ['bold', 'italic', 'underline', 'strike'],
-      ['blockquote', 'code-block'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'script': 'sub'}, { 'script': 'super' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'direction': 'rtl' }],
       [{ 'color': [] }, { 'background': [] }],
-      [{ 'font': [] }],
+
+      // Lists and indentation - logical grouping
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'indent': '-1'}, { 'indent': '+1' }],
+
+      // Alignment
       [{ 'align': [] }],
+
+      // Special formatting
+      [{ 'script': 'sub'}, { 'script': 'super' }],
+
+      // Media and special content
       ['link', 'image', 'video', 'formula'],
+
+      // Clear formatting
       ['clean']
     ],
     handlers: {
@@ -459,7 +467,7 @@ const QuillEditor = forwardRef(({
             value={content}
             onChange={handleContentChange}
             modules={modules}
-            placeholder="Start creating your content..."
+            placeholder="Start adding your content..."
             className={getHeightClass()}
           />
         ) : (
@@ -470,7 +478,7 @@ const QuillEditor = forwardRef(({
               value={content}
               onChange={handleContentChange}
               modules={modules}
-              placeholder="Start creating your content..."
+              placeholder="Start adding your content..."
               className={getHeightClass()}
             />
           </ScrollArea>

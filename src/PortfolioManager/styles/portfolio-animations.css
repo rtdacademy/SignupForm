@@ -1,0 +1,277 @@
+/* Portfolio Animations and Transitions */
+
+/* Smooth fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scale and fade animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide animations */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Stagger animation for lists */
+.portfolio-stagger-container > * {
+  animation: fadeIn 0.5s ease-out backwards;
+}
+
+.portfolio-stagger-container > *:nth-child(1) { animation-delay: 0.05s; }
+.portfolio-stagger-container > *:nth-child(2) { animation-delay: 0.1s; }
+.portfolio-stagger-container > *:nth-child(3) { animation-delay: 0.15s; }
+.portfolio-stagger-container > *:nth-child(4) { animation-delay: 0.2s; }
+.portfolio-stagger-container > *:nth-child(5) { animation-delay: 0.25s; }
+.portfolio-stagger-container > *:nth-child(6) { animation-delay: 0.3s; }
+.portfolio-stagger-container > *:nth-child(7) { animation-delay: 0.35s; }
+.portfolio-stagger-container > *:nth-child(8) { animation-delay: 0.4s; }
+.portfolio-stagger-container > *:nth-child(9) { animation-delay: 0.45s; }
+
+/* Card hover effects */
+.portfolio-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.portfolio-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Image zoom effect */
+.portfolio-image-container {
+  overflow: hidden;
+  position: relative;
+}
+
+.portfolio-image-container img {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.portfolio-image-container:hover img {
+  transform: scale(1.1);
+}
+
+/* Smooth content transitions */
+.portfolio-content-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Mobile swipe indicators */
+@keyframes swipeHint {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(-10px);
+    opacity: 1;
+  }
+}
+
+.swipe-hint-left {
+  animation: swipeHint 2s infinite;
+}
+
+.swipe-hint-right {
+  animation: swipeHint 2s infinite;
+  animation-direction: reverse;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-loading {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Parallax scroll effect */
+.parallax-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.parallax-background {
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 100%;
+  height: 120%;
+  transform: translateY(calc(var(--scroll-offset) * 0.5));
+  will-change: transform;
+}
+
+/* Presentation mode transitions */
+.presentation-slide-enter {
+  animation: slideInRight 0.4s ease-out;
+}
+
+.presentation-slide-exit {
+  animation: slideInLeft 0.4s ease-out reverse;
+}
+
+/* Navigation breadcrumb animation */
+.breadcrumb-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.breadcrumb-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.breadcrumb-item:hover::after {
+  width: 100%;
+}
+
+/* Button pulse effect */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(147, 51, 234, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(147, 51, 234, 0);
+  }
+}
+
+.pulse-button {
+  animation: pulse 2s infinite;
+}
+
+/* Smooth accordion transitions */
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accordion-content.expanded {
+  max-height: 2000px;
+}
+
+/* Mobile-first responsive adjustments */
+@media (max-width: 768px) {
+  .portfolio-stagger-container > * {
+    animation-duration: 0.3s;
+  }
+
+  .portfolio-card:active {
+    transform: scale(0.98);
+  }
+
+  /* Touch feedback */
+  .touch-feedback {
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .touch-feedback::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.05);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .touch-feedback:active::after {
+    opacity: 1;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .skeleton-loading {
+    background: linear-gradient(
+      90deg,
+      #2a2a2a 25%,
+      #3a3a3a 50%,
+      #2a2a2a 75%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+/* Print styles for portfolio presentation */
+@media print {
+  .portfolio-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

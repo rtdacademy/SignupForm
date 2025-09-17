@@ -1,10 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GooglePlacesAutocomplete, { geocodeByPlaceId } from 'react-google-places-autocomplete';
 import { Button } from "./ui/button";
-import { X } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import { X, ExternalLink } from "lucide-react";
 
 const HomeSchoolSelector = ({ onAddressSelect, initialValue }) => {
   const [selectedPlace, setSelectedPlace] = useState(initialValue);
+  const [isRTDConnect, setIsRTDConnect] = useState(false);
+
+  // RTD Connect pre-filled details
+  const RTD_CONNECT_DETAILS = {
+    name: 'RTD Connect',
+    streetAddress: 'RTD Connect Home Education Program',
+    city: 'Alberta',
+    province: 'AB',
+    placeId: 'rtd-connect-direct',
+    fullAddress: 'RTD Connect Home Education Program, Alberta, AB',
+    location: {
+      lat: null,
+      lng: null
+    }
+  };
+
+  // Check if initial value is RTD Connect
+  useEffect(() => {
+    if (initialValue?.placeId === 'rtd-connect-direct') {
+      setIsRTDConnect(true);
+      setSelectedPlace(RTD_CONNECT_DETAILS);
+    }
+  }, [initialValue]);
+
+  const handleRTDConnectChange = (checked) => {
+    setIsRTDConnect(checked);
+    if (checked) {
+      setSelectedPlace(RTD_CONNECT_DETAILS);
+      onAddressSelect(RTD_CONNECT_DETAILS);
+    } else {
+      setSelectedPlace(null);
+      onAddressSelect(null);
+    }
+  };
 
   const handleSelect = async (selection) => {
     try {
@@ -37,12 +72,44 @@ const HomeSchoolSelector = ({ onAddressSelect, initialValue }) => {
   const handleClear = () => {
     setSelectedPlace(null);
     onAddressSelect(null);
+    setIsRTDConnect(false);
   };
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <GooglePlacesAutocomplete
+      {/* RTD Connect checkbox option */}
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="rtd-connect-checkbox"
+          checked={isRTDConnect}
+          onCheckedChange={handleRTDConnectChange}
+        />
+        <label
+          htmlFor="rtd-connect-checkbox"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+        >
+          I am part of RTD Connect
+        </label>
+      </div>
+
+      {/* Promotional message */}
+      <div className="text-sm text-muted-foreground">
+        Not part of RTD Connect?
+        <a
+          href="https://rtd-connect.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+        >
+          Learn more about our home education program
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+
+      {/* Google Places search - only show if RTD Connect is not selected */}
+      {!isRTDConnect && (
+        <div className="relative">
+          <GooglePlacesAutocomplete
           apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
           selectProps={{
             value: selectedPlace ? { 
@@ -62,30 +129,47 @@ const HomeSchoolSelector = ({ onAddressSelect, initialValue }) => {
               IndicatorSeparator: () => null
             }
           }}
-          autocompletionRequest={{
-            types: ['establishment'], // Allow any establishment type
-            componentRestrictions: { country: 'ca' }
-          }}
-        />
-        {selectedPlace && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-auto py-1 px-1.5"
-            onClick={handleClear}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+            autocompletionRequest={{
+              types: ['establishment'], // Allow any establishment type
+              componentRestrictions: { country: 'ca' }
+            }}
+          />
+          {selectedPlace && !isRTDConnect && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-auto py-1 px-1.5"
+              onClick={handleClear}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      )}
 
+      {/* Display selected place (either RTD Connect or Google Places selection) */}
       {selectedPlace && (
         <div className="rounded-md border border-input bg-muted p-4 space-y-2">
           <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-medium text-sm">Selected Home Education Provider</h4>
+            <div className="flex-1">
+              <h4 className="font-medium text-sm">
+                Selected Home Education Provider
+                {isRTDConnect && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    Direct Selection
+                  </span>
+                )}
+              </h4>
               <p className="text-sm text-muted-foreground">{selectedPlace.name}</p>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto py-1 px-1.5"
+              onClick={handleClear}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
           <div>
             <h4 className="font-medium text-sm">Address</h4>

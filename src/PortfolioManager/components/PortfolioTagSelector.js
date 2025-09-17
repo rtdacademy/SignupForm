@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '../../components/ui/popover';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '../../components/ui/sheet';
 import {
   Tag,
   Plus,
@@ -14,8 +17,7 @@ import {
   Info,
   Activity,
   CheckSquare,
-  Package,
-  Search
+  Package
 } from 'lucide-react';
 
 const PortfolioTagSelector = ({
@@ -29,16 +31,39 @@ const PortfolioTagSelector = ({
   resourceDescriptions = {},
   getTagSuggestions,
   content = '',
-  compact = false
+  compact = false,
+  customActivities = [],
+  customAssessments = [],
+  customResources = []
 }) => {
   const [suggestions, setSuggestions] = useState({
     activities: [],
     assessments: [],
     resources: []
   });
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('activities');
   const [showAllTags, setShowAllTags] = useState(false);
+
+  const normalizeCustomItems = (items) => {
+    if (!items) return {};
+    const values = Array.isArray(items)
+      ? items
+      : typeof items === 'object' && items !== null
+        ? Object.values(items)
+        : [];
+    return values.reduce((acc, item) => {
+      if (item && item.key) {
+        acc[item.key] = item.name || item.label || item.key;
+      }
+      return acc;
+    }, {});
+  };
+
+  const customNameLookup = {
+    activities: normalizeCustomItems(customActivities),
+    assessments: normalizeCustomItems(customAssessments),
+    resources: normalizeCustomItems(customResources)
+  };
 
   // Get AI suggestions based on content
   useEffect(() => {
@@ -62,7 +87,13 @@ const PortfolioTagSelector = ({
   };
 
   // Get display name for tag
-  const getTagDisplayName = (tag) => {
+  const getTagDisplayName = (tag, category) => {
+    if (category && customNameLookup[category]?.[tag]) {
+      return customNameLookup[category][tag];
+    }
+
+    if (typeof tag !== 'string') return '';
+
     // Remove underscores and capitalize
     return tag.replace(/_/g, ' ')
       .split(' ')
@@ -78,21 +109,12 @@ const PortfolioTagSelector = ({
     return '';
   };
 
-  // Filter tags based on search
+  // Get tags for category (no filtering needed since we removed search)
   const getFilteredTags = (category) => {
-    let tags = [];
-    if (category === 'activities') tags = activities;
-    if (category === 'assessments') tags = assessments;
-    if (category === 'resources') tags = resources;
-    
-    if (!searchQuery) return tags;
-    
-    return tags.filter(tag => {
-      const tagName = getTagDisplayName(tag).toLowerCase();
-      const description = getTagDescription(category, tag)?.toLowerCase() || '';
-      const query = searchQuery.toLowerCase();
-      return tagName.includes(query) || description.includes(query);
-    });
+    if (category === 'activities') return activities;
+    if (category === 'assessments') return assessments;
+    if (category === 'resources') return resources;
+    return [];
   };
 
   // Get category icon
@@ -130,33 +152,19 @@ const PortfolioTagSelector = ({
            (selectedTags.resources?.length || 0);
   };
 
-  // Tag selector content (used in both full and popover views)
+  // Tag selector content (used in both full and sheet views)
   const TagSelectorContent = () => (
-    <>
-      {/* Header with search */}
-      <div className="p-3 border-b">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 text-sm"
-          />
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col">
       {/* Category tabs */}
-      <div className="flex border-b">
+      <div className="flex border-b flex-shrink-0">
         {['activities', 'assessments', 'resources'].map((category) => (
           <button
             key={category}
             onClick={() => setActiveCategory(category)}
             className={`
               flex-1 px-3 py-2 text-sm font-medium capitalize
-              ${activeCategory === category 
-                ? 'border-b-2 border-purple-500 text-purple-600' 
+              ${activeCategory === category
+                ? 'border-b-2 border-purple-500 text-purple-600'
                 : 'text-gray-600 hover:text-gray-900'}
             `}
           >
@@ -193,7 +201,7 @@ const PortfolioTagSelector = ({
                   }
                 `}
               >
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, activeCategory)}
                 {selectedTags[activeCategory]?.includes(tag) && (
                   <X className="w-3 h-3 ml-1" />
                 )}
@@ -203,8 +211,8 @@ const PortfolioTagSelector = ({
         </div>
       )}
 
-      {/* Tags list */}
-      <div className="p-3 max-h-80 overflow-y-auto">
+      {/* Tags list - flex-1 to fill remaining height */}
+      <div className="flex-1 p-3 overflow-y-auto min-h-0">
         <div className="space-y-1">
           {getFilteredTags(activeCategory).map((tag) => {
             const isSelected = selectedTags[activeCategory]?.includes(tag);
@@ -226,7 +234,7 @@ const PortfolioTagSelector = ({
                   <div className="flex-1">
                     <div className="flex items-center">
                       <span className={`text-sm font-medium ${isSelected ? `text-${getCategoryColor(activeCategory)}-900` : 'text-gray-900'}`}>
-                        {getTagDisplayName(tag)}
+                        {getTagDisplayName(tag, activeCategory)}
                       </span>
                       {isSuggested && (
                         <Sparkles className="w-3 h-3 text-purple-500 ml-2" />
@@ -251,7 +259,7 @@ const PortfolioTagSelector = ({
           })}
         </div>
       </div>
-    </>
+    </div>
   );
 
   // Compact view for smaller spaces
@@ -261,29 +269,37 @@ const PortfolioTagSelector = ({
         <label className="block text-sm font-medium text-gray-700">
           Tags ({getTotalSelectedCount()})
         </label>
-        <Popover>
-          <PopoverTrigger asChild>
+        <Sheet>
+          <SheetTrigger asChild>
             <Button variant="outline" className="w-full justify-between">
               <span className="flex items-center">
                 <Tag className="w-4 h-4 mr-2" />
-                {getTotalSelectedCount() > 0 
+                {getTotalSelectedCount() > 0
                   ? `${getTotalSelectedCount()} tags selected`
                   : 'Add tags...'}
               </span>
               <ChevronDown className="w-4 h-4" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            <TagSelectorContent />
-          </PopoverContent>
-        </Popover>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col">
+            <SheetHeader className="p-6 pb-4 flex-shrink-0">
+              <SheetTitle>Tags from SOLO Plan</SheetTitle>
+              <SheetDescription>
+                Select activities, assessments, and resources to tag this entry
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 min-h-0">
+              <TagSelectorContent />
+            </div>
+          </SheetContent>
+        </Sheet>
         
         {/* Selected tags preview */}
         {getTotalSelectedCount() > 0 && (
           <div className="flex flex-wrap gap-1">
             {selectedTags.activities?.map((tag, index) => (
               <span key={index} className="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'activities')}
                 <button
                   onClick={() => toggleTag('activities', tag)}
                   className="ml-1 hover:text-blue-900"
@@ -294,7 +310,7 @@ const PortfolioTagSelector = ({
             ))}
             {selectedTags.assessments?.map((tag, index) => (
               <span key={index} className="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'assessments')}
                 <button
                   onClick={() => toggleTag('assessments', tag)}
                   className="ml-1 hover:text-green-900"
@@ -305,7 +321,7 @@ const PortfolioTagSelector = ({
             ))}
             {selectedTags.resources?.map((tag, index) => (
               <span key={index} className="inline-flex items-center px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'resources')}
                 <button
                   onClick={() => toggleTag('resources', tag)}
                   className="ml-1 hover:text-purple-900"
@@ -353,7 +369,7 @@ const PortfolioTagSelector = ({
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700 hover:bg-blue-200"
               >
                 <Plus className="w-3 h-3 mr-1" />
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'activities')}
               </button>
             ))}
             {suggestions.assessments?.slice(0, 2).map((tag, index) => (
@@ -363,7 +379,7 @@ const PortfolioTagSelector = ({
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 hover:bg-green-200"
               >
                 <Plus className="w-3 h-3 mr-1" />
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'assessments')}
               </button>
             ))}
             {suggestions.resources?.slice(0, 2).map((tag, index) => (
@@ -373,7 +389,7 @@ const PortfolioTagSelector = ({
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700 hover:bg-purple-200"
               >
                 <Plus className="w-3 h-3 mr-1" />
-                {getTagDisplayName(tag)}
+                {getTagDisplayName(tag, 'resources')}
               </button>
             ))}
           </div>
