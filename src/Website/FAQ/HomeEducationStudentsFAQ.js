@@ -8,8 +8,9 @@ import {
 } from '../../components/ui/accordion';
 import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Clock, Calendar, Home, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, Home, AlertCircle, Check } from 'lucide-react';
 import { websiteConfig } from '../websiteConfig';
+import RTDConnectPromo from './RTDConnectPromo';
 
 const HomeEducationStudentsFAQ = () => {
   const categoryData = websiteConfig.categories.homeEducation;
@@ -20,7 +21,7 @@ const HomeEducationStudentsFAQ = () => {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <span className="text-5xl">{categoryData.icon}</span>
+          <Home className="h-12 w-12 text-green-500" />
         </div>
         <h2 className="text-3xl font-bold mb-2">{categoryData.title}</h2>
         <p className="text-muted-foreground">{categoryData.description}</p>
@@ -67,6 +68,9 @@ const HomeEducationStudentsFAQ = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* RTD Connect Promotion */}
+      <RTDConnectPromo />
 
       {/* Important Alert */}
       <Alert className="border-green-500/20 bg-green-50 dark:bg-green-950/20">
@@ -116,7 +120,7 @@ const HomeEducationStudentsFAQ = () => {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mt-0.5">
-                <span className="text-xs">✓</span>
+                <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="font-medium">Flexible Schedule</p>
@@ -127,7 +131,7 @@ const HomeEducationStudentsFAQ = () => {
             </div>
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mt-0.5">
-                <span className="text-xs">✓</span>
+                <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="font-medium">Alberta Certified</p>
@@ -138,7 +142,7 @@ const HomeEducationStudentsFAQ = () => {
             </div>
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mt-0.5">
-                <span className="text-xs">✓</span>
+                <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="font-medium">Self-Paced Learning</p>

@@ -31,6 +31,9 @@ const PublicPortfolioEntry = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [copied, setCopied] = useState(false);
 
+  // Debug logging
+  console.log('PublicPortfolioEntry loaded with:', { familyId, entryId });
+
   useEffect(() => {
     const loadPortfolioEntry = async () => {
       if (!familyId || !entryId) {

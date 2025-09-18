@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, Search, ChevronDown, ChevronUp, Calendar, ExternalLink, Clock, ArrowUp } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Search, ChevronDown, ChevronUp, Clock, ArrowUp, GraduationCap, Home, Sun, UserCheck, Globe, Info, HelpCircle, Sparkles, CheckCircle, X, Link2, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
 import {
   Accordion,
@@ -12,7 +11,8 @@ import {
   AccordionTrigger,
 } from '../components/ui/accordion';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { websiteConfig, getAllFAQs, getImportantDates } from './websiteConfig';
+import { websiteConfig, getAllFAQs, getVisibleCategories } from './websiteConfig';
+import StudentTypeSelector from '../Registration/StudentTypeSelector';
 
 // Constants for triangle animation - matching AdultStudentInfo
 const TRIANGLE_SIZE = 220;
@@ -141,27 +141,62 @@ const FAQItem = ({ faq, isOpen, onToggle, searchTerm }) => {
   );
 };
 
+// Icon mapping for categories
+const iconMap = {
+  GraduationCap: GraduationCap,
+  Home: Home,
+  Sun: Sun,
+  UserCheck: UserCheck,
+  Globe: Globe,
+  Info: Info
+};
+
 // Category Card Component
 const CategoryCard = ({ category, onClick }) => {
   const config = websiteConfig.categories[category];
+  const IconComponent = iconMap[config.icon] || GraduationCap;
+
+  // Handle external link categories
+  const handleClick = () => {
+    if (config.isExternalLink && config.externalUrl) {
+      window.open(config.externalUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      onClick();
+    }
+  };
+
+  // Special handling for RTD Connect to show logo
+  const isRTDConnect = category === 'rtdConnect';
 
   return (
     <Card
       className="cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg h-full"
-      onClick={onClick}
+      onClick={handleClick}
       style={{ borderTopColor: config.color, borderTopWidth: '4px' }}
     >
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{config.icon}</span>
+          {isRTDConnect ? (
+            <img
+              src="/connectImages/Connect.png"
+              alt="RTD Connect Logo"
+              className="h-8 w-8 object-contain"
+            />
+          ) : (
+            <IconComponent className="h-8 w-8" style={{ color: config.color }} />
+          )}
           <CardTitle className="text-lg">{config.title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">{config.description}</p>
         <div className="mt-3 flex items-center text-sm text-primary">
-          <span>View FAQs</span>
-          <ChevronDown className="ml-1 h-4 w-4" />
+          <span>{config.isExternalLink ? 'Visit Website' : 'View FAQs'}</span>
+          {config.isExternalLink ? (
+            <ArrowRight className="ml-1 h-4 w-4" />
+          ) : (
+            <ChevronDown className="ml-1 h-4 w-4" />
+          )}
         </div>
       </CardContent>
     </Card>
@@ -173,25 +208,81 @@ const StudentFAQ = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [determinedStudentType, setDeterminedStudentType] = useState('');
+  const [guideOpen, setGuideOpen] = useState('');
+  const [copiedCategory, setCopiedCategory] = useState('');
+  const [highlightedSection, setHighlightedSection] = useState('');
   const scrollTopRef = useRef();
 
   // Get all FAQs for search
   const allFAQs = useMemo(() => getAllFAQs(), []);
 
-  // Get important dates
-  const importantDates = useMemo(() => getImportantDates(), []);
-
-  // Filter FAQs based on search and category
+  // Filter FAQs based on search and category with improved search
   const filteredFAQs = useMemo(() => {
     let faqs = selectedCategory === 'all'
       ? allFAQs
       : allFAQs.filter(faq => faq.categoryKey === selectedCategory);
 
-    if (searchTerm) {
-      faqs = faqs.filter(faq =>
-        faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    if (searchTerm && searchTerm.trim()) {
+      // Normalize search term: lowercase and trim
+      const normalizedSearch = searchTerm.toLowerCase().trim();
+
+      faqs = faqs.filter(faq => {
+        const questionLower = faq.question.toLowerCase();
+        const answerLower = faq.answer.toLowerCase();
+        const categoryLower = faq.category ? faq.category.toLowerCase() : '';
+
+        // First check if the entire search phrase appears as-is (best match)
+        const exactPhraseMatch =
+          questionLower.includes(normalizedSearch) ||
+          answerLower.includes(normalizedSearch) ||
+          categoryLower.includes(normalizedSearch);
+
+        if (exactPhraseMatch) return true;
+
+        // For multi-word searches, check if the words appear in sequence
+        // This is more forgiving than requiring ALL words but less loose than OR
+        const searchWords = normalizedSearch.split(/\s+/).filter(word => word.length > 1);
+
+        if (searchWords.length > 1) {
+          // Check if most of the important words match (ignore very short words)
+          const significantWords = searchWords.filter(word => word.length > 2);
+
+          if (significantWords.length > 0) {
+            // Count how many significant words match
+            const matchCount = significantWords.filter(word =>
+              questionLower.includes(word) ||
+              answerLower.includes(word) ||
+              categoryLower.includes(word)
+            ).length;
+
+            // Return true if at least 60% of significant words match
+            return matchCount >= Math.ceil(significantWords.length * 0.6);
+          } else {
+            // If all words are short, check if any match
+            return searchWords.some(word =>
+              questionLower.includes(word) ||
+              answerLower.includes(word) ||
+              categoryLower.includes(word)
+            );
+          }
+        }
+
+        return false;
+      });
+
+      // Sort results - prioritize question matches over answer matches
+      faqs.sort((a, b) => {
+        const searchInQuestionA = a.question.toLowerCase().includes(normalizedSearch);
+        const searchInQuestionB = b.question.toLowerCase().includes(normalizedSearch);
+
+        // If search term is in question A but not B, A comes first
+        if (searchInQuestionA && !searchInQuestionB) return -1;
+        if (!searchInQuestionA && searchInQuestionB) return 1;
+
+        // Otherwise maintain original order
+        return 0;
+      });
     }
 
     return faqs;
@@ -207,6 +298,42 @@ const StudentFAQ = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle URL hash navigation
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      const hash = window.location.hash.slice(1); // Remove #
+      if (hash && document.getElementById(`category-${hash}`)) {
+        // Clear search when navigating via hash
+        setSearchTerm('');
+
+        setTimeout(() => {
+          const element = document.getElementById(`category-${hash}`);
+          if (element) {
+            const offset = 100;
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth'
+            });
+
+            // Highlight the section briefly
+            setHighlightedSection(hash);
+            setTimeout(() => setHighlightedSection(''), 2000);
+          }
+        }, 300); // Wait for collapse animation if search was active
+      }
+    };
+
+    // Handle initial load
+    handleHashNavigation();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashNavigation);
+    return () => window.removeEventListener('hashchange', handleHashNavigation);
+  }, []);
+
   const handleBackClick = () => {
     window.location.href = 'https://www.rtdacademy.com/';
   };
@@ -215,11 +342,70 @@ const StudentFAQ = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const copyLinkToSection = (categoryKey, event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/student-faq#${categoryKey}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedCategory(categoryKey);
+      setTimeout(() => setCopiedCategory(''), 2000);
+    });
+  };
+
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
     setSearchTerm('');
-    // Scroll to FAQ section
-    document.getElementById('faq-section')?.scrollIntoView({ behavior: 'smooth' });
+
+    // Update URL hash for bookmarking/sharing
+    window.history.pushState(null, '', `#${category}`);
+
+    // Scroll to the specific category section with offset
+    setTimeout(() => {
+      const element = document.getElementById(`category-${category}`);
+      if (element) {
+        const offset = 100; // Pixels to show above the element
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - offset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+
+        // Add highlight effect
+        setHighlightedSection(category);
+        setTimeout(() => setHighlightedSection(''), 2000);
+      }
+    }, 100);
+  };
+
+  const handleStudentTypeSelection = (type) => {
+    setDeterminedStudentType(type);
+    // Map student type to category key and scroll after a brief delay
+    setTimeout(() => {
+      const categoryMap = {
+        'Non-Primary': 'nonPrimary',
+        'Home Education': 'homeEducation',
+        'Summer School': 'summerStudents',
+        'Adult Student': 'adultStudents',
+        'International Student': 'internationalStudents'
+      };
+      const categoryKey = categoryMap[type];
+      if (categoryKey) {
+        // Close the accordion
+        setGuideOpen('');
+        // Scroll to the category
+        handleCategorySelect(categoryKey);
+      }
+    }, 1500);
+  };
+
+  const handleStartOver = () => {
+    setDeterminedStudentType('');
   };
 
   return (
@@ -260,7 +446,7 @@ const StudentFAQ = () => {
                 onClick={handleBackClick}
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Main Site</span>
+                <span className="hidden sm:inline">Back</span>
               </Button>
 
               {/* Mobile search bar */}
@@ -272,8 +458,18 @@ const StudentFAQ = () => {
                     placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-9"
+                    className={`pl-9 ${searchTerm ? 'pr-10' : 'pr-3'} h-9`}
                   />
+                  {searchTerm && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -304,33 +500,31 @@ const StudentFAQ = () => {
                 placeholder="Search all FAQs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-6 text-base"
+                className={`pl-10 ${searchTerm ? 'pr-12' : 'pr-4'} py-6 text-base`}
               />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Important Dates Alert */}
-          <Alert className="mb-8 border-primary/20 bg-primary/5">
-            <Calendar className="h-4 w-4" />
-            <AlertDescription>
-              <strong className="block mb-2">Important Dates for {websiteConfig.dates.currentSchoolYear}</strong>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                {importantDates.map((date, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm">
-                      <strong>{date.label}:</strong> {date.date}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </AlertDescription>
-          </Alert>
-
-          {/* Category Cards Grid */}
-          {!searchTerm && selectedCategory === 'all' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-              {Object.keys(websiteConfig.categories).map(categoryKey => (
+          {/* Category Cards Grid - Collapses when searching */}
+          <div className={`
+            overflow-hidden transform-gpu
+            transition-all duration-500 ease-in-out
+            ${searchTerm
+              ? 'max-h-0 opacity-0 scale-95 mb-0'
+              : 'max-h-[2000px] opacity-100 scale-100 mb-8'}
+          `}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.keys(getVisibleCategories()).map(categoryKey => (
                 <CategoryCard
                   key={categoryKey}
                   category={categoryKey}
@@ -338,45 +532,85 @@ const StudentFAQ = () => {
                 />
               ))}
             </div>
-          )}
+          </div>
 
-          {/* FAQ Section */}
-          <div id="faq-section" className="mb-12">
-            {(searchTerm || selectedCategory !== 'all') && (
-              <>
-                {/* Category Tabs for filtering */}
-                <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6">
-                  <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-2">
-                    <TabsTrigger value="all" className="text-xs sm:text-sm">
-                      All
-                    </TabsTrigger>
-                    {Object.keys(websiteConfig.categories).map(categoryKey => (
-                      <TabsTrigger
-                        key={categoryKey}
-                        value={categoryKey}
-                        className="text-xs sm:text-sm"
-                      >
-                        <span className="hidden sm:inline">{websiteConfig.categories[categoryKey].title}</span>
-                        <span className="sm:hidden">{websiteConfig.categories[categoryKey].icon}</span>
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+          {/* Student Type Guide Accordion - Collapses when searching */}
+          <div className={`
+            overflow-hidden transform-gpu
+            transition-all duration-500 ease-in-out delay-75
+            ${searchTerm
+              ? 'max-h-0 opacity-0 scale-95 mb-0'
+              : 'max-h-[600px] opacity-100 scale-100 mb-8'}
+          `}>
+            <Card className="border border-border">
+              <Accordion type="single" collapsible value={guideOpen} onValueChange={setGuideOpen}>
+                <AccordionItem value="guide" className="border-0">
+                  <AccordionTrigger className="hover:no-underline px-6 py-4">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-full bg-muted">
+                          <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-base mb-1">Need help determining your student type?</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Answer a few quick questions to find the right category for you
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs font-medium text-primary ml-4">
+                        <Sparkles className="h-3 w-3" />
+                        <span>Interactive</span>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-6">
+                    {!determinedStudentType ? (
+                      <div className="mt-4">
+                        <StudentTypeSelector
+                          onStudentTypeSelect={handleStudentTypeSelection}
+                          selectedType={determinedStudentType}
+                          isFormComponent={false}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 space-y-4">
+                        <Alert className="border-green-200 bg-green-50">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            <strong>Great!</strong> You've been identified as a <strong>{determinedStudentType}</strong>.
+                            The page will scroll to your category section shortly.
+                          </AlertDescription>
+                        </Alert>
+                        <Button
+                          onClick={handleStartOver}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          Start Over - Choose Different Type
+                        </Button>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </Card>
+          </div>
 
-                {/* FAQ Results */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>
-                        {searchTerm ? 'Search Results' : websiteConfig.categories[selectedCategory]?.title || 'All FAQs'}
-                      </span>
-                      <Badge variant="secondary">
-                        {filteredFAQs.length} {filteredFAQs.length === 1 ? 'Question' : 'Questions'}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {filteredFAQs.length > 0 ? (
+          {/* FAQ Sections - Display by category or search results */}
+          <div className="space-y-8">
+            {searchTerm ? (
+              // Search Results - Animated entrance
+              <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Search Results</h2>
+                  <Badge variant="secondary" className="text-sm">
+                    {filteredFAQs.length} {filteredFAQs.length === 1 ? 'Result' : 'Results'}
+                  </Badge>
+                </div>
+                {filteredFAQs.length > 0 ? (
+                  <Card>
+                    <CardContent className="pt-6">
                       <Accordion type="single" collapsible className="w-full">
                         {filteredFAQs.map((faq, index) => (
                           <FAQItem
@@ -386,75 +620,95 @@ const StudentFAQ = () => {
                           />
                         ))}
                       </Accordion>
-                    ) : (
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="pt-6">
                       <div className="text-center py-8 text-muted-foreground">
-                        <p className="mb-2">No FAQs found matching your search.</p>
+                        <p className="mb-4 text-lg">No FAQs found matching "{searchTerm}"</p>
+                        <p className="mb-4 text-sm">Try different keywords or browse categories below</p>
                         <Button
                           variant="outline"
-                          onClick={() => {
-                            setSearchTerm('');
-                            setSelectedCategory('all');
-                          }}
+                          onClick={() => setSearchTerm('')}
+                          className="gap-2"
                         >
+                          <X className="h-4 w-4" />
                           Clear Search
                         </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Related Links */}
-                {selectedCategory !== 'all' && websiteConfig.relatedLinks[selectedCategory] && (
-                  <Card className="mt-6">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Related Resources</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {websiteConfig.relatedLinks[selectedCategory].map((link, index) => (
-                          <a
-                            key={index}
-                            href={link.url}
-                            className="flex items-center gap-2 text-primary hover:underline"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            <span>{link.text}</span>
-                          </a>
-                        ))}
                       </div>
                     </CardContent>
                   </Card>
                 )}
-              </>
+              </div>
+            ) : (
+              // Category Sections
+              Object.keys(getVisibleCategories()).map(categoryKey => {
+                const visibleCategories = getVisibleCategories();
+                const category = visibleCategories[categoryKey];
+                const IconComponent = iconMap[category.icon] || GraduationCap;
+
+                // Skip rendering RTD Connect in the FAQ sections since it's an external link
+                if (category.isExternalLink) {
+                  return null;
+                }
+
+                return (
+                  <Card
+                    key={categoryKey}
+                    id={`category-${categoryKey}`}
+                    className={`
+                      transition-all duration-500
+                      ${highlightedSection === categoryKey
+                        ? 'ring-2 ring-primary ring-offset-2'
+                        : ''}
+                    `}
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="flex items-center gap-3">
+                            <IconComponent className="h-6 w-6" style={{ color: category.color }} />
+                            <span>{category.title}</span>
+                            <Badge variant="secondary" className="ml-auto">
+                              {category.faqs.length} {category.faqs.length === 1 ? 'Question' : 'Questions'}
+                            </Badge>
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {category.description}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => copyLinkToSection(categoryKey, e)}
+                          className="ml-2 h-8 w-8 p-0"
+                          title="Copy link to this section"
+                        >
+                          {copiedCategory === categoryKey ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Link2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Accordion type="single" collapsible className="w-full">
+                        {category.faqs.map((faq, index) => (
+                          <FAQItem
+                            key={`${categoryKey}-${index}`}
+                            faq={faq}
+                            searchTerm={searchTerm}
+                          />
+                        ))}
+                      </Accordion>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
-
-          {/* Contact Section */}
-          <Card className="bg-muted/50">
-            <CardHeader>
-              <CardTitle>Still Have Questions?</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                If you couldn't find the answer you're looking for, our team is here to help.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="font-medium mb-1">Email Us</p>
-                  <a
-                    href={`mailto:${websiteConfig.contact.email}`}
-                    className="text-primary hover:underline"
-                  >
-                    {websiteConfig.contact.email}
-                  </a>
-                </div>
-                <div>
-                  <p className="font-medium mb-1">Office Hours</p>
-                  <p className="text-sm text-muted-foreground">{websiteConfig.contact.hours}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 

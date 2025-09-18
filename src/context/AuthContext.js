@@ -123,6 +123,7 @@ export function AuthProvider({ children }) {
     '/adult-students',
     '/your-way',
     '/get-started',
+    '/rtd-landing',
     '/policies-reports',
     '/google-ai-chat',
     '/parent-login',

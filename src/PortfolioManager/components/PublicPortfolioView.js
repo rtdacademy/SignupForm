@@ -36,6 +36,9 @@ const PublicPortfolioView = () => {
   const [expandedSections, setExpandedSections] = useState(new Set());
   const [selectedEntry, setSelectedEntry] = useState(null);
 
+  // Debug logging
+  console.log('PublicPortfolioView loaded with:', { familyId, courseId });
+
   useEffect(() => {
     const loadPublicPortfolio = async () => {
       if (!familyId || !courseId) {
@@ -60,6 +63,19 @@ const PublicPortfolioView = () => {
         setPortfolio(result.data.portfolio);
         setStructure(result.data.structure || []);
         setEntries(result.data.entries || []);
+
+        // Debug: Log the actual entries data
+        console.log('Loaded portfolio data:', {
+          portfolio: result.data.portfolio,
+          structure: result.data.structure,
+          entries: result.data.entries,
+          entriesCount: result.data.entries?.length
+        });
+
+        // Log first entry details if available
+        if (result.data.entries?.length > 0) {
+          console.log('First entry details:', result.data.entries[0]);
+        }
 
         // Auto-expand sections with entries
         const sectionsWithEntries = new Set();
@@ -201,7 +217,11 @@ const PublicPortfolioView = () => {
               <div
                 key={entry.id}
                 className="ml-10 p-2 flex items-center gap-2 hover:bg-purple-50 rounded-lg cursor-pointer"
-                onClick={() => navigate(`/portfolio/${familyId}/${entry.id}`)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log('Navigating to entry:', entry.id, 'Family:', familyId);
+                  navigate(`/portfolio/${familyId}/${entry.id}`);
+                }}
               >
                 {getTypeIcon(entry.type)}
                 <span className="text-sm text-gray-700">{entry.title}</span>
@@ -379,7 +399,10 @@ const PublicPortfolioView = () => {
                     <div
                       key={entry.id}
                       className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/portfolio/${familyId}/${entry.id}`)}
+                      onClick={() => {
+                        console.log('Recent entry clicked:', entry.id, 'Family:', familyId);
+                        navigate(`/portfolio/${familyId}/${entry.id}`);
+                      }}
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-gray-100 rounded">

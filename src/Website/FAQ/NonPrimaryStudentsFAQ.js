@@ -8,7 +8,7 @@ import {
 } from '../../components/ui/accordion';
 import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Clock, Calendar, Info, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, Info, AlertCircle, GraduationCap, Circle } from 'lucide-react';
 import { websiteConfig } from '../websiteConfig';
 
 const NonPrimaryStudentsFAQ = () => {
@@ -20,7 +20,7 @@ const NonPrimaryStudentsFAQ = () => {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <span className="text-5xl">{categoryData.icon}</span>
+          <GraduationCap className="h-12 w-12 text-blue-500" />
         </div>
         <h2 className="text-3xl font-bold mb-2">{categoryData.title}</h2>
         <p className="text-muted-foreground">{categoryData.description}</p>
@@ -115,7 +115,7 @@ const NonPrimaryStudentsFAQ = () => {
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-start gap-4">
-              <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+              <Circle className="h-2 w-2 text-primary mt-2 fill-current" />
               <div className="flex-1">
                 <p className="font-medium">Term 1 (September - January)</p>
                 <p className="text-sm text-muted-foreground">
@@ -124,7 +124,7 @@ const NonPrimaryStudentsFAQ = () => {
               </div>
             </div>
             <div className="flex items-start gap-4">
-              <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+              <Circle className="h-2 w-2 text-primary mt-2 fill-current" />
               <div className="flex-1">
                 <p className="font-medium">Term 2 (February - June)</p>
                 <p className="text-sm text-muted-foreground">
@@ -133,7 +133,7 @@ const NonPrimaryStudentsFAQ = () => {
               </div>
             </div>
             <div className="flex items-start gap-4">
-              <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+              <Circle className="h-2 w-2 text-primary mt-2 fill-current" />
               <div className="flex-1">
                 <p className="font-medium">Summer School (July - August)</p>
                 <p className="text-sm text-muted-foreground">

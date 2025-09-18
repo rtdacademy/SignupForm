@@ -43,6 +43,7 @@ const PoliciesAndReports = lazy(() => import('../Website/PoliciesAndReports'));
 const AERR2324 = lazy(() => import('../Website/AERR/23_24/AERR2324'));
 const EducationPlan = lazy(() => import('../Website/EducationPlan/24_25/EducationPlan'));
 const MigrationLogin = lazy(() => import('../migration/MigrationLogin'));
+const RTDLandingPage = lazy(() => import('../Website/RTDLandingPage'));
 
 // Lazy load payment components
 const PaymentResult = lazy(() => import('../Dashboard/PaymentResult'));
@@ -316,6 +317,12 @@ function MainApp() {
         } />
 
         {/* Public website pages */}
+        <Route path="/rtd-landing" element={
+          <PublicRoute>
+            <RTDLandingPage />
+          </PublicRoute>
+        } />
+
         <Route path="/get-started" element={
           <PublicRoute>
             <GetStartedNow />

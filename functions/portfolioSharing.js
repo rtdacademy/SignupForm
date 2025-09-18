@@ -313,8 +313,9 @@ const getPublicPortfolio = onCall({
       entriesSnapshot.docs.map(async (doc) => {
         const entryData = { id: doc.id, ...doc.data() };
 
-        // Only include entries that are either individually public or part of public course
-        if (courseData.sharingSettings?.includeAllEntries || entryData.sharingSettings?.isPublic) {
+        // Include all entries when the course is public (simplified logic)
+        // If a course is public, all its entries should be visible
+        if (courseData.sharingSettings?.isPublic) {
           // Generate signed URLs for files
           if (entryData.files && entryData.files.length > 0) {
             const filesWithSignedUrls = await Promise.all(
