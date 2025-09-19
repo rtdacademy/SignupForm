@@ -219,7 +219,14 @@ export const getLessonAccessibility = (courseStructure, course, options = {}) =>
       } else if (['assignment', 'exam', 'quiz'].includes(itemType)) {
         detailedReason = `Complete ${criteria.sessionsRequired || 1} session(s) of "${previousItem.title}" to unlock`;
       } else if (itemType === 'lab') {
-        detailedReason = `Submit all required work for "${previousItem.title}" to unlock`;
+        // Check if lab has been attempted
+        const labGradeData = course?.Gradebook?.items?.[previousItem.itemId];
+        if (labGradeData?.attempted > 0) {
+          // Lab is actually complete, this shouldn't happen
+          detailedReason = `Complete "${previousItem.title}" to unlock`;
+        } else {
+          detailedReason = `Complete the lab "${previousItem.title}" to unlock this lesson`;
+        }
       }
     }
     
@@ -310,7 +317,28 @@ export const checkItemCompletion = (itemId, course, progressionRequirements) => 
 const getItemType = (itemId, course) => {
   const itemStructure = course?.courseDetails?.['course-config']?.gradebook?.itemStructure;
   const itemConfig = itemStructure?.[itemId];
-  return itemConfig?.type || 'lesson';
+
+  // If type is explicitly set in config, use it
+  if (itemConfig?.type) {
+    return itemConfig.type;
+  }
+
+  // Fallback: detect type from itemId naming convention
+  if (itemId.includes('lab')) {
+    return 'lab';
+  }
+  if (itemId.includes('exam')) {
+    return 'exam';
+  }
+  if (itemId.includes('assignment')) {
+    return 'assignment';
+  }
+  if (itemId.includes('quiz')) {
+    return 'quiz';
+  }
+
+  // Default to lesson
+  return 'lesson';
 };
 
 /**
@@ -376,16 +404,24 @@ const checkLabSubmission = (itemId, course, criteria) => {
   if (!criteria.requiresSubmission) {
     return true;
   }
-  
+
+  // For labs with requiresSubmission, check if attempted > 0
+  // This is consistent with the fix in courseProgressUtils.js
+  const labGradeData = course?.Gradebook?.items?.[itemId];
+  if (labGradeData) {
+    return labGradeData.attempted > 0;
+  }
+
+  // Fallback to checking individual question submissions if no gradebook data
   const itemStructure = course?.courseDetails?.['course-config']?.gradebook?.itemStructure;
   const labConfig = itemStructure?.[itemId];
-  
+
   if (!labConfig?.questions) {
     return false;
   }
-  
+
   const assessments = course?.Assessments || {};
-  
+
   // Check if all lab questions have submissions
   return labConfig.questions.every(question => {
     return assessments.hasOwnProperty(question.questionId);

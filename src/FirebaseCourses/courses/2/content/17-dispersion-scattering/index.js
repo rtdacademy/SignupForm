@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const DispersionScattering = ({ course, courseId = 'default', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+const DispersionScattering = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
 AIAccordion, onAIAccordionContent }) => {
   
   // Dropdown section states (only for fallback when AIAccordion not available)

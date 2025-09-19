@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const Electrostatics = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const Electrostatics = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   
   // Interactive states for historical timeline
   const [selectedHistoricalItem, setSelectedHistoricalItem] = useState(null);

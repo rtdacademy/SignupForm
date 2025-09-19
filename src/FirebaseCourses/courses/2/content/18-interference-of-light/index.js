@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const InterferenceOfLight = ({ course, courseId = 'default', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+const InterferenceOfLight = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
 AIAccordion, onAIAccordionContent }) => {
   
   // Animation states for Huygens' Principle

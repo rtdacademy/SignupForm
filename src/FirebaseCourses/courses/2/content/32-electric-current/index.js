@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ElectricCurrent = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const ElectricCurrent = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const [currentFlowType, setCurrentFlowType] = useState('conventional'); // 'conventional' or 'electron'
   const [isCurrentDirectionOpen, setIsCurrentDirectionOpen] = useState(false);
 

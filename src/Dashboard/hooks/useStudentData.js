@@ -1054,27 +1054,28 @@ export const useStudentData = (userEmailKey) => {
     };
   }, [userEmailKey]);
 
-  // Add a simplified notification summary log
-  if (!studentData.loading && studentData.profile) {
-    const visibleNotifications = studentData.courses?.reduce((count, course) => {
-      if (!course.notificationIds) return count;
-      return count + Object.values(course.notificationIds)
-        .filter(n => n.shouldDisplay).length;
-    }, 0) || 0;
-    
-    // console.log('📋 NOTIFICATION SUMMARY:', {
-    //   totalActive: studentData.allNotifications?.length || 0,
-    //   visibleNotifications,
-    //   coursesWithNotifications: studentData.courses?.filter(c => 
-    //     c.notificationIds && Object.keys(c.notificationIds).length > 0
-    //   ).length || 0
-    // });
+  // Add a simplified notification summary log - wrapped in useEffect to prevent infinite loops
+  useEffect(() => {
+    if (!studentData.loading && studentData.profile) {
+      const visibleNotifications = studentData.courses?.reduce((count, course) => {
+        if (!course.notificationIds) return count;
+        return count + Object.values(course.notificationIds)
+          .filter(n => n.shouldDisplay).length;
+      }, 0) || 0;
 
-    // Log the entire student profile and courses objects
-    console.log('👤 STUDENT PROFILE:', studentData.profile);
-    console.log('📚 STUDENT COURSES:', studentData.courses);
-  }
-  
+      // console.log('📋 NOTIFICATION SUMMARY:', {
+      //   totalActive: studentData.allNotifications?.length || 0,
+      //   visibleNotifications,
+      //   coursesWithNotifications: studentData.courses?.filter(c =>
+      //     c.notificationIds && Object.keys(c.notificationIds).length > 0
+      //   ).length || 0
+      // });
+
+      // Log the entire student profile and courses objects
+      console.log('👤 STUDENT PROFILE:', studentData.profile);
+      console.log('📚 STUDENT COURSES:', studentData.courses);
+    }
+  }, [studentData.loading, studentData.profile, studentData.courses]);
 
   // Function to handle survey submission
   const submitSurveyResponse = async (notificationId, courseId, answers) => {

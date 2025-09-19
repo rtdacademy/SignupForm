@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const DiffractionGratings = ({ course, courseId = 'default', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
+const DiffractionGratings = ({ course, courseId = '2', onPrepopulateMessage, createAskAIButton, createAskAIButtonFromElement,
 AIAccordion, onAIAccordionContent }) => {
   // Note: Manual dropdown states removed - now using AIAccordion
   

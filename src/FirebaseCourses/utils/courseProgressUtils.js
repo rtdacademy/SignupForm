@@ -62,11 +62,11 @@ export const checkItemCompletion = (itemId, gradebook, progressionRequirements =
 
   // Check cloud function calculated category data
   const categories = gradebook.categories || {};
-  
+
   // Find which category this item belongs to by checking the items array in each category
   let itemCategory = null;
   let itemData = null;
-  
+
   Object.entries(categories).forEach(([categoryType, categoryData]) => {
     if (categoryData.items) {
       const foundItem = categoryData.items.find(item => item.itemId === itemId);
@@ -77,6 +77,15 @@ export const checkItemCompletion = (itemId, gradebook, progressionRequirements =
     }
   });
 
+  // If not found in categories, check gradebook.items directly for labs
+  if (!itemData && gradebook.items?.[itemId]) {
+    itemData = gradebook.items[itemId];
+    // Determine category from itemId or type
+    if (itemId.includes('lab')) {
+      itemCategory = 'lab';
+    }
+  }
+
   if (!itemData) {
     return false;
   }
@@ -84,11 +93,22 @@ export const checkItemCompletion = (itemId, gradebook, progressionRequirements =
   // Use progression requirements to determine completion
   const itemOverride = progressionRequirements.lessonOverrides?.[itemId];
   const defaultCriteria = progressionRequirements.defaultCriteria?.[itemCategory] || {};
-  
+
+  // Special handling for labs based on requiresSubmission
+  if (itemCategory === 'lab' || itemId.includes('lab')) {
+    const requiresSubmission = itemOverride?.requiresSubmission ?? defaultCriteria.requiresSubmission ?? true;
+
+    if (requiresSubmission) {
+      // For labs with requiresSubmission, check if attempted > 0
+      // Labs are considered complete when attempted, not based on score
+      return itemData.attempted > 0;
+    }
+  }
+
   const minimumPercentage = itemOverride?.minimumPercentage ?? defaultCriteria.minimumPercentage ?? 50;
   const requireAllQuestions = itemOverride?.requireAllQuestions ?? defaultCriteria.requireAllQuestions ?? false;
 
-  // Check completion based on requirements
+  // Check completion based on requirements for non-lab items
   if (requireAllQuestions) {
     // Must attempt all questions AND meet minimum score
     const completionRate = itemData.totalQuestions > 0 ? (itemData.attempted / itemData.totalQuestions) * 100 : 0;

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set, update, serverTimestamp, onValue, off } from "firebase/database";
@@ -1454,17 +1454,33 @@ export function AuthProvider({ children }) {
   // Get remaining session time based on Firebase token expiration
   const getRemainingSessionTime = useCallback(() => {
     if (!user || !tokenExpirationTime) return 0;
-    
+
     const currentTime = Date.now();
     const timeUntilTokenExpires = Math.max(0, tokenExpirationTime - currentTime);
-    
+
     return timeUntilTokenExpires;
   }, [user, tokenExpirationTime]);
+
+  // Memoize the currentUser object to prevent infinite loops during emulation
+  const currentUser = useMemo(() => {
+    if (isEmulating && emulatedUser) {
+      return {
+        ...emulatedUser,
+        uid: user ? user.uid : null
+      };
+    }
+    return user;
+  }, [isEmulating, emulatedUser, user]);
+
+  // Memoize the current_user_email_key to prevent unnecessary re-renders
+  const current_user_email_key = useMemo(() => {
+    return isEmulating ? emulatedUserEmailKey : user_email_key;
+  }, [isEmulating, emulatedUserEmailKey, user_email_key]);
 
   const value = {
     // Original auth values
     user,
-    user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
+    user_email_key: current_user_email_key, // Use memoized value
     loading,
     isStaff,
     isStaffUser,
@@ -1479,27 +1495,24 @@ export function AuthProvider({ children }) {
     courseTeachers,
     staffMembers,
     getTeacherForCourse,
-    
+
     // Firebase native session management
     refreshSession,
     getRemainingSessionTime,
     tokenExpirationTime,
-    
-    // Emulation values 
+
+    // Emulation values
     emulatedUser,
     emulatedUserEmailKey,
     isEmulating,
     startEmulation,
     stopEmulation,
-    
-    // Current user
-    currentUser: isEmulating ? {
-      ...emulatedUser,
-      uid: user ? user.uid : null
-    } : user,
-    
-    // Both email keys should be the emulated user's during emulation
-    current_user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
+
+    // Current user - use memoized value
+    currentUser,
+
+    // Both email keys should be the emulated user's during emulation - use memoized value
+    current_user_email_key,
 
     // Admin access helpers
     hasAdminAccess: () => isStaffUser && isAdminUser,

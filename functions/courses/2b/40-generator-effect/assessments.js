@@ -352,7 +352,7 @@ questionPool.forEach((questionData, index) => {
     pointsValue: 1,
     maxAttempts: 9999,
     showFeedback: true,
-    activityType: ACTIVITY_TYPE,
+    activityType: 'lesson',
     theme: 'indigo'
   };
 });
@@ -612,7 +612,7 @@ assessmentConfigs['course2_40_question7'] = {
   pointsValue: 1,
   maxAttempts: 9999,
   showFeedback: true,
-  activityType: ACTIVITY_TYPE,
+  activityType: 'lesson',
   theme: 'indigo'
 };
 
@@ -630,7 +630,7 @@ acCircuitQuestions.forEach((questionData, index) => {
     pointsValue: 1,
     maxAttempts: 9999,
     showFeedback: true,
-    activityType: ACTIVITY_TYPE,
+    activityType: 'lesson',
     theme: 'indigo'
   };
 });
@@ -649,7 +649,7 @@ transformerQuestions.forEach((questionData, index) => {
     pointsValue: 1,
     maxAttempts: 9999,
     showFeedback: true,
-    activityType: ACTIVITY_TYPE,
+    activityType: 'lesson',
     theme: 'indigo'
   };
 });

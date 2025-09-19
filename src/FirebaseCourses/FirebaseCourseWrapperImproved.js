@@ -1407,14 +1407,7 @@ const FirebaseCourseWrapperContent = ({
             )}
           </div>
           
-          {/* Simple Lesson Title - hidden on small screens */}
-          {activeTab === 'content' && currentActiveItem && (
-            <div className="hidden md:flex items-center gap-3 text-sm">
-              <div className="text-gray-600 font-medium truncate max-w-xs">
-                {currentActiveItem.title}
-              </div>
-            </div>
-          )}
+          {/* Removed lesson title from header - title is shown within lesson content */}
         </div>
       </div>
 

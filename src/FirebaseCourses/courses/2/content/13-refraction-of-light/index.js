@@ -4,7 +4,7 @@ import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
-const RefractionOfLight = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const RefractionOfLight = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const [tirStep, setTirStep] = useState(1); // 1: small angle, 2: critical angle, 3: total internal reflection
   const [isExample1Open, setIsExample1Open] = useState(false);
 

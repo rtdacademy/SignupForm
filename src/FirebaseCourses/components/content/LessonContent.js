@@ -14,11 +14,6 @@ const LessonContent = ({ lessonId, title, children, metadata = {} }) => {
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900">{title}</h1>
-        {metadata.estimated_time && (
-          <div className="mt-2 text-sm text-gray-600">
-            Estimated time: {metadata.estimated_time}
-          </div>
-        )}
       </div>
       
       <div className="prose max-w-none">

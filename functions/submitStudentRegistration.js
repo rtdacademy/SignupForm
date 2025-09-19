@@ -28,16 +28,23 @@ const submitStudentRegistration = onCall({
     throw new HttpsError('unauthenticated', 'User must be authenticated.');
   }
 
-  const { registrationData } = data.data;
+  const { registrationData, emulationOverride } = data.data;
   const uid = data.auth.uid;
-  const userEmail = data.auth.token.email;
+
+  // Use emulated student email if teacher is emulating, otherwise use the authenticated user's email
+  const userEmail = emulationOverride?.studentEmail || data.auth.token.email;
+  const studentEmailKey = emulationOverride?.studentEmailKey || sanitizeEmail(userEmail);
 
   if (!registrationData || !registrationData.formData) {
     throw new HttpsError('invalid-argument', 'Missing registration data');
   }
 
   const db = admin.database();
-  const studentEmailKey = sanitizeEmail(userEmail);
+
+  // Log if this is an emulated registration for audit purposes
+  if (emulationOverride) {
+    console.log(`📋 Teacher ${data.auth.token.email} is registering course for student ${userEmail} via emulation`);
+  }
   const formData = registrationData.formData;
 
   try {
@@ -130,7 +137,7 @@ const submitStudentRegistration = onCall({
       "firstName": formData.firstName || '',
       "lastName": formData.lastName || '',
       "originalEmail": userEmail,
-      "uid": uid,
+      "uid": emulationOverride ? null : uid, // Don't save staff uid when emulating
       // Add address information if provided
       ...(formData.address && {
         "address": formData.address
@@ -203,8 +210,10 @@ const submitStudentRegistration = onCall({
     
     // Add the new registration note
     studentNotes.push({
-      "author": `${formData.firstName} ${formData.lastName}`,
-      "content": `Student completed the registration form.${
+      "author": emulationOverride
+        ? `(${data.auth.token.email}) on behalf of ${formData.firstName} ${formData.lastName}`
+        : `${formData.firstName} ${formData.lastName}`,
+      "content": `${emulationOverride ? `(${data.auth.token.email}) registered student via emulation. ` : ''}Student completed the registration form.${
         formData.needsASNCreation
           ? '\n\n🆔 ASN Required: RTD Academy needs to create a K-12 ASN for this student.'
           : ''
@@ -506,7 +515,7 @@ const submitStudentRegistration = onCall({
       }
     }
 
-    // Remove the pending registration data
+    // Remove the pending registration data (from student's uid in emulation, not teacher's)
     const pendingRegRef = db.ref(`users/${uid}/pendingRegistration`);
     await pendingRegRef.remove();
 

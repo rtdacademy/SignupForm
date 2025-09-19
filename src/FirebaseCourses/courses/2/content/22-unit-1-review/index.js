@@ -2,7 +2,7 @@ import React from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
 import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
-const Unit1Review = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const Unit1Review = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   return (
     <LessonContent
       lessonId="lesson_22_unit_1_review"

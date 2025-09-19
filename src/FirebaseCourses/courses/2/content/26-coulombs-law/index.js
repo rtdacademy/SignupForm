@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const CoulombsLaw = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const CoulombsLaw = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   
   // Interactive states for Franklin's experiment
   const [franklinExperiment, setFranklinExperiment] = useState('outside'); // 'outside' or 'inside'

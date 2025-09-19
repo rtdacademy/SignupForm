@@ -267,7 +267,7 @@ questionPool.forEach((questionData, index) => {
     pointsValue: 1,
     maxAttempts: 9999,
     showFeedback: true,
-    activityType: ACTIVITY_TYPE,
+    activityType: 'lesson',
     theme: 'blue'
   };
 });

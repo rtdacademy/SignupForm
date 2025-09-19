@@ -37,8 +37,13 @@ import {
 
 const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCourse, onTransitionComplete }) => {
   const trackConversion = useConversionTracking();
-  const { user, user_email_key } = useAuth();
-  const uid = user?.uid;
+  const { user, user_email_key, currentUser, current_user_email_key, isEmulating } = useAuth();
+
+  // Use emulated user data when in emulation mode
+  const actualUser = isEmulating ? currentUser : user;
+  const actualEmailKey = isEmulating ? current_user_email_key : user_email_key;
+  const actualUid = actualUser?.uid || user?.uid; // Fallback to staff uid if needed
+  const uid = actualUid; // Keep uid variable for backwards compatibility
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -86,7 +91,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
 
   // Function to fetch required courses
   const fetchRequiredCourses = async () => {
-    if (!user?.email) return [];
+    if (!actualUser?.email) return [];
 
     try {
       setLoadingRequiredCourses(true);
@@ -109,7 +114,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
             // Include if allowedEmails is empty (available to everyone)
             (Array.isArray(course.allowedEmails) && course.allowedEmails.length === 0) ||
             // Include if user's email is in the allowedEmails list
-            (Array.isArray(course.allowedEmails) && course.allowedEmails.includes(user.email));
+            (Array.isArray(course.allowedEmails) && course.allowedEmails.includes(actualUser.email));
 
           if (includeForUser) {
             required.push({
@@ -353,9 +358,14 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
         // Call the cloud function to handle secure registration
         const functions = getFunctions();
         const submitRegistration = httpsCallable(functions, 'submitStudentRegistration');
-        
+
         const result = await submitRegistration({
-          registrationData: registrationData
+          registrationData: registrationData,
+          // Pass emulation override if teacher is emulating a student
+          emulationOverride: isEmulating ? {
+            studentEmail: actualUser?.email,
+            studentEmailKey: actualEmailKey
+          } : null
         });
 
         console.log('Registration submitted successfully:', result.data);
@@ -364,7 +374,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
 
         // If this was a transition re-registration, set up listeners for completion
         if (result.data.isTransition && registrationData.formData?.courseId) {
-          const studentKey = sanitizeEmail(user.email);
+          const studentKey = sanitizeEmail(actualUser.email);
           const courseId = registrationData.formData.courseId;
           
           console.log('Setting up transition listeners for:', { studentKey, courseId });
@@ -508,6 +518,8 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
           requiredCourses={requiredCourses}
           loadingRequiredCourses={loadingRequiredCourses}
           transitionCourse={transitionCourse}
+          actualUser={actualUser}
+          actualUid={actualUid}
         />
       );
     }
@@ -531,13 +543,15 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
       case 'Summer School':
       case 'International Student': 
         return (
-          <NonPrimaryStudentForm 
+          <NonPrimaryStudentForm
             ref={formRef}
             initialData={formData}
             onValidationChange={setIsFormValid}
             studentType={selectedStudentType}
             importantDates={importantDates}
             transitionCourse={transitionCourse}
+            actualUser={actualUser}
+            actualEmailKey={actualEmailKey}
             onSave={async (data) => {
               const db = getDatabase();
               const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);

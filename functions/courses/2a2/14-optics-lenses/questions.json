@@ -1,0 +1,77 @@
+[
+  {
+    "questionId": "course2_14_converging_lens_position",
+    "title": "Converging Lens - Image Position",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_converging_lens_height",
+    "title": "Converging Lens - Image Height",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_diverging_lens_position",
+    "title": "Diverging Lens - Image Position",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_diverging_lens_height",
+    "title": "Diverging Lens - Image Height",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_camera_lens_calculation",
+    "title": "Camera Lens Calculation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_camera_image_size",
+    "title": "Camera Image Size",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_infinity_focus",
+    "title": "Infinity Focus",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_slide_projector_screen",
+    "title": "Slide Projector - Screen Distance",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_slide_projector_image_size",
+    "title": "Slide Projector - Image Size",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_slide_projector_adjustment",
+    "title": "Slide Projector - Focus Adjustment",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_object_image_separation",
+    "title": "Object-Image Separation",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_projector_focal_length",
+    "title": "Projector Focal Length",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_optical_bench_problem",
+    "title": "Optical Bench - Lens Positions",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_optical_bench_image_size",
+    "title": "Optical Bench - Image Heights",
+    "points": 1
+  },
+  {
+    "questionId": "course2_14_camera_film_distance",
+    "title": "Camera Film Distance",
+    "points": 1
+  }
+]

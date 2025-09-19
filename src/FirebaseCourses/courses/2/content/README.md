@@ -17,7 +17,7 @@ This guide documents the standard format and structure for creating physics less
 Each lesson is a React functional component that follows this general structure:
 
 ```javascript
-const LessonName = ({ course, courseId = 'default' }) => {
+const LessonName = ({ course, courseId = '2' }) => {
   // State declarations
   // Practice problem data
   // Navigation functions

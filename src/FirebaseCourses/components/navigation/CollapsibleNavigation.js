@@ -355,8 +355,12 @@ const CollapsibleNavigation = ({
       const progressionRequirements = course.courseDetails['course-config'].progressionRequirements;
       const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
       
-      // Get item type from the course item
-      const itemType = item.type || 'lesson';
+      // Get item type from the course item or detect from itemId
+      let itemType = item.type || 'lesson';
+      // Fallback detection from itemId if type is generic
+      if (itemType === 'lesson' && item.itemId.includes('lab')) {
+        itemType = 'lab';
+      }
       
       // Get default criteria for this item type, with proper fallback
       const typeDefaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
@@ -744,11 +748,15 @@ const CollapsibleNavigation = ({
               <>
                 {(() => {
                   const progressionRequirements = course.courseDetails?.['course-config']?.progressionRequirements;
-                  const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] || 
+                  const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId] ||
                                         progressionRequirements.lessonOverrides?.[item.itemId.replace(/-/g, '_')];
-                  
-                  // Get item type from the course item
-                  const itemType = item.type || 'lesson';
+
+                  // Get item type from the course item or detect from itemId
+                  let itemType = item.type || 'lesson';
+                  // Fallback detection from itemId if type is generic
+                  if (itemType === 'lesson' && item.itemId.includes('lab')) {
+                    itemType = 'lab';
+                  }
                   
                   // Get default criteria for this item type, with proper fallback
                   const typeDefaultCriteria = progressionRequirements.defaultCriteria?.[itemType] || {};
@@ -774,24 +782,28 @@ const CollapsibleNavigation = ({
                       </p>
                     );
                   } else if (itemType === 'lab') {
-                    const requiresSubmission = lessonOverride?.requiresSubmission ?? 
-                                             typeDefaultCriteria.requiresSubmission ?? 
+                    const requiresSubmission = lessonOverride?.requiresSubmission ??
+                                             typeDefaultCriteria.requiresSubmission ??
                                              true;
-                    
+
                     if (requiresSubmission) {
-                      // Check submission status
-                      const assessments = course?.Assessments || {};
-                      const questions = item.questions || [];
-                      const submittedCount = questions.filter(q => 
-                        assessments.hasOwnProperty(q.questionId)
-                      ).length;
-                      
-                      return (
-                        <p className="text-xs text-blue-600 mt-1">
-                          🔬 Submit all lab work to unlock next lesson
-                          {questions.length > 0 && ` (${submittedCount}/${questions.length} submitted)`}
-                        </p>
-                      );
+                      // Check if lab has been attempted
+                      const labGradeData = course?.Gradebook?.items?.[item.itemId];
+                      const isAttempted = labGradeData?.attempted > 0;
+
+                      if (isCompleted || isAttempted) {
+                        return (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✅ Lab completed
+                          </p>
+                        );
+                      } else {
+                        return (
+                          <p className="text-xs text-blue-600 mt-1">
+                            🔬 Complete this lab to unlock next lesson
+                          </p>
+                        );
+                      }
                     } else {
                       return (
                         <p className="text-xs text-blue-600 mt-1">

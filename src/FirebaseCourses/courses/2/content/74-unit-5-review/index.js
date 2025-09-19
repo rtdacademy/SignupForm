@@ -5,7 +5,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const Unit5Review = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const Unit5Review = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent

@@ -380,12 +380,24 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error, alreadyWro
 const NonPrimaryStudentForm = forwardRef(({ 
   onValidationChange, 
   initialData, 
-  onSave, 
+  onSave,
   studentType,
   importantDates,
-  transitionCourse 
+  transitionCourse,
+  actualUser: passedActualUser,
+  actualEmailKey: passedActualEmailKey
 }, ref) => {
   const { user, user_email_key } = useAuth();
+
+  // Use useMemo to prevent infinite loops from changing references
+  const actualUser = React.useMemo(() => {
+    return passedActualUser || user;
+  }, [passedActualUser, user]);
+
+  const actualEmailKey = React.useMemo(() => {
+    return passedActualEmailKey || user_email_key;
+  }, [passedActualEmailKey, user_email_key]);
+
   const uid = user?.uid; // Extract uid from user
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -422,18 +434,9 @@ const NonPrimaryStudentForm = forwardRef(({
 
   const [usePreferredFirstName, setUsePreferredFirstName] = useState(false);
 
-  // Initialize form data with user's information
-  const getInitialFormData = () => {
+  // Memoize the initial form data to prevent recreation on every render
+  const initialFormData = useMemo(() => {
     if (initialData) {
-      console.log('Using initial data:', initialData);
-      
-      // Check if the registration settings path needs to be fixed
-      if (initialData.registrationSettingsPath && 
-          !initialData.registrationSettingsPath.includes('/timeSections/') &&
-          initialData.timeSectionId) {
-        console.log('Initial data has incomplete registration settings path, will be fixed when currentSchoolYearKey is available');
-      }
-      
       // If transition course is provided, override the course selection
       if (transitionCourse) {
         return {
@@ -443,26 +446,20 @@ const NonPrimaryStudentForm = forwardRef(({
           isTransition: true
         };
       }
-      
+
       return initialData;
     }
-  
+
     const today = new Date();
     const currentMonth = today.getMonth();
     let defaultEnrollmentYear;
-  
-    console.log('Current month:', currentMonth);
-  
+
     if (currentMonth === 7) { // August
-      defaultEnrollmentYear = getNextSchoolYear();
-      console.log('August - setting to next school year:', defaultEnrollmentYear);
+      defaultEnrollmentYear = getNextSchoolYear ? getNextSchoolYear() : '';
     } else if (currentMonth >= 8 || currentMonth <= 2) { // September to March
-      defaultEnrollmentYear = getCurrentSchoolYear();
-      console.log('Sept-March - setting to current school year:', defaultEnrollmentYear);
+      defaultEnrollmentYear = getCurrentSchoolYear ? getCurrentSchoolYear() : '';
     }
-  
-    console.log('Default enrollment year:', defaultEnrollmentYear);
-  
+
     // Set default term based on student type
     let defaultTerm = 'Full Year';
     if (studentType === 'Non-Primary' || studentType === 'Home Education') {
@@ -470,14 +467,14 @@ const NonPrimaryStudentForm = forwardRef(({
     } else if (studentType === 'Summer School') {
       defaultTerm = 'Summer';
     }
-    
-    const formData = {
+
+    return {
       gender: '',
-      firstName: validationRules.firstName.format(user?.displayName?.split(' ')[0] || ''),
-      lastName: validationRules.lastName.format(user?.displayName?.split(' ').slice(1).join(' ') || ''),
-      preferredFirstName: '', 
+      firstName: validationRules.firstName.format(actualUser?.displayName?.split(' ')[0] || ''),
+      lastName: validationRules.lastName.format(actualUser?.displayName?.split(' ').slice(1).join(' ') || ''),
+      preferredFirstName: '',
       phoneNumber: '',
-      address: null, // Add address field
+      address: null,
       currentSchool: '',
       schoolAddress: null,
       birthday: '',
@@ -494,15 +491,15 @@ const NonPrimaryStudentForm = forwardRef(({
       endDate: '',
       additionalInformation: '',
       diplomaMonth: null,
-      studentType: studentType || 'Non-Primary', // Initialize with studentType prop
+      studentType: studentType || 'Non-Primary',
       age: null,
-      term: defaultTerm, // Initialize with default term based on student type
+      term: defaultTerm,
       documents: {
         passport: '',
         additionalID: '',
         residencyProof: ''
       },
-      internationalDocuments: [], // New array format for international documents
+      internationalDocuments: [],
       registrationSettingsPath: null,
       timeSectionId: null,
       // New fields
@@ -522,12 +519,9 @@ const NonPrimaryStudentForm = forwardRef(({
       knowsASN: null,
       needsASNCreation: false
     };
+  }, [initialData, transitionCourse, studentType, getCurrentSchoolYear, getNextSchoolYear, actualUser]);
 
-    console.log('Initial form data:', formData);
-    return formData;
-  };
-
-  const [formData, setFormData] = useState(getInitialFormData());
+  const [formData, setFormData] = useState(initialFormData);
   const [user18OrOlder, setUser18OrOlder] = useState(false);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState(null);
@@ -647,11 +641,11 @@ const NonPrimaryStudentForm = forwardRef(({
   // Fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
-      if (!user_email_key) return;
+      if (!actualEmailKey) return;
 
       try {
         const db = getDatabase();
-        const profileRef = databaseRef(db, `students/${user_email_key}/profile`);
+        const profileRef = databaseRef(db, `students/${actualEmailKey}/profile`);
         const snapshot = await get(profileRef);
 
         if (snapshot.exists()) {
@@ -720,7 +714,7 @@ const NonPrimaryStudentForm = forwardRef(({
     };
 
     fetchProfileData();
-  }, [user_email_key]);
+  }, [actualEmailKey]);
 
   // Determine which fields should be read-only
   const readOnlyFields = useMemo(() => {
@@ -1537,10 +1531,10 @@ const NonPrimaryStudentForm = forwardRef(({
   // Fetch enrolled courses with their statuses for the student
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
-      if (!user_email_key) return;
+      if (!actualEmailKey) return;
       try {
         const db = getDatabase();
-        const studentCoursesRef = databaseRef(db, `students/${user_email_key}/courses`);
+        const studentCoursesRef = databaseRef(db, `students/${actualEmailKey}/courses`);
         const snapshot = await get(studentCoursesRef);
 
         if (snapshot.exists()) {
@@ -1564,7 +1558,7 @@ const NonPrimaryStudentForm = forwardRef(({
     };
 
     fetchEnrolledCourses();
-  }, [user_email_key]);
+  }, [actualEmailKey]);
 
   // Update enrollment year options based on registration settings
   useEffect(() => {
@@ -3089,7 +3083,7 @@ const NonPrimaryStudentForm = forwardRef(({
                 <input
                   type="email"
                   className="w-full p-2 border rounded-md bg-gray-50"
-                  value={user.email}
+                  value={actualUser?.email}
                   readOnly
                 />
               </div>

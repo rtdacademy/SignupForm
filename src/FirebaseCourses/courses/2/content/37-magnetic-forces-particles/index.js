@@ -32,7 +32,7 @@ const images = {
   practice4: `${ASSET_PATH}37-practice4diagram.png`
 };
 
-const MagneticForcesParticles = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const MagneticForcesParticles = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent

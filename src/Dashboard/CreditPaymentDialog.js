@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -99,34 +99,40 @@ const CreditPaymentDialog = ({
     return course?.Course?.Value || course?.CourseName || `Course ${courseId}`;
   };
   
-  // Build payment options from coursePaymentDetails
-  const paymentOptions = [];
-  
-  // Add individual course options
-  if (coursePaymentDetails && pricingData) {
-    Object.entries(coursePaymentDetails).forEach(([courseId, details]) => {
-      if (details.requiresPayment && details.creditsRequiredToUnlock > 0) {
-        paymentOptions.push({
-          id: courseId,
-          courseName: getCourseName(courseId),
-          credits: details.creditsRequiredToUnlock,
-          price: details.creditsRequiredToUnlock * (pricingData.priceInCents / 100)
-        });
-      }
-    });
-  }
+  // Build payment options from coursePaymentDetails - memoized to prevent infinite loops
+  const paymentOptions = useMemo(() => {
+    const options = [];
+
+    // Add individual course options
+    if (coursePaymentDetails && pricingData) {
+      Object.entries(coursePaymentDetails).forEach(([courseId, details]) => {
+        if (details.requiresPayment && details.creditsRequiredToUnlock > 0) {
+          options.push({
+            id: courseId,
+            courseName: getCourseName(courseId),
+            credits: details.creditsRequiredToUnlock,
+            price: details.creditsRequiredToUnlock * (pricingData.priceInCents / 100)
+          });
+        }
+      });
+    }
+
+    return options;
+  }, [coursePaymentDetails, pricingData, courses]); // Added courses as dependency since getCourseName uses it
   
   // Initialize with all courses selected
   useEffect(() => {
     if (paymentOptions.length > 0 && selectedCourses.size === 0) {
       setSelectedCourses(new Set(paymentOptions.map(opt => opt.id)));
     }
-  }, [paymentOptions.length]);
+  }, [paymentOptions]); // Use paymentOptions directly, not just length
   
-  // Calculate total credits based on selected courses
-  const creditQuantity = paymentOptions
-    .filter(opt => selectedCourses.has(opt.id))
-    .reduce((sum, opt) => sum + opt.credits, 0);
+  // Calculate total credits based on selected courses - memoized
+  const creditQuantity = useMemo(() => {
+    return paymentOptions
+      .filter(opt => selectedCourses.has(opt.id))
+      .reduce((sum, opt) => sum + opt.credits, 0);
+  }, [paymentOptions, selectedCourses]);
   
   // Toggle course selection
   const toggleCourse = (courseId) => {
@@ -148,19 +154,19 @@ const CreditPaymentDialog = ({
     }
   };
   
-  // Debug logging
-  useEffect(() => {
-    console.log('CreditPaymentDialog render:', {
-      isOpen,
-      user: user?.email,
-      creditsRequired,
-      coursesToUnlock,
-      coursePaymentDetails,
-      paymentOptions,
-      selectedCourses: Array.from(selectedCourses),
-      creditQuantity
-    });
-  }, [isOpen, user, creditsRequired, coursesToUnlock, coursePaymentDetails, paymentOptions, selectedCourses, creditQuantity]);
+  // Debug logging - commented out to prevent infinite loops
+  // useEffect(() => {
+  //   console.log('CreditPaymentDialog render:', {
+  //     isOpen,
+  //     user: user?.email,
+  //     creditsRequired,
+  //     coursesToUnlock,
+  //     coursePaymentDetails,
+  //     paymentOptions,
+  //     selectedCourses: Array.from(selectedCourses),
+  //     creditQuantity
+  //   });
+  // }, [isOpen, user, creditsRequired, coursesToUnlock, coursePaymentDetails, paymentOptions, selectedCourses, creditQuantity]);
 
 
   useEffect(() => {
@@ -276,13 +282,17 @@ const CreditPaymentDialog = ({
     }
   };
 
-  // Calculate totals based on selected courses
-  const totalPrice = pricingData ? creditQuantity * (pricingData.priceInCents / 100) : 0;
-  
-  // Get names of selected courses
-  const courseNamesToUnlock = paymentOptions
-    .filter(opt => selectedCourses.has(opt.id))
-    .map(opt => opt.courseName);
+  // Calculate totals based on selected courses - memoized
+  const totalPrice = useMemo(() => {
+    return pricingData ? creditQuantity * (pricingData.priceInCents / 100) : 0;
+  }, [pricingData, creditQuantity]);
+
+  // Get names of selected courses - memoized
+  const courseNamesToUnlock = useMemo(() => {
+    return paymentOptions
+      .filter(opt => selectedCourses.has(opt.id))
+      .map(opt => opt.courseName);
+  }, [paymentOptions, selectedCourses]);
 
   // Handle course-based payment selection
   const handleCourseSelection = (courseId) => {

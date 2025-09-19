@@ -136,9 +136,11 @@ const DocumentPreview = ({ documents, title }) => {
   );
 };
 
-const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false, transitionCourse }) => {
+const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false, transitionCourse, actualUser, actualUid }) => {
   const { user } = useAuth();
-  const uid = user?.uid;
+  // Use passed actualUser/actualUid if provided (during emulation), otherwise fall back to regular user
+  const displayUser = actualUser || user;
+  const uid = actualUid || user?.uid;
   const [registrationData, setRegistrationData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -211,7 +213,7 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
 
   const personalInfo = [
     ['Name', nameDisplay],
-    ['Email', user.email],
+    ['Email', displayUser?.email],
     ['Phone', formData.phoneNumber],
     ['Address', formData.address?.fullAddress || ''],
     ['Birthday', formData.birthday],

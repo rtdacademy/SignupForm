@@ -47,7 +47,7 @@ const images = {
   practice7: `${ASSET_PATH}36-practice7diagram.png`
 };
 
-const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const MagneticFields = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent
@@ -1200,72 +1200,72 @@ const MagneticFields = ({ course, courseId = 'default', AIAccordion, onAIAccordi
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question2',
-            title: 'Question 2: Right Hand Rule - Compass Above Wire'
+            title: 'Question 2: Left Hand Rule - Electron Flow'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question3',
-            title: 'Question 3: Left Hand Rule - Electron Flow'
+            title: 'Question 3: Current Direction from Field'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question4',
-            title: 'Question 4: Parallel Wires - Same Direction'
+            title: 'Question 4: Cross-Section Current Analysis'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question5',
-            title: 'Question 5: Parallel Wires - Opposite Direction'
+            title: 'Question 5: Solenoid North Pole - Electrons'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question6',
-            title: 'Question 6: Circular Conductor Loop'
+            title: 'Question 6: Solenoid South Pole - Current'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question7',
-            title: 'Question 7: Solenoid Cross-Section'
+            title: 'Question 7: Current Direction from Poles'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question8',
-            title: 'Question 8: Solenoid North Pole - Configuration 1'
+            title: 'Question 8: Compass Deflection - Electron N-S'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question9',
-            title: 'Question 9: Solenoid North Pole - Configuration 2'
+            title: 'Question 9: Wire Over Compass - Electrons N-S'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question10',
-            title: 'Question 10: Domain Theory'
+            title: 'Question 10: Compass Deflection - Electron S-N'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question11',
-            title: 'Question 11: Ferromagnetic Materials'
+            title: 'Question 11: Wire Over Compass - Electrons S-N'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question12',
-            title: 'Question 12: Magnetic Poles'
+            title: 'Question 12: Negative Charge Field Direction'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question13',
-            title: 'Question 13: Field Line Properties'
+            title: 'Question 13: Positive Charge Field Direction'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question14',
-            title: 'Question 14: Electromagnet Strength'
+            title: 'Question 14: Coil Magnetic Pole Direction'
           },
           {
             type: 'multiple-choice',
             questionId: 'course2_36_question15',
-            title: 'Question 15: Oersted Discovery'
+            title: 'Question 15: Spinning Disk Magnetic Field'
           }
         ]}
       />

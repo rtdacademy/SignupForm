@@ -177,22 +177,7 @@ const Course2 = ({
     if (ContentComponent) {
       return (
         <div className="p-2">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">{activeItem.unitName}</p>
-              <h1 className="text-3xl font-bold text-gray-800">
-                {activeItem.title}
-                {devMode && activeItem.hasCloudFunctions && (
-                  <span className="ml-2 text-xs bg-yellow-600 text-white px-2 py-0.5 rounded-full">
-                    Has Functions
-                  </span>
-                )}
-              </h1>
-            </div>
-            <Badge className={`${typeColors[activeItem.type] || 'bg-gray-100'} px-2 py-1`}>
-              {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
-            </Badge>
-          </div>
+          {/* Removed lesson title header - title is shown within lesson content itself */}
           
           {/* Display learning objectives if available */}
           {activeItem.learningObjectives && activeItem.learningObjectives.length > 0 && (

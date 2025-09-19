@@ -4,7 +4,7 @@ import SlideshowKnowledgeCheck from '../../../../components/assessments/Slidesho
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-const ParallelPlates = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const ParallelPlates = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
   const [animationState, setAnimationState] = useState('initial'); // 'initial', 'charging', 'charged'
   const [showBattery, setShowBattery] = useState(false);
   const [milliklanAnimationState, setMillikanAnimationState] = useState('off'); // 'off', 'spraying', 'balancing'

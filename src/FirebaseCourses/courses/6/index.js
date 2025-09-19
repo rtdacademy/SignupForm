@@ -87,23 +87,7 @@ const LessonContentWrapper = ({
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Item header */}
-      <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
-        <div className="flex items-center gap-3 mb-2">
-          <Badge className={`${typeColors[activeItem.type] || 'bg-gray-100 text-gray-800'} text-sm`}>
-            {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
-          </Badge>
-          <h1 className="text-2xl font-bold text-gray-900">{activeItem.title}</h1>
-        </div>
-        {activeItem.description && (
-          <p className="text-gray-600">{activeItem.description}</p>
-        )}
-        {activeItem.estimatedTime && (
-          <p className="text-sm text-blue-600 mt-2">
-            Estimated time: {activeItem.estimatedTime} minutes
-          </p>
-        )}
-      </div>
+      {/* Removed lesson title header - title is shown within lesson content itself */}
 
       {/* Content */}
       <div className="bg-white rounded-lg shadow-sm border p-6">

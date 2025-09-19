@@ -1463,6 +1463,29 @@ const AssessmentGridProps = ({
       <div className="text-sm text-gray-600 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 @sm:gap-4">
           <span className="text-xs @sm:text-sm">Showing {filteredLessons.length} of {groupedLessons.length} lessons</span>
+          {/* Recalculate button - discrete icon for staff */}
+          {isStaffView && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleRecalculateGradebook}
+                    disabled={recalculatingGradebook}
+                    className="p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {recalculatingGradebook ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Recalculate all grades for this student</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <div className={`inline-flex items-center gap-1 text-xs ${course?._isRealtimeData ? 'text-green-600' : 'text-orange-600'}`}>
 
             {course?._isRealtimeData ? '' : 'Loading...'}
@@ -2076,17 +2099,36 @@ const LessonRow = ({
                       </div>
                     ) : (
                       // Regular numerical score display for non-labs
-                      <div className={`text-sm font-medium px-2 py-1 rounded whitespace-nowrap ${getScoreColor(lesson.averageScore)}`}>
-                        {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                      </div>
+                      (() => {
+                        // Check if any questions have been attempted for non-session items
+                        const hasAttemptedQuestions = lesson.completedQuestions > 0;
+
+                        // For non-session items, don't show 0/10 if nothing attempted
+                        if (!hasAttemptedQuestions && !lesson.shouldBeSessionBased) {
+                          return (
+                            <div className="text-sm text-gray-400">
+                              {lesson.lastActivity ? "Opened" : "Not started"}
+                            </div>
+                          );
+                        } else {
+                          // Show actual score
+                          return (
+                            <>
+                              <div className={`text-sm font-medium px-2 py-1 rounded whitespace-nowrap ${getScoreColor(lesson.averageScore)}`}>
+                                {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                              </div>
+                              {/* Percentage display */}
+                              <div className={`text-xs mt-1 whitespace-nowrap ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {formatScore(lesson.averageScore)}%
+                                {isOmitted && (
+                                  <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
+                                )}
+                              </div>
+                            </>
+                          );
+                        }
+                      })()
                     )}
-                    {/* Percentage display */}
-                    <div className={`text-xs mt-1 whitespace-nowrap ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {formatScore(lesson.averageScore)}%
-                      {isOmitted && (
-                        <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
-                      )}
-                    </div>
                   </div>
                 )}
                 {lesson.totalAttempts > 0 && lesson.isSessionBased && (

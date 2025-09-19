@@ -25,7 +25,7 @@ const images = {
   currentBalanceSideView: `${ASSET_PATH}the current balance - side view with forces.png`
 };
 
-const MotorEffect = ({ course, courseId = 'default', AIAccordion, onAIAccordionContent }) => {
+const MotorEffect = ({ course, courseId = '2', AIAccordion, onAIAccordionContent }) => {
 
   return (
     <LessonContent

@@ -325,7 +325,7 @@ for (let i = 1; i <= 15; i++) {
     pointsValue: 1,
     maxAttempts: 1,
     showFeedback: true,
-    activityType: ACTIVITY_TYPE,
+    activityType: 'assignment',
     theme: 'purple'
   };
 }

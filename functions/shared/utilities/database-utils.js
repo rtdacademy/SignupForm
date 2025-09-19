@@ -1150,6 +1150,14 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
 
             if (grades.hasOwnProperty(questionId)) {
               attemptedQuestions++;
+            } else if (type === 'lab' && assessments[questionId]) {
+              // For labs, check if the assessment exists (indicating it was started/completed)
+              // Labs don't always create grade entries, but they create assessment entries
+              attemptedQuestions++;
+              // Give full credit if the lab assessment exists and has been submitted
+              if (assessments[questionId].status === 'completed' || assessments[questionId].submitted === true) {
+                totalScore += maxPoints;
+              }
             }
 
             // Track last activity from assessment timestamps
