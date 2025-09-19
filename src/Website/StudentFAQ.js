@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Search, ChevronDown, ChevronUp, Clock, ArrowUp, GraduationCap, Home, Sun, UserCheck, Globe, Info, HelpCircle, Sparkles, CheckCircle, X, Link2, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Search, ChevronDown, ChevronUp, Clock, ArrowUp, GraduationCap, Home, Sun, UserCheck, Globe, Info, HelpCircle, Sparkles, CheckCircle, X, Link2, Check, BookOpen } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -11,8 +11,11 @@ import {
   AccordionTrigger,
 } from '../components/ui/accordion';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import ReactMarkdown from 'react-markdown';
 import { websiteConfig, getAllFAQs, getVisibleCategories } from './websiteConfig';
 import StudentTypeSelector from '../Registration/StudentTypeSelector';
+import SchoolAgeCalculator from './components/SchoolAgeCalculator';
+import { Calculator } from 'lucide-react';
 
 // Constants for triangle animation - matching AdultStudentInfo
 const TRIANGLE_SIZE = 220;
@@ -133,8 +136,27 @@ const FAQItem = ({ faq, isOpen, onToggle, searchTerm }) => {
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-4 pb-4">
-        <div className="text-muted-foreground whitespace-pre-line">
-          {highlightText(faq.answer)}
+        <div className="text-muted-foreground prose prose-sm max-w-none dark:prose-invert">
+          <ReactMarkdown
+            components={{
+              p: ({children}) => <p className="mb-2">{children}</p>,
+              strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+              ul: ({children}) => <ul className="list-disc list-inside space-y-1 ml-2">{children}</ul>,
+              li: ({children}) => <li className="text-muted-foreground">{children}</li>,
+              a: ({children, href}) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-medium"
+                >
+                  {children}
+                </a>
+              )
+            }}
+          >
+            {faq.answer}
+          </ReactMarkdown>
         </div>
       </AccordionContent>
     </AccordionItem>
@@ -143,6 +165,7 @@ const FAQItem = ({ faq, isOpen, onToggle, searchTerm }) => {
 
 // Icon mapping for categories
 const iconMap = {
+  BookOpen: BookOpen,
   GraduationCap: GraduationCap,
   Home: Home,
   Sun: Sun,
@@ -210,6 +233,7 @@ const StudentFAQ = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [determinedStudentType, setDeterminedStudentType] = useState('');
   const [guideOpen, setGuideOpen] = useState('');
+  const [calculatorOpen, setCalculatorOpen] = useState('');
   const [copiedCategory, setCopiedCategory] = useState('');
   const [highlightedSection, setHighlightedSection] = useState('');
   const scrollTopRef = useRef();
@@ -591,6 +615,46 @@ const StudentFAQ = () => {
                         </Button>
                       </div>
                     )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </Card>
+          </div>
+
+          {/* School Age Calculator Accordion - Collapses when searching */}
+          <div className={`
+            overflow-hidden transform-gpu
+            transition-all duration-500 ease-in-out delay-100
+            ${searchTerm
+              ? 'max-h-0 opacity-0 scale-95 mb-0'
+              : 'max-h-[600px] opacity-100 scale-100 mb-8'}
+          `}>
+            <Card className="border border-border">
+              <Accordion type="single" collapsible value={calculatorOpen} onValueChange={setCalculatorOpen}>
+                <AccordionItem value="calculator" className="border-0">
+                  <AccordionTrigger className="hover:no-underline px-6 py-4">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-full bg-muted">
+                          <Calculator className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-base mb-1">Am I a School-Aged Student?</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Check if you qualify as a school-aged student for funding purposes
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs font-medium text-primary ml-4">
+                        <Sparkles className="h-3 w-3" />
+                        <span>Calculator</span>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-6">
+                    <div className="mt-4">
+                      <SchoolAgeCalculator />
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

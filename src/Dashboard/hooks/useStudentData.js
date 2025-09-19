@@ -12,7 +12,6 @@ import {
 import { ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../../config/DropdownOptions';
 
 export const useStudentData = (userEmailKey) => {
-  const { isEmulating } = useAuth();
   const [studentData, setStudentData] = useState({
     courses: [],
     profile: null,
@@ -1030,90 +1029,10 @@ export const useStudentData = (userEmailKey) => {
       };
     };
 
-    if (isEmulating) {
-      // For emulation, do a one-time fetch
-      const studentRef = ref(db, `students/${userEmailKey}`);
-      const datesRef = ref(db, 'ImportantDates');
-      // Use query for active notifications only
-      const activeNotificationsQuery = query(
-        ref(db, 'studentDashboardNotifications'),
-        orderByChild('active'),
-        equalTo(true)
-      );
-      
-      Promise.all([
-        get(studentRef),
-        get(datesRef),
-        get(activeNotificationsQuery)
-      ]).then(async ([studentSnapshot, datesSnapshot, notificationsSnapshot]) => {
-        if (!isMounted) return;
-
-        console.log('Emulation mode fetches:', {
-          studentExists: studentSnapshot.exists(),
-          datesExists: datesSnapshot.exists(),
-          notificationsExists: notificationsSnapshot.exists()
-        });
-
-        // Process notifications
-        let allNotifications = [];
-        if (notificationsSnapshot.exists()) {
-          const notificationsData = notificationsSnapshot.val();
-          allNotifications = Object.entries(notificationsData).map(([id, data]) => ({
-            id,
-            ...data
-          }));
-          console.log(`Fetched ${allNotifications.length} active notifications in emulation mode`);
-        }
-
-        const exists = studentSnapshot.exists();
-        if (exists) {
-          const data = studentSnapshot.val();
-          let processedCourses = await processCourses(data.courses);
-          
-          if (!isMounted) return;
-          
-          // Add notifications to courses if we have profile data
-          if (data.profile) {
-            processedCourses = processNotificationsForCourses(
-              processedCourses,
-              data.profile,
-              allNotifications
-            );
-          }
-
-          setStudentData({
-            courses: processedCourses,
-            profile: data.profile || null,
-            loading: false,
-            error: null,
-            studentExists: true,
-            importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null,
-            allNotifications: allNotifications
-          });
-        } else {
-          setStudentData({
-            courses: [],
-            profile: null,
-            loading: false,
-            error: null,
-            studentExists: false,
-            importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null,
-            allNotifications: allNotifications
-          });
-        }
-        
-        // Mark all as received
-        profileReceived = true;
-        coursesReceived = true;
-        datesReceived = true;
-        notificationsReceived = true;
-      }).catch(handleError);
-    } else {
-      // Set up real-time listeners
-      setupListeners().then(cleanupFn => {
-        unsubscribe = cleanupFn;
-      }).catch(handleError);
-    }
+    // Set up real-time listeners for both normal and emulation modes
+    setupListeners().then(cleanupFn => {
+      unsubscribe = cleanupFn;
+    }).catch(handleError);
 
     return () => {
       isMounted = false;
@@ -1133,7 +1052,7 @@ export const useStudentData = (userEmailKey) => {
       courseDetailsRef.current = {};
       setCourseDetails({});
     };
-  }, [userEmailKey, isEmulating]);
+  }, [userEmailKey]);
 
   // Add a simplified notification summary log
   if (!studentData.loading && studentData.profile) {

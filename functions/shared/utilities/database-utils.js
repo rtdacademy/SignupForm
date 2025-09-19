@@ -964,16 +964,29 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       console.log(`⏱️ Adding small delay to ensure session ${triggeringSessionId} data is fully committed`);
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
-    const [gradesSnapshot, sessionsSnapshot, omittedSnapshot] = await Promise.all([
+
+    const [gradesSnapshot, sessionsSnapshot, omittedSnapshot, assessmentsSnapshot] = await Promise.all([
       db.ref(`${basePath}/Grades/assessments`).once('value'),
       db.ref(`${basePath}/ExamSessions`).once('value'),
-      db.ref(`${basePath}/Gradebook/omittedItems`).once('value')
+      db.ref(`${basePath}/Gradebook/omittedItems`).once('value'),
+      db.ref(`${basePath}/Assessments`).once('value') // Fetch all assessments for timestamps
     ]);
-    
+
     const grades = gradesSnapshot.val() || {};
     const sessions = sessionsSnapshot.val() || {};
     const omittedItems = omittedSnapshot.val() || {};
+    const assessments = assessmentsSnapshot.val() || {};
+
+    // Create a map of assessment timestamps for efficient lookup
+    const assessmentTimestamps = {};
+    Object.entries(assessments).forEach(([assessmentId, assessmentData]) => {
+      if (assessmentData && assessmentData.lastSubmission && assessmentData.lastSubmission.timestamp) {
+        assessmentTimestamps[assessmentId] = assessmentData.lastSubmission.timestamp;
+      } else if (assessmentData && assessmentData.timestamp) {
+        // Fallback to initial timestamp if no submission
+        assessmentTimestamps[assessmentId] = assessmentData.timestamp;
+      }
+    });
     
     // Adjust category max points by removing points from omitted items
     Object.entries(omittedItems).forEach(([itemId, omitData]) => {
@@ -1029,7 +1042,8 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       }
       
       let itemScore = { score: 0, total: 0, percentage: 0, attempted: 0, completed: false };
-      
+      let lastActivity = null; // Track last activity timestamp for this item
+
       // Check if this item should use session-based scoring
       // Note: New types (info, review, practice, assessment) are NOT session-based
       const shouldUseSession = type === 'assignment' || type === 'exam' || type === 'quiz';
@@ -1047,7 +1061,18 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
           const completedSessions = itemSessions
             .map(([sessionId, sessionData]) => ({ ...sessionData, sessionId })) // Include sessionId in session data
             .filter(session => session.status === 'completed' && session.finalResults);
-          
+
+          // Find the most recent session timestamp
+          itemSessions.forEach(([sessionId, sessionData]) => {
+            if (sessionData.timestamp) {
+              lastActivity = Math.max(lastActivity || 0, sessionData.timestamp);
+            }
+            // Also check completedAt timestamp if available
+            if (sessionData.completedAt) {
+              lastActivity = Math.max(lastActivity || 0, sessionData.completedAt);
+            }
+          });
+
           if (completedSessions.length > 0) {
             // First check for teacher-created manual grade sessions (highest priority)
             const teacherManualSessions = completedSessions.filter(session => 
@@ -1114,17 +1139,22 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
           let totalScore = 0;
           let totalPossible = 0;
           let attemptedQuestions = 0;
-          
+
           questions.forEach(question => {
             const questionId = question.questionId;
             const maxPoints = question.points || 1;
             const actualGrade = grades[questionId] || 0;
-            
+
             totalPossible += maxPoints;
             totalScore += actualGrade;
-            
+
             if (grades.hasOwnProperty(questionId)) {
               attemptedQuestions++;
+            }
+
+            // Track last activity from assessment timestamps
+            if (assessmentTimestamps[questionId]) {
+              lastActivity = Math.max(lastActivity || 0, assessmentTimestamps[questionId]);
             }
           });
           
@@ -1144,8 +1174,15 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       // Store item score (always store, even if omitted)
       itemScores[itemId] = {
         ...itemScore,
-        isOmitted: isOmitted || false  // Add omitted flag to item score
+        isOmitted: isOmitted || false,  // Add omitted flag to item score
+        lastActivity: lastActivity      // Add last activity timestamp
       };
+
+      // Log last activity tracking for debugging
+      if (lastActivity) {
+        const activityDate = new Date(lastActivity).toISOString();
+        console.log(`📅 Item ${itemId}: Last activity at ${activityDate}`);
+      }
       
       // Add to category totals (but skip omitted items)
       if (!isOmitted && itemScore.total > 0) { // Only count non-omitted items with actual points
@@ -1365,8 +1402,9 @@ async function recalculateFullGradebook(studentKey, courseId, triggeringSessionI
       },
       metadata: {
         lastCalculated: getServerTimestamp(),
-        calculationVersion: '1.2', // Bumped version for course completion feature
-        progressionEnabled: progressionEnabled
+        calculationVersion: '1.3', // Bumped version for lastActivity tracking feature
+        progressionEnabled: progressionEnabled,
+        includesLastActivity: true  // Flag to indicate this gradebook includes activity tracking
       }
     };
     

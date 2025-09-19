@@ -11,6 +11,7 @@ import { Button } from "../components/ui/button";
 import NewUserSignUp from '../Registration/NewUserSignUp';
 import YourWayScheduleMaker from '../Schedule/YourWayScheduleMaker';
 import { getPricingForStudentType } from '../config/pricingConfig';
+import { websiteConfig } from './websiteConfig';
 
 // Constants for triangle animation (using blue/teal colors for international theme)
 const TRIANGLE_SIZE = 220;

@@ -9,6 +9,7 @@ import {
 import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Clock, Calendar, Home, AlertCircle, Check } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { websiteConfig } from '../websiteConfig';
 import RTDConnectPromo from './RTDConnectPromo';
 
@@ -63,7 +64,7 @@ const HomeEducationStudentsFAQ = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-semibold">{websiteConfig.credits.maxCreditsPerYear} Credits</p>
+            <p className="font-semibold">{websiteConfig.config.credits.maxPerYear} Credits</p>
             <p className="text-xs text-muted-foreground">Free per school year</p>
           </CardContent>
         </Card>
@@ -98,8 +99,27 @@ const HomeEducationStudentsFAQ = () => {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="text-muted-foreground whitespace-pre-line">
-                    {faq.answer}
+                  <div className="text-muted-foreground prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown
+                      components={{
+                        p: ({children}) => <p className="mb-2">{children}</p>,
+                        strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+                        ul: ({children}) => <ul className="list-disc list-inside space-y-1 ml-2">{children}</ul>,
+                        li: ({children}) => <li className="text-muted-foreground">{children}</li>,
+                        a: ({children, href}) => (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {children}
+                          </a>
+                        )
+                      }}
+                    >
+                      {faq.answer}
+                    </ReactMarkdown>
                   </div>
                 </AccordionContent>
               </AccordionItem>

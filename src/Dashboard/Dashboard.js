@@ -418,14 +418,14 @@ const Dashboard = () => {
   if (authLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <Header 
+        <Header
           user={currentUser}
           onLogout={handleLogout}
           onBackClick={showBackButton ? handleBackClick : null}
           onDashboardClick={() => {}} // Already on dashboard
           portalType="Student Portal"
           isEmulating={isEmulating}
-          isStaffUser={false}
+          isStaffUser={isEmulating ? false : false}
           // Props for student credit and notification components
           getCurrentSchoolYear={getCurrentSchoolYear()}
           courses={courses}
@@ -447,14 +447,14 @@ const Dashboard = () => {
   if (dataLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <Header 
+        <Header
           user={currentUser}
           onLogout={handleLogout}
           onBackClick={showBackButton ? handleBackClick : null}
           onDashboardClick={() => {}} // Already on dashboard
           portalType="Student Portal"
           isEmulating={isEmulating}
-          isStaffUser={false}
+          isStaffUser={isEmulating ? false : false}
           // Props for student credit and notification components
           getCurrentSchoolYear={getCurrentSchoolYear()}
           courses={courses}
@@ -476,14 +476,14 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="flex flex-col h-screen">
-        <Header 
+        <Header
           user={currentUser}
           onLogout={handleLogout}
           onBackClick={showBackButton ? handleBackClick : null}
           onDashboardClick={() => {}} // Already on dashboard
           portalType="Student Portal"
           isEmulating={isEmulating}
-          isStaffUser={false}
+          isStaffUser={isEmulating ? false : false}
           // Props for student credit and notification components
           getCurrentSchoolYear={getCurrentSchoolYear()}
           courses={courses}
@@ -646,12 +646,12 @@ const Dashboard = () => {
   {/* Blacklist Notification */}
   <BlacklistNotification isBlacklisted={isBlacklisted} />
 
-  {!isEmulating && !isBlacklisted && (
+  {!isBlacklisted && (
     <div className="grid grid-cols-1 gap-4 mb-6">
       <FormDialog
         trigger={triggerButton}
         open={isFormDialogOpen}
-        importantDates={importantDates} 
+        importantDates={importantDates}
         onOpenChange={(open) => {
           setIsFormDialogOpen(open);
           if (open) {

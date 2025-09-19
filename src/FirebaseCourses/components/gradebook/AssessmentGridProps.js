@@ -47,13 +47,13 @@ const formatFriendlyDate = (timestamp) => {
   }
 };
 
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  ChevronUp, 
-  Eye, 
-  CheckCircle, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  CheckCircle,
   XCircle,
   Clock,
   RotateCcw,
@@ -77,7 +77,7 @@ import {
   MoreVertical,
   Unlock,
   Lock,
-  PlayCircle
+  PlayCircle,
 } from 'lucide-react';
 import { 
   checkLessonCompletion,
@@ -584,74 +584,18 @@ const AssessmentGridProps = ({
       
       // Get detailed question information if configured
       const questions = [];
-      // Get last activity from course data
-      let lastActivity = null;
-      
-      // Check if this is a session-based item (assignments, exams, quizzes)
-      const sessionTypes = ['assignment', 'exam', 'quiz'];
-      if (sessionTypes.includes(courseItem.type) && course?.ExamSessions) {
-        // For session-based items, look in ExamSessions
-        const examSessions = course.ExamSessions;
-        const lessonSessions = Object.values(examSessions).filter(session => 
-          session.examItemId === courseItem.itemId
-        );
-        
-        if (lessonSessions.length > 0) {
-          const allTimestamps = lessonSessions.flatMap(session => [
-            session.completedAt,
-            session.lastUpdated,
-            session.createdAt,
-            session.startTime,
-            session.endTime
-          ].filter(timestamp => timestamp && timestamp > 0));
-          
-          if (allTimestamps.length > 0) {
-            lastActivity = Math.max(...allTimestamps);
-          }
-        }
-      } else if (course?.Assessments) {
-        // For individual question items (lessons, labs), look in Assessments
-        const assessments = course.Assessments;
-        
-        // Get all assessment keys that belong to this lesson/lab
-        const relevantAssessments = [];
-        
-        if (courseItem.type === 'lab') {
-          // For labs, look for direct lab assessment
-          const labAssessmentKey = Object.keys(assessments).find(key => 
-            key.includes(courseItem.itemId) || assessments[key].labId === courseItem.itemId
-          );
-          if (labAssessmentKey && assessments[labAssessmentKey]) {
-            relevantAssessments.push(assessments[labAssessmentKey]);
-          }
-        } else {
-          // For lessons, look for questions that belong to this lesson
-          const lessonPrefix = courseItem.itemId.replace(/-/g, '_');
-          Object.entries(assessments).forEach(([key, assessment]) => {
-            if (key.startsWith(lessonPrefix) || key.includes(lessonPrefix)) {
-              relevantAssessments.push(assessment);
-            }
-          });
-        }
-        
-        // Get the most recent timestamp from all relevant assessments
-        if (relevantAssessments.length > 0) {
-          const allTimestamps = relevantAssessments.flatMap(assessment => [
-            assessment.lastSubmission?.timestamp,
-            assessment.timestamp,
-            assessment.lastModified,
-            assessment.submittedAt
-          ].filter(timestamp => timestamp && timestamp > 0));
-          
-          if (allTimestamps.length > 0) {
-            lastActivity = Math.max(...allTimestamps);
-          }
-        }
-      }
-      
+      // Get last activity from Gradebook.items if available
+      // Convert lesson ID to match Gradebook format (dashes to underscores)
+      const gradebookItemId = courseItem.itemId.replace(/-/g, '_');
+      const gradebookItem = course?.Gradebook?.items?.[gradebookItemId];
+      let lastActivity = gradebookItem?.lastActivity || null;
+
       let totalAttempts = 0;
       let teacherSessionCount = 0;
-      
+
+      // Define session types for checking later
+      const sessionTypes = ['assignment', 'exam', 'quiz'];
+
       // Find session data for assignments, exams, and quizzes
       let sessionData = null;
       if (sessionTypes.includes(courseItem.type) && studentEmail) {
@@ -1498,68 +1442,7 @@ const AssessmentGridProps = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search lessons..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="lesson">Lessons</SelectItem>
-            <SelectItem value="assignment">Assignments</SelectItem>
-            <SelectItem value="exam">Exams</SelectItem>
-            <SelectItem value="lab">Labs</SelectItem>
-            <SelectItem value="project">Projects</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="not_started">Not Started</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        {/* Recalculation Button - Only visible to teachers */}
-        {isStaffView && (
-          <Button
-            onClick={handleRecalculateGradebook}
-            disabled={recalculatingGradebook}
-            variant="outline"
-            className="w-full md:w-auto whitespace-nowrap"
-          >
-            {recalculatingGradebook ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Recalculating...
-              </>
-            ) : (
-              <>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Recalculate Scores
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-
+    <div className="space-y-4 @container">
       {/* Error Display */}
       {recalculationError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1577,36 +1460,47 @@ const AssessmentGridProps = ({
       )}
 
       {/* Results Summary */}
-      <div className="text-sm text-gray-600 flex items-center gap-4">
-        <span>Showing {filteredLessons.length} of {groupedLessons.length} lessons</span>
-        <div className={`inline-flex items-center gap-1 text-xs ${course?._isRealtimeData ? 'text-green-600' : 'text-orange-600'}`}>
-          
-          {course?._isRealtimeData ? '' : 'Loading...'}
+      <div className="text-sm text-gray-600 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 @sm:gap-4">
+          <span className="text-xs @sm:text-sm">Showing {filteredLessons.length} of {groupedLessons.length} lessons</span>
+          <div className={`inline-flex items-center gap-1 text-xs ${course?._isRealtimeData ? 'text-green-600' : 'text-orange-600'}`}>
+
+            {course?._isRealtimeData ? '' : 'Loading...'}
+          </div>
+          {course?._lastRealtimeUpdate && (
+            <span className="text-xs text-gray-400">
+              Updated: {new Date(course._lastRealtimeUpdate).toLocaleTimeString()}
+            </span>
+          )}
         </div>
-        {course?._lastRealtimeUpdate && (
-          <span className="text-xs text-gray-400">
-            Updated: {new Date(course._lastRealtimeUpdate).toLocaleTimeString()}
-          </span>
-        )}
       </div>
 
-      {/* Assessment Table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      {/* Assessment Table with Container Query */}
+      <div className="bg-white rounded-lg border overflow-hidden relative">
+        {/* Visual scroll indicators */}
+        <div className="@lg:hidden">
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white via-white/50 to-transparent pointer-events-none z-10" />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-white/90 px-2 py-1 rounded pointer-events-none z-10">
+            →
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th 
-                  className="w-80 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="w-80 px-3 @sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('lesson')}
                 >
                   <div className="flex items-center gap-1">
-                    Lesson
+                    <span className="@sm:hidden">Les</span>
+                    <span className="hidden @sm:inline">Lesson</span>
                     <SortIcon field="lesson" currentSort={sortBy} sortOrder={sortOrder} />
                   </div>
                 </th>
-                <th 
-                  className="w-48 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="w-24 @lg:w-48 px-2 @sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => toggleSort('score')}
                 >
                   <div className="flex items-center justify-center gap-1">
@@ -1614,14 +1508,11 @@ const AssessmentGridProps = ({
                     <SortIcon field="score" currentSort={sortBy} sortOrder={sortOrder} />
                   </div>
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="hidden @md:table-cell px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Progress
                 </th>
-                <th className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
-                </th>
                 {isStaffView && (
-                  <th className="w-12 px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden @xl:table-cell w-12 px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 )}
@@ -1668,6 +1559,11 @@ const AssessmentGridProps = ({
         </div>
       )}
 
+      {/* Mobile hint for scrolling */}
+      <div className="@md:hidden text-center text-xs text-gray-400 mt-2">
+        ← Swipe table to see more columns →
+      </div>
+
       {/* Lesson Detail Modal */}
       <LessonDetailModal
         isOpen={isModalOpen}
@@ -1678,6 +1574,7 @@ const AssessmentGridProps = ({
         isStaffView={isStaffView}
         onGradeUpdate={handleModalGradeUpdate}
       />
+
     </div>
   );
 };
@@ -1836,14 +1733,14 @@ const LessonRow = ({
   };
 
   return (
-    <tr 
-      className={`${
-        isOmitted 
-          ? 'bg-gray-100 opacity-60' 
+    <tr
+      className={`relative ${
+        isOmitted
+          ? 'bg-gray-100 opacity-60'
           : creatingSessionFor === lesson.lessonId
-          ? 'bg-blue-50 opacity-75 cursor-wait' 
+          ? 'bg-blue-50 opacity-75 cursor-wait'
           : isClickable
-            ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group' 
+            ? 'hover:bg-blue-50 cursor-pointer transition-colors duration-150 hover:shadow-sm group'
             : 'hover:bg-gray-50'
       }`}
       onClick={handleRowClick}
@@ -1855,24 +1752,22 @@ const LessonRow = ({
             : 'Coming soon'
       }
     >
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1">
-            {lesson.lessonNumber.toString().padStart(2, '0')}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <div className={`text-sm font-medium ${isOmitted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                {lesson.lessonTitle}
-              </div>
-              {/* Access indicator - show access status if lesson accessibility data exists */}
+      <td className="px-2 @sm:px-6 py-3 @sm:py-4 align-middle">
+        <div className="flex items-center gap-2 @sm:gap-3">
+          {/* First column: Always stack elements vertically */}
+          <div className="flex flex-col items-center justify-center gap-0.5 min-w-[2.5rem]">
+            {/* Lesson number - top position */}
+            <div className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1 order-1">
+              {lesson.lessonNumber.toString().padStart(2, '0')}
+            </div>
+            {/* Access indicator - always in first column, middle */}
+            <div className="order-2">
               {lessonAccessibility ? (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center">
                         {lessonAccessibility.accessible ? (
-                          // Accessible - show different icons based on reason
                           lessonAccessibility.isExempted ? (
                             <Unlock className="h-3.5 w-3.5 text-purple-600" />
                           ) : lessonAccessibility.isShowAlways ? (
@@ -1885,7 +1780,6 @@ const LessonRow = ({
                             <CheckCircle className="h-3.5 w-3.5 text-green-600" />
                           )
                         ) : (
-                          // Not accessible - show lock icon
                           lessonAccessibility.isNeverVisible ? (
                             <EyeOff className="h-3.5 w-3.5 text-gray-400" />
                           ) : lessonAccessibility.reason?.includes('being developed') ? (
@@ -1914,30 +1808,70 @@ const LessonRow = ({
                   </Tooltip>
                 </TooltipProvider>
               ) : (
-                // Show a simple indicator when no accessibility data is available
-                <div className="h-3.5 w-3.5" title="Access data not available" />
+                <div className="h-3.5 w-3.5" />
               )}
+            </div>
+            {/* Mobile actions dropdown - bottom position */}
+            {isStaffView && (
+              <div className="@xl:hidden order-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === lesson.lessonId ? null : lesson.lessonId);
+                  }}
+                  className="p-1 rounded transition-all duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  title="Actions"
+                >
+                  <MoreVertical className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start @sm:items-center gap-2 flex-col @sm:flex-row">
+              <div className={`text-sm font-medium ${isOmitted ? 'text-gray-500 line-through' : 'text-gray-900'} truncate @md:whitespace-normal max-w-full`}>
+                <span title={lesson.lessonTitle}>{lesson.lessonTitle}</span>
+              </div>
               {creatingSessionFor === lesson.lessonId && (
-                <Loader2 className="h-4 w-4 text-blue-500 animate-spin" 
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin"
                      title="Creating session..." />
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {/* Short type badge on small screens, full on larger screens */}
               <Badge className={`${getTypeColor(lesson.activityType)} text-xs`}>
-                {lesson.activityType}
+                <span className="@md:hidden">
+                  {/* Shortened versions for mobile */}
+                  {lesson.activityType === 'lesson' ? 'Les' :
+                   lesson.activityType === 'assignment' ? 'Asn' :
+                   lesson.activityType === 'exam' ? 'Exm' :
+                   lesson.activityType === 'lab' ? 'Lab' :
+                   lesson.activityType === 'project' ? 'Prj' :
+                   lesson.activityType === 'quiz' ? 'Qz' :
+                   lesson.activityType}
+                </span>
+                <span className="hidden @md:inline">
+                  {lesson.activityType}
+                </span>
               </Badge>
-              {/* Show urgency indicator badge alongside activity type (but not for omitted items) */}
+              {/* Show due date badge for all scheduled items (but not for omitted items) */}
               {!isOmitted && lesson.scheduledDate && (() => {
                 const dueDateStatus = getDueDateStatus(lesson.scheduledDate, lesson.status === 'completed');
-                
-                // Only show high priority indicators (overdue, due today, due tomorrow)
-                if (dueDateStatus && dueDateStatus.priority >= 2) {
+
+                // Show badge for all scheduled dates
+                if (dueDateStatus) {
                   return (
                     <Badge className={`${dueDateStatus.bgColor} ${dueDateStatus.textColor} text-xs px-1.5 py-0.5 shadow-sm`}>
                       <dueDateStatus.icon className="w-2.5 h-2.5 mr-1" />
                       <span className="text-[10px] font-medium">
-                        {dueDateStatus.status === 'overdue' ? 'Overdue' : 
-                         dueDateStatus.status === 'due-today' ? 'Due Today' : 'Due Tomorrow'}
+                        {dueDateStatus.status === 'due-today' ? 'Due Today' :
+                         dueDateStatus.status === 'due-tomorrow' ? 'Due Tomorrow' :
+                         // For all other dates (including overdue and future), show the actual date
+                         new Date(lesson.scheduledDate).toLocaleDateString(undefined, {
+                           month: 'short',
+                           day: 'numeric',
+                           year: 'numeric'
+                         })}
                       </span>
                     </Badge>
                   );
@@ -1960,9 +1894,72 @@ const LessonRow = ({
               )}
             </div>
           </div>
+          {/* Mobile actions dropdown menu - positioned absolutely */}
+          {isStaffView && openDropdown === lesson.lessonId && (
+            <div
+              ref={openDropdown === lesson.lessonId ? dropdownRef : null}
+              className="@xl:hidden absolute right-3 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+            >
+              <div className="py-1">
+                {/* Progression Exemption menu item */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleExemption();
+                    setOpenDropdown(null);
+                  }}
+                  disabled={togglingExemption}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors duration-200 ${
+                    isExempted
+                      ? 'text-purple-600'
+                      : 'text-gray-700'
+                  } disabled:opacity-50`}
+                >
+                  {togglingExemption ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isExempted ? (
+                    <Lock className="h-4 w-4" />
+                  ) : (
+                    <Unlock className="h-4 w-4" />
+                  )}
+                  <span>
+                    {isExempted ? 'Restore prereqs' : 'Waive prereqs'}
+                  </span>
+                </button>
+
+                <div className="border-t border-gray-100 my-1"></div>
+
+                {/* Omit/Include menu item */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleOmit();
+                    setOpenDropdown(null);
+                  }}
+                  disabled={togglingOmit}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors duration-200 ${
+                    isOmitted
+                      ? 'text-red-600'
+                      : 'text-gray-700'
+                  } disabled:opacity-50`}
+                >
+                  {togglingOmit ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isOmitted ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                  <span>
+                    {isOmitted ? 'Include' : 'Exclude'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </td>
-      <td className="px-6 py-4 text-center">
+      <td className="px-2 @sm:px-4 @lg:px-6 py-4 text-center">
         {lesson.isConfigured ? (
           <>
             {lesson.maxScore > 0 ? (
@@ -1974,8 +1971,8 @@ const LessonRow = ({
                 )}
                 {lesson.scoringStrategy === 'teacher_manual' || editingTeacherScore?.lessonId === lesson.lessonId ? (
                   // Teacher override display with editing capability OR currently editing
-                  <div className="flex items-center gap-1">
-                    {lesson.scoringStrategy === 'teacher_manual' && <Shield className="h-3 w-3 text-orange-500" title="Teacher Override" />}
+                  <div className="flex flex-col items-center">
+                    {lesson.scoringStrategy === 'teacher_manual' && <Shield className="h-3 w-3 text-orange-500 mb-1" title="Teacher Override" />}
                     {editingTeacherScore?.lessonId === lesson.lessonId ? (
                       // Editing mode
                       <div className="flex items-center gap-1">
@@ -1999,7 +1996,7 @@ const LessonRow = ({
                           disabled={updatingTeacherScore}
                           title="Press Enter to save, Escape to cancel"
                         />
-                        <span className="text-xs text-gray-500">/ {lesson.maxScore}</span>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">/ {lesson.maxScore}</span>
                         {updatingTeacherScore && (
                           <Loader2 className="h-3 w-3 animate-spin text-orange-500" />
                         )}
@@ -2007,43 +2004,68 @@ const LessonRow = ({
                     ) : (
                       // Display mode
                       <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditTeacherScore(lesson);
-                          }}
-                          className="text-sm font-medium px-2 py-1 rounded border border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer transition-colors duration-200"
-                          title="Click to edit score"
-                        >
-                          {formatScore(lesson.totalScore)} / {lesson.maxScore}
-                        </button>
                         {isStaffView && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               onDeleteTeacherSession(lesson);
                             }}
-                            className="h-4 w-4 p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 ml-1"
+                            className="h-4 w-4 p-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 mb-1"
                             title="Delete teacher override"
                           >
                             <Trash2 className="h-2.5 w-2.5" />
                           </button>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditTeacherScore(lesson);
+                          }}
+                          className="text-sm font-medium px-2 py-1 rounded border border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer transition-colors duration-200 whitespace-nowrap"
+                          title="Click to edit score"
+                        >
+                          {formatScore(lesson.totalScore)} / {lesson.maxScore}
+                        </button>
                       </>
                     )}
+                    <div className={`text-xs mt-1 whitespace-nowrap ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {formatScore(lesson.averageScore)}%
+                      {isOmitted && (
+                        <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   // Regular score display
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-center">
+                    {/* Staff override button on top when present */}
+                    {isStaffView && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCreateSession(lesson);
+                        }}
+                        disabled={creatingSessionFor === lesson.lessonId}
+                        className="h-5 w-5 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 disabled:opacity-50 mb-1"
+                        title="Override with manual score"
+                      >
+                        {creatingSessionFor === lesson.lessonId ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <PenTool className="h-3 w-3" />
+                        )}
+                      </button>
+                    )}
+                    {/* Score display */}
                     {lesson.activityType === 'lab' ? (
                       // Special handling for labs - show status text until marked
-                      <div className="text-sm font-medium px-2 py-1 rounded">
+                      <div className="text-sm font-medium px-2 py-1 rounded whitespace-nowrap">
                         {lesson.status === 'marked' ? (
                           <span className={getScoreColor(lesson.averageScore)}>
                             {formatScore(lesson.totalScore)} / {lesson.maxScore}
                           </span>
                         ) : (lesson.questions && lesson.questions.length > 0 && lesson.questions[0].assessmentData) ? (
-                          <span className="text-blue-700 bg-blue-50">
+                          <span className="text-blue-700 bg-blue-50 px-1">
                             Needs Marking
                           </span>
                         ) : (
@@ -2054,35 +2076,19 @@ const LessonRow = ({
                       </div>
                     ) : (
                       // Regular numerical score display for non-labs
-                      <div className={`text-sm font-medium px-2 py-1 rounded ${getScoreColor(lesson.averageScore)}`}>
+                      <div className={`text-sm font-medium px-2 py-1 rounded whitespace-nowrap ${getScoreColor(lesson.averageScore)}`}>
                         {formatScore(lesson.totalScore)} / {lesson.maxScore}
                       </div>
                     )}
-                    {isStaffView && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCreateSession(lesson);
-                        }}
-                        disabled={creatingSessionFor === lesson.lessonId}
-                        className="h-5 w-5 p-0.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 disabled:opacity-50"
-                        title="Override with manual score"
-                      >
-                        {creatingSessionFor === lesson.lessonId ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <PenTool className="h-3 w-3" />
-                        )}
-                      </button>
-                    )}
+                    {/* Percentage display */}
+                    <div className={`text-xs mt-1 whitespace-nowrap ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {formatScore(lesson.averageScore)}%
+                      {isOmitted && (
+                        <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
+                      )}
+                    </div>
                   </div>
                 )}
-                <div className={`text-xs mt-1 ${isOmitted ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {formatScore(lesson.averageScore)}%
-                  {isOmitted && (
-                    <span className="text-[10px] text-gray-400 ml-1">(excused)</span>
-                  )}
-                </div>
                 {lesson.totalAttempts > 0 && lesson.isSessionBased && (
                   <div className="text-xs text-gray-500">
                     {lesson.totalAttempts} {lesson.totalAttempts === 1 ? 'attempt' : 'attempts'}
@@ -2115,7 +2121,7 @@ const LessonRow = ({
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
-      <td className="px-6 py-4 text-center">
+      <td className="hidden @md:table-cell px-6 py-4 text-center">
         {isOmitted ? (
           // Simplified display for omitted items
           <div className="text-center">
@@ -2128,22 +2134,29 @@ const LessonRow = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-full cursor-help">
+                  {/* Display last activity at the top for all lesson types */}
+                  {lesson.lastActivity && (
+                    <div className="text-xs text-gray-400 mb-2 inline-block">
+                      {formatFriendlyDate(lesson.lastActivity)}
+                    </div>
+                  )}
+
                   {['assignment', 'exam', 'quiz'].includes(lesson.activityType) ? (
                     // Session-based items: Show status based on actual session timing
                     (() => {
                       // Check if there are any active sessions (endTime > current time)
                       const currentTime = Date.now();
-                      const hasActiveSessions = lesson.sessionData?.sessions?.some(session => 
+                      const hasActiveSessions = lesson.sessionData?.sessions?.some(session =>
                         session.endTime && session.endTime > currentTime
                       );
-                      
+
                       // Check if there are any completed sessions
-                      const hasCompletedSessions = lesson.sessionData?.sessions?.some(session => 
-                        session.status === 'completed' || 
+                      const hasCompletedSessions = lesson.sessionData?.sessions?.some(session =>
+                        session.status === 'completed' ||
                         session.finalResults ||
                         (session.endTime && session.endTime <= currentTime)
                       );
-                      
+
                       if (hasActiveSessions) {
                         return (
                           <div className="flex flex-col items-center justify-center gap-1">
@@ -2172,18 +2185,20 @@ const LessonRow = ({
                     // Labs: Show status badge
                     getStatusBadge(lesson)
                   ) : (
-                    // Other items (lessons, etc.): Show progress bar or dash
+                    // Other items (lessons, etc.): Show progress bar, completed badge, or dash
                     <>
-                      {lesson.lastActivity && (
-                        <div className="text-xs text-gray-400 mb-2" title={new Date(lesson.lastActivity).toLocaleString()}>
-                          {formatFriendlyDate(lesson.lastActivity)}
+                      {lesson.completionRate === 100 ? (
+                        // Show "Completed" badge when 100% complete
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <Badge className="bg-green-100 text-green-800 text-xs px-2 py-1 text-center">
+                            Completed
+                          </Badge>
                         </div>
-                      )}
-                      {lesson.completionRate > 0 ? (
-                        // Show progress bar when there's actual progress
+                      ) : lesson.completionRate > 0 ? (
+                        // Show progress bar for partial progress (1-99%)
                         <>
                           <div className="w-full bg-gray-200 rounded-full h-3 mx-auto max-w-[120px]">
-                            <div 
+                            <div
                               className={`h-3 rounded-full transition-all duration-300 ${getProgressColor(lesson.completionRate)}`}
                               style={{ width: `${lesson.completionRate}%` }}
                             ></div>
@@ -2203,25 +2218,42 @@ const LessonRow = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
+                {/* Add last activity timestamp at the top of all tooltips */}
+                {lesson.lastActivity && (
+                  <div className="text-xs text-gray-500 mb-2 pb-2 border-b border-gray-200">
+                    <div className="font-medium text-gray-700">Last Activity</div>
+                    <div>{new Date(lesson.lastActivity).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}</div>
+                    <div>{new Date(lesson.lastActivity).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}</div>
+                  </div>
+                )}
+
                 {['assignment', 'exam', 'quiz'].includes(lesson.activityType) ? (
                   // Assignment/Exam/Quiz tooltip with real-time status
                   (() => {
                     const currentTime = Date.now();
-                    const hasActiveSessions = lesson.sessionData?.sessions?.some(session => 
+                    const hasActiveSessions = lesson.sessionData?.sessions?.some(session =>
                       session.endTime && session.endTime > currentTime
                     );
-                    const hasCompletedSessions = lesson.sessionData?.sessions?.some(session => 
-                      session.status === 'completed' || 
+                    const hasCompletedSessions = lesson.sessionData?.sessions?.some(session =>
+                      session.status === 'completed' ||
                       session.finalResults ||
                       (session.endTime && session.endTime <= currentTime)
                     );
-                    
+
                     return (
                       <div className="text-center">
                         <div className="font-medium">
-                          {hasActiveSessions ? 
+                          {hasActiveSessions ?
                             `Assignment in progress` :
-                           hasCompletedSessions ? 
+                           hasCompletedSessions ?
                             `Assignment completed` :
                            'Assignment not started'}
                         </div>
@@ -2243,11 +2275,11 @@ const LessonRow = ({
                        'Lab not started'}
                     </div>
                     <div className="text-xs opacity-75">
-                      {lesson.status === 'marked' ? 
+                      {lesson.status === 'marked' ?
                         `Grade: ${lesson.totalScore}/${lesson.maxScore} (${Math.round(lesson.averageScore)}%)` :
-                       lesson.status === 'submitted' ? 
+                       lesson.status === 'submitted' ?
                         'Awaiting teacher to mark and provide grade' :
-                       lesson.status === 'in_progress' ? 
+                       lesson.status === 'in_progress' ?
                         'Student working on lab but not yet submitted' :
                         'Lab assignment not yet started'}
                     </div>
@@ -2256,7 +2288,7 @@ const LessonRow = ({
                   // Individual question-based tooltip (lessons, etc.)
                   <div className="text-center">
                     <div className="font-medium">
-                      {lesson.shouldBeSessionBased ? 
+                      {lesson.shouldBeSessionBased ?
                         // For session-based items that don't have sessions yet or are treated as individual
                         `Assignment: ${lesson.status === 'completed' ? 'Completed' : 'Not started'}` :
                         // For regular lessons
@@ -2275,59 +2307,8 @@ const LessonRow = ({
           <span className="text-xs text-gray-400 italic">Coming soon</span>
         )}
       </td>
-      <td className="px-6 py-4">
-        <div className="text-sm">
-          {isOmitted ? (
-            // Simplified display for omitted items - just show the date without status
-            lesson.scheduledDate ? (
-              <div className="text-center">
-                <div className="text-gray-500 text-sm">
-                  {new Date(lesson.scheduledDate).toLocaleDateString(undefined, { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Excused
-                </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 text-sm">
-                Excused
-              </div>
-            )
-          ) : lesson.scheduledDate ? (
-            (() => {
-              const dueDateStatus = getDueDateStatus(lesson.scheduledDate, lesson.status === 'completed');
-              if (!dueDateStatus) return null;
-              
-              return (
-                <div className="space-y-1">
-                  {/* Date */}
-                  <div className="font-medium text-gray-900 text-sm">
-                    {new Date(lesson.scheduledDate).toLocaleDateString(undefined, { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </div>
-                  
-                  {/* Status badge */}
-                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium ${dueDateStatus.textColor} ${dueDateStatus.bgColor} ${dueDateStatus.borderColor} border shadow-sm`}>
-                    <dueDateStatus.icon className="w-2.5 h-2.5" />
-                    {dueDateStatus.text}
-                  </div>
-                </div>
-              );
-            })()
-          ) : (
-            <span className="text-sm text-gray-400">No date set</span>
-          )}
-        </div>
-      </td>
       {isStaffView && (
-        <td className="px-2 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+        <td className="hidden @xl:table-cell px-2 py-4 text-center" onClick={(e) => e.stopPropagation()}>
           <div className="relative" ref={openDropdown === lesson.lessonId ? dropdownRef : null}>
             {/* Three-dot menu button */}
             <button

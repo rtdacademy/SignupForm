@@ -357,17 +357,17 @@ function Header({
           {user && (
             <div className="flex items-center space-x-6">
               {/* Credit Summary and Notifications for Students */}
-              {!isStaffUser && studentExists && (
+              {(!isStaffUser || isEmulating) && studentExists && (
                 <div className="flex items-center space-x-2">
                   {/* Credit Summary Card */}
                   {getCurrentSchoolYear && (
-                    <CreditSummaryCard 
+                    <CreditSummaryCard
                       schoolYear={getCurrentSchoolYear}
                       compactMode={true}
                       onOpenPaymentDialog={onOpenCreditPaymentDialog}
                     />
                   )}
-                  
+
                   {/* Notification Center Sheet */}
                   {courses && profile && (
                     <NotificationCenterSheet
@@ -427,15 +427,13 @@ function Header({
                 </button>
               )}
               
-              {!isEmulating && (
-                <button 
-                  onClick={onLogout} 
-                  className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
-                >
-                  <FaSignOutAlt /> 
-                  <span className="hidden lg:inline">Sign Out</span>
-                </button>
-              )}
+              <button
+                onClick={onLogout}
+                className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
+              >
+                <FaSignOutAlt />
+                <span className="hidden lg:inline">{isEmulating ? 'Exit Emulation' : 'Sign Out'}</span>
+              </button>
             </div>
           )}
         </div>

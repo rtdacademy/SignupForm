@@ -137,6 +137,7 @@ export function AuthProvider({ children }) {
     '/about',
     '/bio',
     '/faq',
+    '/student-faq',
     '/funding',
     '/privacy',
     '/terms'

@@ -8,7 +8,7 @@ import { getDatabase, ref, get } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const Layout = React.memo(({ children }) => {
-  const { user, signOut, isStaff, isEmulating, checkUserRoles } = useAuth(); 
+  const { user, currentUser, signOut, isStaff, isEmulating, checkUserRoles } = useAuth(); 
   const { isFullScreen, setIsFullScreen } = useLayout();
   const navigate = useNavigate();
   const location = useLocation();
@@ -201,8 +201,8 @@ const Layout = React.memo(({ children }) => {
           </div>
           <div className="flex items-center gap-4">
             <span>Version 2.0</span>
-            {user && !isEmulating && (
-              <span>Logged in as {user.email}</span>
+            {user && (
+              <span>Logged in as {isEmulating ? currentUser?.email : user.email}</span>
             )}
           </div>
         </footer>

@@ -10,8 +10,17 @@ const config = {
     pricePerExtraCredit: 100, // Cost per credit beyond free limits
     distanceEducationGrant: 650, // DE grant per student per year
     rtdConnectReimbursement: {
-      grades1to12: 1700, // Annual reimbursement for grades 1-12
-      kindergarten: 850 // Annual reimbursement for kindergarten
+      grades1to12: 901, // Annual reimbursement for grades 1-12
+      kindergarten: 450 // Annual reimbursement for kindergarten
+    },
+    adultStudent: {
+      oneTimePrice: 650, // One-time payment for adult students
+      monthlyPayment: 233.33, // Monthly payment amount
+      monthlyPaymentMonths: 3, // Number of months for payment plan
+      monthlyPaymentTotal: 700, // Total cost for monthly payment plan
+      trialPeriodDays: 7, // Trial period length
+      gracePeriodDays: 10, // Days behind schedule before lockout
+      rejoinFee: 100 // Fee to reset schedule after lockout
     }
   },
   credits: {
@@ -43,31 +52,194 @@ const config = {
   }
 };
 
+// Important dates and deadlines
+const dates = {
+  currentSchoolYear: '2025-2026',
+  currentSchoolYearShort: '25/26',
+  nextSchoolYear: '2026-2027',
+  nextSchoolYearShort: '26/27',
+  term1: {
+    registrationDeadline: 'September 29',
+    countDay: 'September 30',
+    endDate: 'January 31'
+  },
+  term2: {
+    registrationDeadline: 'April 15',
+    homeEducationDeadline: 'February 28',
+    endDate: 'June 19',
+    pasiDeadline: 'June 19'
+  },
+  summerSchool: {
+    startDate: 'July 1',
+    endDate: 'August 31',
+    startMonth: 'July',
+    endMonth: 'August'
+  }
+};
+
 export const websiteConfig = {
   config, // Reference the config object defined above
-
-  // Important dates and deadlines
-  dates: {
-    currentSchoolYear: '2025-2026',
-    term1: {
-      registrationDeadline: 'September 29',
-      countDay: 'September 30',
-      endDate: 'January 31'
-    },
-    term2: {
-      registrationDeadline: 'April 15',
-      homeEducationDeadline: 'February 28',
-      endDate: 'June 19',
-      pasiDeadline: 'June 19'
-    },
-    summerSchool: {
-      startDate: 'July 1',
-      endDate: 'August 31'
-    }
-  },
+  dates, // Reference the dates object defined above
 
   // FAQ Categories and their questions
   categories: {
+    general: {
+      title: 'General Information',
+      icon: 'BookOpen',
+      description: 'Common questions about courses, schedules, and requirements',
+      color: '#6B7280', // Gray
+      faqs: [
+        {
+          question: 'How is my term decided?',
+          answer: `Your student type and term are determined by when you plan to finish your course:
+
+**Key Points:**
+- You can usually start whenever you'd like
+- Your END date determines your term
+- For most students, the specific term doesn't significantly impact academic goals
+
+**Term 1:** Ends in Semester 1 (by ${dates.term1.endDate})
+**Term 2:** Ends in Semester 2 (${dates.term2.startDate} - ${dates.term2.endDate})
+**Summer School:** Ends in July/August
+
+Important: If you start after September count day, you cannot plan to finish in January.`,
+          priority: 'low'
+        },
+        {
+          question: 'What if I don\'t finish my course at my scheduled time?',
+          answer: `We encourage students to finish by their scheduled end date. Deadlines help you stay on track and avoid procrastination.
+
+If something unexpected happens, you can continue in the next available term:
+- Term 1 Student → moves to Term 2
+- Term 2 Student → moves to Summer School
+- Summer School Student → may need to pay to continue (depends on your situation)
+
+Your marks will only be reported once you finish. Students who repeatedly delay may be required to pay to continue.`,
+          priority: 'low'
+        },
+        {
+          question: 'When will my marks be submitted to Alberta Education?',
+          answer: `Your marks are typically submitted to Alberta Education within a week of completing your course.
+
+If you follow a standard schedule and complete your course by the end of each term:
+- **Term 1:** Marks appear on transcript in February
+- **Term 2:** Marks appear by June 30 (if completed by ${dates.term2.pasiDeadline})
+- **Summer School:** Marks appear in September
+
+**Remember:** The sooner you complete your course, the sooner your mark can be submitted!`,
+          priority: 'low'
+        },
+        {
+          question: 'What prerequisites are needed for high school courses?',
+          answer: `Prerequisites vary by course level and subject. **[View our interactive prerequisite flowchart here](/prerequisite-flowchart)** to see the complete pathway through Alberta high school courses.
+
+**Grade ${config.grades.highSchoolStart} Courses:**
+- Generally require Grade ${config.grades.highSchoolStart - 1} completion or equivalent knowledge
+- Math 10C requires strong foundation in Grade ${config.grades.highSchoolStart - 1} mathematics
+- Science 10 requires Grade ${config.grades.highSchoolStart - 1} science concepts
+
+**Grade ${config.grades.highSchoolStart + 1} Courses:**
+- Require successful completion of related Grade ${config.grades.highSchoolStart} courses
+- Example: Physics 20 requires Science 10 and Math 10C
+
+**Grade ${config.grades.highSchoolEnd} Courses:**
+- Require the Grade ${config.grades.highSchoolEnd - 1} course in the same subject
+- Example: Chemistry 30 requires Chemistry 20
+
+**Note:** Equivalent knowledge from quality programs (like Saxon Math) is recognized. Contact us to discuss your preparation.`,
+          priority: 'low'
+        },
+        {
+          question: 'How many credits can I take for free?',
+          answer: `The number of free credits depends on your student type:
+
+**Non-Primary & Home Education Students:**
+- Up to ${config.credits.maxPerYear} credits during the school year (September-June)
+- Additional ${config.credits.maxSummer} credits in summer school
+- Maximum ${config.credits.maxTotalPerYear} free credits per year total
+
+**Summer School Students:**
+- Up to ${config.credits.maxSummer} free credits (July-August)
+
+**Extra Credits:**
+- Additional credits cost $${config.pricing.pricePerExtraCredit} per credit
+- Or wait for the next term/summer for more free credits
+
+**Adult & International Students:**
+- Courses require payment (see specific category for pricing)`,
+          priority: 'high'
+        },
+        {
+          question: 'Do you take on primary registrations?',
+          answer: `Not yet, but we are working on creating all high school level courses and a lot of options. We will hopefully be able to take on full-time students with a primary registration soon!
+
+Currently, we offer:
+- Non-primary registrations (for students enrolled elsewhere)
+- Home education support through RTD Academy courses
+- Summer school courses
+- Adult student programs`,
+          priority: 'low'
+        },
+        {
+          question: 'What is the difference between RTD Connect and RTD Academy courses?',
+          answer: `These are two completely different programs we offer:
+
+**[RTD Connect](https://rtd-connect.com)**
+- Our complete HOME EDUCATION program
+- You register your child with us as your home education provider
+- We provide facilitator support, learning plan development, and reimbursements
+- You receive up to $${config.pricing.rtdConnectReimbursement.grades1to12}/year (Gr ${config.grades.elementaryStart}-${config.grades.highSchoolEnd}) or $${config.pricing.rtdConnectReimbursement.kindergarten}/year (${config.grades.kindergarten}) in reimbursements
+- We are your primary home education organization
+- Visit [rtd-connect.com](https://rtd-connect.com) to learn more
+
+**RTD Academy Distance Education Courses**
+- Individual HIGH SCHOOL COURSES (Grades ${config.grades.highSchoolStart}-${config.grades.highSchoolEnd} only)
+- For students already registered with another school/home education program
+- Up to ${config.credits.maxPerYear} free credits per year through Distance Education grant
+- These are the courses you're looking at on this website`,
+          priority: 'high'
+        },
+        {
+          question: 'Can I use both RTD Connect and take RTD Academy courses?',
+          answer: `Yes! Home education students can register for distance education courses, even from their own organization.
+
+**If you choose RTD Connect as your home education provider:**
+- You're already part of our family!
+- Access RTD Academy high school courses as part of your program
+- Your RTD Connect facilitator helps navigate course options
+- Everything coordinated through one organization
+- Get both home education support AND structured high school courses
+
+This is ideal for families wanting comprehensive support with both their home education program and access to structured high school courses.`,
+          priority: 'low'
+        },
+        {
+          question: 'How do assessments and exams work?',
+          answer: `All students complete the same assessment structure:
+
+**Online Assessments:**
+- Multiple assessments throughout each course
+- Complete from home at your convenience
+- Immediate feedback on most questions
+- Part of your course grade
+
+**Section Exams:**
+- Three comprehensive exams per course
+- Cover 2-3 units each
+- Scheduled online with proctoring
+- Multiple time slots available (including evenings/weekends)
+
+**Diploma Exams (where applicable):**
+- Worth 30% of final grade for diploma courses
+- Written at official Alberta Education test centers
+- Can use previous diploma marks or rewrite to improve
+- Exam fees paid directly to Alberta Education
+- We provide detailed MyPass registration instructions`,
+          priority: 'low'
+        }
+      ]
+    },
+
     nonPrimary: {
       title: 'Non-Primary Students',
       icon: 'GraduationCap',
@@ -82,87 +254,51 @@ export const websiteConfig = {
         {
           question: 'Who is eligible?',
           answer: `To be a non-primary student at RTD Academy:
-• You must have a primary enrollment with another school in Alberta
-• This option is only for students in Grades ${config.grades.highSchoolStart}–${config.grades.highSchoolEnd}
-• In some cases, school-age students without primary enrollment may qualify as Summer School Students`,
-          priority: 'low'
-        },
-        {
-          question: 'How many credits can I take?',
-          answer: `• Up to ${config.credits.maxPerYear} credits during the school year (September–June) for free
-• Up to ${config.credits.maxSummer} additional credits during summer school (July–August) for free
-• This means you can take up to ${config.credits.maxTotalPerYear} credits total per year at no cost!
-• If you want more than ${config.credits.maxPerYear} credits during the school year specifically, you can either:
-  - Pay for extra credits ($${config.pricing.pricePerExtraCredit} per credit), or
-  - Wait and take additional courses as a Summer School Student for free`,
-          priority: 'low'
-        },
-        {
-          question: 'How is my term decided?',
-          answer: `At RTD Academy, your student type is determined by your end date. You can usually start whenever you'd like, but when you plan to finish makes the difference. For most students, the specific term you finish in doesn't significantly impact your academic goals, as long as you complete your course within the school year.`,
+- You must have a primary enrollment with another school in Alberta
+- This option is only for students in Grades ${config.grades.highSchoolStart}–${config.grades.highSchoolEnd}`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 1 Students?',
           answer: `Term 1 Students:
-• End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
-• Must register by September 29
-• Important: If you start after the September count day, you cannot plan to finish in January
-• Example: A student who starts in October cannot end in January`,
+- End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
+- Must register by ${dates.term1.registrationDeadline}
+- Important: If you start after the September count day, you cannot plan to finish in January
+- Example: A student who starts in October cannot end in January`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 2 Students?',
           answer: `Term 2 Students:
-• End date is in ${config.semesters.semester2.name} (${config.semesters.semester2.startDate} - ${config.semesters.semester2.endDate})
-• May start earlier (even in ${config.semesters.semester1.name}), but end date must be in ${config.semesters.semester2.name}
-• Must register by April 15
-• To have your mark submitted to Alberta Education (PASI), must finish by June 19
-• If you finish after June 19, you will be considered a Summer School Student`,
+- End date is in ${config.semesters.semester2.name} (${config.semesters.semester2.startDate} - ${config.semesters.semester2.endDate})
+- May start earlier (even in ${config.semesters.semester1.name}), but end date must be in ${config.semesters.semester2.name}
+- Must register by ${dates.term2.registrationDeadline}
+- To have your mark submitted to Alberta Education (PASI), must finish by ${dates.term2.pasiDeadline}
+- If you finish after ${dates.term2.pasiDeadline}, you will be considered a Summer School Student`,
           priority: 'low'
         },
         {
           question: 'How does Summer School work for Non-Primary Students?',
-          answer: `If you're a non-primary student who doesn't complete your course by ${websiteConfig.dates.term2.pasiDeadline}, you automatically transition to Summer School:
-• Your course continues into July/August
-• Your final mark will be submitted after summer school ends
-• Marks appear on your transcript in September instead of June`,
-          priority: 'low'
-        },
-        {
-          question: "What if I don't finish my course at my scheduled time?",
-          answer: `We encourage students to finish by their scheduled end date. Deadlines help you stay on track and avoid procrastination.
-
-If something unexpected happens, you can continue in the next available term:
-• Term 1 Student → moves to Term 2
-• Term 2 Student → moves to Summer School
-• Your marks will only be reported once you finish
-• Students who repeatedly delay may be required to pay to continue`,
+          answer: `If you're a non-primary student who doesn't complete your course by ${dates.term2.pasiDeadline}, you automatically transition to Summer School:
+- Your course continues into ${dates.summerSchool.startMonth}/${dates.summerSchool.endMonth}
+- Your final mark will be submitted after summer school ends
+- Marks appear on your transcript in September instead of June`,
           priority: 'low'
         },
         {
           question: 'Can I take courses if I\'m not enrolled with a Primary Registration in another Alberta school?',
-          answer: `If you are school-age (under ${config.ages.adultStudentMinAge} before ${config.ages.ageVerificationDate}) but not primarily enrolled elsewhere, you may still qualify as a Summer School Student for the current school year. Otherwise, you would need to register as an Adult Student.`,
+          answer: `No, you cannot register as a Non-Primary student without having a primary registration at another Alberta school. The "Non-Primary" designation specifically requires that you are already enrolled full-time at another school.
+
+If you are school-age (under ${config.ages.adultStudentMinAge} before ${config.ages.ageVerificationDate}) but not primarily enrolled elsewhere:
+- You may qualify as a Summer School Student for courses taken in July/August
+- Otherwise, you would need to register as an Adult Student`,
           priority: 'low'
         },
-        {
-          question: 'When will my marks be submitted to Alberta Education?',
-          answer: `Your marks are submitted based on when you complete your course:
-• Term 1: Marks submitted in February
-• Term 2: Marks submitted by June 30 (if completed by ${websiteConfig.dates.term2.pasiDeadline})
-• Summer School: Marks submitted in September`,
-          priority: 'low'
-        },
-        {
-          question: 'Do you take on primary registrations?',
-          answer: `Not yet, but we are working on creating all high school level courses and a lot of options. We will hopefully be able to take on full-time students with a primary registration soon!`,
-          priority: 'low'
-        }
       ]
     },
 
     homeEducation: {
-      title: 'Home Education Students',
+      title: 'Home Education Non-Primary Students',
       icon: 'Home',
       description: 'For students registered in Alberta home education programs taking high school courses',
       color: '#10B981', // Green
@@ -175,70 +311,29 @@ If something unexpected happens, you can continue in the next available term:
         {
           question: 'Who is eligible?',
           answer: `To be a home education non-primary student at RTD Academy:
-• You must be registered in a home education program in Alberta
-• This is only available for grades 10–12 courses.`,
-          priority: 'low'
-        },
-        {
-          question: 'How many credits can I take?',
-          answer: `• Up to ${config.credits.maxPerYear} credits during the school year (September–June) for free
-• Up to ${config.credits.maxSummer} additional credits during summer school (July–August) for free
-• This means you can take up to ${config.credits.maxTotalPerYear} credits total per year at no cost!
-• If you want more than ${config.credits.maxPerYear} credits during the school year specifically, you can either:
-  - Pay for extra credits ($${config.pricing.pricePerExtraCredit} per credit), or
-  - Wait and take additional courses as a Summer School Student for free`,
-          priority: 'low'
-        },
-        {
-          question: 'How is my term decided?',
-          answer: 'Your end date determines your term, similar to non-primary students. You can start when convenient, but your planned completion date determines your student type.',
+- You must be registered in a home education program in Alberta
+- This is only available for grades 10–12 courses.`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 1 Students?',
           answer: `Term 1 Students:
-• End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
-• Must register by September 29
-• If you start after the September count day, you cannot plan to finish in January`,
+- End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
+- Must register by ${dates.term1.registrationDeadline}
+- If you start after the September count day, you cannot plan to finish in January`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 2 Students?',
           answer: `Term 2 Students:
-• End date is in Semester 2 (February 1 - June 19)
-• May start earlier, but end date must be in Semester 2
-• Must register by February 28 (different from regular non-primary students)
-• To have your mark submitted to PASI, must finish by June 19
-• If you finish after June 19, you become a Summer School Student`,
+- End date is in ${config.semesters.semester2.name} (${config.semesters.semester2.startDate} - ${config.semesters.semester2.endDate})
+- May start earlier, but end date must be in ${config.semesters.semester2.name}
+- Must register by ${dates.term2.homeEducationDeadline} 
+- Must finish by ${dates.term2.pasiDeadline}
+- If you finish after ${dates.term2.pasiDeadline}, you become a Summer School Student`,
           priority: 'low'
         },
-        {
-          question: 'What are the requirements for Summer School Students?',
-          answer: `Summer School Students:
-• End date is in July or August
-• Up to ${config.credits.maxSummer} credits free during summer
-• May start earlier in the year, but final mark only goes on transcript after summer ends`,
-          priority: 'low'
-        },
-        {
-          question: "What if I don't finish my course at my scheduled time?",
-          answer: `The same rules apply as for non-primary students:
-• If you don't finish in Term 1, you move to Term 2
-• If you don't finish in Term 2, you move to Summer School
-• Marks are only reported once you finish
-• Students who repeatedly delay may be required to pay to continue`,
-          priority: 'low'
-        },
-        {
-          question: 'What\'s the difference between home education and regular non-primary students?',
-          answer: 'The main difference is the Term 2 registration deadline: Home Education students must register by February 28, while regular non-primary students have until April 15. All other requirements are the same.',
-          priority: 'low'
-        },
-        {
-          question: 'Can home education students take courses during regular school hours?',
-          answer: 'Yes! Since our courses are asynchronous (self-paced), you can complete coursework at any time that fits your home education schedule. There are no scheduled class times.',
-          priority: 'low'
-        },
+     
         {
           question: 'Can younger home education students take high school courses?',
           answer: `Yes, home education students can enroll in high school courses at a younger age, but there are important considerations:
@@ -247,167 +342,42 @@ If something unexpected happens, you can continue in the next available term:
 Our principal must confirm that each student has the necessary prerequisites for their chosen courses. This ensures students are set up for success.
 
 **What This Means for Parents:**
-• We review each registration to verify prerequisite completion
-• This applies to ALL students, but is especially important for younger learners
-• We may contact you to discuss course readiness if needed
+- We review each registration to verify prerequisite completion
+- This applies to ALL students, but is especially important for younger learners
+- We may contact you to discuss course readiness if needed
 
 **Our Strong Recommendation:**
 While we support flexible learning paths, we strongly advise parents to carefully consider:
-• Your child's academic readiness for high school-level content
-• Whether prerequisites have been thoroughly covered
-• The importance of placing students in courses where they can succeed
+- Your child's academic readiness for high school-level content
+- Whether prerequisites have been thoroughly covered
+- The importance of placing students in courses where they can succeed
 
 **Why This Matters:**
 High school courses build on foundational knowledge. Starting a course without proper prerequisites can lead to frustration and may impact your child's confidence and love of learning.
 
 If you're unsure about course placement, please contact us to discuss the best path for your child's success.`,
-          priority: 'high'
-        },
-        {
-          question: 'What prerequisites are needed for high school courses?',
-          answer: `Prerequisites vary by course level and subject. Here are common examples:
-
-**Grade ${config.grades.highSchoolStart} Courses:**
-• Generally require Grade ${config.grades.highSchoolStart - 1} completion or equivalent knowledge
-• Math 10C requires strong foundation in Grade ${config.grades.highSchoolStart - 1} mathematics
-• Science 10 requires Grade ${config.grades.highSchoolStart - 1} science concepts
-
-**Grade ${config.grades.highSchoolStart + 1} Courses:**
-• Require successful completion of related Grade ${config.grades.highSchoolStart} courses
-• Example: Physics 20 requires Science 10 and Math 10C
-
-**Grade ${config.grades.highSchoolEnd} Courses:**
-• Require the Grade ${config.grades.highSchoolEnd - 1} course in the same subject
-• Example: Chemistry 30 requires Chemistry 20
-
-**For Home Education Families:**
-If your child has covered the material through your home education program but hasn't taken formal courses, please contact us. We can discuss equivalent preparation and help determine if your child is ready for the course.
-
-Remember: Prerequisites exist to ensure student success. They're not arbitrary barriers, but important building blocks for learning.`,
           priority: 'low'
         },
         {
           question: 'How is RTD Academy funded for Home Education students?',
           answer: `RTD Academy receives $${config.pricing.distanceEducationGrant} per student per year through the Distance Education grant for Home Education students. This government funding allows us to offer up to ${config.credits.maxPerYear} credits per year completely free to home education families. This is how we can provide quality courses at no cost to you!`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Does taking RTD Academy courses affect my home education grant funding?',
-          answer: `No! This is important to understand: The $${config.pricing.distanceEducationGrant} Distance Education grant that RTD Academy receives is completely separate from and on top of any grant funding your family receives through your home education organization.
-
-RTD Academy receives this funding directly from the government - it does NOT come out of your family's grant funding portion. Your home education funding remains exactly the same whether you take our courses or not.`,
-          priority: 'high'
-        },
-        {
-          question: 'Why is there sometimes confusion about this grant funding?',
-          answer: `Great question! Many home education families aren't aware that the Distance Education grant exists on top of their regular home education funding. This can cause confusion because:
-
-• It's additional funding they might not have known about
-• They worry it might reduce their home education grant (it doesn't!)
-• They're unsure if this is part of their regular grant from their home education organization (it's not!)
-
-To be clear: This is separate government funding that goes directly to RTD Academy, allowing us to offer you free courses without any impact on your other funding.`,
-          priority: 'high'
-        },
-        {
-          question: 'What should I know about how grant funding works between schools?',
-          answer: `There's an important provision in the grant funding rules: When a student is registered with multiple schools, the school with the higher number of credits receives the entire Distance Education grant funding.
-
-With this in mind, we encourage you to:
-• Connect with your home education organization to discuss your course plans
-• Ensure all schools are aware of where you're taking credits
-• Coordinate so that each school receives the funding they expect
-
-This coordination helps ensure smooth funding for all schools involved in your education!`,
-          priority: 'high'
-        },
-        {
-          question: 'Do I need to pay anything or apply for special funding?',
-          answer: `No! The courses are truly free for you. You don't need to:
-• Pay any fees (for up to ${config.credits.maxPerYear} credits)
-• Apply for special funding
-• Fill out grant applications
-• Do any extra paperwork
-
-Simply register with us and we handle all the funding details with the government. The Distance Education grant covers everything!`,
+          answer: `No! The $${config.pricing.distanceEducationGrant} Distance Education grant that RTD Academy receives is completely separate from and on top of any grant funding your family receives through your home education organization.`,
           priority: 'low'
         },
+   
+
         {
-          question: 'How should I coordinate with my home education organization about RTD Academy courses?',
-          answer: `We recommend open communication with your home education organization:
-
-• Let them know you're planning to take courses with RTD Academy
-• Discuss how many credits you'll be taking with us
-• Ensure they understand this won't affect their funding or your relationship with them
-• Coordinate to make sure funding flows properly to all schools
-
-Remember: Schools work together to support your education! Clear communication helps everyone plan appropriately and ensures you get the best educational experience possible.`,
-          priority: 'low'
-        },
-        {
-          question: 'What is the difference between RTD Connect and RTD Academy courses?',
-          answer: `Great question! These are two completely different programs we offer:
-
-**RTD Connect** (https://rtd-connect.com)
-• Our complete HOME EDUCATION program
-• You register your child with us as your home education provider
-• We provide facilitator support, learning plan development, and reimbursements
-• You receive up to $${config.pricing.rtdConnectReimbursement.grades1to12}/year (Gr ${config.grades.elementaryStart}-${config.grades.highSchoolEnd}) or $${config.pricing.rtdConnectReimbursement.kindergarten}/year (${config.grades.kindergarten}) in reimbursements for educational materials
-• We are your primary home education organization
-• Visit https://rtd-connect.com to learn more
-
-**RTD Academy Distance Education Courses**
-• Individual HIGH SCHOOL COURSES (Grades ${config.grades.highSchoolStart}-${config.grades.highSchoolEnd} only)
-• For students already registered with another home education program
-• Up to ${config.credits.maxPerYear} free credits per year through Distance Education grant
-• You remain with your current home education provider
-• We only provide the specific courses, not full home education support`,
-          priority: 'high'
-        },
-        {
-          question: 'Can I use both RTD Connect and take RTD Academy courses?',
-          answer: `This depends on your situation:
-
-**If you choose RTD Connect as your home education provider:**
-• You're already part of our family!
-• You can access RTD Academy high school courses as part of your home education program
-• Your RTD Connect facilitator can help you navigate course options
-• Everything is coordinated through one organization
-
-**If you're with another home education provider:**
-• You can take RTD Academy courses as a non-primary student
-• You keep your current home education provider and facilitator
-• RTD Academy provides only the specific courses you register for
-• You'll need to coordinate between your home education provider and RTD Academy`,
-          priority: 'high'
-        },
-        {
-          question: 'Should I switch to RTD Connect for my home education?',
-          answer: `RTD Connect might be a great fit if you're looking for:
-
-✓ Alberta-certified teacher facilitators with home education experience
-✓ Flexible, parent-directed approach to learning
-✓ Support for diverse learners and all educational philosophies
-✓ Easy online platform for plans, portfolios, and reimbursements
-✓ Up to $${config.pricing.rtdConnectReimbursement.grades1to12}/year in reimbursements (Grades ${config.grades.elementaryStart}-${config.grades.highSchoolEnd})
-✓ Access to digital tools and subscriptions
-✓ Supportive community of home educating families
-
-Learn more at: https://rtd-connect.com
-
-However, if you're happy with your current home education provider, you can simply take our Distance Education courses while staying with them. We support whatever works best for your family!`,
-          priority: 'low'
-        },
-        {
-          question: 'How does this affect my Shared Responsibility Grant?',
+          question: 'How does this work if I am on a Shared Responsibility Program with my home school organization?',
           answer: `Important: According to the funding manual, students who receive Distance Education grant funding may not be eligible for the Shared Responsibility Grant as well.
 
 If you're currently part of a shared responsibility program with your home school facilitator, please check with them before registering for courses with us. While the Distance Education grant is separate from your regular home education funding, it may impact specific grant programs like Shared Responsibility.
 
-Note: If you're interested in a different approach, RTD Connect (our home education program) offers full support with facilitators and reimbursements. Learn more at https://rtd-connect.com
-
 We love our fellow home education programs and want to ensure there are no surprises with your funding arrangements! 😊`,
-          priority: 'high'
+          priority: 'low'
         }
       ]
     },
@@ -415,12 +385,119 @@ We love our fellow home education programs and want to ensure there are no surpr
     summerStudents: {
       title: 'Summer Students',
       icon: 'Sun',
-      description: 'For students taking courses during July and August',
+      description: `For students taking courses during ${dates.summerSchool.startMonth} and ${dates.summerSchool.endMonth}`,
       color: '#F59E0B', // Amber
       faqs: [
         {
-          question: 'Coming Soon',
-          answer: 'Summer student information will be available soon. Please check back later or contact us for more information.',
+          question: 'What is a Summer School Student?',
+          answer: `Summer School Students are school-aged Alberta residents who take courses during July and August. 
+
+**Key Benefits:**
+- No need for enrollment at another school
+- Up to ${config.credits.maxSummer} free credits`,
+          priority: 'low'
+        },
+        {
+          question: 'Who is eligible for Summer School?',
+          answer: `To register as a Summer School Student, you:
+
+- **Must be school-aged** (under ${config.ages.adultStudentMinAge} as of ${config.ages.ageVerificationDate} of the school year)
+- **Must be an Alberta resident**
+
+That's it! You don't need:
+- A primary registration at another school
+- To be enrolled in home education program
+
+**Not sure if you're school-aged?** Use our age calculator tool on this page to check your eligibility for the current school year.`,
+          priority: 'low'
+        },
+        {
+          question: 'Am I too old to be a Summer School Student?',
+          answer: `You're considered school-aged if you're under ${config.ages.adultStudentMinAge} as of ${config.ages.ageVerificationDate} of the school year you want to take courses.
+
+**Examples for ${dates.currentSchoolYear}:**
+- Turn ${config.ages.adultStudentMinAge} on September 1? ✓ Just made it!
+- Turn ${config.ages.adultStudentMinAge} before September 1? ✗ Would be an Adult Student
+
+**Use the age calculator tool** above to instantly check if you qualify as school-aged for any school year.`,
+          priority: 'low'
+        },
+        {
+          question: "I'm 18-19 and not enrolled anywhere full-time. Can I still get free courses?",
+          answer: `**Yes! This is exactly what Summer School is perfect for.**
+
+If you're 18-19 and not enrolled at another school, you likely can't register as a Non-Primary student (which requires a primary registration elsewhere). However, you CAN register as a Summer School Student and receive up to ${config.credits.maxSummer} credits completely free!
+
+**Why this works:**
+- Summer School only requires you to be school-aged (under ${config.ages.adultStudentMinAge} on Sept 1)
+- No requirement for enrollment elsewhere`,
+          priority: 'low'
+        },
+        {
+          question: 'When does Summer School run?',
+          answer: `Summer School officially runs from **${dates.summerSchool.startDate} to ${dates.summerSchool.endDate}**.
+
+**Important notes:**
+- Your course must END during July or August to count as Summer School
+- You can START your course earlier (even in the regular school year!)
+- Marks typically appear on transcripts in August/September depending on when you finish`,
+          priority: 'low'
+        },
+        {
+          question: 'Can I start my Summer School course before July?',
+          answer: `Yes, absolutely!`,
+          priority: 'low'
+        },
+        {
+          question: "What if I don't finish my course by August 31?",
+          answer: `We strongly encourage all students to complete their courses by ${dates.summerSchool.endDate}. However, if you cannot finish on schedule:
+
+**If you WILL have a primary enrollment elsewhere in the fall:**
+- You'll be moved to Non-Primary Student status for the new school year
+- You can continue your course at no additional cost
+- Your mark will be submitted when you complete the course
+
+**If you WON'T have a primary enrollment elsewhere in the fall:**
+- You'll be moved to Home Education status (if registered with a home education program)
+- OR you'll need to pay tuition as an Adult Student if you're no longer school-aged
+
+**⚠️ IMPORTANT WARNING:**
+If you don't finish in summer AND you won't have a primary enrollment the following school year, RTD Academy will receive NO funding for you! This means:
+- You would need to pay full tuition to continue
+- The course would no longer be free
+- You'd be responsible for Adult Student fees
+
+**Our strong advice:** If you're in this category (especially 18-19 year olds not planning to enroll anywhere), please work extra hard to complete your courses during the summer. This is your opportunity for free courses - don't let it slip away!`,
+          priority: 'low'
+        },
+        {
+          question: 'How is Summer School different from being a Non-Primary student?',
+          answer: `While both offer free courses, there are key differences:
+
+**Summer School Students:**
+- No enrollment required elsewhere
+- Must finish courses in July/August
+- Up to ${config.credits.maxSummer} free credits
+- Perfect for students aged 18-19 not enrolled anywhere
+- Simpler requirements overall
+
+**Non-Primary Students:**
+- MUST be enrolled at another Alberta school
+- Can finish courses anytime during school year
+- Up to ${config.credits.maxPerYear} free credits
+- Not available if you're not enrolled elsewhere
+
+Summer School is often the better choice for flexibility and accessibility!`,
+          priority: 'low'
+        },
+        {
+          question: 'How do I know if I qualify as school-aged?',
+          answer: `The easiest way is to **use the Age Calculator tool** at the top of this page!`,
+          priority: 'low'
+        },
+        {
+          question: 'Can Grade 9 students take high school courses in Summer School?',
+          answer: `Yes! Junior high students can take high school courses if they are taken in the summer semester **before entering Grade 10**.`,
           priority: 'low'
         }
       ]
@@ -433,10 +510,127 @@ We love our fellow home education programs and want to ensure there are no surpr
       color: '#8B5CF6', // Purple
       faqs: [
         {
-          question: 'Coming Soon',
-          answer: 'Adult student information will be available soon. Please check back later or visit our Adult Students page for current information.',
+          question: 'What is an Adult Student?',
+          answer: `An Adult Student is someone who takes RTD Academy courses but doesn't qualify for government funding. This includes:
+
+**Students aged ${config.ages.adultStudentMinAge} or older:**
+- Anyone who is ${config.ages.adultStudentMinAge}+ as of September 1st of the current school year
+
+**Students who don't qualify for other funded categories:**
+- Not enrolled at another Alberta school (can't be Non-Primary)
+- Not in a home education program (can't be Home Education)
+- Missed Summer School deadlines or requirements`,
           priority: 'low'
-        }
+        },
+
+        {
+          question: 'How much does it cost to be an Adult Student?',
+          answer: `Adult Students have two payment options:
+
+**One-time payment:** $${config.pricing.adultStudent.oneTimePrice} per course
+- Save $${config.pricing.adultStudent.monthlyPaymentTotal - config.pricing.adultStudent.oneTimePrice} compared to monthly payments
+- Full payment after ${config.pricing.adultStudent.trialPeriodDays}-day trial
+
+**Monthly payment plan:** $${config.pricing.adultStudent.monthlyPayment}/month for ${config.pricing.adultStudent.monthlyPaymentMonths} months
+- Total of $${config.pricing.adultStudent.monthlyPaymentTotal} per course
+- First payment after ${config.pricing.adultStudent.trialPeriodDays}-day trial
+- Convenient monthly billing
+
+Note: Alberta Education diploma exam fees are separate and paid directly to Alberta Education.`,
+          priority: 'low'
+        },
+        {
+          question: 'Why do I have to pay when others get courses for free?',
+          answer: `**It's all about government funding eligibility.**
+
+Free courses are available when Alberta Education provides funding to RTD Academy on your behalf. This happens for:
+- School-aged students (under ${config.ages.adultStudentMinAge})
+- Students enrolled at other Alberta schools
+- Home education students
+- Summer school students meeting specific requirements`,
+          priority: 'low'
+        },
+        {
+          question: 'Is there a trial period?',
+          answer: `**Yes! You get a ${config.pricing.adultStudent.trialPeriodDays}-day trial period with full course access.**
+
+During your trial:
+- Complete access to all course materials
+- Experience our learning platform
+- Try interactive lessons and practice problems
+- See if our learning style works for you
+- No payment required upfront
+
+**After ${config.pricing.adultStudent.trialPeriodDays} days:**
+- Choose your payment option (one-time or monthly)
+- Continue with full course access
+- Or decide not to continue with no obligation
+- Please note that your course will not appear on your transcript until payment is made.`,
+          priority: 'low'
+        },
+        {
+          question: 'What if I fall behind schedule?',
+          answer: `We understand that life happens! Please contact your teacher if you find yourself falling behind your schedule and make a plan to get back on track. We do allow our Adults students more grace than our younger students, however, we do push you to keep you motivated. The goal is to keep you moving forward while acknowledging that life can be unpredictable.`,
+          priority: 'low'
+        },
+        {
+          question: 'Can I really learn at my own pace?',
+          answer: `**Yes! Our asynchronous learning model is perfect for adult learners.**
+
+**What this means:**
+- No scheduled class times
+- Learn when it works for YOU (morning, evening, weekends)
+- Pause and replay video lessons
+- Work around job and family commitments
+- Take breaks when needed
+
+**Your pace, with structure:**
+- YourWay Schedule provides goals and deadlines
+- Keeps you accountable and progressing
+- Flexibility within a framework
+- Adjust speed based on topic difficulty
+
+**Support when you need it:**
+- Teachers available via messaging
+- Help available throughout your journey
+
+This format is specifically designed for adults balancing multiple responsibilities.`,
+          priority: 'low'
+        },
+   
+        {
+          question: 'What happens after the trial period?',
+          answer: `After your ${config.pricing.adultStudent.trialPeriodDays}-day trial ends:
+
+**If you want to continue:**
+- Choose your payment option
+- One-time: $${config.pricing.adultStudent.oneTimePrice} (save $${config.pricing.adultStudent.monthlyPaymentTotal - config.pricing.adultStudent.oneTimePrice})
+- Monthly: $${config.pricing.adultStudent.monthlyPayment} for ${config.pricing.adultStudent.monthlyPaymentMonths} months ($${config.pricing.adultStudent.monthlyPaymentTotal} total)
+- Maintain full course access
+- Continue exactly where you left off
+
+**If you decide not to continue:**
+- No charges, no obligations
+- Simply don't proceed with payment
+- Your trial access ends
+- You can always come back later`,
+          priority: 'low'
+        },
+        {
+          question: 'Can I get a refund?',
+          answer: `Our ${config.pricing.adultStudent.trialPeriodDays}-day trial period is designed to help you make an informed decision before paying.
+
+**During the trial:**
+- Full access to evaluate the course
+- No payment required
+- Can discontinue without any charges
+
+**After payment:**
+- Refund policies may apply in exceptional circumstances
+- Contact our support team to discuss your situation
+- Each case reviewed individually`,
+          priority: 'low'
+        },
       ]
     },
 
@@ -447,8 +641,22 @@ We love our fellow home education programs and want to ensure there are no surpr
       color: '#EF4444', // Red
       faqs: [
         {
-          question: 'Coming Soon',
-          answer: 'International student information will be available soon. Please check back later or contact us for more information.',
+          question: 'What is an International Student?',
+          answer: `International Students are learners residing outside of Alberta who take our Alberta High School courses online.`,
+          priority: 'high'
+        },
+        {
+          question: 'How much does it cost for International Students?',
+          answer: `**One-time payment:** $${config.pricing.adultStudent.oneTimePrice} CAD per course
+
+**Monthly payment:** $${config.pricing.adultStudent.monthlyPayment}/month for ${config.pricing.adultStudent.monthlyPaymentMonths} months (total $${config.pricing.adultStudent.monthlyPaymentTotal})
+
+All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-day trial period included.`,
+          priority: 'high'
+        },
+        {
+          question: 'What payment methods are accepted?',
+          answer: `We accept Visa, Mastercard, and other major credit cards through Stripe. Automatic currency conversion to Canadian dollars.`,
           priority: 'low'
         }
       ]
@@ -508,10 +716,10 @@ We love our fellow home education programs and want to ensure there are no surpr
         {
           question: 'How will RTD Academy communicate updates during the strike?',
           answer: `If the strike occurs, we will:
-• Send email updates to all current families
-• Post messages in the Learning Management System (LMS)
-• Keep this FAQ page updated with the latest information
-• Your teachers will also be available to answer any questions directly`,
+- Send email updates to all current families
+- Post messages in the Learning Management System (LMS)
+- Keep this FAQ page updated with the latest information
+- Your teachers will also be available to answer any questions directly`,
           priority: 'low'
         },
         {
@@ -563,7 +771,9 @@ We love our fellow home education programs and want to ensure there are no surpr
     ],
     internationalStudents: [
       { text: 'International Student Guide', url: '/international' },
-      { text: 'Course Catalog', url: '/courses' }
+      { text: 'Course Catalog', url: '/courses' },
+      { text: 'Schedule Demo', url: '/yourway-demo' },
+      { text: 'Apply for Credit Transfer', url: '/credit-transfer' }
     ],
     teacherStrike: [
       { text: 'Course Registration', url: '/get-started' },

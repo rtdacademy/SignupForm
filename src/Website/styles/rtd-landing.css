@@ -1,5 +1,34 @@
 /* Professional animations for RTD Landing Page */
 
+/* Gradient animation */
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes gradient-y {
+  0%, 100% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 4s ease infinite;
+}
+
+.animate-gradient-y {
+  background-size: 200% 200%;
+  animation: gradient-y 4s ease infinite;
+}
+
 /* Subtle pulse animation */
 @keyframes pulse-slow {
   0%, 100% {

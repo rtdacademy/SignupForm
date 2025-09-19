@@ -176,8 +176,8 @@ const getThemeConfig = (theme) => {
   return themes[theme] || themes.purple;
 };
 
-const SlideshowKnowledgeCheck = ({ 
-  courseId, 
+const SlideshowKnowledgeCheck = ({
+  courseId,
   lessonPath,
   questions,
   onComplete,
@@ -195,9 +195,12 @@ const SlideshowKnowledgeCheck = ({
   // Disable preloading entirely - questions will load on demand
   const [preloadingQuestions, setPreloadingQuestions] = useState(false);
   const [preloadingErrors, setPreloadingErrors] = useState([]);
-  
+
   // Track if we've already called onComplete to prevent infinite loops
   const hasCalledOnComplete = useRef(false);
+
+  // Ref for scrolling to top of component
+  const containerRef = useRef(null);
   
   // Use courseId from course object if available, otherwise fall back to prop
   // Ensure it's always a string for consistency
@@ -396,6 +399,12 @@ const SlideshowKnowledgeCheck = ({
   const navigateToQuestion = (index) => {
     if (index >= 0 && index < questions.length) {
       setCurrentQuestionIndex(index);
+      // Scroll to top of the component after navigation
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100); // Small delay to ensure DOM updates
     }
   };
 
@@ -593,7 +602,7 @@ const SlideshowKnowledgeCheck = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div ref={containerRef} className="max-w-4xl mx-auto p-6">
       {/* Pre-loading error notification */}
       {preloadingErrors.length > 0 && (
         <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
