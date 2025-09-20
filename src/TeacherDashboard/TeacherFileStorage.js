@@ -1,16 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
-import { storage } from '../firebase';
-import { 
-  ref, 
-  uploadBytes, 
-  listAll, 
-  getDownloadURL, 
+import { storage, database } from '../firebase';
+import {
+  ref as storageRef,
+  uploadBytes,
+  listAll,
+  getDownloadURL,
   deleteObject,
   getMetadata,
-  getBlob
+  getBlob,
+  uploadBytesResumable
 } from 'firebase/storage';
+import {
+  ref as databaseRef,
+  set,
+  push
+} from 'firebase/database';
+import {
+  MediaController,
+  MediaControlBar,
+  MediaTimeRange,
+  MediaTimeDisplay,
+  MediaVolumeRange,
+  MediaPlaybackRateButton,
+  MediaPlayButton,
+  MediaSeekBackwardButton,
+  MediaSeekForwardButton,
+  MediaMuteButton,
+  MediaFullscreenButton,
+} from 'media-chrome/react';
 import {
   FolderPlus,
   Upload,
@@ -44,7 +63,14 @@ import {
   Copy,
   Save,
   RotateCcw,
-  ExternalLink
+  ExternalLink,
+  Lock,
+  Globe,
+  Shield,
+  Users,
+  Share2,
+  VideoIcon,
+  UsersIcon
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -56,7 +82,17 @@ import {
   DropdownMenuTrigger 
 } from '../components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from '../components/ui/dialog';
+import { Label } from '../components/ui/label';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useDrag, useDrop } from 'react-dnd';
@@ -78,21 +114,56 @@ function TeacherFileStorage() {
   const [movingFile, setMovingFile] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewVideo, setPreviewVideo] = useState(null);
   const [isPasteAreaFocused, setIsPasteAreaFocused] = useState(false);
   const [lastPastedFiles, setLastPastedFiles] = useState([]);
   const [editingFile, setEditingFile] = useState(null);
   const [editingName, setEditingName] = useState('');
+  const [shareableLink, setShareableLink] = useState('');
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
-  // Get user-specific storage path
-  const getUserStoragePath = (path = '') => {
+  // Get storage path - handles both shared and user-specific paths
+  const getStoragePath = (path = '') => {
+    // Check if this is a shared path
+    if (isSharedPath(path)) {
+      return path ? `shared/${path}` : 'shared';
+    }
+    // Otherwise, it's a user-specific path
     const userPath = `teachers/${user.uid}`;
     return path ? `${userPath}/${path}` : userPath;
+  };
+
+  // Legacy function name for compatibility - redirects to new function
+  const getUserStoragePath = getStoragePath;
+
+  // Check if a path is a shared directory (public or private)
+  const isSharedPath = (path) => {
+    if (!path) return false;
+    return path === 'public' || path === 'private' ||
+           path.startsWith('public/') || path.startsWith('private/');
+  };
+
+  // Check if a path is in the shared private folder
+  const isPrivatePath = (path) => {
+    return path && (path === 'private' || path.startsWith('private/'));
+  };
+
+  // Check if a path is in the shared public folder
+  const isPublicPath = (path) => {
+    return path && (path === 'public' || path.startsWith('public/'));
+  };
+
+  // Get privacy status of a file/folder
+  const getPrivacyStatus = (path) => {
+    if (isPrivatePath(path)) return 'private';
+    if (isPublicPath(path)) return 'public';
+    return 'default'; // Regular files are in user's personal space
   };
 
   // Count files in a folder
   const countFilesInFolder = async (folderPath) => {
     try {
-      const folderRef = ref(storage, getUserStoragePath(folderPath));
+      const folderRef = storageRef(storage, getStoragePath(folderPath));
       const result = await listAll(folderRef);
       // Filter out .placeholder files from count
       const fileCount = result.items.filter(item => !item.name.includes('.placeholder')).length;
@@ -107,53 +178,124 @@ function TeacherFileStorage() {
   const loadFiles = async (path = currentPath, showSkeletons = false) => {
     setIsLoading(true);
     setError('');
-    
+
     // Only clear files if showSkeletons is true (initial load or folder change)
     if (showSkeletons) {
       setFiles([]);
       setFolders([]);
     }
-    
+
     try {
-      const storageRef = ref(storage, getUserStoragePath(path));
-      const result = await listAll(storageRef);
-      
-      // Get folders
-      const folderList = result.prefixes.map(folderRef => ({
-        name: folderRef.name,
-        type: 'folder',
-        path: path ? `${path}/${folderRef.name}` : folderRef.name
-      }));
-      
+      let folderList = [];
+      let fileList = [];
+
+      // Handle root level - show both shared and personal folders
+      if (!path || path === '') {
+        // Load shared folders
+        try {
+          const sharedRef = storageRef(storage, 'shared');
+          const sharedResult = await listAll(sharedRef);
+
+          // Add shared folders with special indicators
+          const sharedFolders = sharedResult.prefixes.map(folderRef => ({
+            name: folderRef.name,
+            type: 'folder',
+            path: folderRef.name,
+            displayName: folderRef.name === 'public' ? 'Shared Public Files' :
+                        folderRef.name === 'private' ? 'Shared Private Files' : folderRef.name,
+            isSpecial: true,
+            isShared: true,
+            privacy: getPrivacyStatus(folderRef.name)
+          }));
+          folderList.push(...sharedFolders);
+        } catch (error) {
+          console.log('Shared folders may not exist yet');
+        }
+
+        // Load user's personal folders
+        const userRef = storageRef(storage, `teachers/${user.uid}`);
+        const userResult = await listAll(userRef);
+
+        const personalFolders = userResult.prefixes.map(folderRef => ({
+          name: folderRef.name,
+          type: 'folder',
+          path: folderRef.name,
+          privacy: 'personal'
+        }));
+        folderList.push(...personalFolders);
+
+        // Get files from user's root directory
+        const filePromises = userResult.items.map(async (fileRef) => {
+          const metadata = await getMetadata(fileRef);
+          const downloadURL = await getDownloadURL(fileRef);
+
+          return {
+            name: fileRef.name,
+            type: 'file',
+            size: metadata.size,
+            updated: metadata.updated,
+            downloadURL,
+            fullPath: fileRef.fullPath,
+            path: fileRef.name
+          };
+        });
+        fileList = await Promise.all(filePromises);
+
+        // Sort folders - shared folders first
+        folderList.sort((a, b) => {
+          if (a.isShared && !b.isShared) return -1;
+          if (!a.isShared && b.isShared) return 1;
+          if (a.name === 'public') return -1;
+          if (b.name === 'public') return 1;
+          if (a.name === 'private') return -1;
+          if (b.name === 'private') return 1;
+          return a.name.localeCompare(b.name);
+        });
+      } else {
+        // Load from specific path (either shared or personal)
+        const storageFolderRef = storageRef(storage, getStoragePath(path));
+        const result = await listAll(storageFolderRef);
+
+        // Get folders
+        folderList = result.prefixes.map(folderRef => ({
+          name: folderRef.name,
+          type: 'folder',
+          path: path ? `${path}/${folderRef.name}` : folderRef.name,
+          privacy: getPrivacyStatus(path ? `${path}/${folderRef.name}` : folderRef.name),
+          isShared: isSharedPath(path)
+        }));
+
+        // Get files with metadata
+        const filePromises = result.items.map(async (fileRef) => {
+          const metadata = await getMetadata(fileRef);
+          const downloadURL = await getDownloadURL(fileRef);
+
+          return {
+            name: fileRef.name,
+            type: 'file',
+            size: metadata.size,
+            updated: metadata.updated,
+            downloadURL,
+            fullPath: fileRef.fullPath,
+            path: path ? `${path}/${fileRef.name}` : fileRef.name,
+            isShared: isSharedPath(path)
+          };
+        });
+
+        fileList = await Promise.all(filePromises);
+      }
+
       // Get file counts for each folder
       const folderCountPromises = folderList.map(async (folder) => {
         const count = await countFilesInFolder(folder.path);
         return { path: folder.path, count };
       });
-      
+
       const folderCountResults = await Promise.all(folderCountPromises);
       const newFolderCounts = {};
       folderCountResults.forEach(({ path, count }) => {
         newFolderCounts[path] = count;
       });
-      
-      // Get files with metadata
-      const filePromises = result.items.map(async (fileRef) => {
-        const metadata = await getMetadata(fileRef);
-        const downloadURL = await getDownloadURL(fileRef);
-        
-        return {
-          name: fileRef.name,
-          type: 'file',
-          size: metadata.size,
-          updated: metadata.updated,
-          downloadURL,
-          fullPath: fileRef.fullPath,
-          path: path ? `${path}/${fileRef.name}` : fileRef.name
-        };
-      });
-      
-      const fileList = await Promise.all(filePromises);
       
       // Filter out .placeholder files from display
       const filteredFiles = fileList.filter(file => !file.name.includes('.placeholder'));
@@ -179,16 +321,26 @@ function TeacherFileStorage() {
   // Upload files
   const handleFileUpload = async (uploadFiles, isPastedImages = false) => {
     if (!uploadFiles.length) return;
-    
+
     setError('');
     const uploadPromises = [];
     const uploadedImageUrls = [];
-    
+
+    // Video size limit: 500MB
+    const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+
     for (const file of uploadFiles) {
+      // Check video file size
+      if (isVideoFile(file.name) && file.size > MAX_VIDEO_SIZE) {
+        toast.error(`Video "${file.name}" is too large. Maximum size: 500MB`, {
+          description: `Current size: ${formatFileSize(file.size)}`
+        });
+        continue;
+      }
       // Always use timestamped filename for storage
       const timestampedFileName = generateTimestampedFileName(file.name);
-      const storageRef = ref(storage, getUserStoragePath(`${currentPath}/${timestampedFileName}`));
-      const uploadPromise = uploadBytes(storageRef, file).then(async (snapshot) => {
+      const fileStorageRef = storageRef(storage, getStoragePath(`${currentPath}/${timestampedFileName}`));
+      const uploadPromise = uploadBytes(fileStorageRef, file).then(async (snapshot) => {
         const downloadURL = await getDownloadURL(snapshot.ref);
         if (isPastedImages && isImageFile(file.name)) {
           uploadedImageUrls.push({
@@ -199,7 +351,7 @@ function TeacherFileStorage() {
         return snapshot;
       });
       uploadPromises.push(uploadPromise);
-      
+
       setUploadProgress(prev => ({
         ...prev,
         [file.name]: 0
@@ -270,9 +422,16 @@ function TeacherFileStorage() {
   // Create new folder
   const createFolder = async (folderName) => {
     if (!folderName.trim()) return;
-    
+
     try {
-      const placeholderRef = ref(storage, getUserStoragePath(`${currentPath}/${folderName}/.placeholder`));
+      // Don't allow creating folders named 'public' or 'private' in user space
+      if ((folderName === 'public' || folderName === 'private') && !isSharedPath(currentPath)) {
+        setError('Cannot create folders named "public" or "private" in personal space. These are reserved for shared directories.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+
+      const placeholderRef = storageRef(storage, getStoragePath(`${currentPath}/${folderName}/.placeholder`));
       await uploadBytes(placeholderRef, new Blob([''], { type: 'text/plain' }));
       setSuccess(`Folder "${folderName}" created successfully`);
       setTimeout(() => setSuccess(''), 3000);
@@ -283,21 +442,43 @@ function TeacherFileStorage() {
     }
   };
 
+  // Create shared folders (private/public) if they don't exist
+  const ensureSpecialFolders = async () => {
+    try {
+      // Create shared private folder if it doesn't exist
+      const privateRef = storageRef(storage, 'shared/private/.placeholder');
+      await uploadBytes(privateRef, new Blob([''], { type: 'text/plain' })).catch(() => {});
+
+      // Create shared public folder if it doesn't exist
+      const publicRef = storageRef(storage, 'shared/public/.placeholder');
+      await uploadBytes(publicRef, new Blob([''], { type: 'text/plain' })).catch(() => {});
+    } catch (error) {
+      console.log('Shared folders may already exist');
+    }
+  };
+
   // Delete file or folder
   const deleteItem = async (item) => {
     try {
+      // Prevent deletion of root shared folders
+      if (item.isShared && (item.name === 'public' || item.name === 'private') && (!currentPath || currentPath === '')) {
+        setError('Cannot delete root shared folders.');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
       if (item.type === 'file') {
-        const fileRef = ref(storage, item.fullPath);
+        const fileRef = storageRef(storage, item.fullPath);
         await deleteObject(fileRef);
       } else {
         // Delete folder by deleting all items in it
-        const folderRef = ref(storage, getUserStoragePath(item.path));
+        const folderRef = storageRef(storage, getStoragePath(item.path));
         const result = await listAll(folderRef);
-        
+
         const deletePromises = result.items.map(itemRef => deleteObject(itemRef));
         await Promise.all(deletePromises);
       }
-      
+
       setSuccess(`${item.type === 'file' ? 'File' : 'Folder'} deleted successfully`);
       setTimeout(() => setSuccess(''), 3000);
       loadFiles(); // Refresh without skeletons after deletion
@@ -341,7 +522,7 @@ function TeacherFileStorage() {
     try {
       const filesToDelete = files.filter(file => selectedFiles.has(file.path));
       const deletePromises = filesToDelete.map(file => {
-        const fileRef = ref(storage, file.fullPath);
+        const fileRef = storageRef(storage, file.fullPath);
         return deleteObject(fileRef);
       });
       
@@ -385,7 +566,10 @@ function TeacherFileStorage() {
 
   useEffect(() => {
     if (user) {
-      loadFiles(currentPath, true); // Show skeletons on initial load
+      // Create special folders if they don't exist
+      ensureSpecialFolders().then(() => {
+        loadFiles(currentPath, true); // Show skeletons on initial load
+      });
     }
   }, [user]);
 
@@ -421,12 +605,21 @@ function TeacherFileStorage() {
     return imageExtensions.includes(extension);
   };
 
-  // Handle file click (preview images, download others)
+  // Check if file is a video
+  const isVideoFile = (fileName) => {
+    const videoExtensions = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg', 'm4v', 'wmv', 'flv'];
+    const extension = fileName.toLowerCase().split('.').pop();
+    return videoExtensions.includes(extension);
+  };
+
+  // Handle file click (preview images/videos, download others)
   const handleFileClick = (file) => {
     if (isImageFile(file.name)) {
       setPreviewImage(file);
+    } else if (isVideoFile(file.name)) {
+      setPreviewVideo(file);
     } else {
-      // For non-images, open download link
+      // For non-images/videos, open download link
       window.open(file.downloadURL, '_blank');
     }
   };
@@ -555,7 +748,7 @@ function TeacherFileStorage() {
       setSuccess('');
 
       // Get file reference using the full path
-      const oldRef = ref(storage, file.fullPath);
+      const oldRef = storageRef(storage, file.fullPath);
       
       // First, verify the file exists by getting metadata
       const metadata = await getMetadata(oldRef);
@@ -568,7 +761,7 @@ function TeacherFileStorage() {
       
       // Create new path with edited name using the current path structure
       const currentPathInStorage = currentPath ? `${currentPath}/${timestampedFileName}` : timestampedFileName;
-      const newRef = ref(storage, getUserStoragePath(currentPathInStorage));
+      const newRef = storageRef(storage, getUserStoragePath(currentPathInStorage));
       
       // Upload with new name
       await uploadBytes(newRef, blob, {
@@ -577,7 +770,7 @@ function TeacherFileStorage() {
       });
       
       // Create a fresh reference to the old file for deletion
-      const deleteRef = ref(storage, file.fullPath);
+      const deleteRef = storageRef(storage, file.fullPath);
       
       // Verify file still exists before deletion
       try {
@@ -777,46 +970,176 @@ function TeacherFileStorage() {
       setMovingFile(file.displayName || file.name);
       setError('');
       setSuccess('');
-      
+
       // Get file reference (using actual storage filename, not display name)
-      const oldRef = ref(storage, file.fullPath);
-      
+      const oldRef = storageRef(storage, file.fullPath);
+
       // Get the file blob
       const blob = await getBlob(oldRef);
-      
+
       // Get original metadata
       const metadata = await getMetadata(oldRef);
-      
+
       // Generate new timestamped filename for the target location
       const originalFileName = parseTimestampedFileName(file.name).originalName;
       const timestampedFileName = generateTimestampedFileName(originalFileName);
-      
+
       // Upload to new location with original metadata
       const targetPath = targetFolder.path || '';
       const newPath = targetPath ? `${targetPath}/${timestampedFileName}` : timestampedFileName;
-      const newRef = ref(storage, getUserStoragePath(newPath));
-      
+      const newRef = storageRef(storage, getStoragePath(newPath));
+
       await uploadBytes(newRef, blob, {
         contentType: metadata.contentType,
         customMetadata: metadata.customMetadata
       });
-      
+
       // Delete from old location
       await deleteObject(oldRef);
-      
-      setSuccess(`File moved to ${targetFolder.name} successfully!`);
+
+      const targetName = targetFolder.isShared ? `Shared ${targetFolder.name}` : targetFolder.name;
+      setSuccess(`File moved to ${targetName} successfully!`);
       setTimeout(() => setSuccess(''), 3000);
       loadFiles(); // Refresh without skeletons after move
-      
+
     } catch (error) {
       console.error('Error moving file:', error);
-      
+
       // Check if it's a CORS error
       if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
         setError(`CORS Error: Please configure CORS for Firebase Storage. Run: gsutil cors set cors.json gs://rtd-academy.appspot.com`);
       } else {
         setError(`Failed to move file: ${error.message}`);
       }
+    } finally {
+      setMovingFile(null);
+    }
+  };
+
+  // Create shareable video link
+  const createShareableVideoLink = async (file) => {
+    try {
+      // Generate unique ID for the video
+      const videoId = push(databaseRef(database, 'sharedVideos')).key;
+
+      // Save video metadata to database
+      await set(databaseRef(database, `sharedVideos/${videoId}`), {
+        title: file.displayName || file.name,
+        fileName: file.name,
+        url: file.downloadURL,
+        storagePath: file.fullPath,
+        createdBy: user.uid,
+        createdAt: Date.now(),
+        views: 0,
+        accessType: isPrivatePath(file.path) ? 'private' : 'public',
+        fileSize: file.size
+      });
+
+      // Generate shareable URL
+      const shareUrl = `${window.location.origin}/video/${videoId}`;
+
+      return shareUrl;
+    } catch (error) {
+      console.error('Error creating shareable link:', error);
+      toast.error('Failed to create shareable link');
+      return null;
+    }
+  };
+
+  // Handle sharing a video
+  const handleShareVideo = async (file) => {
+    try {
+      const link = await createShareableVideoLink(file);
+      if (link) {
+        setShareableLink(link);
+        setShowShareDialog(true);
+      }
+    } catch (error) {
+      console.error('Error sharing video:', error);
+    }
+  };
+
+  // Copy share link to clipboard
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      toast.success('Link copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  // Move file to shared folders or personal space
+  const changeFilePrivacy = async (file, targetPrivacy) => {
+    try {
+      setMovingFile(file.displayName || file.name);
+      setError('');
+      setSuccess('');
+
+      // Determine target path based on privacy
+      let targetPath;
+      let isMovingToShared = false;
+      if (targetPrivacy === 'private') {
+        targetPath = 'private';
+        isMovingToShared = true;
+      } else if (targetPrivacy === 'public') {
+        targetPath = 'public';
+        isMovingToShared = true;
+      } else {
+        // Move to personal space
+        targetPath = '';
+        isMovingToShared = false;
+      }
+
+      // Get file reference
+      const oldRef = storageRef(storage, file.fullPath);
+
+      // Get the file blob and metadata
+      const blob = await getBlob(oldRef);
+      const metadata = await getMetadata(oldRef);
+
+      // Generate new path
+      const originalFileName = parseTimestampedFileName(file.name).originalName;
+      const timestampedFileName = generateTimestampedFileName(originalFileName);
+
+      // Create appropriate storage reference
+      let newRef;
+      if (isMovingToShared) {
+        // Moving to shared folder
+        newRef = storageRef(storage, `shared/${targetPath}/${timestampedFileName}`);
+      } else {
+        // Moving to personal space
+        newRef = storageRef(storage, `teachers/${user.uid}/${timestampedFileName}`);
+      }
+
+      // Upload to new location
+      await uploadBytes(newRef, blob, {
+        contentType: metadata.contentType,
+        customMetadata: {
+          ...metadata.customMetadata,
+          privacy: targetPrivacy
+        }
+      });
+
+      // Delete from old location
+      await deleteObject(oldRef);
+
+      const privacyLabel = targetPrivacy === 'private' ? 'Shared Private (All Staff)' :
+                          targetPrivacy === 'public' ? 'Shared Public (All Staff)' :
+                          'Personal Space (Only You)';
+
+      toast.success(`File moved to ${privacyLabel}`, {
+        description: `"${file.displayName || file.name}" is now ${targetPrivacy === 'private' ? 'shared with all staff (login required)' :
+                                                                     targetPrivacy === 'public' ? 'shared with all staff (publicly accessible)' :
+                                                                     'in your personal space'}`
+      });
+
+      loadFiles(); // Refresh
+    } catch (error) {
+      console.error('Error changing file privacy:', error);
+      toast.error('Failed to change file privacy', {
+        description: error.message
+      });
     } finally {
       setMovingFile(null);
     }
@@ -1190,14 +1513,30 @@ function TeacherFileStorage() {
                     </div>
                     <div className="col-span-4 flex items-center gap-3">
                       <div className="relative">
-                        <Folder className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                        {folder.isShared && folder.privacy === 'private' ? (
+                          <Lock className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                        ) : folder.isShared && folder.privacy === 'public' ? (
+                          <Globe className="h-5 w-5 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <Folder className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                        )}
                         {folderCounts[folder.path] !== undefined && folderCounts[folder.path] > 0 && (
                           <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 font-medium">
                             {folderCounts[folder.path]}
                           </span>
                         )}
                       </div>
-                      <span className="truncate font-medium">{folder.name}</span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="truncate font-medium">
+                          {folder.displayName || folder.name}
+                        </span>
+                        {folder.isShared && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            <UsersIcon className="h-3 w-3" />
+                            Shared
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="col-span-2 text-sm text-muted-foreground">—</div>
                     <div className="col-span-3 text-sm text-muted-foreground">—</div>
@@ -1286,8 +1625,8 @@ function TeacherFileStorage() {
                             </Button>
                           </div>
                         ) : (
-                          <span 
-                            className={`truncate ${isImageFile(file.name) ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                          <span
+                            className={`truncate ${(isImageFile(file.name) || isVideoFile(file.name)) ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
                             onClick={() => handleFileClick(file)}
                           >
                             {file.displayName || file.name}
@@ -1316,8 +1655,8 @@ function TeacherFileStorage() {
                       {isImageFile(file.name) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
                               title="Image copy options"
@@ -1334,6 +1673,19 @@ function TeacherFileStorage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      )}
+
+                      {/* Quick video preview button */}
+                      {isVideoFile(file.name) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          title="Preview video"
+                          onClick={() => setPreviewVideo(file)}
+                        >
+                          <FileVideo className="h-4 w-4" />
+                        </Button>
                       )}
                       
                       <DropdownMenu>
@@ -1363,6 +1715,22 @@ function TeacherFileStorage() {
                               Preview Image
                             </DropdownMenuItem>
                           )}
+                          {isVideoFile(file.name) && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => setPreviewVideo(file)}
+                              >
+                                <FileVideo className="h-4 w-4 mr-2" />
+                                Preview Video
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleShareVideo(file)}
+                              >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Get Shareable Link
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           <DropdownMenuItem
                             onClick={() => startEditingFile(file)}
                           >
@@ -1381,6 +1749,43 @@ function TeacherFileStorage() {
                             <Folder className="h-4 w-4 mr-2" />
                             Move to Folder
                           </DropdownMenuItem>
+                          {/* Privacy Options - Move to Shared Folders or Personal */}
+                          {!isPrivatePath(file.path) && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (window.confirm('Move this file to the Shared Private folder? All staff members will be able to access it (login required).')) {
+                                  changeFilePrivacy(file, 'private');
+                                }
+                              }}
+                            >
+                              <Lock className="h-4 w-4 mr-2 text-amber-600" />
+                              Move to Shared Private
+                            </DropdownMenuItem>
+                          )}
+                          {!isPublicPath(file.path) && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (window.confirm('Move this file to the Shared Public folder? All staff members will be able to access it, and it will be publicly accessible.')) {
+                                  changeFilePrivacy(file, 'public');
+                                }
+                              }}
+                            >
+                              <Globe className="h-4 w-4 mr-2 text-green-600" />
+                              Move to Shared Public
+                            </DropdownMenuItem>
+                          )}
+                          {(isPrivatePath(file.path) || isPublicPath(file.path)) && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (window.confirm('Move this file to your personal space? Only you will be able to access it.')) {
+                                  changeFilePrivacy(file, 'personal');
+                                }
+                              }}
+                            >
+                              <Users className="h-4 w-4 mr-2 text-blue-600" />
+                              Move to Personal Space
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => deleteItem(file)}
                           >
@@ -1408,7 +1813,13 @@ function TeacherFileStorage() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <Folder className="h-8 w-8 text-blue-500" />
+                          {folder.isShared && folder.privacy === 'private' ? (
+                            <Lock className="h-8 w-8 text-amber-600" />
+                          ) : folder.isShared && folder.privacy === 'public' ? (
+                            <Globe className="h-8 w-8 text-green-600" />
+                          ) : (
+                            <Folder className="h-8 w-8 text-blue-500" />
+                          )}
                           {folderCounts[folder.path] !== undefined && folderCounts[folder.path] > 0 && (
                             <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full min-w-[18px] h-5 flex items-center justify-center px-1 font-medium">
                               {folderCounts[folder.path]}
@@ -1416,11 +1827,19 @@ function TeacherFileStorage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{folder.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{folder.displayName || folder.name}</p>
+                            {folder.isShared && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                <UsersIcon className="h-2.5 w-2.5" />
+                                Shared
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            {folderCounts[folder.path] !== undefined 
+                            {folderCounts[folder.path] !== undefined
                               ? `${folderCounts[folder.path]} file${folderCounts[folder.path] !== 1 ? 's' : ''}`
-                              : 'Folder'
+                              : folder.isShared ? 'Shared by all staff' : 'Folder'
                             }
                           </p>
                         </div>
@@ -1518,8 +1937,8 @@ function TeacherFileStorage() {
                               </div>
                             ) : (
                               <>
-                                <p 
-                                  className={`font-medium truncate ${isImageFile(file.name) ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                                <p
+                                  className={`font-medium truncate ${(isImageFile(file.name) || isVideoFile(file.name)) ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
                                   onClick={() => handleFileClick(file)}
                                 >
                                   {file.displayName || file.name}
@@ -1546,8 +1965,8 @@ function TeacherFileStorage() {
                           {isImageFile(file.name) && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0"
                                   title="Image copy options"
@@ -1565,7 +1984,20 @@ function TeacherFileStorage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
-                          
+
+                          {/* Quick video preview button */}
+                          {isVideoFile(file.name) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="Preview video"
+                              onClick={() => setPreviewVideo(file)}
+                            >
+                              <FileVideo className="h-4 w-4" />
+                            </Button>
+                          )}
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -1593,6 +2025,14 @@ function TeacherFileStorage() {
                                 Preview Image
                               </DropdownMenuItem>
                             )}
+                            {isVideoFile(file.name) && (
+                              <DropdownMenuItem
+                                onClick={() => setPreviewVideo(file)}
+                              >
+                                <FileVideo className="h-4 w-4 mr-2" />
+                                Preview Video
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => startEditingFile(file)}
                             >
@@ -1611,6 +2051,43 @@ function TeacherFileStorage() {
                               <Folder className="h-4 w-4 mr-2" />
                               Move to Folder
                             </DropdownMenuItem>
+                            {/* Privacy Options - Move to Shared Folders or Personal */}
+                            {!isPrivatePath(file.path) && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (window.confirm('Move this file to the Shared Private folder? All staff members will be able to access it (login required).')) {
+                                    changeFilePrivacy(file, 'private');
+                                  }
+                                }}
+                              >
+                                <Lock className="h-4 w-4 mr-2 text-amber-600" />
+                                Move to Shared Private
+                              </DropdownMenuItem>
+                            )}
+                            {!isPublicPath(file.path) && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (window.confirm('Move this file to the Shared Public folder? All staff members will be able to access it, and it will be publicly accessible.')) {
+                                    changeFilePrivacy(file, 'public');
+                                  }
+                                }}
+                              >
+                                <Globe className="h-4 w-4 mr-2 text-green-600" />
+                                Move to Shared Public
+                              </DropdownMenuItem>
+                            )}
+                            {(isPrivatePath(file.path) || isPublicPath(file.path)) && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (window.confirm('Move this file to your personal space? Only you will be able to access it.')) {
+                                    changeFilePrivacy(file, 'personal');
+                                  }
+                                }}
+                              >
+                                <Users className="h-4 w-4 mr-2 text-blue-600" />
+                                Move to Personal Space
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => deleteItem(file)}
                             >
@@ -1758,6 +2235,206 @@ function TeacherFileStorage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Video Preview Modal */}
+      {previewVideo && (
+        <Dialog open={!!previewVideo} onOpenChange={() => setPreviewVideo(null)}>
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between">
+                <span>{previewVideo.displayName || previewVideo.name}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShareVideo(previewVideo)}
+                  >
+                    <Share2 className="h-4 w-4 mr-1" />
+                    Share
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPreviewVideo(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Video Player with Media Chrome Controls */}
+              <div className="bg-black rounded-lg overflow-hidden">
+                <MediaController
+                  style={{
+                    width: "100%",
+                    aspectRatio: "16/9",
+                    backgroundColor: "black",
+                  }}
+                >
+                  <video
+                    slot="media"
+                    src={previewVideo.downloadURL}
+                    controls={false}
+                    preload="auto"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                  <MediaControlBar>
+                    <MediaPlayButton />
+                    <MediaSeekBackwardButton seekOffset={10} />
+                    <MediaSeekForwardButton seekOffset={10} />
+                    <MediaTimeRange />
+                    <MediaTimeDisplay showDuration />
+                    <MediaMuteButton />
+                    <MediaVolumeRange />
+                    <MediaPlaybackRateButton />
+                    <MediaFullscreenButton />
+                  </MediaControlBar>
+                </MediaController>
+              </div>
+
+              {/* Video Info & Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-gray-700">File Information</h4>
+                  <div className="text-sm space-y-1">
+                    <p><span className="font-medium">Name:</span> {previewVideo.displayName || previewVideo.name}</p>
+                    <p><span className="font-medium">Size:</span> {formatFileSize(previewVideo.size)}</p>
+                    <p><span className="font-medium">Modified:</span> {formatDate(previewVideo.updated)}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-gray-700">Actions</h4>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(previewVideo.downloadURL, '_blank')}
+                      className="justify-start"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Video
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyUrlToClipboard(previewVideo.downloadURL, previewVideo.displayName || previewVideo.name)}
+                      className="justify-start"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Copy Video URL
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const embedCode = `<video controls width="100%">\n  <source src="${previewVideo.downloadURL}" type="video/mp4">\n  Your browser does not support the video tag.\n</video>`;
+                        navigator.clipboard.writeText(embedCode);
+                        toast.success('Embed code copied to clipboard!');
+                      }}
+                      className="justify-start"
+                    >
+                      <Code className="h-4 w-4 mr-2" />
+                      Copy Embed Code
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const iframeCode = `<iframe src="${previewVideo.downloadURL}" width="560" height="315" frameborder="0" allowfullscreen></iframe>`;
+                        navigator.clipboard.writeText(iframeCode);
+                        toast.success('iFrame code copied to clipboard!');
+                      }}
+                      className="justify-start"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Copy iFrame Code
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* URL Display */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-gray-700">Direct URL</h4>
+                <div className="flex gap-2">
+                  <Input
+                    value={previewVideo.downloadURL}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyUrlToClipboard(previewVideo.downloadURL, previewVideo.displayName || previewVideo.name)}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Share Link Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Video</DialogTitle>
+            <DialogDescription>
+              Anyone with this link can view the video
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="link" className="sr-only">
+                Link
+              </Label>
+              <Input
+                id="link"
+                value={shareableLink}
+                readOnly
+                className="font-mono text-sm"
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              className="px-3"
+              onClick={copyShareLink}
+            >
+              <span className="sr-only">Copy</span>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <DialogFooter className="sm:justify-start">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => window.open(shareableLink, '_blank')}
+              className="mr-2"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open
+            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </DndProvider>
   );

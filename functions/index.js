@@ -131,6 +131,9 @@ exports.getPublicPortfolioEntry = portfolioSharingFunctions.getPublicPortfolioEn
 exports.updatePortfolioSharing = portfolioSharingFunctions.updatePortfolioSharing;
 exports.getPublicPortfolio = portfolioSharingFunctions.getPublicPortfolio;
 exports.updatePortfolioLevelSharing = portfolioSharingFunctions.updatePortfolioLevelSharing;
+exports.generatePortfolioShareLink = portfolioSharingFunctions.generatePortfolioShareLink;
+exports.updatePortfolioShareLink = portfolioSharingFunctions.updatePortfolioShareLink;
+exports.revokePortfolioShareLink = portfolioSharingFunctions.revokePortfolioShareLink;
 
 // Payment functions
 exports.handleStripeWebhookV2 = stripeFunctions.handleStripeWebhookV2;

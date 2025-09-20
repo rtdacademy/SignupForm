@@ -261,6 +261,26 @@ const PortfolioBuilder = ({
     reflections: ''
   });
 
+  // Pre-populate form when editing an existing entry
+  useEffect(() => {
+    if (editingEntry) {
+      setNewEntryData({
+        title: editingEntry.title || '',
+        content: editingEntry.content || '',
+        attachments: [], // New attachments to add
+        date: editingEntry.date || new Date().toISOString().split('T')[0],
+        tags: editingEntry.tags || {
+          activities: [],
+          assessments: [],
+          resources: []
+        },
+        reflections: editingEntry.reflections || '',
+        existingFiles: editingEntry.files || [] // Keep track of existing files
+      });
+      setShowNewEntry(true); // Show the form when editing
+    }
+  }, [editingEntry]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -281,7 +301,7 @@ const PortfolioBuilder = ({
     }));
   };
 
-  // Save new entry
+  // Save new or update existing entry
   const handleSaveEntry = async () => {
     if (!newEntryData.title.trim()) {
       alert('Please enter a title for your entry');
@@ -290,14 +310,38 @@ const PortfolioBuilder = ({
 
     setIsSaving(true);
     try {
-      await onCreateEntry(
-        {
-          ...newEntryData,
-          type: 'unified', // Single unified type
-          structureId: selectedStructure.id
-        },
-        newEntryData.attachments
-      );
+      if (editingEntry) {
+        // Update existing entry
+        const updates = {
+          title: newEntryData.title,
+          content: newEntryData.content,
+          date: newEntryData.date,
+          tags: newEntryData.tags,
+          reflections: newEntryData.reflections,
+          files: newEntryData.existingFiles || editingEntry.files || []
+        };
+
+        // If there are new attachments, we need to handle them
+        if (newEntryData.attachments.length > 0) {
+          // Call update with new files
+          await onUpdateEntry(editingEntry.id, updates, newEntryData.attachments);
+        } else {
+          // Just update the entry data
+          await onUpdateEntry(editingEntry.id, updates);
+        }
+
+        setEditingEntry(null);
+      } else {
+        // Create new entry
+        await onCreateEntry(
+          {
+            ...newEntryData,
+            type: 'unified', // Single unified type
+            structureId: selectedStructure.id
+          },
+          newEntryData.attachments
+        );
+      }
 
       // Reset form
       setNewEntryData({
@@ -876,15 +920,33 @@ const PortfolioBuilder = ({
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6">
-        {/* New Entry Form - show for any structure type when requested */}
-        {showNewEntry && (
+        {/* Entry Form - show for creating new or editing existing entries */}
+        {(showNewEntry || editingEntry) && (
           <Card className="mb-6 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">New Portfolio Entry</h3>
+              <h3 className="text-lg font-semibold">
+                {editingEntry ? 'Edit Portfolio Entry' : 'New Portfolio Entry'}
+              </h3>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowNewEntry(false)}
+                onClick={() => {
+                  setShowNewEntry(false);
+                  setEditingEntry(null);
+                  // Reset form data
+                  setNewEntryData({
+                    title: '',
+                    content: '',
+                    attachments: [],
+                    date: new Date().toISOString().split('T')[0],
+                    tags: {
+                      activities: [],
+                      assessments: [],
+                      resources: []
+                    },
+                    reflections: ''
+                  });
+                }}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -969,10 +1031,57 @@ const PortfolioBuilder = ({
                   </p>
                 </div>
 
-                {/* Selected attachments list */}
+                {/* Existing files when editing */}
+                {editingEntry && newEntryData.existingFiles && newEntryData.existingFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Current files:</p>
+                    {newEntryData.existingFiles.map((file, index) => {
+                      const fileExt = file.name ? file.name.split('.').pop().toLowerCase() : '';
+                      const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+                      const Icon = isVideo ? Video : isImage ? Image : FileText;
+                      const iconColor = isVideo ? 'text-purple-600' :
+                                       isImage ? 'text-blue-600' :
+                                       'text-gray-600';
+
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`p-2 rounded-lg bg-white shadow-sm`}>
+                              <Icon className={`w-5 h-5 ${iconColor}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-gray-900 truncate block">
+                                {file.name || `File ${index + 1}`}
+                              </span>
+                              <span className="text-xs text-gray-500">Existing file</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              // Remove from existing files
+                              setNewEntryData(prev => ({
+                                ...prev,
+                                existingFiles: prev.existingFiles.filter((_, i) => i !== index)
+                              }));
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                            aria-label="Remove file"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* New attachments list */}
                 {newEntryData.attachments.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Attached files:</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {editingEntry ? 'New files to add:' : 'Attached files:'}
+                    </p>
                     {newEntryData.attachments.map((file, index) => {
                       const isVideo = file.type.startsWith('video/');
                       const isImage = file.type.startsWith('image/');
@@ -1065,7 +1174,23 @@ const PortfolioBuilder = ({
               <div className="flex justify-end space-x-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowNewEntry(false)}
+                  onClick={() => {
+                    setShowNewEntry(false);
+                    setEditingEntry(null);
+                    // Reset form data
+                    setNewEntryData({
+                      title: '',
+                      content: '',
+                      attachments: [],
+                      date: new Date().toISOString().split('T')[0],
+                      tags: {
+                        activities: [],
+                        assessments: [],
+                        resources: []
+                      },
+                      reflections: ''
+                    });
+                  }}
                   disabled={isSaving}
                 >
                   Cancel
@@ -1077,12 +1202,12 @@ const PortfolioBuilder = ({
                   {isSaving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
+                      {editingEntry ? 'Updating...' : 'Saving...'}
                     </>
                   ) : (
                     <>
                       <Save className="w-4 h-4 mr-2" />
-                      Save Entry
+                      {editingEntry ? 'Update Entry' : 'Save Entry'}
                     </>
                   )}
                 </Button>

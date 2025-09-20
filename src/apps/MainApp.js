@@ -75,6 +75,9 @@ const FlowChartPrerequisites = lazy(() => import('../components/PrerequisiteFlow
 const PublicPortfolioEntry = lazy(() => import('../PortfolioManager/components/PublicPortfolioEntry'));
 const PublicPortfolioView = lazy(() => import('../PortfolioManager/components/PublicPortfolioView'));
 
+// Lazy load video sharing
+const VideoPlayerPage = lazy(() => import('../pages/VideoPlayerPage'));
+
 // Firebase app import - keep this as is since it's needed for initialization
 import app from '../firebase';
 
@@ -363,6 +366,13 @@ function MainApp() {
         <Route path="/prerequisite-flowchart" element={
           <PublicRoute>
             <FlowChartPrerequisites />
+          </PublicRoute>
+        } />
+
+        {/* Public video sharing */}
+        <Route path="/video/:videoId" element={
+          <PublicRoute>
+            <VideoPlayerPage />
           </PublicRoute>
         } />
 

@@ -497,10 +497,269 @@ const updatePortfolioLevelSharing = onCall({
   }
 });
 
+/**
+ * Cloud Function: generatePortfolioShareLink
+ * Generates a new share link for a portfolio entry
+ */
+const generatePortfolioShareLink = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  maxInstances: 50,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-*"],
+}, async (request) => {
+  // Check authentication
+  if (!request.auth) {
+    throw new Error('You must be logged in to generate share links');
+  }
+
+  const { familyId, entryId, expiresAt } = request.data;
+
+  // Validate input
+  if (!familyId || !entryId) {
+    throw new Error('familyId and entryId are required');
+  }
+
+  // Validate expiration date if provided
+  if (expiresAt) {
+    const expDate = new Date(expiresAt);
+    if (isNaN(expDate.getTime())) {
+      throw new Error('Invalid expiration date');
+    }
+    if (expDate <= new Date()) {
+      throw new Error('Expiration date must be in the future');
+    }
+  }
+
+  // Check permissions: user must either belong to the family or be staff
+  const isStaff = request.auth.token.email &&
+    (request.auth.token.email.endsWith('@rtdacademy.com') ||
+     request.auth.token.email.endsWith('@rtd-connect.com'));
+
+  const userFamilyId = request.auth.token.familyId;
+
+  if (!isStaff && userFamilyId !== familyId) {
+    throw new Error('You do not have permission to share this portfolio');
+  }
+
+  try {
+    const entryRef = admin.firestore()
+      .collection('portfolios')
+      .doc(familyId)
+      .collection('entries')
+      .doc(entryId);
+
+    // Check if entry exists
+    const entryDoc = await entryRef.get();
+    if (!entryDoc.exists) {
+      throw new Error('Portfolio entry not found');
+    }
+
+    // Generate share link settings
+    const timestamp = process.env.FUNCTIONS_EMULATOR
+      ? new Date().toISOString()
+      : admin.firestore.FieldValue.serverTimestamp();
+
+    const sharingSettings = {
+      isPublic: true,
+      sharedAt: timestamp,
+      sharedBy: request.auth.uid,
+      expiresAt: expiresAt || null,
+      generatedAt: timestamp,
+      generatedBy: request.auth.uid
+    };
+
+    await entryRef.update({
+      sharingSettings,
+      lastModified: timestamp
+    });
+
+    return {
+      success: true,
+      sharingSettings,
+      message: 'Share link generated successfully'
+    };
+
+  } catch (error) {
+    console.error('Error generating share link:', error);
+    throw new Error(error.message || 'Failed to generate share link');
+  }
+});
+
+/**
+ * Cloud Function: updatePortfolioShareLink
+ * Updates the expiration date of an existing share link
+ */
+const updatePortfolioShareLink = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  maxInstances: 50,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-*"],
+}, async (request) => {
+  // Check authentication
+  if (!request.auth) {
+    throw new Error('You must be logged in to update share links');
+  }
+
+  const { familyId, entryId, expiresAt } = request.data;
+
+  // Validate input
+  if (!familyId || !entryId) {
+    throw new Error('familyId and entryId are required');
+  }
+
+  // Validate expiration date if provided
+  if (expiresAt) {
+    const expDate = new Date(expiresAt);
+    if (isNaN(expDate.getTime())) {
+      throw new Error('Invalid expiration date');
+    }
+    if (expDate <= new Date()) {
+      throw new Error('Expiration date must be in the future');
+    }
+  }
+
+  // Check permissions
+  const isStaff = request.auth.token.email &&
+    (request.auth.token.email.endsWith('@rtdacademy.com') ||
+     request.auth.token.email.endsWith('@rtd-connect.com'));
+
+  const userFamilyId = request.auth.token.familyId;
+
+  if (!isStaff && userFamilyId !== familyId) {
+    throw new Error('You do not have permission to modify this share link');
+  }
+
+  try {
+    const entryRef = admin.firestore()
+      .collection('portfolios')
+      .doc(familyId)
+      .collection('entries')
+      .doc(entryId);
+
+    // Check if entry exists and has an active share link
+    const entryDoc = await entryRef.get();
+    if (!entryDoc.exists) {
+      throw new Error('Portfolio entry not found');
+    }
+
+    const entryData = entryDoc.data();
+    if (!entryData.sharingSettings?.isPublic) {
+      throw new Error('No active share link found for this entry');
+    }
+
+    // Update share link settings
+    const timestamp = process.env.FUNCTIONS_EMULATOR
+      ? new Date().toISOString()
+      : admin.firestore.FieldValue.serverTimestamp();
+
+    const updatedSettings = {
+      ...entryData.sharingSettings,
+      expiresAt: expiresAt || null,
+      modifiedAt: timestamp,
+      modifiedBy: request.auth.uid
+    };
+
+    await entryRef.update({
+      sharingSettings: updatedSettings,
+      lastModified: timestamp
+    });
+
+    return {
+      success: true,
+      sharingSettings: updatedSettings,
+      message: 'Share link updated successfully'
+    };
+
+  } catch (error) {
+    console.error('Error updating share link:', error);
+    throw new Error(error.message || 'Failed to update share link');
+  }
+});
+
+/**
+ * Cloud Function: revokePortfolioShareLink
+ * Revokes an active share link
+ */
+const revokePortfolioShareLink = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  maxInstances: 50,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-*"],
+}, async (request) => {
+  // Check authentication
+  if (!request.auth) {
+    throw new Error('You must be logged in to revoke share links');
+  }
+
+  const { familyId, entryId } = request.data;
+
+  // Validate input
+  if (!familyId || !entryId) {
+    throw new Error('familyId and entryId are required');
+  }
+
+  // Check permissions
+  const isStaff = request.auth.token.email &&
+    (request.auth.token.email.endsWith('@rtdacademy.com') ||
+     request.auth.token.email.endsWith('@rtd-connect.com'));
+
+  const userFamilyId = request.auth.token.familyId;
+
+  if (!isStaff && userFamilyId !== familyId) {
+    throw new Error('You do not have permission to revoke this share link');
+  }
+
+  try {
+    const entryRef = admin.firestore()
+      .collection('portfolios')
+      .doc(familyId)
+      .collection('entries')
+      .doc(entryId);
+
+    // Check if entry exists
+    const entryDoc = await entryRef.get();
+    if (!entryDoc.exists) {
+      throw new Error('Portfolio entry not found');
+    }
+
+    // Revoke share link
+    const timestamp = process.env.FUNCTIONS_EMULATOR
+      ? new Date().toISOString()
+      : admin.firestore.FieldValue.serverTimestamp();
+
+    const sharingSettings = {
+      isPublic: false,
+      sharedAt: null,
+      sharedBy: null,
+      expiresAt: null,
+      revokedAt: timestamp,
+      revokedBy: request.auth.uid
+    };
+
+    await entryRef.update({
+      sharingSettings,
+      lastModified: timestamp
+    });
+
+    return {
+      success: true,
+      sharingSettings,
+      message: 'Share link revoked successfully'
+    };
+
+  } catch (error) {
+    console.error('Error revoking share link:', error);
+    throw new Error(error.message || 'Failed to revoke share link');
+  }
+});
+
 // Export functions
 module.exports = {
   getPublicPortfolioEntry,
   updatePortfolioSharing,
   getPublicPortfolio,
-  updatePortfolioLevelSharing
+  updatePortfolioLevelSharing,
+  generatePortfolioShareLink,
+  updatePortfolioShareLink,
+  revokePortfolioShareLink
 };
