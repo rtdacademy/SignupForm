@@ -140,16 +140,22 @@ export function AuthProvider({ children }) {
     '/student-faq',
     '/funding',
     '/privacy',
-    '/terms'
+    '/terms',
+    '/video' 
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
   const isPublicRoute = (path) => {
     const normalizedPath = path.toLowerCase();
-    
+
     // Check exact matches
     if (publicRoutes.includes(normalizedPath)) {
       return true;
+    }
+
+    // Check video routes with ID
+    if (normalizedPath.startsWith('/video/')) {
+      return true;  // All video routes are public
     }
 
     // Check student portal routes

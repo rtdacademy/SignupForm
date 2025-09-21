@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Video embed styles - ensure iframe fills container */
+html, body {
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
 /* CodeMirror 6 height and scroll fixes */
 .cm-editor {
   flex: 1;

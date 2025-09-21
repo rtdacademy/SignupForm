@@ -103,7 +103,61 @@ service firebase.storage {
 match /coldStorage/{fileName} {
   allow read, write: if request.auth != null;
 }
-    
+
+    // Brand logos - anyone can read, only staff can write
+    match /brandLogos/{userId}/{fileName} {
+      allow read: if true;  // Anyone can view brand logos
+      allow write, delete: if request.auth != null &&
+                           (request.auth.uid == userId || isRTDStaff());  // User can manage their own logos or staff can manage any
+    }
+
+    // Public shared files - everyone can read, only staff can write
+    match /shared/public/{allPaths=**} {
+      allow read: if true;  // Anyone can read public files
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can write
+    }
+
+    // Private shared files - any authenticated user can read, staff can write
+    match /shared/private/{allPaths=**} {
+      allow read: if request.auth != null;  // Any authenticated user can read
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can write/delete
+    }
+
+    // ============ COURSE ACCESS RULES ============
+    // IMPORTANT: Specific course rules must come BEFORE the general course rule
+
+    // PUBLIC COURSES - Add any courses that should be publicly accessible here
+    // CALM 20 - Completely public access (no authentication required)
+    match /shared/courses/calm-20/{allPaths=**} {
+      allow read: if true;  // Anyone can read CALM 20 materials
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can modify
+    }
+
+    // Add more public courses here as needed, for example:
+    // match /shared/courses/course-name-here/{allPaths=**} {
+    //   allow read: if true;  // Public access
+    //   allow write, delete: if request.auth != null && isRTDStaff();
+    // }
+
+    // DEFAULT COURSE RULE - All other courses require authentication
+    // This catches any course not specifically listed above
+    match /shared/courses/{courseId}/{allPaths=**} {
+      allow read: if request.auth != null;  // Must be logged in to read
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can modify
+    }
+
+    // Allow listing the courses directory itself
+    match /shared/courses/{fileName} {
+      allow read: if request.auth != null;  // Can list courses if logged in
+      allow write: if request.auth != null && isRTDStaff();  // Only staff can create courses
+    }
+
+    // Teacher personal storage
+    match /teachers/{teacherId}/{allPaths=**} {
+      allow read, write, delete: if request.auth != null &&
+                                 (request.auth.uid == teacherId || isRTDStaff());
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

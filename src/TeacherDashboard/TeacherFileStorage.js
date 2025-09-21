@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { storage, database } from '../firebase';
@@ -15,21 +15,11 @@ import {
 import {
   ref as databaseRef,
   set,
-  push
+  push,
+  remove,
+  get
 } from 'firebase/database';
-import {
-  MediaController,
-  MediaControlBar,
-  MediaTimeRange,
-  MediaTimeDisplay,
-  MediaVolumeRange,
-  MediaPlaybackRateButton,
-  MediaPlayButton,
-  MediaSeekBackwardButton,
-  MediaSeekForwardButton,
-  MediaMuteButton,
-  MediaFullscreenButton,
-} from 'media-chrome/react';
+import EmbedCustomizer from '../components/EmbedCustomizer/EmbedCustomizer';
 import {
   FolderPlus,
   Upload,
@@ -70,7 +60,10 @@ import {
   Users,
   Share2,
   VideoIcon,
-  UsersIcon
+  UsersIcon,
+  GraduationCap,
+  BookOpen,
+  FolderOpen
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -93,11 +86,14 @@ import {
   DialogClose
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { DndProvider } from 'react-dnd';
+import { DndContext, DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useDrag, useDrop } from 'react-dnd';
 
-function TeacherFileStorage() {
+// Global flag to track if DnD is already initialized
+let dndInitialized = false;
+
+// Inner component that uses drag and drop
+function TeacherFileStorageInner() {
   const { user } = useAuth();
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -114,13 +110,18 @@ function TeacherFileStorage() {
   const [movingFile, setMovingFile] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
-  const [previewVideo, setPreviewVideo] = useState(null);
+  const [currentVideo, setCurrentVideo] = useState(null);
   const [isPasteAreaFocused, setIsPasteAreaFocused] = useState(false);
   const [lastPastedFiles, setLastPastedFiles] = useState([]);
   const [editingFile, setEditingFile] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [shareableLink, setShareableLink] = useState('');
-  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showEmbedCustomizer, setShowEmbedCustomizer] = useState(false);
+  const [archivedCourses, setArchivedCourses] = useState(() => {
+    // Load archived courses from localStorage
+    const stored = localStorage.getItem('archivedCourses');
+    return stored ? JSON.parse(stored) : {};
+  });
 
   // Get storage path - handles both shared and user-specific paths
   const getStoragePath = (path = '') => {
@@ -136,11 +137,11 @@ function TeacherFileStorage() {
   // Legacy function name for compatibility - redirects to new function
   const getUserStoragePath = getStoragePath;
 
-  // Check if a path is a shared directory (public or private)
+  // Check if a path is a shared directory (public, private, or courses)
   const isSharedPath = (path) => {
     if (!path) return false;
-    return path === 'public' || path === 'private' ||
-           path.startsWith('public/') || path.startsWith('private/');
+    return path === 'public' || path === 'private' || path === 'courses' ||
+           path.startsWith('public/') || path.startsWith('private/') || path.startsWith('courses/');
   };
 
   // Check if a path is in the shared private folder
@@ -153,10 +154,21 @@ function TeacherFileStorage() {
     return path && (path === 'public' || path.startsWith('public/'));
   };
 
+  // Check if a path is in the courses folder
+  const isCoursePath = (path) => {
+    return path && (path === 'courses' || path.startsWith('courses/'));
+  };
+
   // Get privacy status of a file/folder
   const getPrivacyStatus = (path) => {
-    if (isPrivatePath(path)) return 'private';
-    if (isPublicPath(path)) return 'public';
+    // Only check for special folders at the root level
+    if (path === 'private') return 'private';
+    if (path === 'public') return 'public';
+    if (path === 'courses') return 'course';
+    // For nested paths, check if they're under these special folders
+    if (path && path.startsWith('private/')) return 'private';
+    if (path && path.startsWith('public/')) return 'public';
+    if (path && path.startsWith('courses/')) return 'course';
     return 'default'; // Regular files are in user's personal space
   };
 
@@ -191,19 +203,20 @@ function TeacherFileStorage() {
 
       // Handle root level - show both shared and personal folders
       if (!path || path === '') {
-        // Load shared folders
+        // Load shared folders - they should exist after ensureSpecialFolders runs
         try {
           const sharedRef = storageRef(storage, 'shared');
           const sharedResult = await listAll(sharedRef);
 
-          // Add shared folders with special indicators
+          // Map all shared folders with proper display names and icons
           const sharedFolders = sharedResult.prefixes.map(folderRef => ({
             name: folderRef.name,
             type: 'folder',
             path: folderRef.name,
-            displayName: folderRef.name === 'public' ? 'Shared Public Files' :
-                        folderRef.name === 'private' ? 'Shared Private Files' : folderRef.name,
-            isSpecial: true,
+            displayName: folderRef.name === 'public' ? 'Public Files' :
+                        folderRef.name === 'private' ? 'Private Files' :
+                        folderRef.name === 'courses' ? 'Course Materials' : folderRef.name,
+            isSpecial: ['public', 'private', 'courses'].includes(folderRef.name),
             isShared: true,
             privacy: getPrivacyStatus(folderRef.name)
           }));
@@ -220,7 +233,10 @@ function TeacherFileStorage() {
           name: folderRef.name,
           type: 'folder',
           path: folderRef.name,
-          privacy: 'personal'
+          displayName: folderRef.name,
+          privacy: 'personal',
+          isShared: false,  // Personal folders are not shared
+          isSpecial: false
         }));
         folderList.push(...personalFolders);
 
@@ -241,14 +257,24 @@ function TeacherFileStorage() {
         });
         fileList = await Promise.all(filePromises);
 
-        // Sort folders - shared folders first
+        // Sort folders - special shared folders first in specific order
         folderList.sort((a, b) => {
+          // Shared folders come first
           if (a.isShared && !b.isShared) return -1;
           if (!a.isShared && b.isShared) return 1;
-          if (a.name === 'public') return -1;
-          if (b.name === 'public') return 1;
-          if (a.name === 'private') return -1;
-          if (b.name === 'private') return 1;
+
+          // Among shared folders, use this specific order
+          const order = ['public', 'courses', 'private'];
+          const aIndex = order.indexOf(a.name);
+          const bIndex = order.indexOf(b.name);
+
+          if (aIndex !== -1 && bIndex !== -1) {
+            return aIndex - bIndex;
+          }
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+
+          // For other folders, sort alphabetically
           return a.name.localeCompare(b.name);
         });
       } else {
@@ -256,13 +282,20 @@ function TeacherFileStorage() {
         const storageFolderRef = storageRef(storage, getStoragePath(path));
         const result = await listAll(storageFolderRef);
 
-        // Get folders
-        folderList = result.prefixes.map(folderRef => ({
+        // Get folders - these are subfolders, not root special folders
+        // Filter out any accidentally created "public" or "private" folders in courses
+        const filteredPrefixes = path === 'courses'
+          ? result.prefixes.filter(folderRef => !['public', 'private'].includes(folderRef.name))
+          : result.prefixes;
+
+        folderList = filteredPrefixes.map(folderRef => ({
           name: folderRef.name,
           type: 'folder',
           path: path ? `${path}/${folderRef.name}` : folderRef.name,
-          privacy: getPrivacyStatus(path ? `${path}/${folderRef.name}` : folderRef.name),
-          isShared: isSharedPath(path)
+          displayName: folderRef.name,  // Use actual folder name in subfolders
+          privacy: 'default',  // Subfolders don't have special privacy status
+          isShared: isSharedPath(path),
+          isSpecial: false  // Subfolders are never special folders
         }));
 
         // Get files with metadata
@@ -442,7 +475,8 @@ function TeacherFileStorage() {
     }
   };
 
-  // Create shared folders (private/public) if they don't exist
+
+  // Create shared folders (private/public/courses) if they don't exist
   const ensureSpecialFolders = async () => {
     try {
       // Create shared private folder if it doesn't exist
@@ -452,8 +486,39 @@ function TeacherFileStorage() {
       // Create shared public folder if it doesn't exist
       const publicRef = storageRef(storage, 'shared/public/.placeholder');
       await uploadBytes(publicRef, new Blob([''], { type: 'text/plain' })).catch(() => {});
+
+      // Create shared courses folder if it doesn't exist
+      const coursesRef = storageRef(storage, 'shared/courses/.placeholder');
+      await uploadBytes(coursesRef, new Blob([''], { type: 'text/plain' })).catch(() => {});
+
+      // Clean up any accidentally created folders (commented out for now as they don't exist)
+      // This cleanup code can be uncommented if needed in the future
+      /*
+      try {
+        // Check for and remove incorrectly placed public/private folders in courses
+        const coursesPath = 'shared/courses';
+        const incorrectPaths = ['public', 'private'];
+
+        for (const folderName of incorrectPaths) {
+          try {
+            const incorrectFolderRef = storageRef(storage, `${coursesPath}/${folderName}/.placeholder`);
+            await getMetadata(incorrectFolderRef);
+            // If it exists, delete it
+            await deleteObject(incorrectFolderRef);
+            console.log(`Cleaned up incorrect folder: ${coursesPath}/${folderName}`);
+          } catch (error) {
+            // Folder doesn't exist or already deleted, that's fine
+            if (error.code !== 'storage/object-not-found') {
+              console.log(`Could not clean up ${folderName}:`, error.message);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Cleanup error:', error);
+      }
+      */
     } catch (error) {
-      console.log('Shared folders may already exist');
+      console.log('Error ensuring special folders:', error);
     }
   };
 
@@ -463,6 +528,13 @@ function TeacherFileStorage() {
       // Prevent deletion of root shared folders
       if (item.isShared && (item.name === 'public' || item.name === 'private') && (!currentPath || currentPath === '')) {
         setError('Cannot delete root shared folders.');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      // Prevent deletion of course folders - they should be archived instead
+      if (item.type === 'folder' && isCoursePath(item.path)) {
+        setError('Course folders cannot be deleted. Use Archive instead.');
         setTimeout(() => setError(''), 3000);
         return;
       }
@@ -485,6 +557,72 @@ function TeacherFileStorage() {
     } catch (error) {
       console.error('Error deleting item:', error);
       setError(`Failed to delete ${item.type}. Please try again.`);
+    }
+  };
+
+  // Archive a course folder
+  const archiveCourse = async (item) => {
+    try {
+      if (!isCoursePath(item.path)) {
+        setError('Only course folders can be archived.');
+        return;
+      }
+
+      // Save archive metadata
+      const archiveData = {
+        archivedAt: Date.now(),
+        archivedBy: user.uid,
+        courseName: item.displayName || item.name,
+        path: item.path
+      };
+
+      const updatedArchived = {
+        ...archivedCourses,
+        [item.path]: archiveData
+      };
+
+      setArchivedCourses(updatedArchived);
+      localStorage.setItem('archivedCourses', JSON.stringify(updatedArchived));
+
+      // Also save to Firebase Database for persistence across devices
+      if (database) {
+        await set(databaseRef(database, `archivedCourses/${item.path.replace(/\//g, '_')}`), archiveData);
+      }
+
+      toast.success(`Course "${item.displayName || item.name}" has been archived`, {
+        description: 'You can restore it anytime from the menu'
+      });
+
+      loadFiles(); // Refresh to show archived status
+    } catch (error) {
+      console.error('Error archiving course:', error);
+      setError('Failed to archive course. Please try again.');
+    }
+  };
+
+  // Restore an archived course
+  const restoreCourse = async (item) => {
+    try {
+      // Remove from archived list
+      const updatedArchived = { ...archivedCourses };
+      delete updatedArchived[item.path];
+
+      setArchivedCourses(updatedArchived);
+      localStorage.setItem('archivedCourses', JSON.stringify(updatedArchived));
+
+      // Also remove from Firebase Database
+      if (database) {
+        await remove(databaseRef(database, `archivedCourses/${item.path.replace(/\//g, '_')}`));
+      }
+
+      toast.success(`Course "${item.displayName || item.name}" has been restored`, {
+        description: 'The course is now active again'
+      });
+
+      loadFiles(); // Refresh to show active status
+    } catch (error) {
+      console.error('Error restoring course:', error);
+      setError('Failed to restore course. Please try again.');
     }
   };
 
@@ -564,8 +702,37 @@ function TeacherFileStorage() {
     folder.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Load archived courses from Firebase Database
+  const loadArchivedCourses = async () => {
+    try {
+      if (!database || !user) return;
+
+      const archivedRef = databaseRef(database, 'archivedCourses');
+      const snapshot = await get(archivedRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Convert Firebase keys back to paths
+        const convertedData = {};
+        Object.keys(data).forEach(key => {
+          const path = key.replace(/_/g, '/');
+          convertedData[path] = data[key];
+        });
+        setArchivedCourses(convertedData);
+        // Also update localStorage for offline access
+        localStorage.setItem('archivedCourses', JSON.stringify(convertedData));
+      }
+    } catch (error) {
+      console.error('Error loading archived courses:', error);
+      // Fall back to localStorage if Firebase fails
+    }
+  };
+
   useEffect(() => {
     if (user) {
+      // Load archived courses from database
+      loadArchivedCourses();
+
       // Create special folders if they don't exist
       ensureSpecialFolders().then(() => {
         loadFiles(currentPath, true); // Show skeletons on initial load
@@ -613,11 +780,19 @@ function TeacherFileStorage() {
   };
 
   // Handle file click (preview images/videos, download others)
-  const handleFileClick = (file) => {
+  const handleFileClick = async (file) => {
     if (isImageFile(file.name)) {
       setPreviewImage(file);
     } else if (isVideoFile(file.name)) {
-      setPreviewVideo(file);
+      // Create shareable link and open EmbedCustomizer
+      const link = await createShareableVideoLink(file);
+      if (link) {
+        setShareableLink(link);
+        setCurrentVideo(file);
+        setShowEmbedCustomizer(true);
+      } else {
+        toast.error('Failed to create shareable link');
+      }
     } else {
       // For non-images/videos, open download link
       window.open(file.downloadURL, '_blank');
@@ -1059,15 +1234,6 @@ function TeacherFileStorage() {
     }
   };
 
-  // Copy share link to clipboard
-  const copyShareLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareableLink);
-      toast.success('Link copied to clipboard!');
-    } catch (error) {
-      toast.error('Failed to copy link');
-    }
-  };
 
   // Move file to shared folders or personal space
   const changeFilePrivacy = async (file, targetPrivacy) => {
@@ -1145,62 +1311,16 @@ function TeacherFileStorage() {
     }
   };
 
-  // Draggable File Component
+  // Draggable File Component - temporarily disabled to fix DnD conflict
   const DraggableFile = ({ file, children }) => {
-    const [{ isDragging }, drag] = useDrag({
-      type: 'file',
-      item: { file },
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
-    });
-
-    const isCurrentlyMoving = movingFile === file.name;
-
-    return (
-      <div 
-        ref={drag} 
-        style={{ 
-          opacity: isDragging ? 0.5 : (isCurrentlyMoving ? 0.7 : 1),
-          cursor: isCurrentlyMoving ? 'wait' : 'grab'
-        }}
-        className={isCurrentlyMoving ? 'pointer-events-none' : ''}
-      >
-        {children}
-      </div>
-    );
+    // Temporarily disable drag functionality due to conflict
+    return <div>{children}</div>;
   };
 
-  // Droppable Folder Component
+  // Droppable Folder Component - temporarily disabled to fix DnD conflict
   const DroppableFolder = ({ folder, children }) => {
-    const [{ isOver, canDrop }, drop] = useDrop({
-      accept: 'file',
-      drop: (item) => {
-        if (!movingFile) {
-          moveFileToFolder(item.file, folder);
-        }
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-        canDrop: monitor.canDrop(),
-      }),
-    });
-
-    return (
-      <div 
-        ref={drop} 
-        className={`transition-colors duration-200 ${
-          isOver && canDrop && !movingFile ? 'bg-blue-50 border-blue-300' : ''
-        }`}
-        style={{ 
-          backgroundColor: isOver && canDrop && !movingFile ? '#dbeafe' : 'transparent',
-          borderRadius: '8px',
-          border: isOver && canDrop && !movingFile ? '2px dashed #3b82f6' : '2px dashed transparent'
-        }}
-      >
-        {children}
-      </div>
-    );
+    // Temporarily disable drop functionality due to conflict
+    return <div>{children}</div>;
   };
 
   if (!user) {
@@ -1208,7 +1328,6 @@ function TeacherFileStorage() {
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
       <div className="p-6 max-w-7xl mx-auto">
       <Card className="mb-6">
         <CardHeader>
@@ -1503,9 +1622,9 @@ function TeacherFileStorage() {
               
               {/* Folders */}
               {filteredFolders.map((folder) => (
-                <DroppableFolder key={folder.path} folder={folder}>
-                  <div 
-                    className="grid grid-cols-12 gap-4 p-3 border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                <DroppableFolder key={`${folder.isShared ? 'shared-' : 'personal-'}${folder.path}`} folder={folder}>
+                  <div
+                    className={`grid grid-cols-12 gap-4 p-3 border-b hover:bg-muted/30 cursor-pointer transition-colors ${archivedCourses[folder.path] ? 'opacity-60' : ''}`}
                     onClick={() => navigateToFolder(folder.path)}
                   >
                     <div className="col-span-1">
@@ -1513,7 +1632,9 @@ function TeacherFileStorage() {
                     </div>
                     <div className="col-span-4 flex items-center gap-3">
                       <div className="relative">
-                        {folder.isShared && folder.privacy === 'private' ? (
+                        {folder.isShared && folder.privacy === 'course' ? (
+                          <GraduationCap className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                        ) : folder.isShared && folder.privacy === 'private' ? (
                           <Lock className="h-5 w-5 text-amber-600 flex-shrink-0" />
                         ) : folder.isShared && folder.privacy === 'public' ? (
                           <Globe className="h-5 w-5 text-green-600 flex-shrink-0" />
@@ -1527,13 +1648,19 @@ function TeacherFileStorage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="truncate font-medium">
+                        <span className={`truncate font-medium ${archivedCourses[folder.path] ? 'text-muted-foreground line-through' : ''}`}>
                           {folder.displayName || folder.name}
                         </span>
                         {folder.isShared && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             <UsersIcon className="h-3 w-3" />
                             Shared
+                          </span>
+                        )}
+                        {archivedCourses[folder.path] && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            <Archive className="h-3 w-3" />
+                            Archived
                           </span>
                         )}
                       </div>
@@ -1548,15 +1675,39 @@ function TeacherFileStorage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteItem(folder);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {isCoursePath(folder.path) ? (
+                            archivedCourses[folder.path] ? (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  restoreCourse(folder);
+                                }}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restore Course
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  archiveCourse(folder);
+                                }}
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive Course
+                              </DropdownMenuItem>
+                            )
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteItem(folder);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1568,7 +1719,7 @@ function TeacherFileStorage() {
               {filteredFiles.map((file) => {
                 const { icon: FileIcon, color } = getFileIcon(file.name);
                 return (
-                  <DraggableFile key={file.path} file={file}>
+                  <DraggableFile key={`file-${file.fullPath || file.path}`} file={file}>
                     <div className="grid grid-cols-12 gap-4 p-3 border-b hover:bg-muted/30 transition-colors">
                       <div className="col-span-1 flex items-center">
                         <Button
@@ -1682,7 +1833,14 @@ function TeacherFileStorage() {
                           size="sm"
                           className="h-8 w-8 p-0"
                           title="Preview video"
-                          onClick={() => setPreviewVideo(file)}
+                          onClick={async () => {
+                            const link = await createShareableVideoLink(file);
+                            if (link) {
+                              setShareableLink(link);
+                              setCurrentVideo(file);
+                              setShowEmbedCustomizer(true);
+                            }
+                          }}
                         >
                           <FileVideo className="h-4 w-4" />
                         </Button>
@@ -1718,7 +1876,14 @@ function TeacherFileStorage() {
                           {isVideoFile(file.name) && (
                             <>
                               <DropdownMenuItem
-                                onClick={() => setPreviewVideo(file)}
+                                onClick={async () => {
+                                  const link = await createShareableVideoLink(file);
+                                  if (link) {
+                                    setShareableLink(link);
+                                    setCurrentVideo(file);
+                                    setShowEmbedCustomizer(true);
+                                  }
+                                }}
                               >
                                 <FileVideo className="h-4 w-4 mr-2" />
                                 Preview Video
@@ -1805,15 +1970,17 @@ function TeacherFileStorage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {/* Folders */}
               {filteredFolders.map((folder) => (
-                <DroppableFolder key={folder.path} folder={folder}>
+                <DroppableFolder key={`${folder.isShared ? 'shared-' : 'personal-'}${folder.path}`} folder={folder}>
                   <Card
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    className={`cursor-pointer hover:shadow-md transition-shadow ${archivedCourses[folder.path] ? 'opacity-60' : ''}`}
                     onClick={() => navigateToFolder(folder.path)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          {folder.isShared && folder.privacy === 'private' ? (
+                          {folder.isShared && folder.privacy === 'course' ? (
+                            <GraduationCap className="h-8 w-8 text-purple-600" />
+                          ) : folder.isShared && folder.privacy === 'private' ? (
                             <Lock className="h-8 w-8 text-amber-600" />
                           ) : folder.isShared && folder.privacy === 'public' ? (
                             <Globe className="h-8 w-8 text-green-600" />
@@ -1828,11 +1995,19 @@ function TeacherFileStorage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{folder.displayName || folder.name}</p>
+                            <p className={`font-medium truncate ${archivedCourses[folder.path] ? 'text-muted-foreground line-through' : ''}`}>
+                              {folder.displayName || folder.name}
+                            </p>
                             {folder.isShared && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                 <UsersIcon className="h-2.5 w-2.5" />
                                 Shared
+                              </span>
+                            )}
+                            {archivedCourses[folder.path] && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                <Archive className="h-2.5 w-2.5" />
+                                Archived
                               </span>
                             )}
                           </div>
@@ -1850,15 +2025,39 @@ function TeacherFileStorage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteItem(folder);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {isCoursePath(folder.path) ? (
+                              archivedCourses[folder.path] ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    restoreCourse(folder);
+                                  }}
+                                >
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  Restore Course
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    archiveCourse(folder);
+                                  }}
+                                >
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  Archive Course
+                                </DropdownMenuItem>
+                              )
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteItem(folder);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1871,7 +2070,7 @@ function TeacherFileStorage() {
               {filteredFiles.map((file) => {
                 const { icon: FileIcon, color } = getFileIcon(file.displayName || file.name);
                 return (
-                  <DraggableFile key={file.path} file={file}>
+                  <DraggableFile key={`file-${file.fullPath || file.path}`} file={file}>
                     <Card className="hover:shadow-md transition-shadow relative">
                       <div className="absolute top-2 left-2 z-10">
                         <Button
@@ -2027,7 +2226,14 @@ function TeacherFileStorage() {
                             )}
                             {isVideoFile(file.name) && (
                               <DropdownMenuItem
-                                onClick={() => setPreviewVideo(file)}
+                                onClick={async () => {
+                                  const link = await createShareableVideoLink(file);
+                                  if (link) {
+                                    setShareableLink(link);
+                                    setCurrentVideo(file);
+                                    setShowEmbedCustomizer(true);
+                                  }
+                                }}
                               >
                                 <FileVideo className="h-4 w-4 mr-2" />
                                 Preview Video
@@ -2236,208 +2442,26 @@ function TeacherFileStorage() {
         </Dialog>
       )}
 
-      {/* Video Preview Modal */}
-      {previewVideo && (
-        <Dialog open={!!previewVideo} onOpenChange={() => setPreviewVideo(null)}>
-          <DialogContent className="max-w-5xl max-h-[95vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between">
-                <span>{previewVideo.displayName || previewVideo.name}</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleShareVideo(previewVideo)}
-                  >
-                    <Share2 className="h-4 w-4 mr-1" />
-                    Share
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPreviewVideo(null)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </DialogTitle>
-            </DialogHeader>
 
-            <div className="space-y-4">
-              {/* Video Player with Media Chrome Controls */}
-              <div className="bg-black rounded-lg overflow-hidden">
-                <MediaController
-                  style={{
-                    width: "100%",
-                    aspectRatio: "16/9",
-                    backgroundColor: "black",
-                  }}
-                >
-                  <video
-                    slot="media"
-                    src={previewVideo.downloadURL}
-                    controls={false}
-                    preload="auto"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                  <MediaControlBar>
-                    <MediaPlayButton />
-                    <MediaSeekBackwardButton seekOffset={10} />
-                    <MediaSeekForwardButton seekOffset={10} />
-                    <MediaTimeRange />
-                    <MediaTimeDisplay showDuration />
-                    <MediaMuteButton />
-                    <MediaVolumeRange />
-                    <MediaPlaybackRateButton />
-                    <MediaFullscreenButton />
-                  </MediaControlBar>
-                </MediaController>
-              </div>
-
-              {/* Video Info & Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-700">File Information</h4>
-                  <div className="text-sm space-y-1">
-                    <p><span className="font-medium">Name:</span> {previewVideo.displayName || previewVideo.name}</p>
-                    <p><span className="font-medium">Size:</span> {formatFileSize(previewVideo.size)}</p>
-                    <p><span className="font-medium">Modified:</span> {formatDate(previewVideo.updated)}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-700">Actions</h4>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(previewVideo.downloadURL, '_blank')}
-                      className="justify-start"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Video
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyUrlToClipboard(previewVideo.downloadURL, previewVideo.displayName || previewVideo.name)}
-                      className="justify-start"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Copy Video URL
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const embedCode = `<video controls width="100%">\n  <source src="${previewVideo.downloadURL}" type="video/mp4">\n  Your browser does not support the video tag.\n</video>`;
-                        navigator.clipboard.writeText(embedCode);
-                        toast.success('Embed code copied to clipboard!');
-                      }}
-                      className="justify-start"
-                    >
-                      <Code className="h-4 w-4 mr-2" />
-                      Copy Embed Code
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const iframeCode = `<iframe src="${previewVideo.downloadURL}" width="560" height="315" frameborder="0" allowfullscreen></iframe>`;
-                        navigator.clipboard.writeText(iframeCode);
-                        toast.success('iFrame code copied to clipboard!');
-                      }}
-                      className="justify-start"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Copy iFrame Code
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* URL Display */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-gray-700">Direct URL</h4>
-                <div className="flex gap-2">
-                  <Input
-                    value={previewVideo.downloadURL}
-                    readOnly
-                    className="font-mono text-xs"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyUrlToClipboard(previewVideo.downloadURL, previewVideo.displayName || previewVideo.name)}
-                  >
-                    Copy
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Share Link Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share Video</DialogTitle>
-            <DialogDescription>
-              Anyone with this link can view the video
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center space-x-2">
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="link" className="sr-only">
-                Link
-              </Label>
-              <Input
-                id="link"
-                value={shareableLink}
-                readOnly
-                className="font-mono text-sm"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              className="px-3"
-              onClick={copyShareLink}
-            >
-              <span className="sr-only">Copy</span>
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-          <DialogFooter className="sm:justify-start">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => window.open(shareableLink, '_blank')}
-              className="mr-2"
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open
-            </Button>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Close
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Embed Customizer Dialog */}
+      <EmbedCustomizer
+        isOpen={showEmbedCustomizer}
+        onClose={() => {
+          setShowEmbedCustomizer(false);
+          setCurrentVideo(null);
+          setShareableLink('');
+        }}
+        videoUrl={shareableLink}
+        videoTitle={currentVideo?.displayName || currentVideo?.name || 'Video'}
+      />
       </div>
-    </DndProvider>
   );
+}
+
+// Wrapper component - DnD temporarily disabled due to conflicts
+function TeacherFileStorage() {
+  // Temporarily render without DnD provider to avoid conflicts
+  return <TeacherFileStorageInner />;
 }
 
 export default TeacherFileStorage;

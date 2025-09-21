@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { Activity, AlertTriangle, Clock } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut as firebaseSignOut } from 'firebase/auth';
+import { useLocation } from 'react-router-dom';
 
 const SessionTimeoutWarning = () => {
   const { user, signOut, refreshSession, tokenExpirationTime, addActivityEvent, updateUserActivityInDatabase } = useAuth();
+  const location = useLocation();
   const [showWarning, setShowWarning] = useState(false);
   const [remainingTime, setRemainingTime] = useState(null);
   const [inactivityRemainingTime, setInactivityRemainingTime] = useState(null);
@@ -20,6 +22,77 @@ const SessionTimeoutWarning = () => {
   const ACTIVITY_THRESHOLD = 120 * 1000; // 2 minutes of inactivity to consider user inactive
   const ABSOLUTE_TIMEOUT = 60 * 60 * 1000; // 1 hour max absolute timeout
   const ABSOLUTE_WARNING_TIME = 5 * 60 * 1000; // 5 min warning before absolute timeout
+
+  // Define public routes (from AuthContext.js)
+  const publicRoutes = [
+    '/',
+    '/login',
+    '/migrate',
+    '/staff-login',
+    '/reset-password',
+    '/signup',
+    '/auth-action-handler',
+    '/contractor-invoice',
+    '/adult-students',
+    '/your-way',
+    '/get-started',
+    '/rtd-landing',
+    '/policies-reports',
+    '/google-ai-chat',
+    '/parent-login',
+    '/aerr/2023-24',
+    '/education-plan/2025-26',
+    '/prerequisite-flowchart',
+    '/parent-verify-email',
+    '/rtd-learning-login',
+    '/rtd-learning-admin-login',
+    '/facilitators',
+    '/about',
+    '/bio',
+    '/faq',
+    '/student-faq',
+    '/funding',
+    '/privacy',
+    '/terms'
+  ].map(route => route.toLowerCase());
+
+  // Helper function to check if current route is public
+  const isPublicRoute = (path) => {
+    const normalizedPath = path.toLowerCase();
+
+    // Check exact matches
+    if (publicRoutes.includes(normalizedPath)) {
+      return true;
+    }
+
+    // Check video routes (both direct links and embeds)
+    if (normalizedPath.startsWith('/video/')) {
+      return true;
+    }
+
+    // Check student portal routes
+    if (normalizedPath.startsWith('/student-portal/')) {
+      const studentPortalPattern = /^\/student-portal\/[^/]+\/[^/]+$/i;
+      return studentPortalPattern.test(normalizedPath);
+    }
+
+    // Check facilitator routes
+    if (normalizedPath.startsWith('/facilitator/')) {
+      return true;
+    }
+
+    // Check public portfolio routes
+    if (normalizedPath.startsWith('/portfolio/')) {
+      const entryPattern = /^\/portfolio\/[^/]+\/[^/]+$/i;
+      const coursePattern = /^\/portfolio\/[^/]+\/course\/[^/]+$/i;
+      return entryPattern.test(normalizedPath) || coursePattern.test(normalizedPath);
+    }
+
+    return false;
+  };
+
+  // Check if we should show the activity indicator
+  const shouldShowIndicator = user && !isPublicRoute(location.pathname);
   
   // Track user activity
   const trackActivity = useCallback(() => {
@@ -360,8 +433,8 @@ const SessionTimeoutWarning = () => {
 
   return (
     <>
-      {/* Simple activity indicator */}
-      {user && (
+      {/* Simple activity indicator - only show on non-public routes */}
+      {shouldShowIndicator && (
         <div className="fixed bottom-2 right-2 bg-white dark:bg-gray-800 border rounded-full p-2 shadow-md z-50">
           {isActive ? (
             <Activity size={18} className="text-green-500" title="Active" />
