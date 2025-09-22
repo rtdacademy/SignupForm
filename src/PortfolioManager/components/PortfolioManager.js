@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePortfolio, useSOLOIntegration } from '../hooks/usePortfolio';
 import PortfolioSidebar from './PortfolioSidebar';
@@ -9,7 +9,7 @@ import PortfolioAccessGate from './PortfolioAccessGate';
 import SOLOEducationPlanForm from '../../RTDConnect/SOLOEducationPlanForm';
 import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
-import { 
+import {
   Plus,
   Menu,
   BookOpen,
@@ -18,11 +18,26 @@ import {
   Camera,
   Upload,
   FolderPlus,
-  Zap
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 
-const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOpen }) => {
+const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOpen, isStandalone = false }) => {
   const { user } = useAuth();
+
+  // Try to use routing hooks - they'll be available in standalone mode
+  let navigate = null;
+  let location = null;
+  let params = {};
+
+  try {
+    navigate = useNavigate();
+    location = useLocation();
+    params = useParams();
+  } catch (error) {
+    // Not in a Router context, that's fine for embedded mode
+  }
+
   const [selectedSection, setSelectedSection] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -31,7 +46,13 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+
+  // Use ref to prevent update loops between URL and state
+  const isUpdatingFromUrl = React.useRef(false);
   
+  // Get initial structure ID from URL params if in standalone mode
+  const initialStructureId = isStandalone && params.structureId ? params.structureId : null;
+
   // Portfolio hooks
   const {
     portfolioMetadata,
@@ -50,16 +71,18 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
     updatePortfolioEntry,
     deletePortfolioEntry,
     reorderStructure,
+    reorderEntries,
     getStructureHierarchy,
     generateFromAlbertaCourses,
     createQuickEntry,
+    initializeStructureFromEntries,
     loadComments,
     createComment,
     updateComment,
     deleteComment,
     comments,
     loadingComments
-  } = usePortfolio(familyId, student?.id, schoolYear);
+  } = usePortfolio(familyId, student?.id, schoolYear, initialStructureId);
 
   // SOLO plan integration
   const {
@@ -89,6 +112,51 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Update URL when structure selection changes (standalone mode ONLY)
+  useEffect(() => {
+    if (!isStandalone || !navigate || isUpdatingFromUrl.current) return;
+
+    // Convert schoolYear format from "25/26" to "25_26" for URL
+    const urlSchoolYear = schoolYear ? schoolYear.replace('/', '_') : '';
+    const baseUrl = `/portfolio/${familyId}/${student?.id}/${urlSchoolYear}`;
+    const newUrl = selectedStructureId
+      ? `${baseUrl}/${selectedStructureId}`
+      : baseUrl;
+
+    // Only update if URL actually changed to avoid unnecessary history entries
+    if (location && location.pathname !== newUrl) {
+      navigate(newUrl, { replace: true });
+    }
+  }, [selectedStructureId, isStandalone, familyId, student?.id, schoolYear, navigate, location]);
+
+  // Handle URL parameter changes (browser back/forward) - standalone mode ONLY
+  useEffect(() => {
+    if (!isStandalone) return;
+
+    const structureFromUrl = params.structureId || null;
+
+    // Only update if the URL structureId is different from current selection
+    if (structureFromUrl !== selectedStructureId) {
+      isUpdatingFromUrl.current = true;
+
+      // If there's a structure ID in URL, validate it exists
+      if (structureFromUrl) {
+        const structureExists = portfolioStructure.some(s => s.id === structureFromUrl);
+        if (structureExists) {
+          setSelectedStructureId(structureFromUrl);
+        }
+      } else {
+        // No structure in URL, clear selection
+        setSelectedStructureId(null);
+      }
+
+      // Reset flag after a small delay
+      setTimeout(() => {
+        isUpdatingFromUrl.current = false;
+      }, 100);
+    }
+  }, [params.structureId, isStandalone, portfolioStructure]); // Remove selectedStructureId from deps to avoid loop
+
 
   // Quick action handlers
   const handleQuickAdd = () => {
@@ -109,12 +177,21 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   };
 
   // Check if user is staff
-  const isStaff = user?.role === 'staff' || user?.customClaims?.role === 'staff' || 
+  const isStaff = user?.role === 'staff' || user?.customClaims?.role === 'staff' ||
                   user?.email?.includes('@rtdacademy.com') || user?.email?.includes('@rtdlearning.ca');
 
   // Handle access granted
   const handleAccessGranted = () => {
     setHasAccess(true);
+  };
+
+  // Handle opening in new tab
+  const handleOpenInNewTab = () => {
+    // Convert schoolYear format from "25/26" to "25_26" for URL
+    const urlSchoolYear = schoolYear ? schoolYear.replace('/', '_') : '';
+    const baseUrl = `/portfolio/${familyId}/${student?.id}/${urlSchoolYear}`;
+    const fullUrl = selectedStructureId ? `${baseUrl}/${selectedStructureId}` : baseUrl;
+    window.open(fullUrl, '_blank');
   };
 
   // Show access gate if no access yet
@@ -181,8 +258,23 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
           </div>
         </div>
 
-        {/* Quick Add Button in header */}
+        {/* Action Buttons in header */}
         <div className="flex items-center space-x-2">
+          {/* Open in New Tab button - only show in embedded mode */}
+          {!isStandalone && (
+            <Button
+              onClick={handleOpenInNewTab}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              title="Open portfolio in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden md:inline">Open in New Tab</span>
+            </Button>
+          )}
+
+          {/* Quick Add Button */}
           <Button
             onClick={handleQuickAdd}
             size="sm"
@@ -203,7 +295,11 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             <PortfolioSidebar
               structure={getStructureHierarchy()}
               selectedId={selectedStructureId}
-              onSelectStructure={setSelectedStructureId}
+              onSelectStructure={(id) => {
+                setSelectedStructureId(id);
+                // Scroll to top on navigation
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               onCreateStructure={createStructureItem}
               onUpdateStructure={updateStructureItem}
               onDeleteStructure={deleteStructureItem}
@@ -251,6 +347,8 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             onUpdateStructure={updateStructureItem}
             onDeleteStructure={deleteStructureItem}
             onReorderStructure={reorderStructure}
+            onReorderEntries={reorderEntries}
+            onInitializeStructure={initializeStructureFromEntries}
             onPresentationModeChange={(isPresenting) => {
               // Only auto-collapse once per session when entering presentation mode
               if (isPresenting && !sidebarCollapsed && !hasAutoCollapsed) {
@@ -295,6 +393,8 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             onSelectStructure={(id) => {
               setSelectedStructureId(id);
               setSidebarOpen(false);
+              // Scroll to top on navigation
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onCreateStructure={createStructureItem}
             onUpdateStructure={updateStructureItem}

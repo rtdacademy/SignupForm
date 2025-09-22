@@ -74,6 +74,7 @@ const TermsAndConditions = lazy(() => import('../legal/TermsAndConditions'));
 const FlowChartPrerequisites = lazy(() => import('../components/PrerequisiteFlowChart/FlowChartPrerequisites'));
 const PublicPortfolioEntry = lazy(() => import('../PortfolioManager/components/PublicPortfolioEntry'));
 const PublicPortfolioView = lazy(() => import('../PortfolioManager/components/PublicPortfolioView'));
+const StandalonePortfolioView = lazy(() => import('../PortfolioManager/components/StandalonePortfolioView'));
 
 // Lazy load video sharing
 const VideoPlayerPage = lazy(() => import('../pages/VideoPlayerPage'));
@@ -387,6 +388,15 @@ function MainApp() {
           <PublicRoute>
             <PublicPortfolioView />
           </PublicRoute>
+        } />
+
+        {/* Portfolio manager with URL-based navigation */}
+        <Route path="/portfolio/:familyId/:studentId/:schoolYear/:structureId?" element={
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <StandalonePortfolioView />
+            </Suspense>
+          </ProtectedRoute>
         } />
 
         {/* Public forms */}

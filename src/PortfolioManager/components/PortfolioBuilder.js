@@ -6,6 +6,7 @@ import { Accordion } from '../../components/ui/accordion';
 import PortfolioEntry from './PortfolioEntry';
 import PortfolioTagSelector from './PortfolioTagSelector';
 import PortfolioShareSettings from './PortfolioShareSettings';
+import EntryEditSheet from './EntryEditSheet';
 import QuillEditor from '../../courses/CourseEditor/QuillEditor';
 import DirectoryView from './DirectoryView';
 import '../styles/portfolio-animations.css';
@@ -59,7 +60,8 @@ import {
   ExternalLink,
   PanelLeft,
   PanelLeftClose,
-  Layers
+  Layers,
+  GripVertical
 } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 
@@ -94,7 +96,9 @@ const PortfolioBuilder = ({
   onUpdateStructure,
   onDeleteStructure,
   onReorderStructure,
-  familyId
+  onReorderEntries,
+  familyId,
+  onInitializeStructure
 }) => {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
@@ -106,6 +110,11 @@ const PortfolioBuilder = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [navigationPath, setNavigationPath] = useState([]);
+  const [viewingEntry, setViewingEntry] = useState(null); // Track which entry is being viewed
+
+  // State for optimistic UI updates during drag and drop
+  const [optimisticStructure, setOptimisticStructure] = useState(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   // Notify parent when presentation mode changes
   React.useEffect(() => {
@@ -397,6 +406,10 @@ const PortfolioBuilder = ({
   const [editingCardId, setEditingCardId] = useState(null);
   const [cardBackgrounds, setCardBackgrounds] = useState({});
 
+  // Drag and drop state for reordering collections
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
   // Predefined gradient backgrounds
   const gradientOptions = [
     'from-purple-500 to-blue-600',
@@ -410,6 +423,97 @@ const PortfolioBuilder = ({
     'from-rose-500 to-pink-600',
     'from-slate-600 to-gray-700'
   ];
+
+  // Drag and drop handlers for reordering collections
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Add a visual effect
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '';
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e, index) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    // Only clear if we're leaving the card entirely
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = async (e, dropIndex) => {
+    e.preventDefault();
+    e.currentTarget.style.opacity = '';
+
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Filter to only top-level items for reordering
+    const topLevelItems = portfolioStructure.filter(item =>
+      item.parentId === null && (item.type === 'portfolio' || item.type === 'course')
+    );
+
+    // Reorder the top-level items
+    const reorderedItems = [...topLevelItems];
+    const [draggedItem] = reorderedItems.splice(draggedIndex, 1);
+    reorderedItems.splice(dropIndex, 0, draggedItem);
+
+    // Update the order values
+    const itemsWithNewOrder = reorderedItems.map((item, index) => ({
+      ...item,
+      order: index
+    }));
+
+    // Create the optimistic update for immediate UI feedback
+    const optimisticUpdate = [...portfolioStructure];
+    // Update order for all top-level items
+    optimisticUpdate.forEach(item => {
+      const reorderedItem = itemsWithNewOrder.find(r => r.id === item.id);
+      if (reorderedItem) {
+        item.order = reorderedItem.order;
+      }
+    });
+
+    // Apply optimistic update immediately for instant UI response
+    setOptimisticStructure(optimisticUpdate);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setIsSavingOrder(true);
+
+    // Call the reorder function from usePortfolio in the background
+    if (onReorderStructure) {
+      try {
+        await onReorderStructure(itemsWithNewOrder);
+        // Success - the real data will update via subscription
+        setOptimisticStructure(null); // Clear optimistic state
+      } catch (error) {
+        console.error('Error reordering collections:', error);
+        // Rollback optimistic update on error
+        setOptimisticStructure(null);
+        // Optionally show an error toast here
+      } finally {
+        setIsSavingOrder(false);
+      }
+    }
+  };
 
   // Empty state - show portfolio overview if no section selected
   if (!selectedStructure) {
@@ -427,27 +531,48 @@ const PortfolioBuilder = ({
                 </h1>
                 <p className="text-gray-600 mt-1">Learning Journey & Achievements</p>
               </div>
-              <Button
-                onClick={() => setEditingCardId(editingCardId ? null : 'edit-mode')}
-                className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <PenTool className="w-4 h-4" />
-                {editingCardId ? 'Done Editing' : 'Edit Cards'}
-              </Button>
+              <div className="flex items-center gap-3">
+                {isSavingOrder && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-white/80 px-3 py-1.5 rounded-lg">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </div>
+                )}
+                <Button
+                  onClick={() => setEditingCardId(editingCardId ? null : 'edit-mode')}
+                  className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  <PenTool className="w-4 h-4" />
+                  {editingCardId ? 'Done Editing' : 'Edit Cards'}
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Portfolio Sections Grid with Animations */}
           <div className="max-w-7xl mx-auto px-8 py-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 portfolio-stagger-container">
-              {portfolioStructure.map((section, index) => {
+              {(optimisticStructure || portfolioStructure)
+                .filter(item => item.parentId === null && (item.type === 'portfolio' || item.type === 'course'))
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map((section, index) => {
                 const sectionEntries = entries.filter(e => e.structureId === section.id);
                 const backgroundGradient = cardBackgrounds[section.id] || gradientOptions[index % gradientOptions.length];
                 
                 return (
                   <Card
                     key={section.id}
-                    className="portfolio-card group hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden relative"
+                    draggable={!editingCardId} // Only draggable when not editing backgrounds
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver}
+                    onDragEnter={(e) => handleDragEnter(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    className={`portfolio-card group hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden relative
+                      ${draggedIndex === index ? 'opacity-50' : ''}
+                      ${dragOverIndex === index && draggedIndex !== index ? 'ring-4 ring-purple-400 ring-opacity-50' : ''}
+                    `}
                     onClick={() => {
                       if (!editingCardId) {
                         onSelectStructure(section.id);
@@ -458,6 +583,15 @@ const PortfolioBuilder = ({
                     }}
                     onTouchEnd={handleTouchEnd}
                   >
+                    {/* Drag Handle Indicator */}
+                    {!editingCardId && (
+                      <div className="absolute top-2 left-2 z-20">
+                        <div className="p-1 bg-white/70 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-move">
+                          <GripVertical className="w-4 h-4 text-gray-600" />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Edit Background and Share Buttons */}
                     <div className="absolute top-2 right-2 z-20 flex gap-2">
                       {editingCardId && (
@@ -572,6 +706,26 @@ const PortfolioBuilder = ({
           <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900">Welcome to Your Portfolio</h2>
           <p className="text-gray-600 mt-2">Create your first section to get started</p>
+          {onInitializeStructure && (
+            <Button
+              onClick={async () => {
+                try {
+                  const count = await onInitializeStructure();
+                  if (count > 0) {
+                    console.log(`Successfully initialized ${count} collections`);
+                  } else {
+                    console.log('No entries found to create collections from');
+                  }
+                } catch (error) {
+                  console.error('Failed to initialize structure:', error);
+                }
+              }}
+              className="mt-4 gap-2"
+            >
+              <Layers className="w-4 h-4" />
+              Initialize Collections from Entries
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -583,16 +737,18 @@ const PortfolioBuilder = ({
 
   // Determine if current structure is a directory type
   const sectionEntries = entries.filter(entry => entry.structureId === selectedStructure?.id);
-  const childSections = portfolioStructure.filter(s => s.parentId === selectedStructure?.id);
+  const childSections = portfolioStructure
+    .filter(s => s.parentId === selectedStructure?.id)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   // Leaf types are NEVER directories - they always show content view
   // A structure is a directory if:
-  // 1. It has child sections (always show as directory to navigate)
-  // 2. OR it's a container type (portfolio/collection/course) WITH NO entries (empty containers show directory view)
-  // If a collection has entries, it should show those entries, not directory view
+  // 1. It's a container type (portfolio/collection/course) - always show as directory
+  // 2. OR it has child sections (always show as directory to navigate)
+  // Collections now always show directory view with entry cards
   const isDirectory = !isLeafType && (
-    childSections.length > 0 ||
-    (['portfolio', 'collection', 'course'].includes(selectedStructure?.type) && sectionEntries.length === 0)
+    ['portfolio', 'collection', 'course'].includes(selectedStructure?.type) ||
+    childSections.length > 0
   );
 
   // Enhanced Presentation Mode with Directory Navigation
@@ -645,6 +801,20 @@ const PortfolioBuilder = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {selectedStructure?.type === 'collection' && (
+                    <Button
+                      onClick={() => {
+                        setIsPresentationMode(false);
+                        setShowNewEntry(true);
+                      }}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="hidden md:inline">Add Entry</span>
+                      <span className="md:hidden">Add</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setIsPresentationMode(false)}
                     size="sm"
@@ -662,19 +832,79 @@ const PortfolioBuilder = ({
         {/* Content Area */}
         <div className="flex-1 overflow-auto">
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-            {/* Show Directory View for directory types (course, unit, section) */}
-            {isDirectory ? (
+            {/* Show single entry view if viewing an entry */}
+            {viewingEntry ? (
+              <div className="max-w-6xl mx-auto">
+                {/* Back button */}
+                <Button
+                  onClick={() => setViewingEntry(null)}
+                  variant="outline"
+                  className="mb-4 gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to {selectedStructure?.title || 'Collection'}
+                </Button>
+
+                <Card className="p-8 bg-white shadow-lg">
+                  <PortfolioEntry
+                    entry={viewingEntry}
+                    viewMode="expanded"
+                    isPresentationMode={true}
+                    familyId={familyId}
+                    onEdit={() => {
+                      setIsPresentationMode(false);
+                      setEditingEntry(viewingEntry);
+                      setViewingEntry(null);
+                    }}
+                    onDelete={() => {
+                      onDeleteEntry(viewingEntry.id);
+                      setViewingEntry(null);
+                    }}
+                    onUpdate={(updates) => onUpdateEntry(viewingEntry.id, updates)}
+                    comments={comments}
+                    loadingComments={loadingComments}
+                    onCreateComment={createComment}
+                    onUpdateComment={updateComment}
+                    onDeleteComment={deleteComment}
+                    onLoadComments={loadComments}
+                    // Tag selector props
+                    activities={activities}
+                    assessments={assessments}
+                    resources={resources}
+                    activityDescriptions={activityDescriptions}
+                    assessmentDescriptions={assessmentDescriptions}
+                    resourceDescriptions={resourceDescriptions}
+                    getTagSuggestions={getTagSuggestions}
+                    customActivities={customActivities}
+                    customAssessments={customAssessments}
+                    customResources={customResources}
+                  />
+                </Card>
+              </div>
+            ) : isDirectory ? (
+              <>
+              {/* Show Directory View for directory types (course, unit, section) */}
               <DirectoryView
                 currentStructure={selectedStructure}
                 childStructures={childSections}
                 allStructures={portfolioStructure}
                 entries={entries}
-                onNavigate={(item) => {
-                  // Simply navigate to any item - the view logic will handle what to display
-                  onSelectStructure(item.id);
+                familyId={familyId}
+                studentId={student?.id}
+                onNavigate={(item, isEntry) => {
+                  if (isEntry && item.itemType === 'entry') {
+                    // View the specific entry
+                    setViewingEntry(item);
+                  } else {
+                    // Navigate to structure
+                    setViewingEntry(null);
+                    onSelectStructure(item.id);
+                  }
                 }}
                 onCreateStructure={onCreateStructure}
                 onUpdateStructure={(id, updates) => onUpdateStructure(id, updates)}
+                onReorderStructures={onReorderStructure}
+                onReorderEntries={onReorderEntries}
                 onDeleteStructure={onDeleteStructure}
                 onAddContent={() => {
                   setIsPresentationMode(false);
@@ -683,6 +913,7 @@ const PortfolioBuilder = ({
                 isEditMode={false}
                 isMobile={isMobile}
               />
+              </>
             ) : (
               /* Show Entries for content types (topic, lesson, etc) */
               <>
@@ -752,14 +983,27 @@ const PortfolioBuilder = ({
 
                           {/* Add more content button */}
                           <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-                            <Button
-                              onClick={() => setIsPresentationMode(false)}
-                              variant="outline"
-                              className="gap-2"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Add More Content
-                            </Button>
+                            {selectedStructure?.type === 'collection' ? (
+                              <Button
+                                onClick={() => {
+                                  setIsPresentationMode(false);
+                                  setShowNewEntry(true);
+                                }}
+                                className="gap-2"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Entry
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={() => setIsPresentationMode(false)}
+                                variant="outline"
+                                className="gap-2"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add More Content
+                              </Button>
+                            )}
                           </div>
                         </Card>
                       </div>
@@ -920,327 +1164,87 @@ const PortfolioBuilder = ({
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6">
-        {/* Entry Form - show for creating new or editing existing entries */}
-        {(showNewEntry || editingEntry) && (
-          <Card className="mb-6 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
-                {editingEntry ? 'Edit Portfolio Entry' : 'New Portfolio Entry'}
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowNewEntry(false);
-                  setEditingEntry(null);
-                  // Reset form data
-                  setNewEntryData({
-                    title: '',
-                    content: '',
-                    attachments: [],
-                    date: new Date().toISOString().split('T')[0],
-                    tags: {
-                      activities: [],
-                      assessments: [],
-                      resources: []
-                    },
-                    reflections: ''
-                  });
-                }}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
 
-            <div className="space-y-4">
-              {/* Title and Date - Always visible */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newEntryData.title}
-                    onChange={(e) => setNewEntryData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Give your entry a title..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newEntryData.date}
-                    onChange={(e) => setNewEntryData(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-              </div>
+        {/* Show single entry view if viewing an entry in builder mode */}
+        {viewingEntry ? (
+          <div className="max-w-5xl mx-auto">
+            {/* Back button */}
+            <Button
+              onClick={() => setViewingEntry(null)}
+              variant="outline"
+              className="mb-4 gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to {selectedStructure?.title || 'Collection'}
+            </Button>
 
-              {/* Content Editor - Always visible */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Content
-                </label>
-            
-                <div className="overflow-hidden" style={{ minHeight: '300px' }}>
-                  <QuillEditor
-                    initialContent={newEntryData.content}
-                    onContentChange={(content) => setNewEntryData(prev => ({ ...prev, content }))}
-                    fixedHeight="300px"
-                    hideSaveButton={true}
-                  />
-                </div>
-              </div>
-
-              {/* Attachments - For videos, images, and documents */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Attachments
-                </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  Upload videos, images, or documents that you want to attach to this entry
-                </p>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="video/*,image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                    onChange={handleAttachmentSelect}
-                    className="hidden"
-                  />
-                  <div className="flex items-center justify-center gap-3 mb-3">
-                    <Image className="w-8 h-8 text-gray-400" />
-                    <Video className="w-8 h-8 text-gray-400" />
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Add Files
-                  </Button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Supported: Images (JPG, PNG, GIF), Videos (MP4, MOV, etc.) and Documents (PDF, Word, Excel, PowerPoint)
-                  </p>
-                </div>
-
-                {/* Existing files when editing */}
-                {editingEntry && newEntryData.existingFiles && newEntryData.existingFiles.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Current files:</p>
-                    {newEntryData.existingFiles.map((file, index) => {
-                      const fileExt = file.name ? file.name.split('.').pop().toLowerCase() : '';
-                      const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
-                      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
-                      const Icon = isVideo ? Video : isImage ? Image : FileText;
-                      const iconColor = isVideo ? 'text-purple-600' :
-                                       isImage ? 'text-blue-600' :
-                                       'text-gray-600';
-
-                      return (
-                        <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`p-2 rounded-lg bg-white shadow-sm`}>
-                              <Icon className={`w-5 h-5 ${iconColor}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium text-gray-900 truncate block">
-                                {file.name || `File ${index + 1}`}
-                              </span>
-                              <span className="text-xs text-gray-500">Existing file</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              // Remove from existing files
-                              setNewEntryData(prev => ({
-                                ...prev,
-                                existingFiles: prev.existingFiles.filter((_, i) => i !== index)
-                              }));
-                            }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
-                            aria-label="Remove file"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* New attachments list */}
-                {newEntryData.attachments.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm font-medium text-gray-700">
-                      {editingEntry ? 'New files to add:' : 'Attached files:'}
-                    </p>
-                    {newEntryData.attachments.map((file, index) => {
-                      const isVideo = file.type.startsWith('video/');
-                      const isImage = file.type.startsWith('image/');
-                      const Icon = isVideo ? Video : isImage ? Image : FileText;
-
-                      // Calculate file size display
-                      const sizeInKB = file.size / 1024;
-                      const sizeInMB = sizeInKB / 1024;
-                      const sizeDisplay = sizeInMB < 1
-                        ? `${sizeInKB.toFixed(0)} KB`
-                        : `${sizeInMB.toFixed(1)} MB`;
-
-                      // Determine icon color based on file type
-                      const iconColor = isVideo ? 'text-purple-600' :
-                                       isImage ? 'text-blue-600' :
-                                       'text-gray-600';
-
-                      return (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`p-2 rounded-lg bg-white shadow-sm ${
-                              isVideo ? 'bg-purple-50' :
-                              isImage ? 'bg-blue-50' :
-                              'bg-gray-50'
-                            }`}>
-                              <Icon className={`w-5 h-5 ${iconColor}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium text-gray-900 truncate block">{file.name}</span>
-                              <span className="text-xs text-gray-500">
-                                {sizeDisplay}
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeAttachment(index)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
-                            aria-label="Remove attachment"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Reflections */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reflections (Optional)
-                </label>
-                <textarea
-                  value={newEntryData.reflections}
-                  onChange={(e) => setNewEntryData(prev => ({ ...prev, reflections: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                  rows={3}
-                  placeholder="Add any reflections or notes about this work..."
-                />
-              </div>
-
-              {/* Tags - Discrete and Optional - Placed at bottom */}
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Tags from SOLO Plan (Optional)
-                  </label>
-                
-                </div>
-                <PortfolioTagSelector
-                  selectedTags={newEntryData.tags}
-                  onChange={(tags) => setNewEntryData(prev => ({ ...prev, tags }))}
-                  activities={activities}
-                  assessments={assessments}
-                  resources={resources}
-                  activityDescriptions={activityDescriptions}
-                  assessmentDescriptions={assessmentDescriptions}
-                  resourceDescriptions={resourceDescriptions}
-                  getTagSuggestions={getTagSuggestions}
-                  customActivities={customActivities}
-                  customAssessments={customAssessments}
-                  customResources={customResources}
-                  content={newEntryData.content || newEntryData.title}
-                  compact={true}  // Use compact mode
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowNewEntry(false);
-                    setEditingEntry(null);
-                    // Reset form data
-                    setNewEntryData({
-                      title: '',
-                      content: '',
-                      attachments: [],
-                      date: new Date().toISOString().split('T')[0],
-                      tags: {
-                        activities: [],
-                        assessments: [],
-                        resources: []
-                      },
-                      reflections: ''
-                    });
-                  }}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveEntry}
-                  disabled={isSaving || !newEntryData.title.trim()}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {editingEntry ? 'Updating...' : 'Saving...'}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      {editingEntry ? 'Update Entry' : 'Save Entry'}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Show Directory View for directory types in builder mode */}
-        {isDirectory ? (
-          <DirectoryView
-            currentStructure={selectedStructure}
-            childStructures={childSections}
-            allStructures={portfolioStructure}
-            entries={entries}
-            onNavigate={(item, isDocumentEdit) => {
-              // Check if this is a document type that should be edited
-              if (isDocumentEdit || ['lesson', 'assessment'].includes(item.type)) {
-                // Navigate to the document and open entry form
-                onSelectStructure(item.id);
+            <PortfolioEntry
+              entry={viewingEntry}
+              viewMode="expanded"
+              familyId={familyId}
+              onEdit={() => {
+                setEditingEntry(viewingEntry);
                 setShowNewEntry(true);
-              } else {
-                // Normal navigation for directories
-                onSelectStructure(item.id);
-              }
-            }}
-            onCreateStructure={onCreateStructure}
-            onUpdateStructure={(id, updates) => onUpdateStructure(id, updates)}
-            onDeleteStructure={onDeleteStructure}
-            onAddContent={() => setShowNewEntry(true)}
-            isEditMode={true}
-            isMobile={isMobile}
-          />
+                setViewingEntry(null);
+              }}
+              onDelete={() => {
+                handleDeleteEntry(viewingEntry.id);
+                setViewingEntry(null);
+              }}
+              onUpdate={(updates) => handleUpdateEntry(viewingEntry.id, updates)}
+              comments={comments}
+              loadingComments={loadingComments}
+              onCreateComment={createComment}
+              onUpdateComment={updateComment}
+              onDeleteComment={deleteComment}
+              onLoadComments={loadComments}
+              // Tag selector props
+              activities={activities}
+              assessments={assessments}
+              resources={resources}
+              activityDescriptions={activityDescriptions}
+              assessmentDescriptions={assessmentDescriptions}
+              resourceDescriptions={resourceDescriptions}
+              getTagSuggestions={getTagSuggestions}
+              customActivities={customActivities}
+              customAssessments={customAssessments}
+              customResources={customResources}
+            />
+          </div>
+        ) : isDirectory ? (
+          <>
+            {/* Show Directory View for directory types in builder mode */}
+            <DirectoryView
+              currentStructure={selectedStructure}
+              childStructures={childSections}
+              allStructures={portfolioStructure}
+              entries={entries}
+              familyId={familyId}
+              studentId={student?.id}
+              onNavigate={(item, isEntry) => {
+                if (isEntry && item.itemType === 'entry') {
+                  // View/edit the specific entry
+                  setEditingEntry(item);
+                  setShowNewEntry(true);
+                } else if (isEntry || ['lesson', 'assessment'].includes(item.type)) {
+                  // Navigate to the document and open entry form
+                  onSelectStructure(item.id);
+                  setShowNewEntry(true);
+                } else {
+                  // Normal navigation for directories
+                  onSelectStructure(item.id);
+                }
+              }}
+              onCreateStructure={onCreateStructure}
+              onUpdateStructure={(id, updates) => onUpdateStructure(id, updates)}
+              onDeleteStructure={onDeleteStructure}
+              onAddContent={() => setShowNewEntry(true)}
+              onReorderStructures={onReorderStructure}
+              onReorderEntries={onReorderEntries}
+              isEditMode={true}
+              isMobile={isMobile}
+            />
+          </>
         ) : (
           <>
             {/* Display entries for non-directory items */}
@@ -1311,6 +1315,77 @@ const PortfolioBuilder = ({
             familyId={familyId}
           />
       )}
+
+      {/* Entry Edit Sheet */}
+      <EntryEditSheet
+        isOpen={showNewEntry || !!editingEntry}
+        onClose={() => {
+          setShowNewEntry(false);
+          setEditingEntry(null);
+          setViewingEntry(null);
+          // Reset form data
+          setNewEntryData({
+            title: '',
+            content: '',
+            attachments: [],
+            date: new Date().toISOString().split('T')[0],
+            tags: {
+              activities: [],
+              assessments: [],
+              resources: []
+            },
+            reflections: ''
+          });
+        }}
+        entry={editingEntry}
+        structureId={selectedStructure?.id}
+        onSave={async (entryData, filesToUpload, entryId) => {
+          setIsSaving(true);
+          try {
+            if (entryId) {
+              // Update existing entry with new files if any
+              await onUpdateEntry(entryId, entryData, filesToUpload);
+            } else {
+              // Create new entry
+              await onCreateEntry(entryData, filesToUpload);
+            }
+            // Close sheet after successful save
+            setShowNewEntry(false);
+            setEditingEntry(null);
+            setViewingEntry(null);
+            // Reset form data
+            setNewEntryData({
+              title: '',
+              content: '',
+              attachments: [],
+              date: new Date().toISOString().split('T')[0],
+              tags: {
+                activities: [],
+                assessments: [],
+                resources: []
+              },
+              reflections: ''
+            });
+          } catch (error) {
+            console.error('Error saving entry:', error);
+          } finally {
+            setIsSaving(false);
+          }
+        }}
+        onDelete={onDeleteEntry}
+        isSaving={isSaving}
+        // Tag selector props
+        activities={activities}
+        assessments={assessments}
+        resources={resources}
+        activityDescriptions={activityDescriptions}
+        assessmentDescriptions={assessmentDescriptions}
+        resourceDescriptions={resourceDescriptions}
+        getTagSuggestions={getTagSuggestions}
+        customActivities={customActivities}
+        customAssessments={customAssessments}
+        customResources={customResources}
+      />
     </>
   );
 };

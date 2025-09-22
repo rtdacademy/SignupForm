@@ -222,23 +222,64 @@ const PortfolioSidebar = ({
     setDragOverItem(item);
   };
 
+  // Handle drag end (cleanup)
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  // Helper to flatten hierarchical structure
+  const flattenStructure = (items) => {
+    const flat = [];
+    const flatten = (item) => {
+      const { children, ...itemWithoutChildren } = item;
+      flat.push(itemWithoutChildren);
+      if (children && children.length > 0) {
+        children.forEach(flatten);
+      }
+    };
+    items.forEach(flatten);
+    return flat;
+  };
+
   // Handle drop
   const handleDrop = (e, targetItem) => {
     e.preventDefault();
-    
+
     if (draggedItem && targetItem && draggedItem.id !== targetItem.id) {
-      // Reorder logic
-      const reorderedItems = [...structure];
-      const draggedIndex = reorderedItems.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = reorderedItems.findIndex(item => item.id === targetItem.id);
-      
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        reorderedItems.splice(draggedIndex, 1);
-        reorderedItems.splice(targetIndex, 0, draggedItem);
-        onReorder(reorderedItems);
+      // Only reorder if items have the same parent (are siblings)
+      if (draggedItem.parentId === targetItem.parentId) {
+        // Flatten the structure to work with it
+        const flatStructure = flattenStructure(structure);
+
+        // Get all siblings (items with same parentId) from flat structure
+        const siblings = flatStructure.filter(item =>
+          item.parentId === draggedItem.parentId
+        ).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const draggedIndex = siblings.findIndex(item => item.id === draggedItem.id);
+        const targetIndex = siblings.findIndex(item => item.id === targetItem.id);
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          // Reorder the siblings
+          const reorderedSiblings = [...siblings];
+          const [removed] = reorderedSiblings.splice(draggedIndex, 1);
+          reorderedSiblings.splice(targetIndex, 0, removed);
+
+          // Update order values
+          const itemsWithNewOrder = reorderedSiblings.map((item, index) => ({
+            ...item,
+            order: index
+          }));
+
+
+          // Call the reorder function with just the reordered siblings
+          onReorder(itemsWithNewOrder);
+        }
+      } else {
       }
     }
-    
+
     setDraggedItem(null);
     setDragOverItem(null);
   };
@@ -315,7 +356,6 @@ const PortfolioSidebar = ({
               ${isSelected ? 'bg-purple-100' : 'hover:bg-gray-100'}
             `}
             onClick={() => {
-              console.log('Sidebar: Selecting structure:', { id: item.id, title: item.title });
               onSelectStructure(item.id);
             }}
           >
@@ -370,7 +410,6 @@ const PortfolioSidebar = ({
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => {
             if (!isEditing) {
-              console.log('Sidebar: Selecting structure:', { id: item.id, title: item.title });
               onSelectStructure(item.id);
             }
           }}
@@ -378,6 +417,7 @@ const PortfolioSidebar = ({
           onDragStart={(e) => handleDragStart(e, item)}
           onDragOver={(e) => handleDragOver(e, item)}
           onDrop={(e) => handleDrop(e, item)}
+          onDragEnd={handleDragEnd}
         >
           {/* Drag handle */}
           <GripVertical className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity mr-1" />

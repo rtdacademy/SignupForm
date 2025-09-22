@@ -19,6 +19,7 @@ import MultiActionAuthHandler from '../MultiActionAuthHandler';
 import FlowChartPrerequisites from '../components/PrerequisiteFlowChart/FlowChartPrerequisites';
 import PublicPortfolioEntry from '../PortfolioManager/components/PublicPortfolioEntry';
 import PublicPortfolioView from '../PortfolioManager/components/PublicPortfolioView';
+import StandalonePortfolioView from '../PortfolioManager/components/StandalonePortfolioView';
 
 // Legal page imports
 import PrivacyStatement from '../legal/PrivacyStatement';
@@ -54,6 +55,12 @@ function RTDConnectApp() {
         {/* Public portfolio viewers */}
         <Route path="/portfolio/:familyId/:entryId" element={<PublicPortfolioEntry />} />
         <Route path="/portfolio/:familyId/course/:courseId" element={<PublicPortfolioView />} />
+
+        {/* Portfolio manager with URL-based navigation - requires login */}
+        <Route path="/portfolio/:familyId/:studentId/:schoolYear/:structureId?" element={
+          user && isHomeEducationParent ? <StandalonePortfolioView /> : <Navigate to="/login" />
+        } />
+
         <Route path="/facilitator/elise" element={<FacilitatorProfile4 />} />
         <Route path="/facilitator/kari-luther" element={<FacilitatorProfile5 />} />
         

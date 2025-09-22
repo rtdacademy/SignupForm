@@ -4335,7 +4335,7 @@ const HomeEducationStaffDashboard = ({
 
       setFamilyStatuses(statuses);
       setLoadingStatuses(false);
-      console.log('Family statuses loaded:', statuses);
+      //console.log('Family statuses loaded:', statuses);
     };
 
     fetchFamilyStatuses();

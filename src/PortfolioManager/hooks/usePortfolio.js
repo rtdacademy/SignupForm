@@ -36,14 +36,14 @@ import { getAlbertaCourseById as getAlbertaCourse } from '../../config/albertaCo
  * Main hook for portfolio operations
  * Handles all CRUD operations for portfolio structure and entries
  */
-export const usePortfolio = (familyId, studentId, schoolYear) => {
+export const usePortfolio = (familyId, studentId, schoolYear, initialStructureId = null) => {
   const { user } = useAuth();
   const [portfolioMetadata, setPortfolioMetadata] = useState(null);
   const [portfolioStructure, setPortfolioStructure] = useState([]);
   const [portfolioEntries, setPortfolioEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedStructureId, setSelectedStructureId] = useState(null);
+  const [selectedStructureId, setSelectedStructureId] = useState(initialStructureId);
 
   const db = getFirestore();
   const storage = getStorage();
@@ -125,6 +125,7 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
         const structures = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
+     
           // Filter out archived items (isArchived === true)
           // Include items where isArchived is false or undefined (for backward compatibility)
           if (data.isArchived !== true) {
@@ -134,6 +135,7 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
             });
           }
         });
+        //console.log('Total structures loaded:', structures.length, structures);
         setPortfolioStructure(structures);
         setLoading(false);
       },
@@ -152,9 +154,10 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     if (!familyId || !studentId || !schoolYear || !user) return;
 
     const syncKey = `${familyId}-${studentId}-${schoolYear}`;
-    
+
     // Skip if we already synced for this combination or sync is in progress
     if (lastSyncKey.current === syncKey || isSyncingRef.current) {
+      console.log('Skipping sync - already synced or in progress', { syncKey, isSyncing: isSyncingRef.current });
       return;
     }
 
@@ -511,6 +514,65 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     }
   }, [familyId, studentId, schoolYear, user, portfolioStructure, portfolioMetadata, loading]);
 
+  // Derive virtual structures from entries when no structure documents exist
+  useEffect(() => {
+    if (!familyId || !studentId || loading) return;
+
+    // Always try to derive structures from entries if we have none
+    if (portfolioStructure.length === 0) {
+      const deriveStructuresFromEntries = async () => {
+        try {
+          // Get all entries for this student
+          const entriesRef = collection(db, 'portfolios', familyId, 'entries');
+          const q = query(entriesRef, where('studentId', '==', studentId));
+          const snapshot = await getDocs(q);
+
+          // Build a map of unique structure IDs
+          const structureMap = new Map();
+          let orderIndex = 0;
+
+          snapshot.forEach((doc) => {
+            const entry = doc.data();
+            if (entry.structureId && !structureMap.has(entry.structureId)) {
+              // Try to derive collection name from entry tags or use a default
+              const collectionName = entry.collectionName ||
+                                    entry.tags?.subject ||
+                                    `Collection ${orderIndex + 1}`;
+
+              structureMap.set(entry.structureId, {
+                id: entry.structureId,
+                studentId: studentId,
+                title: collectionName,
+                type: 'collection',
+                parentId: null,
+                order: orderIndex++,
+                isAlbertaCourse: entry.tags?.isAlbertaCourse || false,
+                albertaCourseId: entry.tags?.albertaCourseId || null,
+                courseCode: entry.tags?.courseCode || null,
+                isArchived: false,
+                icon: 'Folder',
+                color: '#8B5CF6',
+                // These are virtual structures, not persisted yet
+                isVirtual: true
+              });
+            }
+          });
+
+          // Set virtual structures if any were found
+          if (structureMap.size > 0) {
+            const virtualStructures = Array.from(structureMap.values());
+            console.log('Derived virtual structures from entries:', virtualStructures);
+            setPortfolioStructure(virtualStructures);
+          }
+        } catch (err) {
+          console.error('Error deriving structures from entries:', err);
+        }
+      };
+
+      deriveStructuresFromEntries();
+    }
+  }, [familyId, studentId, portfolioStructure.length, portfolioMetadata, loading]);
+
   // Subscribe to portfolio entries for selected structure
   useEffect(() => {
     if (!familyId || !studentId || !selectedStructureId) {
@@ -518,11 +580,7 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
       return;
     }
 
-    console.log('Setting up portfolio entries subscription:', {
-      familyId,
-      studentId,
-      selectedStructureId
-    });
+
 
     // Use entries subcollection under familyId, filtered by both studentId and structureId
     const entriesRef = collection(db, 'portfolios', familyId, 'entries');
@@ -619,7 +677,7 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
       });
 
       // Update metadata
-      const metadataRef = doc(db, 'portfolios', familyId, studentId, 'info', 'metadata');
+      const metadataRef = doc(db, 'portfolios', familyId, 'metadata', studentId);
       await updateDoc(metadataRef, {
         lastModified: serverTimestamp()
       });
@@ -788,18 +846,21 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
   const updatePortfolioEntry = useCallback(async (entryId, updates, newFiles = []) => {
     try {
       const entryRef = doc(db, 'portfolios', familyId, 'entries', entryId);
-      
+
       // Upload new files if provided
       const uploadedFiles = newFiles.length > 0 ? await uploadFiles(newFiles, entryId) : [];
-      
+
       const updateData = {
         ...updates,
         lastModified: serverTimestamp()
       };
-      
+
+      // Merge uploaded files with existing files
       if (uploadedFiles.length > 0) {
-        const currentEntry = portfolioEntries.find(e => e.id === entryId);
-        updateData.files = [...(currentEntry?.files || []), ...uploadedFiles];
+        // If updates already has files (preserved existing files), merge with new uploads
+        // Otherwise get files from current entry in state
+        const existingFiles = updates.files || portfolioEntries.find(e => e.id === entryId)?.files || [];
+        updateData.files = [...existingFiles, ...uploadedFiles];
       }
 
       await updateDoc(entryRef, updateData);
@@ -879,22 +940,99 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     }
   };
 
-  // Reorder structure items
+  // Reorder structure items (optimized for performance)
   const reorderStructure = useCallback(async (reorderedItems) => {
+    if (!reorderedItems || reorderedItems.length === 0) {
+      return;
+    }
+
     try {
       const batch = writeBatch(db);
-      
-      reorderedItems.forEach((item, index) => {
+
+      // Batch update all items without checking existence
+      // We know these items exist since they're being dragged from the UI
+      for (const [index, item] of reorderedItems.entries()) {
         const structureRef = doc(db, 'portfolios', familyId, 'structure', item.id);
-        batch.update(structureRef, { order: index });
-      });
-      
+
+        // Simply update the order - no need to check if document exists
+        batch.update(structureRef, {
+          order: index,
+          lastModified: serverTimestamp()
+        });
+      }
+
+      // Commit all updates in a single batch operation
       await batch.commit();
+
+      // Update metadata to reflect changes
+      const metadataRef = doc(db, 'portfolios', familyId, 'metadata', studentId);
+      await updateDoc(metadataRef, {
+        lastModified: serverTimestamp()
+      });
+
     } catch (err) {
-      console.error('Error reordering structure:', err);
+      console.error('❌ Error reordering structure:', err);
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        familyId,
+        studentId,
+        itemCount: reorderedItems?.length
+      });
       throw err;
     }
-  }, [familyId, studentId]);
+  }, [familyId, studentId, user]);
+
+  // Reorder entries within a structure
+  const reorderEntries = useCallback(async (reorderedEntries) => {
+    if (!reorderedEntries || reorderedEntries.length === 0) {
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+
+      // Batch update all entries
+      for (const [index, entry] of reorderedEntries.entries()) {
+        const entryRef = doc(db, 'portfolios', familyId, 'entries', entry.id);
+
+        // Update the order
+        batch.update(entryRef, {
+          order: index,
+          lastModified: serverTimestamp()
+        });
+      }
+
+      // Commit all updates in a single batch operation
+      await batch.commit();
+
+      // Update local state optimistically
+      setPortfolioEntries(prevEntries => {
+        const updatedEntries = [...prevEntries];
+        reorderedEntries.forEach((reorderedEntry, index) => {
+          const entryIndex = updatedEntries.findIndex(e => e.id === reorderedEntry.id);
+          if (entryIndex !== -1) {
+            updatedEntries[entryIndex] = {
+              ...updatedEntries[entryIndex],
+              order: index
+            };
+          }
+        });
+        return updatedEntries;
+      });
+
+    } catch (err) {
+      console.error('❌ Error reordering entries:', err);
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        familyId,
+        studentId,
+        itemCount: reorderedEntries?.length
+      });
+      throw err;
+    }
+  }, [familyId, studentId, user]);
 
   // Get structure hierarchy (for nested view)
   const getStructureHierarchy = useCallback(() => {
@@ -1152,6 +1290,93 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     }
   }, [familyId, studentId, user, portfolioEntries, portfolioMetadata, uploadFiles]);
 
+  // Initialize structure documents from existing entries
+  const initializeStructureFromEntries = useCallback(async () => {
+    if (!familyId || !studentId || !user) return;
+
+    console.log('Initializing structure documents from existing entries...');
+
+    try {
+      // Get all entries for this student
+      const entriesRef = collection(db, 'portfolios', familyId, 'entries');
+      const q = query(entriesRef, where('studentId', '==', studentId));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        console.log('No entries found to initialize structure from');
+        return;
+      }
+
+      // Build a map of unique structure IDs
+      const structureMap = new Map();
+      let orderIndex = 0;
+
+      snapshot.forEach((doc) => {
+        const entry = doc.data();
+        if (entry.structureId && !structureMap.has(entry.structureId)) {
+          // Derive collection name from various sources
+          let collectionName = 'Collection ' + (orderIndex + 1);
+
+          // Try to get name from tags or other fields
+          if (entry.tags?.subject) {
+            collectionName = entry.tags.subject;
+          } else if (entry.collectionName) {
+            collectionName = entry.collectionName;
+          } else if (entry.title) {
+            collectionName = `Collection: ${entry.title.substring(0, 20)}`;
+          }
+
+          structureMap.set(entry.structureId, {
+            id: entry.structureId,
+            studentId: studentId,
+            title: collectionName,
+            type: 'collection',
+            parentId: null,
+            order: orderIndex++,
+            isAlbertaCourse: false,
+            isArchived: false,
+            icon: 'Folder',
+            color: '#8B5CF6',
+            createdAt: serverTimestamp(),
+            createdBy: user.uid,
+            lastModified: serverTimestamp()
+          });
+        }
+      });
+
+      if (structureMap.size === 0) {
+        console.log('No unique structure IDs found in entries');
+        return 0;
+      }
+
+      // Create structure documents
+      const batch = writeBatch(db);
+
+      for (const [structureId, structureData] of structureMap) {
+        const structureRef = doc(db, 'portfolios', familyId, 'structure', structureId);
+        batch.set(structureRef, structureData);
+        console.log(`Creating structure document for ${structureData.title}`);
+      }
+
+      await batch.commit();
+      console.log(`Successfully created ${structureMap.size} structure documents`);
+
+      // Update metadata
+      const metadataRef = doc(db, 'portfolios', familyId, 'metadata', studentId);
+      await updateDoc(metadataRef, {
+        lastModified: serverTimestamp(),
+        structuresInitialized: true
+      });
+
+      // The structure subscription should automatically pick up the new documents
+      return structureMap.size;
+
+    } catch (err) {
+      console.error('Error initializing structure from entries:', err);
+      throw err;
+    }
+  }, [familyId, studentId, user]);
+
   return {
     // State
     portfolioMetadata,
@@ -1174,10 +1399,12 @@ export const usePortfolio = (familyId, studentId, schoolYear) => {
     updatePortfolioEntry,
     deletePortfolioEntry,
     reorderStructure,
+    reorderEntries,
     getStructureHierarchy,
     generateFromAlbertaCourses,
     createQuickEntry,
-    
+    initializeStructureFromEntries,
+
     // Comment operations
     loadComments,
     createComment,
