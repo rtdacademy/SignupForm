@@ -25,6 +25,7 @@ import {
 
 const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOpen, isStandalone = false }) => {
   const { user } = useAuth();
+  const sidebarRef = React.useRef(null);
 
   // Try to use routing hooks - they'll be available in standalone mode
   let navigate = null;
@@ -174,6 +175,91 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   //   }
   // }, [onQuickAddOpen]);
 
+  // Handle click outside sidebar to collapse it
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Don't do anything if clicking the toggle button itself
+      const isToggleButton = event.target.closest('button')?.title?.includes('sidebar');
+      if (isToggleButton) {
+        console.log('Clicked toggle button, ignoring');
+        return;
+      }
+
+      // Check all conditions
+      const conditions = {
+        isMobile,
+        sidebarCollapsed,
+        hasSidebarRef: !!sidebarRef.current,
+        sidebarElement: sidebarRef.current,
+        target: event.target,
+        isInsideSidebar: sidebarRef.current?.contains(event.target)
+      };
+
+      console.log('Click detected', conditions);
+
+      // Only collapse on desktop and when sidebar is expanded
+      if (!isMobile && !sidebarCollapsed) {
+        if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+          // Don't collapse if clicking on modals, popovers, or tooltips
+          const clickedElement = event.target;
+          // Check for actual interactive overlays, excluding the main Sheet container
+          const isModalClick = (
+            // Check for modal backdrops (dark overlays)
+            clickedElement.closest('.fixed.inset-0.bg-black.bg-opacity') ||
+            // Check for popover content
+            clickedElement.closest('[data-radix-popper-content-wrapper]') ||
+            // Check for dropdown menus
+            clickedElement.closest('[role="menu"]') ||
+            // Check for tooltips
+            clickedElement.closest('[role="tooltip"]') ||
+            // Check for the new item form modal in sidebar
+            clickedElement.closest('.fixed.inset-0.bg-black.bg-opacity-50')
+          );
+
+          console.log('Outside click conditions met', {
+            isModalClick,
+            willCollapse: !isModalClick
+          });
+
+          if (!isModalClick) {
+            console.log('Actually collapsing sidebar now!');
+            setSidebarCollapsed(true);
+          } else {
+            console.log('Not collapsing - modal click detected');
+          }
+        } else {
+          console.log('Not collapsing - click was inside sidebar or ref missing');
+        }
+      } else {
+        console.log('Not collapsing - conditions not met', {
+          isMobile,
+          sidebarCollapsed
+        });
+      }
+    };
+
+    // Only add listener if on desktop
+    if (!isMobile) {
+      console.log('Setting up click listener for sidebar collapse');
+      // Use a small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        console.log('Actually adding click listener now');
+        document.addEventListener('click', handleClickOutside, true); // Use capture phase
+
+        // Verify ref is attached
+        console.log('Sidebar ref after setup:', {
+          hasRef: !!sidebarRef.current,
+          element: sidebarRef.current
+        });
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        console.log('Removing click listener for sidebar collapse');
+        document.removeEventListener('click', handleClickOutside, true);
+      };
+    }
+  }, [isMobile, sidebarCollapsed]); // Include sidebarCollapsed in dependencies
 
   // Open SOLO Education Plan form
   const handleOpenSOLOPlan = () => {
@@ -299,7 +385,10 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar - Hidden in full presentation mode */}
         {!isMobile && !isInFullPresentation && (
-          <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out`}>
+          <div
+            ref={sidebarRef}
+            className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out`}
+          >
             <PortfolioSidebar
               structure={getStructureHierarchy()}
               selectedId={selectedStructureId}

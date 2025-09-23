@@ -1114,7 +1114,7 @@ const PortfolioBuilder = ({
         {/* Clean Header for Presentation Mode */}
         <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-20 shadow-lg">
           <div className="px-4 md:px-8 py-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
               <div className={isPresentationMode ? "presentation-breadcrumbs" : ""}>
                 {renderBreadcrumbs()}
               </div>
@@ -1363,7 +1363,7 @@ const PortfolioBuilder = ({
         {/* Header */}
         <div className="bg-white border-b px-6 py-4">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
               {renderBreadcrumbs()}
               {renderModeToggle()}
             </div>
