@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
 import PortfolioManager from './PortfolioManager';
+import DevFileIndicator from './DevFileIndicator';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
@@ -160,22 +161,8 @@ const StandalonePortfolioView = () => {
   // Render portfolio manager in standalone mode
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with back button */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          className="gap-2"
-        >
-          ← Back to Dashboard
-        </Button>
-        <div className="text-sm text-gray-500">
-          Viewing Portfolio: {student?.firstName} {student?.lastName}
-        </div>
-      </div>
-
       {/* Portfolio Manager */}
-      <div className="h-[calc(100vh-57px)]">
+      <div className="h-screen">
         <PortfolioManager
           student={student}
           familyId={familyId}
@@ -184,6 +171,7 @@ const StandalonePortfolioView = () => {
           isStandalone={true}
         />
       </div>
+      <DevFileIndicator fileName="StandalonePortfolioView.js" />
     </div>
   );
 };

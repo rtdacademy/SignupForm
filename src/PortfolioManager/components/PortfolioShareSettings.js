@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Dialog,
   DialogContent,
@@ -395,6 +396,7 @@ const PortfolioShareSettings = ({ familyId, courseId, courseTitle, courseData, o
             </span>
           )}
         </div>
+        <DevFileIndicator fileName="PortfolioShareSettings.js" />
       </DialogContent>
     </Dialog>
   );

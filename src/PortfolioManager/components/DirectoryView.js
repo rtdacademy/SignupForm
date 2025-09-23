@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
+import DevFileIndicator from './DevFileIndicator';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import {
   getFirestore,
@@ -39,7 +40,10 @@ import {
   FileEdit,
   Check,
   ExternalLink,
-  GripVertical
+  GripVertical,
+  MessageCircle,
+  Paperclip,
+  Type
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,6 +52,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+
+// Helper function to darken a hex color
+const darkenColor = (hex, amount = 0.3) => {
+  // Remove # if present
+  const color = hex.replace('#', '');
+
+  // Convert to RGB
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+
+  // Darken
+  const darkenedR = Math.round(r * (1 - amount));
+  const darkenedG = Math.round(g * (1 - amount));
+  const darkenedB = Math.round(b * (1 - amount));
+
+  // Convert back to hex
+  const toHex = (n) => n.toString(16).padStart(2, '0');
+  return `#${toHex(darkenedR)}${toHex(darkenedG)}${toHex(darkenedB)}`;
+};
 
 const DirectoryView = ({
   currentStructure,
@@ -59,11 +83,13 @@ const DirectoryView = ({
   onNavigate,
   onCreateStructure,
   onUpdateStructure,
+  onUpdateEntry,
   onDeleteStructure,
   onAddContent,
   onReorderStructures,
   onReorderEntries,
   isEditMode = false,
+  isPresentationMode = false,
   isMobile = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,18 +196,9 @@ const DirectoryView = ({
 
   // Get icon for structure type
   const getIcon = (item) => {
-    // For entries, use specific icons based on entry type
+    // For entries, always use a standard FileText icon
     if (item.itemType === 'entry') {
-      const entryIcons = {
-        text: FileText,
-        document: FileText,
-        image: ImageIcon,
-        video: Video,
-        link: Link2,
-        assessment: Activity,
-        default: FileText
-      };
-      return entryIcons[item.type] || entryIcons.default;
+      return FileText;
     }
 
     // For structures
@@ -196,9 +213,64 @@ const DirectoryView = ({
     return icons[item.type] || icons.default;
   };
 
+  // Get content indicators for an entry
+  const getContentIndicators = (item) => {
+    if (item.itemType !== 'entry') return null;
+
+    const indicators = [];
+
+    // Check for video files
+    const videoCount = item.files?.filter(f => f.type?.startsWith('video/')).length || 0;
+    if (videoCount > 0) {
+      indicators.push({ icon: Video, count: videoCount, key: 'video' });
+    }
+
+    // Check for image files
+    const imageCount = item.files?.filter(f => f.type?.startsWith('image/')).length || 0;
+    if (imageCount > 0) {
+      indicators.push({ icon: ImageIcon, count: imageCount, key: 'image' });
+    }
+
+    // Check for other document files (non-video, non-image)
+    const docCount = item.files?.filter(f =>
+      !f.type?.startsWith('video/') && !f.type?.startsWith('image/')
+    ).length || 0;
+    if (docCount > 0) {
+      indicators.push({ icon: Paperclip, count: docCount, key: 'doc' });
+    }
+
+    // Check for text content
+    if (item.content && item.content.trim().length > 0) {
+      // Remove HTML tags to check if there's actual text
+      const textContent = item.content.replace(/<[^>]*>/g, '').trim();
+      if (textContent.length > 0) {
+        indicators.push({ icon: Type, count: null, key: 'text' });
+      }
+    }
+
+    // Check for comments
+    if (item.commentCount && item.commentCount > 0) {
+      indicators.push({ icon: MessageCircle, count: item.commentCount, key: 'comments' });
+    }
+
+    return indicators.length > 0 ? indicators : null;
+  };
+
   // Get color styling based on item's color property
   const getColorStyling = (item) => {
-    const color = item.color || '#8B5CF6'; // Default to purple if no color
+    let color;
+    if (item.itemType === 'entry') {
+      // For entries, use their color if set, otherwise inherit from parent collection
+      if (item.color) {
+        color = item.color;
+      } else if (currentStructure?.color) {
+        color = currentStructure.color; // Inherit parent collection's color
+      } else {
+        color = '#6B7280'; // Gray fallback for entries without color
+      }
+    } else {
+      color = item.color || '#8B5CF6'; // Default to purple for structure items if no color
+    }
 
     // Convert hex to RGB for transparency
     const hexToRgb = (hex) => {
@@ -315,8 +387,8 @@ const DirectoryView = ({
     currentEntries.forEach(entry => {
       items.push({
         ...entry,
-        itemType: 'entry',
-        type: 'entry'
+        itemType: 'entry'
+        // Don't override the type field - keep the original entry.type
       });
     });
 
@@ -366,7 +438,8 @@ const DirectoryView = ({
         type: newItemType,
         title: newItemTitle.trim(),
         description: '',
-        parentId: currentStructure?.id || null
+        parentId: currentStructure?.id || null,
+        color: currentStructure?.color || '#8B5CF6' // Inherit parent's color, default to purple if no parent
       });
       setShowNewItemForm(false);
       setNewItemTitle('');
@@ -384,7 +457,15 @@ const DirectoryView = ({
 
   // Handle updating item color
   const handleUpdateColor = (item, newColor) => {
-    onUpdateStructure(item.id, { color: newColor });
+    if (item.itemType === 'entry') {
+      // For entries, use the onUpdateEntry function if available
+      if (onUpdateEntry) {
+        onUpdateEntry(item.id, { color: newColor });
+      }
+    } else {
+      // For structure items, use onUpdateStructure
+      onUpdateStructure(item.id, { color: newColor });
+    }
     setEditingColor(null);
   };
 
@@ -533,19 +614,28 @@ const DirectoryView = ({
       >
         {/* Drag Handle Indicator */}
         {isEditMode && !isEditing && (
-          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`absolute top-2 left-2 transition-opacity ${
+            isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}>
             <div className="p-1 bg-white/70 rounded-md cursor-move">
               <GripVertical className="w-4 h-4 text-gray-600" />
             </div>
           </div>
         )}
 
-        {/* Action Menu (shows on hover in edit mode) */}
+        {/* Action Menu (shows on hover in edit mode, always visible on mobile) */}
         {isEditMode && (
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`absolute top-2 right-2 transition-opacity ${
+            isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -659,17 +749,27 @@ const DirectoryView = ({
                   <h3 className="font-semibold text-lg text-gray-900 truncate">
                     {item.title || 'Untitled'}
                   </h3>
-                  {isEntry && (
-                    <Badge variant="outline" className="text-xs">
-                      {item.type || 'Entry'}
-                    </Badge>
-                  )}
-                  {isLeaf && !isEntry && (
-                    <Badge variant="outline" className="text-xs">
-                      Entry
-                    </Badge>
-                  )}
                 </div>
+
+                {/* Content Indicators for Entries */}
+                {isEntry && (() => {
+                  const indicators = getContentIndicators(item);
+                  if (!indicators) return null;
+
+                  return (
+                    <div className="flex items-center gap-2 mt-1">
+                      {indicators.map(({ icon: Icon, count, key }) => (
+                        <div key={key} className="flex items-center gap-0.5 text-gray-500">
+                          <Icon className="w-3.5 h-3.5" />
+                          {count && count > 1 && (
+                            <span className="text-xs">{count}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
                 {(item.description || (isEntry && item.content)) && (
                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                     {item.description || (isEntry ? item.content?.replace(/<[^>]*>/g, '').substring(0, 150) + '...' : '')}
@@ -731,20 +831,6 @@ const DirectoryView = ({
             )}
           </div>
 
-          {/* Navigation Arrow or Document Icon */}
-          {isEntry ? (
-            <div className="flex items-center justify-center text-gray-600 opacity-50 group-hover:opacity-100 transition-opacity">
-              <ExternalLink className="w-5 h-5" />
-            </div>
-          ) : stats.isDirectory ? (
-            <div className="flex items-center justify-center text-gray-600 opacity-50 group-hover:opacity-100 transition-opacity">
-              <ChevronRight className="w-5 h-5" />
-            </div>
-          ) : isLeaf && (
-            <div className="flex items-center justify-center text-gray-600 opacity-50 group-hover:opacity-100 transition-opacity">
-              {isEditMode ? <Edit3 className="w-5 h-5" /> : <ExternalLink className="w-5 h-5" />}
-            </div>
-          )}
         </div>
 
       </div>
@@ -840,7 +926,9 @@ const DirectoryView = ({
 
         {/* Drag Handle for List View */}
         {isEditMode && !isEditing && (
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`absolute left-2 top-1/2 -translate-y-1/2 transition-opacity ${
+            isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}>
             <div className="p-1 bg-white/70 rounded-md cursor-move">
               <GripVertical className="w-4 h-4 text-gray-600" />
             </div>
@@ -936,17 +1024,35 @@ const DirectoryView = ({
                 )}
               </>
             ) : isEntry ? (
-              /* Show entry type and date for entries */
-              <span className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {item.type || 'entry'}
-                </Badge>
-                {item.createdAt && (
+              /* Show content indicators for entries */
+              (() => {
+                const indicators = getContentIndicators(item);
+                if (indicators) {
+                  return (
+                    <div className="flex items-center gap-3">
+                      {indicators.map(({ icon: Icon, count, key }) => (
+                        <span key={key} className="flex items-center gap-0.5">
+                          <Icon className="w-3.5 h-3.5" />
+                          {count && count > 1 && (
+                            <span className="text-xs">{count}</span>
+                          )}
+                        </span>
+                      ))}
+                      {item.createdAt && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          {new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+                // If no indicators, just show the date
+                return (
                   <span className="text-xs text-gray-400">
-                    {new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString()}
+                    {item.createdAt && new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString()}
                   </span>
-                )}
-              </span>
+                );
+              })()
             ) : (
               !isLeaf && <span className="text-gray-400 italic">Empty</span>
             )}
@@ -958,7 +1064,14 @@ const DirectoryView = ({
           {isEditMode && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={
+                    isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -997,9 +1110,6 @@ const DirectoryView = ({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {(isEntry || stats.isDirectory) && (
-            <ChevronRight className="w-5 h-5 text-gray-600 opacity-50 group-hover:opacity-100" />
-          )}
         </div>
       </div>
     );
@@ -1019,7 +1129,7 @@ const DirectoryView = ({
           No items yet
         </h3>
       
-        {(isCollection || (isEditMode && isPortfolio)) && (
+        {!isPresentationMode && (isCollection || (isEditMode && isPortfolio)) && (
           <Button
             onClick={() => {
               if (isCollection) {
@@ -1028,7 +1138,12 @@ const DirectoryView = ({
                 setShowNewItemForm(true); // For portfolios, show the form
               }
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 transition-all"
+            style={currentStructure?.color ? {
+              backgroundColor: darkenColor(currentStructure.color, 0.25),
+              color: 'white',
+              borderColor: 'transparent'
+            } : {}}
           >
             <Plus className="w-4 h-4" />
             Add {isPortfolio ? 'Collection' : isCollection ? 'Entry' : 'Item'}
@@ -1041,11 +1156,12 @@ const DirectoryView = ({
   return (
     <div className="h-full flex flex-col">
       {/* Header Controls */}
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 mb-6 relative">
+        <DevFileIndicator fileName="DirectoryView.js" />
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {/* View Mode Toggle - Fully transparent with darker theme color */}
+            <div className="flex items-center gap-1 bg-transparent backdrop-blur-sm rounded-lg p-1 border border-gray-200/30">
               <Button
                 size="sm"
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -1053,7 +1169,12 @@ const DirectoryView = ({
                   setViewMode('grid');
                   localStorage.setItem('portfolioViewMode', 'grid');
                 }}
-                className="h-8 px-3"
+                className="h-8 px-3 transition-all"
+                style={viewMode === 'grid' && currentStructure?.color ? {
+                  backgroundColor: darkenColor(currentStructure.color, 0.25),
+                  color: 'white',
+                  borderColor: 'transparent'
+                } : {}}
               >
                 <Grid3x3 className="w-4 h-4" />
               </Button>
@@ -1064,15 +1185,34 @@ const DirectoryView = ({
                   setViewMode('list');
                   localStorage.setItem('portfolioViewMode', 'list');
                 }}
-                className="h-8 px-3"
+                className="h-8 px-3 transition-all"
+                style={viewMode === 'list' && currentStructure?.color ? {
+                  backgroundColor: darkenColor(currentStructure.color, 0.25),
+                  color: 'white',
+                  borderColor: 'transparent'
+                } : {}}
               >
                 <List className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Search Bar - show when there are more than 6 items total (not filtered) */}
+            {allItems.length > 6 && (
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Add Button - show for collections (to add entries) and portfolios (to add collections) */}
-          {currentStructure?.type !== 'entry' && (currentStructure?.type === 'collection' || isEditMode) && (
+          {/* Add Button - show for collections (to add entries) and portfolios (to add collections) - Hide in presentation mode */}
+          {!isPresentationMode && currentStructure?.type !== 'entry' && (currentStructure?.type === 'collection' || isEditMode) && (
             <Button
               onClick={() => {
                 const isCollection = currentStructure?.type === 'collection';
@@ -1091,7 +1231,12 @@ const DirectoryView = ({
                   setShowNewItemForm(true);
                 }
               }}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 transition-all"
+              style={currentStructure?.color ? {
+                backgroundColor: darkenColor(currentStructure.color, 0.25),
+                color: 'white',
+                borderColor: 'transparent'
+              } : {}}
             >
               <Plus className="w-4 h-4" />
               Add {currentStructure?.type === 'collection' ? 'Entry' : currentStructure?.type === 'portfolio' || currentStructure?.type === 'course' ? 'Collection' : 'Portfolio'}
@@ -1099,19 +1244,6 @@ const DirectoryView = ({
           )}
         </div>
 
-        {/* Search Bar */}
-        {filteredChildren.length > 5 && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        )}
       </div>
 
       {/* New Item Form */}

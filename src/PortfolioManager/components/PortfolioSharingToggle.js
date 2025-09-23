@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Dialog,
   DialogContent,
@@ -204,6 +205,7 @@ const PortfolioSharingToggle = ({ entry, familyId, onUpdate }) => {
             </span>
           )}
         </div>
+        <DevFileIndicator fileName="PortfolioSharingToggle.js" />
       </DialogContent>
     </Dialog>
   );

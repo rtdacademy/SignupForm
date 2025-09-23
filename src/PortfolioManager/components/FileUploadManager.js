@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Upload,
   X,
@@ -551,6 +552,7 @@ const FileUploadManager = ({
           </div>
         </div>
       )}
+      <DevFileIndicator fileName="FileUploadManager.js" />
     </div>
   );
 };

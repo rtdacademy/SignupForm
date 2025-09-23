@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -285,6 +286,7 @@ const PortfolioStructureDropdown = ({
           </>
         )}
       </DropdownMenuContent>
+      <DevFileIndicator fileName="PortfolioStructureDropdown.js" />
     </DropdownMenu>
   );
 };

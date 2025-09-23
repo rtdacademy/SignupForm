@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Sheet,
   SheetContent,
@@ -408,6 +409,7 @@ const PortfolioTagSelector = ({
           This helps demonstrate coverage of learning outcomes to your facilitator.
         </p>
       </div>
+      <DevFileIndicator fileName="PortfolioTagSelector.js" />
     </div>
   );
 };

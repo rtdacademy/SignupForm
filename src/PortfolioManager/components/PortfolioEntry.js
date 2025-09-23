@@ -3,6 +3,7 @@ import 'react-quill/dist/quill.snow.css'; // Import Quill styles for proper disp
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import DevFileIndicator from './DevFileIndicator';
 import {
   AccordionItem,
   AccordionTrigger,
@@ -52,6 +53,7 @@ import {
 import PortfolioComments from './PortfolioComments';
 import PortfolioTagSelector from './PortfolioTagSelector';
 import PortfolioShareButton from './PortfolioShareButton';
+import EditableAttachmentsSection from './EditableAttachmentsSection';
 
 const PortfolioEntry = ({
   entry,
@@ -81,9 +83,11 @@ const PortfolioEntry = ({
   customResources = []
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentAttachmentIndex, setCurrentAttachmentIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [showTagSheet, setShowTagSheet] = useState(false);
   const [updatingTags, setUpdatingTags] = useState(false);
+  const [showAttachmentPreview, setShowAttachmentPreview] = useState(false);
   const videoRef = useRef(null);
 
   // Load comments when component mounts or entry changes
@@ -127,10 +131,11 @@ const PortfolioEntry = ({
 
   // Get preview content - simplified without text preview
   const getPreviewContent = () => {
-    if (entry.files?.length > 0) {
-      if (entry.type === 'image') return `${entry.files.length} image${entry.files.length > 1 ? 's' : ''}`;
-      if (entry.type === 'video') return `${entry.files.length} video${entry.files.length > 1 ? 's' : ''}`;
-      return `${entry.files.length} file${entry.files.length > 1 ? 's' : ''}`;
+    const attachmentCount = (entry.files?.length || 0) + (entry.attachments?.length || 0);
+    if (attachmentCount > 0) {
+      if (entry.type === 'image') return `${attachmentCount} image${attachmentCount > 1 ? 's' : ''}`;
+      if (entry.type === 'video') return `${attachmentCount} video${attachmentCount > 1 ? 's' : ''}`;
+      return `${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`;
     }
     if (entry.reflections) {
       return 'Contains reflections';
@@ -139,6 +144,63 @@ const PortfolioEntry = ({
       return 'Contains content';
     }
     return '';
+  };
+
+  // Combine files and attachments into a single array for the preview component
+  const getAllAttachments = () => {
+    const files = entry.files || [];
+    const attachments = entry.attachments || [];
+    const allAttachments = [...files, ...attachments];
+
+    // Debug logging
+    if (viewMode === 'expanded') {
+      console.log('PortfolioEntry - getAllAttachments debug:', {
+        entryId: entry.id,
+        entryTitle: entry.title,
+        entryType: entry.type,
+        files: files,
+        filesLength: files.length,
+        attachments: attachments,
+        attachmentsLength: attachments.length,
+        totalAttachments: allAttachments.length,
+        fullEntry: entry
+      });
+    }
+
+    return allAttachments;
+  };
+
+  // Handle attachment update (title changes)
+  const handleAttachmentUpdate = async (index, updatedAttachment) => {
+    if (!onUpdate) return;
+
+    const allAttachments = getAllAttachments();
+    const updatedAllAttachments = [...allAttachments];
+    updatedAllAttachments[index] = updatedAttachment;
+
+    // Split back into files and attachments based on original structure
+    const files = entry.files || [];
+    const attachments = entry.attachments || [];
+
+    let updatedFiles = files;
+    let updatedAttachmentsList = attachments;
+
+    if (index < files.length) {
+      // Update in files array
+      updatedFiles = [...files];
+      updatedFiles[index] = updatedAttachment;
+    } else {
+      // Update in attachments array
+      const attachmentIndex = index - files.length;
+      updatedAttachmentsList = [...attachments];
+      updatedAttachmentsList[attachmentIndex] = updatedAttachment;
+    }
+
+    // Update the entry with new file metadata
+    await onUpdate({
+      files: updatedFiles.length > 0 ? updatedFiles : undefined,
+      attachments: updatedAttachmentsList.length > 0 ? updatedAttachmentsList : undefined
+    });
   };
 
   // Render HTML content with Quill styles
@@ -186,6 +248,16 @@ const PortfolioEntry = ({
 
   // Expanded view for presentation mode
   if (viewMode === 'expanded') {
+    // Debug log the entry data
+    console.log('PortfolioEntry - Expanded mode entry:', {
+      id: entry.id,
+      title: entry.title,
+      type: entry.type,
+      hasFiles: !!(entry.files && entry.files.length > 0),
+      hasAttachments: !!(entry.attachments && entry.attachments.length > 0),
+      entry: entry
+    });
+
     // In expanded mode, show full content directly without accordion
     return (
       <div className="space-y-6 p-6">
@@ -212,54 +284,31 @@ const PortfolioEntry = ({
           </div>
         </div>
 
-        {/* Content based on type */}
-        {entry.type === 'image' && entry.files?.length > 0 && (
-          <div className="space-y-4">
-            <img
-              src={entry.files[currentImageIndex]?.url}
-              alt={entry.files[currentImageIndex]?.name}
-              className="w-full rounded-lg shadow-lg"
-            />
-            {entry.files.length > 1 && (
-              <div className="flex justify-center gap-2">
-                {entry.files.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      index === currentImageIndex ? 'bg-purple-600' : 'bg-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {entry.type === 'video' && entry.files?.length > 0 && (
-          <div className="relative rounded-lg overflow-hidden bg-black">
-            <video
-              ref={videoRef}
-              src={entry.files[0]?.url}
-              className="w-full"
-              controls
-            />
-          </div>
-        )}
-
+        {/* Main content - text/reflections */}
         {entry.content && (
-          <div className="bg-white rounded-lg">
+          <div className="bg-white rounded-lg mb-6">
             {renderHTMLContent(entry.content)}
           </div>
         )}
 
         {/* Reflections */}
         {entry.reflections && (
-          <div className="bg-purple-50 rounded-lg p-6">
+          <div className="bg-purple-50 rounded-lg p-6 mb-6">
             <h3 className="font-semibold text-purple-900 mb-2">Reflections</h3>
             <p className="text-gray-700">{entry.reflections}</p>
           </div>
         )}
+
+        {/* Attachments Section - Below main content */}
+        {getAllAttachments().length > 0 && (
+          <EditableAttachmentsSection
+            attachments={getAllAttachments()}
+            onUpdateAttachment={handleAttachmentUpdate}
+            readOnly={!onUpdate}
+            className="border-t pt-6"
+          />
+        )}
+
 
         {/* Tags */}
         {getTotalTagCount() > 0 && (
@@ -341,10 +390,10 @@ const PortfolioEntry = ({
                 {getTotalTagCount()} tags
               </Badge>
             )}
-            {entry.files?.length > 0 && (
+            {getAllAttachments().length > 0 && (
               <Badge variant="outline" className="text-xs">
                 <Paperclip className="w-3 h-3 mr-1" />
-                {entry.files.length}
+                {getAllAttachments().length}
               </Badge>
             )}
           </div>
@@ -376,53 +425,30 @@ const PortfolioEntry = ({
             )}
           </div>
 
-          {/* Content based on type */}
-          {entry.type === 'image' && entry.files?.length > 0 && (
-            <div className="space-y-4">
-              <img
-                src={entry.files[currentImageIndex]?.url}
-                alt={entry.files[currentImageIndex]?.name}
-                className="w-full rounded-lg shadow-lg max-h-[600px] object-contain"
-              />
-              {entry.files.length > 1 && (
-                <div className="flex justify-center gap-2">
-                  {entry.files.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        index === currentImageIndex ? 'bg-purple-600' : 'bg-gray-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {entry.type === 'video' && entry.files?.length > 0 && (
-            <div className="relative rounded-lg overflow-hidden bg-black">
-              <video
-                ref={videoRef}
-                src={entry.files[0]?.url}
-                className="w-full"
-                controls
-              />
-            </div>
-          )}
+          {/* Main Content */}
 
           {entry.content && (
-            <div className="bg-gray-50 rounded-lg p-6">
+            <div className="bg-gray-50 rounded-lg p-6 mb-4">
               {renderHTMLContent(entry.content)}
             </div>
           )}
 
           {/* Reflections */}
           {entry.reflections && (
-            <div className="bg-purple-50 rounded-lg p-4">
+            <div className="bg-purple-50 rounded-lg p-4 mb-4">
               <h4 className="font-semibold text-purple-900 mb-2">Reflections</h4>
               <p className="text-gray-700">{entry.reflections}</p>
             </div>
+          )}
+
+          {/* Attachments Section */}
+          {getAllAttachments().length > 0 && (
+            <EditableAttachmentsSection
+              attachments={getAllAttachments()}
+              onUpdateAttachment={handleAttachmentUpdate}
+              readOnly={!onUpdate}
+              className="mb-4"
+            />
           )}
 
           {/* Tags */}
@@ -526,6 +552,7 @@ const PortfolioEntry = ({
               </Button>
             </div>
           </div>
+          <DevFileIndicator fileName="PortfolioEntry.js" />
         </SheetContent>
       </Sheet>
     </AccordionItem>

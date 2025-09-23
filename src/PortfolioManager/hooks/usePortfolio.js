@@ -669,12 +669,37 @@ export const usePortfolio = (familyId, studentId, schoolYear, initialStructureId
   // Update structure item
   const updateStructureItem = useCallback(async (structureId, updates) => {
     try {
-      const structureRef = doc(db, 'portfolios', familyId, 'structure', structureId);
-      
-      await updateDoc(structureRef, {
-        ...updates,
-        lastModified: serverTimestamp()
-      });
+      // Check if this is a virtual structure
+      const structure = portfolioStructure.find(s => s.id === structureId);
+      if (structure?.isVirtual) {
+        // For virtual structures, we need to create a real structure first
+        console.log('Cannot update virtual structure. Creating real structure first.');
+
+        // Create the real structure with the updates
+        const newStructure = {
+          ...structure,
+          ...updates,
+          isVirtual: undefined, // Remove virtual flag
+          createdAt: serverTimestamp(),
+          lastModified: serverTimestamp()
+        };
+
+        const structureRef = doc(db, 'portfolios', familyId, 'structure', structureId);
+        await setDoc(structureRef, newStructure);
+
+        // Update local state to remove virtual flag
+        setPortfolioStructure(prev => prev.map(s =>
+          s.id === structureId ? { ...s, isVirtual: false, ...updates } : s
+        ));
+      } else {
+        // For real structures, update normally
+        const structureRef = doc(db, 'portfolios', familyId, 'structure', structureId);
+
+        await updateDoc(structureRef, {
+          ...updates,
+          lastModified: serverTimestamp()
+        });
+      }
 
       // Update metadata
       const metadataRef = doc(db, 'portfolios', familyId, 'metadata', studentId);
@@ -685,7 +710,7 @@ export const usePortfolio = (familyId, studentId, schoolYear, initialStructureId
       console.error('Error updating structure item:', err);
       throw err;
     }
-  }, [familyId, studentId]);
+  }, [familyId, studentId, portfolioStructure]);
 
   // Archive structure item instead of deleting
   const deleteStructureItem = useCallback(async (structureId) => {

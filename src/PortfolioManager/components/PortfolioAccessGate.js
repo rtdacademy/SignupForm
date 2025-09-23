@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Alert,
   AlertDescription,
@@ -229,6 +230,7 @@ const PortfolioAccessGate = ({
           Full version launching soon
         </p>
       </div>
+      <DevFileIndicator fileName="PortfolioAccessGate.js" />
     </div>
   );
 };

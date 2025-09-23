@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Dialog,
   DialogContent,
@@ -529,6 +530,7 @@ const PortfolioShareButton = ({ entry, familyId, onUpdate, buttonSize = "sm", bu
             </span>
           )}
         </div>
+        <DevFileIndicator fileName="PortfolioShareButton.js" />
       </DialogContent>
     </Dialog>
   );

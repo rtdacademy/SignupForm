@@ -3205,8 +3205,8 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
             if (item?.rawFamily) {
               console.log('Family record clicked:', item.rawFamily);
               console.log('Family ID:', item.familyId);
-              console.log('Family Name:', item.familyName);
-              console.log('Full record object:', JSON.stringify(item.rawFamily, null, 2));
+              //console.log('Family Name:', item.familyName);
+              //console.log('Full record object:', JSON.stringify(item.rawFamily, null, 2));
             }
           }}
           style={{ cursor: 'pointer' }}

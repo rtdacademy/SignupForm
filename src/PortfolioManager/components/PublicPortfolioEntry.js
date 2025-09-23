@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import DevFileIndicator from './DevFileIndicator';
 import { Badge } from '../../components/ui/badge';
 import {
   Calendar,
@@ -330,6 +331,7 @@ const PublicPortfolioEntry = () => {
           </div>
         </Card>
       </div>
+      <DevFileIndicator fileName="PublicPortfolioEntry.js" />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import PortfolioSidebar from './PortfolioSidebar';
 import PortfolioBuilder from './PortfolioBuilder';
 import PortfolioQuickAdd from './PortfolioQuickAdd';
 import PortfolioAccessGate from './PortfolioAccessGate';
+import DevFileIndicator from './DevFileIndicator';
 import SOLOEducationPlanForm from '../../RTDConnect/SOLOEducationPlanForm';
 import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
@@ -46,6 +47,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const [isInFullPresentation, setIsInFullPresentation] = useState(false);
 
   // Use ref to prevent update loops between URL and state
   const isUpdatingFromUrl = React.useRef(false);
@@ -233,8 +235,9 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
-      {/* Header Bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      {/* Header Bar - Hidden in full presentation mode */}
+      {!isInFullPresentation && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {isMobile && (
             <Button
@@ -274,23 +277,26 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             </Button>
           )}
 
-          {/* Quick Add Button */}
-          <Button
-            onClick={handleQuickAdd}
-            size="sm"
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white gap-2"
-          >
-            <Zap className="w-4 h-4" />
-            <span className="hidden md:inline">Quick Add</span>
-          </Button>
+          {/* Quick Add Button - Hide on mobile since there's a floating action button */}
+          {!isMobile && (
+            <Button
+              onClick={handleQuickAdd}
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              <span className="hidden md:inline">Quick Add</span>
+            </Button>
+          )}
         </div>
 
       </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Sidebar */}
-        {!isMobile && (
+        {/* Desktop Sidebar - Hidden in full presentation mode */}
+        {!isMobile && !isInFullPresentation && (
           <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out`}>
             <PortfolioSidebar
               structure={getStructureHierarchy()}
@@ -349,7 +355,10 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             onReorderStructure={reorderStructure}
             onReorderEntries={reorderEntries}
             onInitializeStructure={initializeStructureFromEntries}
-            onPresentationModeChange={(isPresenting) => {
+            onPresentationModeChange={(isPresenting, isFullPresentation) => {
+              // Handle fullscreen presentation mode
+              setIsInFullPresentation(isFullPresentation || false);
+
               // Only auto-collapse once per session when entering presentation mode
               if (isPresenting && !sidebarCollapsed && !hasAutoCollapsed) {
                 setSidebarCollapsed(true);
@@ -364,22 +373,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <div className="bg-white border-t border-gray-200 px-4 py-2">
-          <div className="flex justify-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(true)}
-              className="px-8"
-            >
-              <FolderPlus className="w-4 h-4" />
-              <span className="text-xs ml-1">Sections</span>
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Mobile Bottom Navigation - Removed for cleaner mobile interface */}
 
       {/* Mobile Sidebar Sheet */}
       <Sheet open={sidebarOpen && isMobile} onOpenChange={setSidebarOpen}>
@@ -452,6 +446,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         staffMode={false}
       />
 
+      <DevFileIndicator fileName="PortfolioManager.js" />
     </div>
   );
 };

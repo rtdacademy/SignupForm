@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Progress } from '../../components/ui/progress';
+import DevFileIndicator from './DevFileIndicator';
 import {
   FileText,
   Image,
@@ -523,6 +524,7 @@ const PortfolioDashboard = ({
           )}
         </CardContent>
       </Card>
+      <DevFileIndicator fileName="PortfolioDashboard.js" />
     </div>
   );
 };

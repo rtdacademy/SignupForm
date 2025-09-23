@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import DevFileIndicator from './DevFileIndicator';
 import {
   Popover,
   PopoverContent,
@@ -304,13 +305,16 @@ const PortfolioSidebar = ({
         }
       }
 
+      // Inherit parent's color if it exists, otherwise use a random color
+      const defaultColor = parentItem?.color || colorPalette[Math.floor(Math.random() * colorPalette.length)];
+
       onCreateStructure({
         type: newItemType,
         title: newItemTitle.trim(),
         description: '',
         parentId: newItemParentId,
         icon: getIconForType(newItemType),
-        color: colorPalette[Math.floor(Math.random() * colorPalette.length)]
+        color: defaultColor
       });
 
       setShowNewItemForm(false);
@@ -998,6 +1002,7 @@ const PortfolioSidebar = ({
           </div>
         </div>
       )}
+      <DevFileIndicator fileName="PortfolioSidebar.js" />
     </div>
     </TooltipProvider>
   );
