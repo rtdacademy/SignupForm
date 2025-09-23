@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePortfolio, useSOLOIntegration } from '../hooks/usePortfolio';
 import PortfolioSidebar from './PortfolioSidebar';
 import PortfolioBuilder from './PortfolioBuilder';
-import PortfolioQuickAdd from './PortfolioQuickAdd';
+// import PortfolioQuickAdd from './PortfolioQuickAdd'; // Temporarily disabled quick add feature
 import PortfolioAccessGate from './PortfolioAccessGate';
 import DevFileIndicator from './DevFileIndicator';
 import SOLOEducationPlanForm from '../../RTDConnect/SOLOEducationPlanForm';
@@ -45,7 +45,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSOLOPlan, setShowSOLOPlan] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  // const [showQuickAdd, setShowQuickAdd] = useState(false); // Temporarily disabled quick add feature
   const [hasAccess, setHasAccess] = useState(false);
   const [isInFullPresentation, setIsInFullPresentation] = useState(false);
 
@@ -161,16 +161,18 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
 
 
   // Quick action handlers
-  const handleQuickAdd = () => {
-    setShowQuickAdd(true);
-  };
+  // Temporarily disabled quick add feature
+  // const handleQuickAdd = () => {
+  //   setShowQuickAdd(true);
+  // };
   
-  // Notify parent when quick add is requested
-  useEffect(() => {
-    if (onQuickAddOpen) {
-      onQuickAddOpen(() => setShowQuickAdd(true));
-    }
-  }, [onQuickAddOpen]);
+  // Temporarily disabled quick add feature
+  // // Notify parent when quick add is requested
+  // useEffect(() => {
+  //   if (onQuickAddOpen) {
+  //     onQuickAddOpen(() => setShowQuickAdd(true));
+  //   }
+  // }, [onQuickAddOpen]);
 
 
   // Open SOLO Education Plan form
@@ -262,9 +264,9 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         </div>
 
         {/* Action Buttons in header */}
-        <div className="flex items-center space-x-2">
-          {/* Open in New Tab button - only show in embedded mode */}
-          {!isStandalone && (
+        <div className="flex items-center space-x-2 pr-8">
+          {/* Open in New Tab button - only show for staff users in embedded mode */}
+          {!isStandalone && isStaff && (
             <Button
               onClick={handleOpenInNewTab}
               size="sm"
@@ -277,8 +279,8 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
             </Button>
           )}
 
-          {/* Quick Add Button - Hide on mobile since there's a floating action button */}
-          {!isMobile && (
+          {/* Quick Add Button - Temporarily disabled */}
+          {/* {!isMobile && (
             <Button
               onClick={handleQuickAdd}
               size="sm"
@@ -287,7 +289,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
               <Zap className="w-4 h-4" />
               <span className="hidden md:inline">Quick Add</span>
             </Button>
-          )}
+          )} */}
         </div>
 
       </div>
@@ -402,21 +404,21 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         </SheetContent>
       </Sheet>
 
-      {/* Floating Action Button (Mobile) */}
-      {isMobile && (
-        <div className="fixed bottom-20 right-4 z-10">
+      {/* Floating Action Button (Mobile) - Temporarily disabled */}
+      {/* {isMobile && (
+        <div className="fixed bottom-20 right-4 z-50">
           <Button
             size="lg"
-            className="rounded-full w-14 h-14 shadow-lg bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+            className="rounded-full w-14 h-14 shadow-lg bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 flex items-center justify-center p-0"
             onClick={handleQuickAdd}
           >
-            <Zap className="w-6 h-6" />
+            <Zap className="w-6 h-6 text-white" />
           </Button>
         </div>
-      )}
+      )} */}
 
-      {/* Quick Add Modal */}
-      <PortfolioQuickAdd
+      {/* Quick Add Modal - Temporarily disabled */}
+      {/* <PortfolioQuickAdd
         isOpen={showQuickAdd}
         onClose={() => setShowQuickAdd(false)}
         portfolioStructure={portfolioStructure}
@@ -433,7 +435,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         customAssessments={customAssessments}
         customResources={customResources}
         preselectedStructureId={selectedStructureId}
-      />
+      /> */}
 
       {/* SOLO Education Plan Form */}
       <SOLOEducationPlanForm

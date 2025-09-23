@@ -842,39 +842,31 @@ const PortfolioBuilder = ({
       return (
         <>
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-          {/* Presentation Mode Header */}
-          <div className="bg-white/90 backdrop-blur-sm border-b sticky top-0 z-10 px-8 py-4">
-            <div className="flex items-center justify-between max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {student?.firstName}'s Portfolio
-                </h1>
-                <p className="mt-1 text-gray-600">Learning Journey & Achievements</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {isSavingOrder && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-white/80 px-3 py-1.5 rounded-lg">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Saving...</span>
-                  </div>
-                )}
-                {!isPresentationMode && (
-                  <Button
-                    onClick={() => setEditingCardId(editingCardId ? null : 'edit-mode')}
-                    className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <PenTool className="w-4 h-4" />
-                    {editingCardId ? 'Done Editing' : 'Edit Cards'}
-                  </Button>
-                )}
-                {renderModeToggle()}
-              </div>
+          {/* Action Bar */}
+          <div className="bg-white/90 backdrop-blur-sm border-b sticky top-0 z-10 px-4 sm:px-8 py-3">
+            <div className="flex items-center justify-end gap-3 max-w-7xl mx-auto">
+              {isSavingOrder && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 bg-white/80 px-3 py-1.5 rounded-lg">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </div>
+              )}
+              {!isPresentationMode && (
+                <Button
+                  onClick={() => setEditingCardId(editingCardId ? null : 'edit-mode')}
+                  className="gap-2 bg-white hover:bg-purple-50 border-2 border-purple-200 text-purple-700 hover:text-purple-800 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base"
+                >
+                  <PenTool className="w-4 h-4" />
+                  <span className="hidden sm:inline">{editingCardId ? 'Done Editing' : 'Edit Cards'}</span>
+                  <span className="sm:hidden">{editingCardId ? 'Done' : 'Edit'}</span>
+                </Button>
+              )}
             </div>
           </div>
 
           {/* Portfolio Sections Grid with Animations */}
-          <div className="max-w-7xl mx-auto px-8 py-12">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 portfolio-stagger-container">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 portfolio-stagger-container">
               {(optimisticStructure || portfolioStructure)
                 .filter(item => item.parentId === null && (item.type === 'portfolio' || item.type === 'course'))
                 .sort((a, b) => (a.order || 0) - (b.order || 0))

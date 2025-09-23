@@ -753,18 +753,20 @@ const PortfolioSidebar = ({
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col bg-gray-50 relative">
-        {/* Collapse Toggle Button */}
-        <button
-          onClick={onToggleCollapse}
-          className="absolute -right-3 top-4 z-50 bg-white border border-gray-200 rounded-full p-1.5 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md"
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? (
-            <PanelLeft className="w-4 h-4 text-gray-600" />
-          ) : (
-            <PanelLeftClose className="w-4 h-4 text-gray-600" />
-          )}
-        </button>
+        {/* Collapse Toggle Button - Only show when onToggleCollapse is provided (desktop) */}
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="absolute -right-3 top-4 z-50 bg-white border border-gray-200 rounded-full p-1.5 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <PanelLeft className="w-4 h-4 text-gray-600" />
+            ) : (
+              <PanelLeftClose className="w-4 h-4 text-gray-600" />
+            )}
+          </button>
+        )}
 
         {/* Search bar */}
         {!isCollapsed && (

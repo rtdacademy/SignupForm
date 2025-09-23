@@ -758,53 +758,53 @@ AIAccordion, onAIAccordionContent }) => {
             questions={[
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_dispersion_air_speeds',
-                title: 'Question 1: Light Speed in Air'
+                questionId: 'course2_18_constructive_amplitude',
+                title: 'Question 1: Constructive Interference Amplitude'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_diamond_dispersion',
-                title: 'Question 2: Diamond Dispersion'
+                questionId: 'course2_18_destructive_amplitude',
+                title: 'Question 2: Destructive Interference Amplitude'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_microscopy_scattering',
-                title: 'Question 3: Microscopy and Scattering'
+                questionId: 'course2_18_dark_fringes_cause',
+                title: 'Question 3: Cause of Dark Fringes'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_clothing_color_heat',
-                title: 'Question 4: Clothing Color and Heat'
+                questionId: 'course2_18_wavelength_fringe_spacing',
+                title: 'Question 4: Wavelength and Fringe Spacing'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_red_orange_difference',
-                title: 'Question 5: Red vs Orange Light'
+                questionId: 'course2_18_path_difference_interference',
+                title: 'Question 5: Path Difference and Interference'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_stage_lighting_color',
-                title: 'Question 6: Stage Lighting Effects'
+                questionId: 'course2_18_coherence_requirement',
+                title: 'Question 6: Coherence Requirements'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_window_glass_dispersion',
-                title: 'Question 7: Window Glass Dispersion'
+                questionId: 'course2_18_single_slit_blocking',
+                title: 'Question 7: Single Slit Blocking Effects'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_green_object_lighting',
-                title: 'Question 8: Green Object Under Different Lights'
+                questionId: 'course2_18_lightbulb_incoherence',
+                title: 'Question 8: Lightbulb Incoherence'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_cat_color_vision',
-                title: 'Question 9: Cat Color Vision'
+                questionId: 'course2_18_fringe_count_factors',
+                title: 'Question 9: Fringe Count Factors'
               },
               {
                 type: 'multiple-choice',
-                questionId: 'course2_17_moonlight_colorless',
-                title: 'Question 10: Moonlight and Color'
+                questionId: 'course2_18_sound_dead_spots',
+                title: 'Question 10: Sound Dead Spots'
               }
             ]}
             theme="purple"
