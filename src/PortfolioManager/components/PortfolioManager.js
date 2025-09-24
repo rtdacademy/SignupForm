@@ -195,7 +195,7 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         isInsideSidebar: sidebarRef.current?.contains(event.target)
       };
 
-      console.log('Click detected', conditions);
+      //console.log('Click detected', conditions);
 
       // Only collapse on desktop and when sidebar is expanded
       if (!isMobile && !sidebarCollapsed) {

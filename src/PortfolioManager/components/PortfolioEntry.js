@@ -54,12 +54,16 @@ import PortfolioComments from './PortfolioComments';
 import PortfolioTagSelector from './PortfolioTagSelector';
 import PortfolioShareButton from './PortfolioShareButton';
 import EditableAttachmentsSection from './EditableAttachmentsSection';
+import MessageIconButton from './MessageIconButton';
+import CommunicationSheet from './CommunicationSheet';
+import { useCommunication } from '../hooks/useCommunication';
 
 const PortfolioEntry = ({
   entry,
   viewMode = 'grid',
   isPresentationMode = false,
   familyId,
+  studentId,
   onEdit,
   onDelete,
   onUpdate,
@@ -88,7 +92,19 @@ const PortfolioEntry = ({
   const [showTagSheet, setShowTagSheet] = useState(false);
   const [updatingTags, setUpdatingTags] = useState(false);
   const [showAttachmentPreview, setShowAttachmentPreview] = useState(false);
+  const [showCommunicationSheet, setShowCommunicationSheet] = useState(false);
   const videoRef = useRef(null);
+
+  // Use communication hook when we have the required IDs
+  const {
+    unreadByEntry = {}
+  } = useCommunication(
+    familyId || null,
+    studentId || null,
+    entry?.id || null
+  );
+
+  const unreadCount = entry?.id ? (unreadByEntry[entry.id] || 0) : 0;
 
   // Load comments when component mounts or entry changes
   useEffect(() => {
@@ -260,10 +276,24 @@ const PortfolioEntry = ({
 
     // In expanded mode, show full content directly without accordion
     return (
+      <>
       <div className="space-y-6 p-6">
         {/* Title and metadata */}
         <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{entry.title}</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold text-gray-900">{entry.title}</h2>
+            {familyId && studentId && (
+              <MessageIconButton
+                unreadCount={unreadCount}
+                onClick={() => setShowCommunicationSheet(true)}
+                variant="outline"
+                size="default"
+                showLabel={true}
+                labelText="Messages"
+                iconSize="default"
+              />
+            )}
+          </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
@@ -348,11 +378,25 @@ const PortfolioEntry = ({
           </div>
         )}
       </div>
+
+      {/* Communication Sheet */}
+      {familyId && studentId && (
+        <CommunicationSheet
+          entryId={entry?.id}
+          entryTitle={entry?.title}
+          familyId={familyId}
+          studentId={studentId}
+          isOpen={showCommunicationSheet}
+          onOpenChange={setShowCommunicationSheet}
+        />
+      )}
+      </>
     );
   }
 
   // Main accordion-based display
   return (
+    <>
     <AccordionItem value={entry.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow">
       <AccordionTrigger className="hover:no-underline">
         <div className="flex items-center justify-between w-full pr-4">
@@ -402,6 +446,21 @@ const PortfolioEntry = ({
 
       <AccordionContent>
         <div className="px-6 pb-6 space-y-4">
+          {/* Enhanced Communication and Action Buttons */}
+          {familyId && studentId && (
+            <div className="mb-4 p-2">
+              <EnhancedMessageButton
+                parentMessages={parentMessages}
+                staffMessages={staffMessages}
+                lastMessage={lastMessage}
+                onClick={() => setShowCommunicationSheet(true)}
+                size="default"
+                orientation="horizontal"
+                className="max-w-full"
+              />
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-2 pb-4 border-b">
             <PortfolioShareButton
@@ -450,6 +509,7 @@ const PortfolioEntry = ({
               className="mb-4"
             />
           )}
+
 
           {/* Tags */}
           {getTotalTagCount() > 0 && (
@@ -556,6 +616,19 @@ const PortfolioEntry = ({
         </SheetContent>
       </Sheet>
     </AccordionItem>
+
+    {/* Communication Sheet */}
+    {familyId && studentId && (
+      <CommunicationSheet
+        entryId={entry?.id}
+        entryTitle={entry?.title}
+        familyId={familyId}
+        studentId={studentId}
+        isOpen={showCommunicationSheet}
+        onOpenChange={setShowCommunicationSheet}
+      />
+    )}
+    </>
   );
 };
 

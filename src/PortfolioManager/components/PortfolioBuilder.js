@@ -116,6 +116,7 @@ const PortfolioBuilder = ({
   const [modeTransitioning, setModeTransitioning] = useState(false); // Track mode transitions
   const [previewEntryData, setPreviewEntryData] = useState(null); // Track preview data
   const [isPreviewingFromEdit, setIsPreviewingFromEdit] = useState(false); // Track if previewing from edit sheet
+  const [showCommunicationDashboard, setShowCommunicationDashboard] = useState(false); // Track communication dashboard
 
   // Helper function to create a light gradient from collection color
   const getCollectionGradient = () => {
@@ -1145,6 +1146,7 @@ const PortfolioBuilder = ({
                     viewMode="expanded"
                     isPresentationMode={true}
                     familyId={familyId}
+                    studentId={student?.id}
                     onEdit={() => {
                       setIsPresentationMode(false);
                       setEditingEntry(viewingEntry);
@@ -1249,6 +1251,7 @@ const PortfolioBuilder = ({
                                   viewMode="expanded"
                                   isPresentationMode={true}
                                   familyId={familyId}
+                                  studentId={student?.id}
                                   onEdit={() => {
                                     setIsPresentationMode(false);
                                     setEditingEntry(entry);
@@ -1306,6 +1309,8 @@ const PortfolioBuilder = ({
                             entry={entry}
                             viewMode="presentation"
                             isPresentationMode={true}
+                            familyId={familyId}
+                            studentId={student?.id}
                             onEdit={() => {
                               setIsPresentationMode(false);
                               setEditingEntry(entry);
@@ -1401,6 +1406,7 @@ const PortfolioBuilder = ({
               entry={previewEntryData}
               viewMode="expanded"
               familyId={familyId}
+              studentId={student?.id}
               isPreview={true}
               onEdit={() => {
                 // Return to edit mode
@@ -1439,6 +1445,7 @@ const PortfolioBuilder = ({
               entry={viewingEntry}
               viewMode="expanded"
               familyId={familyId}
+              studentId={student?.id}
               onEdit={() => {
                 setEditingEntry(viewingEntry);
                 setShowNewEntry(true);
@@ -1533,6 +1540,7 @@ const PortfolioBuilder = ({
                     entry={entry}
                     viewMode={viewMode}
                     familyId={familyId}
+                    studentId={student?.id}
                     onEdit={() => setEditingEntry(entry)}
                     onDelete={() => handleDeleteEntry(entry.id)}
                     onUpdate={(updates) => handleUpdateEntry(entry.id, updates)}
@@ -1597,6 +1605,8 @@ const PortfolioBuilder = ({
         }}
         entry={editingEntry}
         structureId={selectedStructure?.id}
+        familyId={familyId}
+        studentId={student?.id}
         collectionColor={getInheritedColor(selectedStructure?.id, editingEntry)}
         onPreview={handlePreview}
         onSave={async (entryData, filesToUpload, entryId, fileMetadata) => {

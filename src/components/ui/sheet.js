@@ -33,9 +33,9 @@ const sheetVariants = cva(
         top: "inset-x-0 top-0 h-full border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
           "inset-x-0 bottom-0 h-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        left: "inset-y-0 left-0 h-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+        left: "inset-y-0 left-0 h-full max-w-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
         right:
-          "inset-y-0 right-0 h-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+          "inset-y-0 right-0 h-full max-w-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
       },
     },
     defaultVariants: {
@@ -51,7 +51,7 @@ const SheetContent = React.forwardRef(({ side = "right", size = "default", class
   // For top/bottom sheets, always use full screen dimensions
   const sizeClasses = {
     default: isVertical ? "h-full w-full max-h-none max-w-none" : "w-3/4 sm:max-w-3xl",
-    sm: isVertical ? "h-full w-full max-h-none max-w-none" : "w-full sm:w-2/5 lg:w-1/3 sm:max-w-2xl", 
+    sm: isVertical ? "h-full w-full max-h-none max-w-none" : "w-full sm:w-2/5 lg:w-1/3 sm:max-w-2xl",
     md: isVertical ? "h-full w-full max-h-none max-w-none" : "w-1/2 sm:max-w-md",
     lg: isVertical ? "h-full w-full max-h-none max-w-none" : "w-2/3 sm:max-w-lg",
     xl: isVertical ? "h-full w-full max-h-none max-w-none" : "w-5/6 sm:max-w-xl",
