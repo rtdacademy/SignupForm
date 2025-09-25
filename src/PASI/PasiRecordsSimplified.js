@@ -55,7 +55,8 @@ import {
   List,
   FileDown,
   FileSpreadsheet,
-  BarChart3
+  BarChart3,
+  PieChart as PieChartIcon
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +75,7 @@ import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
 import PDFGenerationSheet from "./PDFGenerationSheet";
 import CSVExportSheet from "./CSVExportSheet";
+import PASIAnalyticsInline from "./PASIAnalyticsInline";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
 import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
@@ -1609,7 +1611,9 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isPDFGenerationOpen, setIsPDFGenerationOpen] = useState(false);
   const [isCSVExportOpen, setIsCSVExportOpen] = useState(false);
-  
+  const [showInlineAnalytics, setShowInlineAnalytics] = useState(false);
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
+
   // Responsive breakpoint state
   const breakpoint = useResponsiveBreakpoint();
   
@@ -3274,6 +3278,15 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
               </Badge>
               {filteredRecords.length > 0 && (
                 <>
+                  <Button
+                    variant={showInlineAnalytics ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowInlineAnalytics(!showInlineAnalytics)}
+                    className="h-8"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    {showInlineAnalytics ? "Hide" : "Show"} Analytics
+                  </Button>
                   {onShowAnalytics && (
                     <Button
                       variant="outline"
@@ -3281,8 +3294,8 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
                       onClick={() => onShowAnalytics(filteredRecords)}
                       className="h-8"
                     >
-                      <BarChart3 className="h-4 w-4 mr-1" />
-                      View Analytics
+                      <PieChartIcon className="h-4 w-4 mr-1" />
+                      Detailed Report
                     </Button>
                   )}
                   <Button
@@ -3739,6 +3752,32 @@ const PasiRecordsSimplified = ({ onShowAnalytics }) => {
               </Button>
             </div>
           </div>
+        )}
+
+        {/* Inline Analytics */}
+        {showInlineAnalytics && filteredRecords.length > 0 && (
+          <Card className="mt-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center justify-between">
+                <span>Analytics for Current View</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAnalyticsExpanded(!analyticsExpanded)}
+                  className="h-7 px-2 text-xs"
+                >
+                  {analyticsExpanded ? "Collapse" : "Expand"} Charts
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <PASIAnalyticsInline
+                records={filteredRecords}
+                viewName={customViews.find(v => v.id === activeTab)?.name || activeTab}
+                expanded={analyticsExpanded}
+              />
+            </CardContent>
+          </Card>
         )}
 
         <TabsContent value={activeTab} className="mt-6">

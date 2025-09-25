@@ -305,6 +305,9 @@ const PortfolioSidebar = ({
         }
       }
 
+      // Find the parent item if it exists
+      const parentItem = newItemParentId ? structure.find(s => s.id === newItemParentId) : null;
+
       // Inherit parent's color if it exists, otherwise use a random color
       const defaultColor = parentItem?.color || colorPalette[Math.floor(Math.random() * colorPalette.length)];
 

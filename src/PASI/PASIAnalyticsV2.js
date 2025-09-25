@@ -207,6 +207,7 @@ const PASIAnalyticsV2 = ({
 }) => {
   // Calculate all analytics data
   const analytics = useMemo(() => {
+
     if (!records || records.length === 0) {
       return {
         totalRecords: 0,
