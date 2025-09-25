@@ -7,6 +7,9 @@ import PortfolioBuilder from './PortfolioBuilder';
 // import PortfolioQuickAdd from './PortfolioQuickAdd'; // Temporarily disabled quick add feature
 import PortfolioAccessGate from './PortfolioAccessGate';
 import DevFileIndicator from './DevFileIndicator';
+import ResourceLibrary from './ResourceLibrary';
+import CommunicationDashboard from './CommunicationDashboard';
+import { useCommunication } from '../hooks/useCommunication';
 import SOLOEducationPlanForm from '../../RTDConnect/SOLOEducationPlanForm';
 import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
@@ -20,7 +23,9 @@ import {
   Upload,
   FolderPlus,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Library,
+  MessageCircle
 } from 'lucide-react';
 
 const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOpen, isStandalone = false }) => {
@@ -47,6 +52,8 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
   const [showSOLOPlan, setShowSOLOPlan] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   // const [showQuickAdd, setShowQuickAdd] = useState(false); // Temporarily disabled quick add feature
+  const [showResourceLibrary, setShowResourceLibrary] = useState(false);
+  const [showCommunicationDashboard, setShowCommunicationDashboard] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [isInFullPresentation, setIsInFullPresentation] = useState(false);
 
@@ -102,6 +109,9 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
     customAssessments,
     customResources
   } = useSOLOIntegration(familyId, student?.id, schoolYear);
+
+  // Communication hook for notification counts
+  const { notifications, getUnreadEntries } = useCommunication(familyId, student?.id);
 
   // Check for mobile viewport
   useEffect(() => {
@@ -351,6 +361,42 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
 
         {/* Action Buttons in header */}
         <div className="flex items-center space-x-2 pr-8">
+          {/* Communication Button */}
+          {!isMobile && (
+            <Button
+              onClick={() => setShowCommunicationDashboard(true)}
+              size="sm"
+              variant="outline"
+              className="gap-2 relative"
+              title="Open Communications Dashboard"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span className="hidden md:inline">Communications</span>
+              {notifications?.unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-red-500 text-white text-xs font-bold">
+                    {notifications.unreadCount > 99 ? '99+' : notifications.unreadCount}
+                  </span>
+                </span>
+              )}
+            </Button>
+          )}
+
+          {/* Resource Library Button */}
+          {!isMobile && (
+            <Button
+              onClick={() => setShowResourceLibrary(true)}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              title="Open Resource Library"
+            >
+              <Library className="w-4 h-4" />
+              <span className="hidden md:inline">Resource Library</span>
+            </Button>
+          )}
+
           {/* Open in New Tab button - only show for staff users in embedded mode */}
           {!isStandalone && isStaff && (
             <Button
@@ -536,6 +582,44 @@ const PortfolioManager = ({ student, familyId, schoolYear, onClose, onQuickAddOp
         readOnly={false}
         staffMode={false}
       />
+
+      {/* Resource Library */}
+      <ResourceLibrary
+        isOpen={showResourceLibrary}
+        onClose={() => setShowResourceLibrary(false)}
+        familyId={familyId}
+        studentId={student?.id}
+      />
+
+      {/* Communication Dashboard Sheet */}
+      <Sheet open={showCommunicationDashboard} onOpenChange={setShowCommunicationDashboard}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              Communications Overview
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <CommunicationDashboard
+              familyId={familyId}
+              studentId={student?.id}
+              portfolioEntries={portfolioEntries}
+              onNavigateToEntry={(entry) => {
+                // Navigate to the entry's structure
+                if (entry.structureId) {
+                  setSelectedStructureId(entry.structureId);
+                }
+                // Close the communication dashboard
+                setShowCommunicationDashboard(false);
+                // Optionally, you could also open the entry directly
+                // This would require passing more props down to PortfolioBuilder
+              }}
+              isStaff={isStaff}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <DevFileIndicator fileName="PortfolioManager.js" />
     </div>

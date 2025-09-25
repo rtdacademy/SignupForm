@@ -242,8 +242,7 @@ const CommunicationDashboard = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold">Communication Dashboard</h2>
+      
           {totalUnread > 0 && (
             <NotificationBadge
               count={totalUnread}

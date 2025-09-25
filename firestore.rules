@@ -1,0 +1,322 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin (using custom claims with safe property access)
+    function isAdmin() {
+      return request.auth != null &&
+             (('isAdminUser' in request.auth.token && request.auth.token.isAdminUser == true) ||
+              ('isSuperAdminUser' in request.auth.token && request.auth.token.isSuperAdminUser == true));
+    }
+
+    // Helper function to check if user is staff based on email domain
+    function isStaff() {
+      return request.auth != null &&
+             request.auth.token.email != null &&
+             (request.auth.token.email.matches('.*@rtdacademy[.]com') ||
+              request.auth.token.email.matches('.*@rtd-connect[.]com'));
+    }
+
+    // More specific super admin check
+    function isSuperAdmin() {
+      return request.auth != null &&
+             ('isSuperAdminUser' in request.auth.token && request.auth.token.isSuperAdminUser == true);
+    }
+
+    // Add PASI collection rules
+    match /PASI/{document=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    // IMathAS grades collection
+    match /imathas_grades/{gradeId} {
+      // Super admins can write, regular admins can write too
+      allow write: if isAdmin() || isSuperAdmin();
+
+      // Admins can read all grades, students can read their own
+      allow read: if isAdmin() ||
+                 (request.auth != null &&
+                  resource.data.userId == request.auth.uid);
+    }
+
+    // Course content rules - expanded to handle all content documents
+    match /courses/{courseId}/content/{contentId} {
+      // Anyone can read published, authenticated users can read drafts
+      allow read: if contentId == 'published' ||
+                 (contentId == 'draft' && request.auth != null) ||
+                 isAdmin() ||
+                 isStaff();
+
+      // Staff/admins can write, super admins can write anything
+      allow write: if isStaff() || isAdmin() || isSuperAdmin();
+
+      // Continue to allow subcollection access with the same rules
+      match /{document=**} {
+        allow read: if contentId == 'published' ||
+                   (contentId == 'draft' && request.auth != null) ||
+                   isAdmin() ||
+                   isStaff();
+        allow write: if isStaff() || isAdmin() || isSuperAdmin();
+      }
+    }
+
+    // Stripe-related collections with admin overrides
+    match /customers/{uid} {
+      allow read: if request.auth.uid == uid || isAdmin();
+      allow write: if request.auth.uid == uid || isSuperAdmin();
+
+      match /checkout_sessions/{id} {
+        allow read: if request.auth.uid == uid || isAdmin();
+        allow write: if request.auth.uid == uid || isSuperAdmin();
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth.uid == uid || isAdmin();
+        allow write: if isSuperAdmin(); // Only super admins can modify subscriptions
+      }
+      match /payments/{id} {
+        allow read: if request.auth.uid == uid || isAdmin();
+        allow write: if isSuperAdmin(); // Only super admins can modify payments
+      }
+      match /payment_methods/{id} {
+        allow read: if request.auth.uid == uid || isAdmin();
+        allow write: if request.auth.uid == uid || isSuperAdmin();
+      }
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isSuperAdmin(); // Only super admins can modify products
+
+      match /prices/{id} {
+        allow read: if true;
+        allow write: if isSuperAdmin(); // Only super admins can modify prices
+      }
+      match /tax_rates/{id} {
+        allow read: if true;
+        allow write: if isSuperAdmin(); // Only super admins can modify tax rates
+      }
+    }
+
+    // Family Notes collection - staff only access
+    match /familyNotes/{familyId} {
+      // Staff can read family metadata
+      allow read: if isStaff() || isAdmin();
+      // Staff can write family metadata
+      allow write: if isStaff() || isAdmin();
+
+      // Notes subcollection
+      match /notes/{noteId} {
+        // Staff can read all notes (filtering happens client-side)
+        allow read: if isStaff() || isAdmin();
+
+        // Staff can create notes
+        allow create: if (isStaff() || isAdmin()) &&
+                         request.resource.data.authorEmail == request.auth.token.email &&
+                         request.resource.data.visibility in ['personal', 'shared'];
+
+        // Staff can update their own notes
+        allow update: if (isStaff() || isAdmin()) &&
+                         resource.data.authorEmail == request.auth.token.email;
+
+        // Staff can delete their own notes, admins can delete any note
+        allow delete: if isAdmin() ||
+                         (isStaff() && resource.data.authorEmail == request.auth.token.email);
+      }
+    }
+
+    // Resource Libraries collection - for personal and family resource libraries
+    match /resourceLibraries/{libraryId} {
+      // Users can read their own library or family library
+      allow read: if request.auth != null &&
+        (libraryId == request.auth.uid ||
+         ('familyId' in request.auth.token && request.auth.token.familyId == libraryId) ||
+         isStaff() || isAdmin());
+
+      // Users can write to their own library or family library (if primary guardian)
+      allow write: if request.auth != null &&
+        (libraryId == request.auth.uid ||
+         ('familyId' in request.auth.token && request.auth.token.familyId == libraryId &&
+          'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+         isStaff() || isAdmin());
+
+      // Resources within the library
+      match /resources/{resourceId} {
+        // Same as parent permissions
+        allow read: if request.auth != null &&
+          (libraryId == request.auth.uid ||
+           ('familyId' in request.auth.token && request.auth.token.familyId == libraryId) ||
+           isStaff() || isAdmin());
+
+        allow write: if request.auth != null &&
+          (libraryId == request.auth.uid ||
+           ('familyId' in request.auth.token && request.auth.token.familyId == libraryId &&
+            'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+           isStaff() || isAdmin());
+      }
+    }
+
+    // Portfolio collections - family member access
+    match /portfolios/{familyId} {
+      // Family members can read their own portfolio metadata
+      allow read: if request.auth != null &&
+        (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+         isStaff() || isAdmin());
+
+      // Primary guardians can write portfolio metadata
+      allow write: if request.auth != null &&
+        (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+          'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+         isStaff() || isAdmin());
+
+      // Portfolio metadata subcollection (for per-student metadata)
+      match /metadata/{studentId} {
+        // Allow public read if portfolio is marked as public
+        allow read: if resource.data.sharingSettings.isPublic == true ||
+          (request.auth != null &&
+            (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+             isStaff() || isAdmin()));
+
+        allow write: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+            'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+           isAdmin());
+      }
+
+      // Portfolio structure subcollection
+      match /structure/{structureId} {
+        allow read: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin());
+
+        allow write: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+            'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+           isAdmin());
+      }
+
+      // Portfolio entries subcollection
+      match /entries/{entryId} {
+        // Allow public read if entry is marked as public
+        allow read: if resource.data.sharingSettings.isPublic == true ||
+          (request.auth != null &&
+            (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+             isStaff() || isAdmin()));
+
+        // Allow create for primary guardians and admins
+        allow create: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+            'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+           isAdmin());
+
+        // Allow update for primary guardians, admins, and staff (for communication fields and resource fields)
+        allow update: if request.auth != null &&
+          ((('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+             'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+            isAdmin()) ||
+           // Allow staff to update only communication-related and resource-related fields
+           (isStaff() &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastCommunicationAt', 'communicationCount', 'hasUnreadCommunication', 'resourceCount', 'lastResourceAddedAt'])));
+
+        // Allow delete for primary guardians and admins
+        allow delete: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+            'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+           isAdmin());
+
+        // Access logs subcollection for tracking public access
+        match /accessLogs/{logId} {
+          // Only the Cloud Function can write access logs
+          allow read: if request.auth != null &&
+            (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+             isStaff() || isAdmin());
+          allow write: if false; // Only server-side writes via Admin SDK
+        }
+      }
+
+      // Resources subcollection
+      match /resources/{resourceId} {
+        // Family members and staff can read resources
+        allow read: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin());
+
+        // Primary guardians and staff can create resources
+        allow create: if request.auth != null &&
+          ((('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+             'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian') ||
+            isStaff() || isAdmin())) &&
+          // Ensure required fields are present
+          request.resource.data.title != null &&
+          request.resource.data.type != null &&
+          request.resource.data.metadata.createdBy == request.auth.uid;
+
+        // Resource creator, primary guardians, and staff can update
+        allow update: if request.auth != null &&
+          ((resource.data.metadata.createdBy == request.auth.uid) ||
+           (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+             'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian')) ||
+           isStaff() || isAdmin());
+
+        // Resource creator, primary guardians, and staff can delete
+        allow delete: if request.auth != null &&
+          ((resource.data.metadata.createdBy == request.auth.uid) ||
+           (('familyId' in request.auth.token && request.auth.token.familyId == familyId &&
+             'familyRole' in request.auth.token && request.auth.token.familyRole == 'primary_guardian')) ||
+           isStaff() || isAdmin());
+      }
+
+      // Communication messages subcollection
+      match /communications/{messageId} {
+        // Family members and staff can read all communications
+        allow read: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin());
+
+        // Family members and staff can create new messages
+        allow create: if request.auth != null &&
+          (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin()) &&
+          // Ensure required fields are present
+          request.resource.data.studentId != null &&
+          request.resource.data.entryId != null &&
+          request.resource.data.authorId == request.auth.uid &&
+          request.resource.data.createdAt != null;
+
+        // Users can update their own messages or update readBy field
+        allow update: if request.auth != null &&
+          ((resource.data.authorId == request.auth.uid) ||
+           // Allow anyone in family/staff to update readBy field
+           (('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+            isStaff() || isAdmin())) &&
+          // Prevent changing authorId
+          (!('authorId' in request.resource.data) ||
+           request.resource.data.authorId == resource.data.authorId);
+
+        // Only message author or admin can delete
+        allow delete: if request.auth != null &&
+          (resource.data.authorId == request.auth.uid || isAdmin());
+      }
+
+      // Notification tracking subcollection
+      match /notifications/{notificationId} {
+        // Users can read their own notifications or family/staff can read all
+        allow read: if request.auth != null &&
+          (notificationId.matches('.*_' + request.auth.uid + '$') ||
+           ('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin());
+
+        // Users can write their own notifications, family/staff can write any
+        allow write: if request.auth != null &&
+          (notificationId.matches('.*_' + request.auth.uid + '$') ||
+           ('familyId' in request.auth.token && request.auth.token.familyId == familyId) ||
+           isStaff() || isAdmin());
+      }
+    }
+
+    // Global admin read access and super admin write access for any other collections
+    match /{document=**} {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+  }
+}

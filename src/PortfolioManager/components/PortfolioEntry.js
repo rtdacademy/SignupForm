@@ -57,6 +57,7 @@ import EditableAttachmentsSection from './EditableAttachmentsSection';
 import MessageIconButton from './MessageIconButton';
 import CommunicationSheet from './CommunicationSheet';
 import { useCommunication } from '../hooks/useCommunication';
+import ResourceDrop from './ResourceDrop';
 
 const PortfolioEntry = ({
   entry,
@@ -358,6 +359,21 @@ const PortfolioEntry = ({
                 {tag}
               </Badge>
             ))}
+          </div>
+        )}
+
+        {/* Resources */}
+        {familyId && studentId && (
+          <div className="border-t pt-6">
+            <ResourceDrop
+              level="entry"
+              itemId={entry.id}
+              itemTitle={entry.title}
+              familyId={familyId}
+              studentId={studentId}
+              showInheritedResources={false}
+              isEditMode={false}
+            />
           </div>
         )}
 

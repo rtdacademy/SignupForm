@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import DevFileIndicator from './DevFileIndicator';
+import ResourceDrop from './ResourceDrop';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import {
   getFirestore,
@@ -1245,6 +1246,22 @@ const DirectoryView = ({
         </div>
 
       </div>
+
+      {/* ResourceDrop for current structure */}
+      {currentStructure && familyId && studentId && (
+        <div className="px-4 pt-2">
+          <ResourceDrop
+            level={currentStructure.type === 'portfolio' ? 'portfolio' : 'collection'}
+            itemId={currentStructure.id}
+            itemTitle={currentStructure.title}
+            familyId={familyId}
+            studentId={studentId}
+            showInheritedResources={true}
+            parentStructure={currentStructure.parentId ? allStructures.find(s => s.id === currentStructure.parentId) : null}
+            isEditMode={isEditMode}
+          />
+        </div>
+      )}
 
       {/* New Item Form */}
       {showNewItemForm && (

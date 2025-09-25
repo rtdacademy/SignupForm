@@ -10,6 +10,7 @@ import EntryEditSheet from './EntryEditSheet';
 import QuillEditor from '../../courses/CourseEditor/QuillEditor';
 import DirectoryView from './DirectoryView';
 import DevFileIndicator from './DevFileIndicator';
+import ResourceDrop from './ResourceDrop';
 import '../styles/portfolio-animations.css';
 import {
   Plus,
