@@ -116,17 +116,36 @@ const useRegistrationSettings = (studentType) => {
 
         if (snapshot.exists()) {
           const settingsData = snapshot.val();
-          console.log('Registration settings loaded:', settingsData);
+          console.log('📋 [NonPrimaryStudentForm] Registration settings loaded:', {
+            studentType,
+            schoolYearKey,
+            path: `registrationSettings/${schoolYearKey}/${studentTypeKey}`,
+            settingsData
+          });
           // Log time sections to see their structure
           if (settingsData.timeSections) {
-            console.log('Time sections:', settingsData.timeSections);
+            console.log('📅 [NonPrimaryStudentForm] Time sections:', settingsData.timeSections);
             settingsData.timeSections.forEach((section, index) => {
-              console.log(`Time section ${index}:`, section);
+              const today = new Date();
+              const startBegins = section.startBegins ? new Date(section.startBegins) : null;
+              const startEnds = section.startEnds ? new Date(section.startEnds) : null;
+
+              console.log(`📍 Time section ${index}:`, {
+                ...section,
+                today: today.toISOString(),
+                startBeginsDate: startBegins?.toISOString(),
+                startEndsDate: startEnds?.toISOString(),
+                wouldBeActive: section.isActive && (
+                  section.startFromToday ||
+                  section.startBegins === '1900-01-01' ||
+                  (startBegins && startEnds && today >= startBegins && today <= startEnds)
+                )
+              });
             });
           }
           setSettings(settingsData);
         } else {
-          console.error(`No settings found for ${studentType} in the ${schoolYearKey} school year`);
+          console.error(`❌ [NonPrimaryStudentForm] No settings found for ${studentType} in the ${schoolYearKey} school year`);
           setError(`No settings found for ${studentType} in the ${schoolYearKey} school year`);
         }
       } catch (err) {
@@ -195,34 +214,52 @@ const useRegistrationSettings = (studentType) => {
 
   // Check if a time section is currently active (today is within start window AND isActive flag is true)
   const isTimeSectionActive = useCallback((timeSection) => {
-    if (!timeSection) return false;
-    
+    if (!timeSection) {
+      console.log('⚠️ [isTimeSectionActive] No timeSection provided');
+      return false;
+    }
+
     // First check if the section is explicitly marked as inactive
-    if (timeSection.isActive === false) return false;
-    
+    if (timeSection.isActive === false) {
+      console.log('⚠️ [isTimeSectionActive] Section marked as inactive');
+      return false;
+    }
+
     // Create today's date consistently with how we handle other dates
     const today = new Date();
     const todayDateString = toDateString(today);
     const todayMidnight = toEdmontonDate(todayDateString);
     todayMidnight.setHours(0, 0, 0, 0);
-    
-    // If startFromToday is true or startBegins is set to 1900-01-01, 
+
+    // If startFromToday is true or startBegins is set to 1900-01-01,
     // we only need to check the end date
     if (timeSection.startFromToday || timeSection.startBegins === '1900-01-01') {
       const startEnds = toEdmontonDate(timeSection.startEnds);
       startEnds.setHours(23, 59, 59, 999);
-      
+
+      const isActive = todayMidnight <= startEnds;
+
+
       // Only check if today is before or on the end date
-      return todayMidnight <= startEnds;
+      return isActive;
     }
-    
+
     // Otherwise check the normal date range
     const startBegins = toEdmontonDate(timeSection.startBegins);
     const startEnds = toEdmontonDate(timeSection.startEnds);
     startBegins.setHours(0, 0, 0, 0);
     startEnds.setHours(23, 59, 59, 999);
-    
-    return todayMidnight >= startBegins && todayMidnight <= startEnds;
+
+    const isActive = todayMidnight >= startBegins && todayMidnight <= startEnds;
+    console.log('🕐 [isTimeSectionActive] Date range check:', {
+      timeSection: timeSection.title || timeSection.id,
+      todayMidnight: todayMidnight.toISOString(),
+      startBegins: startBegins.toISOString(),
+      startEnds: startEnds.toISOString(),
+      isActive
+    });
+
+    return isActive;
   }, []);
 
   // Get date constraints for a time section

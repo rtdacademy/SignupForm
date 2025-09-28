@@ -47,7 +47,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
 import FormDialog from '../Registration/FormDialog';
 import { RefreshCw } from 'lucide-react';
-import { isCourseUnlocked, getCoursePaymentStatus } from '../utils/coursePaymentUtils';
+// Simplified payment checking - using profile.creditsPerStudent directly
 
 
 const getStatusColor = (status, isRequired = false) => {
@@ -102,6 +102,7 @@ const CourseCard = ({
   onGoToLMSCourse, // New handler for LMS courses
   onGoToLMSCourseFirebase, // New handler for testing Firebase SSO integration (dev only)
   onCourseRefresh, // Handler for refreshing course data after transition
+  onOpenCreditPaymentDialog, // Handler for opening credit payment dialog
   className = '',
   profile,
   importantDates
@@ -136,19 +137,81 @@ const CourseCard = ({
   const status = course.ActiveFutureArchived?.Value || 'Unknown';
   const studentType = course.StudentType?.Value || 'Not specified';
   const schoolYear = course.School_x0020_Year?.Value || 'N/A';
+  const schoolYearKey = schoolYear?.replace('/', '_'); // Convert "25/26" to "25_26" for database lookup
   const isOnTranscript = course.PASI?.Value === 'Yes';
-  
-  // Debug log for status changes
-  useEffect(() => {
-    console.log(`📊 Course ${courseId} status updated:`, status);
-  }, [status, courseId]);
-  
-  // Check if course is unlocked based on payment status
-  const paymentStatus = getCoursePaymentStatus(course, profile);
-  const isUnlocked = paymentStatus.isUnlocked;
-  
-  // Extract trial information for display
-  const { isInTrial, trialDaysRemaining, trialExpired } = paymentStatus;
+
+  // Map student type to database key format
+  const getStudentTypeKey = (type) => {
+    const mapping = {
+      'Non-Primary': 'nonPrimaryStudents',
+      'Home Education': 'homeEducationStudents',
+      'Summer School': 'summerSchoolStudents',
+      'Adult Student': 'adultStudents',
+      'International Student': 'internationalStudents'
+    };
+    return mapping[type] || null;
+  };
+
+  const sanitizedStudentType = getStudentTypeKey(studentType);
+  const isCourseBased = sanitizedStudentType === 'adultStudents' || sanitizedStudentType === 'internationalStudents';
+
+  // Get payment data directly from profile.creditsPerStudent
+  const paymentData = profile?.creditsPerStudent?.[schoolYearKey]?.[sanitizedStudentType];
+
+  // Determine if course is unlocked and payment status
+  let isUnlocked = true; // Default to unlocked
+  let requiresPayment = false;
+  let isInTrial = false;
+  let trialDaysRemaining = 0;
+  let trialExpired = false;
+  let paymentStatusValue = 'unknown';
+
+  if (course.isRequiredCourse) {
+    // Required courses are always unlocked
+    isUnlocked = true;
+    requiresPayment = false;
+  } else if (paymentData) {
+    if (isCourseBased) {
+      // Course-based payment (Adult/International students)
+      const coursePayment = paymentData.courses?.[courseId];
+      if (coursePayment) {
+        isUnlocked = coursePayment.isPaid === true || coursePayment.paymentStatusDetailed === 'trial_period';
+        requiresPayment = coursePayment.paymentStatus === 'unpaid';
+        isInTrial = coursePayment.paymentStatusDetailed === 'trial_period';
+        paymentStatusValue = coursePayment.paymentStatus || 'unknown';
+
+        // Use backend-provided trial values directly
+        if (isInTrial) {
+          trialDaysRemaining = coursePayment.trialDaysRemaining || 0;
+          // If trial days are 0 or negative, trial has expired
+          if (trialDaysRemaining <= 0) {
+            isInTrial = false;
+            trialExpired = true;
+            requiresPayment = !coursePayment.isPaid;
+            isUnlocked = coursePayment.isPaid === true;
+          }
+        }
+      }
+    } else {
+      // Credit-based payment (Non-Primary/Home Education/Summer School)
+      const coursePaymentDetails = paymentData.coursePaymentDetails?.[courseId];
+      if (coursePaymentDetails) {
+        requiresPayment = coursePaymentDetails.requiresPayment === true;
+        isUnlocked = !requiresPayment;
+      }
+    }
+  }
+
+  // Create paymentStatus object for compatibility with existing code
+  const paymentStatus = {
+    isUnlocked,
+    requiresPayment,
+    isInTrial,
+    trialDaysRemaining,
+    trialExpired,
+    paymentType: isCourseBased ? 'course' : 'credit',
+    creditsRequired: paymentData?.coursePaymentDetails?.[courseId]?.creditsRequiredToUnlock || 0
+  };
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
@@ -258,6 +321,16 @@ const CourseCard = ({
   // Handle transition re-registration
   const handleTransitionRegistration = () => {
     setShowTransitionDialog(true);
+  };
+
+  // Handle opening payment dialog for this course
+  const handlePaymentClick = () => {
+    if (!onOpenCreditPaymentDialog) {
+      toast.error("Payment dialog is not available. Please use the Credit & Payment Summary in the header.");
+      return;
+    }
+    // Just open the CreditSummaryCard popover
+    onOpenCreditPaymentDialog();
   };
 
   // Simplified handleGoToCourse using centralized payment check
@@ -1238,7 +1311,7 @@ const CourseCard = ({
                       ${courseDetailsLoading
                         ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-wait opacity-60'
                         : !isUnlocked && !isDeveloper
-                          ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                          ? 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                         : course.isRequiredCourse
                           ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                           : isDeveloper
@@ -1252,7 +1325,7 @@ const CourseCard = ({
                                 : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                       }
                     `}
-                    disabled={courseDetailsLoading || (!isUnlocked && !isDeveloper) || (!course.isRequiredCourse && !isDeveloper && (
+                    disabled={courseDetailsLoading || (!course.isRequiredCourse && !isDeveloper && !(!isUnlocked && !isDeveloper) && (
                       (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse)
                         ? (status === 'Archived' || status === 'Pending')
                         : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active')
@@ -1269,7 +1342,7 @@ const CourseCard = ({
                         : !isUnlocked && !isDeveloper
                           ? isInTrial
                             ? `Go to Course (Trial: ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''})`
-                            : 'Payment Required'
+                            : 'Course Locked'
                         : course.isRequiredCourse
                           ? 'Go to Required Course'
                           : isDeveloper
@@ -1286,6 +1359,31 @@ const CourseCard = ({
                   </Button>
                 )}
               </div>
+
+              {/* Payment Button - Show when payment is required */}
+              {requiresPayment && onOpenCreditPaymentDialog && (
+                <Button
+                  onClick={handlePaymentClick}
+                  variant={isInTrial ? "outline" : "default"}
+                  className={`
+                    w-full transition-all duration-200 inline-flex items-center justify-center gap-2
+                    ${isInTrial
+                      ? 'border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:border-blue-600'
+                      : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transform'
+                    }
+                  `}
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>
+                    {isInTrial
+                      ? `Pay Now (Trial ends in ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''})`
+                      : trialExpired
+                        ? 'Complete Payment (Trial Expired)'
+                        : 'Complete Payment'
+                    }
+                  </span>
+                </Button>
+              )}
 
               {/* Development only: Test Firebase SSO Integration */}
               {process.env.NODE_ENV === 'development' && onGoToLMSCourseFirebase && !effectiveCourseDetails?.firebaseCourse && (

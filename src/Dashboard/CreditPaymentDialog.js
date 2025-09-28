@@ -78,6 +78,8 @@ const CreditPaymentDialog = ({
   unpaidCourses = 0, // Number of unpaid courses
   sanitizedType = '' // Sanitized student type
 }) => {
+  console.log('[CreditPaymentDialog] Component rendered with:', { isOpen, isCourseBased, coursesToPay, unpaidCourses });
+
   const [selectedCourses, setSelectedCourses] = useState(new Set()); // Track selected course IDs
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);

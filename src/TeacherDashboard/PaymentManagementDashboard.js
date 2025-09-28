@@ -291,6 +291,25 @@ const PaymentManagementDashboard = () => {
     setRefreshing(false);
   };
 
+  const handleUpdateTrialStatuses = async () => {
+    setRefreshing(true);
+    try {
+      const functions = getFunctions();
+      const manualUpdateTrialStatuses = httpsCallable(functions, 'manualUpdateTrialPaymentStatuses');
+      const result = await manualUpdateTrialStatuses();
+
+      if (result.data?.success) {
+        alert('Trial payment statuses updated successfully!');
+      } else {
+        alert('Failed to update trial payment statuses');
+      }
+    } catch (error) {
+      console.error('Error updating trial statuses:', error);
+      alert(`Error: ${error.message}`);
+    }
+    setRefreshing(false);
+  };
+
   const handleExport = () => {
     try {
       const headers = ['Email', 'Student Type', 'Payment Status', 'Credits/Courses', 'Last Updated'];
@@ -521,7 +540,20 @@ const PaymentManagementDashboard = () => {
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            
+
+            {/* Show trial update button only for Adult and International students */}
+            {(selectedType === 'adultStudents' || selectedType === 'internationalStudents') && (
+              <button
+                onClick={handleUpdateTrialStatuses}
+                disabled={refreshing}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                title="Update trial period statuses and calculate days remaining"
+              >
+                <Clock className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Update Trials
+              </button>
+            )}
+
             <button
               onClick={handleExport}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 flex items-center gap-2"

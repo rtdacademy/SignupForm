@@ -233,8 +233,10 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user, studentType 
             onValueChange={setSelectedOption}
             className="gap-4"
           >
-            {Object.entries(paymentOptions).map(([key, option]) => (
-              <div 
+            {Object.entries(paymentOptions)
+              .filter(([key, option]) => option.name && option.amount && option.description)
+              .map(([key, option]) => (
+              <div
                 key={key}
                 className={`flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:border-primary ${
                   selectedOption === key ? 'border-primary bg-primary/5' : ''

@@ -424,14 +424,20 @@ export const useStudentData = (userEmailKey) => {
 
     // Sort all courses by creation date
     allCourses = allCourses.sort((a, b) => new Date(b.Created) - new Date(a.Created));
-    
+
+    // Remove jsonStudentNotes from each course
+    allCourses = allCourses.map(course => {
+      const { jsonStudentNotes, ...courseWithoutNotes } = course;
+      return courseWithoutNotes;
+    });
+
     // Set up course listeners for ALL courses (including required courses)
     const allCourseIds = {};
     allCourses.forEach(course => {
       allCourseIds[course.id] = true;
     });
     manageCourseListeners(allCourseIds);
-    
+
     return allCourses;
   };
 
@@ -1071,9 +1077,11 @@ export const useStudentData = (userEmailKey) => {
       //   ).length || 0
       // });
 
-      // Log the entire student profile and courses objects
-      console.log('👤 STUDENT PROFILE:', studentData.profile);
-      console.log('📚 STUDENT COURSES:', studentData.courses);
+      // Log the entire student profile and courses objects (only in development)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 STUDENT PROFILE:', studentData.profile);
+        console.log('📚 STUDENT COURSES:', studentData.courses);
+      }
     }
   }, [studentData.loading, studentData.profile, studentData.courses]);
 

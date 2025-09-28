@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { InfoIcon, CreditCard, TrendingUp, BookOpen, CheckCircle, XCircle, AlertCircle, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -56,15 +56,21 @@ const getCoursePaymentInfo = (coursePaymentDetails, coursesRequiringPayment) => 
   });
 };
 
-export const CreditSummaryCard = ({ 
-  schoolYear, 
-  compactMode = false, 
+export const CreditSummaryCard = forwardRef(({
+  schoolYear,
+  compactMode = false,
   fullWidth = false,
   onOpenPaymentDialog  // New prop to handle payment dialog from parent
-}) => {
+}, ref) => {
   const { creditsData, loading } = useAllStudentCredits(schoolYear);
   const { currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false)
+  }), []);
   
   if (loading) {
     if (compactMode) {
@@ -300,20 +306,22 @@ export const CreditSummaryCard = ({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  console.log('Course payment button clicked', {
+                                  console.log('[CreditSummaryCard] Course payment button clicked', {
                                     unpaidCourses: data.unpaidCourses,
                                     courses: data.courses,
                                     currentUser,
-                                    sanitizedType
+                                    sanitizedType,
+                                    hasHandler: !!onOpenPaymentDialog
                                   });
-                                  
+
                                   if (!currentUser) {
-                                    console.error('No user logged in');
+                                    console.error('[CreditSummaryCard] No user logged in');
                                     return;
                                   }
-                                  
+
                                   // Call the parent handler if provided
                                   if (onOpenPaymentDialog) {
+                                    console.log('[CreditSummaryCard] Calling onOpenPaymentDialog with payment data');
                                     onOpenPaymentDialog({
                                       coursesToPay: data.courses,
                                       unpaidCourses: data.unpaidCourses,
@@ -324,6 +332,8 @@ export const CreditSummaryCard = ({
                                       isCourseBased: true
                                     });
                                     setIsOpen(false);
+                                  } else {
+                                    console.error('[CreditSummaryCard] No onOpenPaymentDialog handler provided');
                                   }
                                 }}
                                 disabled={!currentUser || !onOpenPaymentDialog}
@@ -806,4 +816,6 @@ export const CreditSummaryCard = ({
     </Alert>
     </>
   );
-};
+});
+
+CreditSummaryCard.displayName = 'CreditSummaryCard';

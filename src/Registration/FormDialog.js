@@ -174,15 +174,31 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
           const activeWindows = getActiveRegistrationWindows(studentType);
           const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
 
+          // Debug logging for registration window check
+          console.log('🔍 [FormDialog] Checking existing registration window validation:', {
+            studentType,
+            importantDatesAvailable: !!importantDates,
+            importantDatesKeys: importantDates ? Object.keys(importantDates) : [],
+            activeWindowsCount: activeWindows.length,
+            activeWindows,
+            registrationPeriod,
+            hasActiveWindow: registrationPeriod.hasActiveWindow,
+            transitionCourse: !!transitionCourse,
+            skipValidation: transitionCourse || studentType === 'Adult Student' || studentType === 'International Student'
+          });
+
           let isValid = true;
           let periodMessage = null;
 
           // Skip validation for Adult and International Students, and for transition re-registrations
-          if (!transitionCourse && studentType !== 'Adult Student' && studentType !== 'International Student') {
+          // TEMPORARY: Also skip for Non-Primary and Home Education since they use registrationSettings
+          if (!transitionCourse && studentType !== 'Adult Student' && studentType !== 'International Student'
+              && studentType !== 'Non-Primary' && studentType !== 'Home Education' && studentType !== 'Summer School') {
             isValid = registrationPeriod.hasActiveWindow;
 
             if (!isValid) {
               periodMessage = `There are currently no active registration windows for ${studentType} students.`;
+              console.log('❌ [FormDialog] No active registration window found for existing registration');
             }
           }
 
@@ -250,11 +266,26 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates, transitionCou
       // as students need to select a new school year on the form page
       if (!transitionCourse) {
         // Verify there's an active registration window (except for Adult/International)
-        if (selectedStudentType !== 'Adult Student' && selectedStudentType !== 'International Student') {
+        // TEMPORARY: Also skip for Non-Primary and Home Education since they use registrationSettings
+        if (selectedStudentType !== 'Adult Student' && selectedStudentType !== 'International Student'
+            && selectedStudentType !== 'Non-Primary' && selectedStudentType !== 'Home Education' && selectedStudentType !== 'Summer School') {
           const activeWindows = getActiveRegistrationWindows(selectedStudentType);
           const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
-          
+
+          // Debug logging for proceed button window check
+          console.log('🔍 [FormDialog] handleProceed - Checking registration window:', {
+            selectedStudentType,
+            importantDatesAvailable: !!importantDates,
+            importantDatesContent: importantDates,
+            activeWindowsCount: activeWindows.length,
+            activeWindows,
+            registrationPeriod,
+            hasActiveWindow: registrationPeriod.hasActiveWindow,
+            today: new Date().toISOString()
+          });
+
           if (!registrationPeriod.hasActiveWindow) {
+            console.log('❌ [FormDialog] handleProceed - No active window, showing error');
             setError(`There are currently no active registration windows for ${selectedStudentType} students.`);
             return;
           }

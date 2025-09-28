@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { FaPlusCircle } from 'react-icons/fa';
 import { NotebookPen, AlertCircle, CheckCircle, Clock, UserX, InfoIcon } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
@@ -118,10 +118,11 @@ const WelcomeMessage = ({ hasStudentNode, hasCourses, hasRequiredCoursesOnly }) 
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { 
-    currentUser, 
-    current_user_email_key, 
-    signOut, 
+  const openCreditSummaryRef = useRef(null);
+  const {
+    currentUser,
+    current_user_email_key,
+    signOut,
     loading: authLoading,
     isEmulating,
     stopEmulation,
@@ -367,11 +368,19 @@ const Dashboard = () => {
     setSearchParams({});
   }, [setSearchParams]);
   
-  // Handler for opening credit payment dialog from Header/CreditSummaryCard
-  const handleOpenCreditPaymentDialog = useCallback((paymentData) => {
-    console.log('Opening credit payment dialog with data:', paymentData);
+  // Handler for opening credit payment via CreditSummaryCard in header
+  const handleOpenCreditPayment = useCallback(() => {
+    if (openCreditSummaryRef.current) {
+      openCreditSummaryRef.current();
+    }
+  }, []);
+
+  // Handler for payment dialog from CreditSummaryCard
+  const handlePaymentDialog = useCallback((paymentData) => {
+    console.log('[Dashboard] handlePaymentDialog called with:', paymentData);
     setCreditPaymentData(paymentData);
     setShowCreditPaymentDialog(true);
+    console.log('[Dashboard] showCreditPaymentDialog will be set to true');
   }, []);
 
   // Handler for Firebase courses
@@ -445,7 +454,8 @@ const Dashboard = () => {
           forceRefresh={forceRefresh}
           allNotifications={allNotifications}
           studentExists={studentExists}
-          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
+          onOpenCreditSummary={openCreditSummaryRef}
+          onPaymentRequest={handlePaymentDialog}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Verifying authentication...</div>
@@ -474,7 +484,8 @@ const Dashboard = () => {
           forceRefresh={forceRefresh}
           allNotifications={allNotifications}
           studentExists={studentExists}
-          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
+          onOpenCreditSummary={openCreditSummaryRef}
+          onPaymentRequest={handlePaymentDialog}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Loading your courses...</div>
@@ -503,7 +514,8 @@ const Dashboard = () => {
           forceRefresh={forceRefresh}
           allNotifications={allNotifications}
           studentExists={studentExists}
-          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
+          onOpenCreditSummary={openCreditSummaryRef}
+          onPaymentRequest={handlePaymentDialog}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
@@ -541,7 +553,8 @@ const Dashboard = () => {
           forceRefresh={forceRefresh}
           allNotifications={allNotifications}
           studentExists={studentExists}
-          onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
+          onOpenCreditSummary={openCreditSummaryRef}
+          onPaymentRequest={handlePaymentDialog}
         />
         <div className="flex-1">
           {courseTypeLoading ? (
@@ -632,7 +645,9 @@ const Dashboard = () => {
         forceRefresh={forceRefresh}
         allNotifications={allNotifications}
         studentExists={studentExists}
-        onOpenCreditPaymentDialog={handleOpenCreditPaymentDialog}
+        onOpenCreditPaymentDialog={handleOpenCreditPayment}
+        onOpenCreditSummary={openCreditSummaryRef}
+        onPaymentRequest={handlePaymentDialog}
       />
       
       {/* Migration Welcome Dialog */}
@@ -748,9 +763,10 @@ const Dashboard = () => {
                   onGoToFirebaseCourse={handleGoToFirebaseCourse}
                   onGoToLMSCourse={handleGoToLMSCourse}
                   onGoToLMSCourseFirebase={handleGoToLMSCourseFirebase}
+                  onOpenCreditPaymentDialog={handleOpenCreditPayment}
                   onGoToCourse={() => {
                     // Legacy fallback for backward compatibility
-                    setSearchParams({ 
+                    setSearchParams({
                       courseId: course.CourseID || course.id,
                       view: 'course'
                     });

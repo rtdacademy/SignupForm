@@ -36,13 +36,13 @@ const RTDLogo = () => (
   </svg>
 );
 
-function Header({ 
-  user, 
-  onLogout, 
-  onBackClick, 
-  onDashboardClick, 
-  portalType, 
-  isEmulating, 
+function Header({
+  user,
+  onLogout,
+  onBackClick,
+  onDashboardClick,
+  portalType,
+  isEmulating,
   isStaffUser,
   onProfileClick,
   profile,
@@ -59,9 +59,22 @@ function Header({
   forceRefresh,
   allNotifications,
   studentExists,
-  onOpenCreditPaymentDialog
+  onOpenCreditSummary,
+  onPaymentRequest
 }) {
   const navigate = useNavigate();
+  const creditSummaryRef = React.useRef(null);
+
+  // Expose the open function to parent
+  React.useEffect(() => {
+    if (onOpenCreditSummary) {
+      onOpenCreditSummary.current = () => {
+        if (creditSummaryRef.current?.open) {
+          creditSummaryRef.current.open();
+        }
+      };
+    }
+  }, [onOpenCreditSummary]);
 
   const handleParentDashboardClick = () => {
     navigate('/parent-dashboard');
@@ -362,9 +375,10 @@ function Header({
                   {/* Credit Summary Card */}
                   {getCurrentSchoolYear && (
                     <CreditSummaryCard
+                      ref={creditSummaryRef}
                       schoolYear={getCurrentSchoolYear}
                       compactMode={true}
-                      onOpenPaymentDialog={onOpenCreditPaymentDialog}
+                      onOpenPaymentDialog={onPaymentRequest || (() => console.log('Payment request handler not provided'))}
                     />
                   )}
 
