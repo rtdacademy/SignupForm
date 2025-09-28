@@ -1733,13 +1733,49 @@ const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false })
   const [LabComponent, setLabComponent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [submissionData, setSubmissionData] = useState(null);
+  const { currentUser } = useAuth();
+
+  // Check if we're viewing a submitted lab (staff viewing student work)
+  const isViewingSubmission = isStaffView && course?.studentKey && course.studentKey !== currentUser?.uid;
+
+  // Load submission data if viewing submitted work
+  useEffect(() => {
+    if (!isViewingSubmission || !course?.studentKey || !course?.CourseID) return;
+
+    const loadSubmissionData = async () => {
+      try {
+        const db = getDatabase();
+        // Map lessonId to questionId format
+        const questionId = `course${courseId}_${lessonId}`;
+        const submissionPath = `students/${course.studentKey}/courses/${course.CourseID}/Assessments/${questionId}`;
+
+        console.log('🔍 Loading submitted lab data from:', submissionPath);
+
+        const submissionRef = ref(db, submissionPath);
+        const snapshot = await get(submissionRef);
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          console.log('✅ Found submitted lab data:', data);
+          setSubmissionData(data);
+        } else {
+          console.log('⚠️ No submission data found at path:', submissionPath);
+        }
+      } catch (error) {
+        console.error('Error loading submission data:', error);
+      }
+    };
+
+    loadSubmissionData();
+  }, [isViewingSubmission, course?.studentKey, course?.CourseID, courseId, lessonId]);
 
   useEffect(() => {
     const loadLabComponent = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Map lessonId to the correct lab component path
         const labPathMap = {
           'lab_momentum_conservation': '07-lab-momentum-conservation',
@@ -1753,17 +1789,17 @@ const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false })
           'lab_mirrors_lenses': '15-lab-mirrors-lenses',
           'lab_laser_wavelength': '20-lab-laser-wavelength'
         };
-        
+
         const labPath = labPathMap[lessonId];
-        
+
         if (!labPath) {
           throw new Error(`Lab component not found for lesson: ${lessonId}`);
         }
-        
+
         // Dynamically import the lab component
         const module = await import(`../../courses/${courseId}/content/${labPath}/index.js`);
         setLabComponent(() => module.default);
-        
+
       } catch (err) {
         console.error('Error loading lab component:', err);
         setError(err.message);
@@ -1771,7 +1807,7 @@ const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false })
         setLoading(false);
       }
     };
-    
+
     loadLabComponent();
   }, [lessonId, courseId]);
 
@@ -1800,7 +1836,17 @@ const LabComponentLoader = ({ lessonId, courseId, course, isStaffView = false })
   }
 
   // Render the lab component with required props
-  return <LabComponent courseId={courseId} course={course} isStaffView={isStaffView} />;
+  // Pass additional props for viewing submitted work
+  return (
+    <LabComponent
+      courseId={courseId}
+      course={course}
+      isStaffView={isStaffView}
+      isViewingSubmission={isViewingSubmission}
+      submissionStudentKey={isViewingSubmission ? course.studentKey : null}
+      submissionData={submissionData}
+    />
+  );
 };
 
 /**

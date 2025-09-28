@@ -90,43 +90,12 @@ export const websiteConfig = {
       color: '#6B7280', // Gray
       faqs: [
         {
-          question: 'How is my term decided?',
-          answer: `Your student type and term are determined by when you plan to finish your course:
-
-**Key Points:**
-- You can usually start whenever you'd like
-- Your END date determines your term
-- For most students, the specific term doesn't significantly impact academic goals
-
-**Term 1:** Ends in Semester 1 (by ${dates.term1.endDate})
-**Term 2:** Ends in Semester 2 (${dates.term2.startDate} - ${dates.term2.endDate})
-**Summer School:** Ends in July/August
-
-Important: If you start after September count day, you cannot plan to finish in January.`,
-          priority: 'low'
-        },
-        {
-          question: 'What if I don\'t finish my course at my scheduled time?',
-          answer: `We encourage students to finish by their scheduled end date. Deadlines help you stay on track and avoid procrastination.
-
-If something unexpected happens, you can continue in the next available term:
-- Term 1 Student → moves to Term 2
-- Term 2 Student → moves to Summer School
-- Summer School Student → may need to pay to continue (depends on your situation)
-
-Your marks will only be reported once you finish. Students who repeatedly delay may be required to pay to continue.`,
-          priority: 'low'
-        },
-        {
           question: 'When will my marks be submitted to Alberta Education?',
           answer: `Your marks are typically submitted to Alberta Education within a week of completing your course.
 
-If you follow a standard schedule and complete your course by the end of each term:
-- **Term 1:** Marks appear on transcript in February
-- **Term 2:** Marks appear by June 30 (if completed by ${dates.term2.pasiDeadline})
-- **Summer School:** Marks appear in September
+The sooner you complete your course, the sooner your mark can be submitted and appear on your official transcript.
 
-**Remember:** The sooner you complete your course, the sooner your mark can be submitted!`,
+For specific timelines based on your student type and term, please see your relevant student category section.`,
           priority: 'low'
         },
         {
@@ -146,27 +115,24 @@ If you follow a standard schedule and complete your course by the end of each te
 - Require the Grade ${config.grades.highSchoolEnd - 1} course in the same subject
 - Example: Chemistry 30 requires Chemistry 20
 
-**Note:** Equivalent knowledge from quality programs (like Saxon Math) is recognized. Contact us to discuss your preparation.`,
+**Note:** Equivalent knowledge from programs (like Saxon Math) is recognized for Home Education students.`,
           priority: 'low'
         },
         {
-          question: 'How many credits can I take for free?',
-          answer: `The number of free credits depends on your student type:
+          question: 'How does course pricing work?',
+          answer: `Course pricing depends on your student type and eligibility for government funding:
 
-**Non-Primary & Home Education Students:**
-- Up to ${config.credits.maxPerYear} credits during the school year (September-June)
-- Additional ${config.credits.maxSummer} credits in summer school
-- Maximum ${config.credits.maxTotalPerYear} free credits per year total
+**Funded Students** (Non-Primary, Home Education, Summer School):
+- Courses are FREE through Alberta Education grants
+- Credit limits apply based on your category
+- See "Understanding Grant Funding & Course Access" for details
 
-**Summer School Students:**
-- Up to ${config.credits.maxSummer} free credits (July-August)
+**Paid Students** (Adult, International):
+- $${config.pricing.adultStudent.oneTimePrice} per course (one-time payment)
+- Payment plans available
+- See your specific student category for full pricing details
 
-**Extra Credits:**
-- Additional credits cost $${config.pricing.pricePerExtraCredit} per credit
-- Or wait for the next term/summer for more free credits
-
-**Adult & International Students:**
-- Courses require payment (see specific category for pricing)`,
+To determine your student type and pricing, check the category descriptions above or contact us for assistance.`,
           priority: 'high'
         },
         {
@@ -240,6 +206,138 @@ This is ideal for families wanting comprehensive support with both their home ed
       ]
     },
 
+    grantFunding: {
+      title: 'Understanding Grant Funding & Course Access',
+      icon: 'DollarSign',
+      description: 'How provincial funding affects course access and timing',
+      color: '#059669', // Emerald
+      faqs: [
+        {
+          question: 'How does grant funding affect when I can start my course?',
+          answer: `Alberta Education provides grant funding that allows us to offer free courses to eligible students. These grants come with specific requirements about when formal instruction can occur.
+
+**For Funded Students** (Non-Primary, Home Education, Summer School):
+- The government funds these courses through specific grants
+- Formal instruction must occur within designated terms
+- Early registration provides access to explore and prepare
+- Exams and instructor communication begin with your official term
+
+**For Paid Students** (Adult, International):
+- No grant restrictions apply
+- Full immediate access to everything upon registration
+- Complete flexibility in pacing and timing
+
+We work within these provincial guidelines to maximize flexibility while maintaining compliance for continued funding.`,
+          priority: 'high'
+        },
+        {
+          question: 'What\'s the difference between registration and my official term start?',
+          answer: `**Registration** gives you immediate access to:
+- All course materials and content
+- Video lessons and reading materials
+- Practice questions with unlimited attempts
+- Course navigation and exploration
+- Support staff assistance
+
+**Official Term Start** activates:
+- Exam access
+- Instructor communication
+- Graded assignment submission
+- Formal academic support`,
+          priority: 'high'
+        },
+        {
+          question: 'What can I do with early registration access?',
+          answer: `With early registration, you get immediate access to explore and work through the entire course at your own pace. You can watch all lessons, complete practice questions, and truly prepare for success. Our support staff is available to help with any navigation questions.
+
+The only restrictions due to grant requirements:
+- Exams and quizzes for marks begin with your official term
+- Graded assignments are submitted after term start
+- Instructor communication opens when your term begins
+
+**Important:** This means you're not just "reviewing" - you can make real progress through the course content. Many students complete a significant portion of their coursework before their term officially starts!`,
+          priority: 'high'
+        },
+        {
+          question: 'Why do these restrictions exist?',
+          answer: `These restrictions aren't our rules - they're provincial requirements tied to the grants that keep courses free for Alberta families.
+
+**The Reality:**
+- Alberta Education provides specific grants for distance education
+- These grants require that formal instruction occurs within defined terms
+- Without compliance, we could lose funding that keeps courses free
+- This would mean all students would need to pay
+
+**Our Commitment:**
+- We maximize flexibility within these guidelines
+- Early registration access lets you prepare
+- Our support team helps you navigate the system
+- We advocate for students while maintaining compliance
+
+We understand these restrictions can be frustrating, but they ensure continued free access to quality education for thousands of Alberta students.`,
+          priority: 'high'
+        },
+        {
+          question: 'When do terms start and end?',
+          answer: `For funded students, courses must align with provincial term dates:
+
+**Term 1:**
+- Official start: September 1
+- Must finish by: ${dates.term1.endDate}
+- Registration deadline: ${dates.term1.registrationDeadline}
+
+**Term 2:**
+- Official start: February 1
+- Must finish by: ${dates.term2.endDate}
+- Registration deadlines vary by student type (see your category)
+
+**Summer School:**
+- Official start: July 1
+- Must finish by: ${dates.summerSchool.endDate}
+- Open to all school-aged Alberta residents
+
+**Remember:** You can register early and access course materials immediately, but exams and instructor communication begin on the official term start date.`,
+          priority: 'high'
+        },
+        {
+          question: 'What happens if I don\'t finish by my term deadline?',
+          answer: `Life happens, and we understand that. If you're a funded student who can't finish by your term deadline:
+
+**Automatic progression:**
+- Term 1 students → continue in Term 2
+- Term 2 students → continue in Summer School
+- Summer students → may need to pay (depends on your fall enrollment status)
+
+**Important considerations:**
+- Your marks are only submitted once you complete the course
+- Continuing beyond summer may require payment if you're no longer eligible for funding
+- Students who repeatedly delay may be asked to pay to continue
+
+We encourage meeting deadlines when possible, as they help you stay on track and ensure you receive your credits in a timely manner.`,
+          priority: 'low'
+        },
+        {
+          question: 'How many free credits can funded students take?',
+          answer: `Credit limits for funded students:
+
+**Non-Primary & Home Education Students:**
+- Up to ${config.credits.maxPerYear} credits during the school year (Sept-June)
+- Additional ${config.credits.maxSummer} credits in summer
+- Maximum ${config.credits.maxTotalPerYear} free credits per year total
+
+**Summer School Students:**
+- Up to ${config.credits.maxSummer} free credits (July-August)
+
+**Extra Credits:**
+- Additional credits beyond these limits cost $${config.pricing.pricePerExtraCredit} per credit
+- Or you can wait for the next term/summer for more free credits
+
+These limits exist because Alberta Education provides a fixed amount of funding per student per year.`,
+          priority: 'high'
+        }
+      ]
+    },
+
     nonPrimary: {
       title: 'Non-Primary Students',
       icon: 'GraduationCap',
@@ -263,18 +361,25 @@ This is ideal for families wanting comprehensive support with both their home ed
           answer: `Term 1 Students:
 - End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
 - Must register by ${dates.term1.registrationDeadline}
+- May register early to access course materials for review and preparation
+- Due to grant funding compliance, exams and instructor communication begin September 1
+- Support staff available anytime for navigation assistance
 - Important: If you start after the September count day, you cannot plan to finish in January
-- Example: A student who starts in October cannot end in January`,
+
+**See "Understanding Grant Funding & Course Access" section for details on early access benefits.**`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 2 Students?',
           answer: `Term 2 Students:
 - End date is in ${config.semesters.semester2.name} (${config.semesters.semester2.startDate} - ${config.semesters.semester2.endDate})
-- May start earlier (even in ${config.semesters.semester1.name}), but end date must be in ${config.semesters.semester2.name}
+- May register early to access course materials for review and preparation
+- Due to grant funding compliance, exams and instructor communication begin February 1
 - Must register by ${dates.term2.registrationDeadline}
 - To have your mark submitted to Alberta Education (PASI), must finish by ${dates.term2.pasiDeadline}
-- If you finish after ${dates.term2.pasiDeadline}, you will be considered a Summer School Student`,
+- If you finish after ${dates.term2.pasiDeadline}, you will be considered a Summer School Student
+
+**See "Understanding Grant Funding & Course Access" section for what you can do with early access.**`,
           priority: 'low'
         },
         {
@@ -294,6 +399,19 @@ If you are school-age (under ${config.ages.adultStudentMinAge} before ${config.a
 - Otherwise, you would need to register as an Adult Student`,
           priority: 'low'
         },
+        {
+          question: 'I\'m registered at another school - why do these term restrictions apply to me?',
+          answer: `Even though you're enrolled at another school, RTD Academy courses are funded through a separate Distance Education grant from Alberta Education. This grant - not your home school - covers the cost of your courses with us.
+
+**Key Points:**
+- The $${config.pricing.distanceEducationGrant} per year grant comes directly from Alberta Education
+- This funding requires compliance with provincial term requirements
+- All funded students (Non-Primary, Home Ed, Summer) follow the same rules
+- Your primary school's funding is separate from this grant
+
+We work within these requirements to provide you with free access to quality courses while maintaining compliance for continued funding.`,
+          priority: 'low'
+        }
       ]
     },
 
@@ -320,17 +438,25 @@ If you are school-age (under ${config.ages.adultStudentMinAge} before ${config.a
           answer: `Term 1 Students:
 - End date is in ${config.semesters.semester1.name} (ending ${config.semesters.semester1.endDate})
 - Must register by ${dates.term1.registrationDeadline}
-- If you start after the September count day, you cannot plan to finish in January`,
+- May register early to access course materials for review and preparation
+- Due to grant funding compliance, exams and instructor communication begin September 1
+- Support staff available anytime for navigation assistance
+- If you start after the September count day, you cannot plan to finish in January
+
+**See "Understanding Grant Funding & Course Access" section for details on early access benefits.**`,
           priority: 'low'
         },
         {
           question: 'What are the requirements for Term 2 Students?',
           answer: `Term 2 Students:
 - End date is in ${config.semesters.semester2.name} (${config.semesters.semester2.startDate} - ${config.semesters.semester2.endDate})
-- May start earlier, but end date must be in ${config.semesters.semester2.name}
-- Must register by ${dates.term2.homeEducationDeadline} 
+- May register early to access course materials for review and preparation
+- Due to grant funding compliance, exams and instructor communication begin February 1
+- Must register by ${dates.term2.homeEducationDeadline}
 - Must finish by ${dates.term2.pasiDeadline}
-- If you finish after ${dates.term2.pasiDeadline}, you become a Summer School Student`,
+- If you finish after ${dates.term2.pasiDeadline}, you become a Summer School Student
+
+**See "Understanding Grant Funding & Course Access" section for what you can do with early access.**`,
           priority: 'low'
         },
      
@@ -360,7 +486,11 @@ If you're unsure about course placement, please contact us to discuss the best p
         },
         {
           question: 'How is RTD Academy funded for Home Education students?',
-          answer: `RTD Academy receives $${config.pricing.distanceEducationGrant} per student per year through the Distance Education grant for Home Education students. This government funding allows us to offer up to ${config.credits.maxPerYear} credits per year completely free to home education families. This is how we can provide quality courses at no cost to you!`,
+          answer: `RTD Academy receives $${config.pricing.distanceEducationGrant} per student per year through the Distance Education grant for Home Education students. This government funding allows us to offer up to ${config.credits.maxPerYear} credits per year completely free to home education families.
+
+**Important:** This funding comes with provincial requirements about when formal instruction can occur. We know homeschool families especially value flexibility in scheduling, and our asynchronous format plus early registration access are designed to work with your family's unique needs while maintaining compliance.
+
+See "Understanding Grant Funding & Course Access" for full details.`,
           priority: 'low'
         },
         {
@@ -445,7 +575,11 @@ If you're 18-19 and not enrolled at another school, you likely can't register as
         },
         {
           question: 'Can I start my Summer School course before July?',
-          answer: `Yes, absolutely!`,
+          answer: `Yes, you can register before July and immediately start working through your course! While exams and instructor communication begin July 1st due to grant requirements, you have full access to all course content, lessons, and practice materials right away.
+
+Many students use this early access to complete a significant portion of their coursework. This means when July arrives, they're ready to write exams and can often finish their course quickly.
+
+Our support staff is available anytime to help you navigate the course platform, even before July 1st.`,
           priority: 'low'
         },
         {
@@ -461,13 +595,13 @@ If you're 18-19 and not enrolled at another school, you likely can't register as
 - You'll be moved to Home Education status (if registered with a home education program)
 - OR you'll need to pay tuition as an Adult Student if you're no longer school-aged
 
-**⚠️ IMPORTANT WARNING:**
+**⚠️ CRITICAL WARNING:**
 If you don't finish in summer AND you won't have a primary enrollment the following school year, RTD Academy will receive NO funding for you! This means:
-- You would need to pay full tuition to continue
+- You would need to pay full tuition to continue ($${config.pricing.adultStudent.oneTimePrice} per course)
 - The course would no longer be free
-- You'd be responsible for Adult Student fees
+- You'd become an Adult Student
 
-**Our strong advice:** If you're in this category (especially 18-19 year olds not planning to enroll anywhere), please work extra hard to complete your courses during the summer. This is your opportunity for free courses - don't let it slip away!`,
+**Our strong advice:** If you're in this category (especially 18-19 year olds not planning to enroll anywhere), please prioritize completing your courses during the summer. This is your opportunity for free courses - we want to help you succeed within the funded timeframe!`,
           priority: 'low'
         },
         {
@@ -498,6 +632,17 @@ Summer School is often the better choice for flexibility and accessibility!`,
         {
           question: 'Can Grade 9 students take high school courses in Summer School?',
           answer: `Yes! Junior high students can take high school courses if they are taken in the summer semester **before entering Grade 10**.`,
+          priority: 'low'
+        },
+        {
+          question: 'Do the same grant restrictions apply to Summer School?',
+          answer: `Yes, Summer School students follow the same grant funding requirements as other funded programs:
+
+- **Exams and instructor communication:** Begin July 1st
+- **Early registration:** Provides immediate access to explore materials
+- **Support staff:** Available anytime for navigation help
+
+These requirements ensure we can continue offering free summer courses to Alberta students. See "Understanding Grant Funding & Course Access" for complete details.`,
           priority: 'low'
         }
       ]
@@ -631,6 +776,15 @@ This format is specifically designed for adults balancing multiple responsibilit
 - Each case reviewed individually`,
           priority: 'low'
         },
+        {
+          question: 'Do I have any restrictions on when I can start coursework?',
+          answer: `**No restrictions at all!** As a paying Adult Student, you have complete flexibility. Full immediate access to everything - course materials, exams, instructor support - from day one. Start and finish on YOUR schedule without any waiting periods.
+
+This is one of the key benefits of paid enrollment: you're not bound by the grant funding restrictions that apply to free courses. You can truly learn at your own pace without artificial barriers.
+
+Your ${config.pricing.adultStudent.trialPeriodDays}-day trial starts immediately upon registration, giving you full access to experience our platform right away.`,
+          priority: 'high'
+        }
       ]
     },
 
@@ -658,6 +812,15 @@ All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-d
           question: 'What payment methods are accepted?',
           answer: `We accept Visa, Mastercard, and other major credit cards through Stripe. Automatic currency conversion to Canadian dollars.`,
           priority: 'low'
+        },
+        {
+          question: 'Do I have any restrictions on when I can start coursework?',
+          answer: `**No restrictions whatsoever!** As an International Student, you enjoy complete freedom. Full immediate access upon registration - course materials, instructor communication, exams - everything is available from day one. Learn on your schedule, in your timezone, without any waiting periods.
+
+This flexibility is a major advantage: unlike funded Alberta students who must wait for official term dates, you can begin your learning journey immediately. Your ${config.pricing.adultStudent.trialPeriodDays}-day trial provides full access from the moment you register.
+
+This is ideal for international learners who may have different academic calendars or urgent timelines for course completion.`,
+          priority: 'high'
         }
       ]
     },
@@ -745,12 +908,19 @@ All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-d
 
   // Related links
   relatedLinks: {
+    grantFunding: [
+      { text: 'Student Registration', url: '/get-started' },
+      { text: 'Course Catalog', url: '/courses' },
+      { text: 'Contact Support', url: '/contact' }
+    ],
     nonPrimary: [
+      { text: 'Understanding Grant Funding', url: '#grantFunding' },
       { text: 'Course Catalog', url: '/courses' },
       { text: 'Registration Guide', url: '/get-started' },
       { text: 'Academic Calendar', url: '/calendar' }
     ],
     homeEducation: [
+      { text: 'Understanding Grant Funding', url: '#grantFunding' },
       { text: 'RTD Connect Program', url: 'https://rtd-connect.com', external: true },
       { text: 'Home Education Resources', url: '/home-education' },
       { text: 'Course Catalog', url: '/courses' },
@@ -762,6 +932,7 @@ All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-d
       { text: 'RTD Academy Courses', url: '/courses' }
     ],
     summerStudents: [
+      { text: 'Understanding Grant Funding', url: '#grantFunding' },
       { text: 'Summer Course Options', url: '/summer-courses' },
       { text: 'Registration', url: '/get-started' }
     ],

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
+import { websiteConfig } from './websiteConfig';
 import './styles/rtd-landing.css';
 
 // RTD Logo Component
@@ -135,10 +137,15 @@ const Header = ({ scrolled }) => {
             }`}>
               Why RTD?
             </a>
-            <a href="#adult-students" className={`font-medium transition-colors ${
+            <a href="/adult-students" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
             }`}>
               Adult Students
+            </a>
+            <a href="/international-students" className={`font-medium transition-colors ${
+              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+            }`}>
+              International
             </a>
             <a href="#contact" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
@@ -155,7 +162,9 @@ const Header = ({ scrolled }) => {
             }`}>
               Login
             </a>
-            <Button className={`${
+            <Button
+              onClick={() => window.open('/get-started', '_blank')}
+              className={`${
               scrolled
                 ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white'
                 : 'bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-800 hover:from-teal-100 hover:to-cyan-100 border border-teal-200/50'
@@ -180,11 +189,14 @@ const Header = ({ scrolled }) => {
           <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg p-6 space-y-4">
             <a href="#courses" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Courses</a>
             <a href="#why-rtd" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Why RTD?</a>
-            <a href="#adult-students" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Adult Students</a>
+            <a href="/adult-students" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Adult Students</a>
+            <a href="/international-students" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">International Students</a>
             <a href="#contact" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Contact</a>
             <a href="#policies" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Policies</a>
             <a href="/login" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Login</a>
-            <Button className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all">
+            <Button
+              onClick={() => window.open('/get-started', '_blank')}
+              className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all">
               Get started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -239,9 +251,9 @@ const HeroSection = () => {
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-teal-700 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-teal-900">Free for Alberta Students</p>
+                  <p className="font-semibold text-teal-900">Free for Alberta Students • No Hidden Fees</p>
                   <p className="text-sm text-teal-800 mt-1">
-                    If you're currently attending an Alberta High School and under 20 years old, courses are completely free.
+                    If you're currently attending an Alberta High School, courses are completely free. We believe in transparent pricing with no surprise charges.
                   </p>
                 </div>
               </div>
@@ -253,36 +265,32 @@ const HeroSection = () => {
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-teal-600" />
-                <h3 className="font-bold text-lg text-gray-900">2025/26 Registration Open</h3>
+                <h3 className="font-bold text-lg text-gray-900">{websiteConfig.dates.currentSchoolYear} Registration Open</h3>
               </div>
               <div className="space-y-2 pl-7">
                 <p className="text-gray-700">
-                  <span className="font-semibold">Term 1 Deadline:</span> September 26, 2025
+                  <span className="font-semibold">Term 1 Deadline:</span> {websiteConfig.dates.term1.registrationDeadline}
                 </p>
                 <p className="text-sm text-gray-600 italic">
-                  Adult students can register anytime throughout the year
+                  Adult and International students can register anytime throughout the year
                 </p>
               </div>
             </div>
 
-            {/* Links Section */}
-            <div className="flex flex-wrap gap-6 text-sm">
-              <a href="#adult-students" className="flex items-center gap-2 text-teal-700 font-semibold hover:text-teal-800 transition-colors">
-                <GraduationCap className="w-4 h-4" />
-                Adult Upgrading Program
-              </a>
-              <a href="#learn-more" className="flex items-center gap-2 text-teal-700 font-semibold hover:text-teal-800 transition-colors">
-                <Info className="w-4 h-4" />
-                How It Works
-              </a>
-            </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button size="lg" className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+              <Button
+                size="lg"
+                onClick={() => window.open('/get-started', '_blank')}
+                className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                 Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button size="lg" variant="outline" className="relative border-2 border-teal-600 text-teal-700 hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 px-8 py-6 text-lg transition-all duration-300 overflow-hidden group">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => document.getElementById('courses').scrollIntoView({ behavior: 'smooth' })}
+                className="relative border-2 border-teal-600 text-teal-700 hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 px-8 py-6 text-lg transition-all duration-300 overflow-hidden group">
                 <span className="relative z-10">Browse Courses</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-teal-100 to-cyan-100 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
               </Button>
@@ -328,17 +336,17 @@ const HeroSection = () => {
               <div className="flex justify-around text-center">
                 <div>
                   <p className="text-2xl font-bold text-teal-700">15+</p>
-                  <p className="text-xs text-gray-600">Years Experience</p>
+                  <p className="text-xs text-gray-600">Years of Expert Teaching</p>
                 </div>
                 <div className="border-l border-gray-200"></div>
                 <div>
                   <p className="text-2xl font-bold text-teal-700">1000s</p>
-                  <p className="text-xs text-gray-600">Students Graduated</p>
+                  <p className="text-xs text-gray-600">Courses Completed</p>
                 </div>
                 <div className="border-l border-gray-200"></div>
                 <div>
                   <p className="text-2xl font-bold text-teal-700">100%</p>
-                  <p className="text-xs text-gray-600">Online Delivery</p>
+                  <p className="text-xs text-gray-600">Flexible Learning</p>
                 </div>
               </div>
             </div>
@@ -362,7 +370,7 @@ const AccreditationBanner = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Alberta's leading, fully accredited diploma prep academy
+            Your pathway to an Alberta High School Diploma
           </h2>
           <p className="text-5xl font-bold mb-8">since 2008</p>
 
@@ -398,7 +406,7 @@ const LifeAdvantageSection = () => {
     {
       icon: Clock,
       title: "Fit into your schedule",
-      description: "Access Alberta's best online math and physics instruction anytime, anywhere on any device."
+      description: "Access Alberta's best online math and physics instruction anytime, anywhere, on any device."
     },
     {
       icon: BookOpen,
@@ -407,7 +415,7 @@ const LifeAdvantageSection = () => {
     },
     {
       icon: Award,
-      title: "Gain big confidence",
+      title: "Gain confidence",
       description: "No matter your life goals, come away with critical skills and confidence to succeed as an adult."
     }
   ];
@@ -456,14 +464,7 @@ const LifeAdvantageSection = () => {
                 Our certified Alberta teachers are available through online chat and video conferencing,
                 ensuring you never stay stuck on a topic for long.
               </p>
-              <div className="flex items-center gap-2">
-                <Star className="text-yellow-500 fill-current" size={20} />
-                <Star className="text-yellow-500 fill-current" size={20} />
-                <Star className="text-yellow-500 fill-current" size={20} />
-                <Star className="text-yellow-500 fill-current" size={20} />
-                <Star className="text-yellow-500 fill-current" size={20} />
-                <span className="text-gray-600 ml-2">5.0 Student Rating</span>
-              </div>
+         
             </div>
           </div>
         </div>
@@ -484,13 +485,13 @@ const HowItWorksSection = () => {
     {
       number: "02",
       title: "Teacher live calls",
-      description: "Help is always available through online chat and video conferencing so you don't stay stuck on a topic for long.",
+      description: "Access help around your schedule through online chat and video conferencing so you don't stay stuck on a topic for long.",
       icon: Users
     },
     {
       number: "03",
       title: "Write full credit exams",
-      description: "RTD Math Academy graduates receive full accreditation for the classes they take, and count towards their entrance into university.",
+      description: "RTD Math Academy students receive high school credits for the classes they take, and count towards their entrance into university.",
       icon: Award
     }
   ];
@@ -579,7 +580,7 @@ const ComparisonSection = () => {
   const comparisons = [
     { feature: "Learn math", traditional: true, rtd: true, rtdNote: "...FASTER" },
     { feature: "Get credit for university", traditional: true, rtd: true },
-    { feature: "Learn coding", traditional: false, rtd: true },
+    //{ feature: "Learn coding", traditional: false, rtd: true },
     { feature: "Take class when you want", traditional: false, rtd: true },
     { feature: "Write exams from home", traditional: false, rtd: true },
     { feature: "Get quick answers to questions", traditional: false, rtd: true },
@@ -634,7 +635,10 @@ const ComparisonSection = () => {
         </div>
 
         <div className="text-center mt-12">
-          <Button size="lg" className="bg-teal-700 hover:bg-teal-800 text-white px-8 py-6 text-lg">
+          <Button
+            size="lg"
+            onClick={() => window.open('/get-started', '_blank')}
+            className="bg-teal-700 hover:bg-teal-800 text-white px-8 py-6 text-lg">
             Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
@@ -643,7 +647,7 @@ const ComparisonSection = () => {
   );
 };
 
-// Experience Section - Light and Professional
+// Experience Section - Adult and International Student Focus
 const ExperienceSection = () => {
   return (
     <section className="py-20 bg-gradient-to-br from-white via-purple-50/10 to-teal-50/20 shadow-lg relative overflow-hidden">
@@ -652,48 +656,88 @@ const ExperienceSection = () => {
         <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-gradient-to-br from-purple-200 to-teal-200 rounded-full blur-3xl opacity-20 animate-pulse-slow"></div>
       </div>
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              15 years of excellence in online education
-            </h2>
-            <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-              It all started with Alberta teachers who knew that there was a better way
-              to prepare high school students for incredible lives. Since 2008, we've been
-              helping students achieve their academic goals with innovative online learning.
-            </p>
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            Perfect for Your Life Journey
+          </h2>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+            Whether you're upgrading for career advancement or studying from abroad,
+            we make earning your Alberta diploma achievable and affordable
+          </p>
+        </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-3xl font-bold text-teal-700 mb-2">10,000+</p>
-                <p className="text-gray-600">Students Graduated</p>
+        <div className="grid md:grid-cols-2 gap-8 mb-12">
+          {/* Adult Students Card */}
+          <Card className="shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-purple-200">
+            <CardHeader className="bg-gradient-to-br from-purple-50 to-purple-100">
+              <div className="flex items-center gap-3">
+                <Users className="w-8 h-8 text-purple-600" />
+                <CardTitle className="text-2xl text-gray-900">Adult Students</CardTitle>
               </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-3xl font-bold text-teal-700 mb-2">98%</p>
-                <p className="text-gray-600">Success Rate</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-3xl font-bold text-teal-700 mb-2">15+</p>
-                <p className="text-gray-600">Years Experience</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-3xl font-bold text-teal-700 mb-2">24/7</p>
-                <p className="text-gray-600">Online Support</p>
-              </div>
-            </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Flexible scheduling that fits around work and family</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Start any time of year - no waiting for semesters</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700 font-semibold">No additional fees - transparent pricing</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Message your teacher anytime for support</span>
+                </li>
+              </ul>
+              <Button
+                onClick={() => window.location.href = '/adult-students'}
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+              >
+                Adult Student Program <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
 
-            <Button size="lg" variant="outline" className="border-2 border-teal-700 text-teal-700 hover:bg-teal-50">
-              Learn More About RTD
-            </Button>
-          </div>
-
-          <div className="relative">
-            <img
-              src="/RTDAcademyWebsite/63a365b88e02fd152f13519c_Teenager.png"
-              alt="Student Learning"
-              className="w-full h-auto rounded-lg shadow-xl"
-            />
-          </div>
+          {/* International Students Card */}
+          <Card className="shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-blue-200">
+            <CardHeader className="bg-gradient-to-br from-blue-50 to-blue-100">
+              <div className="flex items-center gap-3">
+                <Globe className="w-8 h-8 text-blue-600" />
+                <CardTitle className="text-2xl text-gray-900">International Students</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Study from anywhere in the world</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Alberta diploma recognized globally</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700 font-semibold">Clear international pricing - no hidden fees</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">24/7 access across all time zones</span>
+                </li>
+              </ul>
+              <Button
+                onClick={() => window.location.href = '/international-students'}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                International Program <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </section>
@@ -702,21 +746,57 @@ const ExperienceSection = () => {
 
 // Courses Section - Professional Design
 const CoursesSection = () => {
-  const courses = [
-    { name: "Math 10C", level: "Grade 10", credits: 5, description: "Foundation mathematics" },
-    { name: "Math 20-1", level: "Grade 11", credits: 5, description: "Pre-calculus path" },
-    { name: "Math 30-1", level: "Grade 12", credits: 5, description: "Advanced mathematics" },
-    { name: "Math 31", level: "Grade 12", credits: 5, description: "Calculus" },
-    { name: "Physics 20", level: "Grade 11", credits: 5, description: "Introduction to physics" },
-    { name: "Physics 30", level: "Grade 12", credits: 5, description: "Advanced physics" }
-  ];
+  // Filter courses to only show main math and physics courses with availability
+  const availableCourses = COURSE_OPTIONS
+    .filter(course => {
+      // Only show Math and Science courses (excluding Options courses)
+      if (course.courseType !== 'Math' && course.courseType !== 'Science') return false;
+      // Check if course has availability property and it's true (default to true if not specified)
+      return course.available !== false;
+    })
+    .map(course => ({
+      name: course.label,
+      value: course.value,
+      level: `Grade ${course.grade}`,
+      credits: course.credits,
+      color: course.color,
+      icon: course.icon,
+      description: getDescription(course.value)
+    }))
+    .sort((a, b) => {
+      // Sort by grade first, then by course name
+      const gradeA = parseInt(a.level.replace('Grade ', ''));
+      const gradeB = parseInt(b.level.replace('Grade ', ''));
+      if (gradeA !== gradeB) return gradeA - gradeB;
+      return a.name.localeCompare(b.name);
+    });
+
+  function getDescription(courseValue) {
+    const descriptions = {
+      "Math 10-4": "Essential mathematics skills",
+      "Math 10-3": "Applied mathematics foundations",
+      "Math 10C": "Foundation mathematics",
+      "Math 15": "Mathematics literacy",
+      "Math 20-4": "Mathematics in trades",
+      "Math 20-3": "Applied mathematics",
+      "Math 20-2": "Problem-solving mathematics",
+      "Math 20-1": "Pre-calculus path",
+      "Math 30-3": "Applied mathematics",
+      "Math 30-2": "Mathematics for post-secondary",
+      "Math 30-1": "Advanced mathematics",
+      "Math 31": "Calculus",
+      "Physics 20": "Introduction to physics",
+      "Physics 30": "Advanced physics"
+    };
+    return descriptions[courseValue] || "Core curriculum";
+  }
 
   return (
     <section id="courses" className="py-20 bg-gradient-to-b from-gray-50 to-white shadow-md relative">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            2025 Course Offerings
+            {websiteConfig.dates.currentSchoolYear} Course Offerings
           </h2>
           <p className="text-xl text-gray-600">
             Alberta-approved high school mathematics and physics courses
@@ -724,27 +804,33 @@ const CoursesSection = () => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {courses.map((course, index) => (
-            <Card key={index} className="shadow-lg hover:shadow-xl transition-all duration-300 bg-white border-gray-200">
-              <CardHeader className="pb-4">
-                <div className="flex justify-between items-start mb-2">
-                  <CardTitle className="text-2xl text-gray-900">{course.name}</CardTitle>
-                  <Badge className="bg-teal-100 text-teal-700">{course.credits} Credits</Badge>
-                </div>
-                <p className="text-gray-600">{course.level}</p>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">{course.description}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {availableCourses.map((course, index) => {
+            const IconComponent = course.icon;
+            return (
+              <Card key={index} className="shadow-lg hover:shadow-xl transition-all duration-300 bg-white border-gray-200">
+                <CardHeader className="pb-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      {IconComponent && <IconComponent className="w-5 h-5" style={{ color: course.color }} />}
+                      <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
+                    </div>
+                    <Badge className="bg-teal-100 text-teal-700">{course.credits} Credits</Badge>
+                  </div>
+                  <p className="text-gray-600">{course.level}</p>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">{course.description}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <div className="text-center">
-          <p className="text-gray-600 mb-6">
-            Send an application and schedule your free intro call to ask us directly.
-          </p>
-          <Button size="lg" className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg">
+          <Button
+            size="lg"
+            onClick={() => window.open('/get-started', '_blank')}
+            className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg">
             Get Started Today <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
@@ -772,7 +858,6 @@ const FinalCTASection = () => {
               Get a head start on life success.
             </h2>
             <p className="text-xl mb-8 text-teal-100">
-              2025 applications are now being accepted. Limited spaces remain.
               Join thousands of successful students who have transformed their futures with RTD Math Academy.
             </p>
 
@@ -798,7 +883,10 @@ const FinalCTASection = () => {
               </ul>
             </div>
 
-            <Button size="lg" className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg shadow-lg">
+            <Button
+              size="lg"
+              onClick={() => window.open('/get-started', '_blank')}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg shadow-lg">
               Apply Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>
@@ -820,10 +908,11 @@ const Footer = () => {
               <RTDLogo className="w-10 h-10" />
               <span className="font-bold text-lg text-gray-900">RTD Math Academy</span>
             </div>
-            <p className="text-gray-600">
-              Alberta's leading online high school since 2008.
-              Fully accredited diploma prep academy.
-            </p>
+        
+            <div className="space-y-1 text-sm text-gray-600">
+              <p><strong>Alberta School Code:</strong> 2444</p>
+              <p><strong>Authority Code:</strong> 0402</p>
+            </div>
           </div>
 
           {/* Quick Links */}
@@ -831,8 +920,10 @@ const Footer = () => {
             <h3 className="font-bold mb-4 text-gray-900">Quick Links</h3>
             <ul className="space-y-2 text-gray-600">
               <li><a href="#courses" className="hover:text-teal-700 transition-colors">Courses</a></li>
-              <li><a href="#about" className="hover:text-teal-700 transition-colors">About Us</a></li>
-              <li><a href="#contact" className="hover:text-teal-700 transition-colors">Contact</a></li>
+              <li><a href="/about" className="hover:text-teal-700 transition-colors">About Us</a></li>
+              <li><a href="/contact" className="hover:text-teal-700 transition-colors">Contact</a></li>
+              <li><a href="/student-faq" className="hover:text-teal-700 transition-colors">Student FAQ</a></li>
+              <li><a href="/policies-reports" className="hover:text-teal-700 transition-colors">Policies & Reports</a></li>
               <li><a href="/login" className="hover:text-teal-700 transition-colors">Student Login</a></li>
             </ul>
           </div>
@@ -841,42 +932,74 @@ const Footer = () => {
           <div>
             <h3 className="font-bold mb-4 text-gray-900">Programs</h3>
             <ul className="space-y-2 text-gray-600">
-              <li><a href="#math" className="hover:text-teal-700 transition-colors">Mathematics</a></li>
-              <li><a href="#physics" className="hover:text-teal-700 transition-colors">Physics</a></li>
-              <li><a href="#adult" className="hover:text-teal-700 transition-colors">Adult Upgrading</a></li>
-              <li><a href="#summer" className="hover:text-teal-700 transition-colors">Summer School</a></li>
+              <li><a href="#courses" className="hover:text-teal-700 transition-colors">Mathematics</a></li>
+              <li><a href="#courses" className="hover:text-teal-700 transition-colors">Physics</a></li>
+              <li><a href="/adult-students" className="hover:text-teal-700 transition-colors">Adult Upgrading</a></li>
+              <li><a href="/international-students" className="hover:text-teal-700 transition-colors">International Students</a></li>
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h3 className="font-bold mb-4 text-gray-900">Contact Us</h3>
+            <h3 className="font-bold mb-4 text-gray-900">Contact Information</h3>
             <ul className="space-y-3 text-gray-600">
               <li className="flex items-center gap-2">
                 <Phone size={16} className="text-teal-700" />
-                <span>1-800-RTD-MATH</span>
+                <span>403-351-0896 ext 2</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail size={16} className="text-teal-700" />
                 <span>info@rtdacademy.com</span>
               </li>
               <li className="flex items-center gap-2">
-                <MapPin size={16} className="text-teal-700" />
-                <span>Edmonton, Alberta, Canada</span>
+                <Users size={16} className="text-teal-700" />
+                <span>Charlie Hiles: Principal</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Users size={16} className="text-teal-700" />
+                <span>Stan Scott: Registrar</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-300 pt-8">
+        {/* Accreditation Logos */}
+        <div className="border-t border-gray-300 pt-8 pb-4">
+          <div className="flex flex-wrap items-center justify-center gap-8 mb-6">
+            <div className="flex items-center gap-3">
+              <img
+                src="/RTDAcademyWebsite/6303d64d9628820f05340b8b_Alberta_Education_Logo.png"
+                alt="Alberta Education"
+                className="h-12"
+              />
+              <div className="border-l-2 border-gray-300 pl-3">
+                <p className="text-xs font-semibold text-gray-900">Alberta Education</p>
+                <p className="text-xs text-gray-600">Fully Accredited</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <img
+                src="/RTDAcademyWebsite/AISCA-Logo-LG.png"
+                alt="AISCA"
+                className="h-12"
+              />
+              <div className="border-l-2 border-gray-300 pl-3">
+                <p className="text-xs font-semibold text-gray-900">AISCA Member</p>
+                <p className="text-xs text-gray-600">Independent Schools</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-300 pt-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-600 text-sm mb-4 md:mb-0">
               © 2025 RTD Math Academy. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm text-gray-600">
-              <a href="/privacy" className="hover:text-teal-700 transition-colors">Privacy Policy</a>
-              <a href="/terms" className="hover:text-teal-700 transition-colors">Terms of Service</a>
-              <a href="/policies" className="hover:text-teal-700 transition-colors">Policies</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-teal-700 transition-colors">Privacy Policy</a>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-teal-700 transition-colors">Terms of Service</a>
+              <a href="/policies-reports" className="hover:text-teal-700 transition-colors">Policies & Reports</a>
             </div>
           </div>
         </div>

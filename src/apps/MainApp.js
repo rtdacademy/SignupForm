@@ -25,7 +25,9 @@ const MultiActionAuthHandler = lazy(() => import('../MultiActionAuthHandler'));
 // Lazy load public forms
 const ContractorInvoiceForm = lazy(() => import('../PublicForms/ContractorInvoiceForm'));
 const AdultStudentInfo = lazy(() => import('../Website/AdultStudentInfo'));
+const InternationalStudentInfo = lazy(() => import('../Website/InternationalStudentInfo'));
 const StudentFAQ = lazy(() => import('../Website/StudentFAQ'));
+const ContactPage = lazy(() => import('../Website/ContactPage'));
 
 // Lazy load schedule components
 const ScheduleMaker = lazy(() => import('../Schedule/ScheduleMaker'));
@@ -409,6 +411,18 @@ function MainApp() {
         <Route path="/adult-students" element={
           <PublicRoute>
             <AdultStudentInfo />
+          </PublicRoute>
+        } />
+
+        <Route path="/international-students" element={
+          <PublicRoute>
+            <InternationalStudentInfo />
+          </PublicRoute>
+        } />
+
+        <Route path="/contact" element={
+          <PublicRoute>
+            <ContactPage />
           </PublicRoute>
         } />
 

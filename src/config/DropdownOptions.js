@@ -460,49 +460,53 @@ export const COURSE_TYPE_ICONS = {
 
 export const COURSE_OPTIONS = [
   // Grade 10 Courses - Blue theme
-  { 
+  {
     value: "Math 10-4",
-    label: "Math 10-4", 
+    label: "Math 10-4",
     courseType: "Math",
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
     courseId: 82,
     pasiCode: "KAE1782",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 10-3",
-    label: "Math 10-3", 
+    label: "Math 10-3",
     courseType: "Math",
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
     courseId: 78,
     pasiCode: "MAT1793",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 10C",
-    label: "Math 10C", 
+    label: "Math 10C",
     courseType: "Math",
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
     courseId: 97,
     pasiCode: "MAT1791",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 15",
-    label: "Math 15", 
+    label: "Math 15",
     courseType: "Math",
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
     courseId: 90,
     pasiCode: "LDC1515",
-    credits: 3
+    credits: 3,
+    available: true
   },
 /*
   { 
@@ -516,140 +520,152 @@ export const COURSE_OPTIONS = [
   },
 */
   // Grade 11 Courses - Purple theme
-  { 
+  {
     value: "Math 20-4",
-    label: "Math 20-4", 
+    label: "Math 20-4",
     courseType: "Math",
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 84,
     pasiCode: "KAE2782",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 20-3",
-    label: "Math 20-3", 
+    label: "Math 20-3",
     courseType: "Math",
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 96,
     pasiCode: "MAT2793",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 20-2",
-    label: "Math 20-2", 
+    label: "Math 20-2",
     courseType: "Math",
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 98,
     pasiCode: "MAT2792",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 20-1",
-    label: "Math 20-1", 
+    label: "Math 20-1",
     courseType: "Math",
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
     courseId: 95,
     pasiCode: "MAT2791",
-    credits: 5
+    credits: 5,
+    available: true
   },
   // New Physics 20 Course
-  { 
+  {
     value: "Physics 20",
-    label: "Physics 20", 
+    label: "Physics 20",
     courseType: "Science",
     grade: 11,
     color: "#8B5CF6", // Using the grade 11 color scheme (purple)
     icon: Beaker,
     courseId: 137,
     pasiCode: "SCN2797",
-    credits: 5
+    credits: 5,
+    available: true
   },
 
   // Grade 12 Courses - Green theme
-  { 
+  {
     value: "Math 30-3",
-    label: "Math 30-3", 
+    label: "Math 30-3",
     courseType: "Math",
     grade: 12,
     color: "#10B981",
     icon: Calculator,
     courseId: 86,
     pasiCode: "MAT3793",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 30-2",
-    label: "Math 30-2", 
+    label: "Math 30-2",
     courseType: "Math",
     grade: 12,
     color: "#10B981",
     icon: Calculator,
     courseId: 87,
     pasiCode: "MAT3792",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 30-1",
-    label: "Math 30-1", 
+    label: "Math 30-1",
     courseType: "Math",
     grade: 12,
     color: "#10B981",
     icon: Calculator,
     courseId: 89,
     pasiCode: "MAT3791",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Math 31",
-    label: "Math 31 (Calculus)", 
+    label: "Math 31 (Calculus)",
     courseType: "Math",
     grade: 12,
     color: "#10B981",
     icon: Calculator,
     courseId: 93,
     pasiCode: "MAT3211",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "Physics 30",
-    label: "Physics 30", 
+    label: "Physics 30",
     courseType: "Science",
     grade: 12,
     color: "#10B981",
     icon: Beaker,
     courseId: 2,
     pasiCode: "SCN3797",
-    credits: 5
+    credits: 5,
+    available: true
   },
-  { 
+  {
     value: "COM1255 - E-Learning",
-    label: "COM1255 - E-Learning", 
+    label: "COM1255 - E-Learning",
     courseType: "Options",
     grade: 10,
     color: "#3B82F6",
     icon: Code,
     courseId: 4,
     pasiCode: "COM1255",
-    credits: 1
+    credits: 1,
+    available: false  // Options courses not shown in main courses
   },
-  { 
+  {
     value: "INF2020 - Keyboarding",
-    label: "INF2020 - Keyboarding", 
+    label: "INF2020 - Keyboarding",
     courseType: "Options",
     grade: 10,
     color: "#8B5CF6",
     icon: Keyboard,
     courseId: 6,
     pasiCode: "INF2020",
-    credits: 1
+    credits: 1,
+    available: false  // Options courses not shown in main courses
   },
 ];
 

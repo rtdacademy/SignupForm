@@ -95,15 +95,16 @@ const formatDate = (dateString) => {
   });
 };
 
-const CourseCard = ({ 
-  course, 
+const CourseCard = ({
+  course,
   onGoToCourse, // Keep for backward compatibility
   onGoToFirebaseCourse, // New handler for Firebase courses
   onGoToLMSCourse, // New handler for LMS courses
+  onGoToLMSCourseFirebase, // New handler for testing Firebase SSO integration (dev only)
   onCourseRefresh, // Handler for refreshing course data after transition
   className = '',
   profile,
-  importantDates 
+  importantDates
 }) => {
   const { currentUser, isEmulating } = useAuth();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -1285,6 +1286,35 @@ const CourseCard = ({
                   </Button>
                 )}
               </div>
+
+              {/* Development only: Test Firebase SSO Integration */}
+              {process.env.NODE_ENV === 'development' && onGoToLMSCourseFirebase && !effectiveCourseDetails?.firebaseCourse && (
+                <div className="mt-2">
+                  <Button
+                    onClick={() => {
+                      // Only allow if course is unlocked and active
+                      if (!isUnlocked && !isDeveloper) {
+                        toast.error("This course requires payment. Complete payment to test Firebase SSO.");
+                        return;
+                      }
+                      if (status !== 'Active') {
+                        toast.error("Course must be active to test Firebase SSO.");
+                        return;
+                      }
+                      onGoToLMSCourseFirebase(course);
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2 hover:shadow-xl hover:scale-[1.02] transform border-2 border-dashed border-purple-300"
+                    disabled={!isUnlocked && !isDeveloper}
+                  >
+                    <span className="text-yellow-300">🔥</span>
+                    <span>Test Firebase SSO Integration (Dev Only)</span>
+                    <span className="text-yellow-300">🚀</span>
+                  </Button>
+                  <p className="text-xs text-center text-gray-500 mt-1">
+                    Development mode: Tests new Firebase authentication for IMathAS
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -1082,26 +1082,45 @@ const OpticsSimulation = ({ onDataCollected }) => {
     </div>
   );
 };
-const LabMirrorsLenses = ({ 
-  courseId = '2', 
+const LabMirrorsLenses = ({
+  courseId = '2',
   course,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  isViewingSubmission = false,
+  submissionStudentKey = null,
+  submissionData = null
 }) => {
   const { currentUser } = useAuth();
   const database = getDatabase();
-  
+
   // Debug render
-  console.log('🔄 LabMirrorsLenses render');
-  
+  console.log('🔄 LabMirrorsLenses render', {
+    isViewingSubmission,
+    submissionStudentKey,
+    hasSubmissionData: !!submissionData
+  });
+
   // Get questionId from course config
   const questionId = course?.Gradebook?.courseConfig?.gradebook?.itemStructure?.['lab_mirrors_lenses']?.questions?.[0]?.questionId || 'course2_lab_mirrors_lenses';
   console.log('📋 Lab questionId:', questionId);
-  
+
   // Create database reference for this lab using questionId - memoized to prevent re-creation
+  // Use submission path if viewing submitted work, otherwise use regular path
   const labDataRef = React.useMemo(() => {
-    return currentUser?.uid ? ref(database, `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`) : null;
-  }, [currentUser?.uid, database, courseId, questionId]);
+    if (isViewingSubmission && submissionStudentKey) {
+      // Teacher viewing submitted work - use assessment path
+      const path = `students/${submissionStudentKey}/courses/${courseId}/Assessments/${questionId}`;
+      console.log('📂 Using submission path:', path);
+      return ref(database, path);
+    } else if (currentUser?.uid) {
+      // Normal path for student working on lab
+      const path = `users/${currentUser.uid}/FirebaseCourses/${courseId}/${questionId}`;
+      console.log('📂 Using working path:', path);
+      return ref(database, path);
+    }
+    return null;
+  }, [currentUser?.uid, database, courseId, questionId, isViewingSubmission, submissionStudentKey]);
   
   // Ref to track if component is mounted (for cleanup)
   const isMountedRef = useRef(true);
@@ -1202,14 +1221,20 @@ const LabMirrorsLenses = ({
 
   // Save specific data to Firebase
   const saveToFirebase = useCallback(async (dataToUpdate) => {
+    // Disable saving when viewing submissions
+    if (isViewingSubmission) {
+      console.log('🚫 Save blocked: viewing submission in read-only mode');
+      return;
+    }
+
     if (!currentUser?.uid || !labDataRef) {
       console.log('🚫 Save blocked: no user or ref');
       return;
     }
-    
+
     try {
       console.log('💾 Saving to Firebase:', dataToUpdate);
-      
+
       // Create the complete data object to save
       const dataToSave = {
         ...dataToUpdate,
@@ -1217,18 +1242,18 @@ const LabMirrorsLenses = ({
         courseId: courseId,
         labId: '15-lab-mirrors-lenses'
       };
-      
+
       // Use update instead of set to only update specific fields
       await update(labDataRef, dataToSave);
       console.log('✅ Save successful!');
-      
+
       setHasSavedProgress(true);
-      
+
     } catch (error) {
       console.error('❌ Save failed:', error);
       toast.error('Failed to save data. Please try again.');
     }
-  }, [currentUser?.uid, labDataRef, courseId]);
+  }, [currentUser?.uid, labDataRef, courseId, isViewingSubmission]);
   
   // Helper function to start the lab
   const startLab = () => {
@@ -1244,22 +1269,48 @@ const LabMirrorsLenses = ({
   
   // Load lab data from Firebase on component mount
   useEffect(() => {
+    // For viewing submission, use the submissionData prop directly
+    if (isViewingSubmission && submissionData) {
+      console.log('📖 Loading submitted lab data from prop:', submissionData);
+      setIsLoading(true);
+
+      // Restore saved state from submissionData
+      if (submissionData.sectionStatus) setSectionStatus(submissionData.sectionStatus);
+      if (submissionData.equipmentMethod) setEquipmentMethod(submissionData.equipmentMethod);
+      if (submissionData.procedureUnderstood !== undefined) setProcedureUnderstood(submissionData.procedureUnderstood);
+      if (submissionData.observationData) {
+        console.log('📊 Loading observation data:', submissionData.observationData);
+        setObservationData(submissionData.observationData);
+      }
+      if (submissionData.analysisData) setAnalysisData(submissionData.analysisData);
+      if (submissionData.postLabAnswers) setPostLabAnswers(submissionData.postLabAnswers);
+      if (submissionData.currentSection) setCurrentSection(submissionData.currentSection);
+
+      // Always show as started when viewing submission
+      setLabStarted(true);
+      setHasSavedProgress(true);
+      setIsLoading(false);
+
+      return; // Exit early, no need to set up Firebase listener
+    }
+
+    // Normal loading for non-submission viewing
     if (!currentUser?.uid || !labDataRef) return;
-    
+
     setIsLoading(true);
-    
+
     // Use a one-time listener that auto-unsubscribes
     let hasLoaded = false;
     const unsubscribe = onValue(labDataRef, (snapshot) => {
       if (hasLoaded) return; // Prevent multiple loads
       hasLoaded = true;
-      
+
       console.log('📡 Firebase data fetched:', snapshot.exists());
-      
+
       if (snapshot.exists()) {
         const savedData = snapshot.val();
         console.log('📖 Loading saved lab data:', savedData);
-        
+
         // Restore saved state
         if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
         if (savedData.equipmentMethod) setEquipmentMethod(savedData.equipmentMethod);
@@ -1272,7 +1323,7 @@ const LabMirrorsLenses = ({
         if (savedData.postLabAnswers) setPostLabAnswers(savedData.postLabAnswers);
         if (savedData.currentSection) setCurrentSection(savedData.currentSection);
         if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
-        
+
         setHasSavedProgress(true);
       } else {
         console.log('📝 No previous lab data found, starting fresh');
@@ -1294,7 +1345,7 @@ const LabMirrorsLenses = ({
     });
     
     return () => unsubscribe();
-  }, [currentUser?.uid, courseId, questionId]);
+  }, [currentUser?.uid, courseId, questionId, isViewingSubmission, submissionData]);
 
   // Auto-start lab for staff view
   useEffect(() => {
@@ -1937,8 +1988,8 @@ const LabMirrorsLenses = ({
     });
   };
   
-  // Show start lab screen if lab hasn't started (but not for staff view)
-  if (!labStarted && !isStaffView) {
+  // Show start lab screen if lab hasn't started (but not for staff view or when viewing submission)
+  if (!labStarted && !isStaffView && !isViewingSubmission) {
     return (
       <div id="lab-content" className="space-y-6">
         
@@ -2028,9 +2079,24 @@ const LabMirrorsLenses = ({
   }
   
   return (
-    <div id="lab-content" className={`space-y-6 relative ${isSubmitted && !isStaffView ? 'lab-input-disabled' : ''}`}>
+    <div id="lab-content" className={`space-y-6 relative ${(isSubmitted && !isStaffView) || isViewingSubmission ? 'lab-input-disabled' : ''}`}>
+      {/* Read-only banner when viewing submission */}
+      {isViewingSubmission && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm font-medium text-yellow-800">
+                Viewing Submitted Lab - Read Only
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                This is the student's submitted work. All inputs are disabled.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <style dangerouslySetInnerHTML={{__html: `
-        /* Disable inputs for submitted labs (student view only) */
+        /* Disable inputs for submitted labs (student view only) OR when viewing submissions */
         .lab-input-disabled input,
         .lab-input-disabled textarea,
         .lab-input-disabled button:not(.staff-only):not(.print-button),
@@ -2040,7 +2106,7 @@ const LabMirrorsLenses = ({
           cursor: not-allowed !important;
           background-color: #f9fafb !important;
         }
-        
+
         /* Keep certain elements interactive for staff and print button */
         .lab-input-disabled .staff-only,
         .lab-input-disabled .print-button {

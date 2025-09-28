@@ -52,6 +52,9 @@ const PostSubmissionOverlay = ({
   const [maxPoints, setMaxPoints] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Use a ref to track if we just saved to prevent grade reset
+  const justSavedRef = React.useRef(false);
   
   
   // State for teacher comments
@@ -189,13 +192,26 @@ const PostSubmissionOverlay = ({
       }
       
       // Set the grade if found
+      // Skip updating if we just saved (prevents flickering)
+      if (justSavedRef.current) {
+        console.log('⏭️ Skipping grade update - just saved');
+        justSavedRef.current = false; // Reset flag
+        return;
+      }
+
       if (existingGrade !== undefined && existingGrade !== null) {
         const gradeStr = existingGrade.toString();
         setCurrentGrade(gradeStr);
         setOriginalGrade(gradeStr);
+      } else {
+        // Only reset if we're not currently editing
+        if (!hasChanges) {
+          setCurrentGrade('');
+          setOriginalGrade('');
+        }
       }
     }
-  }, [course, questionId]);
+  }, [course, questionId, hasChanges]);
 
 
   // Load teacher comment from course object or Firebase
@@ -368,7 +384,7 @@ const PostSubmissionOverlay = ({
       await set(metadataRef, metadata);
       
       console.log('✅ Grade and metadata saved successfully:', { questionId, grade, studentKey, courseId });
-      
+
       // Update local state after successful save
       console.log('🔄 Updating local state:', {
         oldOriginalGrade: originalGrade,
@@ -376,7 +392,10 @@ const PostSubmissionOverlay = ({
         oldHasChanges: hasChanges,
         newHasChanges: false
       });
-      
+
+      // Set flag to prevent grade reset when course data updates
+      justSavedRef.current = true;
+
       setOriginalGrade(currentGrade);
       setHasChanges(false);
       
@@ -609,7 +628,7 @@ const PostSubmissionOverlay = ({
                     console.log('💬 Comment button clicked, teacherComment:', teacherComment);
                     setShowCommentModal(true);
                   }}
-                  className={`relative p-1.5 rounded-md transition-all duration-200 cursor-pointer pointer-events-auto z-[10000] ${
+                  className={`staff-only relative p-1.5 rounded-md transition-all duration-200 cursor-pointer pointer-events-auto z-[10000] ${
                     teacherComment?.trim()
                       ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
                       : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
@@ -649,7 +668,7 @@ const PostSubmissionOverlay = ({
                             saveGrade();
                           }
                         }}
-                        className="w-16 px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                        className="staff-only w-16 px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
                         placeholder="0"
                       />
                       <span className="text-xs text-blue-600">
@@ -668,16 +687,16 @@ const PostSubmissionOverlay = ({
                         <button
                           onClick={saveGrade}
                           disabled={isSaving}
-                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                          className="staff-only flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
                         >
                           <Save className="w-3 h-3" />
                           {isSaving ? 'Saving...' : 'Save Grade'}
                         </button>
-                        
+
                         {originalGrade && (
                           <button
                             onClick={revertGrade}
-                            className="flex items-center gap-1 px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                            className="staff-only flex items-center gap-1 px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
                           >
                             Revert
                           </button>
@@ -756,8 +775,54 @@ const PostSubmissionOverlay = ({
 
       {/* Teacher Comment Modal */}
       {showCommentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl max-h-[90vh] w-full overflow-hidden">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4 teacher-comment-modal"
+          style={{ pointerEvents: 'auto' }}
+        >
+          <style dangerouslySetInnerHTML={{__html: `
+            /* Ensure all modal content remains interactive */
+            .teacher-comment-modal * {
+              pointer-events: auto !important;
+              opacity: 1 !important;
+            }
+
+            .teacher-comment-modal input,
+            .teacher-comment-modal button,
+            .teacher-comment-modal select,
+            .teacher-comment-modal textarea,
+            .teacher-comment-modal .ql-toolbar button,
+            .teacher-comment-modal .ql-toolbar .ql-picker,
+            .teacher-comment-modal .ql-container {
+              pointer-events: auto !important;
+              opacity: 1 !important;
+              cursor: pointer !important;
+            }
+
+            /* Fix cursor for Quill toolbar buttons and pickers */
+            .teacher-comment-modal .ql-toolbar button,
+            .teacher-comment-modal .ql-toolbar .ql-picker-label,
+            .teacher-comment-modal .ql-toolbar .ql-picker-options {
+              cursor: pointer !important;
+            }
+
+            .teacher-comment-modal .ql-toolbar button:hover {
+              background-color: #e5e7eb !important;
+              cursor: pointer !important;
+            }
+
+            .teacher-comment-modal .ql-toolbar button.ql-active {
+              background-color: #dbeafe !important;
+              cursor: pointer !important;
+            }
+
+            /* Ensure dropdowns and all interactive elements show pointer cursor */
+            .teacher-comment-modal .ql-picker:hover,
+            .teacher-comment-modal .ql-picker-label:hover,
+            .teacher-comment-modal .ql-formats button:hover {
+              cursor: pointer !important;
+            }
+          `}} />
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl max-h-[90vh] w-full overflow-hidden" style={{ pointerEvents: 'auto' }}>
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center gap-3">
@@ -777,7 +842,8 @@ const PostSubmissionOverlay = ({
               
               <button
                 onClick={() => setShowCommentModal(false)}
-                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                className="staff-only p-2 hover:bg-gray-200 rounded-full transition-colors pointer-events-auto"
+                style={{ pointerEvents: 'auto' }}
                 title="Close comment modal"
               >
                 <X className="w-5 h-5 text-gray-600" />
@@ -838,11 +904,12 @@ const PostSubmissionOverlay = ({
                   handleCommentSaveAndClose();
                 } : () => setShowCommentModal(false)}
                 disabled={isCommentSaving}
-                className={`px-4 py-2 text-white rounded-md transition-colors ${
-                  isStaffView 
-                    ? 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50' 
+                className={`staff-only px-4 py-2 text-white rounded-md transition-colors pointer-events-auto ${
+                  isStaffView
+                    ? 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
                     : 'bg-gray-600 hover:bg-gray-700'
                 }`}
+                style={{ pointerEvents: 'auto' }}
               >
                 {isStaffView ? (
                   <>

@@ -10,6 +10,7 @@ import MigrationWelcomeDialog from '../migration/MigrationWelcomeSheet';
 import ProfileComponent from './ProfileComponent';
 import CourseCard from './CourseCard';
 import LMSWrapper from './LMSWrapper';
+import LMSWrapperFirebase from './LMSWrapperFirebase'; // Firebase SSO version for testing
 import FirebaseCourseWrapper from '../FirebaseCourses/FirebaseCourseWrapperImproved';
 import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
@@ -384,10 +385,19 @@ const Dashboard = () => {
 
   // Handler for LMS courses
   const handleGoToLMSCourse = useCallback((course) => {
-    setSearchParams({ 
+    setSearchParams({
       courseId: course.CourseID || course.id,
       view: 'course',
       courseType: 'lms'
+    });
+  }, [setSearchParams]);
+
+  // Handler for testing Firebase SSO with LMS courses (development only)
+  const handleGoToLMSCourseFirebase = useCallback((course) => {
+    setSearchParams({
+      courseId: course.CourseID || course.id,
+      view: 'course',
+      courseType: 'lms-firebase' // Special type for Firebase SSO testing
     });
   }, [setSearchParams]);
 
@@ -554,6 +564,13 @@ const Dashboard = () => {
           ) : courseType === 'lms' ? (
             // Explicit LMS course routing
             <LMSWrapper
+              courseId={selectedCourse?.CourseID || selectedCourseId}
+              courseData={selectedCourse}
+              onReturn={handleBackClick}
+            />
+          ) : courseType === 'lms-firebase' ? (
+            // Development only: Test Firebase SSO for LMS courses
+            <LMSWrapperFirebase
               courseId={selectedCourse?.CourseID || selectedCourseId}
               courseData={selectedCourse}
               onReturn={handleBackClick}
@@ -730,6 +747,7 @@ const Dashboard = () => {
                   onViewDetails={() => setSearchParams({ courseId: course.CourseID || course.id })}
                   onGoToFirebaseCourse={handleGoToFirebaseCourse}
                   onGoToLMSCourse={handleGoToLMSCourse}
+                  onGoToLMSCourseFirebase={handleGoToLMSCourseFirebase}
                   onGoToCourse={() => {
                     // Legacy fallback for backward compatibility
                     setSearchParams({ 
