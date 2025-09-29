@@ -21,17 +21,17 @@ const IMPORTANT_DATES = {
     // schoolYearEnd: toEdmontonDate('2025-06-30'),
   },
   '25/26': {
-    registrationOpen: toEdmontonDate('2025-01-01'),
+    registrationOpen: toEdmontonDate('2025-10-02'),
     septemberCount: toEdmontonDate('2025-09-29'),
     // Future dates can be added here
   },
   '26/27': {
-    registrationOpen: toEdmontonDate('2026-01-01'),
+    registrationOpen: toEdmontonDate('2026-10-02'),
     septemberCount: toEdmontonDate('2026-09-29'),
     // Future dates can be added here
   },
   '27/28': {
-    registrationOpen: toEdmontonDate('2027-01-01'),
+    registrationOpen: toEdmontonDate('2027-10-02'),
     septemberCount: toEdmontonDate('2027-09-29'),
     // Future dates can be added here
   }
@@ -255,17 +255,36 @@ export const getOpenRegistrationSchoolYear = (referenceDate = new Date()) => {
 export const getAllOpenRegistrationSchoolYears = (referenceDate = new Date()) => {
   const allDates = getAllSeptemberCountDates();
   const openYears = [];
-  
+
   for (const {schoolYear} of allDates) {
     const registrationOpen = isRegistrationOpen(schoolYear, referenceDate);
     const septemberCountPassed = hasSeptemberCountPassed(schoolYear, referenceDate);
-    
+
     if (registrationOpen && !septemberCountPassed) {
       openYears.push(schoolYear);
     }
   }
-  
+
   return openYears.sort();
+};
+
+/**
+ * Gets the active registration year for display purposes
+ * This ensures families can always see their current year's registration,
+ * even after the September count has passed
+ * @param {Date} referenceDate - Reference date to compare against (defaults to today)
+ * @returns {string} The school year to display for registration
+ */
+export const getActiveRegistrationYear = (referenceDate = new Date()) => {
+  // First check if there's an open registration year
+  const openYear = getOpenRegistrationSchoolYear(referenceDate);
+  if (openYear) {
+    return openYear;
+  }
+
+  // If no registration is open, return the current school year
+  // This ensures families can still see their submitted forms for the current year
+  return getCurrentSchoolYear();
 };
 
 // Export individual dates for direct access if needed
@@ -286,5 +305,6 @@ export default {
   isRegistrationOpen,
   getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears,
+  getActiveRegistrationYear,
   IMPORTANT_DATES
 };

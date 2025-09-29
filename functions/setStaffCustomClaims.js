@@ -850,28 +850,34 @@ const updateStaffPermissions = onCall({
     const newCustomClaims = {
       // Preserve non-staff claims
       ...currentClaims,
-      
+
       // Staff permissions
       staffPermissions: finalStaffPermissions,
       staffRole: finalStaffRole,
       lastPermissionUpdate: Date.now(),
       permissionSource: 'manual_admin',
       lastUpdatedBy: callerEmail,
-      
+
       // Staff boolean flags for compatibility
       isStaffUser: finalStaffPermissions.length > 0,
       isTeacher: finalStaffPermissions.includes('teacher'),
       isCourseManager: finalStaffPermissions.includes('course_manager'),
       isAdminUser: finalStaffPermissions.includes('admin'),
       isSuperAdminUser: finalStaffPermissions.includes('super_admin'),
-      
+
       // RTD Learning Admin flag
       isRTDLearningAdmin: isRTDLearningAdmin !== undefined ? isRTDLearningAdmin : (currentClaims.isRTDLearningAdmin || false),
-      
+
       // Add any additional custom claims
       ...(additionalCustomClaims || {})
     };
-    
+
+    // Clean up invalid/unwanted custom claims properties
+    // These should not exist on staff user accounts
+    delete newCustomClaims.familyId;
+    delete newCustomClaims.familyRole;
+    delete newCustomClaims.customClaims; // Accidentally nested property from previous operations
+
     // If no staff permissions, remove staff-related claims
     if (finalStaffPermissions.length === 0) {
       delete newCustomClaims.staffPermissions;

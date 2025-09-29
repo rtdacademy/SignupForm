@@ -91,11 +91,7 @@ export const websiteConfig = {
       faqs: [
         {
           question: 'When will my marks be submitted to Alberta Education?',
-          answer: `Your marks are typically submitted to Alberta Education within a week of completing your course.
-
-The sooner you complete your course, the sooner your mark can be submitted and appear on your official transcript.
-
-For specific timelines based on your student type and term, please see your relevant student category section.`,
+          answer: `Your marks will be submitted to Alberta Education within 1 week of course completion.`,
           priority: 'low'
         },
         {
@@ -133,7 +129,7 @@ For specific timelines based on your student type and term, please see your rele
 - See your specific student category for full pricing details
 
 To determine your student type and pricing, check the category descriptions above or contact us for assistance.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Do you take on primary registrations?',
@@ -160,10 +156,10 @@ Currently, we offer:
 
 **RTD Academy Distance Education Courses**
 - Individual HIGH SCHOOL COURSES (Grades ${config.grades.highSchoolStart}-${config.grades.highSchoolEnd} only)
-- For students already registered with another school/home education program
+- For students registered with another school/home education program (including RTD Connect students)
 - Up to ${config.credits.maxPerYear} free credits per year through Distance Education grant
 - These are the courses you're looking at on this website`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Can I use both RTD Connect and take RTD Academy courses?',
@@ -200,7 +196,100 @@ This is ideal for families wanting comprehensive support with both their home ed
 - Written at official Alberta Education test centers
 - Can use previous diploma marks or rewrite to improve
 - Exam fees paid directly to Alberta Education
-- We provide detailed MyPass registration instructions`,
+- We provide detailed MyPass registration instructions
+
+**Want to see how it works?**
+Check out our **[Open Courses](/#open-courses)** - free access to our full course content (without assignments or exams). It's a great way to get a feel for how everything works. The assessments aren't included, but they follow the same format as the practice homework questions you'll see in the courses.`,
+          priority: 'low'
+        },
+        {
+          question: 'How can I get help and contact my teacher?',
+          answer: `We provide multiple ways to get help and stay connected with your teacher:
+
+**Built-in Question Chat:**
+- Every practice question and assessment has a built-in chat feature
+- Ask questions directly within the specific problem you're working on
+- Your teacher can see exactly what you're struggling with - nothing gets lost in translation
+- All context is preserved, making it easier for teachers to provide targeted help
+
+**One-on-One Teacher Meetings:**
+- Book personal help sessions with your instructor
+- Simple booking page built right into your course
+- Available time slots for individual support
+- Get help with challenging concepts or any other needs
+- Face-to-face virtual support when you need it most
+
+**Regular Communication:**
+- Receive progress emails from your instructor
+- Updates about your course performance and important information
+- Parents are automatically CC'd on all communications
+- Stay informed about your student's progress every step of the way`,
+          priority: 'low'
+        },
+        {
+          question: 'What is the difference between Open Courses and regular courses?',
+          answer: `For a complete comparison and detailed information about our Open Courses, please visit our **[Open Courses section](/#open-courses)**.
+
+In brief: Open Courses provide free access to our full course content for anyone to explore and learn, while regular courses include assessments, teacher support, and official credit toward your Alberta high school diploma.`,
+          priority: 'low'
+        },
+        {
+          question: 'What happens if I fall behind my schedule?',
+          answer: `
+
+**Flexibility is Built In:**
+- Missing an assessment date by a few days is completely fine
+- The schedule helps you stay on track but allows for life's unexpected moments
+- You won't be penalized for reasonable delays
+
+**When We Reach Out:**
+- If you fall significantly behind (2-4 lessons) or stop progressing, your teacher will be contacting you
+- This isn't to scold you - we genuinely want to help you succeed
+- We'll work together to understand what's happening and find solutions
+
+**Taking Initiative (We Love This!):**
+We strongly encourage students to take ownership of their learning. If you're falling behind, reaching out first shows incredible maturity and responsibility. Your teacher will appreciate and respect this!
+
+**How to Communicate Effectively:**
+When contacting your teacher about falling behind:
+1. Be honest about what happened (illness, family situation, struggling with material, etc.)
+2. Suggest a realistic plan to catch up
+3. Ask for any support you might need
+
+**Remember:**
+- Your teacher is on your team - they want you to succeed
+- There's no judgment, only support
+- Taking responsibility and communicating proactively are valuable life skills you're developing
+- Every student faces challenges; what matters is how you handle them`,
+          priority: 'low'
+        },
+        {
+          question: 'What if I fall significantly behind?',
+          answer: `If you've fallen substantially behind, don't worry - we have systems in place to help you get back on track.
+
+**Creating a New Schedule:**
+- After discussing with your teacher, you may be permitted to create a new schedule
+- This updated schedule will show clear, achievable milestones with proper lesson spacing
+- Having a realistic path forward often relieves stress and renews motivation
+
+**Important Accountability Measures:**
+While we're supportive, we also believe in healthy accountability:
+- Teachers will work hard to keep you on your new schedule
+- This prevents endless procrastination and schedule adjustments
+- Some pressure helps ensure you meet your goals and succeed
+
+**Multiple Schedule Resets:**
+- Students who require excessive schedule changes will not be allowed to create a new schedule and may be required to pay to continue
+- This policy ensures commitment and prevents abuse of the free course system
+
+**For Adult Students:**
+We're accommodating but will still hold you accountable - this balance helps combat procrastination and ensures you reach your goals:
+- We understand you're juggling work, family, and education
+- Your teacher will send regular check-in messages to keep you on track
+- We provide flexibility when you communicate your challenges
+- **Critical:** If you fall behind without communicating, your teacher won't know what's happening in your life
+- Share your situation openly - we can only accommodate what we know about
+- This accountability combined with support has proven most effective for adult learner success`,
           priority: 'low'
         }
       ]
@@ -228,7 +317,7 @@ This is ideal for families wanting comprehensive support with both their home ed
 - Complete flexibility in pacing and timing
 
 We work within these provincial guidelines to maximize flexibility while maintaining compliance for continued funding.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'What\'s the difference between registration and my official term start?',
@@ -244,7 +333,7 @@ We work within these provincial guidelines to maximize flexibility while maintai
 - Instructor communication
 - Graded assignment submission
 - Formal academic support`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'What can I do with early registration access?',
@@ -256,7 +345,7 @@ The only restrictions due to grant requirements:
 - Instructor communication opens when your term begins
 
 **Important:** This means you're not just "reviewing" - you can make real progress through the course content. Many students complete a significant portion of their coursework before their term officially starts!`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Why do these restrictions exist?',
@@ -275,7 +364,7 @@ The only restrictions due to grant requirements:
 - We advocate for students while maintaining compliance
 
 We understand these restrictions can be frustrating, but they ensure continued free access to quality education for thousands of Alberta students.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'When do terms start and end?',
@@ -297,7 +386,7 @@ We understand these restrictions can be frustrating, but they ensure continued f
 - Open to all school-aged Alberta residents
 
 **Remember:** You can register early and access course materials immediately, but exams and instructor communication begin on the official term start date.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'What happens if I don\'t finish by my term deadline?',
@@ -333,7 +422,7 @@ We encourage meeting deadlines when possible, as they help you stay on track and
 - Or you can wait for the next term/summer for more free credits
 
 These limits exist because Alberta Education provides a fixed amount of funding per student per year.`,
-          priority: 'high'
+          priority: 'low'
         }
       ]
     },
@@ -783,6 +872,36 @@ This format is specifically designed for adults balancing multiple responsibilit
 This is one of the key benefits of paid enrollment: you're not bound by the grant funding restrictions that apply to free courses. You can truly learn at your own pace without artificial barriers.
 
 Your ${config.pricing.adultStudent.trialPeriodDays}-day trial starts immediately upon registration, giving you full access to experience our platform right away.`,
+          priority: 'low'
+        },
+        {
+          question: 'What if I fall behind schedule as an Adult Student?',
+          answer: `We understand you're balancing education with work, family, and other adult responsibilities. Here's how we approach this:
+
+**Our Philosophy:**
+We're accommodating but will hold you accountable. This balance helps you overcome procrastination and achieve your educational goals.
+
+**What to Expect:**
+- Your teacher will check in if you fall 2-4 lessons behind
+- These aren't scolding messages - they're motivational nudges
+- We provide flexibility when life gets overwhelming
+- You can adjust your schedule when needed (with communication)
+
+**The Key to Success - Communication:**
+- **If you communicate:** We'll work with you to find solutions, adjust deadlines, and provide support
+- **If you go silent:** Your teacher can't help with problems they don't know about
+- A simple message like "Work is crazy this week, I'll catch up on the weekend" goes a long way
+
+**Why We Take This Approach:**
+- Adult learners often struggle with self-pacing without any structure
+- Gentle accountability dramatically improves completion rates
+- Many adult students tell us they appreciate the "nudges" to stay on track
+- The combination of flexibility + accountability helps you succeed
+
+**Real Talk:**
+You're investing time and money in your education. We want to ensure you get the diploma you're working toward, not just another unfinished online course. Our teachers are here to be your accountability partners, cheerleaders, and support system - but only if you keep the communication lines open.
+
+Remember: There's no judgment for falling behind, only support to help you get back on track.`,
           priority: 'high'
         }
       ]
@@ -797,7 +916,7 @@ Your ${config.pricing.adultStudent.trialPeriodDays}-day trial starts immediately
         {
           question: 'What is an International Student?',
           answer: `International Students are learners residing outside of Alberta who take our Alberta High School courses online.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'How much does it cost for International Students?',
@@ -806,7 +925,7 @@ Your ${config.pricing.adultStudent.trialPeriodDays}-day trial starts immediately
 **Monthly payment:** $${config.pricing.adultStudent.monthlyPayment}/month for ${config.pricing.adultStudent.monthlyPaymentMonths} months (total $${config.pricing.adultStudent.monthlyPaymentTotal})
 
 All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-day trial period included.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'What payment methods are accepted?',
@@ -820,7 +939,7 @@ All prices in Canadian dollars. ${config.pricing.adultStudent.trialPeriodDays}-d
 This flexibility is a major advantage: unlike funded Alberta students who must wait for official term dates, you can begin your learning journey immediately. Your ${config.pricing.adultStudent.trialPeriodDays}-day trial provides full access from the moment you register.
 
 This is ideal for international learners who may have different academic calendars or urgent timelines for course completion.`,
-          priority: 'high'
+          priority: 'low'
         }
       ]
     },

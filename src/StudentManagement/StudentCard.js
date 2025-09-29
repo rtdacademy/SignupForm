@@ -55,6 +55,7 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
+import StartingOnDialog from './Dialog/StartingOnDialog';
 import { toast } from 'sonner';
 import PermissionIndicator from '../context/PermissionIndicator';
 import PasiActionButtons from '../components/PasiActionButtons';
@@ -570,6 +571,7 @@ const StudentCard = React.memo(({
   const [isPendingFinalizationOpen, setIsPendingFinalizationOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState(null);
   const [isResumingOnOpen, setIsResumingOnOpen] = useState(false);
+  const [isStartingOnOpen, setIsStartingOnOpen] = useState(false);
   
 
   // Blacklist state is now passed as props
@@ -792,17 +794,22 @@ const handleAutoStatusButtonClick = useCallback(async (e) => {
 
 const handleStatusChange = useCallback(async (newStatus) => {
   const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
-  
+
   // Check for action first
   if (selectedStatusOption?.action === "PENDING_FINALIZATION") {
     setPendingStatus(newStatus);
     setIsPendingFinalizationOpen(true);
     return;
   }
-  
-  // Then check for the specific status value
+
+  // Then check for the specific status values
   if (selectedStatusOption?.value === "Resuming on (date)") {
     setIsResumingOnOpen(true);
+    return;
+  }
+
+  if (selectedStatusOption?.value === "Starting on (Date)") {
+    setIsStartingOnOpen(true);
     return;
   }
 
@@ -1861,8 +1868,8 @@ const handleStatusChange = useCallback(async (newStatus) => {
                       )}
                       {statusValue === "Resuming on (date)" && student.resumingOnDate ? (
                         `Resuming on ${format(new Date(student.resumingOnDate), 'MMM d, yyyy')}`
-                      ) : statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
-                        `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+                      ) : statusValue === "Starting on (Date)" && (student.startingOnDate || student.ScheduleStartDate) ? (
+                        `Starting on ${format(new Date(student.startingOnDate || student.ScheduleStartDate), 'MMM d, yyyy')}`
                       ) : (
                         statusValue
                       )}
@@ -2442,7 +2449,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         statusValue={statusValue}
         studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
-        studentEmail={getStudentInfo.email} 
+        studentEmail={getStudentInfo.email}
         studentKey={(() => {
           const rawEmail = student.StudentEmail;
   if (!rawEmail) {
@@ -2458,6 +2465,33 @@ const handleStatusChange = useCallback(async (newStatus) => {
         }}
         onCancel={() => {
           setIsResumingOnOpen(false);
+        }}
+      />
+
+      <StartingOnDialog
+        isOpen={isStartingOnOpen}
+        onOpenChange={setIsStartingOnOpen}
+        status="Starting on (Date)"
+        statusValue={statusValue}
+        studentName={getStudentInfo.fullName}
+        courseName={getSafeValue(student.Course_Value)}
+        studentEmail={getStudentInfo.email}
+        scheduleStartDate={student.ScheduleStartDate}
+        studentKey={(() => {
+          const rawEmail = student.StudentEmail;
+          if (!rawEmail) {
+            console.error('StudentEmail is missing for student:', student);
+            toast.error('Cannot update: Student email is missing');
+            return;
+          }
+          return sanitizeEmail(rawEmail);
+        })()}
+        courseId={student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1)}
+        onConfirm={async (date, isManuallySet) => {
+          setIsStartingOnOpen(false);
+        }}
+        onCancel={() => {
+          setIsStartingOnOpen(false);
         }}
       />
 

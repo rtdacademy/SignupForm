@@ -351,6 +351,8 @@ const updateStudentCourseSummaryPrimarySchool = createSpecificPathListener('prim
 
 const updateStudentCourseSummaryResumingDate = createSpecificPathListener('resumingOnDate', 'resumingOnDate');
 
+const updateStudentCourseSummaryStartingOnDate = createSpecificPathListener('startingOnDate', 'startingOnDate');
+
 const updateStudentCourseSummaryPaymentStatus = createSpecificPathListener('payment_status/status', 'payment_status');
 
 const updateStudentCourseSummaryTransition = createSpecificPathListener('transition', 'transition');
@@ -1187,6 +1189,7 @@ module.exports = {
   updateStudentCourseSummaryTerm,
   updateStudentCourseSummaryPrimarySchool,
   updateStudentCourseSummaryResumingDate,
+  updateStudentCourseSummaryStartingOnDate,
   updateStudentCourseSummaryPaymentStatus,
   updateStudentCourseSummaryTransition,
   updateStudentCourseSummaryPreviousEnrollment,

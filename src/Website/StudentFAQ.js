@@ -326,7 +326,45 @@ const StudentFAQ = () => {
   useEffect(() => {
     const handleHashNavigation = () => {
       const hash = window.location.hash.slice(1); // Remove #
-      if (hash && document.getElementById(`category-${hash}`)) {
+
+      // Check for special accordion sections
+      if (hash === 'student-type-guide') {
+        setSearchTerm('');
+        setTimeout(() => {
+          const element = document.getElementById('student-type-guide');
+          if (element) {
+            const offset = 100;
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth'
+            });
+
+            // Open the accordion
+            setGuideOpen('guide');
+          }
+        }, 300);
+      } else if (hash === 'age-calculator') {
+        setSearchTerm('');
+        setTimeout(() => {
+          const element = document.getElementById('age-calculator');
+          if (element) {
+            const offset = 100;
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth'
+            });
+
+            // Open the accordion
+            setCalculatorOpen('calculator');
+          }
+        }, 300);
+      } else if (hash && document.getElementById(`category-${hash}`)) {
         // Clear search when navigating via hash
         setSearchTerm('');
 
@@ -359,7 +397,7 @@ const StudentFAQ = () => {
   }, []);
 
   const handleBackClick = () => {
-    window.location.href = 'https://www.rtdacademy.com/';
+    window.location.href = '/';
   };
 
   const scrollToTop = () => {
@@ -559,7 +597,7 @@ const StudentFAQ = () => {
           </div>
 
           {/* Student Type Guide Accordion - Collapses when searching */}
-          <div className={`
+          <div id="student-type-guide" className={`
             overflow-hidden transform-gpu
             transition-all duration-500 ease-in-out delay-75
             ${searchTerm
@@ -571,20 +609,38 @@ const StudentFAQ = () => {
                 <AccordionItem value="guide" className="border-0">
                   <AccordionTrigger className="hover:no-underline px-6 py-4">
                     <div className="flex items-center justify-between w-full">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 flex-1">
                         <div className="p-2 rounded-full bg-muted">
                           <HelpCircle className="h-5 w-5 text-muted-foreground" />
                         </div>
-                        <div className="text-left">
+                        <div className="text-left flex-1">
                           <h3 className="font-semibold text-base mb-1">Need help determining your student type?</h3>
                           <p className="text-sm text-muted-foreground">
                             Answer a few quick questions to find the right category for you
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-medium text-primary ml-4">
-                        <Sparkles className="h-3 w-3" />
-                        <span>Interactive</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLinkToSection('student-type-guide', e);
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="Copy link to this section"
+                        >
+                          {copiedCategory === 'student-type-guide' ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Link2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div className="flex items-center gap-1 text-xs font-medium text-primary ml-2">
+                          <Sparkles className="h-3 w-3" />
+                          <span>Interactive</span>
+                        </div>
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -622,7 +678,7 @@ const StudentFAQ = () => {
           </div>
 
           {/* School Age Calculator Accordion - Collapses when searching */}
-          <div className={`
+          <div id="age-calculator" className={`
             overflow-hidden transform-gpu
             transition-all duration-500 ease-in-out delay-100
             ${searchTerm
@@ -634,20 +690,38 @@ const StudentFAQ = () => {
                 <AccordionItem value="calculator" className="border-0">
                   <AccordionTrigger className="hover:no-underline px-6 py-4">
                     <div className="flex items-center justify-between w-full">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 flex-1">
                         <div className="p-2 rounded-full bg-muted">
                           <Calculator className="h-5 w-5 text-muted-foreground" />
                         </div>
-                        <div className="text-left">
+                        <div className="text-left flex-1">
                           <h3 className="font-semibold text-base mb-1">Am I a School-Aged Student?</h3>
                           <p className="text-sm text-muted-foreground">
                             Check if you qualify as a school-aged student for funding purposes
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-medium text-primary ml-4">
-                        <Sparkles className="h-3 w-3" />
-                        <span>Calculator</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLinkToSection('age-calculator', e);
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="Copy link to this section"
+                        >
+                          {copiedCategory === 'age-calculator' ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Link2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div className="flex items-center gap-1 text-xs font-medium text-primary ml-2">
+                          <Sparkles className="h-3 w-3" />
+                          <span>Calculator</span>
+                        </div>
                       </div>
                     </div>
                   </AccordionTrigger>

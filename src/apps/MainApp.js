@@ -12,6 +12,8 @@ import PageLoader from '../components/PageLoader';
 
 // Lazy load ALL other components for better performance
 const Dashboard = lazy(() => import('../Dashboard/Dashboard'));
+const OpenCoursesComingSoon = lazy(() => import('../OpenCourses/OpenCoursesComingSoon'));
+const OpenCoursesEntry = lazy(() => import('../OpenCourses/OpenCoursesEntry'));
 const TeacherDashboard = lazy(() => import('../TeacherDashboard/TeacherDashboard'));
 const TeacherFileStorage = lazy(() => import('../TeacherDashboard/TeacherFileStorage'));
 const LMSWrapper = lazy(() => import('../Dashboard/LMSWrapper'));
@@ -24,10 +26,6 @@ const MultiActionAuthHandler = lazy(() => import('../MultiActionAuthHandler'));
 
 // Lazy load public forms
 const ContractorInvoiceForm = lazy(() => import('../PublicForms/ContractorInvoiceForm'));
-const AdultStudentInfo = lazy(() => import('../Website/AdultStudentInfo'));
-const InternationalStudentInfo = lazy(() => import('../Website/InternationalStudentInfo'));
-const StudentFAQ = lazy(() => import('../Website/StudentFAQ'));
-const ContactPage = lazy(() => import('../Website/ContactPage'));
 
 // Lazy load schedule components
 const ScheduleMaker = lazy(() => import('../Schedule/ScheduleMaker'));
@@ -39,13 +37,8 @@ const GeminiChat = lazy(() => import('../AI/GeminiChat'));
 const JSXGraphTest = lazy(() => import('../components/JSXGraphTest'));
 const ExamResults = lazy(() => import('../components/ExamResults'));
 
-// Lazy load website pages
-const GetStartedNow = lazy(() => import('../Website/GetStartedNow'));
-const PoliciesAndReports = lazy(() => import('../Website/PoliciesAndReports'));
-const AERR2324 = lazy(() => import('../Website/AERR/23_24/AERR2324'));
-const EducationPlan = lazy(() => import('../Website/EducationPlan/24_25/EducationPlan'));
+// Lazy load migration components
 const MigrationLogin = lazy(() => import('../migration/MigrationLogin'));
-const RTDLandingPage = lazy(() => import('../Website/RTDLandingPage'));
 
 // Lazy load payment components
 const PaymentResult = lazy(() => import('../Dashboard/PaymentResult'));
@@ -140,6 +133,13 @@ function MainApp() {
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
+        } />
+
+        {/* Open Courses route - public entry page */}
+        <Route path="/open-courses" element={
+          <PublicRoute>
+            <OpenCoursesEntry />
+          </PublicRoute>
         } />
 
         <Route path="/teacher-dashboard" element={
@@ -323,36 +323,6 @@ function MainApp() {
         } />
 
         {/* Public website pages */}
-        <Route path="/rtd-landing" element={
-          <PublicRoute>
-            <RTDLandingPage />
-          </PublicRoute>
-        } />
-
-        <Route path="/get-started" element={
-          <PublicRoute>
-            <GetStartedNow />
-          </PublicRoute>
-        } />
-
-        <Route path="/policies-reports" element={
-          <PublicRoute>
-            <PoliciesAndReports />
-          </PublicRoute>
-        } />
-
-        <Route path="/aerr/2023-24" element={
-          <PublicRoute>
-            <AERR2324 />
-          </PublicRoute>
-        } />
-
-        <Route path="/education-plan/2025-26" element={
-          <PublicRoute>
-            <EducationPlan />
-          </PublicRoute>
-        } />
-
         {/* Legal pages */}
         <Route path="/privacy" element={
           <PublicRoute>
@@ -405,30 +375,6 @@ function MainApp() {
         <Route path="/contractor-invoice" element={
           <PublicRoute>
             <ContractorInvoiceForm />
-          </PublicRoute>
-        } />
-
-        <Route path="/adult-students" element={
-          <PublicRoute>
-            <AdultStudentInfo />
-          </PublicRoute>
-        } />
-
-        <Route path="/international-students" element={
-          <PublicRoute>
-            <InternationalStudentInfo />
-          </PublicRoute>
-        } />
-
-        <Route path="/contact" element={
-          <PublicRoute>
-            <ContactPage />
-          </PublicRoute>
-        } />
-
-        <Route path="/student-faq" element={
-          <PublicRoute>
-            <StudentFAQ />
           </PublicRoute>
         } />
 

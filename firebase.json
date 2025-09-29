@@ -152,6 +152,28 @@
       ],
       "cleanUrls": true,
       "trailingSlash": false
+    },
+    {
+      "target": "rtd-website",
+      "public": "public-website",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**",
+        "*.html.bak",
+        "index.main.html",
+        "index.second.html",
+        "index.rtdconnect.html",
+        "index.website.html"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false
     }
   ],
   "emulators": {

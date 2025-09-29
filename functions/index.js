@@ -49,6 +49,7 @@ const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
 const updateStudentProfileFunctions = require('./updateStudentProfile');
 const adminUserManagementFunctions = require('./adminUserManagement');
+const adminToolsFunctions = require('./adminTools');
 
 // PASI data management
 const pasiDataFunctions = require('./uploadPasiData');
@@ -401,4 +402,7 @@ exports.course2_41_station4_q2 = course2_41_activities.course2_41_station4_q2;
 exports.course2_41_station4_q3 = course2_41_activities.course2_41_station4_q3;
 exports.course2_41_station4_q4 = course2_41_activities.course2_41_station4_q4;
 exports.course2_41_station4_q5 = course2_41_activities.course2_41_station4_q5;
+
+// Admin tools
+exports.removeFamilyClaims = adminToolsFunctions.removeFamilyClaims;
 

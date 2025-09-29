@@ -3,6 +3,7 @@ npm-debug.log
 /build
 /public-second
 /public-rtdconnect
+/public-website
 public/index.html
 public/Logo.svg
 public/edbotz-favicon.svg

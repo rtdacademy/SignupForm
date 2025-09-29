@@ -7,6 +7,7 @@ class BuildManager {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
     this.isRTDConnect = options.isRTDConnect;
+    this.isRTDWebsite = options.isRTDWebsite;
     this.memorySize = options.memorySize || 8192; // Default to 8GB for this large project
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
@@ -42,6 +43,11 @@ class BuildManager {
       fs.rmSync('public-rtdconnect', { recursive: true });
     }
 
+    // Clean rtd-website directory if needed
+    if (this.isRTDWebsite && fs.existsSync('public-website')) {
+      fs.rmSync('public-website', { recursive: true });
+    }
+
     // Clean cache
     if (fs.existsSync('node_modules/.cache')) {
       fs.rmSync('node_modules/.cache', { recursive: true });
@@ -57,12 +63,18 @@ class BuildManager {
     if (this.isRTDConnect) {
       fs.mkdirSync('public-rtdconnect', { recursive: true });
     }
+    if (this.isRTDWebsite) {
+      fs.mkdirSync('public-website', { recursive: true });
+    }
   }
 
   copyFiles() {
     let indexSource, faviconSource;
-    
-    if (this.isRTDConnect) {
+
+    if (this.isRTDWebsite) {
+      indexSource = path.join('assets', 'templates', 'index.website.html');
+      faviconSource = path.join('assets', 'favicons', 'Logo.svg');
+    } else if (this.isRTDConnect) {
       indexSource = path.join('assets', 'templates', 'index.rtdconnect.html');
       faviconSource = path.join('public', 'connectImages', 'Connect.png');
     } else if (this.isSecondSite) {
@@ -82,13 +94,14 @@ class BuildManager {
 
     console.log('Successfully prepared environment:', {
       env: this.isSandbox ? 'sandbox' : 'production',
-      site: this.isRTDConnect ? 'rtdconnect' : (this.isSecondSite ? 'second' : 'main'),
+      site: this.isRTDWebsite ? 'website' : (this.isRTDConnect ? 'rtdconnect' : (this.isSecondSite ? 'second' : 'main')),
       indexSource,
       faviconSource,
       directories: {
         public: 'created/verified',
         publicSecond: this.isSecondSite ? 'created/verified' : 'n/a',
         publicRTDConnect: this.isRTDConnect ? 'created/verified' : 'n/a',
+        publicWebsite: this.isRTDWebsite ? 'created/verified' : 'n/a',
         build: 'cleaned'
       }
     });
@@ -127,18 +140,18 @@ class BuildManager {
 
   copyBuildToPublicRTDConnect() {
     console.log('Copying build files to public-rtdconnect directory...');
-    
+
     const copyRecursive = (src, dest) => {
       if (!fs.existsSync(dest)) {
         fs.mkdirSync(dest, { recursive: true });
       }
-      
+
       const entries = fs.readdirSync(src, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const srcPath = path.join(src, entry.name);
         const destPath = path.join(dest, entry.name);
-        
+
         if (entry.isDirectory()) {
           copyRecursive(srcPath, destPath);
         } else {
@@ -146,14 +159,45 @@ class BuildManager {
         }
       }
     };
-    
+
     copyRecursive('build', 'public-rtdconnect');
-    
+
     // Copy static assets from public folder to ensure images are available
     console.log('Copying static assets from public folder...');
     this.copyPublicAssets('public-rtdconnect');
-    
+
     console.log('Files copied successfully to public-rtdconnect directory');
+  }
+
+  copyBuildToPublicWebsite() {
+    console.log('Copying build files to public-website directory...');
+
+    const copyRecursive = (src, dest) => {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+          copyRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+
+    copyRecursive('build', 'public-website');
+
+    // Copy static assets from public folder to ensure images are available
+    console.log('Copying static assets from public folder...');
+    this.copyPublicAssets('public-website');
+
+    console.log('Files copied successfully to public-website directory');
   }
 
   copyPublicAssets(targetDir) {
@@ -324,7 +368,9 @@ class BuildManager {
 
     try {
       let envFile;
-      if (this.isRTDConnect) {
+      if (this.isRTDWebsite) {
+        envFile = `.env.${this.isSandbox ? 'development' : 'production'}.website`;
+      } else if (this.isRTDConnect) {
         envFile = `.env.${this.isSandbox ? 'development' : 'production'}.rtdconnect`;
       } else if (this.isSecondSite) {
         envFile = `.env.${this.isSandbox ? 'development' : 'production'}.second`;
@@ -386,6 +432,8 @@ class BuildManager {
           this.copyBuildToPublicSecond();
         } else if (this.isRTDConnect) {
           this.copyBuildToPublicRTDConnect();
+        } else if (this.isRTDWebsite) {
+          this.copyBuildToPublicWebsite();
         }
       }
 

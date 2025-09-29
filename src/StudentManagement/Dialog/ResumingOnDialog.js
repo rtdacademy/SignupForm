@@ -83,9 +83,10 @@ const ResumingOnDialog = ({
       const formattedDisplayDate = format(selectedDate, 'MMM d, yyyy');
       const noteContent = `Resuming On ${formattedDisplayDate}\nComment: ${comment}`;
       
-      // Create UTC date at 07:00:00
+      // Store as midnight Edmonton time (which will be 07:00 or 06:00 UTC depending on DST)
       const utcDate = new Date(selectedDate);
-      utcDate.setUTCHours(7, 0, 0, 0);
+      // Set to midnight in local timezone (Edmonton)
+      utcDate.setHours(0, 0, 0, 0);
       const formattedDbDate = utcDate.toISOString();
   
       const newNote = {

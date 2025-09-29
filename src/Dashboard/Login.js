@@ -85,7 +85,7 @@ const AuthLoadingScreen = ({ message }) => (
   </div>
 );
 
-const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
+const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false, hideOtherOptions = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState(null);
@@ -103,6 +103,10 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const [checkingRedirect, setCheckingRedirect] = useState(true);
   const [showAuthLoading, setShowAuthLoading] = useState(false);
   const [authLoadingMessage, setAuthLoadingMessage] = useState("Completing your sign-in...");
+
+  // Check for open mode from URL params
+  const searchParams = new URLSearchParams(location.search);
+  const isOpenMode = searchParams.get('mode') === 'open';
 
   const db = getDatabase();
 
@@ -286,14 +290,14 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
             await auth.signOut();
             handleStaffAttempt();
           } else {
-            setAuthLoadingMessage("Preparing your dashboard...");
+            setAuthLoadingMessage(isOpenMode ? "Preparing Open Courses..." : "Preparing your dashboard...");
             const success = await ensureUserData(user);
             if (success) {
               setAuthLoadingMessage("Almost ready...");
               // Add a small delay to show the final message, then navigate
               setTimeout(() => {
                 setShowAuthLoading(false);
-                navigate("/dashboard");
+                navigate(isOpenMode ? "/open-courses" : "/dashboard");
               }, 1000);
             } else {
               setShowAuthLoading(false);
@@ -437,7 +441,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
           handleStaffAttempt();
         } else {
           await ensureUserData(user);
-          navigate("/dashboard");
+          navigate(isOpenMode ? "/open-courses" : "/dashboard");
         }
       } else {
         // Use redirect in production
@@ -513,10 +517,10 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     try {
       const userCredential = await signInWithEmailAndPassword(auth, userEmail, password);
       const user = userCredential.user;
-      
+
       if (user.emailVerified) {
         await ensureUserData(user);
-        navigate("/dashboard");
+        navigate(isOpenMode ? "/open-courses" : "/dashboard");
       } else {
         await sendEmailVerification(user);
         await auth.signOut();
@@ -912,38 +916,46 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       </Dialog>
 
       {compactView ? (
-        // Compact view 
+        // Compact view
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {isOpenMode && (
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+              <h3 className="font-semibold text-green-900 mb-1">Open Courses Access</h3>
+              <p className="text-sm text-green-700">Sign in to explore our free curriculum</p>
+            </div>
+          )}
           {renderAuthForm()}
-          
-          <div className="mt-6 space-y-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
+
+          {!hideOtherOptions && (
+            <div className="mt-6 space-y-4">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Other login options</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Other login options</span>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Link
+                  to="/parent-login"
+                  className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
+                >
+                  <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
+                  <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
+                </Link>
+
+                <Link
+                  to="/staff-login"
+                  className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
+                  <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
+                </Link>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Link 
-                to="/parent-login" 
-                className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
-              >
-                <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
-                <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
-              </Link>
-              
-              <Link 
-                to="/staff-login" 
-                className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
-                <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
-              </Link>
-            </div>
-          </div>
+          )}
         </div>
       ) : (
         // Full view with all wrappers
@@ -963,36 +975,44 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
 
           <div className={`${!hideWelcome ? 'mt-8' : ''} sm:mx-auto sm:w-full sm:max-w-md`}>
             <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+              {isOpenMode && (
+                <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-green-900 mb-1">Open Courses Access</h3>
+                  <p className="text-sm text-green-700">Sign in to explore our free curriculum - no registration required!</p>
+                </div>
+              )}
               {renderAuthForm()}
-              
-              <div className="mt-6 space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
+
+              {!hideOtherOptions && (
+                <div className="mt-6 space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">Other login options</span>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Other login options</span>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Link
+                      to="/parent-login"
+                      className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
+                      <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
+                    </Link>
+
+                    <Link
+                      to="/staff-login"
+                      className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
+                      <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
+                    </Link>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Link 
-                    to="/parent-login" 
-                    className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
-                  >
-                    <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
-                    <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/staff-login" 
-                    className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
-                    <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
-                  </Link>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 

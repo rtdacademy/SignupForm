@@ -31,17 +31,18 @@ import {
   EmbeddedNotificationBanner, 
   EmbeddedPayouts 
 } from '../components/ConnectEmbeddedComponents';
-import { 
-  getCurrentSchoolYear, 
-  getActiveSeptemberCount, 
-  formatImportantDate, 
+import {
+  getCurrentSchoolYear,
+  getActiveSeptemberCount,
+  formatImportantDate,
   hasSeptemberCountPassed,
   getAllSeptemberCountDates,
   isRegistrationOpen,
   getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears,
   getRegistrationOpenDateForYear,
-  getSeptemberCountForYear
+  getSeptemberCountForYear,
+  getActiveRegistrationYear
 } from '../config/importantDates';
 import { FUNDING_RATES } from '../config/HomeEducation';
 import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl } from '../config/facilitators';
@@ -673,13 +674,14 @@ const RTDConnectDashboard = ({
     
     const currentYear = getCurrentSchoolYear();
     const activeSeptember = getActiveSeptemberCount();
-    
+
     // Check for open registration school years
     const openRegistrationYears = getAllOpenRegistrationSchoolYears();
     const primaryOpenYear = getOpenRegistrationSchoolYear();
-    
-    // Prioritize the open registration year, otherwise use the active September count year
-    const targetSchoolYear = primaryOpenYear || activeSeptember?.schoolYear || currentYear;
+
+    // Use the new getActiveRegistrationYear function which ensures we stay in the current
+    // school year even after September count passes
+    const targetSchoolYear = getActiveRegistrationYear();
     
     // Get SOLO target school year using the same logic as SOLO form
     const soloTargetYear = getTargetSchoolYear();
@@ -887,6 +889,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load facilitator data from family level
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId) {
       return;
     }
@@ -932,6 +939,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load student form statuses by school year
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
       return;
     }
@@ -1002,6 +1014,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load student citizenship document statuses
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId || !familyData?.students) {
       return;
     }
@@ -1094,6 +1111,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load student SOLO plan statuses
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId || !familyData?.students || !soloTargetSchoolYear) {
       return;
     }
@@ -1140,6 +1162,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load student Facilitator Meeting statuses
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId || !familyData?.students || !soloTargetSchoolYear) {
       return;
     }
@@ -1175,6 +1202,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load portfolio statuses
   useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (!effectiveFamilyId || !familyData?.students || !activeSchoolYear) {
       return;
     }
@@ -1222,6 +1254,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load Stripe Connect status
   useEffect(() => {
+    // Don't load personal Stripe data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (effectiveFamilyId && user?.uid && (customClaims?.familyRole === 'primary_guardian' || isStaffViewing)) {
       // Reset all sessions when Stripe status changes
       setSessionStates({});
@@ -1296,6 +1333,11 @@ const RTDConnectDashboard = ({
 
   // Effect to load reimbursement statuses and budgets
   useEffect(() => {
+    // Don't load personal reimbursement data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
     if (effectiveFamilyId && familyData?.students && activeSchoolYear) {
       loadReimbursementStatuses();
       loadStudentBudgets();
@@ -1338,7 +1380,17 @@ const RTDConnectDashboard = ({
   // Separate effect for family data based on custom claims or staff view
   useEffect(() => {
     console.log('Family data effect triggered. effectiveFamilyId:', effectiveFamilyId);
-    
+
+    // IMPORTANT: If user is staff viewing the staff dashboard (not a specific family),
+    // do NOT load their personal family data - this prevents dual role conflicts
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      console.log('Staff user accessing staff dashboard - skipping personal family data load');
+      setHasRegisteredFamily(false);
+      setFamilyProfile(null);
+      setLoading(false);
+      return;
+    }
+
     // If staff is viewing, use provided family data
     if (isStaffViewing && propFamilyData) {
       console.log('Staff viewing mode - using provided family data');
@@ -1814,33 +1866,75 @@ const RTDConnectDashboard = ({
     const registrationIsOpen = isRegistrationOpen(activeSchoolYear);
     const registrationOpenDate = getRegistrationOpenDateForYear(activeSchoolYear);
     const isCurrentYear = activeSchoolYear === currentSchoolYear;
-    
+
     if (currentStatus === 'completed') {
+      // If September count has passed and we're in the current school year, show as registered
+      if (hasPassedSeptemberCount && isCurrentYear) {
+        return {
+          status: 'completed',
+          message: `✅ Registered for ${activeSchoolYear} school year`,
+          actionNeeded: false,
+          schoolYear: activeSchoolYear,
+          deadline: null,
+          icon: CheckCircle2,
+          color: 'text-green-600',
+          bgColor: 'bg-green-50'
+        };
+      } else {
+        return {
+          status: 'completed',
+          message: `Registered for ${activeSchoolYear} school year`,
+          actionNeeded: false,
+          schoolYear: activeSchoolYear,
+          deadline: null,
+          icon: CheckCircle2,
+          color: 'text-green-600',
+          bgColor: 'bg-green-50'
+        };
+      }
+    }
+
+    if (currentStatus === 'partial') {
+      // If September count has passed but we're still in the current year, show different message
+      if (hasPassedSeptemberCount && isCurrentYear) {
+        return {
+          status: 'partial',
+          message: `⚠️ Partial registration for ${activeSchoolYear} - some students incomplete`,
+          actionNeeded: false, // Can't take action after September count
+          schoolYear: activeSchoolYear,
+          deadline: null,
+          icon: AlertTriangle,
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-50'
+        };
+      } else {
+        return {
+          status: 'partial',
+          message: `⚠️ Partial registration for ${activeSchoolYear} - some students still need forms`,
+          actionNeeded: true,
+          schoolYear: activeSchoolYear,
+          deadline: nextSeptemberCount.date,
+          icon: AlertTriangle,
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-50'
+        };
+      }
+    }
+
+    // If we're in the current school year and September count has passed with no registration
+    if (hasPassedSeptemberCount && isCurrentYear && currentStatus === 'pending') {
       return {
-        status: 'completed',
-        message: `Registered for ${activeSchoolYear} school year`,
+        status: 'missed',
+        message: `❌ ${activeSchoolYear} registration period has ended`,
         actionNeeded: false,
         schoolYear: activeSchoolYear,
         deadline: null,
-        icon: CheckCircle2,
-        color: 'text-green-600',
-        bgColor: 'bg-green-50'
+        icon: AlertCircle,
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-50'
       };
     }
-    
-    if (currentStatus === 'partial') {
-      return {
-        status: 'partial',
-        message: `⚠️ Partial registration for ${activeSchoolYear} - some students still need forms`,
-        actionNeeded: true,
-        schoolYear: activeSchoolYear,
-        deadline: nextSeptemberCount.date,
-        icon: AlertTriangle,
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-50'
-      };
-    }
-    
+
     // Check if registration is not yet open
     if (!registrationIsOpen && registrationOpenDate) {
       const daysUntilOpen = Math.ceil((registrationOpenDate - new Date()) / (1000 * 60 * 60 * 24));
@@ -1855,11 +1949,11 @@ const RTDConnectDashboard = ({
         bgColor: 'bg-blue-50'
       };
     }
-    
+
     // Registration is open - pending status
     if (registrationIsOpen && !hasPassedSeptemberCount) {
       const daysUntilDeadline = Math.ceil((nextSeptemberCount.date - new Date()) / (1000 * 60 * 60 * 24));
-      
+
       if (daysUntilDeadline > 30) {
         return {
           status: 'available',
@@ -1895,7 +1989,7 @@ const RTDConnectDashboard = ({
         };
       }
     }
-    
+
     return {
       status: 'required',
       message: `📝 Complete ${activeSchoolYear} registration`,

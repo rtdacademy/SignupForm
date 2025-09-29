@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign, InfoIcon, HelpCircle, Calculator, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../components/ui/dropdown-menu';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { websiteConfig } from './websiteConfig';
 import './styles/rtd-landing.css';
@@ -126,36 +133,104 @@ const Header = ({ scrolled }) => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#courses" className={`font-medium transition-colors ${
-              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-            }`}>
-              Courses
-            </a>
-            <a href="#why-rtd" className={`font-medium transition-colors ${
-              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-            }`}>
-              Why RTD?
-            </a>
-            <a href="/adult-students" className={`font-medium transition-colors ${
-              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-            }`}>
-              Adult Students
-            </a>
-            <a href="/international-students" className={`font-medium transition-colors ${
-              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-            }`}>
-              International
-            </a>
-            <a href="#contact" className={`font-medium transition-colors ${
+          <div className="hidden md:flex items-center gap-6">
+            {/* Courses Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
+                scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+              }`}>
+                Courses
+                <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem asChild>
+                  <a href="#courses" className="cursor-pointer">
+                    <GraduationCap className="mr-2 h-4 w-4" />
+                    All Courses
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="#open-courses" className="cursor-pointer">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Open Courses (Free)
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* For Students Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
+                scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+              }`}>
+                For Students
+                <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <a href="/adult-students" className="cursor-pointer">
+                    <Users className="mr-2 h-4 w-4" />
+                    Adult Students
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/international-students" className="cursor-pointer">
+                    <Globe className="mr-2 h-4 w-4" />
+                    International Students
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <a href="/student-faq" className="cursor-pointer">
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    Student FAQ
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Resources Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
+                scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+              }`}>
+                Resources
+                <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <a href="#helpful-tools" className="cursor-pointer">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Helpful Tools
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/student-faq#student-type-guide" className="cursor-pointer">
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    Find Your Student Type
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/student-faq#age-calculator" className="cursor-pointer">
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Age Calculator
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <a href="/policies-reports" className="cursor-pointer">
+                    <Info className="mr-2 h-4 w-4" />
+                    Policies & Reports
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Direct Links */}
+            <a href="#footer" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
             }`}>
               Contact
-            </a>
-            <a href="#policies" className={`font-medium transition-colors ${
-              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-            }`}>
-              Policies
             </a>
             <a href="/login" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
@@ -186,18 +261,48 @@ const Header = ({ scrolled }) => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg p-6 space-y-4">
-            <a href="#courses" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Courses</a>
-            <a href="#why-rtd" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Why RTD?</a>
-            <a href="/adult-students" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Adult Students</a>
-            <a href="/international-students" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">International Students</a>
-            <a href="#contact" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Contact</a>
-            <a href="#policies" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Policies</a>
-            <a href="/login" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Login</a>
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg p-6 space-y-4 max-h-[calc(100vh-80px)] overflow-y-auto">
+            {/* Courses Section */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">Courses</p>
+              <a href="#courses" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">All Courses</a>
+              <a href="#open-courses" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Open Courses (Free)</a>
+            </div>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* For Students Section */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">For Students</p>
+              <a href="/adult-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Adult Students</a>
+              <a href="/international-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">International Students</a>
+              <a href="/student-faq" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Student FAQ</a>
+            </div>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* Resources Section */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">Resources</p>
+              <a href="#helpful-tools" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Helpful Tools</a>
+              <a href="/student-faq#student-type-guide" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Find Your Student Type</a>
+              <a href="/student-faq#age-calculator" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Age Calculator</a>
+              <a href="/policies-reports" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Policies & Reports</a>
+            </div>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* Quick Links */}
+            <div className="space-y-2">
+              <a href="#footer" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Contact</a>
+              <a href="/login" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Login</a>
+            </div>
+
+            {/* CTA Button */}
             <Button
               onClick={() => window.open('/get-started', '_blank')}
               className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all">
-              Get started <ArrowRight className="ml-2 h-4 w-4" />
+              Get Started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         )}
@@ -647,6 +752,280 @@ const ComparisonSection = () => {
   );
 };
 
+// Open Courses Section - New Feature Coming Soon
+const OpenCoursesSection = () => {
+  const handleExploreOpenCourses = () => {
+    // Navigate to dedicated open courses page
+    window.location.href = '/open-courses';
+  };
+
+  return (
+    <section id="open-courses" className="py-20 bg-gradient-to-br from-white via-green-50/20 to-teal-50/30 relative overflow-hidden">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0">
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-gradient-to-br from-green-200 to-teal-200 rounded-full blur-3xl opacity-20 animate-pulse-slow"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-15 animate-pulse-slow animation-delay-2000"></div>
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="text-center mb-12">
+          <Badge className="bg-gradient-to-r from-green-100 to-teal-100 text-green-800 px-4 py-1 mb-4">
+            Coming Soon
+          </Badge>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            Introducing <span className="bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">Open Courses</span>
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Access our complete curriculum for free. Learn at your own pace, practice unlimited questions,
+            and master the material without any cost.
+          </p>
+        </div>
+
+        {/* Comparison Cards */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-12">
+          {/* Open Courses Card */}
+          <Card className="relative border-2 border-green-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-teal-400"></div>
+            <CardHeader className="bg-gradient-to-br from-green-50 to-teal-50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl text-gray-900">Open Courses</CardTitle>
+                <Badge className="bg-green-100 text-green-700">FREE</Badge>
+              </div>
+              <p className="text-gray-600 mt-2">Learn Without Limits</p>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Access all course content</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Watch all lesson videos</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Practice unlimited questions</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Learn at your own pace</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">No registration required</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <X className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-500">No official credits</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <X className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-500">No teacher support</span>
+                </li>
+              </ul>
+              <Button
+                onClick={handleExploreOpenCourses}
+                className="w-full mt-6 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
+              >
+                Explore Open Courses <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Credit Courses Card */}
+          <Card className="relative border-2 border-teal-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-500 to-cyan-500"></div>
+            <CardHeader className="bg-gradient-to-br from-teal-50 to-cyan-50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl text-gray-900">Credit Courses</CardTitle>
+                <Badge className="bg-teal-100 text-teal-700">DIPLOMA</Badge>
+              </div>
+              <p className="text-gray-600 mt-2">Earn Your Alberta High School Credits</p>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700 font-semibold">Official Alberta credits</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700 font-semibold">Certified teacher support</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">All course content</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Progress tracking</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Official transcripts</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Diploma eligibility</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <InfoIcon className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Free for Alberta students</span>
+                </li>
+              </ul>
+              <Button
+                onClick={() => window.open('/get-started', '_blank')}
+                className="w-full mt-6 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
+              >
+                Enroll for Credits <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Call to Action */}
+        <div className="text-center bg-gradient-to-r from-white/80 to-teal-50/80 backdrop-blur rounded-2xl p-8 max-w-3xl mx-auto shadow-lg">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">
+            Perfect for Test Preparation & Skill Review
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Whether you're a current student looking for extra practice, a homeschool family exploring curriculum options,
+            or an adult refreshing your skills, Open Courses provide free access to quality education.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              onClick={handleExploreOpenCourses}
+              size="lg"
+              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-8 py-3"
+            >
+              Preview Open Courses <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => document.getElementById('courses').scrollIntoView({ behavior: 'smooth' })}
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-3"
+            >
+              View Credit Options
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Helpful Tools Section
+const HelpfulToolsSection = () => {
+  return (
+    <section id="helpful-tools" className="py-20 bg-gradient-to-br from-teal-50/30 via-white to-blue-50/30 relative overflow-hidden">
+      {/* Animated background element */}
+      <div className="absolute inset-0">
+        <div className="absolute top-1/2 right-1/4 w-96 h-96 bg-gradient-to-br from-teal-200 to-blue-200 rounded-full blur-3xl opacity-15 animate-pulse-slow"></div>
+        <div className="absolute bottom-1/3 left-1/3 w-72 h-72 bg-gradient-to-br from-blue-200 to-teal-200 rounded-full blur-3xl opacity-15 animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            Helpful Tools & Resources
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Quick access to tools that help you determine eligibility and find the right path for your education
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* Student Type Guide Card */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-teal-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <Badge className="bg-teal-100 text-teal-700 border-teal-300">
+                <Sparkles className="w-3 h-3 mr-1" />
+                Interactive
+              </Badge>
+            </div>
+            <CardHeader className="pb-4 pt-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <HelpCircle className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-xl">Find Your Student Type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-6">
+                Answer a few quick questions to determine your student category and understand your pricing options
+              </p>
+              <Button
+                onClick={() => window.location.href = '/student-faq#student-type-guide'}
+                className="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white group"
+              >
+                Launch Student Type Guide
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Age Calculator Card */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-blue-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                <Calculator className="w-3 h-3 mr-1" />
+                Calculator
+              </Badge>
+            </div>
+            <CardHeader className="pb-4 pt-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Calculator className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-xl">Check School-Age Eligibility</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-6">
+                Calculate if you qualify as a school-aged student for free summer courses and funding eligibility
+              </p>
+              <Button
+                onClick={() => window.location.href = '/student-faq#age-calculator'}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white group"
+              >
+                Open Age Calculator
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* FAQ Card */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-purple-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                <BookOpen className="w-3 h-3 mr-1" />
+                Resource
+              </Badge>
+            </div>
+            <CardHeader className="pb-4 pt-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-xl">Browse All FAQs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-6">
+                Find detailed answers about enrollment, terms, requirements, and everything you need to know
+              </p>
+              <Button
+                onClick={() => window.location.href = '/student-faq'}
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white group"
+              >
+                View Complete FAQ
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // Experience Section - Adult and International Student Focus
 const ExperienceSection = () => {
   return (
@@ -899,7 +1278,7 @@ const FinalCTASection = () => {
 // Footer Component - Light and Professional
 const Footer = () => {
   return (
-    <footer className="bg-gradient-to-b from-gray-100 to-gray-200 text-gray-700 py-16 border-t border-gray-300 shadow-inner">
+    <footer id="footer" className="bg-gradient-to-b from-gray-100 to-gray-200 text-gray-700 py-16 border-t border-gray-300 shadow-inner">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           {/* About */}
@@ -1021,6 +1400,49 @@ const RTDLandingPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle hash scrolling on page load and hash changes
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+
+      // Remove the # from the hash
+      const elementId = hash.substring(1);
+
+      // Try to scroll with retry mechanism
+      const attemptScroll = (attempts = 0) => {
+        const element = document.getElementById(elementId);
+
+        if (element) {
+          // Calculate offset for fixed header (adjust as needed)
+          const headerOffset = 80;
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+          const offsetPosition = elementPosition - headerOffset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        } else if (attempts < 3) {
+          // Retry after delay (element might not be rendered yet)
+          const delays = [100, 500, 1000];
+          setTimeout(() => attemptScroll(attempts + 1), delays[attempts]);
+        }
+      };
+
+      // Start scrolling attempt
+      attemptScroll();
+    };
+
+    // Scroll on initial load
+    scrollToHash();
+
+    // Handle hash changes while on the page
+    window.addEventListener('hashchange', scrollToHash);
+
+    return () => window.removeEventListener('hashchange', scrollToHash);
+  }, []);
+
   return (
     <div className="min-h-screen relative">
       {/* Animated triangles background layer */}
@@ -1052,6 +1474,8 @@ const RTDLandingPage = () => {
         <Header scrolled={scrolled} />
         <HeroSection />
         <AccreditationBanner />
+        <OpenCoursesSection />
+        <HelpfulToolsSection />
         <LifeAdvantageSection />
         <HowItWorksSection />
         <ComparisonSection />

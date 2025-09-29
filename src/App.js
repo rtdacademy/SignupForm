@@ -3,10 +3,11 @@ import PageLoader from './components/PageLoader';
 import './styles/styles.css';
 import 'katex/dist/katex.min.css';
 
-// Lazy load the three apps - only load the one we need based on environment
+// Lazy load the apps - only load the one we need based on environment
 const MainApp = lazy(() => import('./apps/MainApp'));
 const EdBotzApp = lazy(() => import('./apps/EdBotzApp'));
 const RTDConnectApp = lazy(() => import('./apps/RTDConnectApp'));
+const RTDWebsiteApp = lazy(() => import('./apps/RTDWebsiteApp'));
 
 function App() {
   // Check which site we're running
@@ -17,6 +18,7 @@ function App() {
     <Suspense fallback={<PageLoader message="Loading application..." />}>
       {siteType === 'second' && <EdBotzApp />}
       {siteType === 'rtdconnect' && <RTDConnectApp />}
+      {siteType === 'website' && <RTDWebsiteApp />}
       {(!siteType || siteType === 'main') && <MainApp />}
     </Suspense>
   );

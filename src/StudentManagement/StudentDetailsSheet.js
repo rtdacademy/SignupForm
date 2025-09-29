@@ -5,20 +5,26 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { getDatabase, ref, get, update } from 'firebase/database';
-import { 
+import {
   getSchoolYearOptions,
-  STUDENT_TYPE_OPTIONS, 
+  STUDENT_TYPE_OPTIONS,
   ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   getStatusColor,
   DIPLOMA_MONTH_OPTIONS,
 } from '../config/DropdownOptions';
+import {
+  CheckCircle,
+  Clock,
+  ClipboardList,
+  CalendarClock,
+  Archive
+} from 'lucide-react';
 import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
 import { EmailChangeDialog } from './EmailChangeDialog';
 import ProfileHistory from './ProfileHistory';
 import { useAuth } from '../context/AuthContext';
-import PaymentInfo from './PaymentInfo';
 import { useStaffClaims } from '../customClaims/useStaffClaims';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
@@ -154,18 +160,6 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     }
   };
 
-  const handlePaymentStatusUpdate = (newStatus) => {
-    // Update local state immediately for real-time UI updates
-    // Store payment_status as a string, not an object
-    setCourseEnrollmentData(prev => ({
-      ...prev,
-      payment_status: newStatus,
-      payment_details: {
-        ...prev.payment_details,
-        last_updated: Date.now()
-      }
-    }));
-  };
 
   const renderEditableField = (label, field, options, readOnly = false) => {
     // Make field read-only if user is not a staff member
@@ -201,7 +195,12 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
             <SelectContent>
               {options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  <span style={{ color: option.color }}>{option.value}</span>
+                  <div className="flex items-center">
+                    {option.icon && (
+                      <option.icon className="h-4 w-4 mr-2" style={{ color: option.color }} />
+                    )}
+                    <span style={{ color: option.color }}>{option.value}</span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -232,11 +231,10 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
           {displayName} {studentData.profile.lastName} - {courseTitle}
         </SheetTitle>
       </SheetHeader>
-      <Tabs defaultValue="profile" className="mt-4">
+      <Tabs defaultValue="course" className="mt-4">
         <TabsList className="mb-4">
-          <TabsTrigger value="profile">Profile Data</TabsTrigger>
           <TabsTrigger value="course">Course Data</TabsTrigger>
-          <TabsTrigger value="payment">Payment</TabsTrigger>
+          <TabsTrigger value="profile">Profile Data</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
@@ -306,7 +304,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 </p>
                 {renderEditableField("School Year", "School_x0020_Year_Value", schoolYearOptions)}
                 {renderEditableField("Student Type", "StudentType_Value", STUDENT_TYPE_OPTIONS)}
-                {renderEditableField("Active", "ActiveFutureArchived_Value", ACTIVE_FUTURE_ARCHIVED_OPTIONS)}
+                {renderEditableField("State", "ActiveFutureArchived_Value", ACTIVE_FUTURE_ARCHIVED_OPTIONS)}
                 
                 {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
                 
@@ -328,18 +326,6 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 </div>
               </CardContent>
             </Card>
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent value="payment">
-          <ScrollArea className="h-[calc(100vh-200px)]">
-            <PaymentInfo 
-              studentKey={studentKey}
-              courseId={courseId}
-              paymentStatus={courseEnrollmentData.payment_status?.status}
-              paymentDetails={courseEnrollmentData.paymentDetails}
-              readOnly={!hasEditPermission}
-              onPaymentStatusUpdate={handlePaymentStatusUpdate}
-            />
           </ScrollArea>
         </TabsContent>
         <TabsContent value="history">

@@ -13,6 +13,9 @@
         ],
         "rtd-connect": [
           "rtd-connect"
+        ],
+        "rtd-website": [
+          "rtd-academy-website"
         ]
       }
     }

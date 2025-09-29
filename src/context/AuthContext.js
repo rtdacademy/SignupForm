@@ -121,6 +121,7 @@ export function AuthProvider({ children }) {
     '/auth-action-handler',
     '/contractor-invoice',
     '/adult-students',
+    '/international-students',
     '/your-way',
     '/get-started',
     '/rtd-landing',
@@ -141,7 +142,8 @@ export function AuthProvider({ children }) {
     '/funding',
     '/privacy',
     '/terms',
-    '/video' 
+    '/video',
+    '/open-courses'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -468,7 +470,8 @@ export function AuthProvider({ children }) {
     checkTokenExpiration();
 
     // Add event listeners to track user activity for analytics
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    // Removed 'mousemove' to prevent excessive CPU usage
+    const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart'];
     
     activityEvents.forEach(event => {
       document.addEventListener(event, trackActivity, { passive: true });
