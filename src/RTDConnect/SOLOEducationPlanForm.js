@@ -7,7 +7,7 @@ import { FileText, CheckCircle2, AlertCircle, AlertTriangle, GraduationCap, Cale
 import { getFacilitatorDropdownOptions, isValidFacilitator } from '../config/facilitators';
 import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString, toEdmontonDate } from '../utils/timeZoneUtils';
 import { FUNDING_RATES } from '../config/HomeEducation';
-import { getCurrentSchoolYear } from '../config/importantDates';
+import { getCurrentSchoolYear } from '../config/calendarConfig';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';

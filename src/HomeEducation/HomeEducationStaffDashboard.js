@@ -95,7 +95,7 @@ import {
   getAllSeptemberCountDates,
   getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears
-} from '../config/importantDates';
+} from '../config/calendarConfig';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';

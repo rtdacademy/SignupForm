@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { 
-  signInWithPopup, 
+import {
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
   onAuthStateChanged,
@@ -15,6 +15,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { auth, googleProvider, microsoftProvider, isDevelopment } from "../firebase";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
+import { ArrowLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -962,6 +963,17 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
         <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
           {!hideWelcome && (
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
+              {/* Back to Main Website Button */}
+              <div className="mb-6">
+                <a
+                  href="https://www.rtdacademy.com/"
+                  className="inline-flex items-center text-sm text-gray-600 hover:text-primary transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Main Website
+                </a>
+              </div>
+
               <div className="flex items-end justify-center space-x-3 mb-4">
                 <RTDLogo />
                 <h1 className="text-3xl font-extrabold text-primary leading-none">RTD Academy</h1>
@@ -969,7 +981,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
               <p className="mt-2 text-center text-sm text-gray-600">
                 Welcome to the Student Portal. Here you can register for new courses, manage your personal information, and access your enrolled courses.
               </p>
-         
+
             </div>
           )}
 

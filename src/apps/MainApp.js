@@ -13,7 +13,6 @@ import PageLoader from '../components/PageLoader';
 // Lazy load ALL other components for better performance
 const Dashboard = lazy(() => import('../Dashboard/Dashboard'));
 const OpenCoursesComingSoon = lazy(() => import('../OpenCourses/OpenCoursesComingSoon'));
-const OpenCoursesEntry = lazy(() => import('../OpenCourses/OpenCoursesEntry'));
 const TeacherDashboard = lazy(() => import('../TeacherDashboard/TeacherDashboard'));
 const TeacherFileStorage = lazy(() => import('../TeacherDashboard/TeacherFileStorage'));
 const LMSWrapper = lazy(() => import('../Dashboard/LMSWrapper'));
@@ -26,6 +25,11 @@ const MultiActionAuthHandler = lazy(() => import('../MultiActionAuthHandler'));
 
 // Lazy load public forms
 const ContractorInvoiceForm = lazy(() => import('../PublicForms/ContractorInvoiceForm'));
+
+// Lazy load website pages
+const GetStartedNow = lazy(() => import('../Website/GetStartedNow'));
+const AdultStudentInfo = lazy(() => import('../Website/AdultStudentInfo'));
+const InternationalStudentInfo = lazy(() => import('../Website/InternationalStudentInfo'));
 
 // Lazy load schedule components
 const ScheduleMaker = lazy(() => import('../Schedule/ScheduleMaker'));
@@ -135,10 +139,24 @@ function MainApp() {
           </ProtectedRoute>
         } />
 
-        {/* Open Courses route - public entry page */}
-        <Route path="/open-courses" element={
+        {/* Get Started route - public registration page */}
+        <Route path="/get-started" element={
           <PublicRoute>
-            <OpenCoursesEntry />
+            <GetStartedNow />
+          </PublicRoute>
+        } />
+
+        {/* Adult Students Info route - public information page */}
+        <Route path="/adult-students" element={
+          <PublicRoute>
+            <AdultStudentInfo />
+          </PublicRoute>
+        } />
+
+        {/* International Students Info route - public information page */}
+        <Route path="/international-students" element={
+          <PublicRoute>
+            <InternationalStudentInfo />
           </PublicRoute>
         } />
 

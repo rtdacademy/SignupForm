@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, BookOpen, Check, Info, Scale, Globe, Menu, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, Info, Globe, Menu, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Login from '../Dashboard/Login';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from '../components/ui/accordion';
 
 // RTD Logo Component
 const RTDLogo = ({ className = "w-10 h-10" }) => (
@@ -96,7 +89,7 @@ const OpenCoursesEntry = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6">
-              <a href="/get-started" className={`font-medium transition-colors ${
+              <a href="https://yourway.rtdacademy.com/get-started" className={`font-medium transition-colors ${
                 scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
               }`}>
                 Credit Courses
@@ -107,7 +100,7 @@ const OpenCoursesEntry = () => {
                 FAQ
               </a>
               <Button
-                onClick={() => navigate('/login')}
+                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/login'}
                 className={`${
                 scrolled
                   ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white'
@@ -137,10 +130,10 @@ const OpenCoursesEntry = () => {
               >
                 ← Back to Home
               </button>
-              <a href="/get-started" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Credit Courses</a>
+              <a href="https://yourway.rtdacademy.com/get-started" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Credit Courses</a>
               <a href="/student-faq" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">FAQ</a>
               <Button
-                onClick={() => navigate('/login')}
+                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/login'}
                 className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all"
               >
                 Student Login <ArrowRight className="ml-2 h-4 w-4" />
@@ -256,80 +249,47 @@ const OpenCoursesEntry = () => {
             </Card>
           </div>
 
-          {/* Right Column - Login Component */}
+          {/* Right Column - Sign Up */}
           <div className="lg:sticky lg:top-24">
-            <div className="mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Sign In to Access Materials
-              </h2>
-              <p className="text-gray-600">
-                Create a free account or sign in to begin learning.
-              </p>
-            </div>
-            <Login
-              hideWelcome={true}
-              compactView={true}
-              hideOtherOptions={true}
-            />
-
-            {/* Note about Credit Courses */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-900">Need official Alberta credits?</span><br />
-                Our{' '}
-                <button
-                  onClick={() => navigate('/get-started')}
-                  className="text-teal-600 hover:text-teal-700 font-medium underline"
-                >
-                  Credit Courses
-                </button>
-                {' '}provide diploma-eligible programs with certified teacher support.
-              </p>
-            </div>
-
-            {/* Licensing Information - Now below credit courses */}
-            <Accordion type="single" collapsible className="w-full mt-4">
-              <AccordionItem value="terms" className="border-teal-200 bg-teal-50/30">
-                <AccordionTrigger className="hover:bg-teal-50/50">
-                  <span className="flex items-center gap-2 text-sm">
-                    <Scale className="w-4 h-4 text-teal-600" />
-                    Terms of Use
+            <Card className="shadow-lg border-2 border-green-200">
+              <CardHeader className="bg-gradient-to-br from-green-50 to-teal-50">
+                <div className="flex items-center justify-center mb-4">
+                  <BookOpen className="w-16 h-16 text-green-600" />
+                </div>
+                <CardTitle className="text-center text-2xl">
+                  <span className="bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
+                    Get Started
                   </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="px-4 py-2 space-y-4">
-                    <div className="bg-white rounded-lg p-4 border border-teal-200">
-                      <p className="font-semibold text-gray-900 mb-2 text-sm">
-                        Open Access Terms
-                      </p>
-                      <p className="text-xs text-gray-700 mb-3">
-                        RTD Academy provides free access to our educational materials with the following simple terms:
-                      </p>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex items-start gap-2">
-                          <Check className="w-3 h-3 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-gray-600">Materials are for personal educational use</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Check className="w-3 h-3 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-gray-600">Content should be accessed through our platform</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Check className="w-3 h-3 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-gray-600">Automated scraping or bulk downloading is not permitted</span>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-teal-100">
-                        <p className="text-xs text-gray-500 italic">
-                          We provide these materials freely to support learning. Please respect the platform and
-                          other users by accessing content as intended.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <p className="text-center text-gray-700">
+                  Access our complete curriculum materials for free. Sign in to get started.
+                </p>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 mb-3">
+                    <span className="font-semibold text-gray-900">Need official high school credits?</span>
+                  </p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Our{' '}
+                    <a
+                      href="https://yourway.rtdacademy.com/get-started"
+                      className="text-teal-600 hover:text-teal-700 font-medium underline"
+                    >
+                      Credit Courses
+                    </a>
+                    {' '}are available with full teacher support and official Alberta high school credits.
+                  </p>
+                  <Button
+                    onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
+                    className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
+                  >
+                    Enroll in Credit Courses <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

@@ -1,58 +1,47 @@
 // Website Configuration File
-// This file contains all FAQ content, dates, and configuration for easy updates
+// This file contains FAQ content and website-specific configuration
+//
+// IMPORTANT: Date configuration lives in src/config/calendarConfig.js
+// IMPORTANT: Pricing configuration lives in src/config/pricingConfig.js
+
+import {
+  TERMS,
+  getCurrentSchoolYear
+} from '../config/calendarConfig';
+
+import {
+  PRICING,
+  CREDITS,
+  AGES_GRADES
+} from '../config/pricingConfig';
 
 // QUICK ACTIVATION: Change this to true to show teacher strike FAQ section
-const SHOW_TEACHER_STRIKE_INFO = false;
+const SHOW_TEACHER_STRIKE_INFO = true;
 
-// Configuration values for easy updates
+// Configuration values imported from importantDates.js
+// These are re-exported here for backward compatibility with existing components
 const config = {
-  pricing: {
-    pricePerExtraCredit: 100, // Cost per credit beyond free limits
-    distanceEducationGrant: 650, // DE grant per student per year
-    rtdConnectReimbursement: {
-      grades1to12: 901, // Annual reimbursement for grades 1-12
-      kindergarten: 450 // Annual reimbursement for kindergarten
-    },
-    adultStudent: {
-      oneTimePrice: 650, // One-time payment for adult students
-      monthlyPayment: 233.33, // Monthly payment amount
-      monthlyPaymentMonths: 3, // Number of months for payment plan
-      monthlyPaymentTotal: 700, // Total cost for monthly payment plan
-      trialPeriodDays: 7, // Trial period length
-      gracePeriodDays: 10, // Days behind schedule before lockout
-      rejoinFee: 100 // Fee to reset schedule after lockout
-    }
-  },
-  credits: {
-    maxPerYear: 10, // Maximum free credits during school year
-    maxSummer: 10, // Maximum free credits during summer
-    maxTotalPerYear: 20 // Total possible free credits (school year + summer)
-  },
+  pricing: PRICING,
+  credits: CREDITS,
   ages: {
-    adultStudentMinAge: 20, // Age cutoff for adult students
-    ageVerificationDate: 'September 1' // Date to check age for student type
+    adultStudentMinAge: AGES_GRADES.adultStudentMinAge,
+    ageVerificationDate: AGES_GRADES.ageVerificationDate
   },
   grades: {
-    highSchoolStart: 10, // First high school grade
-    highSchoolEnd: 12, // Last high school grade
-    elementaryStart: 1, // First elementary grade
-    kindergarten: 'K' // Kindergarten designation
+    highSchoolStart: AGES_GRADES.highSchoolStart,
+    highSchoolEnd: AGES_GRADES.highSchoolEnd,
+    elementaryStart: AGES_GRADES.elementaryStart,
+    kindergarten: AGES_GRADES.kindergarten
   },
   semesters: {
-    semester1: {
-      name: 'Semester 1',
-      startDate: 'September 1',
-      endDate: 'January 31'
-    },
-    semester2: {
-      name: 'Semester 2',
-      startDate: 'February 1',
-      endDate: 'June 19'
-    }
+    semester1: TERMS.semester1,
+    semester2: TERMS.semester2
   }
 };
 
-// Important dates and deadlines
+// Important dates - imported from importantDates.js but formatted for website display
+// These are text strings for display purposes
+const currentYear = getCurrentSchoolYear();
 const dates = {
   currentSchoolYear: '2025-2026',
   currentSchoolYearShort: '25/26',
@@ -483,7 +472,7 @@ These limits exist because Alberta Education provides a fixed amount of funding 
           question: 'Can I take courses if I\'m not enrolled with a Primary Registration in another Alberta school?',
           answer: `No, you cannot register as a Non-Primary student without having a primary registration at another Alberta school. The "Non-Primary" designation specifically requires that you are already enrolled full-time at another school.
 
-If you are school-age (under ${config.ages.adultStudentMinAge} before ${config.ages.ageVerificationDate}) but not primarily enrolled elsewhere:
+If you are school-aged (19 or younger on ${config.ages.ageVerificationDate}) but not primarily enrolled elsewhere:
 - You may qualify as a Summer School Student for courses taken in July/August
 - Otherwise, you would need to register as an Adult Student`,
           priority: 'low'
@@ -620,7 +609,7 @@ We love our fellow home education programs and want to ensure there are no surpr
           question: 'Who is eligible for Summer School?',
           answer: `To register as a Summer School Student, you:
 
-- **Must be school-aged** (under ${config.ages.adultStudentMinAge} as of ${config.ages.ageVerificationDate} of the school year)
+- **Must be school-aged** (aged 6-19 on ${config.ages.ageVerificationDate} of the school year)
 - **Must be an Alberta resident**
 
 That's it! You don't need:
@@ -632,11 +621,11 @@ That's it! You don't need:
         },
         {
           question: 'Am I too old to be a Summer School Student?',
-          answer: `You're considered school-aged if you're under ${config.ages.adultStudentMinAge} as of ${config.ages.ageVerificationDate} of the school year you want to take courses.
+          answer: `You're considered school-aged if you're 19 or younger on ${config.ages.ageVerificationDate} of the school year you want to take courses.
 
 **Examples for ${dates.currentSchoolYear}:**
-- Turn ${config.ages.adultStudentMinAge} on September 1? ✓ Just made it!
-- Turn ${config.ages.adultStudentMinAge} before September 1? ✗ Would be an Adult Student
+- Turn 20 on September 1? ✓ Just made it! (You're still 19 on Sept 1)
+- Turn 20 before September 1? ✗ Would be an Adult Student
 
 **Use the age calculator tool** above to instantly check if you qualify as school-aged for any school year.`,
           priority: 'low'
@@ -648,7 +637,7 @@ That's it! You don't need:
 If you're 18-19 and not enrolled at another school, you likely can't register as a Non-Primary student (which requires a primary registration elsewhere). However, you CAN register as a Summer School Student and receive up to ${config.credits.maxSummer} credits completely free!
 
 **Why this works:**
-- Summer School only requires you to be school-aged (under ${config.ages.adultStudentMinAge} on Sept 1)
+- Summer School only requires you to be school-aged (19 or younger on Sept 1)
 - No requirement for enrollment elsewhere`,
           priority: 'low'
         },
@@ -778,7 +767,7 @@ Note: Alberta Education diploma exam fees are separate and paid directly to Albe
           answer: `**It's all about government funding eligibility.**
 
 Free courses are available when Alberta Education provides funding to RTD Academy on your behalf. This happens for:
-- School-aged students (under ${config.ages.adultStudentMinAge})
+- School-aged students (aged 6-19 on September 1st)
 - Students enrolled at other Alberta schools
 - Home education students
 - Summer school students meeting specific requirements`,
@@ -973,45 +962,6 @@ This is ideal for international learners who may have different academic calenda
         {
           question: 'Why is RTD Academy not affected by the strike?',
           answer: `RTD Academy is an independent school, which means we operate separately from the public school system. The ATA (Alberta Teachers' Association) strike only affects teachers in public and separate school divisions, not independent schools like ours.`,
-          priority: 'low'
-        },
-        {
-          question: 'Can I still register for new courses during the strike?',
-          answer: `Yes, registration remains open and fully operational. We have additional staff ready to help manage any increased volume of registrations during this time. You can register for courses as normal.`,
-          priority: 'low'
-        },
-        {
-          question: 'What if my home routine is disrupted because of the strike?',
-          answer: `We understand that the strike may affect your household, especially if you have siblings in public schools or parents who are teachers. If you need adjustments to pacing or deadlines, please reach out to your teacher. We're committed to being flexible and supporting each student's unique situation.`,
-          priority: 'low'
-        },
-        {
-          question: 'Will there be any changes to course deadlines or requirements?',
-          answer: `Course requirements remain the same, but we understand that some families may need flexibility. If the strike affects your ability to maintain your regular study schedule, contact your teacher to discuss adjustments to deadlines or pacing.`,
-          priority: 'low'
-        },
-        {
-          question: 'Can I transfer from my public school to RTD Academy during the strike?',
-          answer: `While we can accept non-primary registrations (students taking extra courses), we are not yet able to accept primary registrations. This means you would need to maintain your enrollment at your current school while taking additional courses with us.`,
-          priority: 'low'
-        },
-        {
-          question: 'How will RTD Academy communicate updates during the strike?',
-          answer: `If the strike occurs, we will:
-- Send email updates to all current families
-- Post messages in the Learning Management System (LMS)
-- Keep this FAQ page updated with the latest information
-- Your teachers will also be available to answer any questions directly`,
-          priority: 'low'
-        },
-        {
-          question: 'What should I do if I have questions about how the strike affects me?',
-          answer: `Please reach out to your course teacher directly if you have any questions or concerns. They are fully informed about our policies during the strike and can provide personalized support for your situation.`,
-          priority: 'low'
-        },
-        {
-          question: 'Will RTD Academy support students returning after the strike ends?',
-          answer: `Yes, our goal is to help all students get back on track for course completion once the strike ends. We'll work with any students who may have had disruptions to ensure they can successfully complete their courses.`,
           priority: 'low'
         }
       ]

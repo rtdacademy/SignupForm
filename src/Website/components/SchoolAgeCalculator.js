@@ -67,7 +67,7 @@ const SchoolAgeCalculator = () => {
     // Check if student is too young (under 6 on September 1st)
     const isTooYoung = ageInYears < 6;
 
-    // Student is school-aged if they are under 20 on September 1st
+    // Student is school-aged if they are 6-19 on September 1st
     const isSchoolAged = ageInYears < websiteConfig.config.ages.adultStudentMinAge;
 
     // Format age string
@@ -141,9 +141,40 @@ const SchoolAgeCalculator = () => {
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription className="text-sm">
-            <strong>School-aged students</strong> are those who are under {websiteConfig.config.ages.adultStudentMinAge} years
-            old on {websiteConfig.config.ages.ageVerificationDate} of the school year. This determines your eligibility
-            for free funded courses.
+            <div className="space-y-2">
+              <p>
+                <strong>School-aged students</strong> are those aged 6-19 on {websiteConfig.config.ages.ageVerificationDate} of the school year. Being school-aged is one requirement for grant-funded courses, but you must also meet the requirements for one of these student types:
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <a
+                  href="/student-faq#nonPrimary"
+                  className="text-blue-700 hover:text-blue-900 underline dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Non-Primary
+                </a>
+                <span className="text-muted-foreground">•</span>
+                <a
+                  href="/student-faq#homeEducation"
+                  className="text-blue-700 hover:text-blue-900 underline dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Home Education
+                </a>
+                <span className="text-muted-foreground">•</span>
+                <a
+                  href="/student-faq#summerStudents"
+                  className="text-blue-700 hover:text-blue-900 underline dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Summer School
+                </a>
+              </div>
+              <Button
+                onClick={() => window.location.href = '/student-faq#student-type-guide'}
+                variant="link"
+                className="h-auto p-0 text-blue-700 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs"
+              >
+                Not sure which student type you are? Take our quick survey →
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
 
@@ -214,10 +245,39 @@ const SchoolAgeCalculator = () => {
                   <p className="text-sm text-muted-foreground">
                     You will be <strong>{result.ageString} old</strong> on {result.date}.
                   </p>
-            
+
                 </div>
               </AlertDescription>
             </Alert>
+
+            {/* Grant Funding Information - Only show for school-aged students */}
+            {result.isSchoolAged && !result.isTooYoung && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 mt-3">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription className="text-sm">
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-900 dark:text-amber-100">
+                      Important: Being school-aged does not automatically qualify you for free courses.
+                    </p>
+                    <p className="text-amber-800 dark:text-amber-200">
+                      You must be enrolled as one of these grant-funded student types:
+                    </p>
+                    <ul className="list-disc list-inside text-amber-800 dark:text-amber-200 ml-2 space-y-1">
+                      <li>Non-Primary Student (enrolled at an Alberta school)</li>
+                      <li>Home Education Student</li>
+                      <li>Summer School Student (Alberta resident)</li>
+                    </ul>
+                    <Button
+                      onClick={() => window.location.href = '/student-faq#grantFunding'}
+                      variant="link"
+                      className="h-auto p-0 text-amber-900 hover:text-amber-700 dark:text-amber-100 dark:hover:text-amber-300 font-medium text-sm"
+                    >
+                      Learn more about grant funding eligibility →
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
 

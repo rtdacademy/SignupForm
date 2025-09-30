@@ -80,9 +80,39 @@
   animation: bounce 2s ease-in-out infinite;
 }
 
-/* Smooth scroll behavior */
+/* Smooth scroll behavior and prevent layout shift from scrollbar */
 html {
   scroll-behavior: smooth;
+  /* Force scrollbar to always be visible to prevent layout shift */
+  overflow-y: scroll;
+  /* Reserve space for scrollbar - prevents layout shift when content becomes scrollable */
+  scrollbar-gutter: stable;
+}
+
+/* Custom scrollbar styling for consistent appearance */
+/* Webkit browsers (Chrome, Safari, Edge) */
+html::-webkit-scrollbar {
+  width: 17px;
+}
+
+html::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+  border: 3px solid #f1f1f1;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
 }
 
 /* Remove excessive animations on mobile for better performance */
@@ -111,4 +141,18 @@ html {
 .hover-lift:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Slide-in animation for modal */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
 }

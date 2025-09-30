@@ -12,6 +12,7 @@ const ContactPage = lazy(() => import('../Website/ContactPage'));
 const GetStartedNow = lazy(() => import('../Website/GetStartedNow'));
 const PoliciesAndReports = lazy(() => import('../Website/PoliciesAndReports'));
 const OpenCoursesEntry = lazy(() => import('../OpenCourses/OpenCoursesEntry'));
+const FlowChartPrerequisites = lazy(() => import('../components/PrerequisiteFlowChart/FlowChartPrerequisites'));
 
 // Legal pages
 const PrivacyStatement = lazy(() => import('../legal/PrivacyStatement'));
@@ -45,6 +46,9 @@ function RTDWebsiteApp() {
 
           {/* Open Courses */}
           <Route path="/open-courses" element={<OpenCoursesEntry />} />
+
+          {/* Prerequisite Flow Chart */}
+          <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
 
           {/* Policies and Reports */}
           <Route path="/policies-reports" element={<PoliciesAndReports />} />

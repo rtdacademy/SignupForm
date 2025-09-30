@@ -17,7 +17,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { getDatabase, ref, get, update } from 'firebase/database';
 import { format } from 'date-fns';
-import { websiteConfig } from '../../Website/websiteConfig';
+import { TERMS, parseTermDate } from '../../config/calendarConfig';
 
 const DateDisplay = ({ date, placeholder }) => {
   if (!date) return <span>{placeholder}</span>;
@@ -67,28 +67,9 @@ const StartingOnDialog = ({
       }
     }
 
-    // Helper to parse dates like "September 1" into Date objects
-    const parseConfigDate = (dateString, year) => {
-      const months = {
-        'January': 0, 'February': 1, 'March': 2, 'April': 3,
-        'May': 4, 'June': 5, 'July': 6, 'August': 7,
-        'September': 8, 'October': 9, 'November': 10, 'December': 11
-      };
-
-      const parts = dateString.split(' ');
-      if (parts.length === 2) {
-        const month = months[parts[0]];
-        const day = parseInt(parts[1]);
-        if (month !== undefined && !isNaN(day)) {
-          return new Date(year, month, day);
-        }
-      }
-      return null;
-    };
-
     // Add term 1 start date
-    if (websiteConfig.config.semesters.semester1.startDate) {
-      const term1Date = parseConfigDate(websiteConfig.config.semesters.semester1.startDate, currentYear);
+    if (TERMS.semester1.startDate) {
+      const term1Date = parseTermDate(TERMS.semester1.startDate, currentYear);
       if (term1Date) {
         // If September 1 has already passed this year, use next year
         if (term1Date < new Date() && new Date().getMonth() > 8) {
@@ -104,8 +85,8 @@ const StartingOnDialog = ({
     }
 
     // Add term 2 start date
-    if (websiteConfig.config.semesters.semester2.startDate) {
-      const term2Date = parseConfigDate(websiteConfig.config.semesters.semester2.startDate, currentYear);
+    if (TERMS.semester2.startDate) {
+      const term2Date = parseTermDate(TERMS.semester2.startDate, currentYear);
       if (term2Date) {
         // If February 1 has already passed this year, use next year
         if (term2Date < new Date()) {
@@ -121,8 +102,8 @@ const StartingOnDialog = ({
     }
 
     // Add summer school start date
-    if (websiteConfig.dates.summerSchool.startDate) {
-      const summerDate = parseConfigDate(websiteConfig.dates.summerSchool.startDate, currentYear);
+    if (TERMS.summer.startDate) {
+      const summerDate = parseTermDate(TERMS.summer.startDate, currentYear);
       if (summerDate) {
         // If July 1 has already passed this year, use next year
         if (summerDate < new Date() && new Date().getMonth() > 6) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign, InfoIcon, HelpCircle, Calculator, ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign, InfoIcon, HelpCircle, Calculator, ExternalLink, Sparkles, Copy, Link } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -10,8 +10,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { websiteConfig } from './websiteConfig';
+import { courseData, getCourseById, subjectColors } from '../components/PrerequisiteFlowChart/courseData';
 import './styles/rtd-landing.css';
 
 // RTD Logo Component
@@ -135,7 +137,7 @@ const Header = ({ scrolled }) => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             {/* Courses Dropdown */}
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
                 scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
               }`}>
@@ -159,7 +161,7 @@ const Header = ({ scrolled }) => {
             </DropdownMenu>
 
             {/* For Students Dropdown */}
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
                 scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
               }`}>
@@ -168,63 +170,33 @@ const Header = ({ scrolled }) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuItem asChild>
-                  <a href="/adult-students" className="cursor-pointer">
+                  <a href="https://yourway.rtdacademy.com/adult-students" className="cursor-pointer">
                     <Users className="mr-2 h-4 w-4" />
                     Adult Students
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <a href="/international-students" className="cursor-pointer">
+                  <a href="https://yourway.rtdacademy.com/international-students" className="cursor-pointer">
                     <Globe className="mr-2 h-4 w-4" />
                     International Students
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href="/student-faq" className="cursor-pointer">
-                    <HelpCircle className="mr-2 h-4 w-4" />
-                    Student FAQ
                   </a>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Resources Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className={`font-medium transition-colors flex items-center gap-1 ${
-                scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
-              }`}>
-                Resources
-                <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem asChild>
-                  <a href="#helpful-tools" className="cursor-pointer">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Helpful Tools
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href="/student-faq#student-type-guide" className="cursor-pointer">
-                    <HelpCircle className="mr-2 h-4 w-4" />
-                    Find Your Student Type
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href="/student-faq#age-calculator" className="cursor-pointer">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Age Calculator
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href="/policies-reports" className="cursor-pointer">
-                    <Info className="mr-2 h-4 w-4" />
-                    Policies & Reports
-                  </a>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* FAQ - Direct Link (Important) */}
+            <a href="/student-faq" className={`font-medium transition-colors ${
+              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+            }`}>
+              FAQ
+            </a>
+
+            {/* Helpful Tools - Direct Link */}
+            <a href="#helpful-tools" className={`font-medium transition-colors ${
+              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+            }`}>
+              Helpful Tools
+            </a>
 
             {/* Direct Links */}
             <a href="#footer" className={`font-medium transition-colors ${
@@ -232,13 +204,13 @@ const Header = ({ scrolled }) => {
             }`}>
               Contact
             </a>
-            <a href="/login" className={`font-medium transition-colors ${
+            <a href="https://yourway.rtdacademy.com/login" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
             }`}>
               Login
             </a>
             <Button
-              onClick={() => window.open('/get-started', '_blank')}
+              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
               className={`${
               scrolled
                 ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white'
@@ -274,33 +246,36 @@ const Header = ({ scrolled }) => {
             {/* For Students Section */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">For Students</p>
-              <a href="/adult-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Adult Students</a>
-              <a href="/international-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">International Students</a>
-              <a href="/student-faq" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Student FAQ</a>
+              <a href="https://yourway.rtdacademy.com/adult-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Adult Students</a>
+              <a href="https://yourway.rtdacademy.com/international-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">International Students</a>
             </div>
 
             <div className="border-t border-gray-200"></div>
 
-            {/* Resources Section */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">Resources</p>
-              <a href="#helpful-tools" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Helpful Tools</a>
-              <a href="/student-faq#student-type-guide" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Find Your Student Type</a>
-              <a href="/student-faq#age-calculator" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Age Calculator</a>
-              <a href="/policies-reports" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Policies & Reports</a>
-            </div>
+            {/* FAQ - Prominent Position */}
+            <a href="/student-faq" className="block py-3 px-2 text-gray-900 hover:text-teal-700 hover:bg-teal-50 rounded font-semibold text-base">
+              Student FAQ
+            </a>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* Helpful Tools - Prominent Position */}
+            <a href="#helpful-tools" className="block py-3 px-2 text-gray-900 hover:text-teal-700 hover:bg-teal-50 rounded font-semibold text-base">
+              Helpful Tools
+            </a>
 
             <div className="border-t border-gray-200"></div>
 
             {/* Quick Links */}
             <div className="space-y-2">
+              <a href="/policies-reports" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Policies & Reports</a>
               <a href="#footer" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Contact</a>
-              <a href="/login" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Login</a>
+              <a href="https://yourway.rtdacademy.com/login" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Login</a>
             </div>
 
             {/* CTA Button */}
             <Button
-              onClick={() => window.open('/get-started', '_blank')}
+              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
               className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all">
               Get Started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -354,12 +329,19 @@ const HeroSection = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 opacity-20 animate-gradient-x"></div>
               <div className="relative">
               <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-teal-700 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-teal-900">Free for Alberta Students • No Hidden Fees</p>
+                <Info className="w-5 h-5 text-teal-700 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-teal-900">Free for Grant-Funded Students • No Hidden Fees</p>
                   <p className="text-sm text-teal-800 mt-1">
-                    If you're currently attending an Alberta High School, courses are completely free. We believe in transparent pricing with no surprise charges.
+                    If you're a Non-Primary, Home Education, or Summer School student in Alberta, courses are completely free through grant funding. We believe in transparent pricing with no surprise charges.
                   </p>
+                  <Button
+                    onClick={() => window.location.href = '/student-faq#grantFunding'}
+                    variant="link"
+                    className="h-auto p-0 mt-2 text-teal-900 hover:text-teal-700 font-medium text-sm"
+                  >
+                    Learn more about grant funding eligibility →
+                  </Button>
                 </div>
               </div>
               </div>
@@ -387,7 +369,7 @@ const HeroSection = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 size="lg"
-                onClick={() => window.open('/get-started', '_blank')}
+                onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
                 className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                 Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -533,7 +515,7 @@ const LifeAdvantageSection = () => {
             Your new, incredible <span className="text-teal-700">life advantage</span>
           </h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Learn life-changing, future money-making skills at home, for free.
+            Learn life-changing, future money-making skills at home. Grant-funded students learn for free.
             You'll be getting ahead every single day with highly desirable skills that
             universities and employers want.
           </p>
@@ -742,7 +724,7 @@ const ComparisonSection = () => {
         <div className="text-center mt-12">
           <Button
             size="lg"
-            onClick={() => window.open('/get-started', '_blank')}
+            onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
             className="bg-teal-700 hover:bg-teal-800 text-white px-8 py-6 text-lg">
             Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
@@ -755,8 +737,8 @@ const ComparisonSection = () => {
 // Open Courses Section - New Feature Coming Soon
 const OpenCoursesSection = () => {
   const handleExploreOpenCourses = () => {
-    // Navigate to dedicated open courses page
-    window.location.href = '/open-courses';
+    // Navigate to dedicated open courses page with mode=open query parameter
+    window.location.href = '/open-courses?mode=open';
   };
 
   return (
@@ -871,45 +853,17 @@ const OpenCoursesSection = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <InfoIcon className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Free for Alberta students</span>
+                  <span className="text-gray-700">Free for grant-funded Alberta students</span>
                 </li>
               </ul>
               <Button
-                onClick={() => window.open('/get-started', '_blank')}
+                onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
                 className="w-full mt-6 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
               >
                 Enroll for Credits <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Call to Action */}
-        <div className="text-center bg-gradient-to-r from-white/80 to-teal-50/80 backdrop-blur rounded-2xl p-8 max-w-3xl mx-auto shadow-lg">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">
-            Perfect for Test Preparation & Skill Review
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Whether you're a current student looking for extra practice, a homeschool family exploring curriculum options,
-            or an adult refreshing your skills, Open Courses provide free access to quality education.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={handleExploreOpenCourses}
-              size="lg"
-              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-8 py-3"
-            >
-              Preview Open Courses <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => document.getElementById('courses').scrollIntoView({ behavior: 'smooth' })}
-              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-3"
-            >
-              View Credit Options
-            </Button>
-          </div>
         </div>
       </div>
     </section>
@@ -918,6 +872,16 @@ const OpenCoursesSection = () => {
 
 // Helpful Tools Section
 const HelpfulToolsSection = () => {
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const copyShareableLink = () => {
+    const link = `${window.location.origin}${window.location.pathname}#helpful-tools`;
+    navigator.clipboard.writeText(link).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
   return (
     <section id="helpful-tools" className="py-20 bg-gradient-to-br from-teal-50/30 via-white to-blue-50/30 relative overflow-hidden">
       {/* Animated background element */}
@@ -928,15 +892,34 @@ const HelpfulToolsSection = () => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Helpful Tools & Resources
-          </h2>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+              Helpful Tools & Resources
+            </h2>
+            <Button
+              onClick={copyShareableLink}
+              variant="outline"
+              size="sm"
+              className="border-teal-300 hover:bg-teal-50 text-teal-700"
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="w-4 h-4 mr-1" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Link className="w-4 h-4 mr-1" />
+                </>
+              )}
+            </Button>
+          </div>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Quick access to tools that help you determine eligibility and find the right path for your education
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {/* Student Type Guide Card */}
           <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-teal-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3">
@@ -977,19 +960,43 @@ const HelpfulToolsSection = () => {
               <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Calculator className="w-8 h-8 text-white" />
               </div>
-              <CardTitle className="text-xl">Check School-Age Eligibility</CardTitle>
+              <CardTitle className="text-xl">Check School-Age Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-6">
-                Calculate if you qualify as a school-aged student for free summer courses and funding eligibility
+              <p className="text-gray-600 mb-4">
+                Alberta Education defines school-aged students as those aged 6-19 as of September 1st.
               </p>
-              <Button
-                onClick={() => window.location.href = '/student-faq#age-calculator'}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white group"
-              >
-                Open Age Calculator
-                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
+
+              <Accordion type="single" collapsible className="mb-4">
+                <AccordionItem value="details" className="border-amber-200 bg-amber-50">
+                  <AccordionTrigger className="px-3 py-2 hover:bg-amber-100/50 text-sm">
+                    <span className="text-amber-700 font-semibold">Important Note</span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="px-3 pb-2 text-sm text-amber-700">
+                      Being school-aged does not automatically qualify you for free courses. You must be a grant-funded student type (Non-Primary, Home Education, or Summer School).
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="space-y-2">
+                <Button
+                  onClick={() => window.location.href = '/student-faq#age-calculator'}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white group"
+                >
+                  Open Age Calculator
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button
+                  onClick={() => window.location.href = '/student-faq#grantFunding'}
+                  variant="outline"
+                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 group"
+                >
+                  Learn About Grant Funding
+                  <Info className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -1016,6 +1023,34 @@ const HelpfulToolsSection = () => {
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white group"
               >
                 View Complete FAQ
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Prerequisite Flowchart Card */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-orange-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+                <GraduationCap className="w-3 h-3 mr-1" />
+                Visual Guide
+              </Badge>
+            </div>
+            <CardHeader className="pb-4 pt-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <GraduationCap className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-xl">Course Prerequisites</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-6">
+                Interactive flowchart showing course prerequisites and pathways for Alberta high school courses
+              </p>
+              <Button
+                onClick={() => window.location.href = '/prerequisite-flowchart'}
+                className="w-full bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white group"
+              >
+                View Flowchart
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardContent>
@@ -1074,7 +1109,7 @@ const ExperienceSection = () => {
                 </li>
               </ul>
               <Button
-                onClick={() => window.location.href = '/adult-students'}
+                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/adult-students'}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
               >
                 Adult Student Program <ArrowRight className="ml-2 h-4 w-4" />
@@ -1110,7 +1145,7 @@ const ExperienceSection = () => {
                 </li>
               </ul>
               <Button
-                onClick={() => window.location.href = '/international-students'}
+                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/international-students'}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
               >
                 International Program <ArrowRight className="ml-2 h-4 w-4" />
@@ -1123,8 +1158,179 @@ const ExperienceSection = () => {
   );
 };
 
+// Course mapping utility - maps COURSE_OPTIONS courses to courseData courses
+const mapCourseToDetailedData = (courseName) => {
+  // Create mapping between landing page course names and courseData IDs
+  const courseMapping = {
+    'Math 10C': 'math10c',
+    'Math 10-3': 'math10-3',
+    'Math 10-4': 'math10-4',
+    'Math 15': 'math15',
+    'Math 20-1': 'math20-1',
+    'Math 20-2': 'math20-2',
+    'Math 20-3': 'math20-3',
+    'Math 20-4': 'math20-4',
+    'Math 30-1': 'math30-1',
+    'Math 30-2': 'math30-2',
+    'Math 30-3': 'math30-3',
+    'Math 31': 'math31',
+    'Math 31 (Calculus)': 'math31', // Handle the full label from COURSE_OPTIONS
+    'Physics 20': 'physics20',
+    'Physics 30': 'physics30'
+  };
+
+  const courseId = courseMapping[courseName];
+  return courseId ? getCourseById(courseId) : null;
+};
+
+// Course Details Modal Component
+const CourseDetailsModal = ({ course, onClose }) => {
+  if (!course) return null;
+
+  // Get prerequisites and next courses
+  const prerequisites = course.prerequisites ?
+    course.prerequisites.map(id => getCourseById(id)).filter(Boolean) : [];
+  const nextCourses = course.leadsTo ?
+    course.leadsTo.map(id => getCourseById(id)).filter(Boolean) : [];
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white shadow-2xl w-full md:w-[80%] h-full overflow-hidden animate-slide-in-right"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-start">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-gray-900">{course.code}</h2>
+            <p className="text-lg text-gray-600">{course.name}</p>
+            <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+              <span>{course.credits} credits</span>
+              <span>Grade {course.grade}</span>
+              {course.diplomaExam && (
+                <span className="bg-red-500 text-white px-2 py-1 rounded text-xs">
+                  Diploma Exam Required
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 overflow-y-auto h-[calc(100vh-120px)]">
+          {/* Course Description */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Description</h3>
+            <p className="text-gray-700">{course.description}</p>
+            {course.detailedInfo?.importance && (
+              <p className="text-gray-600 mt-2 italic">{course.detailedInfo.importance}</p>
+            )}
+          </div>
+
+          {/* Prerequisites */}
+          {prerequisites.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Prerequisites</h3>
+              <div className="flex flex-wrap gap-2">
+                {prerequisites.map(prereq => (
+                  <span key={prereq.id} className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
+                    {prereq.code}
+                  </span>
+                ))}
+              </div>
+              {course.recommendedGrade && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Recommended: {course.recommendedGrade}% or higher in prerequisite courses
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Skills Developed */}
+          {course.detailedInfo?.skills && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Skills You'll Develop</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {course.detailedInfo.skills.map((skill, index) => (
+                  <div key={index} className="flex items-center text-gray-700">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3 flex-shrink-0"></span>
+                    {skill}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Career Pathways */}
+          {course.careerPathways && course.careerPathways.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Career Pathways</h3>
+              <p className="text-gray-600 mb-3">This course opens doors to careers in:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {course.careerPathways.map((career, index) => (
+                  <div key={index} className="bg-purple-50 text-purple-800 px-3 py-2 rounded-lg text-sm">
+                    {career}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* University Programs */}
+          {course.universityPrograms && course.universityPrograms.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">University Programs</h3>
+              <p className="text-gray-600 mb-3">This course is typically required or recommended for:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {course.universityPrograms.map((program, index) => (
+                  <div key={index} className="bg-blue-50 text-blue-800 px-3 py-2 rounded-lg text-sm">
+                    {program}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Next Steps */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Next Steps</h3>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              {nextCourses.length > 0 ? (
+                <div>
+                  <p className="text-gray-700 mb-2">After completing this course, you can take:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {nextCourses.map(nextCourse => (
+                      <span key={nextCourse.id} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                        {nextCourse.code}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-700">
+                  This is a final course in this pathway. You're ready for post-secondary studies or the workforce!
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Courses Section - Professional Design
 const CoursesSection = () => {
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
   // Filter courses to only show main math and physics courses with availability
   const availableCourses = COURSE_OPTIONS
     .filter(course => {
@@ -1182,38 +1388,116 @@ const CoursesSection = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {availableCourses.map((course, index) => {
-            const IconComponent = course.icon;
-            return (
-              <Card key={index} className="shadow-lg hover:shadow-xl transition-all duration-300 bg-white border-gray-200">
-                <CardHeader className="pb-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      {IconComponent && <IconComponent className="w-5 h-5" style={{ color: course.color }} />}
-                      <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
-                    </div>
-                    <Badge className="bg-teal-100 text-teal-700">{course.credits} Credits</Badge>
+        {/* Prerequisite Flow Chart Call-Out */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <Card className="bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 border-2 border-teal-200 shadow-lg hover:shadow-xl transition-all">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 bg-gradient-to-br from-teal-600 to-cyan-600 rounded-full flex items-center justify-center shadow-lg">
+                    <BookOpen className="w-8 h-8 text-white" />
                   </div>
-                  <p className="text-gray-600">{course.level}</p>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">{course.description}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Confused About Prerequisites?
+                  </h3>
+                  <p className="text-gray-700 mb-4">
+                    Explore our interactive course pathway tool to see how courses connect, understand prerequisites,
+                    and plan your academic journey from Grade 10 through graduation.
+                  </p>
+                  <Button
+                    onClick={() => window.location.href = '/prerequisite-flowchart'}
+                    className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-md"
+                  >
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    View Interactive Course Flowchart
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Group courses by grade level */}
+        {[10, 11, 12].map(gradeLevel => {
+          const coursesForGrade = availableCourses.filter(course => {
+            const grade = parseInt(course.level.replace('Grade ', ''));
+            return grade === gradeLevel;
+          });
+
+          if (coursesForGrade.length === 0) return null;
+
+          return (
+            <div key={gradeLevel} className="mb-12">
+              {/* Grade Header */}
+              <div className="flex items-center mb-6">
+                <div className="flex-grow border-t-2 border-gray-300"></div>
+                <div className="px-6">
+                  <h3 className="text-2xl font-bold text-gray-800 bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                    Grade {gradeLevel} Courses
+                  </h3>
+                </div>
+                <div className="flex-grow border-t-2 border-gray-300"></div>
+              </div>
+
+              {/* Course Cards Grid */}
+              <div className="grid md:grid-cols-3 gap-6">
+                {coursesForGrade.map((course, index) => {
+                  const IconComponent = course.icon;
+                  const detailedCourse = mapCourseToDetailedData(course.name);
+
+                  return (
+                    <Card key={index} className="shadow-lg hover:shadow-xl transition-all duration-300 bg-white border-gray-200 relative">
+                      <CardHeader className="pb-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            {IconComponent && <IconComponent className="w-5 h-5" style={{ color: course.color }} />}
+                            <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
+                          </div>
+                          <Badge className="bg-teal-100 text-teal-700">{course.credits} Credits</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-600 mb-4">{course.description}</p>
+                        {detailedCourse && (
+                          <Button
+                            onClick={() => setSelectedCourse(detailedCourse)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-teal-600 text-teal-700 hover:bg-teal-50"
+                          >
+                            <Info className="w-4 h-4 mr-2" />
+                            More Info & Career Paths
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
 
         <div className="text-center">
           <Button
             size="lg"
-            onClick={() => window.open('/get-started', '_blank')}
+            onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
             className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg">
             Get Started Today <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
       </div>
+
+      {/* Course Details Modal */}
+      {selectedCourse && (
+        <CourseDetailsModal
+          course={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+        />
+      )}
     </section>
   );
 };
@@ -1264,7 +1548,7 @@ const FinalCTASection = () => {
 
             <Button
               size="lg"
-              onClick={() => window.open('/get-started', '_blank')}
+              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
               className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg shadow-lg">
               Apply Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -1303,7 +1587,7 @@ const Footer = () => {
               <li><a href="/contact" className="hover:text-teal-700 transition-colors">Contact</a></li>
               <li><a href="/student-faq" className="hover:text-teal-700 transition-colors">Student FAQ</a></li>
               <li><a href="/policies-reports" className="hover:text-teal-700 transition-colors">Policies & Reports</a></li>
-              <li><a href="/login" className="hover:text-teal-700 transition-colors">Student Login</a></li>
+              <li><a href="https://yourway.rtdacademy.com/login" className="hover:text-teal-700 transition-colors">Student Login</a></li>
             </ul>
           </div>
 
@@ -1313,8 +1597,8 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-600">
               <li><a href="#courses" className="hover:text-teal-700 transition-colors">Mathematics</a></li>
               <li><a href="#courses" className="hover:text-teal-700 transition-colors">Physics</a></li>
-              <li><a href="/adult-students" className="hover:text-teal-700 transition-colors">Adult Upgrading</a></li>
-              <li><a href="/international-students" className="hover:text-teal-700 transition-colors">International Students</a></li>
+              <li><a href="https://yourway.rtdacademy.com/adult-students" className="hover:text-teal-700 transition-colors">Adult Upgrading</a></li>
+              <li><a href="https://yourway.rtdacademy.com/international-students" className="hover:text-teal-700 transition-colors">International Students</a></li>
             </ul>
           </div>
 

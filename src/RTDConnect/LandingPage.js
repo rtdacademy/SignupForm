@@ -27,7 +27,7 @@ import {
   getSeptemberCountForYear,
   getRegistrationOpenDateForYear,
   formatImportantDate
-} from '../config/importantDates';
+} from '../config/calendarConfig';
 
 // RTD Connect Logo with gradient colors
 const RTDConnectLogo = () => (

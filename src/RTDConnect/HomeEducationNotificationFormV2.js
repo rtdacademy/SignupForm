@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { getCurrentSchoolYear, formatImportantDate } from '../config/importantDates';
+import { getCurrentSchoolYear, formatImportantDate } from '../config/calendarConfig';
 import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANCOPHONE_OPTIONS } from './utils/homeEducationFormConstants';
 import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';

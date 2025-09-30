@@ -43,7 +43,7 @@ import {
   getRegistrationOpenDateForYear,
   getSeptemberCountForYear,
   getActiveRegistrationYear
-} from '../config/importantDates';
+} from '../config/calendarConfig';
 import { FUNDING_RATES } from '../config/HomeEducation';
 import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl } from '../config/facilitators';
 import { generatePartCData } from '../config/signatures';

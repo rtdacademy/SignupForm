@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle, Info } from 'lucide-react';
-import { getCurrentSchoolYear } from '../config/importantDates';
+import { getCurrentSchoolYear } from '../config/calendarConfig';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {

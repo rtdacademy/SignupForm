@@ -20,7 +20,7 @@ import {
 import { 
   getCurrentSchoolYear, 
   getOpenRegistrationSchoolYear,
-} from '../config/importantDates';
+} from '../config/calendarConfig';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import StudentRegistrationCard from './RegistrarComponents/StudentRegistrationCard';
 import RegistrationDetailSheet from './RegistrarComponents/RegistrationDetailSheet';

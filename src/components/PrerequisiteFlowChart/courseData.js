@@ -85,6 +85,47 @@ export const courseData = {
         }
       },
       {
+        id: 'math15',
+        code: 'Mathematics 15',
+        name: 'Mathematics 15',
+        credits: 3,
+        description: 'Preparatory mathematics for Math 10C',
+        prerequisites: [],
+        leadsTo: ['math10c'],
+        grade: 10,
+        stream: 'transitional',
+        diplomaExam: false,
+        gridPosition: { row: 0.5, col: -0.5 }, // Slightly above academic row, before Math 10C
+        careerPathways: [
+          'Preparation for academic pathways',
+          'Foundation building for STEM careers',
+          'Bridge to university preparation',
+          'College and technical programs',
+          'Business and administration',
+          'Healthcare and sciences'
+        ],
+        universityPrograms: [
+          'Preparatory for university pathways',
+          'Foundation for college programs',
+          'Bridge to academic programs',
+          'Technical and vocational preparation',
+          'Business program preparation',
+          'General studies preparation'
+        ],
+        detailedInfo: {
+          skills: [
+            'Fundamental algebra and equation solving',
+            'Basic geometry and measurement',
+            'Number sense and operations',
+            'Problem-solving strategies',
+            'Mathematical reasoning and communication',
+            'Study skills and confidence building'
+          ],
+          importance: 'Preparatory course designed to build mathematical foundation needed for success in Math 10C. Covers essential concepts at a supportive pace with additional practice and support. Particularly beneficial for students who need to strengthen basic skills before taking Math 10C or students transitioning from Math 10-3.',
+          recommendedFor: 'Students who need additional preparation before Math 10C, mature students returning to mathematics after a break, students transitioning from Math 10-3 to Math 10C, or anyone wanting to build a strong foundation in mathematics.'
+        }
+      },
+      {
         id: 'math10-4',
         code: 'Mathematics 10-4',
         name: 'Mathematics 10-4',
@@ -1739,6 +1780,11 @@ export const streamInfo = {
     label: 'Applied',
     description: 'Practical application focus',
     icon: '⚡'
+  },
+  transitional: {
+    label: 'Transitional',
+    description: 'Bridge course for additional preparation',
+    icon: '🌉'
   },
   advanced: {
     label: 'Advanced',

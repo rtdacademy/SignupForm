@@ -33,7 +33,7 @@ import {
   getCurrentSchoolYear, 
   getAllOpenRegistrationSchoolYears,
   getOpenRegistrationSchoolYear
-} from '../config/importantDates';
+} from '../config/calendarConfig';
 
 // Helper function to convert school year to database path format (underscore)
 const formatSchoolYearForDatabase = (schoolYear) => {

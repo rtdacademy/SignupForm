@@ -103,7 +103,7 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: []
     },
-    isAvailable: true
+    isAvailable: false
   },
   {
     id: 'elise',
@@ -136,7 +136,7 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8'] // Can support some middle school
     },
-    isAvailable: true
+    isAvailable: false
   },
   {
     id: 'kari-luther',
@@ -170,7 +170,7 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8', '9'] // Can support some middle school
     },
-    isAvailable: true
+    isAvailable: false
   }
 ];
 
