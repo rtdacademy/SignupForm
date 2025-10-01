@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  GraduationCap, 
-  Heart, 
-  Users, 
-  DollarSign, 
-  ArrowRight, 
-  CheckCircle2, 
-  BookOpen, 
-  Home as HomeIcon, 
+import {
+  GraduationCap,
+  Heart,
+  Users,
+  DollarSign,
+  ArrowRight,
+  CheckCircle2,
+  BookOpen,
+  Home as HomeIcon,
   Phone,
   Mail,
   MapPin,
   Menu,
-  Smartphone
+  Smartphone,
+  Clock,
+  Calendar,
+  AlertCircle,
+  Info,
+  FileText
 } from 'lucide-react';
 
 // Import configuration
@@ -21,12 +26,14 @@ import {
   TAGLINE,
   FUNDING_RATES
 } from '../config/HomeEducation';
-import { 
+import {
   getCurrentSchoolYear,
+  getNextSchoolYear,
   getOpenRegistrationSchoolYear,
   getSeptemberCountForYear,
   getRegistrationOpenDateForYear,
-  formatImportantDate
+  formatImportantDate,
+  getRegistrationPhase
 } from '../config/calendarConfig';
 
 // RTD Connect Logo with gradient colors
@@ -87,9 +94,13 @@ const RTDConnectLandingPage = () => {
 
   // Get current registration information
   const currentSchoolYear = getCurrentSchoolYear();
+  const nextSchoolYear = getNextSchoolYear();
   const openRegistrationYear = getOpenRegistrationSchoolYear();
   const registrationOpenDate = openRegistrationYear ? getRegistrationOpenDateForYear(openRegistrationYear) : null;
   const septemberCountDate = openRegistrationYear ? getSeptemberCountForYear(openRegistrationYear) : null;
+
+  // Get registration phase for conditional messaging
+  const registrationPhase = getRegistrationPhase();
 
   const handleGetStarted = () => {
     navigate('/login');
@@ -232,6 +243,20 @@ const RTDConnectLandingPage = () => {
         </div>
       </nav>
 
+      {/* Subtle Registration Status Notice */}
+      {registrationPhase.phase === 'intent-period' && (
+        <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-cyan-50 border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-purple-200 shadow-sm">
+              <Info className="w-4 h-4 text-purple-600 flex-shrink-0" />
+              <span className="text-sm text-gray-700">
+                Registration for {registrationPhase.schoolYear} closed • <span className="text-purple-700 font-medium">Intent to Register</span> available for {registrationPhase.targetYear}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Decorative background elements */}
@@ -278,7 +303,7 @@ const RTDConnectLandingPage = () => {
                   Start Your Journey
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </button>
-                
+
                 <button
                   onClick={handleFacilitatorsClick}
                   className="inline-flex items-center justify-center px-8 py-4 border-2 border-purple-300 text-lg font-semibold rounded-xl text-purple-700 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"

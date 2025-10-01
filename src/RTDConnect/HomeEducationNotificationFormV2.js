@@ -6,7 +6,14 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { getCurrentSchoolYear, formatImportantDate } from '../config/calendarConfig';
+import {
+  getCurrentSchoolYear,
+  getNextSchoolYear,
+  formatImportantDate,
+  hasSeptemberCountPassed,
+  isRegistrationOpen,
+  getRegistrationPhase
+} from '../config/calendarConfig';
 import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANCOPHONE_OPTIONS } from './utils/homeEducationFormConstants';
 import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
@@ -1294,6 +1301,55 @@ const HomeEducationNotificationFormV2 = ({
             }
           </SheetDescription>
         </SheetHeader>
+
+        {/* Registration Phase Warning */}
+        {!staffMode && !readOnly && (() => {
+          const phase = getRegistrationPhase();
+          const isYearClosed = !isRegistrationOpen(schoolYear);
+          const hasCountPassed = hasSeptemberCountPassed(schoolYear);
+
+          if (isYearClosed && hasCountPassed) {
+            const nextYear = getNextSchoolYear();
+            return (
+              <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-900 mb-2">
+                      Registration Closed for {schoolYear}
+                    </h4>
+                    <p className="text-sm text-yellow-800 mb-3">
+                      The September count date has passed for the {schoolYear} school year.
+                      You cannot submit new notification forms for this year.
+                    </p>
+                    {phase.phase === 'intent-period' && (
+                      <div className="bg-white rounded-lg p-3 border border-yellow-200">
+                        <p className="text-sm text-yellow-900 mb-2">
+                          <strong>What you can do:</strong>
+                        </p>
+                        <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
+                          <li>Submit an Intent to Register for {nextYear}</li>
+                          <li>Complete your family profile</li>
+                          <li>Upload citizenship documents</li>
+                          <li>Access the portfolio system</li>
+                        </ul>
+                        {phase.nextRegistrationDate && (
+                          <p className="text-sm text-yellow-900 mt-3 flex items-center">
+                            <Clock className="w-4 h-4 mr-2" />
+                            <span>
+                              Registration for {nextYear} opens: {formatImportantDate(phase.nextRegistrationDate)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Legal Information Accordion */}
         <div className="mt-6">

@@ -201,9 +201,35 @@ const saveFamilyData = onCall({
       // Summary information for queries
       studentCount: 0, // Will be updated below
       guardianCount: 0, // Will be updated below
-      status: 'active',
+      status: 'active', // Will be overridden below if intent registration
       lastActivity: Date.now()
     };
+
+    // Save facilitator information if provided
+    if (familyData.facilitatorEmail) {
+      familyDataToSave.facilitatorEmail = familyData.facilitatorEmail;
+      familyDataToSave.facilitatorAssignedAt = existingFamilyData.facilitatorAssignedAt || new Date().toISOString();
+      familyDataToSave.facilitatorAssignedBy = existingFamilyData.facilitatorAssignedBy || uid;
+      console.log(`Saving facilitator email: ${familyData.facilitatorEmail}`);
+    }
+
+    // Save registration type and target year if provided (for intent vs regular registration)
+    if (familyData.registrationType) {
+      familyDataToSave.registrationType = familyData.registrationType;
+
+      // Set status based on registration type
+      if (familyData.registrationType === 'intent') {
+        familyDataToSave.status = 'intent';
+        console.log(`Setting status to 'intent' for intent registration`);
+      }
+
+      console.log(`Saving registration type: ${familyData.registrationType}`);
+    }
+
+    if (familyData.registeredForYear) {
+      familyDataToSave.registeredForYear = familyData.registeredForYear;
+      console.log(`Saving registered for year: ${familyData.registeredForYear}`);
+    }
     
     // Handle primary guardian differently for staff edits vs regular edits
     let primaryGuardianCount = 0;

@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 import AddressPicker from '../components/AddressPicker';
 import FamilyManagementWrapper from './FamilyManagementWrapper';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
+import IntentToRegisterForm from './IntentToRegisterForm';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
 import FacilitatorMeetingForm from './FacilitatorMeetingForm';
@@ -33,6 +34,7 @@ import {
 } from '../components/ConnectEmbeddedComponents';
 import {
   getCurrentSchoolYear,
+  getNextSchoolYear,
   getActiveSeptemberCount,
   formatImportantDate,
   hasSeptemberCountPassed,
@@ -42,11 +44,17 @@ import {
   getAllOpenRegistrationSchoolYears,
   getRegistrationOpenDateForYear,
   getSeptemberCountForYear,
-  getActiveRegistrationYear
+  getActiveRegistrationYear,
+  getRegistrationPhase,
+  CURRENT_SCHOOL_YEAR,
+  NEXT_SCHOOL_YEAR
 } from '../config/calendarConfig';
 import { FUNDING_RATES } from '../config/HomeEducation';
 import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl } from '../config/facilitators';
 import { generatePartCData } from '../config/signatures';
+
+// Helper function to convert school year format from display to database
+const formatSchoolYearForDatabase = (schoolYear) => schoolYear.replace('/', '_');
 
 // Helper function to check if a form is complete (has all required parts)
 const isFormComplete = (formData) => {
@@ -493,13 +501,30 @@ const ProfileDropdown = ({ userProfile, onEditProfile, onSignOut }) => {
   );
 };
 
-const FormField = ({ label, icon: Icon, error, children, required = false }) => (
+const FormField = ({ label, icon: Icon, error, children, required = false, infoTooltip = null }) => (
   <div className="space-y-2">
-    <label className="flex items-center text-sm font-medium text-gray-900">
-      {Icon && <Icon className="w-4 h-4 mr-2 text-purple-500" />}
-      {label}
-      {required && <span className="text-red-500 ml-1">*</span>}
-    </label>
+    <div className="flex items-center gap-1.5">
+      <label className="flex items-center text-sm font-medium text-gray-900">
+        {Icon && <Icon className="w-4 h-4 mr-2 text-purple-500" />}
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {infoTooltip && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 rounded"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 text-sm" side="right" align="start">
+            <p className="text-gray-700">{infoTooltip}</p>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
     {children}
     {error && (
       <div className="flex items-center space-x-2 text-sm text-red-600">
@@ -582,6 +607,9 @@ const RTDConnectDashboard = ({
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [selectedStudentForPortfolio, setSelectedStudentForPortfolio] = useState(null);
   const [studentPortfolioStatuses, setStudentPortfolioStatuses] = useState({});
+
+  // Intent to Register state (for intent families)
+  const [studentIntentStatuses, setStudentIntentStatuses] = useState({});
   
   // Reimbursement system state
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -1252,6 +1280,29 @@ const RTDConnectDashboard = ({
     loadPortfolioStatuses();
   }, [effectiveFamilyId, familyData?.students, activeSchoolYear]);
 
+  // Effect to load intent to register statuses (for intent families only)
+  useEffect(() => {
+    if (!effectiveFamilyId || !familyData) return;
+
+    // Only load for intent families (status === 'intent')
+    if (familyData.status !== 'intent') {
+      setStudentIntentStatuses({});
+      return;
+    }
+
+    const db = getDatabase();
+    const nextYearDb = formatSchoolYearForDatabase(NEXT_SCHOOL_YEAR);
+    const intentRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/INTENT_REGISTRATIONS/${nextYearDb}`);
+
+    const unsubscribe = onValue(intentRef, (snapshot) => {
+      const intents = snapshot.val() || {};
+      setStudentIntentStatuses(intents);
+      console.log('Intent statuses loaded:', intents);
+    });
+
+    return () => unsubscribe();
+  }, [effectiveFamilyId, familyData, familyData?.status]);
+
   // Effect to load Stripe Connect status
   useEffect(() => {
     // Don't load personal Stripe data for staff users on staff dashboard
@@ -1746,15 +1797,32 @@ const RTDConnectDashboard = ({
 
   const handleFamilyComplete = async (result, updatedClaims) => {
     console.log('Family registration completed successfully', result);
-    
+
+    // Close the family creation sheet
+    setShowFamilyCreation(false);
+
     // If we have updated claims from the form, use them immediately
     if (updatedClaims) {
       console.log('Using claims from family creation:', updatedClaims);
       setCustomClaims(updatedClaims);
+
+      // Explicitly set hasRegisteredFamily to true to allow navigation
+      if (updatedClaims.familyId) {
+        console.log('Setting hasRegisteredFamily to true after family creation');
+        setHasRegisteredFamily(true);
+        setFamilyKey(updatedClaims.familyId);
+      }
     } else {
       // Otherwise, manually refresh claims
       console.log('No claims provided, manually refreshing...');
-      await refreshCustomClaims();
+      const refreshedClaims = await refreshCustomClaims();
+
+      // Also set hasRegisteredFamily after refresh
+      if (refreshedClaims?.familyId) {
+        console.log('Setting hasRegisteredFamily to true after claims refresh');
+        setHasRegisteredFamily(true);
+        setFamilyKey(refreshedClaims.familyId);
+      }
     }
   };
 
@@ -1800,6 +1868,35 @@ const RTDConnectDashboard = ({
 
   const handleContinueToFamilyCreation = () => {
     setShowFamilyCreation(true);
+  };
+
+  const handleSubmitIntent = async (student) => {
+    try {
+      const db = getDatabase();
+      const nextYearDb = formatSchoolYearForDatabase(NEXT_SCHOOL_YEAR);
+      const intentRef = ref(
+        db,
+        `homeEducationFamilies/familyInformation/${effectiveFamilyId}/INTENT_REGISTRATIONS/${nextYearDb}/${student.id}`
+      );
+
+      await update(intentRef, {
+        intentSubmitted: true,
+        submittedAt: Date.now(),
+        submittedBy: user.uid,
+        status: 'intent-submitted',
+        studentInfo: {
+          firstName: student.firstName,
+          lastName: student.lastName,
+          asn: student.asn,
+          grade: student.grade
+        }
+      });
+
+      toast.success(`Intent to register ${student.firstName} for ${NEXT_SCHOOL_YEAR} submitted successfully!`);
+    } catch (error) {
+      console.error('Error submitting intent:', error);
+      toast.error('Failed to submit intent. Please try again.');
+    }
   };
 
   const handleFacilitatorChange = async (facilitatorId, facilitator) => {
@@ -2883,8 +2980,46 @@ Check console for full details.
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to RTD Connect!</h1>
               <p className="text-gray-600 max-w-2xl mx-auto">
-                Let's start by completing your profile. This information helps us personalize your experience and ensure proper communication.
+                Let's start by completing your profile as the primary guardian for your family's home education account.
               </p>
+            </div>
+
+            {/* Account Information Alert */}
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Primary Guardian Account</h3>
+                  <div className="space-y-2 text-sm text-blue-800">
+                    <p className="flex items-center flex-wrap gap-1">
+                      <span>You're logged in as:</span>
+                      <span className="font-mono font-semibold bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
+                        {user?.email}
+                      </span>
+                    </p>
+                    <ul className="space-y-1 text-xs">
+                      <li className="flex items-start">
+                        <span className="mr-1.5">•</span>
+                        <span>This account will oversee your family's home education - add <strong>your information</strong> to the profile (not your child's)</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-1.5">•</span>
+                        <span><strong>Wrong email?</strong> Sign out and log back in with the correct email before proceeding</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-1.5">•</span>
+                        <span>Keep this account secure - your family information is stored here</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-1.5">•</span>
+                        <span>Email changes are possible but require staff assistance for security reasons - best to use the correct email now</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
@@ -2900,24 +3035,30 @@ Check console for full details.
           {/* Feature preview */}
           <div className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">What's Available After Setup</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FeatureCard 
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <FeatureCard
                 icon={GraduationCap}
                 title="Student Management"
                 description="Register and manage your home education students"
                 gradient="from-purple-500 to-cyan-500"
               />
-              <FeatureCard 
+              <FeatureCard
                 icon={FileText}
                 title="Annual Registration"
                 description="Complete yearly registration requirements online"
                 gradient="from-blue-500 to-cyan-500"
               />
-              <FeatureCard 
+              <FeatureCard
                 icon={DollarSign}
                 title="Reimbursements"
                 description="Submit and track reimbursement requests"
                 gradient="from-cyan-500 to-blue-500"
+              />
+              <FeatureCard
+                icon={BookOpen}
+                title="Portfolio Builder"
+                description="Document and showcase your student's learning journey"
+                gradient="from-pink-500 to-purple-500"
               />
             </div>
           </div>
@@ -2934,7 +3075,10 @@ Check console for full details.
                 </div>
               </SheetTitle>
               <SheetDescription className="text-left">
-                Please provide your basic information to get started with RTD Connect.
+                <div className="space-y-2">
+                  <p>Enter <strong>your information</strong> as the primary guardian for this account ({user?.email}).</p>
+                  <p className="text-xs">You'll be able to add your children's information in the next step.</p>
+                </div>
               </SheetDescription>
             </SheetHeader>
 
@@ -2970,7 +3114,12 @@ Check console for full details.
                   />
                 </FormField>
 
-                <FormField label="Birthday" error={profileErrors.birthday} required>
+                <FormField
+                  label="Birthday"
+                  error={profileErrors.birthday}
+                  required
+                  infoTooltip="Enter your birthday, not your child's. Your children's birthdays will be entered when you add them as family members in the next step."
+                >
                   <input
                     type="date"
                     value={profileData.birthday}
@@ -2979,7 +3128,12 @@ Check console for full details.
                   />
                 </FormField>
 
-                <FormField label="Address" error={profileErrors.address} required>
+                <FormField
+                  label="Address"
+                  error={profileErrors.address}
+                  required
+                  infoTooltip="Enter the address where you currently live. When creating family members in the next steps, you'll have the option to set their address to this same address or update it if different."
+                >
                   <AddressPicker
                     value={profileData.address}
                     onAddressSelect={handleAddressSelect}
@@ -3078,7 +3232,21 @@ Check console for full details.
   }
 
   // If profile is complete but no facilitator selected, show facilitator selection
+  console.log('=== FACILITATOR SELECTION PAGE CHECK ===');
+  console.log('hasFacilitatorSelected:', hasFacilitatorSelected);
+  console.log('hasRegisteredFamily:', hasRegisteredFamily);
+  console.log('customClaims?.familyId:', customClaims?.familyId);
+  console.log('Should show facilitator page?', !hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId);
+
   if (!hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId) {
+    console.log('>>> SHOWING facilitator selection page <<<');
+    // Binary check: Are we in the intent to register period?
+    const registrationPhase = getRegistrationPhase();
+    console.log('Current registration phase:', registrationPhase);
+    const isIntentPeriod = registrationPhase.phase === 'intent-period';
+    const facilitatorSelectionType = isIntentPeriod ? 'intent' : 'regular';
+    console.log('Facilitator selection type:', facilitatorSelectionType);
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
@@ -3086,7 +3254,7 @@ Check console for full details.
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <RTDConnectLogo />
-              
+
               {/* Mobile menu button */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
@@ -3094,10 +3262,10 @@ Check console for full details.
               >
                 <Menu className="w-6 h-6" />
               </button>
-              
+
               {/* Desktop profile dropdown */}
               <div className="hidden lg:flex items-center space-x-3">
-                <ProfileDropdown 
+                <ProfileDropdown
                   userProfile={{ ...userProfile, email: user?.email }}
                   onEditProfile={() => setShowProfileForm(true)}
                   onSignOut={handleSignOut}
@@ -3109,11 +3277,12 @@ Check console for full details.
 
         {/* Main Content - Facilitator Selection */}
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <FacilitatorSelection 
+          <FacilitatorSelection
             selectedFacilitatorId={selectedFacilitatorId}
             onFacilitatorSelect={handleFacilitatorSelect}
             showAsStep={true}
             onContinue={handleContinueToFamilyCreation}
+            selectionType={facilitatorSelectionType}
           />
         </main>
 
@@ -4138,6 +4307,31 @@ Check console for full details.
           </div>
         </div>
 
+        {/* Intent Family Info Banner */}
+        {familyData.status === 'intent' && (
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <Info className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-purple-900 text-lg mb-2">
+                  Intent to Register for {familyData.registeredForYear || NEXT_SCHOOL_YEAR}
+                </h3>
+                <p className="text-sm text-purple-800 mb-2">
+                  You're currently in the Intent to Register period. You can:
+                </p>
+                <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside ml-2">
+                  <li>Complete your current year ({CURRENT_SCHOOL_YEAR}) registration and requirements</li>
+                  <li>Submit Intent to Register for each student for next year ({NEXT_SCHOOL_YEAR})</li>
+                  <li>Access your portfolio to document student work and progress</li>
+                </ul>
+                <p className="text-xs text-purple-600 mt-3 font-medium">
+                  Full registration for {NEXT_SCHOOL_YEAR} opens on {getRegistrationOpenDateForYear(NEXT_SCHOOL_YEAR).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Family Members List */}
         {((familyData.students && familyData.students.length > 0) || (familyData.guardians && familyData.guardians.length > 0)) && (
           <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-100">
@@ -4635,6 +4829,52 @@ Check console for full details.
                                 )}
                               </div>
                             </div>
+
+                            {/* Intent to Register for Next Year - Only for Intent Families */}
+                            {familyData.status === 'intent' && (
+                              <div className="mt-3 pt-3 border-t border-blue-300">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Calendar className="w-4 h-4 text-purple-500" />
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Intent to Register {NEXT_SCHOOL_YEAR}
+                                    </span>
+                                    {studentIntentStatuses[student.id]?.intentSubmitted ? (
+                                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <AlertCircle className="w-4 h-4 text-orange-500" />
+                                    )}
+                                  </div>
+                                  <span className={`text-xs px-2 py-1 rounded-full font-medium shadow-sm border ${
+                                    studentIntentStatuses[student.id]?.intentSubmitted
+                                      ? 'bg-green-100 text-green-700 border-green-300'
+                                      : 'bg-orange-100 text-orange-700 border-orange-300'
+                                  }`}>
+                                    {studentIntentStatuses[student.id]?.intentSubmitted ? 'Intent Submitted' : 'Not Started'}
+                                  </span>
+                                </div>
+
+                                {!studentIntentStatuses[student.id]?.intentSubmitted ? (
+                                  <button
+                                    onClick={() => handleSubmitIntent(student)}
+                                    className="w-full px-4 py-3 text-base font-semibold rounded-lg transition-all shadow-md hover:shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 border-2 border-purple-700 hover:border-purple-800 flex items-center justify-center space-x-2"
+                                  >
+                                    <Calendar className="w-5 h-5" />
+                                    <span>Submit Intent to Register for {NEXT_SCHOOL_YEAR}</span>
+                                  </button>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <div className="w-full px-3 py-2 text-sm bg-green-50 text-green-700 rounded-md text-center border border-green-200 flex items-center justify-center space-x-2">
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span>Intent submitted on {new Date(studentIntentStatuses[student.id].submittedAt).toLocaleDateString()}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-600 text-center">
+                                      Registration for {NEXT_SCHOOL_YEAR} will open {getRegistrationOpenDateForYear(NEXT_SCHOOL_YEAR).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             {/* Learning Portfolio Section */}
                             <div className="mt-3 pt-3 border-t border-blue-300">

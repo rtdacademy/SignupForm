@@ -18,8 +18,9 @@ import { toEdmontonDate } from '../utils/timeZoneUtils';
 // =============================================================================
 // CURRENT SCHOOL YEAR
 // =============================================================================
-// UPDATE THIS VALUE AT THE START OF EACH SCHOOL YEAR
+// UPDATE THESE VALUES AT THE START OF EACH SCHOOL YEAR
 export const CURRENT_SCHOOL_YEAR = '25/26';
+export const NEXT_SCHOOL_YEAR = '26/27';
 
 // =============================================================================
 // TERM/SEMESTER CONFIGURATION
@@ -86,10 +87,14 @@ const IMPORTANT_DATES = {
     term2PasiDeadline: toEdmontonDate('2026-06-19'),
     summerStart: toEdmontonDate('2025-07-01'),
     summerEnd: toEdmontonDate('2025-08-31'),
+    intentToRegisterPeriod: {
+      start: toEdmontonDate('2025-09-30'),
+      end: toEdmontonDate('2025-12-31'),
+    }
   },
   '26/27': {
     schoolYearDisplay: '2026-2027',
-    registrationOpen: toEdmontonDate('2025-09-29'),
+    registrationOpen: toEdmontonDate('2026-01-01'),
     septemberCount: toEdmontonDate('2026-09-29'),
     term1RegistrationDeadline: toEdmontonDate('2026-09-29'),
     term1CountDay: toEdmontonDate('2026-09-30'),
@@ -100,10 +105,14 @@ const IMPORTANT_DATES = {
     term2PasiDeadline: toEdmontonDate('2027-06-19'),
     summerStart: toEdmontonDate('2026-07-01'),
     summerEnd: toEdmontonDate('2026-08-31'),
+    intentToRegisterPeriod: {
+      start: toEdmontonDate('2026-09-30'),
+      end: toEdmontonDate('2026-12-31'),
+    }
   },
   '27/28': {
     schoolYearDisplay: '2027-2028',
-    registrationOpen: toEdmontonDate('2025-09-29'),
+    registrationOpen: toEdmontonDate('2027-01-01'),
     septemberCount: toEdmontonDate('2027-09-29'),
     term1RegistrationDeadline: toEdmontonDate('2027-09-29'),
     term1CountDay: toEdmontonDate('2027-09-30'),
@@ -114,6 +123,10 @@ const IMPORTANT_DATES = {
     term2PasiDeadline: toEdmontonDate('2028-06-19'),
     summerStart: toEdmontonDate('2027-07-01'),
     summerEnd: toEdmontonDate('2027-08-31'),
+    intentToRegisterPeriod: {
+      start: toEdmontonDate('2027-09-30'),
+      end: toEdmontonDate('2027-12-31'),
+    }
   }
 };
 
@@ -123,6 +136,14 @@ const IMPORTANT_DATES = {
  */
 export const getCurrentSchoolYear = () => {
   return CURRENT_SCHOOL_YEAR;
+};
+
+/**
+ * Gets the next school year in YY/YY format
+ * @returns {string} Next school year (e.g., '26/27')
+ */
+export const getNextSchoolYear = () => {
+  return NEXT_SCHOOL_YEAR;
 };
 
 /**
@@ -342,6 +363,117 @@ export const getAllOpenRegistrationSchoolYears = (referenceDate = new Date()) =>
 };
 
 /**
+ * Gets the Intent to Register period dates for a school year
+ * @param {string} schoolYear - School year in YY/YY format
+ * @returns {Object|null} Object with start and end dates, or null if not configured
+ */
+export const getIntentToRegisterPeriod = (schoolYear) => {
+  const dates = getImportantDatesForYear(schoolYear);
+  return dates.intentToRegisterPeriod || null;
+};
+
+/**
+ * Checks if we're in the Intent to Register period for the current school year
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {boolean} True if in intent period
+ */
+export const isInIntentToRegisterPeriod = (referenceDate = new Date()) => {
+  const currentYear = getCurrentSchoolYear();
+  const dates = getImportantDatesForYear(currentYear);
+
+  if (!dates.intentToRegisterPeriod) return false;
+
+  const { start, end } = dates.intentToRegisterPeriod;
+  return referenceDate >= start && referenceDate <= end;
+};
+
+/**
+ * Gets the current registration phase and capabilities
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {Object} Phase information with capabilities
+ */
+export const getRegistrationPhase = (referenceDate = new Date()) => {
+  const currentYear = getCurrentSchoolYear();
+  const nextYear = getNextSchoolYear();
+
+  const currentYearOpen = isRegistrationOpen(currentYear, referenceDate);
+  const currentYearCountPassed = hasSeptemberCountPassed(currentYear, referenceDate);
+  const nextYearOpen = isRegistrationOpen(nextYear, referenceDate);
+  const inIntentPeriod = isInIntentToRegisterPeriod(referenceDate);
+
+  // Current year registration is open (before Sept count)
+  if (currentYearOpen && !currentYearCountPassed) {
+    return {
+      phase: 'current-year-open',
+      schoolYear: currentYear,
+      targetYear: currentYear,
+      canSubmitNotificationForm: true,
+      canSubmitIntentForm: false,
+      canSelectFacilitator: 'funded',
+      message: `Registration open for ${currentYear} school year`,
+      nextRegistrationDate: null
+    };
+  }
+
+  // In Intent to Register period (after current Sept count, before next year opens)
+  if (inIntentPeriod && !nextYearOpen) {
+    const intentPeriod = getIntentToRegisterPeriod(currentYear);
+    const nextYearRegistrationDate = getRegistrationOpenDateForYear(nextYear);
+    return {
+      phase: 'intent-period',
+      schoolYear: currentYear,
+      targetYear: nextYear,
+      canSubmitNotificationForm: false,
+      canSubmitIntentForm: true,
+      canSelectFacilitator: 'intent',
+      message: `Intent to Register period for ${nextYear} school year`,
+      periodEnd: intentPeriod?.end,
+      nextRegistrationDate: nextYearRegistrationDate
+    };
+  }
+
+  // Next year registration is open
+  if (nextYearOpen) {
+    const nextYearCountPassed = hasSeptemberCountPassed(nextYear, referenceDate);
+    if (!nextYearCountPassed) {
+      return {
+        phase: 'next-year-open',
+        schoolYear: nextYear,
+        targetYear: nextYear,
+        canSubmitNotificationForm: true,
+        canSubmitIntentForm: false,
+        canSelectFacilitator: 'funded',
+        message: `Registration open for ${nextYear} school year`,
+        nextRegistrationDate: null
+      };
+    }
+  }
+
+  // Fallback - registration closed, no intent period active
+  const nextYearRegistrationDate = getRegistrationOpenDateForYear(nextYear);
+  return {
+    phase: 'closed',
+    schoolYear: currentYear,
+    targetYear: nextYear,
+    canSubmitNotificationForm: false,
+    canSubmitIntentForm: false,
+    canSelectFacilitator: false,
+    message: 'Registration is currently closed',
+    nextRegistrationDate: nextYearRegistrationDate
+  };
+};
+
+/**
+ * Gets the target year for new registrations
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {string} School year that new families should target
+ */
+export const getRegistrationTargetYear = (referenceDate = new Date()) => {
+  const phase = getRegistrationPhase(referenceDate);
+  return phase.targetYear || phase.schoolYear;
+};
+
+/**
  * Gets the active registration year for display purposes
  * This ensures families can always see their current year's registration,
  * even after the September count has passed
@@ -503,6 +635,7 @@ export default {
 
   // Date utilities
   getCurrentSchoolYear,
+  getNextSchoolYear,
   getImportantDatesForYear,
   getAllImportantDates,
   getMostRecentSeptemberCount,
@@ -515,6 +648,10 @@ export default {
   isRegistrationOpen,
   getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears,
+  getIntentToRegisterPeriod,
+  isInIntentToRegisterPeriod,
+  getRegistrationPhase,
+  getRegistrationTargetYear,
   getActiveRegistrationYear,
   parseTermDate,
   getTermStartDate,

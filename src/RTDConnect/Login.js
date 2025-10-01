@@ -17,8 +17,12 @@ import {
   OAuthProvider
 } from "firebase/auth";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info, Calendar } from "lucide-react";
 import { auth, googleProvider, microsoftProvider, isDevelopment } from "../firebase";
+import {
+  getRegistrationPhase,
+  formatImportantDate
+} from '../config/calendarConfig';
 import { useAuth } from '../context/AuthContext';
 import { isMobileDevice, getDeviceType } from '../utils/deviceDetection';
 import AuthLoadingScreen from './AuthLoadingScreen';
@@ -84,6 +88,9 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
   const [pendingProvider, setPendingProvider] = useState(null);
   const [linkingEmail, setLinkingEmail] = useState("");
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+
+  // Get registration phase for conditional messaging
+  const registrationPhase = getRegistrationPhase();
 
   // Convert Firebase error codes to user-friendly messages
   const getFriendlyErrorMessage = (error) => {
@@ -1239,9 +1246,35 @@ const RTDConnectLogin = ({ hideWelcome = false, startWithSignUp = false, compact
               
               <RTDConnectLogo />
               <p className="mt-4 text-center text-sm text-gray-600 leading-relaxed">
-                Welcome to RTD Connect, your home education portal. Here you can register your family, 
+                Welcome to RTD Connect, your home education portal. Here you can register your family,
                 manage your home education program, and access support and reimbursement services.
               </p>
+
+              {/* Registration Phase Notice - Simple */}
+              {registrationPhase.phase === 'intent-period' && (
+                <div className="mt-6 bg-white rounded-lg border border-purple-200 shadow-sm p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                        <Info className="w-4 h-4 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                        New families: Intent to Register now available
+                      </h4>
+                      <p className="text-xs text-gray-600">
+                        If you're new to RTD Connect, you can create an account and submit an Intent to Register for the {registrationPhase.targetYear} school year.
+                        <Link to="/faq" className="text-purple-600 hover:text-purple-800 underline ml-1 font-medium">Learn more</Link>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Current families: Your dashboard has everything you need
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

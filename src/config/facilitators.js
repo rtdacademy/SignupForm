@@ -4,6 +4,14 @@
 // Base URL for facilitator profiles
 const FACILITATOR_BASE_URL = 'https://rtd-connect.com';
 
+// Facilitator Availability - Binary System
+// Two separate flags for clear availability management
+export const AVAILABILITY_STATUS = {
+  // No longer using status strings - using boolean flags instead
+  // acceptsIntentRegistrations: true/false
+  // acceptsRegularRegistrations: true/false
+};
+
 export const FACILITATORS = [
   {
     id: 'golda-david',
@@ -36,7 +44,12 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: [] // Handles all grades equally well
     },
-    isAvailable: false // Golda is currently full
+    availability: {
+      acceptsIntentRegistrations: true,
+      acceptsRegularRegistrations: false,
+      unavailableReason: 'At capacity for regular registrations',
+      notes: 'Currently accepting Intent to Register for 2025-26'
+    }
   },
   {
     id: 'grace-anne-post',
@@ -69,7 +82,12 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: [] // Handles all grades equally well
     },
-    isAvailable: false
+    availability: {
+      acceptsIntentRegistrations: true,
+      acceptsRegularRegistrations: false,
+      unavailableReason: 'At capacity for regular registrations',
+      notes: 'Currently accepting Intent to Register for 2025-26'
+    }
   },
   {
     id: 'marian-johnson',
@@ -103,7 +121,12 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
       secondary: []
     },
-    isAvailable: false
+    availability: {
+      acceptsIntentRegistrations: false,
+      acceptsRegularRegistrations: false,
+      unavailableReason: 'Not accepting new families at this time',
+      notes: ''
+    }
   },
   {
     id: 'elise',
@@ -136,7 +159,12 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8'] // Can support some middle school
     },
-    isAvailable: false
+    availability: {
+      acceptsIntentRegistrations: true,
+      acceptsRegularRegistrations: false,
+      unavailableReason: 'At capacity for regular registrations',
+      notes: 'Currently accepting Intent to Register for 2025-26'
+    }
   },
   {
     id: 'kari-luther',
@@ -170,7 +198,12 @@ export const FACILITATORS = [
       primary: ['K', '1', '2', '3', '4', '5', '6'],
       secondary: ['7', '8', '9'] // Can support some middle school
     },
-    isAvailable: false
+    availability: {
+      acceptsIntentRegistrations: true,
+      acceptsRegularRegistrations: false,
+      unavailableReason: 'At capacity for regular registrations',
+      notes: 'Currently accepting Intent to Register for 2025-26'
+    }
   }
 ];
 
@@ -204,25 +237,44 @@ export const getAllFacilitators = () => {
  * @returns {Array} Array of facilitator objects with available ones randomized first
  */
 export const getAllFacilitatorsRandomized = () => {
-  const available = FACILITATORS.filter(f => f.isAvailable !== false);
-  const full = FACILITATORS.filter(f => f.isAvailable === false);
+  const available = FACILITATORS.filter(f => f.availability?.status !== 'closed');
+  const full = FACILITATORS.filter(f => f.availability?.status === 'closed');
   return [...shuffleArray(available), ...full];
 };
 
 /**
- * Get available facilitators only
+ * Get available facilitators only (open or intent-only)
  * @returns {Array} Array of available facilitator objects
  */
 export const getAvailableFacilitators = () => {
-  return FACILITATORS.filter(f => f.isAvailable !== false);
+  return FACILITATORS.filter(f => f.availability?.status !== 'closed');
 };
 
 /**
- * Get full facilitators only
+ * Get full/closed facilitators only
  * @returns {Array} Array of full facilitator objects
  */
 export const getFullFacilitators = () => {
-  return FACILITATORS.filter(f => f.isAvailable === false);
+  return FACILITATORS.filter(f => f.availability?.status === 'closed');
+};
+
+/**
+ * Get facilitators available for funded registrations (open status)
+ * @returns {Array} Facilitators accepting funded families
+ */
+export const getFundedAvailableFacilitators = () => {
+  return FACILITATORS.filter(f => f.availability?.status === 'open');
+};
+
+/**
+ * Get facilitators available for intent registrations (intent-only or open)
+ * @returns {Array} Facilitators accepting intent families
+ */
+export const getIntentAvailableFacilitators = () => {
+  return FACILITATORS.filter(f =>
+    f.availability?.status === 'intent-only' ||
+    f.availability?.status === 'open'
+  );
 };
 
 /**
@@ -296,22 +348,80 @@ export const getRecommendedFacilitator = (grade) => {
 };
 
 /**
- * Get facilitator dropdown options for forms
+ * Check if facilitator accepts intent registrations
+ * @param {string} facilitatorId - Facilitator ID
+ * @returns {boolean} True if accepting intent
+ */
+export const acceptsIntentRegistrations = (facilitatorId) => {
+  const facilitator = getFacilitatorById(facilitatorId);
+  if (!facilitator) return false;
+  return facilitator.availability?.acceptsIntentRegistrations === true;
+};
+
+/**
+ * Check if facilitator accepts funded registrations
+ * @param {string} facilitatorId - Facilitator ID
+ * @returns {boolean} True if accepting funded
+ */
+export const acceptsFundedRegistrations = (facilitatorId) => {
+  const facilitator = getFacilitatorById(facilitatorId);
+  return facilitator?.availability?.acceptsRegularRegistrations === true;
+};
+
+/**
+ * Get facilitator availability for current phase (Binary System)
+ * @param {string} facilitatorId - Facilitator ID
+ * @param {string} selectionType - 'intent' or 'regular'
+ * @returns {Object} Availability info
+ */
+export const getFacilitatorAvailabilityForType = (facilitatorId, selectionType) => {
+  const facilitator = getFacilitatorById(facilitatorId);
+  if (!facilitator) return { isAvailable: false, message: 'Facilitator not found', badge: 'Not Found' };
+
+  const availability = facilitator.availability || {};
+
+  if (selectionType === 'intent') {
+    const isAvailable = availability.acceptsIntentRegistrations === true;
+    return {
+      isAvailable,
+      message: isAvailable
+        ? 'Available for intent to register'
+        : (availability.unavailableReason || 'Not accepting intent registrations'),
+      badge: isAvailable ? 'Accepting Intent to Register' : (availability.unavailableReason || 'Closed')
+    };
+  }
+
+  if (selectionType === 'regular' || selectionType === 'funded') {
+    const isAvailable = availability.acceptsRegularRegistrations === true;
+    return {
+      isAvailable,
+      message: isAvailable
+        ? 'Available for funded registration'
+        : (availability.unavailableReason || 'Not accepting funded registrations'),
+      badge: isAvailable ? 'Available' : (availability.unavailableReason || 'Closed')
+    };
+  }
+
+  return { isAvailable: false, message: 'Invalid selection type', badge: 'Error' };
+};
+
+/**
+ * Get facilitator dropdown options for forms (legacy - uses available facilitators)
  * @param {string} studentGrade - Optional grade (not used for recommendations anymore)
  * @returns {Array} Array of options with value, label, and description
  */
 export const getFacilitatorDropdownOptions = (studentGrade = null) => {
   const options = [];
-  
+
   // Add default selection option
   options.push({
     value: '',
     label: 'Choose your facilitator below',
     description: 'Please select one of our available facilitators'
   });
-  
-  // Only add available facilitator options
-  const availableFacilitators = FACILITATORS.filter(f => f.isAvailable !== false);
+
+  // Only add available facilitator options (open or intent-only)
+  const availableFacilitators = getAvailableFacilitators();
   availableFacilitators.forEach(facilitator => {
     options.push({
       value: facilitator.name,
@@ -321,7 +431,40 @@ export const getFacilitatorDropdownOptions = (studentGrade = null) => {
       isRecommended: false
     });
   });
-  
+
+  return options;
+};
+
+/**
+ * Get facilitator dropdown options filtered by selection type
+ * @param {string} selectionType - 'funded' or 'intent'
+ * @returns {Array} Filtered dropdown options
+ */
+export const getFacilitatorDropdownOptionsByType = (selectionType) => {
+  const options = [{
+    value: '',
+    label: 'Choose your facilitator below',
+    description: 'Please select one of our available facilitators'
+  }];
+
+  let availableFacilitators;
+  if (selectionType === 'funded') {
+    availableFacilitators = getFundedAvailableFacilitators();
+  } else if (selectionType === 'intent') {
+    availableFacilitators = getIntentAvailableFacilitators();
+  } else {
+    availableFacilitators = [];
+  }
+
+  availableFacilitators.forEach(facilitator => {
+    options.push({
+      value: facilitator.name,
+      label: facilitator.name,
+      description: facilitator.title,
+      facilitatorId: facilitator.id
+    });
+  });
+
   return options;
 };
 
@@ -338,16 +481,23 @@ export const isValidFacilitator = (facilitatorName) => {
 // Export default for backwards compatibility
 export default {
   FACILITATORS,
+  AVAILABILITY_STATUS,
   getAllFacilitators,
   getAllFacilitatorsRandomized,
   getAvailableFacilitators,
   getFullFacilitators,
+  getFundedAvailableFacilitators,
+  getIntentAvailableFacilitators,
   getFacilitatorById,
   getFacilitatorByName,
   getFacilitatorByEmail,
   getFacilitatorProfileUrl,
   getFacilitatorsForGrade,
   getRecommendedFacilitator,
+  acceptsIntentRegistrations,
+  acceptsFundedRegistrations,
+  getFacilitatorAvailabilityForType,
   getFacilitatorDropdownOptions,
+  getFacilitatorDropdownOptionsByType,
   isValidFacilitator
 };

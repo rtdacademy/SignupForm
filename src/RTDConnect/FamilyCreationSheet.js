@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle, Info } from 'lucide-react';
-import { getCurrentSchoolYear } from '../config/calendarConfig';
+import { getCurrentSchoolYear, getRegistrationPhase } from '../config/calendarConfig';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -192,14 +192,15 @@ const GuardianCard = ({ guardian, index, isPrimary, onEdit, onRemove, userProfil
   </div>
 );
 
-const FamilyCreationSheet = ({ 
-  isOpen, 
-  onOpenChange, 
-  familyKey, 
+const FamilyCreationSheet = ({
+  isOpen,
+  onOpenChange,
+  familyKey,
   hasRegisteredFamily,
   initialFamilyData = { familyName: '', students: [], guardians: [] },
   onFamilyDataChange,
   onComplete,
+  selectedFacilitator,
   staffMode = false,
   isStaffViewing = false,
   onEditProfile
@@ -261,12 +262,7 @@ const FamilyCreationSheet = ({
         console.log('Restoring saved family data:', savedData.familyData);
         setFamilyData(savedData.familyData);
         setHasUnsavedChanges(true); // Mark as having unsaved changes since we restored data
-        setRestoredFromSession(true);
-        
-        // Show a brief notification that data was restored
-        setTimeout(() => {
-          setRestoredFromSession(false);
-        }, 5000);
+        // Removed "Data Restored" notification as it was distracting during typing
       } else if (initialFamilyData) {
         console.log('Using initial family data:', initialFamilyData);
         setFamilyData(initialFamilyData);
@@ -671,7 +667,6 @@ const FamilyCreationSheet = ({
       usePrimaryAddress: false
     });
     setShowStudentForm(false);
-    setFundingEligibilityInfo(null);
   };
 
   const handleEditStudent = (index) => {
@@ -915,13 +910,26 @@ const FamilyCreationSheet = ({
 
       const functions = getFunctions();
       const saveFamilyData = httpsCallable(functions, 'saveFamilyData');
-      
+
+      // Detect registration phase to determine registration type
+      const registrationPhase = getRegistrationPhase();
+      const isIntentPeriod = registrationPhase.phase === 'intent-period';
+      const registrationType = isIntentPeriod ? 'intent' : 'regular';
+      const targetYear = registrationPhase.targetYear;
+
+      console.log('Creating family with registration type:', registrationType, 'for year:', targetYear);
+
       // Include familyId and staff flags when staff is editing
       const requestData = {
         familyData: {
           familyName: familyData.familyName,
           students: studentsObj,
-          guardians: guardiansObj
+          guardians: guardiansObj,
+          // Include facilitator email if one is selected
+          facilitatorEmail: selectedFacilitator?.contact?.email || null,
+          // Include registration type and target year
+          registrationType: registrationType,
+          registeredForYear: targetYear
         }
       };
       
@@ -1164,18 +1172,6 @@ const FamilyCreationSheet = ({
                     </p>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Restored Data Notification */}
-          {restoredFromSession && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
-                <p className="text-sm text-blue-800">
-                  <strong>Data Restored:</strong> Your previous work has been automatically restored.
-                </p>
               </div>
             </div>
           )}

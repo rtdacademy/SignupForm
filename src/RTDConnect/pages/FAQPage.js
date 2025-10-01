@@ -80,6 +80,30 @@ const FAQPage = () => {
       icon: FileText
     },
     {
+      question: "What is Intent to Register?",
+      answer: (
+        <div>
+          <p className="mb-3"><strong>Intent to Register</strong> is for new families who want to join RTD Connect after the September count date has passed for the current school year.</p>
+          <p className="mb-3">Here's how it works:</p>
+          <ul className="list-disc ml-6 space-y-2 mb-3">
+            <li><strong>Create an account</strong> - Set up your family profile in our portal</li>
+            <li><strong>Choose a facilitator</strong> - Select from facilitators accepting intent registrations</li>
+            <li><strong>Submit your intent</strong> - Complete a simple form indicating your plans for next school year</li>
+            <li><strong>Prepare for next year</strong> - Upload citizenship documents and get familiar with the platform</li>
+          </ul>
+          <p className="mb-3"><strong>Important to know:</strong></p>
+          <ul className="list-disc ml-6 space-y-1 mb-3">
+            <li>This is <strong>not</strong> official registration - it secures your provisional spot with a facilitator</li>
+            <li>You will not receive funding for the current school year</li>
+            <li>Official registration forms become available when the next school year's registration period opens (typically January 1st)</li>
+            <li>You'll still have access to our portfolio system and can prepare documentation</li>
+          </ul>
+          <p className="text-sm text-gray-600">Think of Intent to Register as "getting your foot in the door" early. You're making your commitment known, securing your preferred facilitator, and getting everything ready so when official registration opens, you'll be first in line and fully prepared.</p>
+        </div>
+      ),
+      icon: Calendar
+    },
+    {
       question: "What is parent-directed home education?",
       answer: "Parent-directed home education allows families to build personalized learning programs around each child's interests, needs, and goals. Parents (and students) choose resources, programs, and experiences that support meaningful and relevant learning.",
       icon: Users

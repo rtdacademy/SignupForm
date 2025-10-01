@@ -1,13 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { getAllFacilitators, getAllFacilitatorsRandomized, getFacilitatorById, getFacilitatorProfileUrl } from '../config/facilitators';
-import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award, Ban } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  getAllFacilitators,
+  getAllFacilitatorsRandomized,
+  getFacilitatorById,
+  getFacilitatorProfileUrl,
+  getFacilitatorAvailabilityForType,
+  AVAILABILITY_STATUS
+} from '../config/facilitators';
+import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award, Ban, AlertTriangle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 
-const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) => {
+const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails, selectionType = 'regular' }) => {
   const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
   const isComingSoon = facilitator.experience === 'Profile Coming Soon';
-  const isFull = facilitator.isAvailable === false;
-  
+
+  // Get availability based on selection type (Binary System)
+  const availabilityInfo = getFacilitatorAvailabilityForType(facilitator.id, selectionType);
+  const isAvailable = availabilityInfo.isAvailable;
+
   // Map icon names to components
   const iconMap = {
     'Star': Star,
@@ -19,21 +29,33 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
   };
 
   return (
-    <div 
+    <div
       className={`relative bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl ${
         isSelected ? 'ring-2 ring-purple-500' : ''
-      }`}
+      } ${!isAvailable ? 'opacity-60' : ''}`}
     >
-      {/* Full Badge */}
-      {isFull && (
-        <div className="absolute top-4 left-4 z-10 bg-red-100 border border-red-300 text-red-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
-          <Ban className="w-3 h-3 mr-1" />
-          Currently Full
+      {/* Availability Badge - Show based on availability */}
+      {isAvailable && selectionType === 'intent' && (
+        <div className="absolute top-4 left-4 z-10 bg-blue-100 border border-blue-300 text-blue-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+          <Clock className="w-3 h-3 mr-1" />
+          {availabilityInfo.badge}
         </div>
       )}
-      
+      {isAvailable && selectionType === 'regular' && (
+        <div className="absolute top-4 left-4 z-10 bg-green-100 border border-green-300 text-green-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+          <Check className="w-3 h-3 mr-1" />
+          {availabilityInfo.badge}
+        </div>
+      )}
+      {!isAvailable && (
+        <div className="absolute top-4 left-4 z-10 bg-red-100 border border-red-300 text-red-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+          <Ban className="w-3 h-3 mr-1" />
+          {availabilityInfo.badge}
+        </div>
+      )}
+
       {/* Coming Soon Badge */}
-      {!isFull && isComingSoon && (
+      {isAvailable && isComingSoon && (
         <div className="absolute top-4 left-4 z-10 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
           <Clock className="w-3 h-3 mr-1" />
           Coming Soon
@@ -134,17 +156,17 @@ const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails }) =
             View Full Profile
           </button>
           <button
-            onClick={() => !isFull && onSelect(facilitator)}
-            disabled={isFull}
+            onClick={() => isAvailable && onSelect(facilitator)}
+            disabled={!isAvailable}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              isFull
+              !isAvailable
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : isSelected 
-                ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                : isSelected
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
                 : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600'
             }`}
           >
-            {isFull ? 'Currently Full' : isSelected ? 'Selected' : 'Select'}
+            {!isAvailable ? 'Not Available' : isSelected ? 'Selected' : 'Select'}
           </button>
         </div>
       </div>
@@ -291,22 +313,25 @@ const FacilitatorDetailSheet = ({ isOpen, onClose, facilitator }) => {
   );
 };
 
-const FacilitatorSelection = ({ 
-  selectedFacilitatorId, 
-  onFacilitatorSelect, 
+const FacilitatorSelection = ({
+  selectedFacilitatorId,
+  onFacilitatorSelect,
   showAsStep = false,
-  onContinue = null 
+  onContinue = null,
+  selectionType = 'funded' // 'funded' or 'intent'
 }) => {
-  const [facilitators, setFacilitators] = useState([]);
+  // Memoize the randomized facilitator list - only randomize once per selectionType change
+  const facilitators = useMemo(() => {
+    // Load ALL facilitators (no filtering by availability)
+    // We'll show all facilitators but mark unavailable ones visually
+    return getAllFacilitatorsRandomized();
+  }, [selectionType]); // Only re-randomize if selectionType changes
+
   const [selectedFacilitator, setSelectedFacilitator] = useState(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [viewingFacilitator, setViewingFacilitator] = useState(null);
 
   useEffect(() => {
-    // Load all facilitators with randomized order for available ones
-    const allFacilitators = getAllFacilitatorsRandomized();
-    setFacilitators(allFacilitators);
-
     // Set initial selection if provided
     if (selectedFacilitatorId) {
       const facilitator = getFacilitatorById(selectedFacilitatorId);
@@ -344,8 +369,9 @@ const FacilitatorSelection = ({
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Your Facilitator</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Your facilitator will be your primary support throughout your home education journey. 
-            They'll help with curriculum planning, compliance, and provide ongoing guidance.
+            {selectionType === 'intent'
+              ? 'Select a facilitator for your Intent to Register submission. Your facilitator will help guide you through the registration process for the next school year.'
+              : "Your facilitator will be your primary support throughout your home education journey. They'll help with curriculum planning, compliance, and provide ongoing guidance."}
           </p>
         </div>
       )}
@@ -364,7 +390,7 @@ const FacilitatorSelection = ({
         </ul>
       </div>
 
-      {/* Facilitator Grid */}
+      {/* Facilitator Grid - Show all facilitators */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {facilitators.map((facilitator) => (
           <FacilitatorCard
@@ -373,26 +399,64 @@ const FacilitatorSelection = ({
             isSelected={selectedFacilitator?.id === facilitator.id}
             onSelect={handleSelect}
             onViewDetails={handleViewDetails}
+            selectionType={selectionType}
           />
         ))}
       </div>
 
-      {/* Continue Button (if in step mode) */}
-      {showAsStep && (
+      {/* Skip button - only show when no facilitator selected */}
+      {showAsStep && !selectedFacilitator && (
         <div className="flex justify-center pt-6">
           <button
-            onClick={handleContinue}
-            disabled={!selectedFacilitator}
-            className={`px-8 py-3 rounded-lg font-medium flex items-center space-x-2 transition-all ${
-              selectedFacilitator
-                ? 'bg-gradient-to-r from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            onClick={() => onContinue && onContinue()}
+            className="px-8 py-3 rounded-lg font-medium border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center space-x-2"
           >
-            <span>Continue with {selectedFacilitator?.name || 'Selected Facilitator'}</span>
+            <span>Skip for Now</span>
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+      )}
+
+      {/* Sticky Bottom Bar - shown when facilitator selected */}
+      {selectedFacilitator && showAsStep && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-purple-200 shadow-2xl z-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between gap-4">
+              {/* Selected facilitator info */}
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900 truncate">Selected Facilitator</p>
+                  <p className="text-sm text-gray-600 truncate">{selectedFacilitator.name}</p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <button
+                  onClick={() => setSelectedFacilitator(null)}
+                  className="px-4 py-2 text-sm font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  Change
+                </button>
+                <button
+                  onClick={handleContinue}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-lg hover:from-purple-600 hover:to-cyan-600 transition-all flex items-center space-x-2 font-medium"
+                >
+                  <span>Continue</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add bottom padding when sticky bar is shown to prevent content from being hidden */}
+      {selectedFacilitator && showAsStep && (
+        <div className="h-20" />
       )}
 
       {/* Detail Sheet */}
