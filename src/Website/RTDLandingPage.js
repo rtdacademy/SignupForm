@@ -1462,15 +1462,26 @@ const CoursesSection = () => {
                       <CardContent>
                         <p className="text-gray-600 mb-4">{course.description}</p>
                         {detailedCourse && (
-                          <Button
-                            onClick={() => setSelectedCourse(detailedCourse)}
-                            variant="outline"
-                            size="sm"
-                            className="w-full border-teal-600 text-teal-700 hover:bg-teal-50"
-                          >
-                            <Info className="w-4 h-4 mr-2" />
-                            More Info & Career Paths
-                          </Button>
+                          <div className="space-y-2">
+                            <Button
+                              onClick={() => setSelectedCourse(detailedCourse)}
+                              variant="outline"
+                              size="sm"
+                              className="w-full border-teal-600 text-teal-700 hover:bg-teal-50"
+                            >
+                              <Info className="w-4 h-4 mr-2" />
+                              More Info & Career Paths
+                            </Button>
+                            <Button
+                              onClick={() => window.location.href = `/prerequisites?course=${detailedCourse.id}`}
+                              variant="outline"
+                              size="sm"
+                              className="w-full border-blue-600 text-blue-700 hover:bg-blue-50"
+                            >
+                              <BookOpen className="w-4 h-4 mr-2" />
+                              View Prerequisites
+                            </Button>
+                          </div>
                         )}
                       </CardContent>
                     </Card>

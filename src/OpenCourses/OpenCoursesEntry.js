@@ -2,7 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, BookOpen, Check, Info, Globe, Menu, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { getDatabase, ref, set, get, child } from 'firebase/database';
+import { auth, googleProvider, microsoftProvider, isDevelopment } from '../firebase';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 // RTD Logo Component
 const RTDLogo = ({ className = "w-10 h-10" }) => (
@@ -21,20 +31,201 @@ const RTDLogo = ({ className = "w-10 h-10" }) => (
   </svg>
 );
 
+// Auth Loading Screen Component
+const AuthLoadingScreen = ({ message }) => (
+  <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="flex items-center justify-center space-x-3 mb-8">
+        <RTDLogo className="w-12 h-12" />
+        <h1 className="text-3xl font-extrabold text-teal-700 leading-none">RTD Academy</h1>
+      </div>
+
+      <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="text-center space-y-6">
+          <div className="flex justify-center">
+            <svg className="animate-spin h-12 w-12 text-teal-600" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Signing you in...</h2>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+
+          <div className="text-xs text-gray-500">
+            Please wait while we complete your authentication.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const OpenCoursesEntry = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+  const [showAuthLoading, setShowAuthLoading] = useState(false);
+  const [authLoadingMessage, setAuthLoadingMessage] = useState("Completing your sign-in...");
 
-  // Ensure the URL has the open mode parameter for the Login component
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    if (!searchParams.has('mode')) {
-      searchParams.set('mode', 'open');
-      navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
+  const db = getDatabase();
+
+  // Convert Firebase error codes to user-friendly messages
+  const getFriendlyErrorMessage = (error) => {
+    const errorMessages = {
+      'auth/popup-closed-by-user': 'The sign-in window was closed. Please try again.',
+      'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
+      'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
+      'auth/redirect-cancelled-by-user': 'Sign-in was cancelled. Please try again.',
+      'auth/network-request-failed': 'Connection problem. Please check your internet and try again.',
+      'auth/internal-error': 'An unexpected error occurred. Please try again later.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email. Try signing in with a different method (Google or Microsoft).',
+    };
+
+    return errorMessages[error.code] || `Something went wrong. Please try again. (${error.message})`;
+  };
+
+  const isStaffEmail = (email) => {
+    if (typeof email !== 'string') return false;
+    const sanitized = sanitizeEmail(email);
+    return sanitized.endsWith("@rtdacademy.com");
+  };
+
+  const ensureUserData = async (user) => {
+    if (!user) return false;
+
+    const uid = user.uid;
+    const userRef = ref(db, `users/${uid}`);
+
+    try {
+      const snapshot = await get(child(ref(db), `users/${uid}`));
+      if (!snapshot.exists()) {
+        const sanitizedEmail = sanitizeEmail(user.email);
+        const userData = {
+          uid: uid,
+          email: user.email,
+          sanitizedEmail: sanitizedEmail,
+          type: isStaffEmail(user.email) ? "staff" : "student",
+          createdAt: Date.now(),
+          lastLogin: Date.now(),
+          provider: user.providerData[0]?.providerId || 'unknown',
+          emailVerified: user.emailVerified,
+          hasOpenAccess: true,
+          // Mark as Open Courses user (email verification not required)
+          isOpenCoursesUser: true
+        };
+        await set(userRef, userData);
+      } else {
+        const existingData = snapshot.val();
+        await set(userRef, {
+          ...existingData,
+          lastLogin: Date.now(),
+          emailVerified: user.emailVerified,
+          hasOpenAccess: true,
+          isOpenCoursesUser: true
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error("Error ensuring user data:", error);
+      // For Open Courses, we'll allow users to continue even if database write fails
+      // since the authentication was successful
+      return true;
     }
-  }, [location, navigate]);
+  };
+
+  useEffect(() => {
+    // Handle redirect result from social sign-in (only in production)
+    const handleRedirectResult = async () => {
+      if (isDevelopment) {
+        console.log('Skipping redirect result check in development');
+        setCheckingRedirect(false);
+        return;
+      }
+
+      try {
+        setCheckingRedirect(true);
+        console.log('Checking for redirect result in production...');
+
+        const authInProgress = sessionStorage.getItem('openCoursesAuthInProgress');
+        const authProvider = sessionStorage.getItem('openCoursesAuthProvider');
+
+        if (authInProgress) {
+          console.log(`Expecting redirect result from ${authProvider}`);
+        }
+
+        const result = await getRedirectResult(auth);
+
+        if (result && result.user) {
+          console.log('Redirect sign-in successful for:', result.user.email);
+
+          setShowAuthLoading(true);
+          setAuthLoadingMessage("Completing your sign-in...");
+
+          sessionStorage.removeItem('openCoursesAuthInProgress');
+          sessionStorage.removeItem('openCoursesAuthProvider');
+
+          const user = result.user;
+
+          if (!user.email) {
+            setShowAuthLoading(false);
+            setError("Unable to retrieve email from provider. Please try again.");
+            return;
+          }
+
+          if (isStaffEmail(user.email)) {
+            setShowAuthLoading(false);
+            await auth.signOut();
+            setError("This email belongs to staff. Please use a personal account to access Open Courses.");
+          } else {
+            setAuthLoadingMessage("Preparing your courses...");
+            const success = await ensureUserData(user);
+            if (success) {
+              setAuthLoadingMessage("Almost ready...");
+              setTimeout(() => {
+                setShowAuthLoading(false);
+                navigate("/open-courses-dashboard");
+              }, 1000);
+            } else {
+              setShowAuthLoading(false);
+            }
+          }
+        } else if (authInProgress) {
+          console.log('Expected redirect result but none found');
+          setShowAuthLoading(false);
+          setError("Sign-in process was interrupted or cancelled. Please try again.");
+          sessionStorage.removeItem('openCoursesAuthInProgress');
+          sessionStorage.removeItem('openCoursesAuthProvider');
+        }
+      } catch (error) {
+        console.error("Redirect sign-in error:", error);
+        setShowAuthLoading(false);
+
+        if (error.code !== 'auth/redirect-cancelled-by-user' &&
+            error.code !== 'auth/popup-blocked' &&
+            error.code !== 'auth/operation-not-allowed') {
+          setError(getFriendlyErrorMessage(error) || "Failed to complete sign-in. Please try again.");
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
+    handleRedirectResult();
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && !checkingRedirect) {
+        ensureUserData(user);
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   // Handle scroll detection
   useEffect(() => {
@@ -45,6 +236,54 @@ const OpenCoursesEntry = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleProviderSignIn = async (provider) => {
+    setError(null);
+    setIsAuthenticating(true);
+
+    try {
+      if (isDevelopment) {
+        console.log('Using popup flow for development');
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        if (!user.email) {
+          setError("Unable to retrieve email from provider. Please try again.");
+          return;
+        }
+
+        if (isStaffEmail(user.email)) {
+          await auth.signOut();
+          setError("This email belongs to staff. Please use a personal account to access Open Courses.");
+        } else {
+          await ensureUserData(user);
+          navigate("/open-courses-dashboard");
+        }
+      } else {
+        console.log('Using redirect flow for production');
+
+        sessionStorage.setItem('openCoursesAuthInProgress', 'true');
+        sessionStorage.setItem('openCoursesAuthProvider', provider.providerId);
+
+        await signInWithRedirect(auth, provider);
+      }
+    } catch (error) {
+      console.error("Sign-in error:", error);
+
+      if (isDevelopment && error.code === 'auth/popup-blocked') {
+        setError("Popup was blocked. Please allow popups for this site and try again.");
+      } else {
+        setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
+      }
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  // Show auth loading screen if we're processing authentication
+  if (showAuthLoading) {
+    return <AuthLoadingScreen message={authLoadingMessage} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -249,7 +488,7 @@ const OpenCoursesEntry = () => {
             </Card>
           </div>
 
-          {/* Right Column - Sign Up */}
+          {/* Right Column - Sign In */}
           <div className="lg:sticky lg:top-24">
             <Card className="shadow-lg border-2 border-green-200">
               <CardHeader className="bg-gradient-to-br from-green-50 to-teal-50">
@@ -262,10 +501,72 @@ const OpenCoursesEntry = () => {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-6 space-y-6">
                 <p className="text-center text-gray-700">
-                  Access our complete curriculum materials for free. Sign in to get started.
+                  Sign in with your Google or Microsoft account to access our free curriculum materials.
                 </p>
+
+                {error && (
+                  <Alert variant="destructive" className="border-red-500 bg-red-50">
+                    <AlertDescription className="text-red-800">{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleProviderSignIn(googleProvider)}
+                    disabled={isAuthenticating || checkingRedirect}
+                    className={`w-full flex items-center justify-center px-6 py-3 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+                      isAuthenticating || checkingRedirect
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
+                    }`}
+                  >
+                    {isAuthenticating || checkingRedirect ? (
+                      <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <img
+                        className="h-6 w-6 mr-3"
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        alt="Google logo"
+                      />
+                    )}
+                    <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Google'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleProviderSignIn(microsoftProvider)}
+                    disabled={isAuthenticating || checkingRedirect}
+                    className={`w-full flex items-center justify-center px-6 py-3 border rounded-lg shadow-sm text-base font-medium transition-all duration-200 ${
+                      isAuthenticating || checkingRedirect
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
+                    }`}
+                  >
+                    {isAuthenticating || checkingRedirect ? (
+                      <svg className="animate-spin h-6 w-6 mr-3 text-gray-400" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <img
+                        className="h-6 w-6 mr-3"
+                        src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                        alt="Microsoft logo"
+                      />
+                    )}
+                    <span>{checkingRedirect ? 'Checking authentication...' : 'Continue with Microsoft'}</span>
+                  </button>
+
+                  {!isDevelopment && (
+                    <p className="text-xs text-center text-blue-600 bg-blue-50 p-2 rounded">
+                      You'll be redirected to sign in securely
+                    </p>
+                  )}
+                </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-600 mb-3">

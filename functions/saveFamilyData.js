@@ -219,8 +219,8 @@ const saveFamilyData = onCall({
 
       // Set status based on registration type
       if (familyData.registrationType === 'intent') {
-        familyDataToSave.status = 'intent';
-        console.log(`Setting status to 'intent' for intent registration`);
+        familyDataToSave.status = 'intent-pending';
+        console.log(`Setting status to 'intent-pending' for intent registration`);
       }
 
       console.log(`Saving registration type: ${familyData.registrationType}`);

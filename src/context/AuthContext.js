@@ -856,13 +856,16 @@ export function AuthProvider({ children }) {
   };
 
   const ensureUserNode = async (user, emailKey) => {
-    if (!user.emailVerified) {
+    // Skip email verification check for Open Courses users
+    const isOpenCoursesRoute = location.pathname.toLowerCase().includes('/open-courses');
+
+    if (!user.emailVerified && !isOpenCoursesRoute) {
       console.log("Skipping user data creation - email not verified");
       await signOut();
-      navigate('/login', { 
-        state: { 
-          message: "Please verify your email before signing in. Check your inbox for a verification link." 
-        } 
+      navigate('/login', {
+        state: {
+          message: "Please verify your email before signing in. Check your inbox for a verification link."
+        }
       });
       return false;
     }

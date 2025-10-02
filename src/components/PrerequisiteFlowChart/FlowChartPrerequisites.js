@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { 
-  ReactFlow, 
-  Background, 
-  Controls, 
+import { useSearchParams } from 'react-router-dom';
+import {
+  ReactFlow,
+  Background,
+  Controls,
   MiniMap,
-  useNodesState, 
+  useNodesState,
   useEdgesState,
   Panel,
   Handle,
@@ -18,14 +19,31 @@ import {
 } from '@xyflow/react';
 import { getSmartEdge, svgDrawStraightLinePath } from '@tisoap/react-flow-smart-edge';
 import '@xyflow/react/dist/style.css';
-import { 
-  courseData, 
-  getAllCourses, 
-  getCourseById, 
-  subjectColors, 
+import {
+  courseData,
+  getAllCourses,
+  getCourseById,
+  subjectColors,
   streamInfo,
-  specialNotes 
+  specialNotes
 } from './courseData';
+
+// RTD Logo Component
+const RTDLogo = ({ className = "w-8 h-8" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 75 75"
+    className={className}
+    role="img"
+    aria-label="RTD Academy Logo"
+  >
+    <g transform="translate(10, 15)">
+      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#0F766E"/>
+      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E0FFFF"/>
+      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#14B8A6"/>
+    </g>
+  </svg>
+);
 
 // Add custom CSS for slide-in animation
 const slideInKeyframes = `
@@ -190,11 +208,27 @@ const edgeTypes = {
   orthogonal: CustomOrthogonalEdge,
 };
 
+// Helper function to find which subject a course belongs to
+const findSubjectByCourseId = (courseId) => {
+  for (const [subjectKey, subjectData] of Object.entries(courseData)) {
+    for (const gradeLevel of Object.values(subjectData)) {
+      if (gradeLevel.some(course => course.id === courseId)) {
+        return subjectKey;
+      }
+    }
+  }
+  return null;
+};
+
 const FlowChartPrerequisites = () => {
+  const [searchParams] = useSearchParams();
   const [activeSubject, setActiveSubject] = useState('mathematics');
   const [selectedNode, setSelectedNode] = useState(null);
   const [showCourseDetails, setShowCourseDetails] = useState(false);
   const [detailsCourse, setDetailsCourse] = useState(null);
+  const urlCourseProcessedRef = useRef(false); // Track if we've processed the URL parameter
+  const [isReactFlowReady, setIsReactFlowReady] = useState(false); // Track if React Flow is ready
+  const [elementsSelectable, setElementsSelectable] = useState(true); // Allow selection initially for URL params
 
   // Handle showing course details
   const handleMoreInfo = useCallback((course) => {
@@ -225,16 +259,19 @@ const FlowChartPrerequisites = () => {
       // Get all courses for this subject
       Object.values(subjectCourses).forEach(gradeLevel => {
         gradeLevel.forEach(course => {
+          // Skip Math 15 from flowchart display (but keep in courseData.js for other uses)
+          if (course.id === 'math15') return;
+
           // Use gridPosition if available, otherwise fall back to old method
           if (course.gridPosition) {
             const x = gridConfig.startX + (course.gridPosition.col * gridConfig.colWidth);
             const y = gridConfig.startY + (subjectIndex * gridConfig.subjectOffsetY) + (course.gridPosition.row * gridConfig.rowHeight);
-            
+
             nodes.push({
               id: course.id,
               type: 'courseNode',
               position: { x, y },
-              data: { 
+              data: {
                 course,
                 subject,
                 label: course.code,
@@ -358,23 +395,152 @@ const FlowChartPrerequisites = () => {
     }
   }, [activeSubject, filteredNodes]);
 
+  // Effect to handle URL parameters for course selection - Step 1: Change subject if needed
+  useEffect(() => {
+    if (urlCourseProcessedRef.current) return; // Already processed
+
+    const courseId = searchParams.get('course');
+    if (!courseId) return;
+
+    // Verify the course exists
+    const course = getCourseById(courseId);
+    if (!course) {
+      console.warn(`Course with id "${courseId}" not found`);
+      urlCourseProcessedRef.current = true;
+      return;
+    }
+
+    // Determine which subject this course belongs to
+    const subjectParam = searchParams.get('subject');
+    const targetSubject = subjectParam || findSubjectByCourseId(courseId);
+
+    if (!targetSubject) {
+      console.warn(`Could not determine subject for course "${courseId}"`);
+      urlCourseProcessedRef.current = true;
+      return;
+    }
+
+    // If we need to change subjects, do that first
+    if (activeSubject !== targetSubject) {
+      setActiveSubject(targetSubject);
+    }
+  }, [searchParams, activeSubject]);
+
+  // Effect to handle URL parameters for course selection - Step 2: Select the node after subject is correct
+  useEffect(() => {
+    if (urlCourseProcessedRef.current) return; // Already processed
+    if (!isReactFlowReady) return; // Wait for React Flow to be ready
+
+    const courseId = searchParams.get('course');
+    if (!courseId) return;
+
+    // Check if we're on the correct subject
+    const targetSubject = searchParams.get('subject') || findSubjectByCourseId(courseId);
+    if (activeSubject !== targetSubject) return; // Wait for subject to change
+
+    // Find the node in the filtered nodes (after subject is correct)
+    const nodeToSelect = filteredNodes.find(node => node.id === courseId);
+
+    if (nodeToSelect && reactFlowInstance.current && filteredNodes.length > 0) {
+      // Longer delay to ensure React Flow is fully rendered
+      setTimeout(() => {
+        // Highlight connected nodes
+        const connectedNodeIds = new Set([nodeToSelect.id]);
+        const nodeEdges = edges.filter(edge =>
+          edge.source === nodeToSelect.id || edge.target === nodeToSelect.id
+        );
+
+        nodeEdges.forEach(edge => {
+          connectedNodeIds.add(edge.source);
+          connectedNodeIds.add(edge.target);
+        });
+
+        // Update nodes with selection and opacity
+        setNodes(currentNodes =>
+          currentNodes.map(n => ({
+            ...n,
+            selected: n.id === courseId, // Set selected property on the node
+            style: {
+              ...n.style,
+              opacity: connectedNodeIds.has(n.id) ? 1 : 0.3,
+            }
+          }))
+        );
+
+        // Update edges to highlight connections
+        setEdges(currentEdges =>
+          currentEdges.map(edge => ({
+            ...edge,
+            animated: connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target),
+            style: {
+              ...edge.style,
+              strokeWidth: connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target) ? 3 : 2,
+              opacity: connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target) ? 1 : 0.3,
+            }
+          }))
+        );
+
+        // Set selected node for the details panel
+        setSelectedNode(nodeToSelect);
+
+        // Center view on the selected node
+        // Detect if on mobile/small screen and adjust viewport accordingly
+        const isMobile = window.innerWidth < 768;
+        reactFlowInstance.current.fitView({
+          padding: isMobile ? 0.15 : 0.5,  // Less padding on mobile to zoom in closer
+          duration: 800,
+          maxZoom: isMobile ? 1.2 : 1.5,   // Slightly lower max zoom on mobile for better visibility
+          nodes: [nodeToSelect]
+        });
+
+        // Mark as processed
+        urlCourseProcessedRef.current = true;
+
+        // Lock interactivity after selection
+        setTimeout(() => {
+          setElementsSelectable(false);
+        }, 1000); // Wait a bit longer to ensure selection is complete
+      }, 500);
+    }
+  }, [searchParams, activeSubject, filteredNodes, edges, setEdges, setNodes, isReactFlowReady]);
+
+  // If no URL parameter, lock interactivity immediately
+  useEffect(() => {
+    const courseId = searchParams.get('course');
+    if (!courseId && isReactFlowReady) {
+      setElementsSelectable(false);
+    }
+  }, [searchParams, isReactFlowReady]);
+
   // Handle node clicks
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);
-    
+
     // Highlight connected nodes
     const connectedNodeIds = new Set([node.id]);
-    const nodeEdges = edges.filter(edge => 
+    const nodeEdges = edges.filter(edge =>
       edge.source === node.id || edge.target === node.id
     );
-    
+
     nodeEdges.forEach(edge => {
       connectedNodeIds.add(edge.source);
       connectedNodeIds.add(edge.target);
     });
 
+    // Update nodes with selection and opacity
+    setNodes(nodes =>
+      nodes.map(n => ({
+        ...n,
+        selected: n.id === node.id, // Set selected property
+        style: {
+          ...n.style,
+          opacity: connectedNodeIds.has(n.id) ? 1 : 0.3,
+        }
+      }))
+    );
+
     // Update edges to highlight connections
-    setEdges(edges => 
+    setEdges(edges =>
       edges.map(edge => ({
         ...edge,
         animated: connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target),
@@ -385,32 +551,22 @@ const FlowChartPrerequisites = () => {
         }
       }))
     );
-
-    // Update nodes to highlight connections
-    setNodes(nodes => 
-      nodes.map(n => ({
-        ...n,
-        style: {
-          ...n.style,
-          opacity: connectedNodeIds.has(n.id) ? 1 : 0.3,
-        }
-      }))
-    );
   }, [edges, setEdges, setNodes]);
 
   // Clear selection
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
-    
+
     // Reset all nodes and edges to normal
-    setNodes(nodes => 
+    setNodes(nodes =>
       nodes.map(node => ({
         ...node,
+        selected: false, // Clear selected property
         style: { ...node.style, opacity: 1 }
       }))
     );
-    
-    setEdges(edges => 
+
+    setEdges(edges =>
       edges.map(edge => ({
         ...edge,
         animated: false,
@@ -684,7 +840,7 @@ const FlowChartPrerequisites = () => {
                   </div>
                 ) : (
                   <p className="text-gray-700">
-                    This is a fianl course in this pathway. You're ready for post-secondary studies or the workforce!
+                    This is a final course in this pathway. You're ready for post-secondary studies or the workforce!
                   </p>
                 )}
               </div>
@@ -709,15 +865,27 @@ const FlowChartPrerequisites = () => {
   return (
     <div className="w-full h-screen bg-gray-50">
       {/* Header with Tabs */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-white shadow-sm border-b p-4">
-        <div className="text-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            Alberta Education Prerequisite Flow Chart
-          </h1>
-          <p className="text-gray-600 text-sm mb-3">
-            Interactive flow chart showing course prerequisites and pathways
-          </p>
-          
+      <div className="absolute top-0 left-0 right-0 z-10 bg-white shadow-sm border-b px-4 py-3">
+        <div className="max-w-7xl mx-auto">
+          {/* Top row - Logo and Title */}
+          <div className="relative flex items-center mb-3">
+            {/* Clickable Logo Button */}
+            <button
+              onClick={() => window.location.href = 'https://www.rtdacademy.com/'}
+              className="shadow-md hover:shadow-lg rounded-lg px-3 py-2 transition-all duration-300 flex items-center gap-2 hover:scale-105 active:scale-95"
+            >
+              <RTDLogo className="w-8 h-8" />
+              <span className="font-bold text-base text-gray-900">
+                RTD Academy
+              </span>
+            </button>
+
+            {/* Centered Title */}
+            <h1 className="absolute left-1/2 transform -translate-x-1/2 text-xl font-bold text-gray-800 hidden md:block">
+              Course Prerequisites Flow Chart
+            </h1>
+          </div>
+
           {/* Subject Selection - Tabs for large screens, Select for small screens */}
           <div className="flex justify-center">
             <SubjectTabs />
@@ -739,6 +907,7 @@ const FlowChartPrerequisites = () => {
           onPaneClick={onPaneClick}
           onInit={(instance) => {
             reactFlowInstance.current = instance;
+            setIsReactFlowReady(true);
           }}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -748,11 +917,10 @@ const FlowChartPrerequisites = () => {
             minZoom: 0.4,
             maxZoom: 1.5
           }}
-          defaultZoom={0.6}
-          attributionPosition="bottom-right"
-          nodesDraggable={true}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={true}
+          elementsSelectable={elementsSelectable}
         >
           <Background color="#f3f4f6" />
           <Controls />

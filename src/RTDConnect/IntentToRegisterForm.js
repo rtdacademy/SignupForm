@@ -8,8 +8,7 @@ import {
   formatImportantDate
 } from '../config/calendarConfig';
 import {
-  getIntentAvailableFacilitators,
-  getFacilitatorDropdownOptionsByType
+  getFacilitatorByEmail
 } from '../config/facilitators';
 import {
   FileText,
@@ -29,8 +28,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Textarea } from '../components/ui/textarea';
 
 /**
  * IntentToRegisterForm Component
@@ -50,16 +47,16 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [existingIntent, setExistingIntent] = useState(null);
-  const [selectedFacilitator, setSelectedFacilitator] = useState('');
   const [selectedStudents, setSelectedStudents] = useState([]);
-  const [notes, setNotes] = useState('');
-  const [acknowledgedNotFunded, setAcknowledgedNotFunded] = useState(false);
-  const [acknowledgedProvisional, setAcknowledgedProvisional] = useState(false);
   const [acknowledgedMustRegister, setAcknowledgedMustRegister] = useState(false);
 
   const nextSchoolYear = getNextSchoolYear();
   const registrationPhase = getRegistrationPhase();
-  const availableFacilitators = getFacilitatorDropdownOptionsByType('intent');
+
+  // Get facilitator from family data
+  const assignedFacilitator = familyData?.facilitatorEmail
+    ? getFacilitatorByEmail(familyData.facilitatorEmail)
+    : null;
 
   // Load existing intent form if one exists
   useEffect(() => {
@@ -69,18 +66,37 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
       setLoading(true);
       try {
         const db = getDatabase();
-        const intentRef = ref(db, `rtdConnect/families/${familyData.familyId}/intentToRegister/${nextSchoolYear.replace('/', '-')}`);
+        const schoolYearPath = nextSchoolYear.replace('/', '_');
+        const intentRef = ref(db, `homeEducationFamilies/familyInformation/${familyData.familyId}/INTENT_REGISTRATIONS/${schoolYearPath}`);
         const snapshot = await get(intentRef);
+
+        // Get student IDs from students array (familyData.students is an array from Dashboard)
+        const studentIds = Array.isArray(familyData?.students)
+          ? familyData.students.map(s => s.id)
+          : (familyData?.students ? Object.keys(familyData.students) : []);
 
         if (snapshot.exists()) {
           const intentData = snapshot.val();
+          // Store the full intent data object (keyed by studentId)
           setExistingIntent(intentData);
-          setSelectedFacilitator(intentData.facilitatorName || '');
-          setSelectedStudents(intentData.students || []);
-          setNotes(intentData.notes || '');
-          setAcknowledgedNotFunded(true);
-          setAcknowledgedProvisional(true);
-          setAcknowledgedMustRegister(true);
+
+          // Intent data is per-student, so check which students have intents
+          const studentsWithIntent = [];
+          Object.keys(intentData).forEach(studentId => {
+            if (intentData[studentId]?.intentSubmitted) {
+              studentsWithIntent.push(studentId);
+            }
+          });
+
+          if (studentsWithIntent.length > 0) {
+            setAcknowledgedMustRegister(true);
+          }
+
+          // Pre-select all students (both existing and new)
+          setSelectedStudents(studentIds);
+        } else {
+          // No existing intent - pre-select all students by default
+          setSelectedStudents(studentIds);
         }
       } catch (error) {
         console.error('Error loading intent form:', error);
@@ -113,10 +129,7 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
   // Check if form is valid
   const isFormValid = () => {
     return (
-      selectedFacilitator &&
       selectedStudents.length > 0 &&
-      acknowledgedNotFunded &&
-      acknowledgedProvisional &&
       acknowledgedMustRegister
     );
   };
@@ -131,37 +144,50 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
     setSubmitting(true);
     try {
       const db = getDatabase();
-      const schoolYearPath = nextSchoolYear.replace('/', '-');
-      const intentRef = ref(db, `rtdConnect/families/${familyData.familyId}/intentToRegister/${schoolYearPath}`);
+      const schoolYearPath = nextSchoolYear.replace('/', '_');
 
-      // Get facilitator details
-      const selectedFacilitatorOption = availableFacilitators.find(
-        f => f.value === selectedFacilitator
-      );
+      // Submit intent for each selected student
+      const promises = selectedStudents.map(async (studentId) => {
+        const student = students.find(s => s.id === studentId);
 
-      const intentData = {
-        facilitatorId: selectedFacilitatorOption?.facilitatorId || null,
-        facilitatorName: selectedFacilitator,
-        students: selectedStudents,
-        schoolYear: nextSchoolYear,
-        schoolYearDisplay: registrationPhase.targetYear,
-        submittedDate: serverTimestamp(),
-        submittedBy: currentUser.uid,
-        submittedByEmail: currentUser.email,
-        status: 'pending',
-        acknowledgedNotFunded: true,
-        acknowledgedProvisional: true,
-        acknowledgedMustRegister: true,
-        notes: notes || '',
-        familyId: familyData.familyId,
-        familyLastName: familyData.parentLastName || '',
-        updatedAt: serverTimestamp()
-      };
+        if (!student) {
+          console.error('Student not found:', studentId, 'Available students:', students);
+          throw new Error(`Student with ID ${studentId} not found`);
+        }
 
-      await set(intentRef, intentData);
+        const intentRef = ref(db, `homeEducationFamilies/familyInformation/${familyData.familyId}/INTENT_REGISTRATIONS/${schoolYearPath}/${studentId}`);
 
-      setExistingIntent(intentData);
-      toast.success('Intent to Register submitted successfully!');
+        const intentData = {
+          intentSubmitted: true,
+          submittedAt: Date.now(),
+          submittedBy: currentUser.uid,
+          status: 'intent-submitted',
+          facilitatorId: assignedFacilitator?.id || null,
+          facilitatorName: assignedFacilitator?.name || '',
+          facilitatorEmail: familyData.facilitatorEmail,
+          schoolYear: nextSchoolYear,
+          schoolYearDisplay: registrationPhase.targetYear,
+          acknowledgedMustRegister: true,
+          studentInfo: {
+            firstName: student.firstName,
+            lastName: student.lastName,
+            asn: student.asn,
+            grade: student.grade
+          },
+          familyId: familyData.familyId,
+          updatedAt: Date.now()
+        };
+
+        await set(intentRef, intentData);
+      });
+
+      await Promise.all(promises);
+
+      // Update family status from 'intent-pending' to 'intent'
+      const familyStatusRef = ref(db, `homeEducationFamilies/familyInformation/${familyData.familyId}/status`);
+      await set(familyStatusRef, 'intent');
+
+      setExistingIntent({ intentSubmitted: true });
 
       if (onComplete) {
         onComplete();
@@ -184,18 +210,8 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
     );
   }
 
-  // Check if we're in the intent period
-  if (registrationPhase.phase !== 'intent-period') {
-    return (
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Intent to Register Not Available</AlertTitle>
-        <AlertDescription>
-          Intent to Register is only available between the September count date and the next year's registration opening date.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Allow intent families to always see this form
+  // (The dashboard will only show this for families with status: 'intent')
 
   return (
     <div className="space-y-6">
@@ -217,16 +233,38 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
       </Card>
 
       {/* Existing Submission Notice */}
-      {existingIntent && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-900">Intent Already Submitted</AlertTitle>
-          <AlertDescription className="text-green-800">
-            You submitted your intent to register on {existingIntent.submittedDate && new Date(existingIntent.submittedDate).toLocaleDateString()}.
-            You can update your selections below if needed.
-          </AlertDescription>
-        </Alert>
-      )}
+      {existingIntent && (() => {
+        const studentsWithIntent = Object.keys(existingIntent).filter(
+          studentId => existingIntent[studentId]?.intentSubmitted
+        );
+        const allStudentIds = familyData?.students ? Object.keys(familyData.students) : [];
+        const newStudents = allStudentIds.filter(id => !studentsWithIntent.includes(id));
+        const hasNewStudents = newStudents.length > 0;
+
+        return (
+          <>
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-900">Intent Already Submitted</AlertTitle>
+              <AlertDescription className="text-green-800">
+                Intent to register has been submitted for {studentsWithIntent.length} student{studentsWithIntent.length !== 1 ? 's' : ''}.
+                You can update your selections below if needed.
+              </AlertDescription>
+            </Alert>
+
+            {hasNewStudents && (
+              <Alert className="border-orange-300 bg-orange-50">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                <AlertTitle className="text-orange-900 font-semibold">New Student(s) Detected!</AlertTitle>
+                <AlertDescription className="text-orange-800">
+                  You have added {newStudents.length} new student{newStudents.length !== 1 ? 's' : ''} since your last submission.
+                  Please review and ensure all students are selected below, then resubmit to update your intent.
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        );
+      })()}
 
       {/* Important Information */}
       <Card className="border-yellow-200 bg-yellow-50">
@@ -267,7 +305,7 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
               Family Information
             </h4>
             <div className="space-y-1 text-sm text-gray-700">
-              <p><strong>Family Name:</strong> {familyData?.parentLastName || 'N/A'}</p>
+              <p><strong>Family Name:</strong> {familyData?.familyName || 'N/A'}</p>
               <p><strong>Email:</strong> {currentUser?.email}</p>
             </div>
           </div>
@@ -287,102 +325,88 @@ const IntentToRegisterForm = ({ familyData, onComplete }) => {
               </Alert>
             ) : (
               <div className="space-y-2">
-                {students.map(student => (
-                  <div key={student.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                    <Checkbox
-                      id={`student-${student.id}`}
-                      checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={() => toggleStudent(student.id)}
-                    />
-                    <Label
-                      htmlFor={`student-${student.id}`}
-                      className="flex-1 cursor-pointer"
+                {students.map(student => {
+                  const hasExistingIntent = existingIntent && Object.keys(existingIntent).includes(student.id);
+                  const isNewStudent = !hasExistingIntent && existingIntent !== null;
+
+                  return (
+                    <div
+                      key={student.id}
+                      className={`flex items-center space-x-3 p-3 border rounded-lg transition-all ${
+                        isNewStudent
+                          ? 'border-orange-300 bg-orange-50 ring-2 ring-orange-200'
+                          : hasExistingIntent
+                            ? 'border-green-300 bg-green-50'
+                            : 'border-gray-300 hover:bg-gray-50'
+                      }`}
                     >
-                      <div className="font-medium">{student.firstName} {student.lastName}</div>
-                      <div className="text-sm text-gray-500">Grade: {student.grade || 'Not specified'}</div>
-                    </Label>
-                  </div>
-                ))}
+                      <Checkbox
+                        id={`student-${student.id}`}
+                        checked={selectedStudents.includes(student.id)}
+                        onCheckedChange={() => toggleStudent(student.id)}
+                      />
+                      <Label
+                        htmlFor={`student-${student.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium">{student.firstName} {student.lastName}</span>
+                          {hasExistingIntent && (
+                            <span className="inline-flex items-center text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-300">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Intent Submitted
+                            </span>
+                          )}
+                          {isNewStudent && (
+                            <span className="inline-flex items-center text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-300 animate-pulse">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              New Student
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">Grade: {student.grade || 'Not specified'}</div>
+                      </Label>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Facilitator Selection */}
-          <div className="space-y-3">
-            <Label htmlFor="facilitator" className="text-base font-semibold">
-              Select Facilitator *
-            </Label>
-            <Select value={selectedFacilitator} onValueChange={setSelectedFacilitator}>
-              <SelectTrigger id="facilitator">
-                <SelectValue placeholder="Choose a facilitator" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableFacilitators.map((facilitator) => (
-                  <SelectItem key={facilitator.value} value={facilitator.value}>
-                    {facilitator.label}
-                    {facilitator.description && ` - ${facilitator.description}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {availableFacilitators.length <= 1 && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  No facilitators are currently accepting intent registrations. Please check back later.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
+          {/* Assigned Facilitator Display */}
+          {assignedFacilitator && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border-2 border-purple-200">
+              <Label className="text-base font-semibold flex items-center mb-3">
+                <Users className="w-4 h-4 mr-2" />
+                Your Assigned Facilitator
+              </Label>
+              <div className="flex items-center space-x-4">
+                <img
+                  src={assignedFacilitator.image}
+                  alt={assignedFacilitator.name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-purple-300"
+                />
+                <div>
+                  <p className="font-semibold text-lg text-gray-900">{assignedFacilitator.name}</p>
+                  <p className="text-sm text-gray-600">{assignedFacilitator.title}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Additional Notes */}
-          <div className="space-y-3">
-            <Label htmlFor="notes" className="text-base font-semibold">
-              Additional Notes or Requests (Optional)
-            </Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any special requests or information you'd like to share..."
-              rows={4}
-            />
-          </div>
-
-          {/* Acknowledgments */}
+          {/* Acknowledgment */}
           <div className="space-y-4 border-t pt-4">
-            <h4 className="font-semibold">Required Acknowledgments *</h4>
+            <h4 className="font-semibold">Required Acknowledgment *</h4>
 
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="ack-not-funded"
-                checked={acknowledgedNotFunded}
-                onCheckedChange={setAcknowledgedNotFunded}
-              />
-              <Label htmlFor="ack-not-funded" className="text-sm cursor-pointer">
-                I understand that this is NOT official registration and I will NOT receive funding for the current {getCurrentSchoolYear()} school year.
-              </Label>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="ack-provisional"
-                checked={acknowledgedProvisional}
-                onCheckedChange={setAcknowledgedProvisional}
-              />
-              <Label htmlFor="ack-provisional" className="text-sm cursor-pointer">
-                I understand that this is a provisional enrollment for the {nextSchoolYear} school year and my facilitator placement may be subject to availability.
-              </Label>
-            </div>
-
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3 bg-blue-50 p-4 rounded-lg border border-blue-200">
               <Checkbox
                 id="ack-must-register"
                 checked={acknowledgedMustRegister}
                 onCheckedChange={setAcknowledgedMustRegister}
+                className="mt-1"
               />
-              <Label htmlFor="ack-must-register" className="text-sm cursor-pointer">
-                I understand that I must complete the official Home Education Notification Form when registration opens on {registrationPhase.nextRegistrationDate && formatImportantDate(registrationPhase.nextRegistrationDate)}.
+              <Label htmlFor="ack-must-register" className="text-sm cursor-pointer font-medium text-gray-900">
+                I understand that I must complete the official Home Education Notification Form when registration opens on January 1, 2026.
               </Label>
             </div>
           </div>
