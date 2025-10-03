@@ -11,8 +11,10 @@ const StudentFAQ = lazy(() => import('../Website/StudentFAQ'));
 const ContactPage = lazy(() => import('../Website/ContactPage'));
 const GetStartedNow = lazy(() => import('../Website/GetStartedNow'));
 const PoliciesAndReports = lazy(() => import('../Website/PoliciesAndReports'));
+const AcademicCalendar = lazy(() => import('../Website/AcademicCalendar'));
 const OpenCoursesEntry = lazy(() => import('../OpenCourses/OpenCoursesEntry'));
 const OpenCoursesDashboard = lazy(() => import('../OpenCourses/OpenCoursesDashboard'));
+const OpenCourseViewer = lazy(() => import('../OpenCourses/OpenCourseViewer'));
 const FlowChartPrerequisites = lazy(() => import('../components/PrerequisiteFlowChart/FlowChartPrerequisites'));
 
 // Legal pages
@@ -41,6 +43,7 @@ function RTDWebsiteApp() {
           <Route path="/international-students" element={<InternationalStudentInfo />} />
           <Route path="/student-faq" element={<StudentFAQ />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/calendar" element={<AcademicCalendar />} />
 
           {/* Registration */}
           <Route path="/get-started" element={<GetStartedNow />} />
@@ -48,6 +51,7 @@ function RTDWebsiteApp() {
           {/* Open Courses */}
           <Route path="/open-courses" element={<OpenCoursesEntry />} />
           <Route path="/open-courses-dashboard" element={<OpenCoursesDashboard />} />
+          <Route path="/open-courses/view/:courseId" element={<OpenCourseViewer />} />
 
           {/* Prerequisite Flow Chart */}
           <Route path="/prerequisites" element={<FlowChartPrerequisites />} />

@@ -328,7 +328,7 @@ const OpenCoursesEntry = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6">
-              <a href="https://yourway.rtdacademy.com/get-started" className={`font-medium transition-colors ${
+              <a href="/#courses" className={`font-medium transition-colors ${
                 scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
               }`}>
                 Credit Courses
@@ -338,15 +338,6 @@ const OpenCoursesEntry = () => {
               }`}>
                 FAQ
               </a>
-              <Button
-                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/login'}
-                className={`${
-                scrolled
-                  ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white'
-                  : 'bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-800 hover:from-teal-100 hover:to-cyan-100 border border-teal-200/50'
-              } px-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold`}>
-                Student Login <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -369,14 +360,8 @@ const OpenCoursesEntry = () => {
               >
                 ← Back to Home
               </button>
-              <a href="https://yourway.rtdacademy.com/get-started" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Credit Courses</a>
+              <a href="/#courses" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">Credit Courses</a>
               <a href="/student-faq" className="block py-2 text-gray-700 hover:text-teal-700 font-medium">FAQ</a>
-              <Button
-                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/login'}
-                className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all"
-              >
-                Student Login <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
             </div>
           )}
         </div>
@@ -575,7 +560,7 @@ const OpenCoursesEntry = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Our{' '}
                     <a
-                      href="https://yourway.rtdacademy.com/get-started"
+                      href="/#courses"
                       className="text-teal-600 hover:text-teal-700 font-medium underline"
                     >
                       Credit Courses
@@ -583,7 +568,7 @@ const OpenCoursesEntry = () => {
                     {' '}are available with full teacher support and official Alberta high school credits.
                   </p>
                   <Button
-                    onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
+                    onClick={() => window.location.href = '/#courses'}
                     className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
                   >
                     Enroll in Credit Courses <ArrowRight className="ml-2 h-4 w-4" />

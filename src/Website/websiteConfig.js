@@ -6,7 +6,13 @@
 
 import {
   TERMS,
-  getCurrentSchoolYear
+  getCurrentSchoolYear,
+  getNextSchoolYear,
+  getImportantDatesForYear,
+  formatImportantDate,
+  getCurrentRegistrationPeriod,
+  getActiveDeadlines,
+  getRegistrationStatus
 } from '../config/calendarConfig';
 
 import {
@@ -39,32 +45,53 @@ const config = {
   }
 };
 
-// Important dates - imported from importantDates.js but formatted for website display
-// These are text strings for display purposes
-const currentYear = getCurrentSchoolYear();
-const dates = {
-  currentSchoolYear: '2025-2026',
-  currentSchoolYearShort: '25/26',
-  nextSchoolYear: '2026-2027',
-  nextSchoolYearShort: '26/27',
-  term1: {
-    registrationDeadline: 'September 29',
-    countDay: 'September 30',
-    endDate: 'January 31'
-  },
-  term2: {
-    registrationDeadline: 'April 15',
-    homeEducationDeadline: 'February 28',
-    endDate: 'June 19',
-    pasiDeadline: 'June 19'
-  },
-  summerSchool: {
-    startDate: 'July 1',
-    endDate: 'August 31',
-    startMonth: 'July',
-    endMonth: 'August'
-  }
+/**
+ * Gets dynamically formatted dates for website display
+ * @returns {Object} Object with formatted date strings
+ */
+const getDatesForDisplay = () => {
+  const currentYear = getCurrentSchoolYear();
+  const nextYear = getNextSchoolYear();
+  const currentYearDates = getImportantDatesForYear(currentYear);
+
+  // Format school year displays
+  const yearParts = currentYear.split('/');
+  const currentSchoolYear = `20${yearParts[0]}-20${yearParts[1]}`;
+  const nextYearParts = nextYear.split('/');
+  const nextSchoolYear = `20${nextYearParts[0]}-20${nextYearParts[1]}`;
+
+  // Helper to format dates as "Month Day" format
+  const formatShortDate = (date) => {
+    return date ? formatImportantDate(date, { month: 'long', day: 'numeric', year: undefined }) : '';
+  };
+
+  return {
+    currentSchoolYear,
+    currentSchoolYearShort: currentYear,
+    nextSchoolYear,
+    nextSchoolYearShort: nextYear,
+    term1: {
+      registrationDeadline: formatShortDate(currentYearDates.term1RegistrationDeadline),
+      countDay: formatShortDate(currentYearDates.term1CountDay),
+      endDate: formatShortDate(currentYearDates.term1End)
+    },
+    term2: {
+      registrationDeadline: formatShortDate(currentYearDates.term2RegistrationDeadline),
+      homeEducationDeadline: formatShortDate(currentYearDates.term2HomeEducationDeadline),
+      endDate: formatShortDate(currentYearDates.term2End),
+      pasiDeadline: formatShortDate(currentYearDates.term2PasiDeadline)
+    },
+    summerSchool: {
+      startDate: formatShortDate(currentYearDates.summerStart),
+      endDate: formatShortDate(currentYearDates.summerEnd),
+      startMonth: currentYearDates.summerStart ? currentYearDates.summerStart.toLocaleDateString('en-US', { month: 'long' }) : 'July',
+      endMonth: currentYearDates.summerEnd ? currentYearDates.summerEnd.toLocaleDateString('en-US', { month: 'long' }) : 'August'
+    }
+  };
 };
+
+// Get dates dynamically (this will be called each time the config is accessed)
+const dates = getDatesForDisplay();
 
 export const websiteConfig = {
   config, // Reference the config object defined above
@@ -1055,20 +1082,90 @@ export const getAllFAQs = () => {
   return allFAQs;
 };
 
-// Helper function to get important dates
+// Helper function to get important dates dynamically
 export const getImportantDates = () => {
+  const currentYear = getCurrentSchoolYear();
+  const currentYearDates = getImportantDatesForYear(currentYear);
   const dates = [];
-  const { term1, term2, summerSchool } = websiteConfig.dates;
 
-  dates.push(
-    { label: 'Term 1 Registration Deadline', date: term1.registrationDeadline, type: 'deadline' },
-    { label: 'Term 2 Registration Deadline', date: term2.registrationDeadline, type: 'deadline' },
-    { label: 'Home Ed Term 2 Registration', date: term2.homeEducationDeadline, type: 'deadline' },
-    { label: 'Summer School Starts', date: summerSchool.startDate, type: 'start' },
-    { label: 'Summer School Ends', date: summerSchool.endDate, type: 'end' }
-  );
+  // Add all important dates with proper formatting
+  if (currentYearDates.term1RegistrationDeadline) {
+    dates.push({
+      label: 'Term 1 Registration Deadline',
+      date: currentYearDates.term1RegistrationDeadline,
+      type: 'deadline',
+      formattedDate: formatImportantDate(currentYearDates.term1RegistrationDeadline, { month: 'long', day: 'numeric' })
+    });
+  }
 
-  return dates;
+  if (currentYearDates.term1End) {
+    dates.push({
+      label: 'Term 1 End Date',
+      date: currentYearDates.term1End,
+      type: 'end',
+      formattedDate: formatImportantDate(currentYearDates.term1End, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.term2HomeEducationDeadline) {
+    dates.push({
+      label: 'Home Ed Term 2 Registration',
+      date: currentYearDates.term2HomeEducationDeadline,
+      type: 'deadline',
+      formattedDate: formatImportantDate(currentYearDates.term2HomeEducationDeadline, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.term2RegistrationDeadline) {
+    dates.push({
+      label: 'Term 2 Registration Deadline',
+      date: currentYearDates.term2RegistrationDeadline,
+      type: 'deadline',
+      formattedDate: formatImportantDate(currentYearDates.term2RegistrationDeadline, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.term2End) {
+    dates.push({
+      label: 'Term 2 End Date',
+      date: currentYearDates.term2End,
+      type: 'end',
+      formattedDate: formatImportantDate(currentYearDates.term2End, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.summerRegistrationDeadline) {
+    dates.push({
+      label: 'Summer School Registration Deadline',
+      date: currentYearDates.summerRegistrationDeadline,
+      type: 'deadline',
+      formattedDate: formatImportantDate(currentYearDates.summerRegistrationDeadline, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.summerStart) {
+    dates.push({
+      label: 'Summer School Starts',
+      date: currentYearDates.summerStart,
+      type: 'start',
+      formattedDate: formatImportantDate(currentYearDates.summerStart, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  if (currentYearDates.summerEnd) {
+    dates.push({
+      label: 'Summer School Ends',
+      date: currentYearDates.summerEnd,
+      type: 'end',
+      formattedDate: formatImportantDate(currentYearDates.summerEnd, { month: 'long', day: 'numeric' })
+    });
+  }
+
+  // Sort by date
+  return dates.sort((a, b) => a.date - b.date);
 };
+
+// Export dynamic registration functions for use on landing page
+export { getRegistrationStatus, getCurrentRegistrationPeriod, getActiveDeadlines };
 
 export default websiteConfig;

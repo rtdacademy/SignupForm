@@ -143,7 +143,8 @@ export function AuthProvider({ children }) {
     '/privacy',
     '/terms',
     '/video',
-    '/open-courses'
+    '/open-courses',
+    '/calendar'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, BookOpen, Menu, X, LogOut, User, Info, MapPin, ExternalLink, ArrowLeft } from 'lucide-react';
+import { ArrowRight, BookOpen, Menu, X, LogOut, User, Info, MapPin, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { getCourseById } from '../components/PrerequisiteFlowChart/courseData';
+import { courses } from './courseData';
 
 // RTD Logo Component
 const RTDLogo = ({ className = "w-10 h-10" }) => (
@@ -30,7 +32,6 @@ const OpenCoursesDashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [viewingCourse, setViewingCourse] = useState(null);
   const [showCourseInfo, setShowCourseInfo] = useState(false);
   const [selectedCourseForInfo, setSelectedCourseForInfo] = useState(null);
 
@@ -71,11 +72,7 @@ const OpenCoursesDashboard = () => {
       alert('This course is not yet available. Please check back later.');
       return;
     }
-    setViewingCourse(course);
-  };
-
-  const handleCloseCourse = () => {
-    setViewingCourse(null);
+    navigate(`/open-courses/view/${course.id}`);
   };
 
   const handleShowCourseInfo = (courseId) => {
@@ -92,139 +89,6 @@ const OpenCoursesDashboard = () => {
       ? `/prerequisites?course=${courseId}`
       : '/prerequisites';
     window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  // Course data with URLs for iframe viewing
-  const courses = {
-    mathematics: [
-      {
-        id: 'math10-3',
-        name: 'Math 10-3',
-        description: 'Workplace and apprenticeship preparation',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=170&guestaccess=true'
-      },
-      {
-        id: 'math10c',
-        name: 'Math 10C',
-        description: 'Foundation for Mathematics 20-1 and 20-2',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=166&guestaccess=true'
-      },
-      {
-        id: 'math15',
-        name: 'Math 15',
-        description: 'Preparatory mathematics for Math 10C',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=167&guestaccess=true'
-      },
-      {
-        id: 'math20-1',
-        name: 'Math 20-1',
-        description: 'Pre-calculus path for sciences and engineering',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=173&guestaccess=true'
-      },
-      {
-        id: 'math20-2',
-        name: 'Math 20-2',
-        description: 'For students entering non-science post-secondary',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=168&guestaccess=true'
-      },
-      {
-        id: 'math20-3',
-        name: 'Math 20-3',
-        description: 'Trades and workplace mathematics',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=171&guestaccess=true'
-      },
-      {
-        id: 'math30-1',
-        name: 'Math 30-1',
-        description: 'Pre-calculus mathematics',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=165&guestaccess=true'
-      },
-      {
-        id: 'math30-2',
-        name: 'Math 30-2',
-        description: 'Mathematics for various post-secondary programs',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=169&guestaccess=true'
-      },
-      {
-        id: 'math30-3',
-        name: 'Math 30-3',
-        description: 'Apprenticeship and workplace mathematics',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=172&guestaccess=true'
-      },
-      {
-        id: 'math31',
-        name: 'Math 31 (Calculus)',
-        description: 'Introduction to calculus for engineering and sciences',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=174&guestaccess=true'
-      },
-    ],
-    physics: [
-      {
-        id: 'physics20',
-        name: 'Physics 20',
-        description: 'Motion, forces, energy, and waves',
-        url: 'https://edge.rtdacademy.com/course/course.php?folder=0&cid=175&guestaccess=true'
-      },
-      {
-        id: 'physics30',
-        name: 'Physics 30',
-        description: 'Advanced physics including modern physics concepts',
-        url: '#'
-      },
-    ]
-  };
-
-  // Iframe Course Viewer Component
-  const CourseViewer = () => {
-    if (!viewingCourse) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 bg-white flex flex-col">
-        {/* Course Viewer Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-4 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCloseCourse}
-              className="hover:bg-white/20 p-2 rounded-lg transition-colors"
-              title="Close Course"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <div>
-              <h2 className="text-xl font-bold">{viewingCourse.name}</h2>
-              <p className="text-sm text-white/90">{viewingCourse.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => handleShowCourseInfo(viewingCourse.id)}
-              className="bg-white/20 hover:bg-white/30 text-white border-white/40"
-            >
-              <Info className="h-4 w-4 mr-2" />
-              Course Info
-            </Button>
-            <Button
-              onClick={() => handleOpenFlowChart(viewingCourse.id)}
-              className="bg-white/20 hover:bg-white/30 text-white border-white/40"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              Prerequisites
-              <ExternalLink className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Course Content Iframe */}
-        <div className="flex-1 relative">
-          <iframe
-            src={viewingCourse.url}
-            className="absolute inset-0 w-full h-full border-none"
-            title={viewingCourse.name}
-            allow="fullscreen"
-          />
-        </div>
-      </div>
-    );
   };
 
   // Course Information Modal Component
@@ -246,7 +110,9 @@ const OpenCoursesDashboard = () => {
           <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-start">
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900">{course.code}</h2>
-              <p className="text-lg text-gray-600">{course.name}</p>
+              {course.name !== course.code && (
+                <p className="text-lg text-gray-600">{course.name}</p>
+              )}
               <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                 <span>{course.credits} credits</span>
                 <span>Grade {course.grade}</span>
@@ -274,6 +140,32 @@ const OpenCoursesDashboard = () => {
                 <p className="text-gray-600 mt-2 italic">{course.detailedInfo.importance}</p>
               )}
             </div>
+
+            {/* Diploma Prep Info - Only for diploma courses */}
+            {course.diplomaExam && (
+              <div className="bg-gradient-to-br from-[#60A694]/5 via-[#60A694]/10 to-[#60A694]/5 border-2 border-[#60A694]/30 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <img
+                    src="/RTDLearning/Logo_with_name.svg"
+                    alt="Rock the Diploma"
+                    className="h-16 w-auto flex-shrink-0"
+                  />
+                  <div>
+                    <p className="text-gray-700 mb-3">
+                      Get expert help preparing for your Alberta diploma exam with <span className="font-semibold" style={{color: '#60A694'}}>Rock the Diploma</span> from RTD Learning.
+                    </p>
+                    <Button
+                      onClick={() => window.open('https://rtdlearning.com/', '_blank')}
+                      className="text-white"
+                      style={{backgroundColor: '#60A694'}}
+                      size="sm"
+                    >
+                      Learn About Diploma Prep <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Prerequisites */}
             {course.prerequisites && course.prerequisites.length > 0 && (
@@ -510,7 +402,7 @@ const OpenCoursesDashboard = () => {
         {/* Mathematics Courses */}
         <div className="mb-12">
           <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
               Mathematics
             </span>
           </h2>
@@ -520,14 +412,15 @@ const OpenCoursesDashboard = () => {
                 <CardHeader>
                   <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">{course.description}</p>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-600">{course.description}</p>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={() => handleStartLearning(course)}
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                      className="flex-1 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
                     >
-                      Start Learning <ArrowRight className="ml-2 h-4 w-4" />
+                      Open Course <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
                       onClick={() => handleShowCourseInfo(course.id)}
@@ -538,6 +431,41 @@ const OpenCoursesDashboard = () => {
                       <Info className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {/* Diploma Exam Accordion */}
+                  {course.diplomaExam && (
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="diploma-prep" className="border-2 border-[#60A694]/30 bg-gradient-to-br from-[#60A694]/5 via-[#60A694]/10 to-[#60A694]/5">
+                        <AccordionTrigger className="hover:bg-[#60A694]/10 px-4 py-2">
+                          <span className="text-white text-xs font-semibold px-3 py-1 rounded-full" style={{backgroundColor: '#60A694'}}>
+                            Diploma Exam
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="px-4 pb-3 pt-1">
+                            <div className="flex flex-col items-center gap-3">
+                              <img
+                                src="/RTDLearning/Logo_with_name.svg"
+                                alt="Rock the Diploma"
+                                className="h-12 w-auto"
+                              />
+                              <p className="text-sm text-gray-700 text-center">
+                                Get expert help preparing for your Alberta diploma exam with <span className="font-semibold" style={{color: '#60A694'}}>Rock the Diploma</span>. Live prep sessions and online courses designed to help you succeed.
+                              </p>
+                              <Button
+                                onClick={() => window.open('https://rtdlearning.com/', '_blank')}
+                                className="w-full text-white"
+                                style={{backgroundColor: '#60A694'}}
+                                size="sm"
+                              >
+                                Diploma Prep Info <ExternalLink className="ml-2 h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -555,16 +483,25 @@ const OpenCoursesDashboard = () => {
             {courses.physics.map((course) => (
               <Card key={course.id} className="shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-xl text-gray-900">{course.name}</CardTitle>
+                    {course.comingSoon && (
+                      <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap">
+                        Coming Soon
+                      </span>
+                    )}
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">{course.description}</p>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-600">{course.description}</p>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={() => handleStartLearning(course)}
                       className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                      disabled={course.comingSoon}
                     >
-                      Start Learning <ArrowRight className="ml-2 h-4 w-4" />
+                      {course.comingSoon ? 'Coming Soon' : 'Open Course'} {!course.comingSoon && <ArrowRight className="ml-2 h-4 w-4" />}
                     </Button>
                     <Button
                       onClick={() => handleShowCourseInfo(course.id)}
@@ -575,28 +512,133 @@ const OpenCoursesDashboard = () => {
                       <Info className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {/* Diploma Exam Accordion */}
+                  {course.diplomaExam && (
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="diploma-prep" className="border-2 border-[#60A694]/30 bg-gradient-to-br from-[#60A694]/5 via-[#60A694]/10 to-[#60A694]/5">
+                        <AccordionTrigger className="hover:bg-[#60A694]/10 px-4 py-2">
+                          <span className="text-white text-xs font-semibold px-3 py-1 rounded-full" style={{backgroundColor: '#60A694'}}>
+                            Diploma Exam
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="px-4 pb-3 pt-1">
+                            <div className="flex flex-col items-center gap-3">
+                              <img
+                                src="/RTDLearning/Logo_with_name.svg"
+                                alt="Rock the Diploma"
+                                className="h-12 w-auto"
+                              />
+                              <p className="text-sm text-gray-700 text-center">
+                                Get expert help preparing for your Alberta diploma exam with <span className="font-semibold" style={{color: '#60A694'}}>Rock the Diploma</span>. Live prep sessions and online courses designed to help you succeed.
+                              </p>
+                              <Button
+                                onClick={() => window.open('https://rtdlearning.com/', '_blank')}
+                                className="w-full text-white"
+                                style={{backgroundColor: '#60A694'}}
+                                size="sm"
+                              >
+                                Diploma Prep Info <ExternalLink className="ml-2 h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
 
+        {/* Rock the Diploma Section */}
+        <Card className="bg-gradient-to-br from-[#60A694]/5 via-[#60A694]/10 to-[#60A694]/5 border-2 border-[#60A694]/30 shadow-xl mb-12">
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* Logo */}
+              <div className="flex-shrink-0">
+                <img
+                  src="/RTDLearning/Logo_with_name.svg"
+                  alt="Rock the Diploma"
+                  className="h-16 md:h-20 w-auto"
+                />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 text-center md:text-left">
+                <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                  Preparing for Your Diploma Exams?
+                </h2>
+                <p className="text-gray-700 mb-4 text-lg">
+                  While these courses are free to learn, Alberta diploma exams require focused preparation.
+                  <span className="font-semibold" style={{color: '#60A694'}}> Rock the Diploma</span> from RTD Learning offers expert support:
+                </p>
+                <div className="grid md:grid-cols-2 gap-3 mb-6 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{backgroundColor: '#60A694'}}></span>
+                    <span className="text-gray-700">Live diploma prep sessions</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{backgroundColor: '#60A694'}}></span>
+                    <span className="text-gray-700">Online diploma prep courses</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{backgroundColor: '#60A694'}}></span>
+                    <span className="text-gray-700">Expert instructors</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{backgroundColor: '#60A694'}}></span>
+                    <span className="text-gray-700">Proven exam strategies</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => window.open('https://rtdlearning.com/', '_blank')}
+                  className="text-white text-lg px-8 py-6 transition-all hover:brightness-110"
+                  style={{backgroundColor: '#60A694'}}
+                >
+                  Get Diploma Exam Help <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Credit Courses CTA */}
         <Card className="bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200 shadow-lg">
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Need Official High School Credits?
-            </h2>
-            <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
-              Our Credit Courses provide the same quality curriculum with full teacher support,
-              assessments, and official Alberta high school credits upon completion.
-            </p>
-            <Button
-              onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
-              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-lg px-8 py-6"
-            >
-              Learn About Credit Courses <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* RTD Academy Logo */}
+              <div className="flex-shrink-0">
+                <div className="bg-gradient-to-r from-gray-100/95 to-teal-50/95 backdrop-blur shadow-lg rounded-lg px-3 py-2 flex items-center gap-2">
+                  <RTDLogo className="w-10 h-10 md:w-12 md:h-12" />
+                  <span className="font-bold text-base md:text-lg bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 bg-clip-text text-transparent">
+                    RTD Academy
+                  </span>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 text-center md:text-left">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Need Official High School Credits?
+                </h2>
+                <p className="text-gray-700 mb-4">
+                  Our Credit Courses provide the same quality curriculum with full teacher support,
+                  assessments, and official Alberta high school credits upon completion.
+                </p>
+                <p className="text-sm text-gray-500 italic mb-6">
+                  Note: If you are already enrolled in this course with your primary school or another school, you will not be permitted to register for credit.
+                </p>
+                <Button
+                  onClick={() => window.location.href = '/#courses'}
+                  className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-lg px-8 py-6"
+                >
+                  Learn About Credit Courses <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -605,9 +647,6 @@ const OpenCoursesDashboard = () => {
       <footer className="mt-16 text-center text-sm text-gray-500 pb-8">
         <p>&copy; {new Date().getFullYear()} RTD Academy</p>
       </footer>
-
-      {/* Iframe Course Viewer */}
-      <CourseViewer />
 
       {/* Course Information Modal */}
       <CourseInfoModal />

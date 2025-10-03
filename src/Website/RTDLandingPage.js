@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign, InfoIcon, HelpCircle, Calculator, ExternalLink, Sparkles, Copy, Link } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Menu, X, BookOpen, Users, Award, Clock, GraduationCap, Calendar, Phone, Mail, MapPin, Star, Info, Globe, DollarSign, InfoIcon, HelpCircle, Calculator, ExternalLink, Sparkles, Copy, Link, Wrench, LogIn, CalendarDays } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -12,7 +12,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
-import { websiteConfig } from './websiteConfig';
+import { websiteConfig, getRegistrationStatus } from './websiteConfig';
 import { courseData, getCourseById, subjectColors } from '../components/PrerequisiteFlowChart/courseData';
 import './styles/rtd-landing.css';
 
@@ -184,6 +184,14 @@ const Header = ({ scrolled }) => {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Calendar - Direct Link */}
+            <a href="/calendar" className={`font-medium transition-colors flex items-center gap-1 ${
+              scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
+            }`}>
+              <CalendarDays className="h-4 w-4" />
+              Calendar
+            </a>
+
             {/* FAQ - Direct Link (Important) */}
             <a href="/student-faq" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
@@ -191,11 +199,11 @@ const Header = ({ scrolled }) => {
               FAQ
             </a>
 
-            {/* Helpful Tools - Direct Link */}
+            {/* Tools - Direct Link */}
             <a href="#helpful-tools" className={`font-medium transition-colors ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
             }`}>
-              Helpful Tools
+              Tools
             </a>
 
             {/* Direct Links */}
@@ -204,13 +212,14 @@ const Header = ({ scrolled }) => {
             }`}>
               Contact
             </a>
-            <a href="https://yourway.rtdacademy.com/login" className={`font-medium transition-colors ${
+            <a href="https://yourway.rtdacademy.com/login" className={`font-medium transition-colors flex items-center gap-1 ${
               scrolled ? 'text-gray-700 hover:text-teal-700' : 'text-white/90 hover:text-white'
             }`}>
+              <LogIn className="h-4 w-4" />
               Login
             </a>
             <Button
-              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+              onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
               className={`${
               scrolled
                 ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white'
@@ -237,8 +246,14 @@ const Header = ({ scrolled }) => {
             {/* Courses Section */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">Courses</p>
-              <a href="#courses" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">All Courses</a>
-              <a href="#open-courses" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Open Courses (Free)</a>
+              <a href="#courses" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <GraduationCap className="h-4 w-4" />
+                All Courses
+              </a>
+              <a href="#open-courses" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <BookOpen className="h-4 w-4" />
+                Open Courses (Free)
+              </a>
             </div>
 
             <div className="border-t border-gray-200"></div>
@@ -246,9 +261,23 @@ const Header = ({ scrolled }) => {
             {/* For Students Section */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2">For Students</p>
-              <a href="https://yourway.rtdacademy.com/adult-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Adult Students</a>
-              <a href="https://yourway.rtdacademy.com/international-students" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">International Students</a>
+              <a href="https://yourway.rtdacademy.com/adult-students" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <Users className="h-4 w-4" />
+                Adult Students
+              </a>
+              <a href="https://yourway.rtdacademy.com/international-students" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <Globe className="h-4 w-4" />
+                International Students
+              </a>
             </div>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* Calendar - Prominent Position */}
+            <a href="/calendar" className="flex items-center gap-2 py-3 px-2 text-gray-900 hover:text-teal-700 hover:bg-teal-50 rounded font-semibold text-base">
+              <CalendarDays className="h-5 w-5" />
+              Academic Calendar
+            </a>
 
             <div className="border-t border-gray-200"></div>
 
@@ -259,23 +288,31 @@ const Header = ({ scrolled }) => {
 
             <div className="border-t border-gray-200"></div>
 
-            {/* Helpful Tools - Prominent Position */}
+            {/* Tools - Prominent Position */}
             <a href="#helpful-tools" className="block py-3 px-2 text-gray-900 hover:text-teal-700 hover:bg-teal-50 rounded font-semibold text-base">
-              Helpful Tools
+              Tools
             </a>
 
             <div className="border-t border-gray-200"></div>
 
             {/* Quick Links */}
             <div className="space-y-2">
-              <a href="/policies-reports" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Policies & Reports</a>
-              <a href="#footer" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Contact</a>
-              <a href="https://yourway.rtdacademy.com/login" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">Login</a>
+              <a href="/policies-reports" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <Info className="h-4 w-4" />
+                Policies & Reports
+              </a>
+              <a href="#footer" className="block py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                Contact
+              </a>
+              <a href="https://yourway.rtdacademy.com/login" className="flex items-center gap-2 py-2 px-2 text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded font-medium">
+                <LogIn className="h-4 w-4" />
+                Login
+              </a>
             </div>
 
             {/* CTA Button */}
             <Button
-              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+              onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
               className="w-full bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white shadow-md hover:shadow-lg transition-all">
               Get Started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -288,6 +325,9 @@ const Header = ({ scrolled }) => {
 
 // Hero Section Component - Modern and Professional with Teal Theme
 const HeroSection = () => {
+  // Get dynamic registration status
+  const registrationStatus = getRegistrationStatus();
+
   return (
     <section className="relative min-h-screen bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/20 flex items-center pt-20">
       {/* Animated gradient mesh background */}
@@ -347,17 +387,42 @@ const HeroSection = () => {
               </div>
             </div>
 
-            {/* Registration Deadline Card with gradient accent */}
+            {/* Registration Deadline Card with gradient accent - Dynamic based on current period */}
             <div className="relative bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 space-y-4 border border-gray-200 shadow-lg hover:shadow-xl transition-all group overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-teal-600" />
-                <h3 className="font-bold text-lg text-gray-900">{websiteConfig.dates.currentSchoolYear} Registration Open</h3>
+                <h3 className="font-bold text-lg text-gray-900">{registrationStatus.schoolYearDisplay} - {registrationStatus.periodName}</h3>
               </div>
               <div className="space-y-2 pl-7">
-                <p className="text-gray-700">
-                  <span className="font-semibold">Term 1 Deadline:</span> {websiteConfig.dates.term1.registrationDeadline}
+                {/* Display deadlines based on current period */}
+                {registrationStatus.currentPeriod === 'term1' && registrationStatus.activeDeadlines.deadline && (
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Term 1 Deadline:</span> {registrationStatus.activeDeadlines.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                  </p>
+                )}
+
+                {registrationStatus.currentPeriod === 'term2' && registrationStatus.activeDeadlines.deadlines && (
+                  <>
+                    {registrationStatus.activeDeadlines.deadlines.map((deadline, idx) => (
+                      <p key={idx} className="text-gray-700">
+                        <span className="font-semibold">{deadline.label}:</span> {deadline.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                      </p>
+                    ))}
+                  </>
+                )}
+
+                {registrationStatus.currentPeriod === 'summer' && registrationStatus.activeDeadlines.deadline && (
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Summer Registration Deadline:</span> {registrationStatus.activeDeadlines.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                  </p>
+                )}
+
+                {/* Message about current registration status */}
+                <p className="text-sm font-medium text-teal-700">
+                  {registrationStatus.message}
                 </p>
+
                 <p className="text-sm text-gray-600 italic">
                   Adult and International students can register anytime throughout the year
                 </p>
@@ -369,7 +434,7 @@ const HeroSection = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 size="lg"
-                onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+                onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
                 className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                 Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -459,7 +524,7 @@ const AccreditationBanner = () => {
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Your pathway to an Alberta High School Diploma
           </h2>
-          <p className="text-5xl font-bold mb-8">since 2008</p>
+         
 
           <div className="flex flex-col md:flex-row justify-center items-center gap-8">
             <div className="flex items-center gap-3">
@@ -724,7 +789,7 @@ const ComparisonSection = () => {
         <div className="text-center mt-12">
           <Button
             size="lg"
-            onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+            onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
             className="bg-teal-700 hover:bg-teal-800 text-white px-8 py-6 text-lg">
             Start Your Journey <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
@@ -751,9 +816,6 @@ const OpenCoursesSection = () => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-12">
-          <Badge className="bg-gradient-to-r from-green-100 to-teal-100 text-green-800 px-4 py-1 mb-4">
-            Coming Soon
-          </Badge>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Introducing <span className="bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">Open Courses</span>
           </h2>
@@ -857,7 +919,7 @@ const OpenCoursesSection = () => {
                 </li>
               </ul>
               <Button
-                onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+                onClick={() => window.location.href = '/#courses'}
                 className="w-full mt-6 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white"
               >
                 Enroll for Credits <ArrowRight className="ml-2 h-4 w-4" />
@@ -1152,6 +1214,53 @@ const ExperienceSection = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Academic Calendar CTA Section Component
+const AcademicCalendarSection = () => {
+  const registrationStatus = getRegistrationStatus();
+
+  return (
+    <section id="academic-calendar" className="py-20 bg-gradient-to-br from-teal-50/30 via-white to-cyan-50/30 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-teal-100/40 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-cyan-100/40 to-transparent rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Section Content */}
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-block mb-6">
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full">
+              <Calendar className="w-5 h-5 text-white" />
+              <span className="text-white font-semibold">{registrationStatus.schoolYearDisplay} School Year</span>
+            </div>
+          </div>
+
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Academic Calendar
+          </h2>
+
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            View important dates, deadlines, holidays, and school events throughout the academic year
+          </p>
+
+          <Button
+            size="lg"
+            onClick={() => window.location.href = '/calendar'}
+            className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-700 hover:via-cyan-700 hover:to-teal-800 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+          >
+            View Full Calendar <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+
+          <p className="mt-6 text-sm text-gray-500">
+            All dates are subject to change. Please check regularly for updates.
+          </p>
         </div>
       </div>
     </section>
@@ -1495,7 +1604,7 @@ const CoursesSection = () => {
         <div className="text-center">
           <Button
             size="lg"
-            onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+            onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
             className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg">
             Get Started Today <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
@@ -1559,7 +1668,7 @@ const FinalCTASection = () => {
 
             <Button
               size="lg"
-              onClick={() => window.open('https://yourway.rtdacademy.com/get-started', '_blank')}
+              onClick={() => window.location.href = 'https://yourway.rtdacademy.com/get-started'}
               className="bg-orange-600 hover:bg-orange-700 text-white px-10 py-6 text-lg shadow-lg">
               Apply Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -1686,6 +1795,9 @@ const Footer = () => {
 const RTDLandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
 
+  // Get dynamic registration status
+  const registrationStatus = getRegistrationStatus();
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -1771,6 +1883,7 @@ const RTDLandingPage = () => {
         <AccreditationBanner />
         <OpenCoursesSection />
         <HelpfulToolsSection />
+        <AcademicCalendarSection />
         <LifeAdvantageSection />
         <HowItWorksSection />
         <ComparisonSection />

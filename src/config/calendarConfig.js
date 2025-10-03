@@ -15,6 +15,12 @@
 
 import { toEdmontonDate } from '../utils/timeZoneUtils';
 
+// Import school year configurations
+import schoolYear_2024_25 from './schoolYears/2024-25';
+import schoolYear_2025_26 from './schoolYears/2025-26';
+import schoolYear_2026_27 from './schoolYears/2026-27';
+import schoolYear_2027_28 from './schoolYears/2027-28';
+
 // =============================================================================
 // CURRENT SCHOOL YEAR
 // =============================================================================
@@ -58,76 +64,12 @@ export const TERMS = {
 // =============================================================================
 // IMPORTANT DATES BY SCHOOL YEAR
 // =============================================================================
-// Use YYYY-MM-DD format - dates will be correctly interpreted as Alberta timezone
+// Built from imported school year configurations
 const IMPORTANT_DATES = {
-  '24/25': {
-    schoolYearDisplay: '2024-2025',
-    registrationOpen: toEdmontonDate('2025-09-29'),
-    septemberCount: toEdmontonDate('2024-09-29'),
-    term1RegistrationDeadline: toEdmontonDate('2024-09-29'),
-    term1CountDay: toEdmontonDate('2024-09-30'),
-    term1End: toEdmontonDate('2025-01-31'),
-    term2RegistrationDeadline: toEdmontonDate('2025-04-15'),
-    term2HomeEducationDeadline: toEdmontonDate('2025-02-28'),
-    term2End: toEdmontonDate('2025-06-19'),
-    term2PasiDeadline: toEdmontonDate('2025-06-19'),
-    summerStart: toEdmontonDate('2024-07-01'),
-    summerEnd: toEdmontonDate('2024-08-31'),
-  },
-  '25/26': {
-    schoolYearDisplay: '2025-2026',
-    registrationOpen: toEdmontonDate('2025-09-29'),
-    septemberCount: toEdmontonDate('2025-09-29'),
-    term1RegistrationDeadline: toEdmontonDate('2025-09-29'),
-    term1CountDay: toEdmontonDate('2025-09-30'),
-    term1End: toEdmontonDate('2026-01-31'),
-    term2RegistrationDeadline: toEdmontonDate('2026-04-15'),
-    term2HomeEducationDeadline: toEdmontonDate('2026-02-28'),
-    term2End: toEdmontonDate('2026-06-19'),
-    term2PasiDeadline: toEdmontonDate('2026-06-19'),
-    summerStart: toEdmontonDate('2025-07-01'),
-    summerEnd: toEdmontonDate('2025-08-31'),
-    intentToRegisterPeriod: {
-      start: toEdmontonDate('2025-09-30'),
-      end: toEdmontonDate('2025-12-31'),
-    }
-  },
-  '26/27': {
-    schoolYearDisplay: '2026-2027',
-    registrationOpen: toEdmontonDate('2026-01-01'),
-    septemberCount: toEdmontonDate('2026-09-29'),
-    term1RegistrationDeadline: toEdmontonDate('2026-09-29'),
-    term1CountDay: toEdmontonDate('2026-09-30'),
-    term1End: toEdmontonDate('2027-01-31'),
-    term2RegistrationDeadline: toEdmontonDate('2027-04-15'),
-    term2HomeEducationDeadline: toEdmontonDate('2027-02-28'),
-    term2End: toEdmontonDate('2027-06-19'),
-    term2PasiDeadline: toEdmontonDate('2027-06-19'),
-    summerStart: toEdmontonDate('2026-07-01'),
-    summerEnd: toEdmontonDate('2026-08-31'),
-    intentToRegisterPeriod: {
-      start: toEdmontonDate('2026-09-30'),
-      end: toEdmontonDate('2026-12-31'),
-    }
-  },
-  '27/28': {
-    schoolYearDisplay: '2027-2028',
-    registrationOpen: toEdmontonDate('2027-01-01'),
-    septemberCount: toEdmontonDate('2027-09-29'),
-    term1RegistrationDeadline: toEdmontonDate('2027-09-29'),
-    term1CountDay: toEdmontonDate('2027-09-30'),
-    term1End: toEdmontonDate('2028-01-31'),
-    term2RegistrationDeadline: toEdmontonDate('2028-04-15'),
-    term2HomeEducationDeadline: toEdmontonDate('2028-02-28'),
-    term2End: toEdmontonDate('2028-06-19'),
-    term2PasiDeadline: toEdmontonDate('2028-06-19'),
-    summerStart: toEdmontonDate('2027-07-01'),
-    summerEnd: toEdmontonDate('2027-08-31'),
-    intentToRegisterPeriod: {
-      start: toEdmontonDate('2027-09-30'),
-      end: toEdmontonDate('2027-12-31'),
-    }
-  }
+  '24/25': schoolYear_2024_25.importantDates,
+  '25/26': schoolYear_2025_26.importantDates,
+  '26/27': schoolYear_2026_27.importantDates,
+  '27/28': schoolYear_2027_28.importantDates
 };
 
 /**
@@ -624,6 +566,299 @@ export const getFormattedImportantDates = (schoolYear) => {
   return formatted.sort((a, b) => a.date - b.date);
 };
 
+/**
+ * Gets calendar events for a specific school year
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {Array} Array of calendar events
+ */
+export const getCalendarEventsForYear = (schoolYear) => {
+  const configs = {
+    '24/25': schoolYear_2024_25,
+    '25/26': schoolYear_2025_26,
+    '26/27': schoolYear_2026_27,
+    '27/28': schoolYear_2027_28
+  };
+
+  return configs[schoolYear]?.calendarEvents || [];
+};
+
+/**
+ * Gets all calendar events across all school years
+ * @returns {Array} Array of all calendar events
+ */
+export const getAllCalendarEvents = () => {
+  return [
+    ...schoolYear_2024_25.calendarEvents,
+    ...schoolYear_2025_26.calendarEvents,
+    ...schoolYear_2026_27.calendarEvents,
+    ...schoolYear_2027_28.calendarEvents
+  ];
+};
+
+/**
+ * Gets calendar events for the current school year
+ * @returns {Array} Array of calendar events for current year
+ */
+export const getCurrentSchoolYearEvents = () => {
+  return getCalendarEventsForYear(CURRENT_SCHOOL_YEAR);
+};
+
+/**
+ * Gets event type configuration
+ * @param {string} schoolYear - School year in YY/YY format (defaults to current)
+ * @returns {Object} Event types configuration
+ */
+export const getEventTypes = (schoolYear = CURRENT_SCHOOL_YEAR) => {
+  const configs = {
+    '24/25': schoolYear_2024_25,
+    '25/26': schoolYear_2025_26,
+    '26/27': schoolYear_2026_27,
+    '27/28': schoolYear_2027_28
+  };
+
+  return configs[schoolYear]?.eventTypes || schoolYear_2025_26.eventTypes;
+};
+
+// =============================================================================
+// DYNAMIC REGISTRATION PERIOD HELPERS
+// =============================================================================
+
+/**
+ * Determines the current registration period (Term 1, Term 2, or Summer)
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {Object} Object with period, schoolYear, and details
+ */
+export const getCurrentRegistrationPeriod = (referenceDate = new Date()) => {
+  const currentYear = getCurrentSchoolYear();
+  const dates = getImportantDatesForYear(currentYear);
+
+  // Check if we're in Summer period (July 1 - August 31)
+  if (dates.summerStart && dates.summerEnd) {
+    if (referenceDate >= dates.summerStart && referenceDate <= dates.summerEnd) {
+      return {
+        period: 'summer',
+        schoolYear: currentYear,
+        name: 'Summer School',
+        startDate: dates.summerStart,
+        endDate: dates.summerEnd,
+        registrationDeadline: dates.summerRegistrationDeadline || null
+      };
+    }
+  }
+
+  // Check if we're before Term 1 deadline (Term 1 registration period)
+  if (dates.term1RegistrationDeadline && referenceDate <= dates.term1RegistrationDeadline) {
+    return {
+      period: 'term1',
+      schoolYear: currentYear,
+      name: 'Term 1',
+      startDate: dates.registrationOpen || null,
+      endDate: dates.term1End || null,
+      registrationDeadline: dates.term1RegistrationDeadline,
+      countDay: dates.term1CountDay || null
+    };
+  }
+
+  // Check if we're in Term 2 period (after Term 1 deadline, before Term 2 end)
+  if (dates.term2End && referenceDate <= dates.term2End) {
+    return {
+      period: 'term2',
+      schoolYear: currentYear,
+      name: 'Term 2',
+      startDate: dates.term1End ? new Date(dates.term1End.getTime() + 86400000) : null, // Day after Term 1 ends
+      endDate: dates.term2End,
+      registrationDeadlines: {
+        homeEducation: dates.term2HomeEducationDeadline || null,
+        nonPrimary: dates.term2RegistrationDeadline || null
+      }
+    };
+  }
+
+  // If we're past Term 2 but before summer, we're between terms
+  return {
+    period: 'between-terms',
+    schoolYear: currentYear,
+    name: 'Between Terms',
+    nextPeriodStart: dates.summerStart || null
+  };
+};
+
+/**
+ * Gets active registration deadlines based on the current period and student type
+ * @param {string} studentType - 'homeEducation' or 'nonPrimary' (optional, returns both if not specified)
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {Object} Object with deadline information
+ */
+export const getActiveDeadlines = (studentType = null, referenceDate = new Date()) => {
+  const currentPeriod = getCurrentRegistrationPeriod(referenceDate);
+  const dates = getImportantDatesForYear(currentPeriod.schoolYear);
+
+  switch (currentPeriod.period) {
+    case 'term1':
+      return {
+        period: 'term1',
+        deadline: dates.term1RegistrationDeadline,
+        label: 'Term 1 Registration Deadline',
+        appliesTo: 'all',
+        isPast: referenceDate > dates.term1RegistrationDeadline
+      };
+
+    case 'term2':
+      const deadlines = [];
+
+      if (studentType === 'homeEducation' || !studentType) {
+        const heDeadline = dates.term2HomeEducationDeadline;
+        if (heDeadline) {
+          deadlines.push({
+            type: 'homeEducation',
+            deadline: heDeadline,
+            label: 'Term 2 Home Education Deadline',
+            isPast: referenceDate > heDeadline
+          });
+        }
+      }
+
+      if (studentType === 'nonPrimary' || !studentType) {
+        const npDeadline = dates.term2RegistrationDeadline;
+        if (npDeadline) {
+          deadlines.push({
+            type: 'nonPrimary',
+            deadline: npDeadline,
+            label: 'Term 2 Non-Primary Deadline',
+            isPast: referenceDate > npDeadline
+          });
+        }
+      }
+
+      return {
+        period: 'term2',
+        deadlines,
+        hasMultiple: deadlines.length > 1
+      };
+
+    case 'summer':
+      return {
+        period: 'summer',
+        deadline: dates.summerRegistrationDeadline,
+        label: 'Summer School Registration Deadline',
+        appliesTo: 'all',
+        isPast: dates.summerRegistrationDeadline ? referenceDate > dates.summerRegistrationDeadline : false
+      };
+
+    default:
+      return {
+        period: currentPeriod.period,
+        deadline: null,
+        label: 'No active registration deadline',
+        appliesTo: 'none',
+        isPast: true
+      };
+  }
+};
+
+/**
+ * Gets the next upcoming deadline across all periods
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {Object|null} Next deadline information or null if none found
+ */
+export const getNextDeadline = (referenceDate = new Date()) => {
+  const currentYear = getCurrentSchoolYear();
+  const nextYear = getNextSchoolYear();
+
+  const allDates = [
+    ...Object.entries(getImportantDatesForYear(currentYear)),
+    ...Object.entries(getImportantDatesForYear(nextYear))
+  ];
+
+  // Filter for deadline dates that are in the future
+  const futureDeadlines = allDates
+    .filter(([key, value]) => {
+      return (
+        value instanceof Date &&
+        value > referenceDate &&
+        (key.includes('Deadline') || key.includes('deadline'))
+      );
+    })
+    .map(([key, date]) => {
+      // Create readable labels
+      let label = key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+
+      return { key, date, label };
+    })
+    .sort((a, b) => a.date - b.date);
+
+  return futureDeadlines.length > 0 ? futureDeadlines[0] : null;
+};
+
+/**
+ * Gets registration status for display on the website
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @returns {Object} Status information for display
+ */
+export const getRegistrationStatus = (referenceDate = new Date()) => {
+  const currentYear = getCurrentSchoolYear();
+  const currentPeriod = getCurrentRegistrationPeriod(referenceDate);
+  const activeDeadlines = getActiveDeadlines(null, referenceDate);
+  const nextDeadline = getNextDeadline(referenceDate);
+
+  // Format school year display
+  const yearParts = currentYear.split('/');
+  const schoolYearDisplay = `20${yearParts[0]}-20${yearParts[1]}`;
+
+  return {
+    schoolYear: currentYear,
+    schoolYearDisplay,
+    currentPeriod: currentPeriod.period,
+    periodName: currentPeriod.name,
+    activeDeadlines,
+    nextDeadline,
+    isRegistrationOpen: currentPeriod.period !== 'between-terms',
+    message: getRegistrationMessage(currentPeriod, activeDeadlines, referenceDate)
+  };
+};
+
+/**
+ * Helper to generate user-friendly registration messages
+ * @param {Object} currentPeriod - Current period information
+ * @param {Object} activeDeadlines - Active deadline information
+ * @param {Date} referenceDate - Reference date
+ * @returns {string} User-friendly message
+ */
+const getRegistrationMessage = (currentPeriod, activeDeadlines, referenceDate) => {
+  switch (currentPeriod.period) {
+    case 'term1':
+      if (activeDeadlines.isPast) {
+        return 'Term 1 registration deadline has passed';
+      }
+      return `Registration open for Term 1`;
+
+    case 'term2':
+      const activeTerm2 = activeDeadlines.deadlines.filter(d => !d.isPast);
+      if (activeTerm2.length === 0) {
+        return 'Term 2 registration deadlines have passed';
+      }
+      if (activeTerm2.length === 1) {
+        return `Registration open for Term 2 (${activeTerm2[0].type === 'homeEducation' ? 'Home Education' : 'Non-Primary'})`;
+      }
+      return 'Registration open for Term 2';
+
+    case 'summer':
+      if (activeDeadlines.isPast) {
+        return 'Summer school registration deadline has passed';
+      }
+      return 'Registration open for Summer School';
+
+    case 'between-terms':
+      return 'Registration currently closed';
+
+    default:
+      return 'Check registration deadlines';
+  }
+};
+
 // Export individual dates for direct access if needed
 export { IMPORTANT_DATES };
 
@@ -656,5 +891,17 @@ export default {
   parseTermDate,
   getTermStartDate,
   getTermEndDate,
-  getFormattedImportantDates
+  getFormattedImportantDates,
+
+  // Calendar event utilities
+  getCalendarEventsForYear,
+  getAllCalendarEvents,
+  getCurrentSchoolYearEvents,
+  getEventTypes,
+
+  // Dynamic registration period helpers
+  getCurrentRegistrationPeriod,
+  getActiveDeadlines,
+  getNextDeadline,
+  getRegistrationStatus
 };

@@ -357,6 +357,100 @@ const updateStudentCourseSummaryPaymentStatus = createSpecificPathListener('paym
 
 const updateStudentCourseSummaryTransition = createSpecificPathListener('transition', 'transition');
 
+/**
+ * Helper function: Convert sanitized student type back to display format
+ * @param {string} sanitizedType - Sanitized type (e.g., "adultStudents", "nonPrimaryStudents")
+ * @returns {string} Display format (e.g., "Adult Student", "Non-Primary")
+ */
+const unsanitizeStudentType = (sanitizedType) => {
+  const typeMapping = {
+    'nonPrimaryStudents': 'Non-Primary',
+    'homeEducationStudents': 'Home Education',
+    'summerSchoolStudents': 'Summer School',
+    'adultStudents': 'Adult Student',
+    'internationalStudents': 'International Student'
+  };
+
+  return typeMapping[sanitizedType] || sanitizedType;
+};
+
+/**
+ * Special listener for credit override changes
+ * Syncs the entire creditOverride object to studentCourseSummaries
+ */
+const updateStudentCourseSummaryCreditOverride = onValueWritten({
+  ref: '/students/{studentId}/profile/creditOverrides/{schoolYearKey}/{sanitizedType}/courseOverrides/{courseId}',
+  region: 'us-central1',
+  memory: '256MiB',
+  concurrency: 100
+}, async (event) => {
+  const { studentId, schoolYearKey, sanitizedType, courseId } = event.params;
+  const db = admin.database();
+
+  console.log(`Processing credit override update for student ${studentId}, course ${courseId}`);
+
+  try {
+    // Convert schoolYearKey (e.g., "25_26") to display format (e.g., "25/26")
+    const schoolYear = schoolYearKey.replace('_', '/');
+
+    // Convert sanitized type to display format
+    const studentType = unsanitizeStudentType(sanitizedType);
+
+    // Verify the course exists and matches the school year and student type
+    const courseRef = db.ref(`students/${studentId}/courses/${courseId}`);
+    const courseSnapshot = await courseRef.once('value');
+    const courseData = courseSnapshot.val();
+
+    if (!courseData) {
+      console.log(`Course ${courseId} not found for student ${studentId} - skipping credit override sync`);
+      return null;
+    }
+
+    // Verify school year and student type match
+    const courseSchoolYear = courseData.School_x0020_Year?.Value;
+    const courseStudentType = courseData.StudentType?.Value;
+
+    if (courseSchoolYear !== schoolYear || courseStudentType !== studentType) {
+      console.log(`Course ${courseId} school year/type mismatch - Course: ${courseSchoolYear}/${courseStudentType}, Override: ${schoolYear}/${studentType}`);
+      return null;
+    }
+
+    // Get the summary reference
+    const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+    const summaryExists = (await summaryRef.once('value')).exists();
+
+    if (!summaryExists) {
+      console.log(`No summary exists for student ${studentId}, course ${courseId} - skipping credit override sync`);
+      return null;
+    }
+
+    // Check if override was deleted or updated
+    const changes = {};
+
+    if (!event.data.after.exists()) {
+      // Override was deleted
+      console.log(`Credit override deleted for student ${studentId}, course ${courseId}`);
+      changes.creditOverride = null;
+    } else {
+      // Override exists - sync the entire object
+      const overrideData = event.data.after.val();
+      console.log(`Credit override updated for student ${studentId}, course ${courseId}`);
+      changes.creditOverride = overrideData;
+    }
+
+    // Update the summary with timestamp
+    changes.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+    await summaryRef.update(changes);
+
+    console.log(`Updated credit override for student ${studentId}, course ${courseId}`);
+
+    return null;
+  } catch (error) {
+    console.error(`Error updating credit override summary:`, error.message);
+    throw error;
+  }
+});
+
 // Special listener for previousCourse changes
 const updateStudentCourseSummaryPreviousEnrollment = onValueWritten({
   ref: '/students/{studentId}/courses/{courseId}/previousCourse',
@@ -654,7 +748,35 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     
     // For transition field
     summaryData['transition'] = courseData.transition !== undefined ? courseData.transition : false;
-    
+
+    // Check for credit override
+    const schoolYear = courseData.School_x0020_Year?.Value;
+    const studentType = courseData.StudentType?.Value;
+
+    if (schoolYear && studentType) {
+      // Convert to keys for database lookup
+      const schoolYearKey = schoolYear.replace('/', '_');
+      const sanitizedTypeMapping = {
+        'Non-Primary': 'nonPrimaryStudents',
+        'Home Education': 'homeEducationStudents',
+        'Summer School': 'summerSchoolStudents',
+        'Adult Student': 'adultStudents',
+        'International Student': 'internationalStudents'
+      };
+      const sanitizedType = sanitizedTypeMapping[studentType];
+
+      if (sanitizedType) {
+        const overrideRef = db.ref(`students/${studentId}/profile/creditOverrides/${schoolYearKey}/${sanitizedType}/courseOverrides/${courseId}`);
+        const overrideSnapshot = await overrideRef.once('value');
+        const overrideData = overrideSnapshot.val();
+
+        if (overrideData) {
+          summaryData['creditOverride'] = overrideData;
+          console.log(`Credit override found for course ${courseId}`);
+        }
+      }
+    }
+
     // Check for previous enrollments and continuing student status
     if (courseData.previousCourse) {
       // Get the latest previous enrollment (highest timestamp)
@@ -990,7 +1112,35 @@ const batchSyncStudentDataV2 = onCall({
             
             // For transition field
             summaryData['transition'] = courseData.transition !== undefined ? courseData.transition : false;
-            
+
+            // Check for credit override
+            const schoolYear = courseData.School_x0020_Year?.Value;
+            const studentType = courseData.StudentType?.Value;
+
+            if (schoolYear && studentType) {
+              // Convert to keys for database lookup
+              const schoolYearKey = schoolYear.replace('/', '_');
+              const sanitizedTypeMapping = {
+                'Non-Primary': 'nonPrimaryStudents',
+                'Home Education': 'homeEducationStudents',
+                'Summer School': 'summerSchoolStudents',
+                'Adult Student': 'adultStudents',
+                'International Student': 'internationalStudents'
+              };
+              const sanitizedType = sanitizedTypeMapping[studentType];
+
+              if (sanitizedType) {
+                const overrideRef = db.ref(`students/${studentKey}/profile/creditOverrides/${schoolYearKey}/${sanitizedType}/courseOverrides/${courseId}`);
+                const overrideSnapshot = await overrideRef.once('value');
+                const overrideData = overrideSnapshot.val();
+
+                if (overrideData) {
+                  summaryData['creditOverride'] = overrideData;
+                  console.log(`Credit override found for student ${studentKey}, course ${courseId}`);
+                }
+              }
+            }
+
             // Check for previous enrollments and continuing student status
             if (courseData.previousCourse) {
               // Get the latest previous enrollment (highest timestamp)
@@ -1166,7 +1316,7 @@ const batchSyncStudentDataV2 = onCall({
 // Export all functions
 module.exports = {
   syncProfileToCourseSummariesV2,
-  
+
   // NEW: Specific path listeners to avoid TRIGGER_PAYLOAD_TOO_LARGE
   updateStudentCourseSummaryStatus,
   updateStudentCourseSummaryCourse,
@@ -1192,10 +1342,12 @@ module.exports = {
   updateStudentCourseSummaryStartingOnDate,
   updateStudentCourseSummaryPaymentStatus,
   updateStudentCourseSummaryTransition,
+  updateStudentCourseSummaryCreditOverride,
   updateStudentCourseSummaryPreviousEnrollment,
   updateStudentCourseSummaryScheduleJSON,
-  
+
   createStudentCourseSummaryOnCourseCreateV2,
   batchSyncStudentDataV2,
-  getNestedValue
+  getNestedValue,
+  unsanitizeStudentType
 };
