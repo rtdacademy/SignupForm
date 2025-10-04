@@ -1815,7 +1815,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
   };
 
   const handleShowFlowChart = () => {
-    window.open('/prerequisite-flowchart', '_blank');
+    window.open('/prerequisites', '_blank');
   };
 
 

@@ -12,8 +12,10 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
-import { websiteConfig, getRegistrationStatus } from './websiteConfig';
+import { websiteConfig, getRelevantDates } from './websiteConfig';
 import { courseData, getCourseById, subjectColors } from '../components/PrerequisiteFlowChart/courseData';
+import { isLabourDisruptionActive } from '../config/calendarConfig';
+import LabourDisruptionBanner from '../components/LabourDisruptionBanner';
 import './styles/rtd-landing.css';
 
 // RTD Logo Component
@@ -112,7 +114,7 @@ const Header = ({ scrolled }) => {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? 'bg-white shadow-lg py-3' : 'bg-teal-700 py-4'
+      scrolled ? 'bg-white shadow-lg py-1.5' : 'bg-teal-700 py-2'
     }`}>
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between">
@@ -123,7 +125,7 @@ const Header = ({ scrolled }) => {
             } rounded-xl px-4 py-2 transition-all duration-300 ${
               scrolled ? '' : 'shadow-lg'
             } flex items-center gap-3`}>
-              <RTDLogo className="w-10 h-10" />
+              <RTDLogo className="w-6 h-6" />
               <span className={`font-bold text-lg ${
                 scrolled
                   ? 'text-gray-900'
@@ -325,11 +327,13 @@ const Header = ({ scrolled }) => {
 
 // Hero Section Component - Modern and Professional with Teal Theme
 const HeroSection = () => {
-  // Get dynamic registration status
-  const registrationStatus = getRegistrationStatus();
+  // Get relevant dates for landing page
+  const relevantDates = getRelevantDates();
+  const currentYear = new Date().getFullYear();
+  const schoolYearDisplay = `${currentYear}-${currentYear + 1}`;
 
   return (
-    <section className="relative min-h-screen bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/20 flex items-center pt-20">
+    <section className="relative min-h-[700px] bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/20 flex items-center pt-14 pb-16">
       {/* Animated gradient mesh background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 right-10 w-72 h-72 bg-gradient-to-br from-teal-200 to-cyan-300 rounded-full blur-3xl opacity-25 animate-pulse-slow" />
@@ -337,19 +341,26 @@ const HeroSection = () => {
         <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-gradient-to-bl from-cyan-100 to-teal-100 rounded-full blur-3xl opacity-15" />
       </div>
 
-      <div className="container mx-auto px-4 py-12 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div className="container mx-auto px-4 py-8 relative z-10">
+        {/* Labour Disruption Banner - Show when active */}
+        {isLabourDisruptionActive() && (
+          <div className="mb-6">
+            <LabourDisruptionBanner showDetails={true} />
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-2 gap-8 items-start">
           {/* Left Content - Text */}
-          <div className="space-y-6">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-5xl lg:text-5xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 bg-clip-text text-transparent animate-gradient-x">
                 Master High School
               </span>
               <br />
               <span className="text-gray-900">Math & Physics</span>
               <br />
-              <span className="text-gray-700 text-3xl md:text-4xl lg:text-5xl">
-                Your Way, Your Pace
+              <span className="text-gray-700 text-3xl md:text-3xl lg:text-4xl">
+                Your Way
               </span>
             </h1>
 
@@ -364,71 +375,95 @@ const HeroSection = () => {
               </div>
             </div>
 
-            {/* Important Notice Card with animated gradient border */}
-            <div className="relative bg-gradient-to-r from-teal-50 via-cyan-50 to-teal-50 p-6 rounded-xl shadow-sm overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 opacity-20 animate-gradient-x"></div>
-              <div className="relative">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-teal-700 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="font-semibold text-teal-900">Free for Grant-Funded Students • No Hidden Fees</p>
-                  <p className="text-sm text-teal-800 mt-1">
-                    If you're a Non-Primary, Home Education, or Summer School student in Alberta, courses are completely free through grant funding. We believe in transparent pricing with no surprise charges.
-                  </p>
-                  <Button
-                    onClick={() => window.location.href = '/student-faq#grantFunding'}
-                    variant="link"
-                    className="h-auto p-0 mt-2 text-teal-900 hover:text-teal-700 font-medium text-sm"
-                  >
-                    Learn more about grant funding eligibility →
-                  </Button>
-                </div>
-              </div>
-              </div>
-            </div>
+            {/* Grant Funding Accordion */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="grant-funding" className="border-teal-200 bg-gradient-to-r from-teal-50 via-cyan-50 to-teal-50">
+                <AccordionTrigger className="hover:bg-teal-50/50">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-teal-700" />
+                    <span className="text-teal-900 font-semibold">Free for Grant-Funded Students • No Hidden Fees</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="px-6 pb-4">
+                    <p className="text-sm text-teal-800 mb-3">
+                      If you're a Non-Primary, Home Education, or Summer School student in Alberta, courses are completely free through grant funding. We believe in transparent pricing with no surprise charges.
+                    </p>
+                    <Button
+                      onClick={() => window.location.href = '/student-faq#grantFunding'}
+                      variant="link"
+                      className="h-auto p-0 text-teal-900 hover:text-teal-700 font-medium text-sm"
+                    >
+                      Learn more about grant funding eligibility →
+                    </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
-            {/* Registration Deadline Card with gradient accent - Dynamic based on current period */}
-            <div className="relative bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 space-y-4 border border-gray-200 shadow-lg hover:shadow-xl transition-all group overflow-hidden">
+            {/* Important Dates Card with gradient accent - Dynamic based on date relevance */}
+            <div className="relative bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border border-gray-200 shadow-lg hover:shadow-xl transition-all group overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-teal-600" />
-                <h3 className="font-bold text-lg text-gray-900">{registrationStatus.schoolYearDisplay} - {registrationStatus.periodName}</h3>
-              </div>
-              <div className="space-y-2 pl-7">
-                {/* Display deadlines based on current period */}
-                {registrationStatus.currentPeriod === 'term1' && registrationStatus.activeDeadlines.deadline && (
-                  <p className="text-gray-700">
-                    <span className="font-semibold">Term 1 Deadline:</span> {registrationStatus.activeDeadlines.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                  </p>
-                )}
-
-                {registrationStatus.currentPeriod === 'term2' && registrationStatus.activeDeadlines.deadlines && (
+              <div className="space-y-2">
+                {/* Display relevant dates and messages */}
+                {relevantDates.length > 0 ? (
                   <>
-                    {registrationStatus.activeDeadlines.deadlines.map((deadline, idx) => (
-                      <p key={idx} className="text-gray-700">
-                        <span className="font-semibold">{deadline.label}:</span> {deadline.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                      </p>
+                    {relevantDates.map((item, idx) => (
+                      item.type === 'message' ? (
+                        // Display message item
+                        <div
+                          key={idx}
+                          className="bg-gradient-to-r from-teal-50 to-cyan-50 p-2 rounded-lg border border-teal-200 space-y-1"
+                        >
+                          <p className="text-sm text-teal-900 font-semibold flex items-center gap-2">
+                            <Info className="w-3 h-3" />
+                            {item.message}
+                          </p>
+                          {item.whatThisMeans && (
+                            <p className="text-xs text-teal-800 pl-5">
+                              {item.whatThisMeans}
+                            </p>
+                          )}
+                          {item.learnMoreLink && (
+                            <a
+                              href={item.learnMoreLink}
+                              className="text-xs text-teal-700 hover:text-teal-900 underline flex items-center gap-1 pl-5"
+                            >
+                              {item.learnMoreText || 'Learn more'} <ArrowRight className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        // Display date item
+                        <div
+                          key={idx}
+                          className={`${item.isPast ? 'opacity-60' : ''}`}
+                        >
+                          <p className={`text-sm ${item.isPast ? 'text-gray-500' : 'text-gray-700'}`}>
+                            <span className="font-semibold">{item.label}:</span> {item.formattedDate}
+                            {item.isPast && <span className="text-xs ml-2">(Passed)</span>}
+                          </p>
+                        </div>
+                      )
                     ))}
+
+                    {/* General calendar link */}
+                    <a
+                      href="/calendar"
+                      className="text-xs text-teal-700 hover:text-teal-900 underline flex items-center gap-1 mt-2"
+                    >
+                      View calendar for more information <ArrowRight className="w-3 h-3" />
+                    </a>
                   </>
+                ) : (
+                  <p className="text-xs text-gray-600">No upcoming important dates within the next 3 months</p>
                 )}
 
-                {registrationStatus.currentPeriod === 'summer' && registrationStatus.activeDeadlines.deadline && (
-                  <p className="text-gray-700">
-                    <span className="font-semibold">Summer Registration Deadline:</span> {registrationStatus.activeDeadlines.deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                  </p>
-                )}
-
-                {/* Message about current registration status */}
-                <p className="text-sm font-medium text-teal-700">
-                  {registrationStatus.message}
-                </p>
-
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-xs text-gray-600 italic pt-2">
                   Adult and International students can register anytime throughout the year
                 </p>
               </div>
             </div>
-
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -477,32 +512,32 @@ const HeroSection = () => {
 
           {/* Right Content - Hero Image */}
           <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-r from-teal-300 via-cyan-300 to-purple-300 rounded-2xl blur-3xl opacity-30 animate-pulse-slow"></div>
-            <img
-              src="/RTDAcademyWebsite/pasted-image-1758144484998.png"
-              alt="Happy Students Learning Online"
-              className="relative w-full h-auto rounded-2xl shadow-2xl"
-            />
-            {/* Stats Overlay with gradient background */}
-            <div className="absolute bottom-4 left-4 right-4 bg-gradient-to-r from-white/95 via-teal-50/95 to-white/95 backdrop-blur-lg rounded-xl p-4 shadow-xl border border-white/50">
-              <div className="flex justify-around text-center">
-                <div>
-                  <p className="text-2xl font-bold text-teal-700">15+</p>
-                  <p className="text-xs text-gray-600">Years of Expert Teaching</p>
-                </div>
-                <div className="border-l border-gray-200"></div>
-                <div>
-                  <p className="text-2xl font-bold text-teal-700">1000s</p>
-                  <p className="text-xs text-gray-600">Courses Completed</p>
-                </div>
-                <div className="border-l border-gray-200"></div>
-                <div>
-                  <p className="text-2xl font-bold text-teal-700">100%</p>
-                  <p className="text-xs text-gray-600">Flexible Learning</p>
+              <div className="absolute -inset-4 bg-gradient-to-r from-teal-300 via-cyan-300 to-purple-300 rounded-2xl blur-3xl opacity-30 animate-pulse-slow"></div>
+              <img
+                src="/RTDAcademyWebsite/pasted-image-1758144484998.png"
+                alt="Happy Students Learning Online"
+                className="relative w-full h-auto max-h-[520px] lg:max-h-[620px] object-contain object-top rounded-2xl shadow-2xl"
+              />
+              {/* Stats Overlay with gradient background */}
+              <div className="absolute bottom-4 left-4 right-4 bg-gradient-to-r from-white/95 via-teal-50/95 to-white/95 backdrop-blur-lg rounded-xl p-4 shadow-xl border border-white/50">
+                <div className="flex justify-around text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-teal-700">15+</p>
+                    <p className="text-xs text-gray-600">Years of Expert Teaching</p>
+                  </div>
+                  <div className="border-l border-gray-200"></div>
+                  <div>
+                    <p className="text-2xl font-bold text-teal-700">1000s</p>
+                    <p className="text-xs text-gray-600">Courses Completed</p>
+                  </div>
+                  <div className="border-l border-gray-200"></div>
+                  <div>
+                    <p className="text-2xl font-bold text-teal-700">100%</p>
+                    <p className="text-xs text-gray-600">Flexible Learning</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
         </div>
 
         {/* Scroll Indicator */}
@@ -1109,7 +1144,7 @@ const HelpfulToolsSection = () => {
                 Interactive flowchart showing course prerequisites and pathways for Alberta high school courses
               </p>
               <Button
-                onClick={() => window.location.href = '/prerequisite-flowchart'}
+                onClick={() => window.location.href = '/prerequisites'}
                 className="w-full bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white group"
               >
                 View Flowchart
@@ -1222,7 +1257,8 @@ const ExperienceSection = () => {
 
 // Academic Calendar CTA Section Component
 const AcademicCalendarSection = () => {
-  const registrationStatus = getRegistrationStatus();
+  const currentYear = new Date().getFullYear();
+  const schoolYearDisplay = `${currentYear}-${currentYear + 1}`;
 
   return (
     <section id="academic-calendar" className="py-20 bg-gradient-to-br from-teal-50/30 via-white to-cyan-50/30 relative overflow-hidden">
@@ -1238,7 +1274,7 @@ const AcademicCalendarSection = () => {
           <div className="inline-block mb-6">
             <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full">
               <Calendar className="w-5 h-5 text-white" />
-              <span className="text-white font-semibold">{registrationStatus.schoolYearDisplay} School Year</span>
+              <span className="text-white font-semibold">{schoolYearDisplay} School Year</span>
             </div>
           </div>
 
@@ -1516,7 +1552,7 @@ const CoursesSection = () => {
                     and plan your academic journey from Grade 10 through graduation.
                   </p>
                   <Button
-                    onClick={() => window.location.href = '/prerequisite-flowchart'}
+                    onClick={() => window.location.href = '/prerequisites'}
                     className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-md"
                   >
                     <BookOpen className="w-4 h-4 mr-2" />
@@ -1704,7 +1740,6 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-600">
               <li><a href="#courses" className="hover:text-teal-700 transition-colors">Courses</a></li>
               <li><a href="/about" className="hover:text-teal-700 transition-colors">About Us</a></li>
-              <li><a href="/contact" className="hover:text-teal-700 transition-colors">Contact</a></li>
               <li><a href="/student-faq" className="hover:text-teal-700 transition-colors">Student FAQ</a></li>
               <li><a href="/policies-reports" className="hover:text-teal-700 transition-colors">Policies & Reports</a></li>
               <li><a href="https://yourway.rtdacademy.com/login" className="hover:text-teal-700 transition-colors">Student Login</a></li>
@@ -1794,9 +1829,6 @@ const Footer = () => {
 // Main Landing Page Component
 const RTDLandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
-
-  // Get dynamic registration status
-  const registrationStatus = getRegistrationStatus();
 
   useEffect(() => {
     const handleScroll = () => {

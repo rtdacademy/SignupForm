@@ -354,7 +354,7 @@ function MainApp() {
           </PublicRoute>
         } />
 
-        <Route path="/prerequisite-flowchart" element={
+        <Route path="/prerequisites" element={
           <PublicRoute>
             <FlowChartPrerequisites />
           </PublicRoute>

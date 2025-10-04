@@ -12,6 +12,8 @@ import { Clock, Calendar, Home, AlertCircle, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { websiteConfig } from '../websiteConfig';
 import RTDConnectPromo from './RTDConnectPromo';
+import { isLabourDisruptionActive } from '../../config/calendarConfig';
+import LabourDisruptionBanner from '../../components/LabourDisruptionBanner';
 
 const HomeEducationStudentsFAQ = () => {
   const categoryData = websiteConfig.categories.homeEducation;
@@ -27,6 +29,13 @@ const HomeEducationStudentsFAQ = () => {
         <h2 className="text-3xl font-bold mb-2">{categoryData.title}</h2>
         <p className="text-muted-foreground">{categoryData.description}</p>
       </div>
+
+      {/* Labour Disruption Banner - Same for all students */}
+      {isLabourDisruptionActive() && (
+        <div className="mb-6">
+          <LabourDisruptionBanner showDetails={true} />
+        </div>
+      )}
 
       {/* Quick Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

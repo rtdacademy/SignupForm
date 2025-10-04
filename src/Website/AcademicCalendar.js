@@ -3,7 +3,7 @@ import React from 'react';
 import { Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import AcademicCalendarComponent from './components/AcademicCalendarComponent';
+import AcademicCalendarCustom from './components/AcademicCalendarCustom';
 import { getRegistrationStatus } from './websiteConfig';
 
 // RTD Logo Component
@@ -78,10 +78,10 @@ const AcademicCalendarPage = () => {
         <div className="container mx-auto px-4 relative z-10">
           {/* Calendar Component */}
           <div className="max-w-7xl mx-auto">
-            <AcademicCalendarComponent
-              className="shadow-2xl"
-              defaultView="month"
-              showToolbar={true}
+            <AcademicCalendarCustom
+              userRole="public"
+              dateRangeMonths={6}
+              className="bg-white rounded-xl p-6 shadow-2xl"
             />
           </div>
 

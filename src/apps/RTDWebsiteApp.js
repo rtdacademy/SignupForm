@@ -1,17 +1,17 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import ScrollToTop from '../components/ScrollToTop';
 import PageLoader from '../components/PageLoader';
+import AcademicCalendar from '../Website/AcademicCalendar';
 
 // Lazy load all website components for better performance
 const RTDLandingPage = lazy(() => import('../Website/RTDLandingPage'));
 const AdultStudentInfo = lazy(() => import('../Website/AdultStudentInfo'));
 const InternationalStudentInfo = lazy(() => import('../Website/InternationalStudentInfo'));
 const StudentFAQ = lazy(() => import('../Website/StudentFAQ'));
-const ContactPage = lazy(() => import('../Website/ContactPage'));
 const GetStartedNow = lazy(() => import('../Website/GetStartedNow'));
 const PoliciesAndReports = lazy(() => import('../Website/PoliciesAndReports'));
-const AcademicCalendar = lazy(() => import('../Website/AcademicCalendar'));
+// const AcademicCalendar = lazy(() => import('../Website/AcademicCalendar')); // Changed to normal import for speed testing
 const OpenCoursesEntry = lazy(() => import('../OpenCourses/OpenCoursesEntry'));
 const OpenCoursesDashboard = lazy(() => import('../OpenCourses/OpenCoursesDashboard'));
 const OpenCourseViewer = lazy(() => import('../OpenCourses/OpenCourseViewer'));
@@ -30,6 +30,36 @@ const ConflictOfInterestPolicy = lazy(() => import('../Website/Policies/Conflict
 const MobileDevicePolicy = lazy(() => import('../Website/Policies/MobileDevicePolicy'));
 
 function RTDWebsiteApp() {
+  // Initialize Crisp Chat for website only
+  useEffect(() => {
+    // Initialize Crisp
+    window.$crisp = [];
+    window.CRISP_WEBSITE_ID = "e35b0a24-b040-4122-b990-fc721c10cf80";
+
+    // Create and append the script
+    const script = document.createElement("script");
+    script.src = "https://client.crisp.chat/l.js";
+    script.async = true;
+    document.head.appendChild(script);
+
+    // Cleanup function
+    return () => {
+      // Remove the script when component unmounts
+      const scripts = document.querySelectorAll('script[src="https://client.crisp.chat/l.js"]');
+      scripts.forEach(s => s.remove());
+
+      // Clean up Crisp variables
+      delete window.$crisp;
+      delete window.CRISP_WEBSITE_ID;
+
+      // Remove Crisp chat widget if it exists
+      const crispContainer = document.getElementById('crisp-chatbox');
+      if (crispContainer) {
+        crispContainer.remove();
+      }
+    };
+  }, []);
+
   return (
     <div className="RTDWebsiteApp">
       <ScrollToTop />
@@ -42,7 +72,6 @@ function RTDWebsiteApp() {
           <Route path="/adult-students" element={<AdultStudentInfo />} />
           <Route path="/international-students" element={<InternationalStudentInfo />} />
           <Route path="/student-faq" element={<StudentFAQ />} />
-          <Route path="/contact" element={<ContactPage />} />
           <Route path="/calendar" element={<AcademicCalendar />} />
 
           {/* Registration */}

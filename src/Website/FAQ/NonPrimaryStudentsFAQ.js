@@ -10,6 +10,8 @@ import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Clock, Calendar, Info, AlertCircle, GraduationCap, Circle } from 'lucide-react';
 import { websiteConfig } from '../websiteConfig';
+import { isLabourDisruptionActive } from '../../config/calendarConfig';
+import LabourDisruptionBanner from '../../components/LabourDisruptionBanner';
 
 const NonPrimaryStudentsFAQ = () => {
   const categoryData = websiteConfig.categories.nonPrimary;
@@ -25,6 +27,13 @@ const NonPrimaryStudentsFAQ = () => {
         <h2 className="text-3xl font-bold mb-2">{categoryData.title}</h2>
         <p className="text-muted-foreground">{categoryData.description}</p>
       </div>
+
+      {/* Labour Disruption Banner */}
+      {isLabourDisruptionActive() && (
+        <div className="mb-6">
+          <LabourDisruptionBanner showDetails={true} />
+        </div>
+      )}
 
       {/* Quick Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -62,8 +71,12 @@ const NonPrimaryStudentsFAQ = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-semibold">{websiteConfig.credits.maxCreditsPerYear} Credits</p>
-            <p className="text-xs text-muted-foreground">Free per school year</p>
+            <p className="font-semibold">
+              {isLabourDisruptionActive() ? 'Unlimited*' : `${websiteConfig.credits.maxCreditsPerYear} Credits`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isLabourDisruptionActive() ? '*During labour disruption' : 'Free per school year'}
+            </p>
           </CardContent>
         </Card>
       </div>

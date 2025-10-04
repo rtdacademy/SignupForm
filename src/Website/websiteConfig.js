@@ -12,7 +12,8 @@ import {
   formatImportantDate,
   getCurrentRegistrationPeriod,
   getActiveDeadlines,
-  getRegistrationStatus
+  getRegistrationStatus,
+  getRelevantDates
 } from '../config/calendarConfig';
 
 import {
@@ -112,7 +113,7 @@ export const websiteConfig = {
         },
         {
           question: 'What prerequisites are needed for high school courses?',
-          answer: `Prerequisites vary by course level and subject. **[View our interactive prerequisite flowchart here](/prerequisite-flowchart)** to see the complete pathway through Alberta high school courses.
+          answer: `Prerequisites vary by course level and subject. **[View our interactive prerequisite flowchart here](/prerequisites)** to see the complete pathway through Alberta high school courses.
 
 **Grade ${config.grades.highSchoolStart} Courses:**
 - Generally require Grade ${config.grades.highSchoolStart - 1} completion or equivalent knowledge
@@ -971,25 +972,64 @@ This is ideal for international learners who may have different academic calenda
     },
 
     teacherStrike: {
-      title: 'Teacher Strike Information',
+      title: 'Labour Disruption - Temporary Policy Changes',
       icon: 'Info',
-      description: 'Important information about how the ATA teacher strike affects RTD Academy students',
-      color: '#DC2626', // Red
+      description: 'Important information about temporary changes to registration deadlines and credit limits for Non-Primary students during the labour disruption in Alberta',
+      color: '#2563EB', // Blue
       faqs: [
         {
-          question: 'Is RTD Academy affected by the teachers\' strike?',
-          answer: `No, RTD Academy is not affected by the ATA teachers' strike. As an independent online school, all our courses, resources, and teacher support will continue to be fully available without interruption.`,
-          priority: 'low'
+          question: 'What temporary changes are in effect for Non-Primary students due to the labour disruption?',
+          answer: `Alberta Education has implemented temporary changes for Non-Primary students during the labour disruption:
+
+**For Non-Primary Students:**
+- September count date for enrollment is lifted - you can register for Term 1 anytime, or chose a later end date (like June)
+- The 10-credit cap is lifted - you can take unlimited courses!
+
+These are temporary measures that will be removed when the labour disruption ends.`,
+          priority: 'high'
         },
         {
-          question: 'Will my courses and teacher support continue during the strike?',
-          answer: `Yes, absolutely. All RTD Academy courses will continue as usual, and your teachers will remain fully available to support you throughout any potential strike action. There will be no disruption to your learning.`,
-          priority: 'low'
+          question: 'I thought registration closed after September count - can I still register for Term 1 as a Non-Primary student?',
+          answer: `Yes! This is the great news from Alberta Education for Non-Primary students. During the labour disruption, the September count enrollment deadline has been lifted. This means:
+
+- Non-Primary students can register for Term 1 courses at any time
+- There's no deadline to worry about
+- Take advantage of this flexible registration period
+
+**Plus, you have even more flexibility:** If Term 1 (ending January 31) feels too short, you can simply choose a later end date when registering! For example, you could register now and select June as your end date to become a "full-year student." This usually doesn't matter for most students, but gives you the option to work at your own pace.`,
+          priority: 'high'
         },
         {
-          question: 'Why is RTD Academy not affected by the strike?',
-          answer: `RTD Academy is an independent school, which means we operate separately from the public school system. The ATA (Alberta Teachers' Association) strike only affects teachers in public and separate school divisions, not independent schools like ours.`,
-          priority: 'low'
+          question: 'Can Non-Primary students really take more than 10 credits now?',
+          answer: `Yes! During the labour disruption, the 10-credit cap for Distance Education Non-Primary students has been lifted. This means:
+
+- Non-Primary students can take as many courses as they want
+- No limit on the number of free courses through grant funding
+- This applies during the labour disruption period only`,
+          priority: 'high'
+        },
+        {
+          question: 'Can I choose to take longer than Term 1 to complete my courses?',
+          answer: `Absolutely! You have complete flexibility with your end date:
+
+- **Term 1 option:** Finish by January 31
+- **Full-year option:** Choose June as your end date and work at your own pace
+- **Custom timeline:** Select any end date that works for you
+
+When you register, simply select a later end date and you'll be considered a "full-year student." This usually doesn't matter for most students - it just gives you more time to work through the material at your own pace.`,
+          priority: 'high'
+        },
+ 
+        {
+          question: 'Is RTD Academy affected by the labour disruption?',
+          answer: `RTD Academy continues to operate normally during the labour disruption. As an independent online school:
+
+- All courses remain fully available
+- Teachers continue to provide full support
+- No interruption to your learning
+
+The temporary policy changes from Alberta Education actually provide MORE flexibility for Non-Primary students during this time.`,
+          priority: 'medium'
         }
       ]
     }
@@ -1166,6 +1206,6 @@ export const getImportantDates = () => {
 };
 
 // Export dynamic registration functions for use on landing page
-export { getRegistrationStatus, getCurrentRegistrationPeriod, getActiveDeadlines };
+export { getRegistrationStatus, getCurrentRegistrationPeriod, getActiveDeadlines, getRelevantDates };
 
 export default websiteConfig;

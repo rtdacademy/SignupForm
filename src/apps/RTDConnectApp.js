@@ -67,7 +67,7 @@ function RTDConnectApp() {
         {/* Legal pages */}
         <Route path="/privacy" element={<PrivacyStatement />} />
         <Route path="/terms" element={<TermsAndConditions />} />
-        <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
+        <Route path="/prerequisites" element={<FlowChartPrerequisites />} />
         
         <Route path="/login" element={
           user && isHomeEducationParent ? <Navigate to="/dashboard" /> : <RTDConnectLogin />

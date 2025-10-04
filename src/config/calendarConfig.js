@@ -21,12 +21,33 @@ import schoolYear_2025_26 from './schoolYears/2025-26';
 import schoolYear_2026_27 from './schoolYears/2026-27';
 import schoolYear_2027_28 from './schoolYears/2027-28';
 
+// Import diploma deadline calendar events
+import { createDiplomaDeadlineCalendarEvents } from './diplomaDates';
+
 // =============================================================================
 // CURRENT SCHOOL YEAR
 // =============================================================================
 // UPDATE THESE VALUES AT THE START OF EACH SCHOOL YEAR
 export const CURRENT_SCHOOL_YEAR = '25/26';
 export const NEXT_SCHOOL_YEAR = '26/27';
+
+// =============================================================================
+// LABOUR DISRUPTION CONFIGURATION
+// =============================================================================
+// Temporary changes during Alberta labour disruption
+// SET TO false WHEN DISRUPTION ENDS to restore normal deadlines and limits
+export const LABOUR_DISRUPTION_ACTIVE = true;
+export const LABOUR_DISRUPTION_INFO = {
+  active: true,
+  effectiveDate: 'January 2026',
+  source: 'Alberta Education',
+  changes: {
+    septemberCountLifted: true,             // No enrollment deadline (ALL students)
+    creditCapLiftedNonPrimary: true,        // No 10-credit limit for Distance Ed Non-Primary ONLY
+    homeEducationKeepsLimit: true           // Home Education students STILL have 10-credit cap
+  },
+  message: 'September count deadline lifted for all students; 10-credit cap lifted for Non-Primary students only'
+};
 
 // =============================================================================
 // TERM/SEMESTER CONFIGURATION
@@ -62,14 +83,31 @@ export const TERMS = {
 };
 
 // =============================================================================
+// LANDING PAGE CONFIGURATION
+// =============================================================================
+export const LANDING_PAGE_CONFIG = {
+  showFutureMonths: 3,    // Show dates up to 3 months ahead
+  showPastDays: 7,        // Show dates up to 7 days past
+};
+
+// =============================================================================
 // IMPORTANT DATES BY SCHOOL YEAR
 // =============================================================================
 // Built from imported school year configurations
+// Note: importantDates is now an array, but we also have importantDatesLookup for backward compatibility
 const IMPORTANT_DATES = {
-  '24/25': schoolYear_2024_25.importantDates,
-  '25/26': schoolYear_2025_26.importantDates,
-  '26/27': schoolYear_2026_27.importantDates,
-  '27/28': schoolYear_2027_28.importantDates
+  '24/25': schoolYear_2024_25.importantDatesLookup || schoolYear_2024_25.importantDates,
+  '25/26': schoolYear_2025_26.importantDatesLookup,
+  '26/27': schoolYear_2026_27.importantDatesLookup || schoolYear_2026_27.importantDates,
+  '27/28': schoolYear_2027_28.importantDatesLookup || schoolYear_2027_28.importantDates
+};
+
+/**
+ * Checks if labour disruption is currently active
+ * @returns {boolean} True if labour disruption policies are in effect
+ */
+export const isLabourDisruptionActive = () => {
+  return LABOUR_DISRUPTION_ACTIVE && LABOUR_DISRUPTION_INFO.active;
 };
 
 /**
@@ -234,9 +272,14 @@ export const getAllSeptemberCountDates = () => {
  * Checks if a September count date has passed for a given school year
  * @param {string} schoolYear - School year in YY/YY format
  * @param {Date} referenceDate - Reference date to compare against (defaults to today)
- * @returns {boolean} True if the date has passed
+ * @returns {boolean} True if the date has passed (always false during labour disruption)
  */
 export const hasSeptemberCountPassed = (schoolYear, referenceDate = new Date()) => {
+  // During labour disruption, September count deadline is lifted
+  if (isLabourDisruptionActive()) {
+    return false;
+  }
+
   const countDate = getSeptemberCountForYear(schoolYear);
   return countDate ? referenceDate > countDate : false;
 };
@@ -255,9 +298,14 @@ export const getRegistrationOpenDateForYear = (schoolYear) => {
  * Checks if registration is open for a given school year
  * @param {string} schoolYear - School year in YY/YY format
  * @param {Date} referenceDate - Reference date to compare against (defaults to today)
- * @returns {boolean} True if registration is open
+ * @returns {boolean} True if registration is open (always true for current year during labour disruption)
  */
 export const isRegistrationOpen = (schoolYear, referenceDate = new Date()) => {
+  // During labour disruption, registration is always open for current school year
+  if (isLabourDisruptionActive() && schoolYear === CURRENT_SCHOOL_YEAR) {
+    return true;
+  }
+
   const openDate = getRegistrationOpenDateForYear(schoolYear);
   return openDate ? referenceDate >= openDate : false;
 };
@@ -569,9 +617,10 @@ export const getFormattedImportantDates = (schoolYear) => {
 /**
  * Gets calendar events for a specific school year
  * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @param {string} userRole - User role for filtering ('public', 'staff', 'admin')
  * @returns {Array} Array of calendar events
  */
-export const getCalendarEventsForYear = (schoolYear) => {
+export const getCalendarEventsForYear = (schoolYear, userRole = 'public') => {
   const configs = {
     '24/25': schoolYear_2024_25,
     '25/26': schoolYear_2025_26,
@@ -579,28 +628,88 @@ export const getCalendarEventsForYear = (schoolYear) => {
     '27/28': schoolYear_2027_28
   };
 
-  return configs[schoolYear]?.calendarEvents || [];
+  const events = configs[schoolYear]?.calendarEvents || [];
+
+  // Get diploma deadline events for this school year
+  const diplomaEvents = createDiplomaDeadlineCalendarEvents(schoolYear);
+
+  // Combine regular events with diploma deadline events
+  const allEvents = [...events, ...diplomaEvents];
+
+  // Apply visibility filtering
+  if (configs[schoolYear]?.filterEventsByVisibility) {
+    return configs[schoolYear].filterEventsByVisibility(allEvents, userRole);
+  }
+
+  return allEvents;
 };
 
 /**
  * Gets all calendar events across all school years
+ * @param {string} userRole - User role for filtering ('public', 'staff', 'admin')
  * @returns {Array} Array of all calendar events
  */
-export const getAllCalendarEvents = () => {
-  return [
+export const getAllCalendarEvents = (userRole = 'public') => {
+  const allEvents = [
     ...schoolYear_2024_25.calendarEvents,
     ...schoolYear_2025_26.calendarEvents,
     ...schoolYear_2026_27.calendarEvents,
-    ...schoolYear_2027_28.calendarEvents
+    ...schoolYear_2027_28.calendarEvents,
+    // Add diploma deadline events for all years
+    ...createDiplomaDeadlineCalendarEvents('24/25'),
+    ...createDiplomaDeadlineCalendarEvents('25/26'),
+    ...createDiplomaDeadlineCalendarEvents('26/27'),
+    ...createDiplomaDeadlineCalendarEvents('27/28')
   ];
+
+  // Apply visibility filtering using the filter function from any year (they're all the same)
+  if (schoolYear_2025_26.filterEventsByVisibility) {
+    return schoolYear_2025_26.filterEventsByVisibility(allEvents, userRole);
+  }
+
+  return allEvents;
+};
+
+/**
+ * Converts message items from importantDates to calendar events
+ * @param {string} schoolYear - School year in YY/YY format
+ * @returns {Array} Array of calendar events created from messages
+ */
+const convertMessagesToCalendarEvents = (schoolYear) => {
+  const itemsArray = getImportantDatesArrayForYear(schoolYear);
+
+  return itemsArray
+    .filter(item => item.type === 'message' && item.showOnLanding)
+    .map(item => {
+      // Calculate end date as start date + 1 day for single-day display
+      const endDate = new Date(item.showFrom);
+      endDate.setDate(endDate.getDate() + 1);
+
+      return {
+        id: item.key,
+        title: item.message,
+        start: item.showFrom,
+        end: endDate, // Single day event
+        type: 'announcement',
+        visibility: 'public',
+        description: item.message,
+        ...(item.link && { link: item.link })
+      };
+    });
 };
 
 /**
  * Gets calendar events for the current school year
+ * @param {string} userRole - User role for filtering ('public', 'staff', 'admin')
  * @returns {Array} Array of calendar events for current year
  */
-export const getCurrentSchoolYearEvents = () => {
-  return getCalendarEventsForYear(CURRENT_SCHOOL_YEAR);
+export const getCurrentSchoolYearEvents = (userRole = 'public') => {
+  const regularEvents = getCalendarEventsForYear(CURRENT_SCHOOL_YEAR, userRole);
+  const messageEvents = convertMessagesToCalendarEvents(CURRENT_SCHOOL_YEAR);
+  // Note: diploma events are already included in getCalendarEventsForYear
+
+  // Combine regular events with message events
+  return [...regularEvents, ...messageEvents];
 };
 
 /**
@@ -617,6 +726,87 @@ export const getEventTypes = (schoolYear = CURRENT_SCHOOL_YEAR) => {
   };
 
   return configs[schoolYear]?.eventTypes || schoolYear_2025_26.eventTypes;
+};
+
+// =============================================================================
+// LANDING PAGE DATE HELPERS
+// =============================================================================
+
+/**
+ * Gets important dates array for a specific school year
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {Array} Array of important date objects
+ */
+export const getImportantDatesArrayForYear = (schoolYear) => {
+  const configs = {
+    '24/25': schoolYear_2024_25,
+    '25/26': schoolYear_2025_26,
+    '26/27': schoolYear_2026_27,
+    '27/28': schoolYear_2027_28
+  };
+
+  return configs[schoolYear]?.importantDates || [];
+};
+
+/**
+ * Gets important dates relevant to display on landing page
+ * @param {Date} referenceDate - Reference date (defaults to today)
+ * @param {Object} options - Optional config { futureMonths, pastDays }
+ * @returns {Array} Relevant dates and messages with status
+ */
+export const getRelevantDates = (referenceDate = new Date(), options = {}) => {
+  const {
+    futureMonths = LANDING_PAGE_CONFIG.showFutureMonths,
+    pastDays = LANDING_PAGE_CONFIG.showPastDays
+  } = options;
+
+  // Calculate date ranges for date items
+  const futureDate = new Date(referenceDate);
+  futureDate.setMonth(futureDate.getMonth() + futureMonths);
+
+  const pastDate = new Date(referenceDate);
+  pastDate.setDate(pastDate.getDate() - pastDays);
+
+  // Get current school year's important dates (now an array with messages and dates)
+  const currentYear = getCurrentSchoolYear();
+  const itemsArray = getImportantDatesArrayForYear(currentYear);
+
+  // Filter and enrich items based on type
+  return itemsArray
+    .filter(item => {
+      if (!item.showOnLanding) return false;
+
+      // For message items: check if within show range
+      if (item.type === 'message') {
+        return referenceDate >= item.showFrom && referenceDate <= item.showUntil;
+      }
+
+      // For date items: check if within future/past range (existing logic)
+      if (item.type === 'date') {
+        return item.date >= pastDate && item.date <= futureDate;
+      }
+
+      return false;
+    })
+    .map(item => ({
+      ...item,
+      // Only add date-specific properties for date items
+      ...(item.type === 'date' && {
+        isPast: item.date < referenceDate,
+        isUpcoming: item.date >= referenceDate,
+        formattedDate: formatImportantDate(item.date, { month: 'long', day: 'numeric' })
+      })
+    }))
+    .sort((a, b) => {
+      // Sort messages before dates
+      if (a.type === 'message' && b.type === 'date') return -1;
+      if (a.type === 'date' && b.type === 'message') return 1;
+
+      // Sort by date/showFrom
+      const aDate = a.date || a.showFrom;
+      const bDate = b.date || b.showFrom;
+      return aDate - bDate;
+    });
 };
 
 // =============================================================================
@@ -867,6 +1057,12 @@ export default {
   // Configuration exports
   TERMS,
   IMPORTANT_DATES,
+  LANDING_PAGE_CONFIG,
+  LABOUR_DISRUPTION_INFO,
+
+  // Landing page utilities
+  getImportantDatesArrayForYear,
+  getRelevantDates,
 
   // Date utilities
   getCurrentSchoolYear,
@@ -892,6 +1088,9 @@ export default {
   getTermStartDate,
   getTermEndDate,
   getFormattedImportantDates,
+
+  // Labour disruption utilities
+  isLabourDisruptionActive,
 
   // Calendar event utilities
   getCalendarEventsForYear,

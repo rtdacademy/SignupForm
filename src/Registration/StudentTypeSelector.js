@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { getStudentTypeInfo, STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
 import { GraduationCap, Home, Sun, User, Globe } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { isLabourDisruptionActive } from '../config/calendarConfig';
 
 const questions = [
   {
@@ -164,7 +165,10 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     
     if (typeof nextStep === 'string') {
       // Check if student is at credit limit for Non-Primary or Home Education
-      const atCreditLimit = creditData?.nonExemptCredits >= 10;
+      // During labour disruption: Non-Primary has unlimited credits, Home Education keeps 10-credit cap
+      const atCreditLimit = creditData?.nonExemptCredits >= 10 &&
+        (nextStep === 'Home Education' || (nextStep === 'Non-Primary' && !isLabourDisruptionActive()));
+
       if (atCreditLimit && (nextStep === 'Non-Primary' || nextStep === 'Home Education')) {
         setError(`You have used all 10 free credits for ${currentSchoolYear}. Please select "Adult Student" to register for additional courses (payment required).`);
         // Automatically select Adult Student instead
@@ -290,7 +294,9 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
 
   const renderDirectSelectContent = () => {
     // Check if Non-Primary or Home Education should be disabled
-    const atCreditLimit = creditData?.nonExemptCredits >= 10;
+    // During labour disruption: Non-Primary has unlimited credits, Home Education keeps 10-credit cap
+    const atCreditLimitNonPrimary = isLabourDisruptionActive() ? false : (creditData?.nonExemptCredits >= 10);
+    const atCreditLimitHomeEd = creditData?.nonExemptCredits >= 10;
     const remainingCredits = creditData ? Math.max(0, 10 - creditData.nonExemptCredits) : 10;
     
     return (
@@ -319,8 +325,9 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
             {STUDENT_TYPE_OPTIONS.map((type) => {
               const { color, icon: Icon } = getStudentTypeInfo(type.value);
               // Check if this option should be disabled
-              const isDisabled = atCreditLimit && 
-                (type.value === 'Non-Primary' || type.value === 'Home Education');
+              const isDisabled =
+                (type.value === 'Non-Primary' && atCreditLimitNonPrimary) ||
+                (type.value === 'Home Education' && atCreditLimitHomeEd);
               
               return (
                 <div 
@@ -339,6 +346,7 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
                   }}
                   onClick={() => {
                     if (isDisabled) {
+                      const studentTypeLabel = type.value === 'Home Education' ? 'Home Education' : 'Non-Primary';
                       setError(`You have used all 10 free credits for ${currentSchoolYear}. Please select "Adult Student" to register for additional courses (payment required).`);
                     }
                   }}
@@ -365,6 +373,11 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
                         {isDisabled && (
                           <span className="ml-2 text-xs text-orange-600 font-normal">
                             (Credit limit reached)
+                          </span>
+                        )}
+                        {!isDisabled && type.value === 'Non-Primary' && isLabourDisruptionActive() && (
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Unlimited credits during disruption)
                           </span>
                         )}
                       </span>

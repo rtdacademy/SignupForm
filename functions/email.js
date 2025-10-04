@@ -846,6 +846,32 @@ const sendCourseEmail = async (sgMail, studentKey, studentEmail, courseId, cours
   });
 };
 
+// Helper function to add student notes for course emails
+const addCourseEmailNote = async (db, studentKey, courseId, courseName, noteContent, noteType = '📧', emailId = null) => {
+  try {
+    await db.ref(`students/${studentKey}/courses/${courseId}/jsonStudentNotes`)
+      .transaction((currentNotes) => {
+        const notesArray = Array.isArray(currentNotes) ? currentNotes : [];
+        const newNote = {
+          id: emailId ? `email-note-${emailId}` : `note-${Date.now()}`,
+          content: noteContent,
+          timestamp: Date.now(),
+          author: 'RTD Academy',
+          noteType,
+          metadata: {
+            type: 'email',
+            courseId,
+            courseName,
+            ...(emailId && { emailId })
+          }
+        };
+        return [newNote, ...notesArray];
+      });
+  } catch (error) {
+    console.error(`Error adding student note for ${studentKey}:`, error);
+  }
+};
+
 // Helper functions for course email notifications
 const getStaffEmails = async (db, courseId) => {
   const [teachersSnapshot, supportStaffSnapshot] = await Promise.all([
@@ -902,9 +928,9 @@ const checkCourseDatesV2 = onSchedule({
 
     const processDates = async (snapshot, type) => {
       if (!snapshot.exists()) return;
-      
+
       const notifications = snapshot.val();
-      
+
       for (const [studentKey, data] of Object.entries(notifications)) {
         try {
           const { courseId, studentEmail } = data;
@@ -912,6 +938,28 @@ const checkCourseDatesV2 = onSchedule({
           // Get course title
           const courseTitleSnapshot = await db.ref(`courses/${courseId}/Title`).once('value');
           const courseName = courseTitleSnapshot.val();
+
+          // Validate student is still resuming on this date
+          const summaryKey = `${studentKey}_${courseId}`;
+          const statusSnapshot = await db.ref(`studentCourseSummaries/${summaryKey}/Status_Value`).once('value');
+          const currentStatus = statusSnapshot.val();
+
+          // Check if status is still "Resuming on (date)"
+          if (!currentStatus || !currentStatus.startsWith('Resuming on (date)')) {
+            console.log(`Skipping email for ${studentKey} - status changed from resuming. Current status: ${currentStatus}`);
+
+            // Add note that email was canceled
+            await addCourseEmailNote(
+              db,
+              studentKey,
+              courseId,
+              courseName,
+              `Resuming on email canceled - student no longer resuming. Current status: ${currentStatus || 'none'}`,
+              '❌'
+            );
+
+            continue; // Skip to next student
+          }
 
           // Get staff emails
           const staffEmails = await getStaffEmails(db, courseId);
@@ -926,6 +974,7 @@ const checkCourseDatesV2 = onSchedule({
           }
 
           // Send email - pass sgMail instance
+          const emailId = db.ref('emails').push().key;
           await sendCourseEmail(
             sgMail,
             studentKey,
@@ -934,6 +983,18 @@ const checkCourseDatesV2 = onSchedule({
             courseName,
             ccList,
             type
+          );
+
+          // Add note that email was sent
+          const emailType = type === 'upcoming' ? 'upcoming (2 days)' : 'starting today';
+          await addCourseEmailNote(
+            db,
+            studentKey,
+            courseId,
+            courseName,
+            `Resuming on email sent: ${courseName} (${emailType})`,
+            '📧',
+            emailId
           );
 
         } catch (emailError) {
@@ -983,6 +1044,7 @@ const testCheckCourseDatesV2 = onRequest({
       testDate: formattedTestDate,
       twoDayNotice: formattedTwoDays,
       emailsSent: [],
+      emailsSkipped: [],
       errors: []
     };
 
@@ -994,9 +1056,9 @@ const testCheckCourseDatesV2 = onRequest({
 
     const processTestDates = async (snapshot, type) => {
       if (!snapshot.exists()) return;
-      
+
       const notifications = snapshot.val();
-      
+
       for (const [studentKey, data] of Object.entries(notifications)) {
         try {
           const { courseId, studentEmail } = data;
@@ -1004,6 +1066,38 @@ const testCheckCourseDatesV2 = onRequest({
           // Get course title
           const courseTitleSnapshot = await db.ref(`courses/${courseId}/Title`).once('value');
           const courseName = courseTitleSnapshot.val();
+
+          // Validate student is still resuming on this date
+          const summaryKey = `${studentKey}_${courseId}`;
+          const statusSnapshot = await db.ref(`studentCourseSummaries/${summaryKey}/Status_Value`).once('value');
+          const currentStatus = statusSnapshot.val();
+
+          // Check if status is still "Resuming on (date)"
+          if (!currentStatus || !currentStatus.startsWith('Resuming on (date)')) {
+            console.log(`Skipping email for ${studentKey} - status changed from resuming. Current status: ${currentStatus}`);
+
+            results.emailsSkipped.push({
+              type,
+              studentEmail,
+              courseId,
+              courseName,
+              currentStatus: currentStatus || 'none',
+              reason: 'Status no longer resuming',
+              resumingDate: type === 'upcoming' ? formattedTwoDays : formattedTestDate
+            });
+
+            // Add note that email was canceled
+            await addCourseEmailNote(
+              db,
+              studentKey,
+              courseId,
+              courseName,
+              `Resuming on email canceled (TEST) - student no longer resuming. Current status: ${currentStatus || 'none'}`,
+              '❌'
+            );
+
+            continue; // Skip to next student
+          }
 
           // Get staff emails
           const staffEmails = await getStaffEmails(db, courseId);
@@ -1018,6 +1112,7 @@ const testCheckCourseDatesV2 = onRequest({
           }
 
           // Send email - pass sgMail instance
+          const emailId = db.ref('emails').push().key;
           await sendCourseEmail(
             sgMail,
             studentKey,
@@ -1026,6 +1121,18 @@ const testCheckCourseDatesV2 = onRequest({
             courseName,
             ccList,
             type
+          );
+
+          // Add note that email was sent
+          const emailType = type === 'upcoming' ? 'upcoming (2 days)' : 'starting today';
+          await addCourseEmailNote(
+            db,
+            studentKey,
+            courseId,
+            courseName,
+            `Resuming on email sent (TEST): ${courseName} (${emailType})`,
+            '📧',
+            emailId
           );
 
           results.emailsSent.push({

@@ -42,7 +42,7 @@ const SessionTimeoutWarning = () => {
     '/parent-login',
     '/aerr/2023-24',
     '/education-plan/2025-26',
-    '/prerequisite-flowchart',
+    '/prerequisites',
     '/parent-verify-email',
     '/rtd-learning-login',
     '/rtd-learning-admin-login',

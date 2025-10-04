@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { isLabourDisruptionActive } from '../config/calendarConfig';
 
 /**
  * Sanitize student type for database paths
@@ -102,20 +103,43 @@ export const useCreditTracking = (schoolYear, studentType) => {
       creditRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          setCreditData(snapshot.val());
+          const data = snapshot.val();
+          // During labour disruption, override credit limit to unlimited ONLY for Non-Primary
+          if (isLabourDisruptionActive() && studentType === 'Non-Primary') {
+            setCreditData({
+              ...data,
+              freeCreditsLimit: null, // Unlimited for Non-Primary during disruption
+              labourDisruptionActive: true
+            });
+          } else {
+            setCreditData(data);
+          }
         } else {
           // No credit data yet - initialize with defaults based on student type
           const hasLimit = studentType === 'Non-Primary' || studentType === 'Home Education';
+
+          // During labour disruption, set limit to null (unlimited) ONLY for Non-Primary
+          // Home Education students keep the 10-credit cap
+          let creditLimit;
+          if (studentType === 'Non-Primary' && isLabourDisruptionActive()) {
+            creditLimit = null; // Unlimited for Non-Primary during disruption
+          } else if (hasLimit) {
+            creditLimit = 10; // Regular 10-credit limit
+          } else {
+            creditLimit = null; // No limit for Adult/International (always unlimited)
+          }
+
           setCreditData({
             nonExemptCredits: 0,
             exemptCredits: 0,
             totalCredits: 0,
             freeCreditsUsed: 0,
             paidCreditsRequired: 0,
-            freeCreditsLimit: hasLimit ? 10 : null,
-            remainingFreeCredits: hasLimit ? 10 : null,
+            freeCreditsLimit: creditLimit,
+            remainingFreeCredits: creditLimit,
             requiresPayment: false,
-            studentType
+            studentType,
+            labourDisruptionActive: isLabourDisruptionActive()
           });
         }
         setLoading(false);
