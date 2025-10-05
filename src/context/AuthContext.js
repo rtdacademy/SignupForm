@@ -214,13 +214,20 @@ export function AuthProvider({ children }) {
 
   // Ensure parent node exists in database
   const ensureParentNode = async (user, emailKey) => {
-    if (!user.emailVerified) {
+    // Check if user signed in with OAuth provider (Google, Microsoft, etc.)
+    const isOAuthProvider = user.providerData?.some(provider =>
+      provider.providerId === 'google.com' ||
+      provider.providerId === 'microsoft.com'
+    );
+
+    // Skip email verification check for OAuth providers
+    if (!user.emailVerified && !isOAuthProvider) {
       console.log("Skipping parent data creation - email not verified");
       await signOut();
-      navigate('/parent-login', { 
-        state: { 
-          message: "Please verify your email before signing in. Check your inbox for a verification link." 
-        } 
+      navigate('/parent-login', {
+        state: {
+          message: "Please verify your email before signing in. Check your inbox for a verification link."
+        }
       });
       return false;
     }
@@ -860,7 +867,14 @@ export function AuthProvider({ children }) {
     // Skip email verification check for Open Courses users
     const isOpenCoursesRoute = location.pathname.toLowerCase().includes('/open-courses');
 
-    if (!user.emailVerified && !isOpenCoursesRoute) {
+    // Check if user signed in with OAuth provider (Google, Microsoft, etc.)
+    const isOAuthProvider = user.providerData?.some(provider =>
+      provider.providerId === 'google.com' ||
+      provider.providerId === 'microsoft.com'
+    );
+
+    // Skip email verification check for OAuth providers and Open Courses
+    if (!user.emailVerified && !isOpenCoursesRoute && !isOAuthProvider) {
       console.log("Skipping user data creation - email not verified");
       await signOut();
       navigate('/login', {

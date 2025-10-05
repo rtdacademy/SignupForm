@@ -42,7 +42,7 @@ export const importantDates = [
   {
     key: 'septemberCount',
     type: 'date',
-    date: toEdmontonDate('2025-09-30'),
+    date: toEdmontonDate('2026-01-31'),
     label: 'September Count Day',
     description: 'September count day for funding',
     showOnLanding: false,
@@ -71,7 +71,7 @@ export const importantDates = [
   {
     key: 'term1CountDay',
     type: 'date',
-    date: toEdmontonDate('2025-09-30'),
+    date: toEdmontonDate('2026-01-31'),
     label: 'Term 1 Count Day',
     description: 'Term 1 count day for funding',
     showOnLanding: false,
@@ -201,12 +201,6 @@ export const importantDates = [
   }
 ];
 
-// Intent to Register period (special case - not a single date)
-export const intentToRegisterPeriod = {
-  start: toEdmontonDate('2025-09-30'),
-  end: toEdmontonDate('2025-12-31'),
-};
-
 // ============================================================================
 // BACKWARD COMPATIBILITY HELPERS
 // ============================================================================
@@ -220,9 +214,6 @@ export const importantDatesLookup = importantDates.reduce((acc, item) => {
   acc[item.key] = item.date;
   return acc;
 }, {});
-
-// Add intentToRegisterPeriod to the lookup for backward compatibility
-importantDatesLookup.intentToRegisterPeriod = intentToRegisterPeriod;
 
 // ============================================================================
 // CALENDAR EVENTS - Used for academic calendar display
@@ -358,8 +349,8 @@ export const calendarEvents = [
   {
     id: 'sept-count-2025',
     title: 'September Count Day',
-    start: toEdmontonDate('2025-09-30'),
-    end: toEdmontonDate('2025-09-30'),
+    start: toEdmontonDate('2026-01-31'),
+    end: toEdmontonDate('2026-01-31'),
     type: 'deadline',
     visibility: 'staff',
     description: 'September count day for funding',
@@ -931,7 +922,6 @@ export default {
   schoolYearDisplay,
   importantDates, // Now an array with metadata
   importantDatesLookup, // Backward compatibility object
-  intentToRegisterPeriod,
   calendarEvents: allCalendarEvents, // Export combined events (regular + diploma)
   eventTypes,
   filterEventsByVisibility
