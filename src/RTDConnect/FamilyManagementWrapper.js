@@ -20,7 +20,6 @@ const FamilyManagementWrapper = ({
   initialFamilyData,
   onFamilyDataChange,
   onComplete,
-  selectedFacilitator,
   staffMode = false,
   isStaffViewing = false,
   onEditProfile
@@ -114,7 +113,6 @@ const FamilyManagementWrapper = ({
       initialFamilyData={initialFamilyData}
       onFamilyDataChange={onFamilyDataChange}
       onComplete={onComplete}
-      selectedFacilitator={selectedFacilitator}
       staffMode={staffMode}
       isStaffViewing={isStaffViewing}
       onEditProfile={onEditProfile}

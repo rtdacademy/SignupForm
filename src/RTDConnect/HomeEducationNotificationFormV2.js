@@ -7,19 +7,34 @@ import { useForm } from 'react-hook-form';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
-  getCurrentSchoolYear,
-  getNextSchoolYear,
   formatImportantDate,
-  hasSeptemberCountPassed,
-  isRegistrationOpen,
-  getRegistrationPhase
+  CURRENT_SCHOOL_YEAR,
+  NEXT_SCHOOL_YEAR,
+  PREVIOUS_SCHOOL_YEAR
 } from '../config/calendarConfig';
 import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANCOPHONE_OPTIONS } from './utils/homeEducationFormConstants';
 import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
 import AddressPicker from '../components/AddressPicker';
-import { formatDateForDisplay } from '../utils/timeZoneUtils';
+import { formatDateForDisplay, calculateGradeFromBirthday } from '../utils/timeZoneUtils';
 import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
+
+// Grade level options for Alberta K-12
+const GRADE_OPTIONS = [
+  { value: 'K', label: 'Kindergarten' },
+  { value: '1', label: 'Grade 1' },
+  { value: '2', label: 'Grade 2' },
+  { value: '3', label: 'Grade 3' },
+  { value: '4', label: 'Grade 4' },
+  { value: '5', label: 'Grade 5' },
+  { value: '6', label: 'Grade 6' },
+  { value: '7', label: 'Grade 7' },
+  { value: '8', label: 'Grade 8' },
+  { value: '9', label: 'Grade 9' },
+  { value: '10', label: 'Grade 10' },
+  { value: '11', label: 'Grade 11' },
+  { value: '12', label: 'Grade 12' }
+];
 
 // Helper function to get previous school year
 const getPreviousSchoolYear = (currentYear) => {
@@ -299,6 +314,7 @@ const HomeEducationNotificationFormV2 = ({
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       formType: '',
+      gradeLevel: '',
       citizenship: '',
       residentSchoolBoard: '',
       previousSchoolProgram: '',
@@ -372,15 +388,32 @@ const HomeEducationNotificationFormV2 = ({
             const prevFormRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${prevYear.replace('/', '_')}/${selectedStudent.id}`);
             const prevSnapshot = await get(prevFormRef);
             if (prevSnapshot.exists()) {
-              setValue('formType', 'renewal');
+              const prevFormData = prevSnapshot.val();
+              // Pre-select 'renewal' if previous form was submitted, otherwise default to 'new'
+              // User can still change this selection
+              if (prevFormData?.submissionStatus === 'submitted') {
+                setValue('formType', 'renewal');
+              } else {
+                setValue('formType', 'new');
+              }
             } else {
               setValue('formType', 'new');
             }
           } else {
             setValue('formType', 'new');
           }
+
+          // Calculate and pre-select grade level based on student's birthday
+          // Only set if not already loaded from existing form data
+          if (selectedStudent.birthday && !watch('gradeLevel')) {
+            const calculatedGrade = calculateGradeFromBirthday(selectedStudent.birthday, schoolYear);
+            if (calculatedGrade) {
+              setValue('gradeLevel', calculatedGrade);
+              console.log(`Pre-selected grade level ${calculatedGrade} based on birthday`);
+            }
+          }
         }
-        
+
         // Load all family forms for copy options
         await loadFamilyFormData();
         
@@ -654,11 +687,17 @@ const HomeEducationNotificationFormV2 = ({
   const getStudentInfo = () => {
     const primaryGuardian = getPrimaryGuardian();
     const studentAddress = getStudentAddress();
-    
+
+    // Get grade from form value (editable) or fall back to student profile
+    const gradeLevel = watch('gradeLevel') || selectedStudent.grade || '';
+
+    // Get grade label for display
+    const gradeLabel = GRADE_OPTIONS.find(g => g.value === gradeLevel)?.label || gradeLevel;
+
     return {
       ...selectedStudent,
       alsoKnownAs: selectedStudent.preferredName || '',
-      estimatedGradeLevel: selectedStudent.grade || '',
+      estimatedGradeLevel: gradeLabel,
       genderDisplay: selectedStudent.gender === 'M' ? 'Male' : selectedStudent.gender === 'F' ? 'Female' : selectedStudent.gender === 'X' ? 'Other' : selectedStudent.gender || '',
       phoneWithFallback: selectedStudent.phone || primaryGuardian.phone || '',
       addressInfo: studentAddress
@@ -1139,6 +1178,7 @@ const HomeEducationNotificationFormV2 = ({
           },
           editableFields: {
             registrationDate: new Date().toISOString().split('T')[0],
+            gradeLevel: data.gradeLevel,
             citizenship: data.citizenship,
             residentSchoolBoard: data.residentSchoolBoard,
             previousSchoolProgram: data.previousSchoolProgram,
@@ -1302,54 +1342,6 @@ const HomeEducationNotificationFormV2 = ({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Registration Phase Warning */}
-        {!staffMode && !readOnly && (() => {
-          const phase = getRegistrationPhase();
-          const isYearClosed = !isRegistrationOpen(schoolYear);
-          const hasCountPassed = hasSeptemberCountPassed(schoolYear);
-
-          if (isYearClosed && hasCountPassed) {
-            const nextYear = getNextSchoolYear();
-            return (
-              <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-yellow-900 mb-2">
-                      Registration Closed for {schoolYear}
-                    </h4>
-                    <p className="text-sm text-yellow-800 mb-3">
-                      The September count date has passed for the {schoolYear} school year.
-                      You cannot submit new notification forms for this year.
-                    </p>
-                    {phase.phase === 'intent-period' && (
-                      <div className="bg-white rounded-lg p-3 border border-yellow-200">
-                        <p className="text-sm text-yellow-900 mb-2">
-                          <strong>What you can do:</strong>
-                        </p>
-                        <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
-                          <li>Submit an Intent to Register for {nextYear}</li>
-                          <li>Complete your family profile</li>
-                          <li>Upload citizenship documents</li>
-                          <li>Access the portfolio system</li>
-                        </ul>
-                        {phase.nextRegistrationDate && (
-                          <p className="text-sm text-yellow-900 mt-3 flex items-center">
-                            <Clock className="w-4 h-4 mr-2" />
-                            <span>
-                              Registration for {nextYear} opens: {formatImportantDate(phase.nextRegistrationDate)}
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })()}
 
         {/* Legal Information Accordion */}
         <div className="mt-6">
@@ -1480,7 +1472,6 @@ const HomeEducationNotificationFormV2 = ({
               <ReadOnlyField label="Gender" value={student.genderDisplay} />
               <ReadOnlyField label="Student Also Known As" value={student.alsoKnownAs} />
               <ReadOnlyField label="Alberta Student Number (ASN)" value={student.asn} />
-              <ReadOnlyField label="Estimated Grade Level" value={student.estimatedGradeLevel} />
               <div className="md:col-span-2">
                 <ReadOnlyField 
                   label={`Student Phone ${!selectedStudent.phone ? '(Using Primary Guardian Phone)' : ''}`} 
@@ -1686,8 +1677,8 @@ const HomeEducationNotificationFormV2 = ({
             </CardHeader>
             <CardContent className="space-y-6">
 
-              <SmartFormField 
-                label="Student's citizenship and immigration status" 
+              <SmartFormField
+                label="Student's citizenship and immigration status"
                 required
                 copyOptions={copyOptions.citizenship || []}
                 onCopy={handleCopyValue}
@@ -1705,7 +1696,44 @@ const HomeEducationNotificationFormV2 = ({
                 />
               </SmartFormField>
 
-              <SmartFormField 
+              <SmartFormField
+                label="Estimated grade level for this school year"
+                required
+                icon={GraduationCap}
+                copyOptions={copyOptions.gradeLevel || []}
+                onCopy={handleCopyValue}
+                fieldName="gradeLevel"
+              >
+                {readOnly ? (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                    {GRADE_OPTIONS.find(g => g.value === watch('gradeLevel'))?.label || watch('gradeLevel') || 'Not specified'}
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      {...register('gradeLevel', { required: 'Grade level is required' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Select grade level...</option>
+                      {GRADE_OPTIONS.map((grade) => (
+                        <option key={grade.value} value={grade.value}>
+                          {grade.label}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedStudent?.birthday && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Pre-selected based on student's age. This doesn't really matter but needs to be on this official form for funding.
+                      </p>
+                    )}
+                  </>
+                )}
+                {errors.gradeLevel && (
+                  <p className="text-red-500 text-sm mt-1">{errors.gradeLevel.message}</p>
+                )}
+              </SmartFormField>
+
+              <SmartFormField
                 label="Resident school board" 
                 required 
                 icon={Building2}

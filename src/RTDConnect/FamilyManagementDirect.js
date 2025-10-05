@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getDatabase, ref, onValue, off, update, remove, push, get } from 'firebase/database';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { formatDateForDisplay, formatDateForInput, calculateAge } from '../utils/timeZoneUtils';
+import { formatDateForDisplay, formatDateForInput, calculateAge, calculateAgeWithMonths, toEdmontonDate, toDateString } from '../utils/timeZoneUtils';
 import { useAuth } from '../context/AuthContext';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Check, AlertCircle, Info, AlertTriangle } from 'lucide-react';
@@ -98,7 +100,6 @@ const FamilyManagementDirect = ({
     firstName: '',
     lastName: '',
     preferredName: '',
-    grade: '',
     birthday: '',
     email: '',
     phone: '',
@@ -255,7 +256,6 @@ const FamilyManagementDirect = ({
     }
 
     if (!studentFormData.birthday) errors.birthday = 'Birthday is required';
-    if (!studentFormData.grade) errors.grade = 'Grade is required';
     if (!studentFormData.gender) errors.gender = 'Gender is required';
 
     if (!studentFormData.usePrimaryAddress && (!studentFormData.address || !studentFormData.address.fullAddress)) {
@@ -361,7 +361,6 @@ const FamilyManagementDirect = ({
         lastName: '',
         preferredName: '',
         birthday: '',
-        grade: '',
         email: '',
         phone: '',
         gender: '',
@@ -614,7 +613,6 @@ const FamilyManagementDirect = ({
       preferredName: '',
       asn: '',
       birthday: '',
-      grade: '',
       email: '',
       phone: '',
       gender: '',
@@ -978,60 +976,40 @@ const FamilyManagementDirect = ({
                         <label htmlFor="student-birthday" className="block text-sm font-medium text-gray-700 mb-1">
                           Date of Birth
                         </label>
-                        <input
-                          type="date"
-                          id="student-birthday"
-                          value={studentFormData.birthday}
-                          onChange={(e) => {
-                            const newBirthday = e.target.value;
+                        <DatePicker
+                          selected={studentFormData.birthday ? toEdmontonDate(studentFormData.birthday) : null}
+                          onChange={(date) => {
+                            const newBirthday = date ? toDateString(date) : '';
                             const eligibility = determineFundingEligibility(newBirthday);
-                            
+
                             setStudentFormData({
-                              ...studentFormData, 
+                              ...studentFormData,
                               birthday: newBirthday,
                               fundingEligible: eligibility.fundingEligible,
-                              fundingAmount: eligibility.fundingAmount,
-                              grade: eligibility.grade || studentFormData.grade
+                              fundingAmount: eligibility.fundingAmount
                             });
-                            
+
                             setFundingEligibilityInfo(eligibility);
                           }}
+                          openToDate={new Date(new Date().getFullYear() - 14, 0, 1)}
+                          showYearDropdown
+                          scrollableYearDropdown
+                          yearDropdownItemNumber={100}
+                          dateFormat="yyyy-MM-dd"
+                          placeholderText="Select date of birth"
                           className={`w-full px-3 py-2 border ${studentErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                          wrapperClassName="w-full"
                         />
+                        {studentFormData.birthday && (() => {
+                          const age = calculateAgeWithMonths(studentFormData.birthday);
+                          return (
+                            <p className="mt-1 text-sm text-gray-600">
+                              Age: {age.years} {age.years === 1 ? 'year' : 'years'}, {age.months} {age.months === 1 ? 'month' : 'months'}
+                            </p>
+                          );
+                        })()}
                         {studentErrors.birthday && (
                           <p className="mt-1 text-sm text-red-600">{studentErrors.birthday}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="student-grade" className="block text-sm font-medium text-gray-700 mb-1">
-                          Expected Grade Level
-                        </label>
-                        <select
-                          id="student-grade"
-                          value={studentFormData.grade}
-                          onChange={(e) => {
-                            if (fundingEligibilityInfo?.ageCategory === 'kindergarten') {
-                              return;
-                            }
-                            setStudentFormData({...studentFormData, grade: e.target.value});
-                          }}
-                          disabled={fundingEligibilityInfo?.ageCategory === 'kindergarten'}
-                          className={`w-full px-3 py-2 border ${
-                            studentErrors.grade ? 'border-red-300' : 'border-gray-300'
-                          } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                            fundingEligibilityInfo?.ageCategory === 'kindergarten' 
-                              ? 'bg-gray-100 cursor-not-allowed' 
-                              : ''
-                          }`}
-                        >
-                          <option value="">Select expected grade</option>
-                          {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(grade => (
-                            <option key={grade} value={grade}>Grade {grade}</option>
-                          ))}
-                        </select>
-                        {studentErrors.grade && (
-                          <p className="mt-1 text-sm text-red-600">{studentErrors.grade}</p>
                         )}
                       </div>
 

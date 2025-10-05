@@ -27,13 +27,10 @@ import {
   FUNDING_RATES
 } from '../config/HomeEducation';
 import {
-  getCurrentSchoolYear,
-  getNextSchoolYear,
-  getOpenRegistrationSchoolYear,
   getSeptemberCountForYear,
-  getRegistrationOpenDateForYear,
   formatImportantDate,
-  getRegistrationPhase
+  CURRENT_SCHOOL_YEAR,
+  NEXT_SCHOOL_YEAR
 } from '../config/calendarConfig';
 
 // RTD Connect Logo with gradient colors
@@ -92,15 +89,8 @@ const RTDConnectLandingPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Get current registration information
-  const currentSchoolYear = getCurrentSchoolYear();
-  const nextSchoolYear = getNextSchoolYear();
-  const openRegistrationYear = getOpenRegistrationSchoolYear();
-  const registrationOpenDate = openRegistrationYear ? getRegistrationOpenDateForYear(openRegistrationYear) : null;
-  const septemberCountDate = openRegistrationYear ? getSeptemberCountForYear(openRegistrationYear) : null;
-
-  // Get registration phase for conditional messaging
-  const registrationPhase = getRegistrationPhase();
+  // Get September count date for current school year
+  const septemberCountDate = getSeptemberCountForYear(CURRENT_SCHOOL_YEAR);
 
   const handleGetStarted = () => {
     navigate('/login');
@@ -243,19 +233,6 @@ const RTDConnectLandingPage = () => {
         </div>
       </nav>
 
-      {/* Subtle Registration Status Notice */}
-      {registrationPhase.phase === 'intent-period' && (
-        <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-cyan-50 border-b border-purple-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-purple-200 shadow-sm">
-              <Info className="w-4 h-4 text-purple-600 flex-shrink-0" />
-              <span className="text-sm text-gray-700">
-                Registration for {registrationPhase.schoolYear} closed • <span className="text-purple-700 font-medium">Intent to Register</span> available for {registrationPhase.targetYear}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">

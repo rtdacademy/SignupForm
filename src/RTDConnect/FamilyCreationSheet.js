@@ -3,12 +3,14 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { toEdmontonDate, formatDateForDisplay, formatDateForInput, calculateAge } from '../utils/timeZoneUtils';
+import { toEdmontonDate, formatDateForDisplay, formatDateForInput, calculateAge, calculateAgeWithMonths, toDateString } from '../utils/timeZoneUtils';
 import { useAuth } from '../context/AuthContext';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Eye, Check, AlertCircle, Info } from 'lucide-react';
-import { getCurrentSchoolYear, getRegistrationPhase } from '../config/calendarConfig';
+import { CURRENT_SCHOOL_YEAR, NEXT_SCHOOL_YEAR } from '../config/calendarConfig';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -200,7 +202,6 @@ const FamilyCreationSheet = ({
   initialFamilyData = { familyName: '', students: [], guardians: [] },
   onFamilyDataChange,
   onComplete,
-  selectedFacilitator,
   staffMode = false,
   isStaffViewing = false,
   onEditProfile
@@ -209,12 +210,12 @@ const FamilyCreationSheet = ({
   
   // Family data state
   const [familyData, setFamilyData] = useState(initialFamilyData);
+  const [localFamilyName, setLocalFamilyName] = useState(initialFamilyData?.familyName || '');
   const [activeTab, setActiveTab] = useState('students');
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
-  const [restoredFromSession, setRestoredFromSession] = useState(false);
-  
+
   // Auto-save state for staff mode
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
   const [lastSavedTime, setLastSavedTime] = useState(null);
@@ -227,7 +228,6 @@ const FamilyCreationSheet = ({
     firstName: '',
     lastName: '',
     preferredName: '',
-    grade: '',
     birthday: '',
     email: '',
     phone: '',
@@ -253,35 +253,18 @@ const FamilyCreationSheet = ({
   const [editingGuardianIndex, setEditingGuardianIndex] = useState(null);
   const [showGuardianForm, setShowGuardianForm] = useState(false);
 
-  // Load saved form data from session storage when sheet opens
+  // Load initial family data when sheet opens
   useEffect(() => {
-    if (isOpen) {
-      console.log('FamilyCreationSheet opened, checking for saved data');
-      const savedData = loadFormDataFromSession();
-      if (savedData && savedData.familyData) {
-        console.log('Restoring saved family data:', savedData.familyData);
-        setFamilyData(savedData.familyData);
-        setHasUnsavedChanges(true); // Mark as having unsaved changes since we restored data
-        // Removed "Data Restored" notification as it was distracting during typing
-      } else if (initialFamilyData) {
-        console.log('Using initial family data:', initialFamilyData);
-        setFamilyData(initialFamilyData);
-        setRestoredFromSession(false);
-      }
+    if (isOpen && initialFamilyData) {
+      console.log('Using initial family data:', initialFamilyData);
+      setFamilyData(initialFamilyData);
     }
   }, [isOpen, initialFamilyData]);
 
-  // Save form data to session storage whenever familyData changes
+  // Sync local family name with familyData when it changes externally
   useEffect(() => {
-    if (isOpen && hasUnsavedChanges) {
-      const dataToSave = {
-        familyData,
-        timestamp: Date.now()
-      };
-      saveFormDataToSession(dataToSave);
-      console.log('Saved form data to session storage');
-    }
-  }, [familyData, isOpen, hasUnsavedChanges]);
+    setLocalFamilyName(familyData.familyName || '');
+  }, [familyData.familyName]);
 
   // Phone number formatting
   const formatPhoneNumber = (value) => {
@@ -470,35 +453,6 @@ const FamilyCreationSheet = ({
     return name.trim().replace(/\s+/g, ' '); // Trim and normalize multiple spaces to single
   };
 
-  // Session storage helpers
-  const FAMILY_FORM_STORAGE_KEY = 'familyCreationFormData';
-  
-  const saveFormDataToSession = (data) => {
-    try {
-      sessionStorage.setItem(FAMILY_FORM_STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.warn('Failed to save form data to session storage:', error);
-    }
-  };
-  
-  const loadFormDataFromSession = () => {
-    try {
-      const saved = sessionStorage.getItem(FAMILY_FORM_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch (error) {
-      console.warn('Failed to load form data from session storage:', error);
-      return null;
-    }
-  };
-  
-  const clearFormDataFromSession = () => {
-    try {
-      sessionStorage.removeItem(FAMILY_FORM_STORAGE_KEY);
-    } catch (error) {
-      console.warn('Failed to clear form data from session storage:', error);
-    }
-  };
-
   // Family name change handler
   const handleFamilyNameChange = (value) => {
     const updatedData = { ...familyData, familyName: value };
@@ -543,10 +497,6 @@ const FamilyCreationSheet = ({
 
     if (!studentFormData.birthday) {
       errors.birthday = 'Birthday is required';
-    }
-
-    if (!studentFormData.grade) {
-      errors.grade = 'Grade is required';
     }
 
     if (!studentFormData.gender) {
@@ -659,7 +609,6 @@ const FamilyCreationSheet = ({
       lastName: '',
       preferredName: '',
       birthday: '',
-      grade: '',
       email: '',
       phone: '',
       gender: '',
@@ -701,7 +650,6 @@ const FamilyCreationSheet = ({
       preferredName: '',
       asn: '',
       birthday: '',
-      grade: '',
       email: '',
       phone: '',
       gender: '',
@@ -866,12 +814,17 @@ const FamilyCreationSheet = ({
   };
 
   const handleSaveFamilyData = async () => {
+    // Ensure local family name is synced before validation
+    if (localFamilyName !== familyData.familyName) {
+      handleFamilyNameChange(localFamilyName);
+    }
+
     if (familyData.students.length === 0) {
       toast.error('Please add at least one student to your family.');
       return;
     }
 
-    if (!familyData.familyName.trim()) {
+    if (!localFamilyName.trim()) {
       toast.error('Please enter a family name.');
       return;
     }
@@ -911,13 +864,16 @@ const FamilyCreationSheet = ({
       const functions = getFunctions();
       const saveFamilyData = httpsCallable(functions, 'saveFamilyData');
 
-      // Detect registration phase to determine registration type
-      const registrationPhase = getRegistrationPhase();
-      const isIntentPeriod = registrationPhase.phase === 'intent-period';
-      const registrationType = isIntentPeriod ? 'intent' : 'regular';
-      const targetYear = registrationPhase.targetYear;
+      // Determine target school year based on current month
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // 1-12
+      // If it's September (9) or October (10), use current school year
+      // Otherwise, use next school year
+      const targetYear = (currentMonth === 9 || currentMonth === 10)
+        ? CURRENT_SCHOOL_YEAR
+        : NEXT_SCHOOL_YEAR;
 
-      console.log('Creating family with registration type:', registrationType, 'for year:', targetYear);
+      console.log('Creating family for year:', targetYear);
 
       // Include familyId and staff flags when staff is editing
       const requestData = {
@@ -925,10 +881,7 @@ const FamilyCreationSheet = ({
           familyName: familyData.familyName,
           students: studentsObj,
           guardians: guardiansObj,
-          // Include facilitator email if one is selected
-          facilitatorEmail: selectedFacilitator?.contact?.email || null,
-          // Include registration type and target year
-          registrationType: registrationType,
+          // Include target year for tracking
           registeredForYear: targetYear
         }
       };
@@ -1036,11 +989,7 @@ const FamilyCreationSheet = ({
             : 'Family updated successfully!',
           { id: toastId }
         );
-        
-        // Clear saved form data from session storage on successful save
-        clearFormDataFromSession();
-        console.log('Cleared saved form data after successful save');
-        
+
         // Call completion callback with updated claims info
         setTimeout(() => {
           onComplete?.(result.data, updatedClaims);
@@ -1184,8 +1133,9 @@ const FamilyCreationSheet = ({
             <input
               type="text"
               id="familyName"
-              value={familyData.familyName}
-              onChange={(e) => handleFamilyNameChange(e.target.value)}
+              value={localFamilyName}
+              onChange={(e) => setLocalFamilyName(e.target.value)}
+              onBlur={(e) => handleFamilyNameChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="e.g., The Smith Family"
             />
@@ -1337,46 +1287,28 @@ const FamilyCreationSheet = ({
                         <label htmlFor="student-birthday" className="block text-sm font-medium text-gray-700 mb-1">
                           Date of Birth
                         </label>
-                        <input
-                          type="date"
-                          id="student-birthday"
-                          value={studentFormData.birthday}
-                          onChange={(e) => {
-                            const newBirthday = e.target.value;
-                            setStudentFormData({
-                              ...studentFormData, 
-                              birthday: newBirthday
-                            });
-                          }}
+                        <DatePicker
+                          selected={studentFormData.birthday ? toEdmontonDate(studentFormData.birthday) : null}
+                          onChange={(date) => setStudentFormData({...studentFormData, birthday: date ? toDateString(date) : ''})}
+                          openToDate={new Date(new Date().getFullYear() - 14, 0, 1)}
+                          showYearDropdown
+                          scrollableYearDropdown
+                          yearDropdownItemNumber={100}
+                          dateFormat="yyyy-MM-dd"
+                          placeholderText="Select date of birth"
                           className={`w-full px-3 py-2 border ${studentErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                          wrapperClassName="w-full"
                         />
+                        {studentFormData.birthday && (() => {
+                          const age = calculateAgeWithMonths(studentFormData.birthday);
+                          return (
+                            <p className="mt-1 text-sm text-gray-600">
+                              Age: {age.years} {age.years === 1 ? 'year' : 'years'}, {age.months} {age.months === 1 ? 'month' : 'months'}
+                            </p>
+                          );
+                        })()}
                         {studentErrors.birthday && (
                           <p className="mt-1 text-sm text-red-600">{studentErrors.birthday}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="student-grade" className="block text-sm font-medium text-gray-700 mb-1">
-                          Expected Grade Level
-                        </label>
-                        <select
-                          id="student-grade"
-                          value={studentFormData.grade}
-                          onChange={(e) => {
-                            setStudentFormData({...studentFormData, grade: e.target.value});
-                          }}
-                          className={`w-full px-3 py-2 border ${
-                            studentErrors.grade ? 'border-red-300' : 'border-gray-300'
-                          } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                        >
-                          <option value="">Select expected grade</option>
-                          {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(grade => (
-                            <option key={grade} value={grade}>Grade {grade}</option>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-sm text-gray-500">Best estimate - this can be adjusted later</p>
-                        {studentErrors.grade && (
-                          <p className="mt-1 text-sm text-red-600">{studentErrors.grade}</p>
                         )}
                       </div>
 
@@ -1784,9 +1716,9 @@ const FamilyCreationSheet = ({
               <div className="flex justify-center">
                 <button
                   onClick={handleSaveFamilyData}
-                  disabled={isSaving || familyData.students.length === 0 || !familyData.familyName}
+                  disabled={isSaving || familyData.students.length === 0 || !localFamilyName.trim()}
                   className={`w-full max-w-md py-3 px-4 rounded-md font-medium flex items-center justify-center ${
-                    isSaving || familyData.students.length === 0 || !familyData.familyName
+                    isSaving || familyData.students.length === 0 || !localFamilyName.trim()
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : hasUnsavedChanges
                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
@@ -1831,7 +1763,7 @@ const FamilyCreationSheet = ({
           {familyData.students.length === 0 && (
             <p className="mt-2 text-sm text-gray-500 text-center">Add at least one student to save</p>
           )}
-          {!familyData.familyName && familyData.students.length > 0 && (
+          {!localFamilyName.trim() && familyData.students.length > 0 && (
             <p className="mt-2 text-sm text-gray-500 text-center">Please enter a family name to save</p>
           )}
           {hasUnsavedChanges && !isStaffEditMode && (

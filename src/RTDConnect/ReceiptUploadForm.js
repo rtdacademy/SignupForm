@@ -29,10 +29,9 @@ import {
 } from 'lucide-react';
 import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString } from '../utils/timeZoneUtils';
 import { FUNDING_RATES, REIMBURSEMENT_SETTINGS } from '../config/HomeEducation';
-import { 
-  getCurrentSchoolYear, 
-  getAllOpenRegistrationSchoolYears,
-  getOpenRegistrationSchoolYear
+import {
+  CURRENT_SCHOOL_YEAR,
+  NEXT_SCHOOL_YEAR
 } from '../config/calendarConfig';
 
 // Helper function to convert school year to database path format (underscore)
@@ -71,9 +70,8 @@ const determineReceiptSchoolYear = () => {
     };
   } else {
     // Before deadline - use current school year
-    const currentSchoolYear = getCurrentSchoolYear();
     return {
-      schoolYear: currentSchoolYear,
+      schoolYear: CURRENT_SCHOOL_YEAR,
       isNextYear: false,
       deadline: REIMBURSEMENT_SETTINGS.RECEIPT_UPLOAD_DEADLINE.formatted
     };

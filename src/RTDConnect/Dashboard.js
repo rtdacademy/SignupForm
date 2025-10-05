@@ -9,13 +9,14 @@ import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
 import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
 import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink, BookOpen, TrendingUp } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import AddressPicker from '../components/AddressPicker';
 import FamilyManagementWrapper from './FamilyManagementWrapper';
 import HomeEducationNotificationFormV2 from './HomeEducationNotificationFormV2';
-import IntentToRegisterForm from './IntentToRegisterForm';
 import StudentCitizenshipDocuments from '../components/StudentCitizenshipDocuments';
 import SOLOEducationPlanForm from './SOLOEducationPlanForm';
 import FacilitatorMeetingForm from './FacilitatorMeetingForm';
@@ -33,24 +34,14 @@ import {
   EmbeddedPayouts 
 } from '../components/ConnectEmbeddedComponents';
 import {
-  getCurrentSchoolYear,
-  getNextSchoolYear,
-  getActiveSeptemberCount,
   formatImportantDate,
-  hasSeptemberCountPassed,
   getAllSeptemberCountDates,
-  isRegistrationOpen,
-  getOpenRegistrationSchoolYear,
-  getAllOpenRegistrationSchoolYears,
-  getRegistrationOpenDateForYear,
   getSeptemberCountForYear,
-  getActiveRegistrationYear,
-  getRegistrationPhase,
   CURRENT_SCHOOL_YEAR,
   NEXT_SCHOOL_YEAR
 } from '../config/calendarConfig';
 import { FUNDING_RATES } from '../config/HomeEducation';
-import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl } from '../config/facilitators';
+import { getFacilitatorById, getFacilitatorByEmail, getFacilitatorProfileUrl, getAllFacilitatorsRandomized, getFacilitatorAvailabilityForType, AVAILABILITY_STATUS } from '../config/facilitators';
 import { generatePartCData } from '../config/signatures';
 
 // Helper function to convert school year format from display to database
@@ -255,22 +246,18 @@ const getFamilyPaymentEligibility = (students, formStatuses, docStatuses, soloSt
 };
 
 // Helper function to determine the target school year for SOLO planning
-// Same logic as in SOLOEducationPlanForm.js
+// If it's September or October, plan for current school year
+// Otherwise, plan for next school year
 const getTargetSchoolYear = () => {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // 1-12
-  const currentYear = currentDate.getFullYear();
-  
+
   // If it's September (9) or October (10), plan for current school year
   // Otherwise, plan for next school year
   if (currentMonth === 9 || currentMonth === 10) {
-    return getCurrentSchoolYear();
+    return CURRENT_SCHOOL_YEAR;
   } else {
-    // Get next school year
-    const currentSchoolYear = getCurrentSchoolYear();
-    const startYear = parseInt('20' + currentSchoolYear.substr(0, 2));
-    const nextStartYear = startYear + 1;
-    return `${nextStartYear.toString().substr(-2)}/${(nextStartYear + 1).toString().substr(-2)}`;
+    return NEXT_SCHOOL_YEAR;
   }
 };
 
@@ -278,29 +265,9 @@ const getTargetSchoolYear = () => {
 const getFamilyStatusConfig = (status) => {
   const config = {
     active: {
-      features: ['all'], // Full access
+      features: ['all'], // Full access to all features
       banner: null,
       primaryAction: null
-    },
-    'intent-pending': {
-      features: ['citizenshipDocs', 'portfolio', 'intentForm', 'familyManagement', 'profileEdit'],
-      banner: {
-        type: 'info',
-        title: `Preparing for ${NEXT_SCHOOL_YEAR} Registration`,
-        message: `You're in the Intent to Register period. Complete your intent form and upload citizenship documents. Official registration opens January 1, 2026.`,
-        icon: Calendar
-      },
-      primaryAction: 'Submit your Intent to Register form'
-    },
-    intent: {
-      features: ['citizenshipDocs', 'portfolio', 'intentForm', 'familyManagement', 'profileEdit'],
-      banner: {
-        type: 'info',
-        title: `Preparing for ${NEXT_SCHOOL_YEAR} Registration`,
-        message: `Your intent to register has been submitted. Continue preparing by uploading citizenship documents and documenting learning in your portfolio. Official registration opens January 1, 2026.`,
-        icon: Calendar
-      },
-      primaryAction: 'Upload citizenship documents and explore portfolio'
     },
     inactive: {
       features: ['profileEdit', 'viewFamilyInfo'], // Minimal access
@@ -438,39 +405,6 @@ const FamilyStatusBanner = ({ status, facilitator }) => {
               {(facilitator.contact?.phone || facilitator.phone) && (
                 <p className="text-gray-600 mt-1">{facilitator.contact?.phone || facilitator.phone}</p>
               )}
-            </div>
-          )}
-
-          {/* Intent-specific next steps */}
-          {status === 'intent-pending' && (
-            <div className="mt-4">
-              <p className="font-semibold text-purple-900 mb-2">Next Steps:</p>
-              <ul className="text-sm text-purple-800 space-y-1 list-disc list-inside ml-2">
-                <li>Submit Intent to Register form</li>
-                <li>Upload citizenship documents for each student</li>
-                <li>Explore the portfolio system to document learning</li>
-                <li>Wait for registration to open on January 1, 2026</li>
-              </ul>
-            </div>
-          )}
-          {status === 'intent' && (
-            <div className="mt-4">
-              <p className="font-semibold text-purple-900 mb-2">Next Steps:</p>
-              <ul className="text-sm text-purple-800 space-y-1 ml-2">
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>Intent to Register submitted</span>
-                </li>
-                <li className="flex items-center space-x-2 list-disc list-inside ml-4">
-                  <span>Upload citizenship documents for each student</span>
-                </li>
-                <li className="flex items-center space-x-2 list-disc list-inside ml-4">
-                  <span>Explore the portfolio system to document learning</span>
-                </li>
-                <li className="flex items-center space-x-2 list-disc list-inside ml-4">
-                  <span>Wait for registration to open on January 1, 2026</span>
-                </li>
-              </ul>
             </div>
           )}
         </div>
@@ -813,16 +747,9 @@ const RTDConnectDashboard = ({
   const [selectedStudentForPortfolio, setSelectedStudentForPortfolio] = useState(null);
   const [studentPortfolioStatuses, setStudentPortfolioStatuses] = useState({});
 
-  // Intent to Register state (for intent families)
-  const [showIntentForm, setShowIntentForm] = useState(false);
-  const [studentIntentStatuses, setStudentIntentStatuses] = useState({});
-  const [familyIntentCompleted, setFamilyIntentCompleted] = useState(false);
-  const [studentsWithoutIntent, setStudentsWithoutIntent] = useState([]);
-
   // Warning banner state
   const [dismissedWarnings, setDismissedWarnings] = useState({});
   const [showRegistrationWarning, setShowRegistrationWarning] = useState(false);
-  const [showIntentWarning, setShowIntentWarning] = useState(false);
   
   // Reimbursement system state
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -865,6 +792,10 @@ const RTDConnectDashboard = ({
   const [selectedFacilitatorId, setSelectedFacilitatorId] = useState(null);
   const [selectedFacilitator, setSelectedFacilitator] = useState(null);
   const [showFacilitatorChange, setShowFacilitatorChange] = useState(false);
+
+  // Facilitator preview state - for new user welcome screen
+  const [showFacilitatorPreview, setShowFacilitatorPreview] = useState(true);
+  const [showFacilitatorPreviewSheet, setShowFacilitatorPreviewSheet] = useState(false);
 
   // Payment eligibility state
   const [familyPaymentEligibility, setFamilyPaymentEligibility] = useState(null);
@@ -922,11 +853,6 @@ const RTDConnectDashboard = ({
     // Don't show if already dismissed
     if (dismissedWarnings?.registrationIncompleteWarning) return false;
 
-    const registrationPhase = getRegistrationPhase();
-
-    // Only show during active registration periods (not intent period)
-    if (!registrationPhase.canSubmitNotificationForm) return false;
-
     // Check if ANY student has submitted notification form for active year
     if (!familyData?.students || !activeSchoolYear) return false;
 
@@ -937,25 +863,6 @@ const RTDConnectDashboard = ({
     return !hasAnySubmittedForm;
   };
 
-  // Helper to check if intent warning should show
-  const shouldShowIntentWarning = () => {
-    // Don't show for staff viewing families
-    if (isStaff() && isStaffViewing) return false;
-
-    // Don't show if already dismissed
-    if (dismissedWarnings?.intentIncompleteWarning) return false;
-
-    const registrationPhase = getRegistrationPhase();
-
-    // Only show during intent period
-    if (registrationPhase.phase !== 'intent-period') return false;
-
-    // Check family status - show if intent-pending or if they're intent but have incomplete forms
-    const isIntentPending = familyData?.status === 'intent-pending';
-
-    // Check if intent form has been completed
-    return isIntentPending || !familyIntentCompleted;
-  };
 
   // Initialize school year tracking
   useEffect(() => {
@@ -966,30 +873,22 @@ const RTDConnectDashboard = ({
         localStorage.removeItem('rtdConnectPortalLogin');
       }, 2000);
     }
-    
-    const currentYear = getCurrentSchoolYear();
-    const activeSeptember = getActiveSeptemberCount();
 
-    // Check for open registration school years
-    const openRegistrationYears = getAllOpenRegistrationSchoolYears();
-    const primaryOpenYear = getOpenRegistrationSchoolYear();
+    // Use CURRENT_SCHOOL_YEAR directly from config
+    const currentYear = CURRENT_SCHOOL_YEAR;
 
-    // Use the new getActiveRegistrationYear function which ensures we stay in the current
-    // school year even after September count passes
-    const targetSchoolYear = getActiveRegistrationYear();
-    
     // Get SOLO target school year using the same logic as SOLO form
     const soloTargetYear = getTargetSchoolYear();
-    
-    // Get the September count date for the active school year
-    const septemberCountDate = getSeptemberCountForYear(targetSchoolYear);
+
+    // Get the September count date for the current school year
+    const septemberCountDate = getSeptemberCountForYear(currentYear);
     const septemberCountInfo = septemberCountDate ? {
       date: septemberCountDate,
-      schoolYear: targetSchoolYear
+      schoolYear: currentYear
     } : null;
-    
+
     setCurrentSchoolYear(currentYear);
-    setActiveSchoolYear(targetSchoolYear);
+    setActiveSchoolYear(currentYear);
     setSoloTargetSchoolYear(soloTargetYear);
     setNextSeptemberCount(septemberCountInfo);
   }, []);
@@ -1179,25 +1078,31 @@ const RTDConnectDashboard = ({
     const unsubscribeFamily = onValue(familyRef, (snapshot) => {
       if (snapshot.exists()) {
         const familyData = snapshot.val();
-        
+
         // Load facilitator data using email lookup from config
         if (familyData.facilitatorEmail) {
           const facilitator = getFacilitatorByEmail(familyData.facilitatorEmail);
           if (facilitator) {
             setSelectedFacilitatorId(facilitator.id);
             setSelectedFacilitator(facilitator);
+            // Only set hasFacilitatorSelected to true if it's not already true
+            // This prevents race conditions during family creation
             setHasFacilitatorSelected(true);
           } else {
             console.warn('No facilitator found for email:', familyData.facilitatorEmail);
-            setSelectedFacilitatorId(null);
-            setSelectedFacilitator(null);
-            setHasFacilitatorSelected(false);
+            // Only reset if we don't have a local selection already
+            // This prevents clearing the selection during family creation
+            setSelectedFacilitatorId(prevId => prevId);
+            setSelectedFacilitator(prevFac => prevFac);
+            // Don't set to false if already true (family might be in the process of being created)
+            setHasFacilitatorSelected(prev => prev || false);
           }
         } else {
-          // No facilitator email in family data
-          setSelectedFacilitatorId(null);
-          setSelectedFacilitator(null);
-          setHasFacilitatorSelected(false);
+          // No facilitator email in family data - only reset if not already selected
+          // This prevents race conditions during initial family creation
+          setSelectedFacilitatorId(prevId => prevId);
+          setSelectedFacilitator(prevFac => prevFac);
+          setHasFacilitatorSelected(prev => prev || false);
         }
       }
     }, (error) => {
@@ -1518,42 +1423,6 @@ const RTDConnectDashboard = ({
     loadPortfolioStatuses();
   }, [effectiveFamilyId, familyData?.students, activeSchoolYear]);
 
-  // Effect to load intent to register statuses (for intent families only)
-  useEffect(() => {
-    if (!effectiveFamilyId || !familyData) return;
-
-    // Only load for intent families (status === 'intent' or 'intent-pending')
-    if (familyData.status !== 'intent' && familyData.status !== 'intent-pending') {
-      setStudentIntentStatuses({});
-      setFamilyIntentCompleted(false);
-      setStudentsWithoutIntent([]);
-      return;
-    }
-
-    const db = getDatabase();
-    const nextYearDb = formatSchoolYearForDatabase(NEXT_SCHOOL_YEAR);
-    const intentRef = ref(db, `homeEducationFamilies/familyInformation/${effectiveFamilyId}/INTENT_REGISTRATIONS/${nextYearDb}`);
-
-    const unsubscribe = onValue(intentRef, (snapshot) => {
-      const intents = snapshot.val() || {};
-      setStudentIntentStatuses(intents);
-
-      // Check if any student has intent submitted
-      const hasAnyIntent = Object.values(intents).some(intent => intent?.intentSubmitted === true);
-      setFamilyIntentCompleted(hasAnyIntent);
-
-      // Identify students without intent
-      if (familyData?.students) {
-        const allStudentIds = Object.keys(familyData.students);
-        const studentsWithoutIntentList = allStudentIds.filter(studentId => {
-          return !intents[studentId]?.intentSubmitted;
-        });
-        setStudentsWithoutIntent(studentsWithoutIntentList);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [effectiveFamilyId, familyData, familyData?.status, familyData?.students]);
 
   // Effect to load dismissed warnings
   useEffect(() => {
@@ -1573,12 +1442,10 @@ const RTDConnectDashboard = ({
   // Effect to update warning visibility based on conditions
   useEffect(() => {
     setShowRegistrationWarning(shouldShowRegistrationWarning());
-    setShowIntentWarning(shouldShowIntentWarning());
   }, [
     familyData,
     studentFormStatuses,
     activeSchoolYear,
-    familyIntentCompleted,
     dismissedWarnings,
     isStaffViewing
   ]);
@@ -2052,6 +1919,10 @@ const RTDConnectDashboard = ({
     setSelectedFacilitatorId(facilitatorId);
     setSelectedFacilitator(facilitator);
 
+    // ALWAYS set this to true when a facilitator is selected
+    // This prevents the facilitator selection screen from showing again
+    setHasFacilitatorSelected(true);
+
     // Only try to save to database if family already exists
     // For new families, the facilitator will be saved when the family is created via cloud function
     if (effectiveFamilyId && facilitator?.contact?.email) {
@@ -2064,8 +1935,6 @@ const RTDConnectDashboard = ({
           facilitatorAssignedBy: user?.uid,
           lastUpdated: new Date().toISOString()
         });
-
-        setHasFacilitatorSelected(true);
 
         setToast({
           message: `Great choice! ${facilitator.name} will be your facilitator.`,
@@ -2080,7 +1949,7 @@ const RTDConnectDashboard = ({
       }
     } else if (!effectiveFamilyId) {
       // New family - facilitator will be saved during family creation
-      setHasFacilitatorSelected(true);
+      console.log('Facilitator selected for new family - will be saved during family creation');
     } else {
       // Family exists but missing facilitator email - this is an error
       console.error('Missing facilitator email for existing family');
@@ -2089,10 +1958,6 @@ const RTDConnectDashboard = ({
         type: 'error'
       });
     }
-  };
-
-  const handleContinueToFamilyCreation = () => {
-    setShowFamilyCreation(true);
   };
 
   // Handler to dismiss a warning banner
@@ -2177,140 +2042,40 @@ const RTDConnectDashboard = ({
     }
 
     const currentStatus = schoolYearStatus[activeSchoolYear] || 'pending';
-    const hasPassedSeptemberCount = hasSeptemberCountPassed(activeSchoolYear);
-    const registrationIsOpen = isRegistrationOpen(activeSchoolYear);
-    const registrationOpenDate = getRegistrationOpenDateForYear(activeSchoolYear);
-    const isCurrentYear = activeSchoolYear === currentSchoolYear;
 
     if (currentStatus === 'completed') {
-      // If September count has passed and we're in the current school year, show as registered
-      if (hasPassedSeptemberCount && isCurrentYear) {
-        return {
-          status: 'completed',
-          message: `✅ Registered for ${activeSchoolYear} school year`,
-          actionNeeded: false,
-          schoolYear: activeSchoolYear,
-          deadline: null,
-          icon: CheckCircle2,
-          color: 'text-green-600',
-          bgColor: 'bg-green-50'
-        };
-      } else {
-        return {
-          status: 'completed',
-          message: `Registered for ${activeSchoolYear} school year`,
-          actionNeeded: false,
-          schoolYear: activeSchoolYear,
-          deadline: null,
-          icon: CheckCircle2,
-          color: 'text-green-600',
-          bgColor: 'bg-green-50'
-        };
-      }
+      return {
+        status: 'completed',
+        message: `✅ Registered for ${activeSchoolYear} school year`,
+        actionNeeded: false,
+        schoolYear: activeSchoolYear,
+        deadline: nextSeptemberCount?.date || null,
+        icon: CheckCircle2,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50'
+      };
     }
 
     if (currentStatus === 'partial') {
-      // If September count has passed but we're still in the current year, show different message
-      if (hasPassedSeptemberCount && isCurrentYear) {
-        return {
-          status: 'partial',
-          message: `⚠️ Partial registration for ${activeSchoolYear} - some students incomplete`,
-          actionNeeded: false, // Can't take action after September count
-          schoolYear: activeSchoolYear,
-          deadline: null,
-          icon: AlertTriangle,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-50'
-        };
-      } else {
-        return {
-          status: 'partial',
-          message: `⚠️ Partial registration for ${activeSchoolYear} - some students still need forms`,
-          actionNeeded: true,
-          schoolYear: activeSchoolYear,
-          deadline: nextSeptemberCount.date,
-          icon: AlertTriangle,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-50'
-        };
-      }
-    }
-
-    // If we're in the current school year and September count has passed with no registration
-    if (hasPassedSeptemberCount && isCurrentYear && currentStatus === 'pending') {
       return {
-        status: 'missed',
-        message: `❌ ${activeSchoolYear} registration period has ended`,
-        actionNeeded: false,
+        status: 'partial',
+        message: `⚠️ Partial registration for ${activeSchoolYear} - some students still need forms`,
+        actionNeeded: true,
         schoolYear: activeSchoolYear,
-        deadline: null,
-        icon: AlertCircle,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-50'
+        deadline: nextSeptemberCount?.date || null,
+        icon: AlertTriangle,
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50'
       };
     }
 
-    // Check if registration is not yet open
-    if (!registrationIsOpen && registrationOpenDate) {
-      const daysUntilOpen = Math.ceil((registrationOpenDate - new Date()) / (1000 * 60 * 60 * 24));
-      return {
-        status: 'not_open',
-        message: `📅 ${activeSchoolYear} registration opens on ${formatImportantDate(registrationOpenDate)}`,
-        actionNeeded: false,
-        schoolYear: activeSchoolYear,
-        deadline: registrationOpenDate,
-        icon: Info,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-50'
-      };
-    }
-
-    // Registration is open - pending status
-    if (registrationIsOpen && !hasPassedSeptemberCount) {
-      const daysUntilDeadline = Math.ceil((nextSeptemberCount.date - new Date()) / (1000 * 60 * 60 * 24));
-
-      if (daysUntilDeadline > 30) {
-        return {
-          status: 'available',
-          message: `📝 ${activeSchoolYear} registration is now open`,
-          actionNeeded: true,
-          schoolYear: activeSchoolYear,
-          deadline: nextSeptemberCount.date,
-          icon: FileText,
-          color: 'text-purple-600',
-          bgColor: 'bg-purple-50'
-        };
-      } else if (daysUntilDeadline > 0) {
-        return {
-          status: 'urgent',
-          message: `⏰ ${activeSchoolYear} registration due in ${daysUntilDeadline} days`,
-          actionNeeded: true,
-          schoolYear: activeSchoolYear,
-          deadline: nextSeptemberCount.date,
-          icon: Clock,
-          color: 'text-red-600',
-          bgColor: 'bg-red-50'
-        };
-      } else {
-        return {
-          status: 'overdue',
-          message: `🚨 ${activeSchoolYear} registration is overdue`,
-          actionNeeded: true,
-          schoolYear: activeSchoolYear,
-          deadline: nextSeptemberCount.date,
-          icon: AlertTriangle,
-          color: 'text-red-600',
-          bgColor: 'bg-red-50'
-        };
-      }
-    }
-
+    // Pending status - registration available
     return {
-      status: 'required',
-      message: `📝 Complete ${activeSchoolYear} registration`,
+      status: 'available',
+      message: `📝 ${activeSchoolYear} registration is available`,
       actionNeeded: true,
       schoolYear: activeSchoolYear,
-      deadline: nextSeptemberCount.date,
+      deadline: nextSeptemberCount?.date || null,
       icon: FileText,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
@@ -3148,6 +2913,299 @@ Check console for full details.
     );
   }
 
+  // Show facilitator preview screen FIRST for new users before profile creation
+  if (!shouldBypassProfileCheck && !hasCompleteProfile && !hasRegisteredFamily && !customClaims?.familyId && showFacilitatorPreview) {
+    const allFacilitators = getAllFacilitatorsRandomized();
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <RTDConnectLogo />
+
+              {/* Desktop sign out button */}
+              <button
+                onClick={handleSignOut}
+                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Welcome Section */}
+          <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Heart className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome to RTD Connect!</h1>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                We're excited to support your home education journey. Let's get you started!
+              </p>
+            </div>
+
+            {/* Next Steps Card */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <CheckCircle2 className="w-6 h-6 mr-3 text-purple-600" />
+                Quick Setup Process
+              </h2>
+              <p className="text-gray-700 mb-6">
+                Before selecting your facilitator, you'll complete a brief registration process:
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-1">Create Your Personal Profile</h3>
+                    <p className="text-sm text-gray-600">
+                      Add your contact information as the primary guardian
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-1">Create Your Family Profile</h3>
+                    <p className="text-sm text-gray-600">
+                      Add your students and family members to your account
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-1">Select Your Facilitator</h3>
+                    <p className="text-sm text-gray-600">
+                      Choose from our available facilitators to guide your journey
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview Facilitators Button */}
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowFacilitatorPreviewSheet(true)}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-all"
+                >
+                  <Users className="w-5 h-5" />
+                  <span className="font-medium">Preview Our Facilitators</span>
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-center space-x-2 text-purple-700 bg-purple-100 rounded-lg py-3 px-4">
+                <Clock className="w-5 h-5" />
+                <span className="font-medium">Takes approximately 2-5 minutes to complete</span>
+              </div>
+            </div>
+
+            {/* Important Note About Registration */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
+                <Info className="w-5 h-5 mr-2" />
+                After Setup: Official Registration
+              </h3>
+              <p className="text-sm text-blue-800">
+                Once you've created your family profile and selected your facilitator, you'll need to complete the
+                <strong> Home Education Notification Form</strong> for each student to be officially registered with
+                RTD Connect and receive funding. Your facilitator will guide you through this process.
+              </p>
+            </div>
+
+            {/* Get Started Button */}
+            <div className="text-center">
+              <button
+                onClick={() => setShowFacilitatorPreview(false)}
+                className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-lg font-semibold rounded-lg hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-lg hover:shadow-xl"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        </main>
+
+        {/* Facilitator Preview Sheet - Full Screen Modal */}
+        <Sheet open={showFacilitatorPreviewSheet} onOpenChange={setShowFacilitatorPreviewSheet}>
+          <SheetContent size="full" className="overflow-y-auto pb-24">
+            <SheetHeader>
+              <SheetTitle className="text-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <span className="text-3xl font-bold">Preview Our Facilitators</span>
+                </div>
+              </SheetTitle>
+              <SheetDescription className="text-center">
+                <p className="text-gray-600 max-w-3xl mx-auto mt-2">
+                  Take a moment to learn about our facilitators. After completing your profile setup,
+                  you'll be able to select the one that best fits your family's needs.
+                </p>
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-8 max-w-7xl mx-auto px-4">
+              {/* Why Your Facilitator Choice Matters */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
+                <h3 className="font-semibold text-purple-900 mb-3 flex items-center">
+                  <Heart className="w-5 h-5 mr-2" />
+                  Why Your Facilitator Choice Matters
+                </h3>
+                <ul className="text-sm text-purple-800 space-y-2">
+                  <li className="flex items-start">
+                    <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span>They'll be your main point of contact for questions and support</span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span>They'll review your education plans and provide feedback</span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span>They'll conduct regular check-ins to ensure your success</span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span>They'll help navigate Alberta's home education requirements</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Facilitator Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {allFacilitators.map((facilitator) => {
+                  const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
+
+                  // Get availability info for regular selection type (for new families)
+                  const availabilityInfo = getFacilitatorAvailabilityForType(facilitator.id, 'regular');
+                  const isAvailable = availabilityInfo.isAvailable;
+
+                  return (
+                    <div
+                      key={facilitator.id}
+                      className={`relative bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow ${!isAvailable ? 'opacity-60' : ''}`}
+                    >
+                      {/* Availability Badge */}
+                      {isAvailable && (
+                        <div className="absolute top-4 left-4 z-10 bg-green-100 border border-green-300 text-green-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          {availabilityInfo.badge}
+                        </div>
+                      )}
+                      {!isAvailable && (
+                        <div className="absolute top-4 left-4 z-10 bg-red-100 border border-red-300 text-red-800 text-xs font-medium px-2 py-1 rounded-full flex items-center">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          {availabilityInfo.badge}
+                        </div>
+                      )}
+
+                      {/* Header with gradient */}
+                      <div className={`h-2 bg-gradient-to-r ${gradientClass}`} />
+
+                      <div className="p-6">
+                        {/* Profile Section */}
+                        <div className="flex items-start space-x-4 mb-4">
+                          <div className="relative">
+                            {facilitator.image ? (
+                              <img
+                                src={facilitator.image}
+                                alt={facilitator.name}
+                                className={`w-16 h-16 rounded-full object-cover border-4 border-white shadow-md ${facilitator.imageStyle || ''}`}
+                              />
+                            ) : (
+                              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-white shadow-md flex items-center justify-center">
+                                <Users className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900">{facilitator.name}</h3>
+                            <p className="text-sm text-gray-600">{facilitator.title}</p>
+                            <p className="text-xs text-purple-600 font-medium mt-1">{facilitator.experience}</p>
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+                          {facilitator.description}
+                        </p>
+
+                        {/* Specializations */}
+                        <div className="mb-4">
+                          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Specializations</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {facilitator.specializations.slice(0, 2).map((spec, index) => (
+                              <span
+                                key={index}
+                                className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full"
+                              >
+                                {spec}
+                              </span>
+                            ))}
+                            {facilitator.specializations.length > 2 && (
+                              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                +{facilitator.specializations.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* View Profile Link */}
+                        {facilitator.profileUrl && (
+                          <a
+                            href={getFacilitatorProfileUrl(facilitator)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center"
+                          >
+                            <span>View Full Profile</span>
+                            <ExternalLink className="w-4 h-4 ml-1" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sticky Close Button at Bottom */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg p-3 z-50">
+              <div className="max-w-4xl mx-auto flex justify-center">
+                <button
+                  onClick={() => setShowFacilitatorPreviewSheet(false)}
+                  className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium rounded-lg hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Close Preview</span>
+                </button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
+
   // Show profile completion first if incomplete (but bypass for staff users)
   if (!shouldBypassProfileCheck && !hasCompleteProfile) {
     return (
@@ -3242,18 +3300,12 @@ Check console for full details.
           {/* Feature preview */}
           <div className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">What's Available After Setup</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FeatureCard
                 icon={GraduationCap}
                 title="Student Management"
                 description="Register and manage your home education students"
                 gradient="from-purple-500 to-cyan-500"
-              />
-              <FeatureCard
-                icon={FileText}
-                title="Annual Registration"
-                description="Complete yearly registration requirements online"
-                gradient="from-blue-500 to-cyan-500"
               />
               <FeatureCard
                 icon={DollarSign}
@@ -3327,11 +3379,17 @@ Check console for full details.
                   required
                   infoTooltip="Enter your birthday, not your child's. Your children's birthdays will be entered when you add them as family members in the next step."
                 >
-                  <input
-                    type="date"
-                    value={profileData.birthday}
-                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                  <DatePicker
+                    selected={profileData.birthday ? toEdmontonDate(profileData.birthday) : null}
+                    onChange={(date) => handleProfileInputChange('birthday', date ? toDateString(date) : '')}
+                    openToDate={new Date(new Date().getFullYear() - 35, 0, 1)}
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={100}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select your birthday"
                     className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    wrapperClassName="w-full"
                   />
                 </FormField>
 
@@ -3438,260 +3496,8 @@ Check console for full details.
     );
   }
 
-  // If profile is complete but no facilitator selected, show facilitator selection
-  if (!hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId) {
-    // Binary check: Are we in the intent to register period?
-    const registrationPhase = getRegistrationPhase();
-    const isIntentPeriod = registrationPhase.phase === 'intent-period';
-    const facilitatorSelectionType = isIntentPeriod ? 'intent' : 'regular';
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-purple-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <RTDConnectLogo />
-
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="flex lg:hidden items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-
-              {/* Desktop profile dropdown */}
-              <div className="hidden lg:flex items-center space-x-3">
-                <ProfileDropdown
-                  userProfile={{ ...userProfile, email: user?.email }}
-                  onEditProfile={() => setShowProfileForm(true)}
-                  onSignOut={handleSignOut}
-                />
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content - Facilitator Selection */}
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <FacilitatorSelection
-            selectedFacilitatorId={selectedFacilitatorId}
-            onFacilitatorSelect={handleFacilitatorSelect}
-            showAsStep={true}
-            onContinue={handleContinueToFamilyCreation}
-            selectionType={facilitatorSelectionType}
-          />
-        </main>
-
-        {/* Profile Sheet */}
-        <Sheet open={showProfileForm} onOpenChange={setShowProfileForm}>
-          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-left">
-                <div className="flex items-center space-x-2">
-                  <User className="w-5 h-5 text-purple-500" />
-                  <span>Edit Your Profile</span>
-                </div>
-              </SheetTitle>
-              <SheetDescription className="text-left">
-                Update your basic information and contact details.
-              </SheetDescription>
-            </SheetHeader>
-
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="mt-6 space-y-6">
-              <div className="space-y-4">
-                <FormField label="First Name" error={profileErrors.firstName} required>
-                  <input
-                    type="text"
-                    value={profileData.firstName}
-                    onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
-                    className={`w-full px-3 py-2 border ${profileErrors.firstName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    placeholder="Enter your first name"
-                  />
-                </FormField>
-
-                <FormField label="Last Name" error={profileErrors.lastName} required>
-                  <input
-                    type="text"
-                    value={profileData.lastName}
-                    onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
-                    className={`w-full px-3 py-2 border ${profileErrors.lastName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    placeholder="Enter your last name"
-                  />
-                </FormField>
-
-                <FormField label="Phone Number" error={profileErrors.phone} required>
-                  <input
-                    type="tel"
-                    value={profileData.phone}
-                    onChange={handlePhoneChange}
-                    className={`w-full px-3 py-2 border ${profileErrors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    placeholder="(403) 555-0123"
-                  />
-                </FormField>
-
-                <FormField label="Birthday" error={profileErrors.birthday} required>
-                  <input
-                    type="date"
-                    value={profileData.birthday}
-                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
-                    className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  />
-                </FormField>
-
-                <FormField label="Address" error={profileErrors.address} required>
-                  <AddressPicker
-                    value={profileData.address}
-                    onAddressSelect={handleAddressSelect}
-                    error={profileErrors.address}
-                    placeholder="Start typing your address..."
-                  />
-                </FormField>
-              </div>
-
-              {profileErrors.submit && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-800">{profileErrors.submit}</p>
-                </div>
-              )}
-
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  disabled={isSubmittingProfile}
-                  className={`w-full py-3 px-4 border border-transparent rounded-md text-white font-medium ${
-                    isSubmittingProfile
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors flex items-center justify-center`}
-                >
-                  {isSubmittingProfile ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      Save Profile
-                      <CheckCircle2 className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </SheetContent>
-        </Sheet>
-
-        {/* Mobile Navigation Sheet */}
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="left" className="w-80 p-0">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
-                    {userProfile?.firstName && userProfile?.lastName
-                      ? `${userProfile.firstName[0]}${userProfile.lastName[0]}`
-                      : (userProfile?.email ? userProfile.email[0].toUpperCase() : 'U')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {userProfile?.firstName && userProfile?.lastName 
-                        ? `${userProfile.firstName} ${userProfile.lastName}`
-                        : userProfile?.email || 'User'}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {userProfile?.email}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation Items */}
-              <div className="flex-1 px-6 py-4 space-y-4">
-                {userProfile?.firstName && (
-                  <div className="pb-4 border-b border-gray-200">
-                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Profile Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700">{userProfile.firstName} {userProfile.lastName}</span>
-                      </div>
-                      {userProfile.phone && (
-                        <div className="flex items-center space-x-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{userProfile.phone}</span>
-                        </div>
-                      )}
-                      {userProfile.address && (
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700 truncate">
-                            {userProfile.address.city}, {userProfile.address.province}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setShowProfileForm(true);
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
-                  >
-                    <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
-                    Edit Profile
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      handleSignOut();
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
-                  >
-                    <LogOut className="w-4 h-4 mr-3 text-gray-400" />
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-gray-200">
-                <div className="text-center text-xs text-gray-500">
-                  <p>&copy; {new Date().getFullYear()} RTD Connect</p>
-                  <p>Home Education Portal</p>
-                </div>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* Family Management - opened from facilitator selection */}
-        <FamilyManagementWrapper
-          isOpen={showFamilyCreation}
-          onOpenChange={setShowFamilyCreation}
-          familyKey={hasRegisteredFamily ? familyKey : null}
-          hasRegisteredFamily={hasRegisteredFamily}
-          initialFamilyData={familyData}
-          onFamilyDataChange={handleFamilyDataChange}
-          onComplete={handleFamilyComplete}
-          selectedFacilitator={selectedFacilitator} // Pass facilitator info
-          staffMode={isStaff()}
-          isStaffViewing={isStaffViewing}
-          onEditProfile={() => setShowProfileForm(true)}
-        />
-      </div>
-    );
-  }
-
-  // If facilitator is selected but no family registration, show family setup
-  if (hasFacilitatorSelected && !hasRegisteredFamily && !customClaims?.familyId) {
+  // If profile is complete but no family registration, show family setup
+  if (!hasRegisteredFamily && !customClaims?.familyId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
         {/* Header */}
@@ -3724,8 +3530,8 @@ Check console for full details.
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Home className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Family Profile</h1>
               <p className="text-gray-600 max-w-2xl mx-auto">
@@ -3739,7 +3545,7 @@ Check console for full details.
               className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg font-medium transition-colors ${
                 isSettingUpFamily
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
+                  : 'bg-gradient-to-r from-orange-500 to-pink-500 text-white hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500'
               }`}
             >
               {isSettingUpFamily ? (
@@ -3749,37 +3555,12 @@ Check console for full details.
                 </>
               ) : (
                 <>
-                  <Users className="w-5 h-5" />
+                  <Home className="w-5 h-5" />
                   <span className="text-lg">Create Family Profile</span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
-          </div>
-
-          {/* Feature preview */}
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Coming Soon to Your Dashboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FeatureCard 
-                icon={Calendar}
-                title="Course Scheduling"
-                description="Plan and track your students' course schedules"
-                gradient="from-purple-500 to-cyan-500"
-              />
-              <FeatureCard 
-                icon={FileText}
-                title="Report Generation"
-                description="Generate progress reports and transcripts"
-                gradient="from-blue-500 to-cyan-500"
-              />
-              <FeatureCard 
-                icon={Shield}
-                title="Secure Communication"
-                description="Communicate securely with RTD Academy staff"
-                gradient="from-cyan-500 to-blue-500"
-              />
-            </div>
           </div>
         </main>
 
@@ -3831,11 +3612,17 @@ Check console for full details.
                 </FormField>
 
                 <FormField label="Birthday" error={profileErrors.birthday} required>
-                  <input
-                    type="date"
-                    value={profileData.birthday}
-                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                  <DatePicker
+                    selected={profileData.birthday ? toEdmontonDate(profileData.birthday) : null}
+                    onChange={(date) => handleProfileInputChange('birthday', date ? toDateString(date) : '')}
+                    openToDate={new Date(new Date().getFullYear() - 35, 0, 1)}
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={100}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select your birthday"
                     className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    wrapperClassName="w-full"
                   />
                 </FormField>
 
@@ -4090,11 +3877,17 @@ Check console for full details.
                 </FormField>
 
                 <FormField label="Birthday" error={profileErrors.birthday} required>
-                  <input
-                    type="date"
-                    value={profileData.birthday}
-                    onChange={(e) => handleProfileInputChange('birthday', e.target.value)}
+                  <DatePicker
+                    selected={profileData.birthday ? toEdmontonDate(profileData.birthday) : null}
+                    onChange={(date) => handleProfileInputChange('birthday', date ? toDateString(date) : '')}
+                    openToDate={new Date(new Date().getFullYear() - 35, 0, 1)}
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={100}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select your birthday"
                     className={`w-full px-3 py-2 border ${profileErrors.birthday ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    wrapperClassName="w-full"
                   />
                 </FormField>
 
@@ -4423,45 +4216,13 @@ Check console for full details.
             />
           )}
 
-          {showIntentWarning && (
-            <RegistrationWarningBanner
-              type="intent"
-              onDismiss={() => handleDismissWarning('intentIncompleteWarning')}
-              onAction={() => setShowIntentForm(true)}
-            />
-          )}
 
           {/* Family Status & Facilitator Info */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Family Status - Dynamic based on status */}
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center space-x-4">
-                {(familyData?.status === 'intent' || familyData?.status === 'intent-pending') ? (
-                  <>
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      familyIntentCompleted
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500'
-                        : 'bg-gradient-to-r from-orange-400 to-yellow-500'
-                    }`}>
-                      {familyIntentCompleted ? (
-                        <Calendar className="w-6 h-6 text-white" />
-                      ) : (
-                        <Clock className="w-6 h-6 text-white" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Family Status</h3>
-                      <p className={`text-sm font-medium ${
-                        familyIntentCompleted ? 'text-purple-600' : 'text-orange-600'
-                      }`}>
-                        {familyIntentCompleted
-                          ? `Intent to Register • ${NEXT_SCHOOL_YEAR}`
-                          : `Intent to Register - Pending`
-                        }
-                      </p>
-                    </div>
-                  </>
-                ) : familyData?.status === 'inactive' ? (
+                {familyData?.status === 'inactive' ? (
                   <>
                     <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
                       <AlertCircle className="w-6 h-6 text-white" />
@@ -4483,31 +4244,6 @@ Check console for full details.
                   </>
                 )}
               </div>
-
-              {/* Intent to Register Button - Only for intent families */}
-              {shouldShowFeature('intentForm') && (
-                <button
-                  onClick={() => setShowIntentForm(true)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-2 whitespace-nowrap ${
-                    familyIntentCompleted
-                      ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300'
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300'
-                  }`}
-                  title={familyIntentCompleted ? 'Update your intent registration' : 'Complete intent to register'}
-                >
-                  {familyIntentCompleted ? (
-                    <>
-                      <FileText className="w-4 h-4" />
-                      <span>Update</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight className="w-4 h-4" />
-                      <span>Complete</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
 
             {/* Facilitator Info - Dynamic based on status */}
@@ -4527,14 +4263,9 @@ Check console for full details.
                   />
                 </a>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {familyData?.status === 'intent' ? `Your ${NEXT_SCHOOL_YEAR} Facilitator` : 'Your Facilitator'}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Your Facilitator</h3>
                   <p className="text-sm text-purple-600 font-medium">{selectedFacilitator.name}</p>
                   <p className="text-xs text-gray-500">{selectedFacilitator.title}</p>
-                  {familyData?.status === 'intent' && (
-                    <p className="text-xs text-purple-600 mt-1 italic">Selected for next school year</p>
-                  )}
                 </div>
               </div>
             ) : (
@@ -4621,7 +4352,6 @@ Check console for full details.
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                     {familyData.students.map((student, index) => {
                       const isInactiveFamily = familyData?.status === 'inactive';
-                      const isIntentFamily = familyData?.status === 'intent';
 
                       // For inactive families, show minimal read-only card
                       if (isInactiveFamily) {
@@ -4922,8 +4652,8 @@ Check console for full details.
                                       'bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300 hover:border-purple-400'
                                     }`}
                                   >
-                                    {docStatus.status === 'completed' ? 'View/Update Documents' : 
-                                     docStatus.status === 'pending-review' ? 'View Documents (Review Required)' : 
+                                    {docStatus.status === 'completed' ? 'View/Update Documents' :
+                                     docStatus.status === 'pending-review' ? 'Manage Documents' :
                                      'Upload Documents'}
                                   </button>
                                   
@@ -4952,7 +4682,7 @@ Check console for full details.
                                       ) : (
                                         <>
                                           <Eye className="w-4 h-4" />
-                                          <span>Preview Documents ({docStatus.documentCount})</span>
+                                          <span>Review Uploaded Documents ({docStatus.documentCount})</span>
                                         </>
                                       )}
                                     </button>
@@ -4989,7 +4719,7 @@ Check console for full details.
                                       ) : (
                                         <>
                                           <Eye className="w-4 h-4" />
-                                          <span>Preview Documents ({docStatus.documentCount})</span>
+                                          <span>Review Uploaded Documents ({docStatus.documentCount})</span>
                                         </>
                                       )}
                                     </button>
@@ -5938,43 +5668,6 @@ Check console for full details.
         />
       )}
 
-      {/* Intent to Register Form - For intent families */}
-      {showIntentForm && (
-        <Sheet open={showIntentForm} onOpenChange={(open) => {
-          setShowIntentForm(open);
-          // Refresh data after closing the form
-          if (!open && effectiveFamilyId) {
-            // Data will auto-refresh through the intent status useEffect
-          }
-        }}>
-          <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-left">
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5 text-purple-500" />
-                  <span>Intent to Register for {NEXT_SCHOOL_YEAR}</span>
-                </div>
-              </SheetTitle>
-              <SheetDescription className="text-left">
-                Submit your intent to register all your students for the {NEXT_SCHOOL_YEAR} school year.
-              </SheetDescription>
-            </SheetHeader>
-
-            <div className="mt-6">
-              <IntentToRegisterForm
-                familyData={familyData}
-                onComplete={() => {
-                  setShowIntentForm(false);
-                  setToast({
-                    message: 'Intent to Register submitted successfully!',
-                    type: 'success'
-                  });
-                }}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
 
       {/* Facilitator Meeting Form - Everyone can open; staff edits, family comments */}
       {showMeetingForm && (

@@ -5,9 +5,9 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
 import { FileText, CheckCircle2, AlertCircle, AlertTriangle, GraduationCap, Calendar, X, Loader2, ChevronDown, Plus, Download, Save, BookOpen, Expand } from 'lucide-react';
 import { getFacilitatorDropdownOptions, isValidFacilitator } from '../config/facilitators';
-import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString, toEdmontonDate } from '../utils/timeZoneUtils';
+import { getEdmontonTimestamp, formatEdmontonTimestamp, toDateString, toEdmontonDate, calculateGradeFromBirthday } from '../utils/timeZoneUtils';
 import { FUNDING_RATES } from '../config/HomeEducation';
-import { getCurrentSchoolYear } from '../config/calendarConfig';
+import { CURRENT_SCHOOL_YEAR, NEXT_SCHOOL_YEAR } from '../config/calendarConfig';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';
@@ -268,18 +268,13 @@ const CheckboxGroup = ({ label, options, values, onChange, required = false, des
 const getTargetSchoolYear = () => {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // 1-12
-  const currentYear = currentDate.getFullYear();
-  
+
   // If it's September (9) or October (10), plan for current school year
   // Otherwise, plan for next school year
   if (currentMonth === 9 || currentMonth === 10) {
-    return getCurrentSchoolYear();
+    return CURRENT_SCHOOL_YEAR;
   } else {
-    // Get next school year
-    const currentSchoolYear = getCurrentSchoolYear();
-    const startYear = parseInt('20' + currentSchoolYear.substr(0, 2));
-    const nextStartYear = startYear + 1;
-    return `${nextStartYear.toString().substr(-2)}/${(nextStartYear + 1).toString().substr(-2)}`;
+    return NEXT_SCHOOL_YEAR;
   }
 };
 
@@ -660,6 +655,38 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           ...migratedPlan
         }));
         setExistingSubmission(migratedPlan);
+      } else {
+        // No existing SOLO plan - try to get grade from notification form
+        try {
+          const notificationFormRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${student.id}`);
+          const notifSnapshot = await get(notificationFormRef);
+
+          if (notifSnapshot.exists()) {
+            const notifData = notifSnapshot.val();
+            const selectedGrade = notifData.PART_A?.editableFields?.gradeLevel;
+
+            if (selectedGrade) {
+              console.log(`Pre-selecting grade ${selectedGrade} from notification form for ${student.firstName} ${student.lastName}`);
+              setFormData(prev => ({
+                ...prev,
+                grade: selectedGrade
+              }));
+            }
+          } else if (student.birthday) {
+            // Fallback: Calculate from birthday if no notification form exists
+            const calculatedGrade = calculateGradeFromBirthday(student.birthday, schoolYear);
+            if (calculatedGrade) {
+              console.log(`Calculated grade ${calculatedGrade} from birthday for ${student.firstName} ${student.lastName}`);
+              setFormData(prev => ({
+                ...prev,
+                grade: calculatedGrade
+              }));
+            }
+          }
+        } catch (notifError) {
+          console.error('Error loading notification form for grade:', notifError);
+          // Silent fail - grade will remain as initialized
+        }
       }
     } catch (error) {
       console.error('Error loading existing SOLO plan:', error);
@@ -1845,7 +1872,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           <SheetTitle className="text-left">
             <div className="flex items-center space-x-2">
               <GraduationCap className="w-5 h-5 text-purple-500" />
-              <span>Program Plan</span>
+              <span>{staffMode ? `Program Plan - ${student.firstName} ${student.lastName} - ${schoolYear} (Read-Only)` : `Program Plan - ${student.firstName} ${student.lastName} - ${schoolYear}`}</span>
               {staffMode && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   <FileText className="w-3 h-3 mr-1" />
@@ -1855,12 +1882,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
             </div>
           </SheetTitle>
           
-          <SheetDescription className="text-left">
-            {staffMode ? 
-              `Viewing the Schedule of Learning Outcomes (SOLO) program plan for ${student.firstName} ${student.lastName} - ${schoolYear} school year` :
-              `Complete the Schedule of Learning Outcomes (SOLO) program plan for ${student.firstName} ${student.lastName} - ${schoolYear} school year`
-            }
-          </SheetDescription>
+        
         </SheetHeader>
 
         {isLoading ? (
@@ -1870,19 +1892,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-            {/* Program Description */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">Program Plan Information</h3>
-              <p className="text-sm text-blue-800 mb-3">
-                This is the program plan used if a student is not doing any credits, regardless of age/grade. 
-                Your program plan is an important document. It outlines your child's unique learning goals. 
-                It is flexible and may be changed at any time throughout the year.
-              </p>
-              <p className="text-sm text-blue-800">
-                This program plan template is based on the Schedule Of Learning Outcomes (SOLO) for students 
-                receiving home education programs that do not follow the Alberta program of studies.
-              </p>
-            </div>
+        
 
             {/* Basic Education Requirements */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">

@@ -9,6 +9,7 @@ import {
 } from '../config/facilitators';
 import { Star, Users, Clock, GraduationCap, Check, ChevronRight, Phone, Mail, BookOpen, Heart, Award, Ban, AlertTriangle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 
 const FacilitatorCard = ({ facilitator, isSelected, onSelect, onViewDetails, selectionType = 'regular' }) => {
   const gradientClass = facilitator.gradients?.card || 'from-purple-500 to-blue-500';
@@ -330,6 +331,8 @@ const FacilitatorSelection = ({
   const [selectedFacilitator, setSelectedFacilitator] = useState(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [viewingFacilitator, setViewingFacilitator] = useState(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingFacilitator, setPendingFacilitator] = useState(null);
 
   useEffect(() => {
     // Set initial selection if provided
@@ -342,10 +345,25 @@ const FacilitatorSelection = ({
   }, [selectedFacilitatorId]);
 
   const handleSelect = (facilitator) => {
-    setSelectedFacilitator(facilitator);
-    if (onFacilitatorSelect) {
-      onFacilitatorSelect(facilitator.id, facilitator);
+    // Show confirmation dialog instead of immediately selecting
+    setPendingFacilitator(facilitator);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmSelection = () => {
+    if (pendingFacilitator) {
+      setSelectedFacilitator(pendingFacilitator);
+      if (onFacilitatorSelect) {
+        onFacilitatorSelect(pendingFacilitator.id, pendingFacilitator);
+      }
+      setConfirmDialogOpen(false);
+      setPendingFacilitator(null);
     }
+  };
+
+  const handleCancelSelection = () => {
+    setConfirmDialogOpen(false);
+    setPendingFacilitator(null);
   };
 
   const handleViewDetails = (facilitator) => {
@@ -465,6 +483,66 @@ const FacilitatorSelection = ({
         onClose={() => setDetailSheetOpen(false)}
         facilitator={viewingFacilitator}
       />
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Facilitator Selection</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to select {pendingFacilitator?.name} as your facilitator?
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingFacilitator && (
+            <div className="py-4">
+              <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                {pendingFacilitator.image ? (
+                  <img
+                    src={pendingFacilitator.image}
+                    alt={pendingFacilitator.name}
+                    className={`w-16 h-16 rounded-full object-cover border-2 border-purple-200 ${pendingFacilitator.imageStyle || ''}`}
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-purple-200 flex items-center justify-center">
+                    <Users className="w-8 h-8 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{pendingFacilitator.name}</h3>
+                  <p className="text-sm text-gray-600">{pendingFacilitator.title}</p>
+                  <p className="text-xs text-purple-600 mt-1">{pendingFacilitator.experience}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 text-sm text-gray-700">
+                <p className="mb-2">Your facilitator will:</p>
+                <ul className="list-disc list-inside space-y-1 text-gray-600">
+                  <li>Be your main point of contact for support</li>
+                  <li>Review your education plans and provide feedback</li>
+                  <li>Conduct regular check-ins to ensure your success</li>
+                  <li>Help navigate Alberta's home education requirements</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <button
+              onClick={handleCancelSelection}
+              className="px-4 py-2 text-sm font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmSelection}
+              className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all font-medium"
+            >
+              Confirm Selection
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

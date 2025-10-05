@@ -28,6 +28,7 @@ import { createDiplomaDeadlineCalendarEvents } from './diplomaDates';
 // CURRENT SCHOOL YEAR
 // =============================================================================
 // UPDATE THESE VALUES AT THE START OF EACH SCHOOL YEAR
+export const PREVIOUS_SCHOOL_YEAR = '24/25';
 export const CURRENT_SCHOOL_YEAR = '25/26';
 export const NEXT_SCHOOL_YEAR = '26/27';
 

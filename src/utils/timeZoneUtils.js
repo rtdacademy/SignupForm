@@ -106,18 +106,52 @@ export const isDateInSummer = (date) => {
  */
 export const calculateAge = (birthDate, referenceDate = new Date()) => {
   if (!birthDate) return 0;
-  
+
   // Convert string to Date if necessary
   const birthDateObj = typeof birthDate === 'string' ? toEdmontonDate(birthDate) : birthDate;
-  
+
   let age = referenceDate.getFullYear() - birthDateObj.getFullYear();
   const m = referenceDate.getMonth() - birthDateObj.getMonth();
-  
+
   if (m < 0 || (m === 0 && referenceDate.getDate() < birthDateObj.getDate())) {
     age--;
   }
-  
+
   return age;
+};
+
+/**
+ * Calculate age with years and months
+ *
+ * @param {string|Date} birthDate - Birth date string in YYYY-MM-DD format or Date object
+ * @param {Date} referenceDate - Date to calculate age at (defaults to current date)
+ * @returns {Object} Object with years and months properties
+ */
+export const calculateAgeWithMonths = (birthDate, referenceDate = new Date()) => {
+  if (!birthDate) return { years: 0, months: 0 };
+
+  // Convert string to Date if necessary
+  const birthDateObj = typeof birthDate === 'string' ? toEdmontonDate(birthDate) : birthDate;
+
+  let years = referenceDate.getFullYear() - birthDateObj.getFullYear();
+  let months = referenceDate.getMonth() - birthDateObj.getMonth();
+
+  // Adjust if we haven't reached the birth month yet this year
+  if (months < 0 || (months === 0 && referenceDate.getDate() < birthDateObj.getDate())) {
+    years--;
+    months += 12;
+  }
+
+  // Adjust months if we haven't reached the birth day yet this month
+  if (referenceDate.getDate() < birthDateObj.getDate()) {
+    months--;
+    if (months < 0) {
+      months += 12;
+      years--;
+    }
+  }
+
+  return { years, months };
 };
 
 /**
@@ -391,8 +425,53 @@ export const formatEdmontonTimestamp = (timestamp) => {
 };
 
 /**
+ * Calculate grade level from birthday for a given school year
+ * Based on Alberta school system where students must turn the required age by September 1st
+ *
+ * @param {string|Date} birthday - Student's birthday in YYYY-MM-DD format or Date object
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {string} Grade level ('K', '1', '2', ... '12') or empty string if not school age
+ */
+export const calculateGradeFromBirthday = (birthday, schoolYear) => {
+  if (!birthday || !schoolYear) return '';
+
+  // Convert birthday string to Date if necessary
+  const birthDateObj = typeof birthday === 'string' ? toEdmontonDate(birthday) : birthday;
+
+  // Parse school year to get the start year
+  // For '25/26', the start year is 2025
+  const [startYearShort] = schoolYear.split('/');
+  const startYear = parseInt('20' + startYearShort);
+
+  // Create September 1st of the school year start
+  const september1st = new Date(startYear, 8, 1); // Month 8 = September (0-indexed)
+
+  // Calculate age on September 1st of the school year
+  let ageOnSept1 = september1st.getFullYear() - birthDateObj.getFullYear();
+  const monthDiff = september1st.getMonth() - birthDateObj.getMonth();
+
+  // Adjust age if birthday hasn't occurred yet by September 1st
+  if (monthDiff < 0 || (monthDiff === 0 && september1st.getDate() < birthDateObj.getDate())) {
+    ageOnSept1--;
+  }
+
+  // Determine grade based on age on September 1st
+  // Age 5 → Kindergarten
+  // Age 6 → Grade 1
+  // Age 7 → Grade 2
+  // etc.
+  if (ageOnSept1 === 5) return 'K';
+  if (ageOnSept1 >= 6 && ageOnSept1 <= 18) {
+    return String(ageOnSept1 - 5);
+  }
+
+  // If student is too young (under 5) or too old (over 18), return empty
+  return '';
+};
+
+/**
  * Check if a date range is valid based on constraints
- * 
+ *
  * @param {string|Date} startDate - Start date string in YYYY-MM-DD format or Date object
  * @param {string|Date} endDate - End date string in YYYY-MM-DD format or Date object
  * @param {Object} constraints - Object containing date range constraints
@@ -407,11 +486,11 @@ export const validateDateRange = (startDate, endDate, constraints) => {
   if (!startDate || !endDate) {
     return { isValid: false, message: 'Both start and end dates are required' };
   }
-  
+
   // Convert strings to Date objects if necessary
   const startDateObj = typeof startDate === 'string' ? toEdmontonDate(startDate) : startDate;
   const endDateObj = typeof endDate === 'string' ? toEdmontonDate(endDate) : endDate;
-  
+
   // Check start date minimum
   if (constraints.minStartDate && startDateObj < constraints.minStartDate) {
     return {
@@ -419,15 +498,15 @@ export const validateDateRange = (startDate, endDate, constraints) => {
       message: `Start date must be on or after ${formatDateForDisplay(constraints.minStartDate)}`
     };
   }
-  
+
   // Check start date maximum
   if (constraints.maxStartDate && startDateObj > constraints.maxStartDate) {
     return {
       isValid: false,
-      message: `Start date must be on or before ${formatDateForDisplay(constraints.maxStartDate)}`
+      message: `Start date must be on or after ${formatDateForDisplay(constraints.maxStartDate)}`
     };
   }
-  
+
   // Check end date minimum
   if (constraints.minEndDate && endDateObj < constraints.minEndDate) {
     return {
@@ -435,7 +514,7 @@ export const validateDateRange = (startDate, endDate, constraints) => {
       message: `End date must be on or after ${formatDateForDisplay(constraints.minEndDate)}`
     };
   }
-  
+
   // Check end date maximum
   if (constraints.maxEndDate && endDateObj > constraints.maxEndDate) {
     return {
@@ -443,7 +522,7 @@ export const validateDateRange = (startDate, endDate, constraints) => {
       message: `End date must be on or before ${formatDateForDisplay(constraints.maxEndDate)}`
     };
   }
-  
+
   // Check minimum completion period if specified
   if (constraints.minCompletionMonths) {
     const minCompletionDate = getMinCompletionDate(startDateObj, constraints.minCompletionMonths);
@@ -454,7 +533,7 @@ export const validateDateRange = (startDate, endDate, constraints) => {
       };
     }
   }
-  
+
   // If we get here, the date range is valid
   return { isValid: true };
 };
