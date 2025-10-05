@@ -312,6 +312,344 @@ We're accommodating but will still hold you accountable - this balance helps com
       ]
     },
 
+    diplomaExams: {
+      title: 'Diploma Exams & Transcripts',
+      icon: 'ClipboardCheck',
+      description: 'Alberta diploma exams, transcripts, and accessing your academic records through MyPass',
+      color: '#4F46E5', // Indigo
+      faqs: [
+        {
+          question: 'What is MyPass and how do I access it?',
+          answer: `[MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) is your online account with Alberta Education where you access all your educational records, register for diploma exams, and view your transcript.
+
+**What you can do with MyPass:**
+- Register for diploma exams
+- View diploma exam marks and course grades
+- Order official high school transcripts ($10 fee)
+- Check Provincial Achievement Test results
+- Grant access to parents/guardians (until age 18)
+- View Detailed Academic Reports (DAR)
+
+**When to sign up:**
+Alberta Education recommends signing up in Grade 10, but you can create an account anytime.
+
+**What you need:**
+- Education Account
+- Alberta Student Number
+- Date of birth
+- Personal email address
+
+**How to sign up:**
+- Online through the [MyPass website](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)
+
+**For Former Students:**
+If you're a former student returning to complete courses or upgrade marks, the signup process may require additional steps. You'll need to call the Alberta Education Help Desk for assistance.
+
+**Former Student Resources:**
+- Call: **780-427-5318** for signup assistance
+- Watch this video: [How to sign up for myPass as a former student](https://youtu.be/1VWdGDoVTzo)
+
+**Current Student Help:**
+Contact the Alberta Education Help Desk at **780-427-5318**
+
+**Learn more:**
+Watch this video to see how MyPass works: [What is myPass?](https://youtu.be/zsreDsg4t3M)`,
+          priority: 'low'
+        },
+        {
+          question: 'What are diploma exams?',
+          answer: `Diploma exams are standardized provincial exams required for specific Grade 12 courses in Alberta. They are centrally marked by Alberta Education to ensure consistent standards across the province.
+
+**Key Details:**
+- Worth **30% of your final course grade**
+- The remaining 70% comes from your school-based coursework
+- You must earn a combined final mark of at least 50% to pass the course
+- Results are available approximately 3 weeks after writing on your [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) account`,
+          priority: 'low'
+        },
+        {
+          question: 'Which courses require diploma exams?',
+          answer: `Diploma exams are required for these 12 Grade 12 courses:
+
+**Sciences:**
+- Biology 30
+- Chemistry 30
+- Physics 30
+- Science 30
+
+**Mathematics:**
+- Mathematics 30-1
+- Mathematics 30-2
+
+**English Language Arts:**
+- English Language Arts 30-1
+- English Language Arts 30-2
+
+**Social Studies:**
+- Social Studies 30-1
+- Social Studies 30-2`,
+          priority: 'low'
+        },
+        {
+          question: 'Do I need to write the diploma exam?',
+          answer: `**Yes, diploma exams are required** to complete diploma courses. You cannot earn credit for a diploma course without writing the exam.`,
+          priority: 'low'
+        },
+        {
+          question: 'Are there registration deadlines for diploma exams?',
+          answer: `Yes! Each diploma exam session has a registration deadline, typically **2 months before** the exam date.
+
+**Important reminders:**
+- Deadlines are strict - late registration is not accepted
+- Register early to secure your preferred writing center
+- Remember to contact your writing center before registering
+- Plan your course completion to align with exam sessions
+
+**View all important dates:**
+Check our [Academic Calendar](/calendar) for a complete view of all diploma exam registration deadlines and exam dates throughout the year.`,
+          priority: 'low'
+        },
+        {
+          question: 'What happens if I miss my diploma exam registration deadline?',
+          answer: `If you miss a registration deadline, you'll need to wait and register for the next available exam session.
+
+**Exam sessions:**
+Diploma exams are offered **five times per year**:
+- November 
+- January
+- April
+- June 
+- August
+
+**Example:**
+If you miss the January registration deadline, you can register for the April session.
+
+**Plan ahead:**
+- Check registration deadlines on our [Academic Calendar](/calendar)
+- Align your course completion timeline with exam sessions
+- Register as early as possible once registration opens
+- Contact your teacher if you have concerns about meeting deadlines
+
+**Important:** You'll receive your school-awarded course mark when you complete the coursework, but you won't receive your final blended grade or course credit until you write the diploma exam.`,
+          priority: 'low'
+        },
+        {
+          question: 'How do I register for diploma exams?',
+          answer: `**RTD Academy Students:**
+We will contact all diploma students to help coordinate your exam registration. During this conversation, we'll determine where you'll be writing your exam:
+
+- **If writing at our Edmonton or Calgary centers:** We'll register you from our end - you don't need to add yourself to the exam sitting through [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1).
+- **If writing at another location (your primary school or another approved center):** You'll need to register yourself through [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) following the steps below.
+
+**Registering Yourself at a Different Location:**
+
+**Step 1: Ensure MyPass Access**
+Make sure you can login to [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1). This is Alberta Education's student portal where you'll register for exams and view your results.
+
+**Step 2: Contact the Writing Center FIRST** ⚠️
+**CRITICAL:** Before booking yourself into an exam session on [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1), you **MUST** contact someone at the writing center to confirm:
+- They are aware you'll be writing
+- They will have an exam ready for you
+- What time to arrive and what to bring
+
+If you book yourself without contacting them first, they may not have an exam prepared!
+
+**Step 3: Register on MyPass**
+- Login to your [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) account
+- Select your exam and preferred writing center
+- **Add the name of the person you spoke with** (usually an office staff member or administrator)
+- This confirms you've made proper arrangements
+
+**Step 4: Bring Photo ID**
+You must bring valid photo identification to your exam.`,
+          priority: 'low'
+        },
+        {
+          question: 'Is it my responsibility to ensure I\'m registered for my diploma exam?',
+          answer: `**Yes - diploma exam registration is ultimately YOUR responsibility.**
+
+While we have a good process for helping students register, mistakes and miscommunications can happen. You must be an advocate for yourself:
+
+**Always verify your registration:**
+- Login to [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) to check your exam registration status
+- Don't assume that our school (or any school) has completed everything correctly
+- Confirm your exam location, date, and time are correct
+
+**If something looks wrong:**
+- Contact us immediately if you see any issues
+- Don't wait until the last minute to check
+- It's easier to fix problems early than days before your exam`,
+          priority: 'low'
+        },
+        {
+          question: 'Can I write at RTD Academy\'s writing centers?',
+          answer: `Yes! RTD Academy operates writing centers in **Edmonton** and **Calgary** for each exam session throughout the year.
+
+**How it works:**
+1. We will contact you early to understand your intentions and confirm if you wish to write at one of our centers
+2. If you choose an RTD writing center, we will add you to the exam sitting - it will appear in your [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)
+3. **Please verify in [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) that you were successfully added to the correct session**
+4. Arrive with photo ID at the scheduled time
+
+Contact your RTD Academy teacher or our office for specific location details and exam session schedules.`,
+          priority: 'medium'
+        },
+        {
+          question: 'Can I write at my primary school or another writing center?',
+          answer: `Yes! However, **you must get permission first** - don't assume any writing center will accommodate you.
+
+**Options to explore:**
+- Your primary school (if you're a Non-Primary student)
+- Any approved Alberta diploma exam writing center (this could be other schools or designated exam writing centers - you can explore the list of available writing centers in your [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) account)
+
+**Required Steps - You must complete these:**
+1. **Contact the school/center first** - speak with office staff or an administrator
+2. **Ask permission** and confirm they can accommodate you for your specific exam
+3. Only if they agree, **register on [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)** using that location
+4. **Add the contact person's name** in the registration form
+5. Bring photo ID on exam day
+
+**Why asking permission is critical:** Writing centers need to order the correct exams and prepare space. Without prior contact and permission, they may not have your exam available, even if you're registered on [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)!`,
+          priority: 'medium'
+        },
+        {
+          question: 'When are diploma exams offered?',
+          answer: `Diploma exams are offered during **three exam sessions** each year:
+
+**November Session:**
+- Primarily for students rewriting to improve marks
+
+**January Session:**
+- For students completing Term 1 courses
+- Rewrite opportunities
+
+**June Session:**
+- Main exam session for Term 2 students
+- Largest session with most exam dates
+
+The specific exam schedule (dates and times for each course) is published on the **[Alberta Education website](https://www.alberta.ca/diploma-exams-overview)**.
+
+Plan ahead - check the exam schedule early to ensure your course completion aligns with your desired exam session.`,
+          priority: 'low'
+        },
+        {
+          question: 'How do I get my high school transcript?',
+          answer: `You can order your official Alberta high school transcript through [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1).
+
+**How to order:**
+1. Login to your [MyPass account](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)
+2. Navigate to the transcript ordering section
+3. Select electronic or paper delivery
+4. Pay the $10 processing fee per transcript
+5. Provide delivery details
+
+**When transcripts are available:**
+- **Mid-February:** Fall semester marks
+- **Mid-July:** Spring semester and summer marks
+
+**What's included:**
+- All completed Alberta courses with final grades
+- Diploma exam marks (if applicable)
+- Provincial Achievement Test results
+- Credits earned
+
+**Processing time:**
+Electronic transcripts are typically delivered within 1-2 business days. Paper transcripts may take 1-2 weeks.
+
+Need help? Contact the Alberta Education Help Desk at 780-427-5318`,
+          priority: 'medium'
+        },
+        {
+          question: 'When will my RTD Academy course appear on my transcript?',
+          answer: `Your course mark will be submitted to Alberta Education within **1 week of completing your course**. However, when it appears on your transcript depends on the update schedule:
+
+**Transcript Update Schedule:**
+- **Mid-February:** Courses completed in fall
+- **Mid-July:** Courses completed in spring and summer
+
+**For diploma courses:**
+Your course won't appear on your transcript until **after** your diploma exam results are released (approximately 3 weeks after writing). This is because the diploma exam mark (30%) must be combined with your coursework (70%) for your final grade.
+
+**Example timeline:**
+- You complete Physics 30 coursework: March 15
+- You write diploma exam: June 22
+- Exam results released: Mid-July
+- Appears on transcript: Mid-July update
+
+**Check your transcript:**
+Login to [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) to view your transcript and verify when marks have been added.`,
+          priority: 'medium'
+        },
+        {
+          question: 'Can I rewrite a diploma exam to improve my mark?',
+          answer: `Yes! You can rewrite diploma exams to improve your mark.
+
+**How it works:**
+- You can register for any future exam session
+- Your **highest** diploma exam mark is used for your final course grade
+- You keep your original school-based mark (70%)
+- Only the diploma exam portion (30%) can be improved
+
+**Strategy tip:** Since the exam is worth 30% of your final grade, improving your diploma mark by 10% only improves your final course grade by 3%. Make sure you're strategic about your preparation and consider whether your time is better spent on other courses.
+
+Students wanting to rewrite must register through [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) following the same process as first-time exam writers.`,
+          priority: 'low'
+        },
+        {
+          question: 'What should I bring to my diploma exam?',
+          answer: `**REQUIRED - You will not be allowed to write without this:**
+- **Valid photo identification** (driver's license, passport, Alberta photo ID, or school ID with photo)
+
+**Also bring:**
+- Writing utensils (pens, pencils)
+- Approved calculator (for Math and Science exams - see approved list below)
+- Extra batteries for your calculator (or ensure it's fully charged)
+
+**NOT ALLOWED:**
+- Cell phones or smart devices
+- Unauthorized notes or materials
+
+**Approved Calculators for Math and Science Diploma Exams:**
+
+**Approved Graphing Calculators:**
+
+**Casio:**
+- fx-9750 GIII (must be in examination mode)
+- fx-9750 GII
+- fx-9750 G Plus
+
+**Texas Instruments:**
+- TI-83, TI-83 Plus, TI-83 Plus Silver
+- TI-84 Plus, TI-84 Plus Silver, TI-84 Plus C Silver Edition
+- TI-84 Plus CE, TI-84 Plus CE Python
+- TI-84 Plus Pocket SE
+- TI-Nspire (with Touchpad or Clickpad)
+- TI-Nspire CX II
+- TI-Nspire CX II CAS (CAS must be disabled)
+- TI-Nspire CX Handheld
+
+**Sharp** (no longer manufactured):
+- EL-9600, EL-9600C, EL-9900
+
+Arrive 15-30 minutes early to allow time for check-in procedures.`,
+          priority: 'high'
+        },
+        {
+          question: 'How and when will I get my diploma exam results?',
+          answer: `**Timing:**
+Results are typically available approximately **3 weeks after** you write your exam.
+
+**How to access:**
+- Login to [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1)
+- View your diploma exam mark
+- See your final blended course grade (70% coursework + 30% exam)
+
+You'll receive notification through [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) when results are available.`,
+          priority: 'low'
+        }
+      ]
+    },
+
     grantFunding: {
       title: 'Understanding Grant Funding & Course Access',
       icon: 'DollarSign',
@@ -919,7 +1257,20 @@ We're accommodating but will hold you accountable. This balance helps you overco
 You're investing time and money in your education. We want to ensure you get the diploma you're working toward, not just another unfinished online course. Our teachers are here to be your accountability partners, cheerleaders, and support system - but only if you keep the communication lines open.
 
 Remember: There's no judgment for falling behind, only support to help you get back on track.`,
-          priority: 'high'
+          priority: 'low'
+        },
+        {
+          question: 'How do I access my transcript and diploma exam information?',
+          answer: `As an adult student, you'll need access to [MyPass](https://www.alberta.ca/student-information-high-school-transcripts#toc-1) to view your transcript, register for diploma exams, and access your academic records.
+
+**For complete MyPass information and setup instructions**, including how former students can sign up, visit our **[Diploma Exams & Transcripts section](/student-faq#diplomaExams)**.
+
+You'll find detailed information about:
+- What MyPass is and how to access it
+- Viewing your transcript and ordering official copies
+- Registering for diploma exams
+- Special instructions for former students returning to complete courses`,
+          priority: 'medium'
         }
       ]
     },
@@ -972,21 +1323,19 @@ This is ideal for international learners who may have different academic calenda
     },
 
     teacherStrike: {
-      title: 'Labour Disruption - Temporary Policy Changes',
+      title: 'Teacher Strike - Temporary Policy Changes',
       icon: 'Info',
-      description: 'Important information about temporary changes to registration deadlines and credit limits for Non-Primary students during the labour disruption in Alberta',
+      description: 'Important information about changes to registration deadlines and credit limits for Non-Primary students during the teacher strike in Alberta',
       color: '#2563EB', // Blue
       faqs: [
         {
-          question: 'What temporary changes are in effect for Non-Primary students due to the labour disruption?',
-          answer: `Alberta Education has implemented temporary changes for Non-Primary students during the labour disruption:
+          question: 'What changes are in effect for Non-Primary students due to the teacher strike?',
+          answer: `Alberta Education has implemented changes for Non-Primary students during the teacher strike:
 
 **For Non-Primary Students:**
 - September count date for enrollment is lifted - you can register for Term 1 anytime, or chose a later end date (like June)
-- The 10-credit cap is lifted - you can take unlimited courses!
-
-These are temporary measures that will be removed when the labour disruption ends.`,
-          priority: 'high'
+- The 10-credit cap is lifted - you can take unlimited courses!`,
+          priority: 'low'
         },
         {
           question: 'I thought registration closed after September count - can I still register for Term 1 as a Non-Primary student?',
@@ -997,7 +1346,7 @@ These are temporary measures that will be removed when the labour disruption end
 - Take advantage of this flexible registration period
 
 **Plus, you have even more flexibility:** If Term 1 (ending January 31) feels too short, you can simply choose a later end date when registering! For example, you could register now and select June as your end date to become a "full-year student." This usually doesn't matter for most students, but gives you the option to work at your own pace.`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Can Non-Primary students really take more than 10 credits now?',
@@ -1006,7 +1355,7 @@ These are temporary measures that will be removed when the labour disruption end
 - Non-Primary students can take as many courses as they want
 - No limit on the number of free courses through grant funding
 - This applies during the labour disruption period only`,
-          priority: 'high'
+          priority: 'low'
         },
         {
           question: 'Can I choose to take longer than Term 1 to complete my courses?',
@@ -1014,15 +1363,13 @@ These are temporary measures that will be removed when the labour disruption end
 
 - **Term 1 option:** Finish by January 31
 - **Full-year option:** Choose June as your end date and work at your own pace
-- **Custom timeline:** Select any end date that works for you
-
-When you register, simply select a later end date and you'll be considered a "full-year student." This usually doesn't matter for most students - it just gives you more time to work through the material at your own pace.`,
-          priority: 'high'
+- **Custom timeline:** Select any end date that works for you`,
+          priority: 'low'
         },
  
         {
-          question: 'Is RTD Academy affected by the labour disruption?',
-          answer: `RTD Academy continues to operate normally during the labour disruption. As an independent online school:
+          question: 'Is RTD Academy affected by the teacher strike?',
+          answer: `RTD Academy continues to operate normally during the teacher strike. As an independent online school:
 
 - All courses remain fully available
 - Teachers continue to provide full support
@@ -1048,6 +1395,13 @@ The temporary policy changes from Alberta Education actually provide MORE flexib
       { text: 'Student Registration', url: '/get-started' },
       { text: 'Course Catalog', url: '/courses' },
       { text: 'Contact Support', url: '/contact' }
+    ],
+    diplomaExams: [
+      { text: 'MyPass Login', url: 'https://www.alberta.ca/student-information-high-school-transcripts#toc-1', external: true },
+      { text: 'Academic Calendar', url: '/calendar' },
+      { text: 'Alberta Diploma Exams Info', url: 'https://www.alberta.ca/diploma-exams-overview', external: true },
+      { text: 'Order Transcript', url: 'https://www.alberta.ca/student-information-high-school-transcripts#toc-1', external: true },
+      { text: 'Contact Your Teacher', url: '/login' }
     ],
     nonPrimary: [
       { text: 'Understanding Grant Funding', url: '#grantFunding' },

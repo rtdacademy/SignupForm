@@ -172,6 +172,8 @@ const EventDetailsSheet = ({ event, eventTypes, open, onOpenChange }) => {
                         <div>
                           <a
                             href={evt.link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:text-teal-900 underline transition-colors"
                           >
                             {evt.link.text} <ArrowRight className="w-3 h-3" />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Search, ChevronDown, ChevronUp, Clock, ArrowUp, GraduationCap, Home, Sun, UserCheck, Globe, Info, HelpCircle, Sparkles, CheckCircle, X, Link2, Check, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Search, ChevronDown, ChevronUp, Clock, ArrowUp, GraduationCap, Home, Sun, UserCheck, Globe, Info, HelpCircle, Sparkles, CheckCircle, X, Link2, Check, BookOpen, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -11,8 +11,17 @@ import {
   AccordionTrigger,
 } from '../components/ui/accordion';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
 import { websiteConfig, getAllFAQs, getVisibleCategories } from './websiteConfig';
+import { isLabourDisruptionActive } from '../config/calendarConfig';
 import StudentTypeSelector from '../Registration/StudentTypeSelector';
 import SchoolAgeCalculator from './components/SchoolAgeCalculator';
 import { Calculator } from 'lucide-react';
@@ -171,7 +180,8 @@ const iconMap = {
   Sun: Sun,
   UserCheck: UserCheck,
   Globe: Globe,
-  Info: Info
+  Info: Info,
+  ClipboardCheck: ClipboardCheck
 };
 
 // Category Card Component
@@ -191,9 +201,18 @@ const CategoryCard = ({ category, onClick }) => {
   // Special handling for RTD Connect to show logo
   const isRTDConnect = category === 'rtdConnect';
 
+  // Check if this is the teacher strike category and disruption is active
+  const isTeacherStrike = category === 'teacherStrike';
+  const isDisruptionActive = isLabourDisruptionActive();
+  const shouldHighlight = isTeacherStrike && isDisruptionActive;
+
   return (
     <Card
-      className="cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg h-full"
+      className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${
+        shouldHighlight
+          ? 'hover:shadow-2xl ring-2 ring-blue-400/50 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/50 animate-pulse-subtle'
+          : 'hover:shadow-lg'
+      }`}
       onClick={handleClick}
       style={{ borderTopColor: config.color, borderTopWidth: '4px' }}
     >
@@ -208,7 +227,17 @@ const CategoryCard = ({ category, onClick }) => {
           ) : (
             <IconComponent className="h-8 w-8" style={{ color: config.color }} />
           )}
-          <CardTitle className="text-lg">{config.title}</CardTitle>
+          <div className="flex-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              {config.title}
+              {shouldHighlight && (
+                <Badge className="bg-blue-500 hover:bg-blue-600 text-white">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Active
+                </Badge>
+              )}
+            </CardTitle>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -236,6 +265,7 @@ const StudentFAQ = () => {
   const [calculatorOpen, setCalculatorOpen] = useState('');
   const [copiedCategory, setCopiedCategory] = useState('');
   const [highlightedSection, setHighlightedSection] = useState('');
+  const [showLabourDisruptionModal, setShowLabourDisruptionModal] = useState(false);
   const scrollTopRef = useRef();
 
   // Get all FAQs for search
@@ -396,12 +426,82 @@ const StudentFAQ = () => {
     return () => window.removeEventListener('hashchange', handleHashNavigation);
   }, []);
 
+  // Check for labour disruption modal on mount
+  useEffect(() => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_labourDisruption_notice_${MODAL_VERSION}`;
+
+    // Check if labour disruption is active
+    if (isLabourDisruptionActive()) {
+      // Check if user has already dismissed this version
+      const dismissed = localStorage.getItem(STORAGE_KEY);
+
+      if (!dismissed) {
+        // Show modal after a brief delay for better UX
+        setTimeout(() => {
+          setShowLabourDisruptionModal(true);
+        }, 500);
+      }
+    } else {
+      // Clean up localStorage if disruption is no longer active
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('rtd_labourDisruption_notice_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  }, []);
+
   const handleBackClick = () => {
     window.location.href = '/';
   };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCloseLabourDisruptionModal = () => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_labourDisruption_notice_${MODAL_VERSION}`;
+
+    // Save dismissal to localStorage
+    localStorage.setItem(STORAGE_KEY, 'true');
+
+    // Close modal
+    setShowLabourDisruptionModal(false);
+  };
+
+  const handleLearnMoreLabourDisruption = () => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_labourDisruption_notice_${MODAL_VERSION}`;
+
+    // Save dismissal to localStorage
+    localStorage.setItem(STORAGE_KEY, 'true');
+
+    // Close modal
+    setShowLabourDisruptionModal(false);
+
+    // Navigate to teacherStrike section
+    window.location.hash = 'teacherStrike';
+
+    // Scroll to section with offset
+    setTimeout(() => {
+      const element = document.getElementById('category-teacherStrike');
+      if (element) {
+        const offset = 100;
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - offset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+
+        // Highlight the section
+        setHighlightedSection('teacherStrike');
+        setTimeout(() => setHighlightedSection(''), 3000);
+      }
+    }, 300);
   };
 
   const copyLinkToSection = (categoryKey, event) => {
@@ -472,6 +572,52 @@ const StudentFAQ = () => {
 
   return (
     <div className="relative min-h-screen">
+      {/* Labour Disruption Modal */}
+      <Dialog open={showLabourDisruptionModal} onOpenChange={setShowLabourDisruptionModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/20">
+                <AlertTriangle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <DialogTitle className="text-xl">Important Policy Update</DialogTitle>
+            </div>
+            <DialogDescription className="text-base space-y-3 pt-2">
+              <p className="font-semibold text-foreground">
+                Temporary changes are now in effect for Non-Primary students due to the teacher strike:
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm"><strong>No September Count Deadline:</strong> Register for Term 1 anytime or choose a later end date</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm"><strong>No 10-Credit Cap:</strong> Take unlimited courses!</p>
+                </div>
+              </div>
+            
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handleCloseLabourDisruptionModal}
+              className="w-full sm:w-auto"
+            >
+              Got it
+            </Button>
+            <Button
+              onClick={handleLearnMoreLabourDisruption}
+              className="w-full sm:w-auto gap-2"
+            >
+              Learn More
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Background SVG layer */}
       <div className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none">
         <svg width="100%" height="100%" className="absolute top-0 left-0">

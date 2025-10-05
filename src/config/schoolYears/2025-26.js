@@ -65,7 +65,7 @@ export const importantDates = [
     date: toEdmontonDate('2025-09-29'),
     label: 'Term 1 Registration Deadline',
     description: 'Final day to register for Term 1 (courses ending January 31)',
-    showOnLanding: true,
+    showOnLanding: false,
     category: 'deadline'
   },
   {
@@ -97,7 +97,7 @@ export const importantDates = [
     learnMoreText: 'Learn about early access benefits',
     showFrom: toEdmontonDate('2025-10-01'),
     showUntil: toEdmontonDate('2026-02-01'),
-    showOnLanding: true,
+    showOnLanding: false,
     category: 'announcement'
   },
 
@@ -163,6 +163,15 @@ export const importantDates = [
   },
 
   // Summer School
+  {
+    key: 'summerRegistrationOpen',
+    type: 'date',
+    date: toEdmontonDate('2026-04-15'),
+    label: 'Summer School Registration Opens',
+    description: 'Summer School registration opens for funded students',
+    showOnLanding: true,
+    category: 'important'
+  },
   {
     key: 'summerRegistrationDeadline',
     type: 'date',
@@ -242,42 +251,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'non-primary': {
         applies: true,
-        message: 'Welcome to the new school year! If you\'re registered for Term 1, you can access all course materials now.',
-        whatThisMeans: 'Due to grant funding requirements, exams and teacher communication begin September 1. You can start learning and practicing right away!',
-        learnMoreLink: '/student-faq#grantFunding',
-        learnMoreText: 'Learn about early access benefits →',
+        message: 'First day of school - course materials are now available.',
+        learnMoreLink: '/student-faq#nonPrimary',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'home-education': {
         applies: true,
-        message: 'Welcome to the new school year! If you\'re registered for Term 1, you can access all course materials now.',
-        whatThisMeans: 'Due to grant funding requirements, exams and teacher communication begin September 1. You can start learning and practicing right away!',
-        learnMoreLink: '/student-faq#grantFunding',
-        learnMoreText: 'Learn about early access benefits →',
+        message: 'First day of school - course materials are now available.',
+        learnMoreLink: '/student-faq#homeEducation',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'summer': {
         applies: false,
-        message: 'This marks the start of the regular school year.',
-        whatThisMeans: 'Summer School runs separately from July-August. If you\'re planning summer courses, look for summer-specific dates.',
+        message: 'This date applies to the regular school year.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'This is the traditional school year start, but doesn\'t restrict when you can begin.',
-        whatThisMeans: 'As a paid student, you have full access to everything immediately upon registration - no waiting for school year dates.',
+        message: 'This date applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'This is the traditional school year start, but doesn\'t restrict when you can begin.',
-        whatThisMeans: 'As a paid student, you have full access to everything immediately upon registration - no waiting for school year dates.',
+        message: 'This date applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -306,42 +310,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'non-primary': {
         applies: true,
-        message: '🎉 GREAT NEWS: This deadline is temporarily lifted due to labour disruption!',
-        whatThisMeans: 'Alberta Education has lifted the September count enrollment deadline. You can register for Term 1 courses at any time! Plus, the 10-credit cap is also lifted - take as many courses as you want! You can also choose a later end date (like June) to become a full-year student and work at your own pace.',
+        message: 'This deadline is temporarily lifted due to labour disruption.',
         learnMoreLink: '/student-faq#teacherStrike',
-        learnMoreText: 'Learn about labour disruption changes →',
+        learnMoreText: 'Learn about policy changes →',
         importance: 'info'
       },
       'home-education': {
         applies: true,
-        message: '🎉 GREAT NEWS: This deadline is temporarily lifted due to labour disruption!',
-        whatThisMeans: 'Alberta Education has lifted the September count enrollment deadline. You can register for Term 1 courses at any time! You can also choose a later end date (like June) to become a full-year student. Note: The 10-credit cap still applies to Home Education students.',
+        message: 'This deadline is temporarily lifted due to labour disruption.',
         learnMoreLink: '/student-faq#teacherStrike',
-        learnMoreText: 'Learn about labour disruption changes →',
+        learnMoreText: 'Learn about policy changes →',
         importance: 'info'
       },
       'summer': {
         applies: false,
-        message: 'This deadline is only for Term 1 funded students.',
-        whatThisMeans: 'Summer School runs July-August with different registration deadlines. Check summer-specific dates on the calendar.',
+        message: 'This deadline applies to Term 1 funded students only.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you have full flexibility to register and start anytime without waiting for official term dates.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about Adult Student flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you have full flexibility to register and start anytime without waiting for official term dates.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about International Student options →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -415,7 +414,7 @@ export const calendarEvents = [
     title: 'Winter Break',
     start: toEdmontonDate('2025-12-20'),
     end: toEdmontonDate('2026-01-03'),
-    type: 'break',
+    type: 'holiday',
     visibility: 'public',
     description: 'Winter Break - No School',
     schoolClosed: true,
@@ -491,44 +490,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'home-education': {
         applies: true,
-        message: 'This is your final deadline to register for Term 2 courses (ending June 26).',
-        afterDeadline: {
-          canDo: 'You can still register for Summer School! Summer courses run July-August. Register anytime to access materials, with exams and teacher support beginning July 1.',
-          learnMoreLink: '/student-faq#summerStudents',
-          learnMoreText: 'Learn about Summer School →'
-        },
+        message: 'Final deadline to register for Term 2 courses.',
+        learnMoreLink: '/student-faq#homeEducation',
+        learnMoreText: 'Learn about your student type →',
         importance: 'critical'
       },
       'non-primary': {
         applies: false,
-        message: 'This deadline is specifically for Home Education students.',
-        whatThisMeans: 'Non-Primary students have until April 15 to register for Term 2. Check the April 15 deadline for your registration cutoff.',
+        message: 'This deadline is for Home Education students only.',
         learnMoreLink: '/student-faq#nonPrimary',
-        learnMoreText: 'See Non-Primary deadlines →',
+        learnMoreText: 'Learn about your deadlines →',
         importance: 'info'
       },
       'summer': {
         applies: false,
-        message: 'This is a Term 2 deadline for funded students during the school year.',
-        whatThisMeans: 'Summer School has separate registration periods in June-August. Look for summer-specific dates on the calendar.',
+        message: 'This deadline applies to Term 2 funded students only.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you can register and start anytime without term restrictions or deadlines.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about Adult Student flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you can register and start anytime without term restrictions or deadlines.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about International Student options →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -566,6 +558,52 @@ export const calendarEvents = [
     description: 'Easter Monday - No School'
   },
   {
+    id: 'summer-registration-opens-2026',
+    title: 'Summer School Registration Opens',
+    start: toEdmontonDate('2026-04-15'),
+    end: toEdmontonDate('2026-04-15'),
+    type: 'important',
+    visibility: 'public',
+    description: 'Summer School registration opens for funded students',
+    studentTypeMessages: {
+      'summer': {
+        applies: true,
+        message: 'Summer School registration opens today for funded students.',
+        learnMoreLink: '/student-faq#summerStudents',
+        learnMoreText: 'Learn about Summer School →',
+        importance: 'info'
+      },
+      'non-primary': {
+        applies: true,
+        message: 'Summer School registration is open if you need summer courses.',
+        learnMoreLink: '/student-faq#summerStudents',
+        learnMoreText: 'Learn about Summer School →',
+        importance: 'info'
+      },
+      'home-education': {
+        applies: true,
+        message: 'Summer School registration is open if you need summer courses.',
+        learnMoreLink: '/student-faq#summerStudents',
+        learnMoreText: 'Learn about Summer School →',
+        importance: 'info'
+      },
+      'adult': {
+        applies: false,
+        message: 'This date applies to funded students only.',
+        learnMoreLink: '/student-faq#adultStudents',
+        learnMoreText: 'Learn about your student type →',
+        importance: 'info'
+      },
+      'international': {
+        applies: false,
+        message: 'This date applies to funded students only.',
+        learnMoreLink: '/student-faq#internationalStudents',
+        learnMoreText: 'Learn about your student type →',
+        importance: 'info'
+      }
+    }
+  },
+  {
     id: 'term2-np-deadline-2026',
     title: 'Term 2 Deadline (Non-Primary)',
     start: toEdmontonDate('2026-04-15'),
@@ -576,44 +614,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'non-primary': {
         applies: true,
-        message: 'This is your final deadline to register for Term 2 courses (ending June 26).',
-        afterDeadline: {
-          canDo: 'You can still register for Summer School! Summer courses run July-August. Register anytime to access materials, with exams and teacher support beginning July 1.',
-          learnMoreLink: '/student-faq#summerStudents',
-          learnMoreText: 'Learn about Summer School →'
-        },
+        message: 'Final deadline to register for Term 2 courses.',
+        learnMoreLink: '/student-faq#nonPrimary',
+        learnMoreText: 'Learn about your student type →',
         importance: 'critical'
       },
       'home-education': {
         applies: false,
-        message: 'This deadline is specifically for Non-Primary students.',
-        whatThisMeans: 'Home Education students had until February 28 to register for Term 2. You can still register for Summer School courses.',
+        message: 'This deadline is for Non-Primary students only.',
         learnMoreLink: '/student-faq#homeEducation',
-        learnMoreText: 'See Home Education options →',
+        learnMoreText: 'Learn about your deadlines →',
         importance: 'info'
       },
       'summer': {
         applies: false,
-        message: 'This is a Term 2 deadline for funded students during the school year.',
-        whatThisMeans: 'Summer School has separate registration periods in June-August. Look for summer-specific dates on the calendar.',
+        message: 'This deadline applies to Term 2 funded students only.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you can register and start anytime without term restrictions or deadlines.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about Adult Student flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'Term deadlines don\'t apply to paid students.',
-        whatThisMeans: 'As a paid student, you can register and start anytime without term restrictions or deadlines.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about International Student options →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -661,42 +692,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'non-primary': {
         applies: true,
-        message: 'This is the PASI deadline - when marks are submitted to Alberta Education for Term 2 students.',
-        whatThisMeans: 'If you finish by this date, your mark appears on your June transcript. If you finish after, you automatically continue into Summer School and your mark is submitted in August/September.',
+        message: 'PASI deadline - marks submitted to Alberta Education for Term 2.',
         learnMoreLink: '/student-faq#nonPrimary',
-        learnMoreText: 'Learn about course continuation →',
+        learnMoreText: 'Learn about course deadlines →',
         importance: 'info'
       },
       'home-education': {
         applies: true,
-        message: 'This is the PASI deadline - when marks are submitted to Alberta Education for Term 2 students.',
-        whatThisMeans: 'If you finish by this date, your mark appears on your June transcript. If you finish after, you automatically continue into Summer School and your mark is submitted in August/September.',
+        message: 'PASI deadline - marks submitted to Alberta Education for Term 2.',
         learnMoreLink: '/student-faq#homeEducation',
-        learnMoreText: 'Learn about course continuation →',
+        learnMoreText: 'Learn about course deadlines →',
         importance: 'info'
       },
       'summer': {
         applies: true,
-        message: 'Summer School registration opens around this time (deadline typically June 28).',
-        whatThisMeans: 'If you\'re planning to take summer courses, watch for the registration deadline announcement. Courses run July-August.',
+        message: 'Summer School registration deadline is typically June 28.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'This deadline is for funded students. Your marks are submitted when you complete courses.',
-        whatThisMeans: 'As a paid student, you\'re not restricted by school year calendars. Your transcript is updated as soon as you finish each course.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'This deadline is for funded students. Your marks are submitted when you complete courses.',
-        whatThisMeans: 'As a paid student, you\'re not restricted by school year calendars. Your transcript is updated as soon as you finish each course.',
+        message: 'This deadline applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -712,42 +738,37 @@ export const calendarEvents = [
     studentTypeMessages: {
       'summer': {
         applies: true,
-        message: 'Summer School officially begins! This is when exams and teacher support start.',
-        whatThisMeans: 'If you registered early, you already have access to course materials. Starting today, you can write exams and receive full teacher support.',
+        message: 'Summer School officially begins - exams and teacher support now available.',
         learnMoreLink: '/student-faq#summerStudents',
         learnMoreText: 'Learn about Summer School →',
         importance: 'info'
       },
       'non-primary': {
         applies: true,
-        message: 'If you didn\'t finish Term 2 by June 26, you\'ve automatically continued into Summer School.',
-        whatThisMeans: 'You can continue your course work now through August. Your mark will be submitted when you finish (appearing on September transcript).',
+        message: 'Term 2 courses automatically continue into Summer School if not completed.',
         learnMoreLink: '/student-faq#nonPrimary',
         learnMoreText: 'Learn about course continuation →',
         importance: 'info'
       },
       'home-education': {
         applies: true,
-        message: 'If you didn\'t finish Term 2 by June 26, you\'ve automatically continued into Summer School.',
-        whatThisMeans: 'You can continue your course work now through August. Your mark will be submitted when you finish (appearing on September transcript).',
+        message: 'Term 2 courses automatically continue into Summer School if not completed.',
         learnMoreLink: '/student-faq#homeEducation',
         learnMoreText: 'Learn about course continuation →',
         importance: 'info'
       },
       'adult': {
         applies: false,
-        message: 'This is when summer courses officially begin for funded students.',
-        whatThisMeans: 'As a paid student, you\'re not affected by summer schedules. You have full access year-round without waiting for term dates.',
+        message: 'This date applies to funded students only.',
         learnMoreLink: '/student-faq#adultStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       },
       'international': {
         applies: false,
-        message: 'This is when summer courses officially begin for funded students.',
-        whatThisMeans: 'As a paid student, you\'re not affected by summer schedules. You have full access year-round without waiting for term dates.',
+        message: 'This date applies to funded students only.',
         learnMoreLink: '/student-faq#internationalStudents',
-        learnMoreText: 'Learn about your flexibility →',
+        learnMoreText: 'Learn about your student type →',
         importance: 'info'
       }
     }
@@ -808,56 +829,14 @@ const diplomaExamEvents = getDiplomaDatesByYear('25/26').flatMap(diploma => {
       type: 'diploma-deadline',
       visibility: 'public',
       description: `Last day to register for ${diploma.courseTitle} diploma exam (${diploma.session})`,
-    diplomaInfo: {
-      courseId: diploma.courseId,
-      courseTitle: diploma.courseTitle,
-      courseCode: diploma.courseCode,
-      examDate: diploma.examDate,
-      examTime: diploma.examTime,
-      session: diploma.session
-    },
-    studentTypeMessages: {
-      'non-primary': {
-        applies: true,
-        message: `Last day to register for the ${diploma.session} ${diploma.courseTitle} diploma exam.`,
-        whatThisMeans: `The exam is on ${diploma.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${diploma.examTime}. Register through MyPass before this deadline.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'home-education': {
-        applies: true,
-        message: `Last day to register for the ${diploma.session} ${diploma.courseTitle} diploma exam.`,
-        whatThisMeans: `The exam is on ${diploma.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${diploma.examTime}. Register through MyPass before this deadline.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'summer': {
-        applies: true,
-        message: `Last day to register for the ${diploma.session} ${diploma.courseTitle} diploma exam.`,
-        whatThisMeans: `The exam is on ${diploma.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${diploma.examTime}. Register through MyPass before this deadline.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'adult': {
-        applies: true,
-        message: `Last day to register for the ${diploma.session} ${diploma.courseTitle} diploma exam.`,
-        whatThisMeans: `The exam is on ${diploma.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${diploma.examTime}. Register through MyPass before this deadline.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'international': {
-        applies: true,
-        message: `Last day to register for the ${diploma.session} ${diploma.courseTitle} diploma exam.`,
-        whatThisMeans: `The exam is on ${diploma.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${diploma.examTime}. Register through MyPass before this deadline. International students must arrange approved test centers.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
+      diplomaInfo: {
+        courseId: diploma.courseId,
+        courseTitle: diploma.courseTitle,
+        courseCode: diploma.courseCode,
+        examDate: diploma.examDate,
+        examTime: diploma.examTime,
+        session: diploma.session
       }
-    }
     });
   }
 
@@ -877,58 +856,6 @@ const diplomaExamEvents = getDiplomaDatesByYear('25/26').flatMap(diploma => {
       examTime: diploma.examTime,
       session: diploma.session,
       registrationDeadline: diploma.registrationDeadline
-    },
-    studentTypeMessages: {
-      'non-primary': {
-        applies: true,
-        message: `${diploma.courseTitle} diploma exam day at ${diploma.examTime}.`,
-        whatThisMeans: diploma.registrationDeadline
-          ? `This exam is worth 30% of your final grade. Make sure you registered through MyPass before ${diploma.registrationDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`
-          : `This exam is worth 30% of your final grade. Registration deadline to be announced.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'home-education': {
-        applies: true,
-        message: `${diploma.courseTitle} diploma exam day at ${diploma.examTime}.`,
-        whatThisMeans: diploma.registrationDeadline
-          ? `This exam is worth 30% of your final grade. Make sure you registered through MyPass before ${diploma.registrationDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`
-          : `This exam is worth 30% of your final grade. Registration deadline to be announced.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'summer': {
-        applies: true,
-        message: `${diploma.courseTitle} diploma exam day at ${diploma.examTime}.`,
-        whatThisMeans: diploma.registrationDeadline
-          ? `This exam is worth 30% of your final grade. Make sure you registered through MyPass before ${diploma.registrationDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`
-          : `This exam is worth 30% of your final grade. Registration deadline to be announced.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'adult': {
-        applies: true,
-        message: `${diploma.courseTitle} diploma exam day at ${diploma.examTime}.`,
-        whatThisMeans: diploma.registrationDeadline
-          ? `This exam is worth 30% of your final grade. Make sure you registered through MyPass before ${diploma.registrationDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`
-          : `This exam is worth 30% of your final grade. Registration deadline to be announced.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      },
-      'international': {
-        applies: true,
-        message: `${diploma.courseTitle} diploma exam day at ${diploma.examTime}.`,
-        whatThisMeans: diploma.registrationDeadline
-          ? `This exam is worth 30% of your final grade. Confirm your approved test center location and ensure you registered through MyPass before ${diploma.registrationDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`
-          : `This exam is worth 30% of your final grade. Confirm your approved test center location. Registration deadline to be announced.`,
-        learnMoreLink: '/student-faq#general',
-        learnMoreText: 'Learn about diploma exams →',
-        importance: 'critical'
-      }
     }
   });
 
@@ -943,14 +870,8 @@ export const eventTypes = {
   holiday: {
     color: '#7C3AED', // purple-600
     bgColor: '#EDE9FE', // purple-100
-    label: 'Holiday',
+    label: 'Holiday/Break',
     icon: Calendar
-  },
-  break: {
-    color: '#8B5CF6', // violet-600
-    bgColor: '#F3E8FF', // violet-100
-    label: 'Break',
-    icon: Coffee
   },
   important: {
     color: '#0D9488', // teal-600
@@ -981,12 +902,6 @@ export const eventTypes = {
     bgColor: '#FEE2E2', // red-100
     label: 'Diploma Registration Deadline',
     icon: Award
-  },
-  'announcement': {
-    color: '#0D9488', // teal-600
-    bgColor: '#CCFBF1', // teal-100
-    label: 'Announcement',
-    icon: AlertCircle
   }
 };
 

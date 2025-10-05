@@ -690,7 +690,7 @@ const convertMessagesToCalendarEvents = (schoolYear) => {
         title: item.message,
         start: item.showFrom,
         end: endDate, // Single day event
-        type: 'announcement',
+        type: 'important',
         visibility: 'public',
         description: item.message,
         ...(item.link && { link: item.link })

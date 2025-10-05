@@ -80,7 +80,7 @@ export const calendarEvents = [
     title: 'October Halfdays',
     start: toEdmontonDate('2024-10-14'),
     end: toEdmontonDate('2024-10-24'),
-    type: 'break',
+    type: 'holiday',
     description: 'October Halfdays',
     allDay: true
   },
@@ -102,7 +102,7 @@ export const calendarEvents = [
     title: 'Winter Break',
     start: toEdmontonDate('2024-12-20'),
     end: toEdmontonDate('2025-01-02'),
-    type: 'break',
+    type: 'holiday',
     description: 'Winter Break - No School',
     allDay: true
   },
@@ -139,7 +139,7 @@ export const calendarEvents = [
     title: 'February Halfdays',
     start: toEdmontonDate('2025-02-09'),
     end: toEdmontonDate('2025-02-20'),
-    type: 'break',
+    type: 'holiday',
     description: 'February Halfdays',
     allDay: true
   },
@@ -166,7 +166,7 @@ export const calendarEvents = [
     title: 'April Halfdays',
     start: toEdmontonDate('2025-03-30'),
     end: toEdmontonDate('2025-04-10'),
-    type: 'break',
+    type: 'holiday',
     description: 'April Halfdays',
     allDay: true
   },
@@ -213,7 +213,7 @@ export const calendarEvents = [
     title: 'June Halfdays',
     start: toEdmontonDate('2025-06-15'),
     end: toEdmontonDate('2025-06-26'),
-    type: 'break',
+    type: 'holiday',
     description: 'June Halfdays',
     allDay: true
   },
@@ -273,8 +273,7 @@ export const calendarEvents = [
 ];
 
 export const eventTypes = {
-  holiday: { color: '#DC2626', bgColor: '#FEE2E2', label: 'Holiday' },
-  break: { color: '#7C3AED', bgColor: '#EDE9FE', label: 'Break' },
+  holiday: { color: '#DC2626', bgColor: '#FEE2E2', label: 'Holiday/Break' },
   deadline: { color: '#EA580C', bgColor: '#FFEDD5', label: 'Deadline' },
   important: { color: '#0D9488', bgColor: '#CCFBF1', label: 'Important Date' },
   exam: { color: '#7C2D12', bgColor: '#FEF3C7', label: 'Exam Period' }

@@ -26,8 +26,7 @@ export const importantDates = {
 export const calendarEvents = [];
 
 export const eventTypes = {
-  holiday: { color: '#DC2626', bgColor: '#FEE2E2', label: 'Holiday' },
-  break: { color: '#7C3AED', bgColor: '#EDE9FE', label: 'Break' },
+  holiday: { color: '#DC2626', bgColor: '#FEE2E2', label: 'Holiday/Break' },
   deadline: { color: '#EA580C', bgColor: '#FFEDD5', label: 'Deadline' },
   important: { color: '#0D9488', bgColor: '#CCFBF1', label: 'Important Date' },
   exam: { color: '#7C2D12', bgColor: '#FEF3C7', label: 'Exam Period' }

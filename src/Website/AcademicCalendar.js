@@ -37,13 +37,15 @@ const AcademicCalendarPage = () => {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo and Name */}
-            <div className="flex items-center gap-3">
-              <RTDLogo className="w-10 h-10" />
-              <span className="font-bold text-lg text-gray-900">
-                RTD Academy
-              </span>
-            </div>
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 text-gray-600 hover:text-teal-600"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to Home</span>
+            </Button>
 
             {/* Calendar Title with Badge */}
             <div className="flex items-center gap-3">
@@ -54,15 +56,13 @@ const AcademicCalendarPage = () => {
               </div>
             </div>
 
-            {/* Back Button */}
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2 text-gray-600 hover:text-teal-600"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back to Home</span>
-            </Button>
+            {/* Logo and Name */}
+            <div className="flex items-center gap-3">
+              <RTDLogo className="w-10 h-10" />
+              <span className="font-bold text-lg text-gray-900">
+                RTD Academy
+              </span>
+            </div>
           </div>
         </div>
       </div>

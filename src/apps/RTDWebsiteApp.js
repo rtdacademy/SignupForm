@@ -30,8 +30,13 @@ const ConflictOfInterestPolicy = lazy(() => import('../Website/Policies/Conflict
 const MobileDevicePolicy = lazy(() => import('../Website/Policies/MobileDevicePolicy'));
 
 function RTDWebsiteApp() {
-  // Initialize Crisp Chat for website only
+  // Initialize Crisp Chat for website only (development mode only)
   useEffect(() => {
+    // Only load Crisp in development mode
+    if (process.env.NODE_ENV !== 'development') {
+      return;
+    }
+
     // Initialize Crisp
     window.$crisp = [];
     window.CRISP_WEBSITE_ID = "e35b0a24-b040-4122-b990-fc721c10cf80";

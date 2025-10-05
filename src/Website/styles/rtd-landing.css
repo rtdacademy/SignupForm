@@ -42,7 +42,7 @@
 }
 
 .animate-pulse-slow {
-  animation: pulse-slow 4s ease-in-out infinite;
+  /* animation: pulse-slow 4s ease-in-out infinite; */
 }
 
 /* Animation delay utility */

@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, analytics } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { logEvent } from 'firebase/analytics';
 import { getCourseById } from '../components/PrerequisiteFlowChart/courseData';
 import { courses } from './courseData';
 
@@ -57,6 +58,17 @@ const OpenCoursesDashboard = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Track page view with Firebase Analytics
+  useEffect(() => {
+    if (user) {
+      logEvent(analytics, 'page_view', {
+        page_title: 'Open Courses Dashboard',
+        page_path: '/open-courses-dashboard',
+        page_location: window.location.href
+      });
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     try {

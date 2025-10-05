@@ -56,9 +56,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'January 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2025-09-29'),
-        homeEducation: toEdmontonDate('2025-09-29'),
-        adult: toEdmontonDate('2025-11-30')
+        all: toEdmontonDate('2025-11-30') // All students same deadline
       },
       confirmed: true
     },
@@ -84,9 +82,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'June 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2026-04-15'),
-        homeEducation: toEdmontonDate('2026-02-28'),
-        adult: toEdmontonDate('2026-04-30')
+        all: toEdmontonDate('2026-04-30') // All students same deadline
       },
       confirmed: true
     },
@@ -127,9 +123,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'January 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2025-09-29'),
-        homeEducation: toEdmontonDate('2025-09-29'),
-        adult: toEdmontonDate('2025-11-30')
+        all: toEdmontonDate('2025-11-30') // All students same deadline
       },
       confirmed: true
     },
@@ -155,9 +149,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'June 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2026-04-15'),
-        homeEducation: toEdmontonDate('2026-02-28'),
-        adult: toEdmontonDate('2026-04-30')
+        all: toEdmontonDate('2026-04-30') // All students same deadline
       },
       confirmed: true
     },
@@ -198,9 +190,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'January 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2025-09-29'),
-        homeEducation: toEdmontonDate('2025-09-29'),
-        adult: toEdmontonDate('2025-11-30')
+        all: toEdmontonDate('2025-11-30') // All students same deadline
       },
       confirmed: true
     },
@@ -226,9 +216,7 @@ export const diplomaDates = {
       examTime: '9:00 AM',
       session: 'June 2026',
       registrationDeadlines: {
-        nonPrimary: toEdmontonDate('2026-04-15'),
-        homeEducation: toEdmontonDate('2026-02-28'),
-        adult: toEdmontonDate('2026-04-30')
+        all: toEdmontonDate('2026-04-30') // All students same deadline
       },
       confirmed: true
     },
@@ -458,29 +446,10 @@ export const createDiplomaDeadlineCalendarEvents = (schoolYear) => {
 
     // Create one event per unique deadline for this session
     Object.entries(uniqueDeadlines).forEach(([dateKey, deadlineInfo]) => {
-      const { date, studentTypes } = deadlineInfo;
-      const isAllStudents = studentTypes.includes('all');
-
-      // Create student type label
-      let studentTypeLabel = '';
-      if (!isAllStudents) {
-        studentTypeLabel = studentTypes
-          .map(type => {
-            switch (type) {
-              case 'nonPrimary': return 'NP';
-              case 'homeEducation': return 'HE';
-              case 'adult': return 'Adult';
-              case 'international': return 'Intl';
-              default: return type;
-            }
-          })
-          .join(' & ');
-      }
+      const { date } = deadlineInfo;
 
       // Create title
-      const title = isAllStudents
-        ? `Diploma Registration - ${session} Exams`
-        : `Diploma Registration - ${session} Exams (${studentTypeLabel})`;
+      const title = `Diploma Registration - ${session} Exams`;
 
       // Create description
       const description = `Register for ${session} diploma exams`;
@@ -488,66 +457,6 @@ export const createDiplomaDeadlineCalendarEvents = (schoolYear) => {
       // List available courses
       const courseList = courses.map(c => c.courseTitle).join(', ');
       const additionalInfo = `Available courses: ${courseList}`;
-
-      // Get exam dates
-      const examDates = [...new Set(courses.map(c =>
-        c.examDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-      ))].join(', ');
-
-      // Build student type messages
-      const studentTypeMessages = {};
-
-      const hasNonPrimary = isAllStudents || studentTypes.includes('nonPrimary');
-      const hasHomeEducation = isAllStudents || studentTypes.includes('homeEducation');
-      const hasAdult = isAllStudents || studentTypes.includes('adult') || studentTypes.includes('international');
-
-      if (hasNonPrimary) {
-        studentTypeMessages['non-primary'] = {
-          applies: true,
-          importance: 'critical',
-          message: `You must register for ${session} diploma exams by this date.`,
-          whatThisMeans: `This is your registration deadline for ${session} diploma exams.`,
-          afterDeadline: {
-            canDo: 'Contact your teacher or school administrator to discuss options for the next exam session.',
-            learnMoreLink: '/student-faq',
-            learnMoreText: 'View diploma exam FAQ'
-          }
-        };
-      }
-
-      if (hasHomeEducation) {
-        studentTypeMessages['home-education'] = {
-          applies: true,
-          importance: 'critical',
-          message: `You must register for ${session} diploma exams by this date.`,
-          whatThisMeans: `This is your registration deadline for ${session} diploma exams.`,
-          afterDeadline: {
-            canDo: 'Contact your facilitator to discuss options for the next exam session.',
-            learnMoreLink: '/student-faq',
-            learnMoreText: 'View diploma exam FAQ'
-          }
-        };
-      }
-
-      if (hasAdult) {
-        const adultMessage = {
-          applies: true,
-          importance: 'critical',
-          message: `You must register for ${session} diploma exams by this date.`,
-          whatThisMeans: `This is your registration deadline for ${session} diploma exams.`,
-          afterDeadline: {
-            canDo: 'Contact the school office to discuss options for the next exam session.',
-            learnMoreLink: '/student-faq',
-            learnMoreText: 'View diploma exam FAQ'
-          }
-        };
-
-        studentTypeMessages['adult'] = adultMessage;
-        studentTypeMessages['international'] = {
-          ...adultMessage,
-          whatThisMeans: 'International students follow the adult student deadline for diploma exam registration.'
-        };
-      }
 
       events.push({
         id: `diploma-deadline-${session.replace(/\s+/g, '-').toLowerCase()}-${dateKey}`,
@@ -560,9 +469,8 @@ export const createDiplomaDeadlineCalendarEvents = (schoolYear) => {
         additionalInfo,
         link: {
           text: 'Learn about diploma exam registration',
-          url: '/student-faq'
-        },
-        studentTypeMessages
+          url: '/student-faq#diplomaExams'
+        }
       });
     });
   });

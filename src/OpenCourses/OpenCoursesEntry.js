@@ -11,7 +11,8 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { getDatabase, ref, set, get, child } from 'firebase/database';
-import { auth, googleProvider, microsoftProvider, isDevelopment } from '../firebase';
+import { auth, googleProvider, microsoftProvider, isDevelopment, analytics } from '../firebase';
+import { logEvent } from 'firebase/analytics';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 // RTD Logo Component
@@ -235,6 +236,15 @@ const OpenCoursesEntry = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Track page view with Firebase Analytics
+  useEffect(() => {
+    logEvent(analytics, 'page_view', {
+      page_title: 'Open Courses',
+      page_path: '/open-courses',
+      page_location: window.location.href
+    });
   }, []);
 
   const handleProviderSignIn = async (provider) => {

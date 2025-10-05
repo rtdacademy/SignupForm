@@ -51,9 +51,10 @@ const StudentTypeMessage = ({ type, label, message, eventDate }) => {
     return 'text-blue-700';
   };
 
-  const handleLearnMore = () => {
+  const handleLearnMore = (e) => {
+    e.preventDefault();
     if (learnMoreLink) {
-      navigate(learnMoreLink);
+      window.open(learnMoreLink, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -107,7 +108,10 @@ const StudentTypeMessage = ({ type, label, message, eventDate }) => {
                   <Button
                     variant="link"
                     size="sm"
-                    onClick={() => navigate(afterDeadline.learnMoreLink)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open(afterDeadline.learnMoreLink, '_blank', 'noopener,noreferrer');
+                    }}
                     className="px-0 h-auto mt-2 text-teal-600 hover:text-teal-700"
                   >
                     {afterDeadline.learnMoreText || 'Learn more'}

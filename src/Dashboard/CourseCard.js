@@ -370,8 +370,8 @@ const CourseCard = ({
       return;
     }
 
-    // Check if course is active
-    if (status !== 'Active' && !course.isRequiredCourse) {
+    // Check if course is active or pre-registration
+    if (status !== 'Active' && status !== 'Pre-Registration' && !course.isRequiredCourse) {
       toast.error("You cannot access the course until it has been activated");
       return;
     }
@@ -751,10 +751,10 @@ const CourseCard = ({
   // Render schedule required message
   const renderScheduleRequiredMessage = () => {
     // Check if this course needs a schedule but doesn't have one
-    const needsSchedule = !hasSchedule && 
+    const needsSchedule = !hasSchedule &&
       !effectiveCourseDetails?.doesNotRequireSchedule &&
       !(effectiveCourseDetails?.firebaseCourse || course.firebaseCourse) &&
-      status === 'Active'; // Only show for active courses
+      (status === 'Active' || status === 'Pre-Registration'); // Show for active and pre-registration courses
     
     if (!needsSchedule) return null;
     
@@ -1320,7 +1320,7 @@ const CourseCard = ({
                               ? (status === 'Archived' || status === 'Pending')
                                 ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                                 : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active')
+                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || (status !== 'Active' && status !== 'Pre-Registration'))
                                 ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                                 : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                       }
@@ -1328,7 +1328,7 @@ const CourseCard = ({
                     disabled={courseDetailsLoading || (!course.isRequiredCourse && !isDeveloper && !(!isUnlocked && !isDeveloper) && (
                       (effectiveCourseDetails?.firebaseCourse || course.firebaseCourse)
                         ? (status === 'Archived' || status === 'Pending')
-                        : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active')
+                        : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || (status !== 'Active' && status !== 'Pre-Registration'))
                     ))}
                   >
                     {!isUnlocked && !isDeveloper && !isInTrial ? (
@@ -1351,7 +1351,7 @@ const CourseCard = ({
                               ? (status === 'Archived' || status === 'Pending')
                                 ? 'Course Unavailable'
                                 : 'Go to Course'
-                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || status !== 'Active')
+                              : ((!hasSchedule && !effectiveCourseDetails?.doesNotRequireSchedule) || (status !== 'Active' && status !== 'Pre-Registration'))
                                 ? 'Course Unavailable'
                                 : 'Go to Course'
                       }
@@ -1395,8 +1395,8 @@ const CourseCard = ({
                         toast.error("This course requires payment. Complete payment to test Firebase SSO.");
                         return;
                       }
-                      if (status !== 'Active') {
-                        toast.error("Course must be active to test Firebase SSO.");
+                      if (status !== 'Active' && status !== 'Pre-Registration') {
+                        toast.error("Course must be active or in pre-registration to test Firebase SSO.");
                         return;
                       }
                       onGoToLMSCourseFirebase(course);
