@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, 
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate } from 'react-router-dom';
 import ForcedPasswordChange from '../components/auth/ForcedPasswordChange';
-import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay } from '../utils/timeZoneUtils';
+import { toDateString, toEdmontonDate, calculateAge, formatDateForDisplay, checkFundingEligibility, checkKindergartenFundingEligibility } from '../utils/timeZoneUtils';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { Users, DollarSign, FileText, Home, AlertCircle, CheckCircle2, ArrowRight, GraduationCap, Heart, Shield, User, Phone, MapPin, Edit3, ChevronDown, LogOut, Plus, UserPlus, Calendar, Hash, X, Settings, Loader2, Crown, UserCheck, Clock, AlertTriangle, Info, Upload, Menu, Download, Eye, ExternalLink, BookOpen, TrendingUp } from 'lucide-react';
@@ -75,31 +75,56 @@ const determineFormStatus = (formData) => {
   }
 };
 
-// Helper function to calculate student budget based on grade and eligibility
-const calculateStudentBudget = (student) => {
-  // Check if student has funding eligibility flag (new system)
-  if (student.fundingEligible === false) {
-    return 0; // Not eligible for funding
+// Helper function to get student funding eligibility from backend calculation
+const getStudentFundingEligibility = (student, activeSchoolYear) => {
+  if (!student || !activeSchoolYear) {
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      currentAllocation: 0,
+      remainingAllocation: 0,
+      registrationPhase: 'unknown',
+      ageCategory: 'unknown',
+      eligibilityMessage: 'Missing student or school year data'
+    };
   }
-  
-  // If student has fundingAmount set (new system), use that
-  if (student.fundingAmount !== undefined && student.fundingAmount !== null) {
-    return student.fundingAmount;
+
+  const schoolYearKey = activeSchoolYear.replace('/', '_');
+  const eligibilityData = student.FUNDING_ELIGIBILITY?.[schoolYearKey];
+
+  if (!eligibilityData) {
+    // No eligibility data calculated yet - this should trigger backend recalculation
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      currentAllocation: 0,
+      remainingAllocation: 0,
+      registrationPhase: 'not_calculated',
+      ageCategory: 'unknown',
+      eligibilityMessage: 'Eligibility not yet calculated. Please submit notification form.'
+    };
   }
-  
-  // Fallback to grade-based calculation for existing students
-  const grade = student.grade;
-  const gradeStr = grade?.toString().toLowerCase().trim();
-  
-  // Check for kindergarten variations
-  if (gradeStr === 'k' || 
-      gradeStr === 'kindergarten' || 
-      gradeStr === '0' ||
-      gradeStr === 'kg') {
-    return FUNDING_RATES.KINDERGARTEN.amount; // $450.50
-  } else {
-    return FUNDING_RATES.GRADES_1_TO_12.amount; // $901.00
-  }
+
+  return {
+    fundingEligible: eligibilityData.fundingEligible || false,
+    fundingAmount: eligibilityData.fundingAmount || 0,
+    currentAllocation: eligibilityData.currentAllocation || 0,
+    remainingAllocation: eligibilityData.remainingAllocation || 0,
+    fullEligibleAmount: eligibilityData.fullEligibleAmount || 0,
+    registrationPhase: eligibilityData.registrationPhase || 'unknown',
+    registrationDate: eligibilityData.registrationDate,
+    proratedReason: eligibilityData.proratedReason,
+    upgradeEligibleAfter: eligibilityData.upgradeEligibleAfter,
+    ageCategory: eligibilityData.ageCategory || 'unknown',
+    eligibilityMessage: eligibilityData.eligibilityMessage,
+    calculatedAt: eligibilityData.calculatedAt
+  };
+};
+
+// Helper function to calculate student budget based on backend eligibility
+const calculateStudentBudget = (student, activeSchoolYear) => {
+  const eligibility = getStudentFundingEligibility(student, activeSchoolYear);
+  return eligibility.currentAllocation || 0;
 };
 
 // Helper function to get funding type for display
@@ -259,6 +284,80 @@ const getTargetSchoolYear = () => {
   } else {
     return NEXT_SCHOOL_YEAR;
   }
+};
+
+// Helper function to calculate age with years, months, and days
+const calculateAgeWithDays = (birthDate, referenceDate = new Date()) => {
+  if (!birthDate) return { years: 0, months: 0, days: 0 };
+
+  // Convert string to Date if necessary
+  const birthDateObj = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
+  const refDate = new Date(referenceDate);
+
+  let years = refDate.getFullYear() - birthDateObj.getFullYear();
+  let months = refDate.getMonth() - birthDateObj.getMonth();
+  let days = refDate.getDate() - birthDateObj.getDate();
+
+  // Adjust days
+  if (days < 0) {
+    months--;
+    // Get the last day of the previous month
+    const prevMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+
+  // Adjust months
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  return { years, months, days };
+};
+
+// Helper function to get student age display with September comparison
+const getStudentAgeDisplay = (student, schoolYear) => {
+  if (!student?.birthday || !schoolYear) return null;
+
+  const today = new Date();
+  const currentYear = today.getFullYear();
+
+  // Calculate last September (most recent September that has passed)
+  let lastSeptemberYear = currentYear;
+  if (today < new Date(currentYear, 8, 1)) {
+    // If we haven't reached Sept 1 yet this year, last September was last year
+    lastSeptemberYear = currentYear - 1;
+  }
+  const lastSeptember = new Date(lastSeptemberYear, 8, 1);
+
+  // Calculate next September (next upcoming September)
+  let nextSeptemberYear = currentYear;
+  if (today >= new Date(currentYear, 8, 1)) {
+    // If we've passed Sept 1 this year, next September is next year
+    nextSeptemberYear = currentYear + 1;
+  }
+  const nextSeptember = new Date(nextSeptemberYear, 8, 1);
+
+  // Calculate current age
+  const currentAge = calculateAgeWithDays(student.birthday);
+
+  // Calculate age at last September
+  const lastSeptemberAge = calculateAgeWithDays(student.birthday, lastSeptember);
+
+  // Calculate age at next September
+  const nextSeptemberAge = calculateAgeWithDays(student.birthday, nextSeptember);
+
+  return {
+    current: currentAge,
+    lastSeptember: {
+      age: lastSeptemberAge,
+      year: lastSeptemberYear
+    },
+    nextSeptember: {
+      age: nextSeptemberAge,
+      year: nextSeptemberYear
+    }
+  };
 };
 
 // Helper function to get family status configuration
@@ -2639,9 +2738,9 @@ Check console for full details.
       const claimsSnapshot = await get(claimsRef);
       
       for (const student of familyData.students) {
-        const studentBudgetLimit = calculateStudentBudget(student);
+        const studentBudgetLimit = calculateStudentBudget(student, activeSchoolYear);
         const fundingInfo = getFundingType(student.grade);
-        
+
         let spentAmount = 0;
         if (claimsSnapshot.exists()) {
           const allClaims = claimsSnapshot.val();
@@ -4357,13 +4456,20 @@ Check console for full details.
                       if (isInactiveFamily) {
                         return (
                           <div key={student.id || index} className="border border-gray-300 rounded-lg p-4 bg-gray-50 opacity-75">
-                            <h4 className="font-semibold text-gray-700 mb-3">
+                            <h4 className="font-semibold text-gray-700 mb-2">
                               {student.preferredName || student.firstName} {student.lastName}
                             </h4>
-                            <div className="text-sm text-gray-600 space-y-1.5">
-                              <p>ASN: {student.asn}</p>
-                              <p>Grade: {student.grade}</p>
-                              <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
+                            <div className="text-sm text-gray-600">
+                              {(() => {
+                                const ageInfo = getStudentAgeDisplay(student, activeSchoolYear);
+                                if (!ageInfo) return null;
+
+                                return (
+                                  <p className="text-sm text-gray-500">
+                                    Age: {ageInfo.current.years}y {ageInfo.current.months}m {ageInfo.current.days}d
+                                  </p>
+                                );
+                              })()}
                             </div>
                             <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
                               <p className="text-xs text-orange-700 italic flex items-center">
@@ -4395,14 +4501,233 @@ Check console for full details.
                                 />
                               )}
                             </div>
-                            <div className="mt-2 space-y-1 text-xs sm:text-sm text-gray-600">
-                              <p>ASN: {student.asn}</p>
-                              <p>Grade: {student.grade}</p>
-                              <p>Gender: {student.gender === 'M' ? 'Male' : student.gender === 'F' ? 'Female' : student.gender === 'X' ? 'Other' : student.gender || 'Not specified'}</p>
-                              <p>Birthday: {formatDateForDisplay(student.birthday)}</p>
-                              {student.email && <p className="truncate">Email: {student.email}</p>}
-                              {student.phone && <p>Phone: {student.phone}</p>}
+                            <div className="mt-2">
+                              {(() => {
+                                const ageInfo = getStudentAgeDisplay(student, activeSchoolYear);
+                                if (!ageInfo) return null;
+
+                                return (
+                                  <div className="group relative inline-block">
+                                    <div className="text-sm text-blue-700 font-medium cursor-help">
+                                      Age: {ageInfo.current.years}y {ageInfo.current.months}m {ageInfo.current.days}d
+                                    </div>
+
+                                    {/* Hover tooltip */}
+                                    <div className="invisible group-hover:visible absolute left-0 top-full mt-1 w-64 bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 z-50">
+                                      <div className="space-y-1.5">
+                                        <p className="font-semibold border-b border-gray-700 pb-1">Age Details</p>
+                                        <p className="text-gray-200">
+                                          <strong>Current Age:</strong><br/>
+                                          {ageInfo.current.years} years, {ageInfo.current.months} months, {ageInfo.current.days} days
+                                        </p>
+                                        <p className="text-blue-300">
+                                          <strong>Age last Sept {ageInfo.lastSeptember.year}:</strong><br/>
+                                          {ageInfo.lastSeptember.age.years} years, {ageInfo.lastSeptember.age.months} months, {ageInfo.lastSeptember.age.days} days
+                                        </p>
+                                        <p className="text-purple-300">
+                                          <strong>Age next Sept {ageInfo.nextSeptember.year}:</strong><br/>
+                                          {ageInfo.nextSeptember.age.years} years, {ageInfo.nextSeptember.age.months} months, {ageInfo.nextSeptember.age.days} days
+                                        </p>
+                                      </div>
+                                      {/* Arrow pointer */}
+                                      <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
+
+                            {/* Development Mode: Funding Eligibility Information */}
+                            {process.env.NODE_ENV === 'development' && student.birthday && (
+                              <div className="mt-3 pt-3 border-t border-blue-300">
+                                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                                  <div className="flex items-start space-x-2 mb-2">
+                                    <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                      <p className="text-xs font-semibold text-yellow-800 mb-1">
+                                        DEV MODE ONLY - Funding Eligibility
+                                      </p>
+
+                                      {/* Backend Calculated Eligibility */}
+                                      <div className="space-y-2 mb-3">
+                                        <div className="bg-green-50 border border-green-300 rounded p-2">
+                                          <p className="text-xs font-semibold text-green-800 mb-2">
+                                            📊 Backend Calculated ({activeSchoolYear}):
+                                          </p>
+                                          {(() => {
+                                            const backendEligibility = getStudentFundingEligibility(student, activeSchoolYear);
+
+                                            if (!backendEligibility || backendEligibility.registrationPhase === 'not_calculated') {
+                                              return (
+                                                <p className="text-xs text-orange-700">
+                                                  ⚠️ Not yet calculated. Submit notification form to trigger.
+                                                </p>
+                                              );
+                                            }
+
+                                            return (
+                                              <div className="space-y-1 text-xs">
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Eligible:</span>
+                                                  <span className={backendEligibility.fundingEligible ? 'text-green-700 font-semibold' : 'text-red-700'}>
+                                                    {backendEligibility.fundingEligible ? '✅ YES' : '❌ NO'}
+                                                  </span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Category:</span>
+                                                  <span className="text-gray-700">{backendEligibility.ageCategory}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Full Amount:</span>
+                                                  <span className="text-gray-700 font-semibold">${backendEligibility.fundingAmount}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Current Allocation:</span>
+                                                  <span className="text-blue-700 font-semibold">${backendEligibility.currentAllocation}</span>
+                                                </div>
+                                                {backendEligibility.remainingAllocation > 0 && (
+                                                  <>
+                                                    <div className="flex items-center space-x-2">
+                                                      <span className="font-medium">Remaining (Locked):</span>
+                                                      <span className="text-purple-700 font-semibold">${backendEligibility.remainingAllocation}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                      <span className="font-medium">Registration Phase:</span>
+                                                      <span className="text-orange-700 font-semibold">{backendEligibility.registrationPhase}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                      <span className="font-medium">Upgrade After:</span>
+                                                      <span className="text-orange-700">{backendEligibility.upgradeEligibleAfter}</span>
+                                                    </div>
+                                                    {backendEligibility.proratedReason && (
+                                                      <div className="mt-1 p-1 bg-orange-100 rounded">
+                                                        <p className="text-xs text-orange-800">{backendEligibility.proratedReason}</p>
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                )}
+                                                {backendEligibility.eligibilityMessage && (
+                                                  <div className="mt-1 p-1 bg-red-100 rounded">
+                                                    <p className="text-xs text-red-800">{backendEligibility.eligibilityMessage}</p>
+                                                  </div>
+                                                )}
+                                                {backendEligibility.calculatedAt && (
+                                                  <div className="mt-1 text-xs text-gray-500">
+                                                    Calculated: {new Date(backendEligibility.calculatedAt).toLocaleString()}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+
+                                      <p className="text-xs text-yellow-700 italic mb-2">
+                                        Frontend Calculation (for comparison):
+                                      </p>
+
+                                      {/* Current School Year */}
+                                      <div className="space-y-2">
+                                        <div className="bg-white rounded p-2">
+                                          <p className="text-xs font-medium text-gray-700 mb-1">
+                                            {CURRENT_SCHOOL_YEAR} Eligibility:
+                                          </p>
+                                          {(() => {
+                                            const kResult = checkKindergartenFundingEligibility(student.birthday, CURRENT_SCHOOL_YEAR);
+                                            const g12Result = checkFundingEligibility(student.birthday, CURRENT_SCHOOL_YEAR);
+
+                                            return (
+                                              <div className="space-y-1 text-xs">
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Kindergarten:</span>
+                                                  <span className={kResult.isEligible ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                                    {kResult.isEligible ? '✅ Eligible' : '❌ Not Eligible'}
+                                                  </span>
+                                                  {kResult.isEligible && (
+                                                    <span className="text-gray-600">
+                                                      (Age: {kResult.ageWithMonths.years}y {kResult.ageWithMonths.months}m)
+                                                    </span>
+                                                  )}
+                                                  {!kResult.isEligible && (
+                                                    <span className="text-gray-500">
+                                                      ({kResult.reason})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Grades 1-12:</span>
+                                                  <span className={g12Result.isEligible ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                                    {g12Result.isEligible ? '✅ Eligible' : '❌ Not Eligible'}
+                                                  </span>
+                                                  {g12Result.isEligible && (
+                                                    <span className="text-gray-600">
+                                                      (Age: {g12Result.ageOnSept1}y)
+                                                    </span>
+                                                  )}
+                                                  {!g12Result.isEligible && (
+                                                    <span className="text-gray-500">
+                                                      ({g12Result.reason})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+
+                                        {/* Next School Year */}
+                                        <div className="bg-white rounded p-2">
+                                          <p className="text-xs font-medium text-gray-700 mb-1">
+                                            {NEXT_SCHOOL_YEAR} Eligibility:
+                                          </p>
+                                          {(() => {
+                                            const kResult = checkKindergartenFundingEligibility(student.birthday, NEXT_SCHOOL_YEAR);
+                                            const g12Result = checkFundingEligibility(student.birthday, NEXT_SCHOOL_YEAR);
+
+                                            return (
+                                              <div className="space-y-1 text-xs">
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Kindergarten:</span>
+                                                  <span className={kResult.isEligible ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                                    {kResult.isEligible ? '✅ Eligible' : '❌ Not Eligible'}
+                                                  </span>
+                                                  {kResult.isEligible && (
+                                                    <span className="text-gray-600">
+                                                      (Age: {kResult.ageWithMonths.years}y {kResult.ageWithMonths.months}m)
+                                                    </span>
+                                                  )}
+                                                  {!kResult.isEligible && (
+                                                    <span className="text-gray-500">
+                                                      ({kResult.reason})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-medium">Grades 1-12:</span>
+                                                  <span className={g12Result.isEligible ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                                    {g12Result.isEligible ? '✅ Eligible' : '❌ Not Eligible'}
+                                                  </span>
+                                                  {g12Result.isEligible && (
+                                                    <span className="text-gray-600">
+                                                      (Age: {g12Result.ageOnSept1}y)
+                                                    </span>
+                                                  )}
+                                                  {!g12Result.isEligible && (
+                                                    <span className="text-gray-500">
+                                                      ({g12Result.reason})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Home Education Notification Form Status - Only for Active Families */}
                             {shouldShowFeature('notificationForms') && (

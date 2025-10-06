@@ -20,3 +20,8 @@ functions/.cache/
 functions/.puppeteerrc.cjs
 stripe-sample-code/
 genkit
+
+# Firebase service account keys (NEVER commit these!)
+*firebase-adminsdk*.json
+serviceAccountKey.json
+rtd-academy-firebase-adminsdk*.json

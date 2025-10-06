@@ -470,6 +470,206 @@ export const calculateGradeFromBirthday = (birthday, schoolYear) => {
 };
 
 /**
+ * Check if student is eligible for GRADES_1_TO_12 funding for a school year
+ * Student must be over 6 and under 20 years old on September 1st of the school year
+ *
+ * @param {string|Date} birthday - Student's birthday in YYYY-MM-DD format or Date object
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {Object} Object with isEligible boolean and details
+ */
+export const checkFundingEligibility = (birthday, schoolYear) => {
+  if (!birthday || !schoolYear) {
+    console.log('❌ Invalid input: birthday and schoolYear are required');
+    return {
+      isEligible: false,
+      ageOnSept1: null,
+      schoolYear,
+      september1st: null,
+      reason: 'invalid-input'
+    };
+  }
+
+  // Parse school year to get September 1st date
+  const [startYearShort] = schoolYear.split('/');
+  const startYear = parseInt('20' + startYearShort);
+  const september1st = new Date(startYear, 8, 1); // Sept 1st of school year (month 8 = September, 0-indexed)
+
+  // Calculate age on September 1st
+  const ageOnSept1 = calculateAge(birthday, september1st);
+
+  // Check eligibility: over 6 AND under 20
+  const isEligible = ageOnSept1 > 6 && ageOnSept1 < 20;
+
+  return {
+    isEligible,
+    ageOnSept1,
+    schoolYear,
+    september1st,
+    reason: !isEligible
+      ? (ageOnSept1 <= 6 ? 'too-young' : 'too-old')
+      : 'eligible'
+  };
+};
+
+/**
+ * Check if student is eligible for Kindergarten funding for a school year
+ * Student must be over 4 years 8 months old AND too young for grades 1-12 funding
+ * (i.e., 6 years old or younger on September 1st)
+ *
+ * @param {string|Date} birthday - Student's birthday in YYYY-MM-DD format or Date object
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {Object} Object with isEligible boolean and details
+ */
+export const checkKindergartenFundingEligibility = (birthday, schoolYear) => {
+  if (!birthday || !schoolYear) {
+    console.log('❌ Invalid input: birthday and schoolYear are required');
+    return {
+      isEligible: false,
+      ageOnSept1: null,
+      schoolYear,
+      september1st: null,
+      reason: 'invalid-input'
+    };
+  }
+
+  // Parse school year to get September 1st date
+  const [startYearShort] = schoolYear.split('/');
+  const startYear = parseInt('20' + startYearShort);
+  const september1st = new Date(startYear, 8, 1); // Sept 1st of school year
+
+  // Calculate age on September 1st
+  const ageOnSept1 = calculateAge(birthday, september1st);
+  const ageWithMonths = calculateAgeWithMonths(birthday, september1st);
+
+  // Calculate total months for age
+  const totalMonths = (ageWithMonths.years * 12) + ageWithMonths.months;
+
+  // Check if too young for grades 1-12 (must be 6 or under on Sept 1)
+  const tooYoungForGrades = ageOnSept1 <= 6;
+
+  // Check if at least 4 years 8 months old (56 months)
+  const meetsMinimumAge = totalMonths >= 56;
+
+  // Eligible if both conditions are met
+  const isEligible = tooYoungForGrades && meetsMinimumAge;
+
+  return {
+    isEligible,
+    ageOnSept1,
+    ageWithMonths,
+    totalMonths,
+    schoolYear,
+    september1st,
+    reason: !isEligible
+      ? (!meetsMinimumAge ? 'too-young' : 'too-old-for-kindergarten')
+      : 'eligible'
+  };
+};
+
+/**
+ * Determines funding eligibility for a student based on age and school year
+ * This is the primary function for funding eligibility determination
+ *
+ * @param {string} birthday - Student's birthday in YYYY-MM-DD format
+ * @param {string} schoolYear - School year in YY/YY format (e.g., '25/26')
+ * @returns {Object} Comprehensive eligibility information including:
+ *   - fundingEligible: boolean indicating if student is eligible for funding
+ *   - fundingAmount: dollar amount of funding (0 if not eligible)
+ *   - ageCategory: 'kindergarten', 'grades_1_12', 'too_young', or 'too_old'
+ *   - message: user-friendly message explaining eligibility status
+ *   - ageDetails: object with ageOnSept1 and ageOnDec31 breakdowns
+ */
+export const determineFundingEligibility = (birthday, schoolYear) => {
+  // Import FUNDING_RATES - we need to do this dynamically or it should be imported at the top
+  // For now, we'll define the rates inline to avoid circular dependency issues
+  const FUNDING_RATES = {
+    KINDERGARTEN: { amount: 450.50, formatted: '$450.50' },
+    GRADES_1_TO_12: { amount: 901, formatted: '$901' }
+  };
+
+  if (!birthday || !schoolYear) {
+    return {
+      fundingEligible: true, // Default to eligible if no data
+      fundingAmount: 0,
+      ageCategory: 'unknown',
+      message: null,
+      ageDetails: null
+    };
+  }
+
+  // Parse school year to get key dates
+  const [startYearShort] = schoolYear.split('/');
+  const startYear = parseInt('20' + startYearShort);
+  const september1st = new Date(startYear, 8, 1); // Sept 1
+  const december31st = new Date(startYear, 11, 31); // Dec 31
+
+  // Check kindergarten eligibility first
+  const kResult = checkKindergartenFundingEligibility(birthday, schoolYear);
+
+  if (kResult.isEligible) {
+    return {
+      fundingEligible: true,
+      fundingAmount: FUNDING_RATES.KINDERGARTEN.amount,
+      ageCategory: 'kindergarten',
+      message: `This student is kindergarten age and eligible for ${FUNDING_RATES.KINDERGARTEN.formatted} in funding.`,
+      ageDetails: {
+        ageOnSept1: kResult.ageWithMonths,
+        ageOnDec31: calculateAgeWithMonths(birthday, december31st)
+      }
+    };
+  }
+
+  // Check grades 1-12 eligibility
+  const g12Result = checkFundingEligibility(birthday, schoolYear);
+
+  if (g12Result.isEligible) {
+    return {
+      fundingEligible: true,
+      fundingAmount: FUNDING_RATES.GRADES_1_TO_12.amount,
+      ageCategory: 'grades_1_12',
+      message: null, // No special message for normal funding
+      ageDetails: {
+        ageOnSept1: calculateAgeWithMonths(birthday, september1st),
+        ageOnDec31: calculateAgeWithMonths(birthday, december31st)
+      }
+    };
+  }
+
+  // Neither kindergarten nor grades 1-12 eligible
+  // Determine if too young or too old
+  const ageOnSept1 = calculateAge(birthday, september1st);
+  const ageOnDec31 = calculateAge(birthday, december31st);
+
+  // Too old: 20 or older on Sept 1
+  if (ageOnSept1 >= 20) {
+    return {
+      fundingEligible: false,
+      fundingAmount: 0,
+      ageCategory: 'too_old',
+      message: `This student is too old for funding (20 or older as of September 1, ${startYear}). They can still be added but will not receive funding.`,
+      ageDetails: {
+        ageOnSept1: calculateAgeWithMonths(birthday, september1st),
+        ageOnDec31: calculateAgeWithMonths(birthday, december31st)
+      }
+    };
+  }
+
+  // Too young: doesn't meet kindergarten minimum (4 years 8 months by Sept 1, or turning 5 by Dec 31)
+  return {
+    fundingEligible: false,
+    fundingAmount: 0,
+    ageCategory: 'too_young',
+    message: ageOnDec31 < 5
+      ? `This student is too young for funding. Kindergarten students must turn 5 by December 31, ${startYear}. They can still be added but will not receive funding.`
+      : `This student must be at least 4 years 8 months old by September 1, ${startYear} to be eligible for kindergarten funding. They can still be added but will not receive funding.`,
+    ageDetails: {
+      ageOnSept1: calculateAgeWithMonths(birthday, september1st),
+      ageOnDec31: calculateAgeWithMonths(birthday, december31st)
+    }
+  };
+};
+
+/**
  * Check if a date range is valid based on constraints
  *
  * @param {string|Date} startDate - Start date string in YYYY-MM-DD format or Date object

@@ -16,8 +16,7 @@ import { LEGAL_TEXT, FORM_CONSTANTS, PART_D_QUESTIONS, ABORIGINAL_OPTIONS, FRANC
 import { generatePartCData, REGULATORY_TEXT } from '../config/signatures';
 import SchoolBoardSelector from '../components/SchoolBoardSelector';
 import AddressPicker from '../components/AddressPicker';
-import { formatDateForDisplay, calculateGradeFromBirthday } from '../utils/timeZoneUtils';
-import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
+import { formatDateForDisplay, calculateGradeFromBirthday, calculateAgeWithMonths, determineFundingEligibility } from '../utils/timeZoneUtils';
 
 // Grade level options for Alberta K-12
 const GRADE_OPTIONS = [
@@ -356,7 +355,6 @@ const HomeEducationNotificationFormV2 = ({
             
             // Load only the editable fields (not studentInfo or guardianInfo)
             Object.keys(data.PART_A.editableFields || {}).forEach(key => {
-              console.log(`Loading editable field ${key}:`, data.PART_A.editableFields[key]);
               setValue(key, data.PART_A.editableFields[key]);
             });
             
@@ -368,7 +366,6 @@ const HomeEducationNotificationFormV2 = ({
             
             // Load declaration settings
             if (data.PART_B?.declaration) {
-              console.log('Loading PART_B declaration data:', data.PART_B.declaration);
               setValue('programAlberta', data.PART_B.declaration.programAlberta);
               setValue('programSchedule', data.PART_B.declaration.programSchedule);
               setValue('signatureAgreed', data.PART_B.declaration.signatureAgreed);
@@ -409,7 +406,6 @@ const HomeEducationNotificationFormV2 = ({
             const calculatedGrade = calculateGradeFromBirthday(selectedStudent.birthday, schoolYear);
             if (calculatedGrade) {
               setValue('gradeLevel', calculatedGrade);
-              console.log(`Pre-selected grade level ${calculatedGrade} based on birthday`);
             }
           }
         }
@@ -701,6 +697,80 @@ const HomeEducationNotificationFormV2 = ({
       genderDisplay: selectedStudent.gender === 'M' ? 'Male' : selectedStudent.gender === 'F' ? 'Female' : selectedStudent.gender === 'X' ? 'Other' : selectedStudent.gender || '',
       phoneWithFallback: selectedStudent.phone || primaryGuardian.phone || '',
       addressInfo: studentAddress
+    };
+  };
+
+  // Helper function to calculate age with years, months, and days
+  const calculateAgeWithDays = (birthDate, referenceDate = new Date()) => {
+    if (!birthDate) return { years: 0, months: 0, days: 0 };
+
+    // Convert string to Date if necessary
+    const birthDateObj = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
+    const refDate = new Date(referenceDate);
+
+    let years = refDate.getFullYear() - birthDateObj.getFullYear();
+    let months = refDate.getMonth() - birthDateObj.getMonth();
+    let days = refDate.getDate() - birthDateObj.getDate();
+
+    // Adjust days
+    if (days < 0) {
+      months--;
+      // Get the last day of the previous month
+      const prevMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+
+    // Adjust months
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    return { years, months, days };
+  };
+
+  // Calculate ages for display - shows current age and age as of September
+  const getAgeDisplay = () => {
+    if (!selectedStudent.birthday) return null;
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+
+    // Calculate last September (most recent September that has passed)
+    let lastSeptemberYear = currentYear;
+    if (today < new Date(currentYear, 8, 1)) {
+      // If we haven't reached Sept 1 yet this year, last September was last year
+      lastSeptemberYear = currentYear - 1;
+    }
+    const lastSeptember = new Date(lastSeptemberYear, 8, 1);
+
+    // Calculate next September (next upcoming September)
+    let nextSeptemberYear = currentYear;
+    if (today >= new Date(currentYear, 8, 1)) {
+      // If we've passed Sept 1 this year, next September is next year
+      nextSeptemberYear = currentYear + 1;
+    }
+    const nextSeptember = new Date(nextSeptemberYear, 8, 1);
+
+    // Calculate current age
+    const currentAge = calculateAgeWithDays(selectedStudent.birthday);
+
+    // Calculate age at last September
+    const lastSeptemberAge = calculateAgeWithDays(selectedStudent.birthday, lastSeptember);
+
+    // Calculate age at next September
+    const nextSeptemberAge = calculateAgeWithDays(selectedStudent.birthday, nextSeptember);
+
+    return {
+      current: currentAge,
+      lastSeptember: {
+        age: lastSeptemberAge,
+        year: lastSeptemberYear
+      },
+      nextSeptember: {
+        age: nextSeptemberAge,
+        year: nextSeptemberYear
+      }
     };
   };
 
@@ -1245,39 +1315,12 @@ const HomeEducationNotificationFormV2 = ({
       dataToSave.submissionStatus = 'submitted';
       dataToSave.submissionCompletedAt = new Date().toISOString();
 
-      // Calculate payment eligibility based on school year
-      const eligibility = determineFundingEligibility(selectedStudent.birthday, schoolYear);
-      
-      // Create payment eligibility data
-      const paymentEligibilityData = {
-        determinedAt: timestamp,
-        schoolYear,
-        birthday: selectedStudent.birthday,
-        ageOnSept1: eligibility.ageDetails?.ageOnSept1 || null,
-        ageOnDec31: eligibility.ageDetails?.ageOnDec31 || null,
-        eligibilityStatus: eligibility.ageCategory, // 'kindergarten', 'grades_1_12', 'too_young', 'too_old', or 'unknown'
-        fundingAmount: eligibility.fundingAmount,
-        fundingEligible: eligibility.fundingEligible,
-        reason: eligibility.message || `Funding amount: $${eligibility.fundingAmount}`,
-        sourceForm: submissionId,
-        studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-        studentId: selectedStudent.id,
-        overrides: {
-          applied: false,
-          reason: null,
-          authorizedBy: null,
-          timestamp: null
-        }
-      };
-
       // Save to database
+      // Note: Payment eligibility will be calculated by backend Cloud Functions
+      // based on student birthday and school year when the form is submitted
       const db = getDatabase();
       const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
       await set(formRef, dataToSave);
-      
-      // Save payment eligibility
-      const paymentRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/PAYMENT_ELIGIBILITY/${schoolYear.replace('/', '_')}/${selectedStudent.id}`);
-      await set(paymentRef, paymentEligibilityData);
 
       toast.success('Home Education Notification Form submitted successfully!', {
         description: `Form for ${selectedStudent.firstName} ${selectedStudent.lastName} has been completed and saved. You can download the PDF anytime from your dashboard.`
@@ -1468,7 +1511,34 @@ const HomeEducationNotificationFormV2 = ({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ReadOnlyField label="Legal Surname" value={student.lastName} />
               <ReadOnlyField label="Legal Given Name(s)" value={student.firstName} />
-              <ReadOnlyField label="Birthdate" value={student.birthday ? formatDateForDisplay(student.birthday) : ''} />
+              <div className="space-y-2">
+                <ReadOnlyField
+                  label="Birthdate"
+                  value={student.birthday ? formatDateForDisplay(student.birthday) : ''}
+                />
+                {student.birthday && (() => {
+                  const ageInfo = getAgeDisplay();
+                  if (!ageInfo) return null;
+
+                  return (
+                    <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="text-sm space-y-1">
+                        <p className="text-gray-700">
+                          <strong>Current Age:</strong> {ageInfo.current.years} years, {ageInfo.current.months} months, {ageInfo.current.days} days
+                        </p>
+                        <p className="text-blue-700">
+                          <strong>Age last September ({ageInfo.lastSeptember.year}):</strong>{' '}
+                          {ageInfo.lastSeptember.age.years} years, {ageInfo.lastSeptember.age.months} months, {ageInfo.lastSeptember.age.days} days
+                        </p>
+                        <p className="text-purple-700">
+                          <strong>Age next September ({ageInfo.nextSeptember.year}):</strong>{' '}
+                          {ageInfo.nextSeptember.age.years} years, {ageInfo.nextSeptember.age.months} months, {ageInfo.nextSeptember.age.days} days
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
               <ReadOnlyField label="Gender" value={student.genderDisplay} />
               <ReadOnlyField label="Student Also Known As" value={student.alsoKnownAs} />
               <ReadOnlyField label="Alberta Student Number (ASN)" value={student.asn} />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -18,8 +18,18 @@ import {
   Calendar,
   AlertCircle,
   Info,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import { Button } from '../components/ui/button';
 
 // Import configuration
 import { 
@@ -88,9 +98,30 @@ const StatCard = ({ value, label, icon: Icon }) => (
 const RTDConnectLandingPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showMidTermModal, setShowMidTermModal] = useState(false);
+  const [showMidTermBanner, setShowMidTermBanner] = useState(false);
 
   // Get September count date for current school year
   const septemberCountDate = getSeptemberCountForYear(CURRENT_SCHOOL_YEAR);
+
+  // Check for mid-term registration modal on mount
+  useEffect(() => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_connect_midterm_registration_${MODAL_VERSION}`;
+
+    // Check if user has already dismissed this version
+    const dismissed = localStorage.getItem(STORAGE_KEY);
+
+    if (!dismissed) {
+      // Show modal after a brief delay for better UX
+      setTimeout(() => {
+        setShowMidTermModal(true);
+      }, 500);
+    } else {
+      // If dismissed, show the banner instead
+      setShowMidTermBanner(true);
+    }
+  }, []);
 
   const handleGetStarted = () => {
     navigate('/login');
@@ -128,8 +159,97 @@ const RTDConnectLandingPage = () => {
     setIsMenuOpen(false);
   };
 
+  const handleCloseMidTermModal = () => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_connect_midterm_registration_${MODAL_VERSION}`;
+
+    // Save dismissal to localStorage
+    localStorage.setItem(STORAGE_KEY, 'true');
+
+    // Close modal and show banner
+    setShowMidTermModal(false);
+    setShowMidTermBanner(true);
+  };
+
+  const handleLearnMoreMidTerm = () => {
+    const MODAL_VERSION = 'v1';
+    const STORAGE_KEY = `rtd_connect_midterm_registration_${MODAL_VERSION}`;
+
+    // Save dismissal to localStorage
+    localStorage.setItem(STORAGE_KEY, 'true');
+
+    // Close modal
+    setShowMidTermModal(false);
+    setShowMidTermBanner(true);
+
+    // Navigate to FAQ page with hash
+    navigate('/faq#mid-term-registration');
+  };
+
+  const handleReopenMidTermModal = () => {
+    setShowMidTermModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-white">
+      {/* Mid-Term Registration Modal */}
+      <Dialog open={showMidTermModal} onOpenChange={setShowMidTermModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-gradient-to-r from-purple-100 to-cyan-100">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+              </div>
+              <DialogTitle className="text-xl">Mid-Term Registration Now Open!</DialogTitle>
+            </div>
+            <DialogDescription className="text-base space-y-3 pt-2">
+              <p className="font-semibold text-gray-900">
+                Great news! We're now accepting new families for the remainder of Term 1.
+              </p>
+              <div className="bg-purple-50 rounded-lg p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    <strong>Term 1 (Current):</strong> Register now and receive 50% of the annual reimbursement funding
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    <strong>Term 2 (Next):</strong> Continue with us and receive the remaining 50% funding
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    <strong>Full Support:</strong> Same personalized guidance and resources throughout your journey
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                This is a limited opportunity due to a recent government announcement allowing schools to continue accepting home education families mid-year.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={handleCloseMidTermModal}
+              className="w-full sm:w-auto"
+            >
+              Got it
+            </Button>
+            <Button
+              onClick={handleLearnMoreMidTerm}
+              className="w-full sm:w-auto gap-2 bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600"
+            >
+              Learn More
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Navigation */}
       <nav className="bg-white shadow-sm border-b border-purple-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -258,7 +378,23 @@ const RTDConnectLandingPage = () => {
                   Home Education, Reimagined
                 </span>
               </h1>
-              
+
+              {/* Mid-Term Registration Banner */}
+              {showMidTermBanner && (
+                <div className="mb-6 animate-in fade-in slide-in-from-top duration-500">
+                  <button
+                    onClick={handleReopenMidTermModal}
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                  >
+                    <Sparkles className="h-5 w-5 animate-pulse" />
+                    <div className="text-left">
+                      <div className="font-bold text-sm">Mid-Term Registration Open!</div>
+                      <div className="text-xs opacity-90">Click to learn more about split funding</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
               {/* Subheading with better spacing */}
               <div className="mb-12">
                 <p className="text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">

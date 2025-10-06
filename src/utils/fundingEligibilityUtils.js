@@ -1,8 +1,27 @@
+/**
+ * ⚠️ DEPRECATED - This file is deprecated and will be removed in a future version
+ *
+ * Please use the funding eligibility functions from '../utils/timeZoneUtils.js' instead:
+ * - determineFundingEligibility(birthday, schoolYear)
+ * - checkFundingEligibility(birthday, schoolYear)
+ * - checkKindergartenFundingEligibility(birthday, schoolYear)
+ *
+ * The functions in timeZoneUtils.js are the single source of truth for funding calculations.
+ * They provide accurate age-based eligibility determination using consistent logic.
+ *
+ * Migration Guide:
+ * Replace: import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
+ * With:    import { determineFundingEligibility } from '../utils/timeZoneUtils';
+ *
+ * The function signatures and return values are compatible.
+ */
+
 import { differenceInMonths, parseISO } from 'date-fns';
 import { calculateAge } from './timeZoneUtils';
 import { FUNDING_RATES } from '../config/HomeEducation';
 
 /**
+ * @deprecated Use determineFundingEligibility from timeZoneUtils.js instead
  * Determines which school year we're registering for based on current date
  * @returns {Object} Object with registrationYear and schoolYearString
  */
@@ -128,6 +147,7 @@ export const getFundingAmount = (ageCategory) => {
 };
 
 /**
+ * @deprecated Use determineFundingEligibility from timeZoneUtils.js instead
  * Main function to determine funding eligibility based on student's age
  * @param {string} birthday - Student's birthday in YYYY-MM-DD format
  * @param {string} schoolYear - Optional school year in format "YY/YY" (e.g., "25/26")

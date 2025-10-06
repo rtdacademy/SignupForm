@@ -10,7 +10,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import AddressPicker from '../components/AddressPicker';
 import { Users, Plus, UserPlus, X, Edit3, Trash2, Save, Loader2, Shield, User, Phone, MapPin, Mail, Check, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { FUNDING_RATES } from '../config/HomeEducation';
-import { determineFundingEligibility } from '../utils/fundingEligibilityUtils';
 
 // Format ASN with dashes for display
 const formatASN = (value) => {
@@ -105,15 +104,12 @@ const FamilyManagementDirect = ({
     phone: '',
     gender: '',
     address: null,
-    usePrimaryAddress: false,
-    fundingEligible: true,
-    fundingAmount: 0
+    usePrimaryAddress: false
   });
   const [studentErrors, setStudentErrors] = useState({});
   const [editingStudentId, setEditingStudentId] = useState(null);
   const [showStudentForm, setShowStudentForm] = useState(false);
-  const [fundingEligibilityInfo, setFundingEligibilityInfo] = useState(null);
-  
+
   // Guardian form state
   const [guardianFormData, setGuardianFormData] = useState({
     firstName: '',
@@ -289,18 +285,14 @@ const FamilyManagementDirect = ({
   // Add/Update student directly in database
   const handleAddStudent = async () => {
     if (!validateStudentForm()) return;
-    
+
     try {
-      const eligibility = determineFundingEligibility(studentFormData.birthday);
-      
       const studentData = {
         ...studentFormData,
         firstName: cleanNameForSubmission(studentFormData.firstName),
         lastName: cleanNameForSubmission(studentFormData.lastName),
         preferredName: cleanNameForSubmission(studentFormData.preferredName),
         asn: studentFormData.asn ? studentFormData.asn.replace(/\D/g, '') : '',
-        fundingEligible: eligibility.fundingEligible,
-        fundingAmount: eligibility.fundingAmount,
         familyId: familyKey,
         updatedAt: Date.now(),
         updatedBy: user?.uid || 'unknown'
@@ -365,13 +357,10 @@ const FamilyManagementDirect = ({
         phone: '',
         gender: '',
         address: null,
-        usePrimaryAddress: false,
-        fundingEligible: true,
-        fundingAmount: 0
+        usePrimaryAddress: false
       });
       setEditingStudentId(null);
       setShowStudentForm(false);
-      setFundingEligibilityInfo(null);
       
     } catch (error) {
       console.error('Error saving student:', error);
@@ -383,20 +372,13 @@ const FamilyManagementDirect = ({
   const handleEditStudent = (studentId) => {
     const student = familyData.students[studentId];
     if (!student) return;
-    
+
     setStudentFormData({
       ...student,
       birthday: formatDateForInput(student.birthday),
-      asn: formatASN(student.asn || ''),
-      fundingEligible: student.fundingEligible !== undefined ? student.fundingEligible : true,
-      fundingAmount: student.fundingAmount || 0
+      asn: formatASN(student.asn || '')
     });
-    
-    if (student.birthday) {
-      const eligibility = determineFundingEligibility(student.birthday);
-      setFundingEligibilityInfo(eligibility);
-    }
-    
+
     setEditingStudentId(studentId);
     setShowStudentForm(true);
     
@@ -617,14 +599,11 @@ const FamilyManagementDirect = ({
       phone: '',
       gender: '',
       address: null,
-      usePrimaryAddress: false,
-      fundingEligible: true,
-      fundingAmount: 0
+      usePrimaryAddress: false
     });
     setEditingStudentId(null);
     setStudentErrors({});
     setShowStudentForm(false);
-    setFundingEligibilityInfo(null);
   };
 
   const handleCancelGuardianEdit = () => {
@@ -653,32 +632,6 @@ const FamilyManagementDirect = ({
 
   // Student Card Component
   const StudentCard = ({ student, studentId }) => {
-    const getFundingBadge = () => {
-      if (student.fundingEligible === false) {
-        return (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-md font-medium flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            Not Funded
-          </span>
-        );
-      }
-      if (student.fundingAmount === FUNDING_RATES.KINDERGARTEN.amount) {
-        return (
-          <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-md font-medium">
-            Kindergarten Funding: {FUNDING_RATES.KINDERGARTEN.formatted}
-          </span>
-        );
-      }
-      if (student.fundingAmount === FUNDING_RATES.GRADES_1_TO_12.amount) {
-        return (
-          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md font-medium">
-            Full Funding: {FUNDING_RATES.GRADES_1_TO_12.formatted}
-          </span>
-        );
-      }
-      return null;
-    };
-
     return (
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex justify-between items-start">
@@ -687,7 +640,6 @@ const FamilyManagementDirect = ({
               <h4 className="font-medium text-gray-900">
                 {student.preferredName || `${student.firstName} ${student.lastName}`}
               </h4>
-              {getFundingBadge()}
             </div>
             <div className="mt-2 space-y-1 text-sm text-gray-600">
               <p>Student ID: {studentId}</p>
@@ -978,19 +930,7 @@ const FamilyManagementDirect = ({
                         </label>
                         <DatePicker
                           selected={studentFormData.birthday ? toEdmontonDate(studentFormData.birthday) : null}
-                          onChange={(date) => {
-                            const newBirthday = date ? toDateString(date) : '';
-                            const eligibility = determineFundingEligibility(newBirthday);
-
-                            setStudentFormData({
-                              ...studentFormData,
-                              birthday: newBirthday,
-                              fundingEligible: eligibility.fundingEligible,
-                              fundingAmount: eligibility.fundingAmount
-                            });
-
-                            setFundingEligibilityInfo(eligibility);
-                          }}
+                          onChange={(date) => setStudentFormData({...studentFormData, birthday: date ? toDateString(date) : ''})}
                           openToDate={new Date(new Date().getFullYear() - 14, 0, 1)}
                           showYearDropdown
                           scrollableYearDropdown
@@ -1012,34 +952,6 @@ const FamilyManagementDirect = ({
                           <p className="mt-1 text-sm text-red-600">{studentErrors.birthday}</p>
                         )}
                       </div>
-
-                      {/* Funding Eligibility Message */}
-                      {fundingEligibilityInfo && fundingEligibilityInfo.message && (
-                        <div className={`md:col-span-2 p-3 rounded-md border ${
-                          fundingEligibilityInfo.fundingEligible === false
-                            ? 'bg-red-50 border-red-200'
-                            : fundingEligibilityInfo.ageCategory === 'kindergarten'
-                            ? 'bg-amber-50 border-amber-200'
-                            : 'bg-green-50 border-green-200'
-                        }`}>
-                          <div className="flex items-start space-x-2">
-                            {fundingEligibilityInfo.fundingEligible === false ? (
-                              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                            ) : (
-                              <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                            )}
-                            <div className="text-sm">
-                              <p className={`font-medium ${
-                                fundingEligibilityInfo.fundingEligible === false
-                                  ? 'text-red-800'
-                                  : 'text-amber-800'
-                              }`}>
-                                {fundingEligibilityInfo.message}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       <div>
                         <label htmlFor="student-gender" className="block text-sm font-medium text-gray-700 mb-1">

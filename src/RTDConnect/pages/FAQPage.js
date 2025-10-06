@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   ArrowRight,
   Menu,
   HelpCircle,
@@ -10,7 +10,9 @@ import {
   FileText,
   Users,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  Link2,
+  Check
 } from 'lucide-react';
 import {
   Accordion,
@@ -41,6 +43,8 @@ const RTDConnectLogo = () => (
 const FAQPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [copiedFAQ, setCopiedFAQ] = useState('');
+  const [highlightedFAQ, setHighlightedFAQ] = useState('');
 
   const handleHomeClick = () => {
     navigate('/');
@@ -67,8 +71,57 @@ const FAQPage = () => {
     setIsMenuOpen(false);
   };
 
+  // Handle URL hash navigation
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      const hash = window.location.hash.slice(1); // Remove #
+
+      if (hash) {
+        setTimeout(() => {
+          const element = document.getElementById(`faq-${hash}`);
+          if (element) {
+            const offset = 100;
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth'
+            });
+
+            // Highlight the section briefly
+            setHighlightedFAQ(hash);
+            setTimeout(() => setHighlightedFAQ(''), 2000);
+          }
+        }, 300);
+      }
+    };
+
+    // Handle initial load
+    handleHashNavigation();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashNavigation);
+    return () => window.removeEventListener('hashchange', handleHashNavigation);
+  }, []);
+
+  const copyLinkToFAQ = (faqId, event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/faq#${faqId}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedFAQ(faqId);
+      setTimeout(() => setCopiedFAQ(''), 2000);
+    });
+  };
+
   const faqData = [
     {
+      id: "how-to-register",
       question: "How do I register with RTD-Connect?",
       answer: (
         <div>
@@ -80,6 +133,29 @@ const FAQPage = () => {
       icon: FileText
     },
     {
+      id: "mid-term-registration",
+      question: "Can I still register mid-year? What about funding?",
+      answer: (
+        <div>
+          <p className="mb-3"><strong>Yes!</strong> Thanks to a recent government announcement, we're now accepting new families for the remainder of Term 1.</p>
+          <p className="mb-3"><strong>Here's how mid-term funding works:</strong></p>
+          <ul className="list-disc ml-6 space-y-2 mb-3">
+            <li><strong>Term 1 (Current Term):</strong> If you register now during Term 1, you'll receive 50% of the annual reimbursement amount for educational expenses</li>
+            <li><strong>Term 2 (Next Term):</strong> If you continue with us into Term 2, you'll receive the remaining 50% of your annual funding</li>
+          </ul>
+          <p className="mb-3"><strong>Total funding available:</strong></p>
+          <ul className="list-disc ml-6 space-y-1 mb-3">
+            <li>{FUNDING_RATES.GRADES_1_TO_12.formatted}/year for Grades 1–12 (split as 50% per term)</li>
+            <li>{FUNDING_RATES.KINDERGARTEN.formatted}/year for Kindergarten (split as 50% per term)</li>
+          </ul>
+          <p className="mb-3">You'll receive the same personalized support, facilitator guidance, and access to resources as families who registered at the beginning of the year.</p>
+          <p className="text-sm text-gray-600">This is a limited opportunity that allows schools to continue accepting home education families mid-year. Ready to get started? <button onClick={() => navigate('/login')} className="text-purple-600 hover:text-purple-800 underline font-medium">Create your profile</button> or visit our <button onClick={() => navigate('/funding')} className="text-purple-600 hover:text-purple-800 underline font-medium">funding page</button> for more details.</p>
+        </div>
+      ),
+      icon: DollarSign
+    },
+    {
+      id: "intent-to-register",
       question: "What is Intent to Register?",
       answer: (
         <div>
@@ -104,36 +180,43 @@ const FAQPage = () => {
       icon: Calendar
     },
     {
+      id: "parent-directed-education",
       question: "What is parent-directed home education?",
       answer: "Parent-directed home education allows families to build personalized learning programs around each child's interests, needs, and goals. Parents (and students) choose resources, programs, and experiences that support meaningful and relevant learning.",
       icon: Users
     },
     {
+      id: "education-approaches",
       question: "Do you support different home education approaches?",
       answer: "Absolutely. Home education is not one-size-fits-all. Whether you lean toward unschooling, classical, Waldorf, Charlotte Mason, Montessori, eclectic, traditional, or something entirely your own - your approach is welcome here. What matters most is that it works for your family. We encourage flexibility and curiosity as you find your rhythm.",
       icon: GraduationCap
     },
     {
+      id: "certified-teachers",
       question: "Are RTD-Connect facilitators certified teachers?",
       answer: "Yes. All of our facilitators are Alberta-certified teachers. Many also have experience as home educators themselves, bringing both professional and personal understanding to their work with families.",
       icon: CheckCircle2
     },
     {
+      id: "diverse-learners",
       question: "Do you support diverse learners?",
       answer: "Yes, we welcome and support all learners. This includes students with a range of learning needs and neurodivergent profiles (including ADHD, Autism, giftedness, learning disabilities, physical, emotional, and sensory challenges). We encourage open communication so we can offer respectful and relevant support for your family.",
       icon: Users
     },
     {
+      id: "curriculum",
       question: "Do you provide a curriculum?",
       answer: "Curriculum choices are entirely up to the parent. While we don't prescribe a specific curriculum, we offer guidance, suggestions, and access to optional subscriptions and digital tools that can support your program. Your facilitator can help you find what suits your child's needs.",
       icon: FileText
     },
     {
+      id: "home-education-plan",
       question: "Do I need to submit a home education plan?",
       answer: "Yes. All families are required to submit a program plan that outlines your intended learning approach and goals. Our digital platform makes this easy by guiding you through a simple, step-by-step process that can be completed in just minutes when you register. You can update your plan throughout the year as your child's learning evolves, with the same user-friendly interface.",
       icon: Calendar
     },
     {
+      id: "reimbursement-eligibility",
       question: "Can I get reimbursed for home education purchases?",
       answer: (
         <div>
@@ -149,6 +232,7 @@ const FAQPage = () => {
       icon: DollarSign
     },
     {
+      id: "reimbursement-process",
       question: "How does the reimbursement process work?",
       answer: (
         <div>
@@ -164,6 +248,7 @@ const FAQPage = () => {
       icon: DollarSign
     },
     {
+      id: "alberta-program-of-studies",
       question: "Do we have to follow the Alberta Program of Studies?",
       answer: (
         <div>
@@ -178,6 +263,7 @@ const FAQPage = () => {
       icon: GraduationCap
     },
     {
+      id: "high-school-diploma",
       question: "Can my child earn an Alberta High School Diploma?",
       answer: (
         <div>
@@ -197,6 +283,7 @@ const FAQPage = () => {
       icon: GraduationCap
     },
     {
+      id: "extras-and-resources",
       question: "What kinds of extras does RTD-Connect offer?",
       answer: (
         <div>
@@ -212,11 +299,13 @@ const FAQPage = () => {
       icon: HelpCircle
     },
     {
+      id: "facilitator-meetings",
       question: "How often do we meet with our facilitator?",
       answer: "There are two required facilitator visits per year - typically in the fall and spring - conducted virtually. These visits are relaxed, conversational, and focused on celebrating learning. In between, your facilitator is available by email, phone, or video chat to support your family.",
       icon: Calendar
     },
     {
+      id: "facilitator-visit-details",
       question: "What happens during a facilitator visit?",
       answer: (
         <div>
@@ -367,15 +456,35 @@ const FAQPage = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Accordion type="single" collapsible className="space-y-4">
             {faqData.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <AccordionItem
+                key={index}
+                value={`item-${index}`}
+                id={`faq-${faq.id}`}
+                className={`border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-500 ${
+                  highlightedFAQ === faq.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''
+                }`}
+              >
                 <AccordionTrigger className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center space-x-3 text-left">
-                    {faq.icon && (
-                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <faq.icon className="w-5 h-5 text-white" />
-                      </div>
-                    )}
-                    <span className="text-lg font-semibold text-gray-900">{faq.question}</span>
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-3 text-left flex-1">
+                      {faq.icon && (
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <faq.icon className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                      <span className="text-lg font-semibold text-gray-900">{faq.question}</span>
+                    </div>
+                    <button
+                      onClick={(e) => copyLinkToFAQ(faq.id, e)}
+                      className="ml-4 p-2 hover:bg-purple-50 rounded-lg transition-colors flex-shrink-0"
+                      title="Copy link to this FAQ"
+                    >
+                      {copiedFAQ === faq.id ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Link2 className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                      )}
+                    </button>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pb-6">
