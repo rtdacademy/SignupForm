@@ -818,6 +818,9 @@ const RTDConnectDashboard = ({
   const [showNotificationForm, setShowNotificationForm] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentFormStatuses, setStudentFormStatuses] = useState({});
+
+  // Reimbursement Account state (backend-calculated budget data)
+  const [reimbursementAccount, setReimbursementAccount] = useState(null);
   
   // Citizenship Documents state
   const [showCitizenshipDocs, setShowCitizenshipDocs] = useState(false);
@@ -1213,6 +1216,44 @@ const RTDConnectDashboard = ({
       off(familyRef, 'value', unsubscribeFamily);
     };
   }, [effectiveFamilyId]);
+
+  // Effect to load backend-calculated reimbursement account (budget data)
+  useEffect(() => {
+    // Don't load personal family data for staff users on staff dashboard
+    if (isStaff() && !isStaffViewing && !propFamilyId) {
+      return;
+    }
+
+    if (!effectiveFamilyId || !activeSchoolYear) {
+      return;
+    }
+
+    const db = getDatabase();
+    const schoolYearKey = activeSchoolYear.replace('/', '_');
+    const reimbursementRef = ref(db, `homeEducationFamilies/reimbursementAccounts/${schoolYearKey}/${effectiveFamilyId}`);
+
+    // Set up realtime listener for reimbursement account
+    const unsubscribeReimbursement = onValue(reimbursementRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const accountData = snapshot.val();
+        setReimbursementAccount(accountData);
+
+        // Console log for debugging (can be removed in production)
+        console.log('💰 Reimbursement Account Data:', accountData);
+      } else {
+        setReimbursementAccount(null);
+        console.log('⚠️ No reimbursement account found for', effectiveFamilyId, schoolYearKey);
+      }
+    }, (error) => {
+      console.error('Error listening to reimbursement account:', error);
+      setReimbursementAccount(null);
+    });
+
+    // Cleanup listener
+    return () => {
+      off(reimbursementRef, 'value', unsubscribeReimbursement);
+    };
+  }, [effectiveFamilyId, activeSchoolYear]);
 
   // Effect to load student form statuses by school year
   useEffect(() => {
@@ -4438,6 +4479,7 @@ Check console for full details.
                 students={familyData.students}
                 budgetData={studentBudgets}
                 familyPaymentEligibility={familyPaymentEligibility}
+                reimbursementAccount={reimbursementAccount}
               />
             )}
             

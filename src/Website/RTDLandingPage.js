@@ -1320,10 +1320,9 @@ const StudentTypesSection = () => {
                     </h3>
                     <p className="text-sm text-gray-600 font-medium">Complete Home Education Program</p>
                   </div>
-                  <p className="text-gray-700 text-lg mb-4">
-                    <strong>Looking for a complete home education program?</strong> RTD Connect provides full support,
-                    facilitator guidance, learning plans, and up to $1,850/year in reimbursements for your homeschool journey.
-                  </p>
+                <p className="text-gray-700 text-lg mb-4">
+  <strong>Looking for a complete home education program?</strong> RTD Connect provides full support with expert facilitators, personalized learning plans, and comprehensive resources for your homeschool journey.
+</p>
                   <Button
                     onClick={() => window.open('https://rtd-connect.com', '_blank')}
                     className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white"

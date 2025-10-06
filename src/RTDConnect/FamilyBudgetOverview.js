@@ -1,12 +1,16 @@
 import React from 'react';
 import { DollarSign, Users, TrendingUp, AlertTriangle, Shield } from 'lucide-react';
 
-const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility }) => {
-  if (!students || students.length === 0 || !budgetData) return null;
+const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility, reimbursementAccount }) => {
+  if (!students || students.length === 0) return null;
 
-  // Calculate family totals
-  const totals = students.reduce((acc, student) => {
-    const budget = budgetData[student.id];
+  // Use backend reimbursement account data if available, otherwise fall back to old calculation
+  const totals = reimbursementAccount ? {
+    totalAllocated: reimbursementAccount.summary_totalAllocation || 0,
+    totalSpent: reimbursementAccount.summary_totalSpent || 0,
+    totalRemaining: reimbursementAccount.summary_totalRemaining || 0
+  } : students.reduce((acc, student) => {
+    const budget = budgetData?.[student.id];
     if (budget) {
       acc.totalAllocated += budget.limit;
       acc.totalSpent += budget.spent;
@@ -25,8 +29,16 @@ const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility }
 
   // Get students with high budget usage
   const highUsageStudents = students.filter(student => {
-    const budget = budgetData[student.id];
-    return budget && budget.percentageUsed > 80;
+    if (reimbursementAccount?.students?.[student.id]) {
+      const studentData = reimbursementAccount.students[student.id];
+      const percentageUsed = studentData.allocation > 0
+        ? (studentData.spent / studentData.allocation) * 100
+        : 0;
+      return percentageUsed > 80;
+    } else {
+      const budget = budgetData?.[student.id];
+      return budget && budget.percentageUsed > 80;
+    }
   });
 
   const getOverallStatus = () => {
@@ -36,7 +48,19 @@ const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility }
   };
 
   const status = getOverallStatus();
-  
+
+  // Helper function to get student percentage used
+  const getStudentPercentageUsed = (student) => {
+    if (reimbursementAccount?.students?.[student.id]) {
+      const studentData = reimbursementAccount.students[student.id];
+      return studentData.allocation > 0
+        ? (studentData.spent / studentData.allocation) * 100
+        : 0;
+    } else {
+      return budgetData?.[student.id]?.percentageUsed || 0;
+    }
+  };
+
   // Check if payment features are restricted
   const isRestricted = familyPaymentEligibility && !familyPaymentEligibility.canAccessPayments;
   const restrictionOverlay = isRestricted ? 'relative overflow-hidden' : '';
@@ -155,14 +179,14 @@ const FamilyBudgetOverview = ({ students, budgetData, familyPaymentEligibility }
                 {highUsageStudents.length === 1 ? (
                   <>
                     <strong>{highUsageStudents[0].firstName}</strong> has used{' '}
-                    <strong>{budgetData[highUsageStudents[0].id]?.percentageUsed.toFixed(1)}%</strong> of their budget.
+                    <strong>{getStudentPercentageUsed(highUsageStudents[0]).toFixed(1)}%</strong> of their budget.
                   </>
                 ) : (
                   <>
                     <strong>{highUsageStudents.length} students</strong> have used over 80% of their budgets:{' '}
                     {highUsageStudents.map((student, index) => (
                       <span key={student.id}>
-                        {student.firstName} ({budgetData[student.id]?.percentageUsed.toFixed(1)}%)
+                        {student.firstName} ({getStudentPercentageUsed(student).toFixed(1)}%)
                         {index < highUsageStudents.length - 1 ? ', ' : ''}
                       </span>
                     ))}
