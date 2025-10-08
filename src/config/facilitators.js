@@ -118,7 +118,7 @@ export const FACILITATORS = [
       secondary: []
     },
     availability: {
-      acceptsRegistrations: false,
+      acceptsRegistrations: true,
       unavailableReason: 'Not accepting new families at this time',
       notes: ''
     }
@@ -155,7 +155,7 @@ export const FACILITATORS = [
       secondary: ['7', '8'] // Can support some middle school
     },
     availability: {
-      acceptsRegistrations: false,
+      acceptsRegistrations: true,
       unavailableReason: 'At capacity for new families',
       notes: ''
     }

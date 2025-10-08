@@ -56,7 +56,8 @@ import {
   ClipboardCheck,
   ChevronRight,
   ChevronDown,
-  Layers
+  Layers,
+  UserCircle
 } from 'lucide-react';
 
 // Define all available columns with categories
@@ -78,15 +79,29 @@ export const COLUMN_DEFINITIONS = {
     label: 'Student Information',
     icon: GraduationCap,
     columns: [
-      { id: 'studentNames', label: 'Student Names', description: 'All student names', default: true },
-      { id: 'studentASNs', label: 'Student ASNs', description: 'Alberta Student Numbers', default: true },
-      { id: 'studentGrades', label: 'Grades', description: 'Student grade levels', default: true },
-      { id: 'studentAges', label: 'Ages', description: 'Student ages', default: false },
-      { id: 'studentBirthdays', label: 'Birthdays', description: 'Student birth dates', default: false },
-      { id: 'studentGenders', label: 'Genders', description: 'Student genders', default: false },
-      { id: 'studentEmails', label: 'Student Emails', description: 'Student email addresses', default: false },
-      { id: 'studentPhones', label: 'Student Phones', description: 'Student phone numbers', default: false },
-      { id: 'readyForPASI', label: 'Ready for PASI', description: 'PASI readiness status', default: true },
+      // Family mode columns (aggregated)
+      { id: 'studentNames', label: 'Student Names', description: 'All student names', default: true, familyMode: true },
+      { id: 'studentASNs', label: 'Student ASNs', description: 'Alberta Student Numbers', default: true, familyMode: true },
+      { id: 'studentGrades', label: 'Grades', description: 'Student grade levels', default: true, familyMode: true },
+      { id: 'studentAges', label: 'Ages', description: 'Student ages', default: false, familyMode: true },
+      { id: 'studentBirthdays', label: 'Birthdays', description: 'Student birth dates', default: false, familyMode: true },
+      { id: 'studentGenders', label: 'Genders', description: 'Student genders', default: false, familyMode: true },
+      { id: 'studentEmails', label: 'Student Emails', description: 'Student email addresses', default: false, familyMode: true },
+      { id: 'studentPhones', label: 'Student Phones', description: 'Student phone numbers', default: false, familyMode: true },
+      { id: 'readyForPASI', label: 'Ready for PASI', description: 'PASI readiness status', default: true, familyMode: true },
+
+      // Student mode columns (individual)
+      { id: 'studentId', label: 'Student ID', description: 'Unique student identifier', default: false, studentMode: true },
+      { id: 'studentFirstName', label: 'First Name', description: 'Student first name', default: true, studentMode: true },
+      { id: 'studentLastName', label: 'Last Name', description: 'Student last name', default: true, studentMode: true },
+      { id: 'studentASN', label: 'ASN', description: 'Alberta Student Number', default: true, studentMode: true },
+      { id: 'studentGrade', label: 'Grade', description: 'Student grade level', default: true, studentMode: true },
+      { id: 'studentAge', label: 'Age', description: 'Student age', default: false, studentMode: true },
+      { id: 'studentBirthday', label: 'Birthday', description: 'Student birth date', default: true, studentMode: true },
+      { id: 'studentGender', label: 'Gender', description: 'Student gender', default: false, studentMode: true },
+      { id: 'studentEmail', label: 'Email', description: 'Student email address', default: false, studentMode: true },
+      { id: 'studentPhone', label: 'Phone', description: 'Student phone number', default: false, studentMode: true },
+      { id: 'studentReadyForPASI', label: 'Ready for PASI', description: 'PASI readiness status', default: true, studentMode: true },
     ]
   },
   guardians: {
@@ -175,14 +190,17 @@ export const COLUMN_DEFINITIONS = {
 
 // Preset configurations
 const PRESETS = {
+  // Family mode presets
   basic: {
     name: 'Basic',
     description: 'Essential information only',
+    mode: 'family',
     columns: ['familyName', 'primaryGuardianName', 'primaryGuardianEmail', 'studentNames', 'studentGrades', 'facilitatorName']
   },
   detailed: {
     name: 'Detailed',
     description: 'Comprehensive family information',
+    mode: 'family',
     columns: [
       'familyName', 'status', 'lastUpdated', 'totalStudents',
       'studentNames', 'studentASNs', 'studentGrades', 'studentAges', 'readyForPASI',
@@ -195,6 +213,7 @@ const PRESETS = {
   compliance: {
     name: 'Compliance',
     description: 'Registration and compliance focused',
+    mode: 'family',
     columns: [
       'familyName', 'studentNames', 'studentASNs',
       'schoolYear', 'notificationFormStatus', 'educationPlanStatus', 'citizenshipDocsStatus',
@@ -206,10 +225,42 @@ const PRESETS = {
   funding: {
     name: 'Funding',
     description: 'Funding and payment information',
+    mode: 'family',
     columns: [
       'familyName', 'studentNames', 'studentGrades', 'studentAges',
       'fundingEligible', 'fundingAmounts', 'totalFunding',
       'paymentSetupStatus', 'primaryGuardianName', 'primaryGuardianEmail'
+    ]
+  },
+  // Student mode presets
+  studentRoster: {
+    name: 'Student Roster',
+    description: 'Individual student information',
+    mode: 'student',
+    columns: [
+      'studentFirstName', 'studentLastName', 'studentGrade', 'studentBirthday', 'studentAge',
+      'familyName', 'primaryGuardianName', 'primaryGuardianEmail', 'primaryGuardianPhone',
+      'facilitatorName'
+    ]
+  },
+  studentCompliance: {
+    name: 'Student Compliance',
+    description: 'Per-student registration status',
+    mode: 'student',
+    columns: [
+      'studentFirstName', 'studentLastName', 'studentASN', 'studentGrade', 'studentReadyForPASI',
+      'familyName', 'notificationFormStatus', 'educationPlanStatus', 'citizenshipDocsStatus',
+      'pasiRegistrationStatus', 'primaryGuardianName', 'primaryGuardianEmail'
+    ]
+  },
+  studentFunding: {
+    name: 'Student Funding',
+    description: 'Individual student funding',
+    mode: 'student',
+    columns: [
+      'studentFirstName', 'studentLastName', 'studentGrade', 'studentAge',
+      'familyName', 'fundingEligible', 'fundingAmounts',
+      'primaryGuardianName', 'primaryGuardianEmail'
     ]
   }
 };
@@ -262,16 +313,30 @@ const SortableColumnItem = ({ column, isSelected, onToggle, categoryLabel }) => 
 
 // Main CSV Column Selector Component
 const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) => {
-  // Get all columns in a flat list
+  // Export mode state
+  const [exportMode, setExportMode] = useState('family'); // 'family' or 'student'
+
+  // Get all columns in a flat list, filtered by export mode
   const getAllColumns = () => {
     const columns = [];
     Object.entries(COLUMN_DEFINITIONS).forEach(([categoryKey, category]) => {
       category.columns.forEach(col => {
-        columns.push({
-          ...col,
-          category: categoryKey,
-          categoryLabel: category.label
-        });
+        // Include column if:
+        // - It doesn't have mode restrictions (works in both modes)
+        // - It's marked for the current export mode
+        // - It's not a student column (those are mode-specific)
+        const isRelevant =
+          (!col.familyMode && !col.studentMode) || // No mode restriction
+          (exportMode === 'family' && col.familyMode) || // Family mode column
+          (exportMode === 'student' && col.studentMode); // Student mode column
+
+        if (isRelevant) {
+          columns.push({
+            ...col,
+            category: categoryKey,
+            categoryLabel: category.label
+          });
+        }
       });
     });
     return columns;
@@ -293,6 +358,9 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
     if (savedPrefs) {
       try {
         const prefs = JSON.parse(savedPrefs);
+        if (prefs.exportMode) {
+          setExportMode(prefs.exportMode);
+        }
         setSelectedColumns(new Set(prefs.selectedColumns));
         setColumnOrder(prefs.columnOrder);
       } catch (e) {
@@ -301,9 +369,18 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
     }
   }, []);
 
+  // Update columns when export mode changes
+  useEffect(() => {
+    const newAllColumns = getAllColumns();
+    const newDefaultColumns = newAllColumns.filter(col => col.default).map(col => col.id);
+    setSelectedColumns(new Set(newDefaultColumns));
+    setColumnOrder(newAllColumns.map(col => col.id));
+  }, [exportMode]);
+
   // Save preferences
   const savePreferences = () => {
     const prefs = {
+      exportMode: exportMode,
       selectedColumns: Array.from(selectedColumns),
       columnOrder: columnOrder
     };
@@ -372,12 +449,19 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
 
   const applyPreset = (presetKey) => {
     const preset = PRESETS[presetKey];
+
+    // Set export mode from preset
+    if (preset.mode) {
+      setExportMode(preset.mode);
+    }
+
     setSelectedColumns(new Set(preset.columns));
     setSelectedPreset(presetKey);
-    
+
     // Reorder columns to put preset columns first
     const presetOrder = [...preset.columns];
-    const otherColumns = columnOrder.filter(id => !preset.columns.includes(id));
+    const allCols = getAllColumns();
+    const otherColumns = allCols.map(col => col.id).filter(id => !preset.columns.includes(id));
     setColumnOrder([...presetOrder, ...otherColumns]);
   };
 
@@ -392,7 +476,7 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
   const handleExport = () => {
     savePreferences();
     const orderedSelectedColumns = columnOrder.filter(id => selectedColumns.has(id));
-    onExport(orderedSelectedColumns);
+    onExport(orderedSelectedColumns, exportMode); // Pass export mode to parent
     onClose();
   };
 
@@ -400,24 +484,93 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
   const getPreviewData = () => {
     const orderedSelectedColumns = columnOrder.filter(id => selectedColumns.has(id));
     const previewFamilies = Object.values(families).slice(0, 3);
-    
-    return {
-      columns: orderedSelectedColumns.map(id => {
-        const col = allColumns.find(c => c.id === id);
-        return col ? col.label : id;
-      }),
-      rows: previewFamilies.map(family => {
-        // This would be replaced with actual data extraction logic
+
+    const columnLabels = orderedSelectedColumns.map(id => {
+      const col = allColumns.find(c => c.id === id);
+      return col ? col.label : id;
+    });
+
+    let previewRows = [];
+
+    if (exportMode === 'student') {
+      // Student mode: Show one row per student
+      previewFamilies.forEach(family => {
+        const students = family.students ? Object.values(family.students) : [];
+        students.slice(0, 2).forEach(student => { // Show max 2 students per family in preview
+          const row = orderedSelectedColumns.map(id => {
+            switch(id) {
+              // Family info
+              case 'familyName': return family.familyName || '';
+              case 'status': return family.status || 'active';
+              case 'totalStudents': return students.length;
+
+              // Student info
+              case 'studentFirstName': return student.firstName || '';
+              case 'studentLastName': return student.lastName || '';
+              case 'studentASN': return student.asn || (student.readyForPASI ? 'Ready' : '');
+              case 'studentGrade': return student.grade || '';
+              case 'studentBirthday': return student.birthday || '';
+              case 'studentReadyForPASI': return student.readyForPASI ? 'Yes' : 'No';
+
+              // Guardian info
+              case 'primaryGuardianName': {
+                const guardians = family.guardians ? Object.values(family.guardians) : [];
+                const primary = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+                return primary ? `${primary.firstName} ${primary.lastName}` : '';
+              }
+              case 'primaryGuardianEmail': {
+                const guardians = family.guardians ? Object.values(family.guardians) : [];
+                const primary = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+                return primary?.email || '';
+              }
+
+              // Other fields
+              case 'facilitatorName': return family.facilitatorName || 'Unassigned';
+              case 'schoolYear': return schoolYear || '';
+
+              default: return '';
+            }
+          });
+          previewRows.push(row);
+        });
+      });
+    } else {
+      // Family mode: Show one row per family
+      previewRows = previewFamilies.map(family => {
+        const students = family.students ? Object.values(family.students) : [];
+
         return orderedSelectedColumns.map(id => {
           switch(id) {
             case 'familyName': return family.familyName || '';
             case 'status': return family.status || 'active';
-            case 'totalStudents': return family.studentCount || 0;
-            // Add more cases for actual data extraction
-            default: return 'Sample Data';
+            case 'totalStudents': return students.length;
+            case 'studentNames': return students.map(s => `${s.firstName} ${s.lastName}`).join('; ');
+            case 'studentGrades': return students.map(s => s.grade || 'N/A').join('; ');
+            case 'studentASNs': return students.map(s => s.asn || (s.readyForPASI ? 'Ready' : 'Missing')).join('; ');
+
+            case 'primaryGuardianName': {
+              const guardians = family.guardians ? Object.values(family.guardians) : [];
+              const primary = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+              return primary ? `${primary.firstName} ${primary.lastName}` : '';
+            }
+            case 'primaryGuardianEmail': {
+              const guardians = family.guardians ? Object.values(family.guardians) : [];
+              const primary = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+              return primary?.email || '';
+            }
+
+            case 'facilitatorName': return family.facilitatorName || 'Unassigned';
+            case 'schoolYear': return schoolYear || '';
+
+            default: return '';
           }
         });
-      })
+      });
+    }
+
+    return {
+      columns: columnLabels,
+      rows: previewRows
     };
   };
 
@@ -435,6 +588,43 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
             Select and arrange the columns you want to include in your CSV export
           </SheetDescription>
         </SheetHeader>
+
+        {/* Export Mode Toggle */}
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Export Format</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setExportMode('family')}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border-2 transition-all ${
+                exportMode === 'family'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <div className="text-left">
+                <div className="font-medium text-sm">By Family</div>
+                <div className="text-xs opacity-75">One row per family</div>
+              </div>
+              {exportMode === 'family' && <CheckCircle2 className="w-4 h-4 ml-auto" />}
+            </button>
+            <button
+              onClick={() => setExportMode('student')}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border-2 transition-all ${
+                exportMode === 'student'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <UserCircle className="w-4 h-4" />
+              <div className="text-left">
+                <div className="font-medium text-sm">By Student</div>
+                <div className="text-xs opacity-75">One row per student</div>
+              </div>
+              {exportMode === 'student' && <CheckCircle2 className="w-4 h-4 ml-auto" />}
+            </button>
+          </div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col mt-4 min-h-0">
           <TabsList className="grid w-full grid-cols-3">
@@ -463,7 +653,16 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{preset.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{preset.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {preset.mode === 'student' ? (
+                            <><UserCircle className="w-3 h-3 mr-1 inline" />Student</>
+                          ) : (
+                            <><Users className="w-3 h-3 mr-1 inline" />Family</>
+                          )}
+                        </Badge>
+                      </div>
                       {selectedPreset === key && (
                         <CheckCircle2 className="w-4 h-4 text-purple-600" />
                       )}
@@ -621,12 +820,18 @@ const CSVColumnSelector = ({ isOpen, onClose, onExport, families, schoolYear }) 
                     <Info className="w-4 h-4 text-gray-500 mt-0.5" />
                     <div className="space-y-1">
                       <p className="text-xs text-gray-600">
-                        This preview shows the first 3 families with selected columns.
+                        {exportMode === 'student'
+                          ? 'This preview shows sample students with selected columns.'
+                          : 'This preview shows the first 3 families with selected columns.'}
                       </p>
                       <p className="text-xs text-gray-600">
-                        {selectedColumns.size} columns × {Object.keys(families).length} families 
-                        will be exported.
+                        {selectedColumns.size} columns will be exported.
                       </p>
+                      {exportMode === 'student' && (
+                        <p className="text-xs text-gray-600">
+                          <strong>Note:</strong> One row will be created per student across all families.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

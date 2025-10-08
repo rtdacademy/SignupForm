@@ -1,0 +1,605 @@
+{
+  "rules": {
+
+ "homeEducationCategories": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      "$facilitatorEmailKey": {
+        ".write": "auth != null && auth.token.isStaffUser == true"
+      }
+    },
+
+    "homeEducationCategoryTypes": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "homeEducationFamilies": {
+      "familyInformation": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        ".indexOn": ["facilitatorEmail", "lastUpdated", "createdAt", "familyName", "status"],
+        "$familyId": {
+          ".read": "auth != null && (auth.token.familyId == $familyId || auth.token.isStaffUser == true)",
+          ".write": "auth != null && ((auth.token.familyId == $familyId && (auth.token.familyRole == 'primary_guardian')) || auth.token.isStaffUser == true)",
+          "categories": {
+            ".read": "auth != null && (auth.token.familyId == $familyId || auth.token.isStaffUser == true)",
+            ".write": "auth != null && auth.token.isStaffUser == true",
+            "$facilitatorEmailKey": {
+              "$categoryId": {
+                ".validate": "root.child('homeEducationCategories').child($facilitatorEmailKey).child($categoryId).exists()"
+              }
+            }
+          }
+        }
+      },
+      "stats": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": false
+      },
+      "emailTracking": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        "$familyId": {
+          ".read": "auth != null && (auth.token.familyId == $familyId || auth.token.isStaffUser == true)",
+          ".write": "auth != null && auth.token.isStaffUser == true",
+          "emails": {
+            ".indexOn": ["timestamp", "senderEmail", "recipientEmail"],
+            "$emailId": {
+              ".read": "auth != null && (auth.token.familyId == $familyId || auth.token.isStaffUser == true)",
+              ".write": "auth != null && auth.token.isStaffUser == true"
+            }
+          }
+        }
+      },
+      "emailFailures": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": "auth != null && auth.token.isStaffUser == true"
+      },
+      "emailBatches": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": "auth != null && auth.token.isStaffUser == true"
+      },
+      "reimbursementAccounts": {
+        "$schoolYear": {
+          ".indexOn": [
+            "summary_totalRemaining",
+            "summary_totalAllocation",
+            "summary_totalSpent",
+            "summary_numberOfStudents",
+            "family_primaryGuardianName",
+            "family_primaryGuardianEmail",
+            "family_status",
+            "meta_lastUpdated"
+          ],
+          "$familyId": {
+            ".read": "auth != null && (auth.token.familyId == $familyId || auth.token.isStaffUser == true || auth.token.isAdminUser == true)",
+            ".write": "auth != null && auth.token.isAdminUser == true",
+            ".validate": "newData.hasChildren(['familyId', 'schoolYear', 'summary_totalAllocation'])"
+          }
+        }
+      }
+    },
+
+    "reimbursementRecalculations": {
+      "$schoolYear": {
+        "$familyId": {
+          ".read": "auth != null && auth.token.isAdminUser == true",
+          ".write": "auth != null && auth.token.isAdminUser == true"
+        }
+      }
+    },
+    "pendingPermissions": {
+      ".read": true,
+      ".write": false
+    },
+
+  "pricing": {
+        ".read": true,
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        ".indexOn": ["lastUpdated"],
+        "nonPrimaryStudents": {
+          ".indexOn": ["freeCreditsLimit", "costPerCredit", "requiresPaymentAfterLimit", "monthlyPayment", "oneTimePrice", "rejoinFee"]
+        },
+        "homeEducationStudents": {
+          ".indexOn": ["freeCreditsLimit", "costPerCredit", "requiresPaymentAfterLimit", "rejoinFee"]
+        },
+        "summerSchoolStudents": {
+          ".indexOn": ["freeCreditsLimit", "costPerCredit", "requiresPaymentAfterLimit"]
+        },
+        "adultStudents": {
+          ".indexOn": ["freeCreditsLimit", "costPerCredit", "requiresPaymentAfterLimit", "monthlyPayment", "oneTimePrice", "rejoinFee"]
+        },
+        "internationalStudents": {
+          ".indexOn": ["freeCreditsLimit", "costPerCredit", "requiresPaymentAfterLimit", "monthlyPayment", "oneTimePrice", "rejoinFee"]
+        }
+      },
+
+      "creditsPerStudent": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        ".indexOn": [".value"],
+        "$schoolYear": {
+          ".indexOn": [".value"],
+          "$studentType": {
+            ".indexOn": [".value"],
+            "$emailKey": {
+              ".read": "auth != null && ($emailKey === auth.token.email.replace('.', ',') || auth.token.isStaffUser == true)",
+              ".write": "auth != null && auth.token.isStaffUser == true",
+              ".indexOn": ["nonExemptCredits", "exemptCredits", "totalCredits", "freeCreditsUsed", "paidCreditsRequired", "requiresPayment", "lastUpdated", "studentType", "freeCreditsLimit", "remainingFreeCredits"]
+            }
+          }
+        }
+      },
+
+    "creditRecalculations": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "adminEmails": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "ASNs": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+    "blacklist": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      "active": {
+        ".indexOn": ["asn", "email", "dateAdded"]
+      },
+      "history": {
+        ".indexOn": ["asn", "email", "dateRemoved"]
+      }
+    },
+    "pasiUploads": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["startTime", "uploadedBy", "schoolYear", "status"]
+    },
+
+    "customViews": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "pasiRecordsNew": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "pasiRecordsCompanion": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "sendGridTracking": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["senderKey", "senderEmail"]
+    },
+
+    "projections": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "userEmails": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+    "userPreferences": {
+      "$userEmailKey": {
+        ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)",
+        ".write": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)"
+      }
+    },
+
+    "assistant-files": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "dataSyncBatches": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "errorLogs": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "staff_testing": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "parentInvitations": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "emailBatches": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "mandatoryCourses": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "codeExamples": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "ASN_Wrong_Format": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "logs": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["sanitizedEmail"],
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.isStaffUser == true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.isStaffUser == true)"
+      }
+    },
+
+    "sharedVideos": {
+      ".read": true,
+      ".write": "auth != null",
+      "$videoId": {
+        ".validate": "newData.hasChildren(['title', 'url', 'createdBy', 'createdAt'])",
+        ".indexOn": ["createdBy", "createdAt", "views"]
+      }
+    },
+
+    "courseMetadata": {
+      ".read": "auth != null",
+      "$courseId": {
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        ".indexOn": ["createdBy", "createdAt", "updatedAt"]
+      }
+    },
+
+    "notificationDates": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "registrationSettings": {
+      ".read": true,
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "ImportantDates": {
+      ".read": true,
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "courses": {
+      ".read": true,
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "archivedCourses": {
+      ".read": "auth !== null",
+      ".write": "auth !== null && auth.token.isStaffUser === true"
+    },
+
+    "courseDevelopment": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "payments": {
+      "$userEmail": {
+        ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmail || auth.token.isStaffUser == true)",
+        ".write": "auth != null && auth.token.isStaffUser == true",
+        "courses": {
+          "$courseId": {
+            ".indexOn": ["status", "type", "last_updated"]
+          }
+        }
+      }
+    },
+
+    "parents": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      "$emailKey": {
+        ".read": "auth != null && ($emailKey.replace(',', '.') === auth.token.email || auth.token.isStaffUser == true)",
+        ".write": "auth != null && ($emailKey.replace(',', '.') === auth.token.email || auth.token.isStaffUser == true)"
+      }
+    },
+
+    "courses_secure": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "teacherMessages": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "orgChart": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "categoryTypes": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "configuration": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "pasiLinks": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "systemCategories": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "calendars": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "templateTypes": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "notifications": {
+      "$emailKey": {
+        ".read": "auth != null && (auth.token.email.replace('.', ',') === $emailKey || auth.token.isStaffUser == true)",
+        ".write": "auth != null && auth.token.isStaffUser == true"
+      }
+    },
+
+    "emailFailures": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "teacherCategories": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "externalLinks": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "students": {
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      "$sanitizedEmail": {
+        ".read": "auth != null && ($sanitizedEmail.replace(',', '.') === auth.token.email || auth.token.isStaffUser == true)",
+        ".write": "auth != null && auth.token.isStaffUser == true"
+      }
+    },
+
+    "creditAdjustments": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["timestamp", "studentType", "adjustedBy"]
+    },
+
+    "paymentOverrides": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["timestamp", "studentType", "overriddenBy"]
+    },
+
+    "staff": {
+      ".read": "auth != null",
+      ".indexOn": ["displayName", "email"],
+      "$key": {
+        ".write": "auth != null && auth.token.email.replace('.', ',') === $key && auth.token.isStaffUser == true",
+        ".validate": "$key.matches(/.*@rtdacademy,com$/) || $key.matches(/.*@rtd-connect,com$/)"
+      }
+    },
+
+    "studentCourseSummaries": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": [
+        "lastName",
+        "firstName",
+        "StudentEmail",
+        "Course_Value",
+        "ActiveFutureArchived_Value",
+        "Status_Value",
+        "School_x0020_Year_Value",
+        "StudentType_Value",
+        "DiplomaMonthChoices_Value",
+        "LMSStudentID",
+        "asn",
+        "CourseID",
+        "ScheduleStartDate"
+      ],
+      "$student": {
+        "categories": {
+          "$teacherEmail": {
+            ".indexOn": [".value"]
+          }
+        }
+      }
+    },
+
+    "pasiRecords": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["linked", "schoolYear"]
+    },
+
+    "pasiData": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true"
+    },
+
+    "studentDashboardNotifications": {
+      ".read": true,
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["active"]
+    },
+
+    "surveyResponses": {
+      ".read": "auth != null",
+      "$notificationId": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$timestamp": {
+          ".read": "auth != null",
+          ".indexOn": ["timestamp"],
+          "$userEmailKey": {
+            ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)",
+            ".write": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)",
+            ".indexOn": ["timestamp", "courseId", "submittedAt"]
+          }
+        }
+      }
+    },
+
+    "studentDashboardNotificationsResults": {
+      ".read": "auth != null",
+      "$notificationId": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$userEmailKey": {
+          ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)",
+          ".write": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.isStaffUser == true)",
+          ".indexOn": ["timestamp", "courseId", "submittedAt", "latestSubmission"]
+        }
+      }
+    },
+
+    "allPayments": {
+      ".read": "auth != null && auth.token.isStaffUser == true",
+      ".write": "auth != null && auth.token.isStaffUser == true",
+      ".indexOn": ["StudentEmail", "type", "timestamp", "orphaned"]
+    },
+
+    "chats": {
+      ".indexOn": ["participants"],
+      "$chatId": {
+        ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.token.email.replace('.', ','))",
+        ".write": "auth != null && (root.child('chats').child($chatId).child('participants').val().contains(auth.token.email.replace('.', ',')) || !data.exists())"
+      }
+    },
+
+    "userChats": {
+      ".read": "auth != null",
+      ".write": false,
+      "$userEmail": {
+        ".indexOn": [".value", "timestamp", "lastMessageTimestamp", "active"]
+      }
+    },
+
+    "Admin": {
+      "Finance": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": true
+      }
+    },
+
+    "invoices": {
+      ".read": true,
+      ".write": true
+    },
+
+    "lti": {
+      "deep_links": {
+        ".read": "auth != null",
+        ".indexOn": ["assessment_id", "course_id"]
+      }
+    },
+
+    "imathas_grades": {
+      ".read": "auth != null",
+      ".indexOn": ["assessmentId", "userId"]
+    },
+
+    "edbotz": {
+      "files": {
+        ".read": "auth !== null",
+        "$fileId": {
+          ".write": "auth !== null && auth.token.isStaffUser == true"
+        }
+      },
+      "images": {
+        ".read": "auth !== null",
+        "$imageId": {
+          ".write": "auth !== null && auth.token.isStaffUser == true"
+        }
+      },
+      "studentAccess": {
+        "$userId": {
+          "$accessKey": {
+            ".read": true,
+            ".write": "auth !== null && auth.uid === $userId"
+          }
+        }
+      },
+      "courses": {
+        "$uid": {
+          ".read": true,
+          ".write": "$uid === auth.uid",
+          "$courseId": {
+            ".indexOn": ["updatedAt", "createdAt"],
+            "units": {
+              ".indexOn": ["sequence"],
+              "$unitIndex": {
+                "lessons": {
+                  ".indexOn": ["sequence"]
+                },
+                "assistants": {
+                  ".indexOn": [".value"]
+                }
+              }
+            },
+            "assistants": {
+              ".indexOn": [".value"]
+            }
+          }
+        }
+      },
+      "assistants": {
+        "$uid": {
+          ".read": true,
+          "resetToggle": {
+            ".write": "root.child('edbotz/studentAccess').child(auth.uid).exists()"
+          },
+          ".write": "$uid === auth.uid",
+          ".indexOn": ["createdAt", "updatedAt"],
+          "$assistantId": {
+            "usage": {
+              ".indexOn": ["entityId", "type", "courseId"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

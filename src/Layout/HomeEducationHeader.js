@@ -81,18 +81,18 @@ const RTDConnectLogo = () => (
   </div>
 );
 
-function HomeEducationHeader({ 
-  user, 
+function HomeEducationHeader({
+  user,
   onLogout,
   // Home Education specific props
-  showMyFamiliesOnly,
-  setShowMyFamiliesOnly,
+  viewMode, // 'my', 'all', 'inactive', or 'unassigned'
+  setViewMode,
   impersonatingFacilitator,
   setImpersonatingFacilitator,
   showImpersonationDropdown,
   setShowImpersonationDropdown,
-  statusFilter,
-  setStatusFilter,
+  showTestFamilies,
+  setShowTestFamilies,
   stats,
   // Portfolio quick add props
   onQuickAddToPortfolio
@@ -129,68 +129,64 @@ function HomeEducationHeader({
 
           {/* Center section - Filters */}
           <div className="flex items-center space-x-3">
-            {/* Status Filter Dropdown - Always shown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
-                <div className="flex items-center space-x-2">
-                  {statusFilter === 'active' && <CheckCircle2 className="w-4 h-4 text-green-600" />}
-                  {statusFilter === 'inactive' && <XCircle className="w-4 h-4 text-gray-500" />}
-                  <span className="text-sm font-medium">
-                    {statusFilter === 'active' && 'Active Families'}
-                    {statusFilter === 'inactive' && 'Inactive Families'}
-                  </span>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-48">
-                <DropdownMenuItem 
-                  onClick={() => setStatusFilter('active')}
-                  className={statusFilter === 'active' ? 'bg-green-50' : ''}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
-                  <span>Active Families</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setStatusFilter('inactive')}
-                  className={statusFilter === 'inactive' ? 'bg-gray-50' : ''}
-                >
-                  <XCircle className="w-4 h-4 mr-2 text-gray-500" />
-                  <span>Inactive Families</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
             {/* Families Toggle Switch - Only shown on family dashboard */}
             {showFamiliesToggle && (
               <div className="flex items-center bg-gray-100 rounded-full p-1">
                 <button
-                  onClick={() => setShowMyFamiliesOnly(true)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
-                    showMyFamiliesOnly 
-                      ? 'bg-purple-600 text-white shadow-md' 
+                  onClick={() => setViewMode('my')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-full transition-all duration-200 ${
+                    viewMode === 'my'
+                      ? 'bg-purple-600 text-white shadow-md'
                       : 'text-gray-600 hover:text-gray-800'
                   }`}
                 >
                   <UserCheck className="w-4 h-4" />
                   <span className="font-medium text-sm">My Families</span>
-                  <span className={`font-bold ${showMyFamiliesOnly ? 'text-purple-100' : 'text-gray-500'}`}>
+                  <span className={`font-bold ${viewMode === 'my' ? 'text-purple-100' : 'text-gray-500'}`}>
                     ({stats.myFamilies})
                   </span>
                 </button>
-                
+
                 <button
-                  onClick={() => setShowMyFamiliesOnly(false)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200 ${
-                    !showMyFamiliesOnly 
-                      ? 'bg-blue-600 text-white shadow-md' 
+                  onClick={() => setViewMode('all')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-full transition-all duration-200 ${
+                    viewMode === 'all'
+                      ? 'bg-blue-600 text-white shadow-md'
                       : 'text-gray-600 hover:text-gray-800'
                   }`}
                 >
                   <Globe className="w-4 h-4" />
-                  <span className="font-medium text-sm">All Families</span>
-                  <span className={`font-bold ${!showMyFamiliesOnly ? 'text-blue-100' : 'text-gray-500'}`}>
+                  <span className="font-medium text-sm">All Active</span>
+                  <span className={`font-bold ${viewMode === 'all' ? 'text-blue-100' : 'text-gray-500'}`}>
                     ({stats.totalFamilies})
                   </span>
+                </button>
+
+                <button
+                  onClick={() => setViewMode('inactive')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-full transition-all duration-200 ${
+                    viewMode === 'inactive'
+                      ? 'bg-gray-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <ToggleLeft className="w-4 h-4" />
+                  <span className="font-medium text-sm">Inactive</span>
+                  <span className={`font-bold ${viewMode === 'inactive' ? 'text-gray-100' : 'text-gray-500'}`}>
+                    ({stats.inactiveFamilies})
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setViewMode('unassigned')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-full transition-all duration-200 ${
+                    viewMode === 'unassigned'
+                      ? 'bg-orange-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="font-medium text-sm">Unassigned</span>
                 </button>
               </div>
             )}
@@ -216,6 +212,19 @@ function HomeEducationHeader({
                   Testing
                 </span>
               </div>
+            )}
+
+            {/* Test Families Filter Checkbox - Only on family dashboard */}
+            {showFamiliesToggle && (
+              <label className="flex items-center space-x-1.5 px-2 py-1 cursor-pointer hover:opacity-80 transition-opacity">
+                <input
+                  type="checkbox"
+                  checked={showTestFamilies}
+                  onChange={(e) => setShowTestFamilies(e.target.checked)}
+                  className="w-3 h-3 text-gray-400 border-gray-300 rounded focus:ring-gray-400"
+                />
+                <span className="text-xs text-gray-400">Show Test</span>
+              </label>
             )}
           </div>
 

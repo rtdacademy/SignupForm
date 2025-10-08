@@ -360,6 +360,25 @@ const getStudentAgeDisplay = (student, schoolYear) => {
   };
 };
 
+// Helper function to check if we're in the mid-term period for 25/26 school year
+const isInMidTermPeriod25_26 = () => {
+  const now = Date.now();
+  // Oct 6, 2025 at 00:00:00 Mountain Daylight Time (UTC-6)
+  const midTermStart = new Date('2025-10-06T00:00:00-06:00').getTime();
+  // Jan 31, 2026 at 23:59:59 Mountain Standard Time (UTC-7)
+  const midTermEnd = new Date('2026-01-31T23:59:59-07:00').getTime();
+  return now >= midTermStart && now <= midTermEnd;
+};
+
+// Helper function to check if family has any submitted forms for a school year
+const hasSubmittedFormsForSchoolYear = (studentFormStatuses, schoolYear) => {
+  if (!studentFormStatuses || !schoolYear) return false;
+
+  return Object.values(studentFormStatuses).some(
+    studentStatuses => studentStatuses[schoolYear] === 'submitted'
+  );
+};
+
 // Helper function to get family status configuration
 const getFamilyStatusConfig = (status) => {
   const config = {
@@ -381,6 +400,198 @@ const getFamilyStatusConfig = (status) => {
   };
 
   return config[status] || config.active;
+};
+
+// Mid-Term Opportunity Banner - For NEW families (no submitted forms yet)
+const MidTermOpportunityBanner = ({ onDismiss, onAction }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleDismiss = () => {
+    setIsOpen(false);
+    onDismiss();
+  };
+
+  // Shared content for both Dialog and Sheet
+  const BannerContent = () => (
+    <div className="space-y-4">
+     
+
+      <div className="text-blue-900 space-y-3">
+        <p className="font-medium text-slate-700">
+          Thanks to a recent government announcement, we're now accepting new families for the remainder of Term 1.
+        </p>
+
+        <div className="bg-white/60 rounded-lg p-4 border border-blue-200">
+          <p className="font-semibold text-blue-900 mb-2">Here's how mid-term funding works:</p>
+          <ul className="space-y-2 text-sm text-slate-700">
+            <li className="flex items-start">
+              <span className="font-semibold mr-2">•</span>
+              <span><strong>Term 1 (Current Term):</strong> Register now and receive 50% of the annual reimbursement amount</span>
+            </li>
+            <li className="flex items-start">
+              <span className="font-semibold mr-2">•</span>
+              <span><strong>Term 2 (Next Term):</strong> Continue with us and receive the remaining 50% of your annual funding</span>
+            </li>
+          </ul>
+
+          <div className="mt-3 pt-3 border-t border-blue-200">
+            <p className="text-sm font-semibold text-blue-900 mb-1">Total funding available:</p>
+            <ul className="space-y-1 text-sm text-slate-700">
+              <li>• $901/year for Grades 1–12 (split as $450.50 per term)</li>
+              <li>• $450.50/year for Kindergarten (split as $225.25 per term)</li>
+            </ul>
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-700">
+          You'll receive the same personalized support, facilitator guidance, and access to resources as families who registered at the beginning of the year.
+        </p>
+
+        <p className="text-sm font-semibold text-blue-900 flex items-center">
+          <Clock className="w-4 h-4 mr-2" />
+          Available while the strike is in process
+        </p>
+      </div>
+
+      {/* Dismiss Button */}
+      <div className="pt-4">
+        <button
+          onClick={handleDismiss}
+          className="w-full px-6 py-3 bg-white hover:bg-blue-50 text-blue-700 font-medium rounded-lg border-2 border-blue-300 hover:border-blue-400 transition-all flex items-center justify-center space-x-2"
+        >
+          <X className="w-4 h-4" />
+          <span>Dismiss</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Trigger Banner */}
+      <div
+        onClick={() => setIsOpen(true)}
+        className="mb-6 bg-gradient-to-r from-blue-50 to-slate-50 border-2 border-blue-200 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-slate-500 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-blue-900">
+                  Mid-Year Registration Now Open
+                </h3>
+                <p className="text-sm text-slate-600">Tap to learn more</p>
+              </div>
+            </div>
+            <Info className="w-5 h-5 text-blue-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Sheet for all screen sizes */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left">
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5 text-blue-500" />
+                <span>Mid-Year Registration</span>
+              </div>
+            </SheetTitle>
+      
+          </SheetHeader>
+          <div className="mt-6">
+            <BannerContent />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+};
+
+// Add Child Mid-Term Banner - For EXISTING families (already have submitted forms)
+const AddChildMidTermBanner = ({ onDismiss, onAction }) => {
+  return (
+    <div className="mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-400 rounded-lg shadow-lg">
+      <div className="p-6">
+        <div className="flex items-start space-x-4">
+          {/* Icon */}
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+              <UserPlus className="w-7 h-7 text-white" />
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-blue-900 mb-2">
+              Add Another Child Mid-Year
+            </h3>
+
+            <div className="text-blue-900 space-y-3 mb-4">
+              <p className="font-medium">
+                Need to add another child to your home education program? You can still register additional students during Term 1!
+              </p>
+
+              <div className="bg-white/60 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-start space-x-2 mb-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-900">Your existing students are all set!</p>
+                    <p className="text-sm text-blue-800">Students registered before September 29th have full funding for the year.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-900 mb-1">For new students added now:</p>
+                    <ul className="space-y-1.5 text-sm text-blue-800">
+                      <li className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span><strong>Term 1:</strong> 50% funding available immediately ($450.50 for Grades 1-12, $225.25 for K)</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span><strong>Term 2:</strong> Remaining 50% available if student continues into next term</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm font-semibold text-blue-900 flex items-center">
+                <Clock className="w-4 h-4 mr-2" />
+                Available while the strike is in process
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={onAction}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                <span>Add Student</span>
+              </button>
+
+              <button
+                onClick={onDismiss}
+                className="px-6 py-3 bg-white hover:bg-blue-50 text-blue-700 font-medium rounded-lg border-2 border-blue-300 hover:border-blue-400 transition-all flex items-center justify-center space-x-2"
+              >
+                <X className="w-4 h-4" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // Registration Warning Banner Component
@@ -1708,6 +1919,16 @@ const RTDConnectDashboard = ({
       setStudentPaymentEligibility(studentEligibilities);
     }
   }, [familyData?.students, studentFormStatuses, studentDocumentStatuses, studentSOLOPlanStatuses, activeSchoolYear]);
+
+  // Scroll to top when page view changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [
+    hasCompleteProfile,
+    hasRegisteredFamily,
+    customClaims?.familyId,
+    showFacilitatorPreview
+  ]);
 
   // Separate effect for family data based on custom claims or staff view
   useEffect(() => {
@@ -4252,7 +4473,8 @@ Check console for full details.
                       {/* Submit Expenses Button */}
                       <button
                         onClick={handleOpenReceiptUploadForm}
-                        className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+                        disabled={process.env.NODE_ENV !== 'development'}
+                        className="w-full flex items-center justify-center space-x-2 px-4 lg:px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 border border-gray-300 hover:border-gray-400 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Upload className="w-5 h-5" />
                         <span className="text-sm lg:text-base">Submit Expenses</span>
@@ -4337,6 +4559,38 @@ Check console for full details.
                 )}
               </div>
             )}
+
+          {/* Mid-Term Registration Banners - 25/26 School Year Only */}
+          {!isStaffViewing && isInMidTermPeriod25_26() && activeSchoolYear === '25/26' && (
+            <>
+              {/* Show for NEW families (no submitted forms yet) */}
+              {!hasSubmittedFormsForSchoolYear(studentFormStatuses, '25/26') &&
+               !dismissedWarnings?.midTermOpportunity25_26 && (
+                <MidTermOpportunityBanner
+                  onDismiss={() => handleDismissWarning('midTermOpportunity25_26')}
+                  onAction={() => {
+                    // Open notification form for first student
+                    if (familyData.students && familyData.students.length > 0) {
+                      setSelectedStudent(familyData.students[0]);
+                      setShowNotificationForm(true);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Show for EXISTING families (already have submitted forms) */}
+              {hasSubmittedFormsForSchoolYear(studentFormStatuses, '25/26') &&
+               !dismissedWarnings?.addChildMidTerm25_26 && (
+                <AddChildMidTermBanner
+                  onDismiss={() => handleDismissWarning('addChildMidTerm25_26')}
+                  onAction={() => {
+                    // Open family management to add new student
+                    handleStartRegistration();
+                  }}
+                />
+              )}
+            </>
+          )}
 
           {/* Registration Warning Banners - Only for families who need to complete registration */}
           {showRegistrationWarning && (

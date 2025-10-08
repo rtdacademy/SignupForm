@@ -1549,60 +1549,7 @@ const HomeEducationNotificationFormV2 = ({
                 />
               </div>
               
-              {/* Funding Eligibility Display */}
-              {paymentEligibility && (
-                <div className="md:col-span-2 mt-4">
-                  <div className={`p-4 rounded-lg border ${
-                    paymentEligibility.fundingEligible === false
-                      ? 'bg-red-50 border-red-200'
-                      : paymentEligibility.ageCategory === 'kindergarten'
-                      ? 'bg-amber-50 border-amber-200'
-                      : 'bg-green-50 border-green-200'
-                  }`}>
-                    <div className="flex items-start space-x-3">
-                      <div className={`flex-shrink-0 p-2 rounded-full ${
-                        paymentEligibility.fundingEligible === false
-                          ? 'bg-red-100'
-                          : paymentEligibility.ageCategory === 'kindergarten'
-                          ? 'bg-amber-100'
-                          : 'bg-green-100'
-                      }`}>
-                        {paymentEligibility.fundingEligible === false ? (
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                        ) : (
-                          <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className={`font-semibold ${
-                          paymentEligibility.fundingEligible === false
-                            ? 'text-red-900'
-                            : paymentEligibility.ageCategory === 'kindergarten'
-                            ? 'text-amber-900'
-                            : 'text-green-900'
-                        }`}>
-                          Funding Eligibility for {schoolYear}
-                        </h4>
-                        <p className={`mt-1 text-sm ${
-                          paymentEligibility.fundingEligible === false
-                            ? 'text-red-800'
-                            : paymentEligibility.ageCategory === 'kindergarten'
-                            ? 'text-amber-800'
-                            : 'text-green-800'
-                        }`}>
-                          {paymentEligibility.message || `Eligible for $${paymentEligibility.fundingAmount} in funding`}
-                        </p>
-                        {paymentEligibility.ageDetails && (
-                          <div className="mt-2 text-xs text-gray-600">
-                            <p>Age on Sept 1, {schoolYear.split('/')[0]}: {paymentEligibility.ageDetails.ageOnSept1.years} years, {paymentEligibility.ageDetails.ageOnSept1.months} months</p>
-                            <p>Age on Dec 31, {schoolYear.split('/')[0]}: {paymentEligibility.ageDetails.ageOnDec31.years} years, {paymentEligibility.ageDetails.ageOnDec31.months} months</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+            
             </CardContent>
           </Card>
 

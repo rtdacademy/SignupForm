@@ -4,6 +4,7 @@ const archiveStudentData = require('./archiveStudentData');
 const creditTrackingFunctions = require('./updateCreditTracking');
 const scheduledFunctions = require('./updatePaymentStatusScheduled');
 const reimbursementFunctions = require('./updateReimbursementAccounts');
+const familyStatsFunctions = require('./updateFamilyStats');
 
 // Export all trigger functions
 module.exports = {
@@ -11,5 +12,6 @@ module.exports = {
   ...archiveStudentData,
   ...creditTrackingFunctions,
   ...scheduledFunctions,
-  ...reimbursementFunctions
+  ...reimbursementFunctions,
+  ...familyStatsFunctions
 };

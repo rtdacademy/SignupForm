@@ -364,13 +364,25 @@ const submitStudentRegistration = onCall({
 
     // Prepare all database operations
     const batch = {};
-    
+
     // Add profile updates
     Object.assign(batch, profileUpdates);
-    
+
     // Create notifications node for new students
     batch[`notifications/${studentEmailKey}`] = {};
-    
+
+    // Add 25/26 teacher strike credit override for Non-Primary Students
+    if (formData.enrollmentYear === '25/26' && formData.studentType === 'Non-Primary Student') {
+      batch[`students/${studentEmailKey}/profile/creditOverrides/25_26/nonPrimaryStudents/creditAdjustments`] = {
+        additionalFreeCredits: 15,
+        reason: 'Teacher strike update - additional credits granted for 25/26 school year',
+        overriddenBy: 'registration-system',
+        overriddenAt: Date.now(),
+        schoolYear: '25/26'
+      };
+      console.log(`📊 Applied 25/26 teacher strike credit override for ${studentEmailKey}`);
+    }
+
     // Add main course (transition flag removal is included in courseData if applicable)
     batch[`students/${studentEmailKey}/courses/${numericCourseId}`] = courseData;
 

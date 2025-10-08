@@ -597,32 +597,7 @@ const FundingPage = () => {
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section className="py-12 sm:py-20 bg-gradient-to-br from-purple-500 to-cyan-500">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
-            Questions About Funding?
-          </h2>
-          <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-            We're happy to help! Contact our team for assistance with your funding questions.
-          </p>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 inline-block">
-            <p className="text-white text-lg mb-2">📧 claims@rtdconnect.ca</p>
-            <p className="text-purple-100">📞 School office (hours TBD)</p>
-          </div>
-          
-          <div className="mt-8">
-            <button
-              onClick={handleGetStarted}
-              className="inline-flex items-center justify-center px-8 py-4 border border-white text-lg font-medium rounded-lg text-purple-600 bg-white hover:bg-gray-50 transition-colors"
-            >
-              Start Your Registration
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </button>
-          </div>
-        </div>
-      </section>
+   
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 sm:py-12">

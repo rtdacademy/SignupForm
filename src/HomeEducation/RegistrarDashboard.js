@@ -17,9 +17,8 @@ import {
   CheckSquare,
   XCircle
 } from 'lucide-react';
-import { 
-  getCurrentSchoolYear, 
-  getOpenRegistrationSchoolYear,
+import {
+  getCurrentSchoolYear
 } from '../config/calendarConfig';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
 import StudentRegistrationCard from './RegistrarComponents/StudentRegistrationCard';
@@ -189,10 +188,10 @@ const RegistrarDashboard = (props) => {
   
   // Initialize active school year
   useEffect(() => {
+    // For Registrar Dashboard, always use the current school year
+    // (not the open registration year, which may be a past year during transitions)
     const currentYear = getCurrentSchoolYear();
-    const openRegistrationYear = getOpenRegistrationSchoolYear();
-    const targetSchoolYear = openRegistrationYear || currentYear;
-    setActiveSchoolYear(targetSchoolYear);
+    setActiveSchoolYear(currentYear);
   }, []);
   
   // Fetch families data - Use efficient database query based on status filter
@@ -212,7 +211,17 @@ const RegistrarDashboard = (props) => {
     const unsubscribe = onValue(familiesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setFamilies(data);
+
+        // Filter out test families
+        const filteredData = Object.fromEntries(
+          Object.entries(data).filter(([_, family]) => {
+            // Check if family has the test category marker
+            const isTestFamily = family.categories?.["kyle@rtdacademy,com"]?.["1759858143461"] === true;
+            return !isTestFamily; // Exclude test families
+          })
+        );
+
+        setFamilies(filteredData);
       } else {
         // No families found for this status
         setFamilies({});
@@ -365,6 +374,74 @@ const RegistrarDashboard = (props) => {
   
   // Handle student selection
   const handleStudentSelect = (student) => {
+    // Debug logging to see what data is present/missing
+    const dbSchoolYear = activeSchoolYear.replace('/', '_');
+    const familyData = student.familyData;
+
+    console.group(`📋 Student Registration Debug: ${student.firstName} ${student.lastName}`);
+    console.log('Student ID:', student.id);
+    console.log('Family ID:', student.familyId);
+    console.log('Active School Year:', activeSchoolYear, '(DB format:', dbSchoolYear + ')');
+    console.log('---');
+
+    // ASN Status
+    console.log('🆔 ASN:', student.asn || '❌ MISSING');
+    console.log('🆔 Ready for PASI:', student.readyForPASI === true ? '✅ YES' : '❌ NO');
+    console.log('---');
+
+    // Notification Form
+    const notificationForm = familyData?.NOTIFICATION_FORMS?.[dbSchoolYear]?.[student.id];
+    console.log('📝 Notification Form:', notificationForm ? '✅ EXISTS' : '❌ MISSING');
+    if (notificationForm) {
+      console.log('   - Submission Status:', notificationForm.submissionStatus || 'unknown');
+      console.log('   - Data:', notificationForm);
+    }
+    console.log('---');
+
+    // Citizenship Docs
+    const citizenshipDocs = familyData?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
+    console.log('📄 Citizenship Docs:', citizenshipDocs ? '✅ EXISTS' : '❌ MISSING');
+    if (citizenshipDocs) {
+      console.log('   - Staff Approval:', citizenshipDocs.staffApproval?.isApproved === true ? '✅ APPROVED' : '❌ NOT APPROVED');
+      console.log('   - Requires Review:', citizenshipDocs.requiresStaffReview === true ? '⚠️ YES' : 'NO');
+      console.log('   - Completion Status:', citizenshipDocs.completionStatus || 'unknown');
+      console.log('   - Data:', citizenshipDocs);
+    }
+    console.log('---');
+
+    // SOLO Education Plan
+    const soloPlan = familyData?.SOLO_EDUCATION_PLANS?.[dbSchoolYear]?.[student.id];
+    console.log('📚 SOLO Education Plan:', soloPlan ? '✅ EXISTS' : '❌ MISSING');
+    if (soloPlan) {
+      console.log('   - Submission Status:', soloPlan.submissionStatus || 'unknown');
+      console.log('   - Data:', soloPlan);
+    }
+    console.log('---');
+
+    // PASI Registration
+    const pasiRegistration = familyData?.PASI_REGISTRATIONS?.[dbSchoolYear]?.[student.id];
+    console.log('🎓 PASI Registration:', pasiRegistration ? '✅ EXISTS' : '❌ MISSING');
+    if (pasiRegistration) {
+      console.log('   - Status:', pasiRegistration.status || 'unknown');
+      console.log('   - Registered At:', pasiRegistration.registeredAt ? new Date(pasiRegistration.registeredAt).toLocaleString() : 'unknown');
+      console.log('   - Data:', pasiRegistration);
+    }
+    console.log('---');
+
+    // Calculated Status
+    console.log('🎯 Calculated Registration Status:', student.registrationStatus.status.toUpperCase());
+    console.log('   - Label:', student.registrationStatus.label);
+    console.log('   - Color:', student.registrationStatus.color);
+    console.log('   - Priority:', student.registrationStatus.priority);
+    if (student.registrationStatus.missingItems) {
+      console.log('   - Missing Items:', student.registrationStatus.missingItems);
+    }
+    if (student.registrationStatus.needsASNCreation) {
+      console.log('   - ⚠️ Needs ASN Creation in PASI');
+    }
+
+    console.groupEnd();
+
     setSelectedStudent(student);
     setSelectedFamily(student.familyData);
     setDetailSheetOpen(true);

@@ -88,15 +88,15 @@ import {
   BookOpenCheck,
   ExternalLink
 } from 'lucide-react';
-import { 
-  getCurrentSchoolYear, 
-  getActiveSeptemberCount, 
+import {
+  getCurrentSchoolYear,
+  getActiveSeptemberCount,
   formatImportantDate,
   getAllSeptemberCountDates,
-  getOpenRegistrationSchoolYear,
   getAllOpenRegistrationSchoolYears
 } from '../config/calendarConfig';
 import { formatDateForDisplay } from '../utils/timeZoneUtils';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import RTDConnectDashboard from '../RTDConnect/Dashboard';
 import { getAllFacilitators, getFacilitatorByEmail } from '../config/facilitators';
 import { getAllAlbertaCourses, getAlbertaCourseById } from '../config/albertaCourses';
@@ -254,29 +254,29 @@ const formatRelativeTime = (dateString) => {
 // Helper function to determine student registration status (ported from RegistrarDashboard)
 const determineStudentRegistrationStatus = (student, familyData, schoolYear) => {
   const dbSchoolYear = schoolYear.replace('/', '_');
-  
+
   // Check if student has ASN or is marked ready for PASI
   const hasASN = !!student.asn || student.readyForPASI === true;
-  
+
   // Check notification form status
   const notificationForm = familyData?.NOTIFICATION_FORMS?.[dbSchoolYear]?.[student.id];
   const hasNotificationForm = !!notificationForm;
   const notificationFormSubmitted = notificationForm?.submissionStatus === 'submitted';
-  
+
   // Check citizenship docs
   const citizenshipDocs = familyData?.STUDENT_CITIZENSHIP_DOCS?.[student.id];
   const hasApprovedDocs = citizenshipDocs?.staffApproval?.isApproved === true;
   const docsNeedReview = citizenshipDocs?.requiresStaffReview === true;
-  
+
   // Check SOLO plan
   const soloPlan = familyData?.SOLO_EDUCATION_PLANS?.[dbSchoolYear]?.[student.id];
   const hasSoloPlan = !!soloPlan;
   const soloPlanSubmitted = soloPlan?.submissionStatus === 'submitted';
-  
+
   // Check if marked as registered in PASI
   const pasiRegistration = familyData?.PASI_REGISTRATIONS?.[dbSchoolYear]?.[student.id];
   const registeredInPasi = pasiRegistration?.status === 'completed';
-  
+
   // Determine overall status
   if (registeredInPasi) {
     // Check if registration is complete or incomplete
@@ -337,7 +337,7 @@ const determineStudentRegistrationStatus = (student, familyData, schoolYear) => 
 // Helper function to determine family registration status (aggregate of all students)
 const determineFamilyRegistrationStatus = (family, schoolYear) => {
   const students = family.students ? Object.values(family.students) : [];
-  
+
   if (students.length === 0) {
     return {
       status: 'no-students',
@@ -347,12 +347,15 @@ const determineFamilyRegistrationStatus = (family, schoolYear) => {
       studentStatuses: []
     };
   }
-  
+
   // Get status for each student
-  const studentStatuses = students.map(student => ({
-    student,
-    status: determineStudentRegistrationStatus(student, family, schoolYear)
-  }));
+  const studentStatuses = students.map(student => {
+    const status = determineStudentRegistrationStatus(student, family, schoolYear);
+    return {
+      student,
+      status
+    };
+  });
   
   // Count students in each status
   const statusCounts = {
@@ -2573,19 +2576,20 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
   const [showBulkConfirmDialog, setShowBulkConfirmDialog] = useState(false);
   const [pendingBulkAction, setPendingBulkAction] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('active');
-  
-  // Determine active school year
-  const currentYear = getCurrentSchoolYear();
-  const openRegistrationYear = getOpenRegistrationSchoolYear();
-  const activeSchoolYear = openRegistrationYear || currentYear;
+
+  // Use the current school year from calendarConfig (updated once per year)
+  const activeSchoolYear = getCurrentSchoolYear();
   const dbSchoolYear = activeSchoolYear.replace('/', '_'); // Convert 25/26 to 25_26
-  
+
   const effectiveEmail = impersonatedEmail || currentUserEmail;
-  
+
 
   // State to track visible families for lazy loading
   const [visibleFamilies, setVisibleFamilies] = useState(new Set());
   const [debouncedVisibleFamilies, setDebouncedVisibleFamilies] = useState(new Set());
+
+  // Track the last fetched school year to detect changes
+  const [lastFetchedSchoolYear, setLastFetchedSchoolYear] = useState(null);
   
   // Debounce visible families to reduce re-renders
   useEffect(() => {
@@ -2603,15 +2607,29 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         setLoadingStatuses(false);
         return;
       }
-      
+
       setLoadingStatuses(true);
       const db = getDatabase();
-      const statuses = { ...familyStatuses }; // Keep existing statuses
 
-      // Only fetch statuses for visible families that haven't been fetched yet
-      const familiesToFetch = Array.from(debouncedVisibleFamilies).filter(
-        familyId => !familyStatuses[familyId] && families[familyId]
-      );
+      // Clear cache if school year has changed
+      let statuses;
+      let familiesToFetch;
+
+      if (lastFetchedSchoolYear !== dbSchoolYear) {
+        // School year changed - clear all cached statuses and refetch all visible families
+        setFamilyStatuses({});
+        setLastFetchedSchoolYear(dbSchoolYear);
+        statuses = {};
+        familiesToFetch = Array.from(debouncedVisibleFamilies).filter(
+          familyId => families[familyId]
+        );
+      } else {
+        // Same school year - keep existing statuses and only fetch new ones
+        statuses = { ...familyStatuses };
+        familiesToFetch = Array.from(debouncedVisibleFamilies).filter(
+          familyId => !familyStatuses[familyId] && families[familyId]
+        );
+      }
       
       for (const familyId of familiesToFetch) {
         const family = families[familyId];
@@ -2780,7 +2798,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
     } else {
       setLoadingStatuses(false);
     }
-  }, [families, dbSchoolYear, debouncedVisibleFamilies, familyStatuses]);
+  }, [families, dbSchoolYear, debouncedVisibleFamilies, familyStatuses, lastFetchedSchoolYear]);
 
   // Process families data for table display with local ASN updates
   const familyRows = useMemo(() => {
@@ -4025,15 +4043,15 @@ const FamilyDetailsModal = ({ family, familyId, isOpen, onClose }) => {
 
 const HomeEducationStaffDashboard = ({
   // Props from Layout for header functionality
-  showMyFamiliesOnly = false,
-  setShowMyFamiliesOnly = () => {},
+  viewMode = 'my', // 'my', 'all', 'inactive', or 'unassigned'
+  setViewMode = () => {},
   impersonatingFacilitator = null,
   setImpersonatingFacilitator = () => {},
   showImpersonationDropdown = false,
   setShowImpersonationDropdown = () => {},
-  statusFilter = 'active',
-  setStatusFilter = () => {},
-  homeEducationStats = { totalFamilies: 0, myFamilies: 0 },
+  showTestFamilies = false,
+  setShowTestFamilies = () => {},
+  homeEducationStats = { totalFamilies: 0, myFamilies: 0, inactiveFamilies: 0, unassignedFamilies: 0 },
   setHomeEducationStats = () => {}
 }) => {
   const { user } = useAuth();
@@ -4059,7 +4077,7 @@ const HomeEducationStaffDashboard = ({
   const [showDocumentReview, setShowDocumentReview] = useState(false);
   const [documentReviewFamilyId, setDocumentReviewFamilyId] = useState(null);
   const [documentReviewFamily, setDocumentReviewFamily] = useState(null);
-  const [activeSchoolYear, setActiveSchoolYear] = useState('');
+  // activeSchoolYear is now defined earlier as a const from getCurrentSchoolYear()
   const [filters, setFilters] = useState({
     registrationStatus: [], // Multiple statuses can be selected
     gradeLevel: [], // Multiple grade levels
@@ -4090,15 +4108,9 @@ const HomeEducationStaffDashboard = ({
   const [categoryTypes, setCategoryTypes] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
 
-  // Initialize active school year
-  useEffect(() => {
-    const currentYear = getCurrentSchoolYear();
-    const openRegistrationYear = getOpenRegistrationSchoolYear();
-    const targetSchoolYear = openRegistrationYear || currentYear;
-    setActiveSchoolYear(targetSchoolYear);
-    console.log('Active school year set to:', targetSchoolYear);
-  }, []);
-  
+  // Use the current school year from calendarConfig (updated once per year)
+  const activeSchoolYear = getCurrentSchoolYear();
+
   // Function to reload categories from Firebase
   const loadCategoriesFromFirebase = useCallback(() => {
     const db = getDatabase();
@@ -4179,7 +4191,7 @@ const HomeEducationStaffDashboard = ({
 
       for (const [familyId, family] of Object.entries(families)) {
         const students = family.students ? Object.values(family.students) : [];
-        
+
         // Initialize status object
         statuses[familyId] = {
           notificationForm: 'pending',
@@ -4193,21 +4205,24 @@ const HomeEducationStaffDashboard = ({
         let allFormsSubmitted = true;
         let anyFormStarted = false;
         let anyAssistanceRequired = false;
-        
+
         for (const student of students) {
           try {
-            const formRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`);
+            const formPath = `homeEducationFamilies/familyInformation/${familyId}/NOTIFICATION_FORMS/${dbSchoolYear}/${student.id}`;
+            const formRef = ref(db, formPath);
             const formSnapshot = await get(formRef);
-            
+
             if (formSnapshot.exists()) {
               const formData = formSnapshot.val();
+
               if (formData.submissionStatus === 'submitted') {
                 anyFormStarted = true;
+                // allFormsSubmitted stays true
               } else {
                 allFormsSubmitted = false;
                 anyFormStarted = true;
               }
-              
+
               // Check if assistance is required
               if (formData.PART_A?.editableFields?.assistanceRequired === true) {
                 anyAssistanceRequired = true;
@@ -4220,12 +4235,12 @@ const HomeEducationStaffDashboard = ({
             allFormsSubmitted = false;
           }
         }
-        
+
         // Set assistance required status
         if (anyAssistanceRequired) {
           statuses[familyId].assistanceRequired = true;
         }
-        
+
         if (students.length > 0) {
           if (allFormsSubmitted) {
             statuses[familyId].notificationForm = 'submitted';
@@ -4335,35 +4350,96 @@ const HomeEducationStaffDashboard = ({
 
       setFamilyStatuses(statuses);
       setLoadingStatuses(false);
-      //console.log('Family statuses loaded:', statuses);
     };
 
     fetchFamilyStatuses();
   }, [families, activeSchoolYear]);
 
   // Load families data
+  // PERFORMANCE OPTIMIZATION:
+  // - By default, query by facilitatorEmail to limit data download (5-50 families per facilitator)
+  // - When viewing "All Active" tab: query by status === 'active'
+  // - When viewing "Inactive" tab: query by status === 'inactive'
+  // - When viewing "Unassigned" tab: query by facilitatorEmail === null (all unassigned families)
+  // - In "My Families" mode: client-side filter to only show active families
+  // - This reduces initial load from 100+ families to just the relevant subset
   useEffect(() => {
     if (!user || claimsLoading) return;
 
     const db = getDatabase();
-    
-    // Always use a query to filter by status - never load all families
-    const familiesRef = query(
-      ref(db, 'homeEducationFamilies/familyInformation'),
-      orderByChild('status'),
-      equalTo(statusFilter)
-    );
+    const effectiveEmail = impersonatingFacilitator?.contact?.email || user?.email;
+
+    // Determine query strategy based on user role and view preference
+    let familiesRef;
+
+    if (viewMode === 'all') {
+      // Admin viewing "All Active Families": Query by status = active
+      familiesRef = query(
+        ref(db, 'homeEducationFamilies/familyInformation'),
+        orderByChild('status'),
+        equalTo('active')
+      );
+    } else if (viewMode === 'inactive') {
+      // Admin viewing "Inactive Families": Query by status = inactive
+      familiesRef = query(
+        ref(db, 'homeEducationFamilies/familyInformation'),
+        orderByChild('status'),
+        equalTo('inactive')
+      );
+    } else if (viewMode === 'unassigned') {
+      // Admin viewing "Unassigned Families": Query for null facilitatorEmail
+      familiesRef = query(
+        ref(db, 'homeEducationFamilies/familyInformation'),
+        orderByChild('facilitatorEmail'),
+        equalTo(null)
+      );
+    } else {
+      // DEFAULT: "My Families" - Query by facilitatorEmail (most efficient)
+      if (!effectiveEmail) {
+        setLoading(false);
+        return;
+      }
+
+      familiesRef = query(
+        ref(db, 'homeEducationFamilies/familyInformation'),
+        orderByChild('facilitatorEmail'),
+        equalTo(effectiveEmail)
+      );
+    }
 
     const unsubscribe = onValue(familiesRef, (snapshot) => {
       if (snapshot.exists()) {
         const familiesData = snapshot.val();
-        setFamilies(familiesData);
-        
+
+        // Client-side filtering based on viewMode
+        let filteredData = familiesData;
+
+        if (viewMode === 'my') {
+          // Show only active families for facilitator's assigned families
+          filteredData = Object.fromEntries(
+            Object.entries(familiesData).filter(([_, family]) =>
+              family.status === 'active'
+            )
+          );
+        }
+        // For 'all', 'inactive', and 'unassigned' modes, the database query already handles filtering
+
+        // Filter out test families unless showTestFamilies is true
+        if (!showTestFamilies) {
+          filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([_, family]) => {
+              // Check if family has the test category marker
+              const isTestFamily = family.categories?.["kyle@rtdacademy,com"]?.["1759858143461"] === true;
+              return !isTestFamily; // Exclude test families
+            })
+          );
+        }
+
+        setFamilies(filteredData);
+
         // Calculate statistics
-        const familyEntries = Object.entries(familiesData);
+        const familyEntries = Object.entries(filteredData);
         const currentYear = getCurrentSchoolYear();
-        // Use impersonated facilitator email if set, otherwise use actual user email
-        const effectiveEmail = impersonatingFacilitator?.contact?.email || user?.email;
         
         let totalStudents = 0;
         let totalGuardians = 0;
@@ -4415,14 +4491,6 @@ const HomeEducationStaffDashboard = ({
         };
         
         setStats(newStats);
-        
-        // Update header stats
-        if (setHomeEducationStats) {
-          setHomeEducationStats({
-            totalFamilies: familyEntries.length,
-            myFamilies
-          });
-        }
       } else {
         setFamilies({});
         const emptyStats = {
@@ -4436,14 +4504,6 @@ const HomeEducationStaffDashboard = ({
           myRegisteredFamilies: 0
         };
         setStats(emptyStats);
-        
-        // Update header stats
-        if (setHomeEducationStats) {
-          setHomeEducationStats({
-            totalFamilies: 0,
-            myFamilies: 0
-          });
-        }
       }
       setLoading(false);
     }, (error) => {
@@ -4454,30 +4514,25 @@ const HomeEducationStaffDashboard = ({
     return () => {
       off(familiesRef, 'value', unsubscribe);
     };
-  }, [user, claimsLoading, impersonatingFacilitator, statusFilter]);
+  }, [user, claimsLoading, impersonatingFacilitator, viewMode, isAdmin, showTestFamilies]);
 
   // Filter families based on all criteria
   const filteredFamilies = useMemo(() => {
     let result = families;
     // Use impersonated facilitator email if set, otherwise use actual user email
     const effectiveEmail = impersonatingFacilitator?.contact?.email || user?.email;
-    const currentYear = getCurrentSchoolYear();
+    // Use activeSchoolYear (not currentYear) to match the year used everywhere else
+    // activeSchoolYear accounts for open registration and could be 25/26 instead of 24/25
 
-    // Apply facilitator filter first (most restrictive)
-    if (showMyFamiliesOnly && effectiveEmail) {
-      result = Object.fromEntries(
-        Object.entries(result).filter(([familyId, family]) => 
-          family.facilitatorEmail === effectiveEmail
-        )
-      );
-    }
+    // NOTE: Facilitator filtering is now done at database level for performance
+    // No need to re-filter here unless admin is viewing all families
 
     // Apply advanced filters
     result = Object.fromEntries(
       Object.entries(result).filter(([familyId, family]) => {
         // Registration Status Filter - Now using detailed PASI statuses
         if (filters.registrationStatus && filters.registrationStatus.length > 0) {
-          const registrationStatus = determineFamilyRegistrationStatus(family, currentYear);
+          const registrationStatus = determineFamilyRegistrationStatus(family, activeSchoolYear);
           if (!filters.registrationStatus.includes(registrationStatus.status)) return false;
         }
 
@@ -4553,7 +4608,7 @@ const HomeEducationStaffDashboard = ({
 
         // Alberta Programs Filter
         if (filters.followsAlbertaPrograms && filters.followsAlbertaPrograms.length > 0) {
-          const dbSchoolYear = currentYear.replace('/', '_');
+          const dbSchoolYear = activeSchoolYear.replace('/', '_');
           const soloPlans = family.SOLO_EDUCATION_PLANS?.[dbSchoolYear];
           if (!soloPlans) return false;
           
@@ -4571,7 +4626,7 @@ const HomeEducationStaffDashboard = ({
 
         // Alberta Courses Filter
         if (filters.albertaCourses && filters.albertaCourses.length > 0) {
-          const dbSchoolYear = currentYear.replace('/', '_');
+          const dbSchoolYear = activeSchoolYear.replace('/', '_');
           const soloPlans = family.SOLO_EDUCATION_PLANS?.[dbSchoolYear];
           if (!soloPlans) return false;
           
@@ -4633,7 +4688,7 @@ const HomeEducationStaffDashboard = ({
     }
 
     return result;
-  }, [families, searchTerm, showMyFamiliesOnly, filters, user?.email, impersonatingFacilitator]);
+  }, [families, searchTerm, filters, user?.email, impersonatingFacilitator, activeSchoolYear, familyStatuses]);
 
   const handleViewDetails = (familyId, family) => {
     setSelectedFamilyId(familyId);
@@ -4722,10 +4777,248 @@ const HomeEducationStaffDashboard = ({
   }) || searchTerm.trim();
 
   // Export functionality with selected columns
-  const handleExportFamilies = (selectedColumns) => {
+  const handleExportFamilies = (selectedColumns, exportMode = 'family') => {
     const familyEntries = Object.entries(filteredFamilies);
-    
-    const csvData = familyEntries.map(([familyId, family]) => {
+
+    // Generate data based on export mode
+    let csvData = [];
+
+    if (exportMode === 'student') {
+      // Student mode: Create one row per student
+      familyEntries.forEach(([familyId, family]) => {
+        const students = family.students ? Object.values(family.students) : [];
+        const guardians = family.guardians ? Object.values(family.guardians) : [];
+        const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
+        const secondaryGuardians = guardians.filter(g => g.guardianType !== 'primary_guardian');
+
+        // Get comprehensive status
+        const status = familyStatuses[familyId] || {
+          notificationForm: 'pending',
+          programPlan: 'pending',
+          citizenshipDocs: 'pending',
+          paymentSetup: 'not_started',
+          assistanceRequired: false
+        };
+
+        // Get meeting information
+        const dbSchoolYear = activeSchoolYear.replace('/', '_');
+        const facilitatorMeetings = family.FACILITATOR_MEETINGS?.[dbSchoolYear];
+        const meetings = facilitatorMeetings ? Object.values(facilitatorMeetings) : [];
+        const meeting1 = meetings[0];
+        const meeting2 = meetings[1];
+
+        // Create a row for each student
+        students.forEach((student, studentIndex) => {
+          const rowData = {};
+
+          selectedColumns.forEach(columnId => {
+            switch(columnId) {
+              // Family Information (repeated for each student)
+              case 'familyId':
+                rowData['Family ID'] = familyId;
+                break;
+              case 'familyName':
+                rowData['Family Name'] = family.familyName || 'Unnamed Family';
+                break;
+              case 'status':
+                rowData['Status'] = family.status || 'active';
+                break;
+              case 'createdAt':
+                rowData['Created Date'] = family.createdAt ? new Date(family.createdAt).toLocaleDateString() : '';
+                break;
+              case 'lastUpdated':
+                rowData['Last Updated'] = family.lastUpdated ? new Date(family.lastUpdated).toLocaleDateString() : '';
+                break;
+              case 'totalStudents':
+                rowData['Total Students'] = students.length;
+                break;
+              case 'totalGuardians':
+                rowData['Total Guardians'] = guardians.length;
+                break;
+
+              // Individual Student Information
+              case 'studentId':
+                rowData['Student ID'] = student.id || '';
+                break;
+              case 'studentFirstName':
+                rowData['First Name'] = student.firstName || '';
+                break;
+              case 'studentLastName':
+                rowData['Last Name'] = student.lastName || '';
+                break;
+              case 'studentASN':
+                rowData['ASN'] = student.asn || (student.readyForPASI ? 'Ready' : '');
+                break;
+              case 'studentGrade':
+                rowData['Grade'] = student.grade || '';
+                break;
+              case 'studentAge':
+                if (student.birthday) {
+                  const age = calculateAge(student.birthday);
+                  rowData['Age'] = age !== null ? age : '';
+                } else {
+                  rowData['Age'] = '';
+                }
+                break;
+              case 'studentBirthday':
+                rowData['Birthday'] = student.birthday || '';
+                break;
+              case 'studentGender':
+                rowData['Gender'] = student.gender || '';
+                break;
+              case 'studentEmail':
+                rowData['Email'] = student.email || '';
+                break;
+              case 'studentPhone':
+                rowData['Phone'] = student.phone || '';
+                break;
+              case 'studentReadyForPASI':
+                rowData['Ready for PASI'] = student.readyForPASI ? 'Yes' : 'No';
+                break;
+
+              // Guardian Information
+              case 'primaryGuardianName':
+                rowData['Primary Guardian'] = primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` : '';
+                break;
+              case 'primaryGuardianEmail':
+                rowData['Primary Email'] = primaryGuardian?.email || '';
+                break;
+              case 'primaryGuardianPhone':
+                rowData['Primary Phone'] = primaryGuardian?.phone || '';
+                break;
+              case 'secondaryGuardianNames':
+                rowData['Other Guardians'] = secondaryGuardians.map(g => `${g.firstName} ${g.lastName}`).join('; ');
+                break;
+              case 'secondaryGuardianEmails':
+                rowData['Other Emails'] = secondaryGuardians.map(g => g.email).join('; ');
+                break;
+              case 'guardianRelations':
+                rowData['Relations'] = guardians.map(g => g.relationToStudents || 'N/A').join('; ');
+                break;
+
+              // Facilitator Information
+              case 'facilitatorName':
+                rowData['Facilitator Name'] = family.facilitatorName || 'Unassigned';
+                break;
+              case 'facilitatorEmail':
+                rowData['Facilitator Email'] = family.facilitatorEmail || 'Unassigned';
+                break;
+              case 'facilitatorAssignedDate':
+                rowData['Facilitator Assigned'] = family.facilitatorAssignedAt ? new Date(family.facilitatorAssignedAt).toLocaleDateString() : '';
+                break;
+              case 'lastFacilitatorUpdate':
+                rowData['Last Facilitator Update'] = family.lastFacilitatorUpdate ? new Date(family.lastFacilitatorUpdate).toLocaleDateString() : '';
+                break;
+
+              // Registration Status
+              case 'schoolYear':
+                rowData['School Year'] = activeSchoolYear;
+                break;
+              case 'notificationFormStatus':
+                rowData['Notification Form'] = status.notificationForm;
+                break;
+              case 'educationPlanStatus':
+                rowData['Education Plan'] = status.programPlan;
+                break;
+              case 'citizenshipDocsStatus':
+                rowData['Citizenship Docs'] = status.citizenshipDocs;
+                break;
+              case 'paymentSetupStatus':
+                rowData['Payment Setup'] = status.paymentSetup;
+                break;
+              case 'pasiRegistrationStatus':
+                rowData['PASI Status'] = family.PASI_REGISTRATIONS?.[dbSchoolYear]?.status || 'pending';
+                break;
+              case 'overallRegistrationStatus':
+                rowData['Overall Status'] = determineOverallStatus(status);
+                break;
+              case 'assistanceRequired':
+                rowData['Assistance Required'] = status.assistanceRequired ? 'Yes' : 'No';
+                break;
+
+              // Address Information
+              case 'streetAddress':
+                rowData['Street Address'] = primaryGuardian?.address?.streetAddress || '';
+                break;
+              case 'city':
+                rowData['City'] = primaryGuardian?.address?.city || '';
+                break;
+              case 'province':
+                rowData['Province'] = primaryGuardian?.address?.province || '';
+                break;
+              case 'postalCode':
+                rowData['Postal Code'] = primaryGuardian?.address?.postalCode || '';
+                break;
+              case 'country':
+                rowData['Country'] = primaryGuardian?.address?.country || '';
+                break;
+              case 'fullAddress':
+                rowData['Full Address'] = primaryGuardian?.address?.fullAddress || '';
+                break;
+
+              // Compliance Information
+              case 'registrationDate':
+                rowData['Registration Date'] = family.registrationDate || '';
+                break;
+              case 'acceptanceStatus':
+                rowData['Acceptance Status'] = family.acceptanceStatus || '';
+                break;
+              case 'schoolCode':
+                rowData['School Code'] = '2444';
+                break;
+              case 'authorityCode':
+                rowData['Authority Code'] = '0402';
+                break;
+              case 'residentSchoolBoard':
+                rowData['School Board'] = family.residentSchoolBoard || '';
+                break;
+              case 'aboriginalDeclaration':
+                rowData['Aboriginal Declaration'] = family.aboriginalDeclaration || '';
+                break;
+              case 'francophoneEligible':
+                rowData['Francophone'] = family.francophoneEligible || '';
+                break;
+
+              // Funding Information (per student)
+              case 'fundingEligible':
+                rowData['Funding Eligible'] = student.fundingEligible ? 'Yes' : 'No';
+                break;
+              case 'fundingAmounts':
+                rowData['Funding Amount'] = student.fundingAmount || 0;
+                break;
+              case 'totalFunding':
+                // For student mode, show individual student funding
+                rowData['Funding Amount'] = student.fundingAmount || 0;
+                break;
+
+              // Meeting Information
+              case 'meeting1Date':
+                rowData['Meeting 1 Date'] = meeting1?.meeting1?.date || '';
+                break;
+              case 'meeting1Attendees':
+                rowData['Meeting 1 Attendees'] = meeting1?.meeting1?.attendees?.map(a => a.name).join(', ') || '';
+                break;
+              case 'meeting2Date':
+                rowData['Meeting 2 Date'] = meeting1?.meeting2?.date || '';
+                break;
+              case 'meeting2Attendees':
+                rowData['Meeting 2 Attendees'] = meeting1?.meeting2?.attendees?.map(a => a.name).join(', ') || '';
+                break;
+              case 'professionalJudgment':
+                rowData['Professional Judgment'] = meeting1?.professionalJudgmentAchievingOutcomes ? 'Yes' : 'No';
+                break;
+              case 'meetingComments':
+                rowData['Meeting Comments'] = meeting1?.overallComments || '';
+                break;
+            }
+          });
+
+          csvData.push(rowData);
+        });
+      });
+    } else {
+      // Family mode: Create one row per family (existing logic)
+      csvData = familyEntries.map(([familyId, family]) => {
       const students = family.students ? Object.values(family.students) : [];
       const guardians = family.guardians ? Object.values(family.guardians) : [];
       const primaryGuardian = guardians.find(g => g.guardianType === 'primary_guardian') || guardians[0];
@@ -4947,9 +5240,10 @@ const HomeEducationStaffDashboard = ({
             break;
         }
       });
-      
+
       return rowData;
     });
+    }
 
     // Convert to CSV
     if (csvData.length === 0) return;
@@ -4972,7 +5266,8 @@ const HomeEducationStaffDashboard = ({
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `home_education_families_${new Date().toISOString().split('T')[0]}.csv`;
+    const modePrefix = exportMode === 'student' ? 'students' : 'families';
+    link.download = `home_education_${modePrefix}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -5029,7 +5324,7 @@ const HomeEducationStaffDashboard = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Current facilitator info */}
-      {showMyFamiliesOnly && (
+      {viewMode === 'my' && (
         <div className="mb-6">
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <div className="flex items-center space-x-2">

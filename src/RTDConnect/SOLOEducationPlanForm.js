@@ -1842,7 +1842,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
   };
 
   const handleShowFlowChart = () => {
-    window.open('/prerequisites', '_blank');
+    window.open('https://www.rtdacademy.com/prerequisites', '_blank');
   };
 
 
@@ -2522,33 +2522,7 @@ const SOLOEducationPlanForm = ({ isOpen, onOpenChange, student, familyId, school
                   </div>
                 </div>
 
-                {/* Download Current PDF */}
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div>
-                    <p className="font-medium text-sm text-blue-800">Download Current Plan</p>
-                    <p className="text-xs text-blue-600">
-                      Generate PDF with current plan data
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadPDF}
-                    disabled={generatingPDF}
-                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                  >
-                    {generatingPDF ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>Download PDF</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+           
 
                 {/* Previous PDF Versions */}
                 {existingSubmission.pdfVersions && existingSubmission.pdfVersions.length > 0 && (

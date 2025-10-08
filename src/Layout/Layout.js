@@ -4,7 +4,7 @@ import Header from './Header';
 import HomeEducationHeader from './HomeEducationHeader';
 import { useAuth } from '../context/AuthContext';
 import { useLayout } from '../context/LayoutContext';
-import { getDatabase, ref, get } from "firebase/database";
+import { getDatabase, ref, get, onValue, off } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const Layout = React.memo(({ children }) => {
@@ -17,13 +17,15 @@ const Layout = React.memo(({ children }) => {
   const [hasParentAccount, setHasParentAccount] = useState(false);
   
   // Home Education Header state
-  const [showMyFamiliesOnly, setShowMyFamiliesOnly] = useState(true); // Default to My Families
+  const [viewMode, setViewMode] = useState('my'); // 'my', 'all', 'inactive', or 'unassigned'
   const [impersonatingFacilitator, setImpersonatingFacilitator] = useState(null);
   const [showImpersonationDropdown, setShowImpersonationDropdown] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('active'); // Default to active families
+  const [showTestFamilies, setShowTestFamilies] = useState(false); // Filter out test families by default
   const [homeEducationStats, setHomeEducationStats] = useState({
     totalFamilies: 0,
-    myFamilies: 0
+    myFamilies: 0,
+    inactiveFamilies: 0,
+    unassignedFamilies: 0
   });
 
   const fetchStudentData = useCallback(async () => {
@@ -75,6 +77,91 @@ const Layout = React.memo(({ children }) => {
     checkParentAccount();
   }, [fetchStudentData, checkParentAccount]);
 
+  // Listen to family statistics directly in Layout
+  // This ensures stats are always up-to-date for the header
+  useEffect(() => {
+    const db = getDatabase();
+
+    // Listen to global stats for "All Families" count
+    const globalStatsRef = ref(db, 'homeEducationFamilies/stats');
+    const unsubscribeGlobal = onValue(globalStatsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const statsData = snapshot.val();
+        const allFamiliesCount = statsData.byStatus?.active || 0;
+        const inactiveFamiliesCount = statsData.byStatus?.inactive || 0;
+        const unassignedFamiliesCount = statsData.unassigned || 0;
+
+        console.log('📊 FETCHED STATS FROM FIREBASE:', {
+          fullStatsData: statsData,
+          byStatus: statsData.byStatus,
+          activeCount: statsData.byStatus?.active,
+          inactiveCount: statsData.byStatus?.inactive,
+          unassignedCount: statsData.unassigned,
+          settingTotalFamiliesTo: allFamiliesCount,
+          settingInactiveFamiliesTo: inactiveFamiliesCount,
+          settingUnassignedFamiliesTo: unassignedFamiliesCount
+        });
+
+        // Update the totalFamilies, inactiveFamilies, and unassignedFamilies counts
+        setHomeEducationStats(prev => ({
+          ...prev,
+          totalFamilies: allFamiliesCount,
+          inactiveFamilies: inactiveFamiliesCount,
+          unassignedFamilies: unassignedFamiliesCount
+        }));
+      } else {
+        console.log('⚠️ Stats snapshot does not exist at /homeEducationFamilies/stats');
+      }
+    });
+
+    // Listen to facilitator-specific stats for "My Families" count
+    let unsubscribeFacilitator;
+    if (user?.email) {
+      const effectiveEmail = impersonatingFacilitator?.contact?.email || user.email;
+      const sanitizedEmail = sanitizeEmail(effectiveEmail);
+      const facilitatorStatsRef = ref(db, `homeEducationFamilies/stats/byFacilitator/${sanitizedEmail}`);
+
+      unsubscribeFacilitator = onValue(facilitatorStatsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const facilitatorData = snapshot.val();
+          const myFamiliesCount = facilitatorData.active || 0;
+
+          console.log('👤 FETCHED FACILITATOR STATS:', {
+            email: effectiveEmail,
+            sanitizedEmail: sanitizedEmail,
+            facilitatorData: facilitatorData,
+            activeCount: facilitatorData.active,
+            settingMyFamiliesTo: myFamiliesCount
+          });
+
+          // Update the myFamilies count
+          setHomeEducationStats(prev => ({
+            ...prev,
+            myFamilies: myFamiliesCount
+          }));
+        } else {
+          console.log('⚠️ No facilitator stats found for:', sanitizedEmail);
+          setHomeEducationStats(prev => ({
+            ...prev,
+            myFamilies: 0
+          }));
+        }
+      });
+    }
+
+    return () => {
+      off(globalStatsRef, 'value', unsubscribeGlobal);
+      if (unsubscribeFacilitator) {
+        const effectiveEmail = impersonatingFacilitator?.contact?.email || user?.email;
+        if (effectiveEmail) {
+          const sanitizedEmail = sanitizeEmail(effectiveEmail);
+          const facilitatorStatsRef = ref(db, `homeEducationFamilies/stats/byFacilitator/${sanitizedEmail}`);
+          off(facilitatorStatsRef, 'value', unsubscribeFacilitator);
+        }
+      }
+    };
+  }, [user?.email, impersonatingFacilitator]);
+
   const handleLogout = useCallback(async () => {
     try {
       await signOut();
@@ -117,16 +204,16 @@ const Layout = React.memo(({ children }) => {
 
         // Add home education props if on the home education route
         if (isHomeEducationRoute) {
-          return React.cloneElement(child, { 
+          return React.cloneElement(child, {
             ...baseProps,
-            showMyFamiliesOnly,
-            setShowMyFamiliesOnly,
+            viewMode,
+            setViewMode,
             impersonatingFacilitator,
             setImpersonatingFacilitator,
             showImpersonationDropdown,
             setShowImpersonationDropdown,
-            statusFilter,
-            setStatusFilter,
+            showTestFamilies,
+            setShowTestFamilies,
             homeEducationStats,
             setHomeEducationStats
           });
@@ -137,8 +224,8 @@ const Layout = React.memo(({ children }) => {
       return child;
     });
   }, [
-    user, isSidebarOpen, handleSidebarToggle, studentData, isFullScreen, handleFullScreenToggle, 
-    children, isHomeEducationRoute, showMyFamiliesOnly, impersonatingFacilitator, showImpersonationDropdown, statusFilter, homeEducationStats
+    user, isSidebarOpen, handleSidebarToggle, studentData, isFullScreen, handleFullScreenToggle,
+    children, isHomeEducationRoute, viewMode, impersonatingFacilitator, showImpersonationDropdown, showTestFamilies, homeEducationStats
   ]);
 
   const headerProps = useMemo(() => ({
@@ -161,18 +248,18 @@ const Layout = React.memo(({ children }) => {
   const homeEducationHeaderProps = useMemo(() => ({
     user,
     onLogout: handleLogout,
-    showMyFamiliesOnly: isRegistrarRoute ? false : showMyFamiliesOnly, // Always show all families on registrar
-    setShowMyFamiliesOnly,
+    viewMode: isRegistrarRoute ? 'all' : viewMode, // Always show all families on registrar
+    setViewMode,
     impersonatingFacilitator,
     setImpersonatingFacilitator,
     showImpersonationDropdown,
     setShowImpersonationDropdown,
-    statusFilter,
-    setStatusFilter,
+    showTestFamilies,
+    setShowTestFamilies,
     stats: homeEducationStats
   }), [
-    user, handleLogout, showMyFamiliesOnly, impersonatingFacilitator, 
-    showImpersonationDropdown, statusFilter, homeEducationStats, isRegistrarRoute
+    user, handleLogout, viewMode, impersonatingFacilitator,
+    showImpersonationDropdown, showTestFamilies, homeEducationStats, isRegistrarRoute
   ]);
 
   return (
