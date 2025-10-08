@@ -77,6 +77,11 @@
             ".validate": "newData.hasChildren(['familyId', 'schoolYear', 'summary_totalAllocation'])"
           }
         }
+      },
+      "courseStatusSummary": {
+        ".read": "auth != null && auth.token.isStaffUser == true",
+        ".write": false,
+        ".indexOn": ["schoolYear", "familyId", "studentId", "courseId", "committed", "needsPasiRegistration", "registrarConfirmedRegistration", "registrarConfirmedMark"]
       }
     },
 

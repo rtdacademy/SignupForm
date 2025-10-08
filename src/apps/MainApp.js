@@ -66,6 +66,7 @@ const RTDLearningAdminDashboard = lazy(() => import('../rtdLearning/AdminDashboa
 // Lazy load Home Education components
 const HomeEducationStaffDashboard = lazy(() => import('../HomeEducation/HomeEducationStaffDashboard'));
 const RegistrarDashboard = lazy(() => import('../HomeEducation/RegistrarDashboard'));
+const CourseStatusDashboard = lazy(() => import('../HomeEducation/CourseStatusDashboard'));
 
 // Lazy load legal and misc pages
 const PrivacyStatement = lazy(() => import('../legal/PrivacyStatement'));
@@ -175,6 +176,12 @@ function MainApp() {
         <Route path="/registrar" element={
           <ProtectedRoute requireStaff>
             <Layout><RegistrarDashboard /></Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/course-status-dashboard" element={
+          <ProtectedRoute requireStaff>
+            <Layout><CourseStatusDashboard /></Layout>
           </ProtectedRoute>
         } />
 

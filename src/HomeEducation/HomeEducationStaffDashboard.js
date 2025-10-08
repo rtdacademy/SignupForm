@@ -109,6 +109,8 @@ import HomeEducationCategoryManager from './HomeEducationCategoryManager';
 const FamilyNotesModal = React.lazy(() => import('./FamilyNotes/FamilyNotesModal'));
 import StaffDocumentReview from './StaffDocumentReview';
 import CSVColumnSelector from './CSVColumnSelector';
+import CourseManagementToggle from './components/CourseManagementToggle';
+import CourseRegistrationCard from './components/CourseRegistrationCard';
 import {
   Table,
   TableBody,
@@ -134,6 +136,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { getAllStudentCourses, getCourseStatus } from '../utils/courseManagementUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1680,6 +1683,8 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
   });
   const [showDocumentReview, setShowDocumentReview] = useState(false);
   const [familyData, setFamilyData] = useState(null);
+  const [courseStatuses, setCourseStatuses] = useState({});
+  const [loadingCourseStatuses, setLoadingCourseStatuses] = useState(true);
 
   // Format school year for database queries
   const dbSchoolYear = schoolYear.replace('/', '_');
@@ -1724,6 +1729,39 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
     }
   }, [student.id, familyId, dbSchoolYear, schoolYear]);
 
+  // Load course statuses
+  useEffect(() => {
+    const loadCourseStatuses = async () => {
+      if (!formData.educationPlan || formData.loading) return;
+
+      setLoadingCourseStatuses(true);
+      try {
+        const selectedAlbertaCourses = formData.educationPlan?.selectedAlbertaCourses || {};
+        const otherCourses = formData.educationPlan?.otherCourses || [];
+        const allCourses = getAllStudentCourses(selectedAlbertaCourses, otherCourses);
+
+        const statuses = {};
+        await Promise.all(
+          allCourses.map(async (course) => {
+            try {
+              const status = await getCourseStatus(familyId, dbSchoolYear, student.id, course.id);
+              statuses[course.id] = status;
+            } catch (error) {
+              console.error(`Error loading status for course ${course.id}:`, error);
+            }
+          })
+        );
+        setCourseStatuses(statuses);
+      } catch (error) {
+        console.error('Error loading course statuses:', error);
+      } finally {
+        setLoadingCourseStatuses(false);
+      }
+    };
+
+    loadCourseStatuses();
+  }, [formData.educationPlan, formData.loading, familyId, dbSchoolYear, student.id]);
+
   const age = calculateAge(student.birthday);
   const hasASN = student.asn && student.asn.trim() !== '';
   const isReadyForPASI = student.readyForPASI === true;
@@ -1764,6 +1802,48 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
   const albertaCourses = formData.educationPlan?.selectedAlbertaCourses || {};
   const otherCourses = formData.educationPlan?.otherCourses || [];
   const followsAlbertaPrograms = formData.educationPlan?.followAlbertaPrograms;
+
+  // Calculate course status counts
+  const getStatusCounts = () => {
+    const counts = {
+      new: 0,
+      uncommitted: 0,
+      committed: 0,
+      pasiPending: 0,
+      registered: 0,
+      markEntered: 0,
+      completed: 0
+    };
+
+    Object.values(courseStatuses).forEach(status => {
+      if (!status) {
+        counts.new++;
+      } else if (status.registrarConfirmedMark) {
+        // Final state: Registrar confirmed mark submitted to PASI
+        counts.completed++;
+      } else if (status.finalMark !== null && status.finalMark !== undefined && status.finalMark !== '') {
+        // Mark has been entered by teacher (not yet confirmed by registrar)
+        counts.markEntered++;
+      } else if (status.registrarConfirmedRegistration) {
+        // Registered in PASI
+        counts.registered++;
+      } else if (status.needsPasiRegistration) {
+        // PASI registration requested but not confirmed
+        counts.pasiPending++;
+      } else if (status.committed) {
+        // Student committed to course
+        counts.committed++;
+      } else {
+        // Not committed yet
+        counts.uncommitted++;
+      }
+    });
+
+    return counts;
+  };
+
+  const statusCounts = getStatusCounts();
+  const totalCourses = Object.keys(courseStatuses).length;
 
   return (
     <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4 mb-3 hover:bg-blue-100 transition-colors">
@@ -1914,6 +1994,51 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
               </div>
             ) : (
               <div className="space-y-2">
+                {/* Course Status Summary */}
+                {totalCourses > 0 && !loadingCourseStatuses && (
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-2 border border-purple-200">
+                    <p className="text-xs font-semibold text-gray-800 mb-1.5">Registration Status:</p>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {statusCounts.committed > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          <span className="text-gray-700">{statusCounts.committed} Committed</span>
+                        </div>
+                      )}
+                      {statusCounts.pasiPending > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                          <span className="text-gray-700">{statusCounts.pasiPending} Pending Registrar</span>
+                        </div>
+                      )}
+                      {statusCounts.registered > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-gray-700">{statusCounts.registered} Registered</span>
+                        </div>
+                      )}
+                      {statusCounts.markEntered > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          <span className="text-gray-700">{statusCounts.markEntered} Pending Mark</span>
+                        </div>
+                      )}
+                      {statusCounts.completed > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-gray-700">{statusCounts.completed} Added to PASI</span>
+                        </div>
+                      )}
+                      {statusCounts.uncommitted > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                          <span className="text-gray-700">{statusCounts.uncommitted} Uncommitted</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Alberta Courses */}
                 {Object.keys(albertaCourses).length > 0 && (
                   <div className="bg-white rounded-lg p-2 space-y-1">
@@ -1942,11 +2067,16 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
                     <p className="text-xs font-medium text-gray-700 mb-1">Other Courses:</p>
                     <div className="flex flex-wrap gap-1">
                       {otherCourses.map((course, idx) => (
-                        <Badge 
+                        <Badge
                           key={idx}
-                          variant="outline" 
+                          variant="outline"
                           className="text-xs bg-gray-50 text-gray-700 border-gray-300"
+                          title={`Category: ${course.category || 'N/A'} | Code: ${course.courseCode || 'N/A'}`}
                         >
+                          {course.category && <span className="font-semibold">{course.category}</span>}
+                          {course.category && course.courseCode && <span className="mx-1">•</span>}
+                          {course.courseCode && <span>{course.courseCode}</span>}
+                          {(course.category || course.courseCode) && course.courseName && <span className="mx-1">-</span>}
                           {course.courseName} ({course.credits} cr)
                         </Badge>
                       ))}
@@ -1981,10 +2111,9 @@ const StudentDetailRow = memo(({ student, familyId, schoolYear }) => {
 StudentDetailRow.displayName = 'StudentDetailRow';
 
 // Expanded Row Content Component
-const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd, onCategoryRemove }) => {
+const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd, onCategoryRemove, courseManagementMode, schoolYear }) => {
   const students = row.rawFamily?.students ? Object.values(row.rawFamily.students) : [];
   const familyCategories = row.categories || [];
-  const schoolYear = getCurrentSchoolYear();
   
   return (
     <React.Fragment>
@@ -2043,12 +2172,22 @@ const ExpandedRowContent = memo(({ row, categories, categoryTypes, onCategoryAdd
               {/* Detailed student rows */}
               <div className="space-y-2 border-t border-gray-200 pt-3">
                 {students.map((student, idx) => (
-                  <StudentDetailRow 
-                    key={student.id || idx} 
-                    student={student} 
-                    familyId={row.familyId}
-                    schoolYear={schoolYear}
-                  />
+                  courseManagementMode ? (
+                    <CourseRegistrationCard
+                      key={student.id || idx}
+                      student={student}
+                      familyId={row.familyId}
+                      schoolYear={schoolYear.replace('/', '_')}
+                      educationPlan={row.rawFamily?.SOLO_EDUCATION_PLANS?.[schoolYear.replace('/', '_')]?.[student.id]}
+                    />
+                  ) : (
+                    <StudentDetailRow
+                      key={student.id || idx}
+                      student={student}
+                      familyId={row.familyId}
+                      schoolYear={schoolYear}
+                    />
+                  )
                 ))}
               </div>
             </div>
@@ -2546,7 +2685,7 @@ const FamilyTableRow = memo(({
 FamilyTableRow.displayName = 'FamilyTableRow';
 
 // Family Table Component
-const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentReview, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet, facilitatorCategories, categoryTypes }) => {
+const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentReview, currentUserEmail, impersonatedEmail, isAdmin, onOpenEmailSheet, facilitatorCategories, categoryTypes, courseManagementMode, schoolYear: propSchoolYear }) => {
   const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [familyStatuses, setFamilyStatuses] = useState({});
@@ -3349,12 +3488,12 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
   // Handle category remove
   const handleCategoryRemove = useCallback(async (familyId, categoryId, facilitatorKey) => {
     const db = getDatabase();
-    
+
     try {
       // Remove category assignment in Firebase
       const categoryRef = ref(db, `homeEducationFamilies/familyInformation/${familyId}/categories/${facilitatorKey}/${categoryId}`);
       await remove(categoryRef);
-      
+
       console.log('Category removed successfully');
     } catch (error) {
       console.error('Error removing category:', error);
@@ -3366,12 +3505,14 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
     // Check if this is an expanded content row
     if (row.isExpandedRow) {
       return (
-        <ExpandedRowContent 
+        <ExpandedRowContent
           row={row}
           categories={facilitatorCategories}
           categoryTypes={categoryTypes}
           onCategoryAdd={handleCategoryAdd}
           onCategoryRemove={handleCategoryRemove}
+          courseManagementMode={courseManagementMode}
+          schoolYear={propSchoolYear || activeSchoolYear}
         />
       );
     }
@@ -3418,7 +3559,7 @@ const FamilyTable = ({ families, onViewDashboard, onManageFamily, onDocumentRevi
         onCategoryRemove={handleCategoryRemove}
       />
     );
-  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, onDocumentReview, handleEmailFamily, handleASNUpdate, handleOpenASNSheet, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail, facilitatorCategories, categoryTypes, handleCategoryAdd, handleCategoryRemove, expandedRows, toggleRow]);
+  }, [selectedFamilies, familyStatuses, handleSelectFamily, onViewDashboard, handleToggleAssistance, onDocumentReview, handleEmailFamily, handleASNUpdate, handleOpenASNSheet, loadingStatuses, togglingAssistance, isAdmin, effectiveEmail, facilitatorCategories, categoryTypes, handleCategoryAdd, handleCategoryRemove, expandedRows, toggleRow, courseManagementMode, propSchoolYear, activeSchoolYear]);
 
   // Handle range changes for lazy loading with extra buffer
   const handleRangeChanged = useCallback((range) => {
@@ -4108,6 +4249,12 @@ const HomeEducationStaffDashboard = ({
   const [categoryTypes, setCategoryTypes] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
 
+  // Course management mode state
+  const [courseManagementMode, setCourseManagementMode] = useState(() => {
+    const saved = localStorage.getItem('facilitatorCourseManagementMode');
+    return saved === 'true';
+  });
+
   // Use the current school year from calendarConfig (updated once per year)
   const activeSchoolYear = getCurrentSchoolYear();
 
@@ -4740,6 +4887,13 @@ const HomeEducationStaffDashboard = ({
     setSelectedFamily(family);
     setManagementAction('manage');
     setShowManagementModal(true);
+  };
+
+  // Handle course management mode toggle
+  const handleCourseManagementToggle = () => {
+    const newMode = !courseManagementMode;
+    setCourseManagementMode(newMode);
+    localStorage.setItem('facilitatorCourseManagementMode', String(newMode));
   };
 
   const handleCloseManagementModal = () => {
@@ -5375,11 +5529,15 @@ const HomeEducationStaffDashboard = ({
             </div>
             
             <div className="flex space-x-2">
-              <button 
+              <CourseManagementToggle
+                isActive={courseManagementMode}
+                onToggle={handleCourseManagementToggle}
+              />
+              <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className={`flex items-center space-x-2 px-4 py-2 border rounded-md transition-colors ${
-                  showAdvancedFilters 
-                    ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100' 
+                  showAdvancedFilters
+                    ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
                     : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
@@ -6380,6 +6538,8 @@ const HomeEducationStaffDashboard = ({
         }}
         facilitatorCategories={facilitatorCategories}
         categoryTypes={categoryTypes}
+        courseManagementMode={courseManagementMode}
+        schoolYear={activeSchoolYear}
       />
 
       {/* Empty State */}

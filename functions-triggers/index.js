@@ -5,6 +5,7 @@ const creditTrackingFunctions = require('./updateCreditTracking');
 const scheduledFunctions = require('./updatePaymentStatusScheduled');
 const reimbursementFunctions = require('./updateReimbursementAccounts');
 const familyStatsFunctions = require('./updateFamilyStats');
+const homeEducationCourseStatusFunctions = require('./updateHomeEducationCourseStatusSummary');
 
 // Export all trigger functions
 module.exports = {
@@ -13,5 +14,6 @@ module.exports = {
   ...creditTrackingFunctions,
   ...scheduledFunctions,
   ...reimbursementFunctions,
-  ...familyStatsFunctions
+  ...familyStatsFunctions,
+  ...homeEducationCourseStatusFunctions
 };

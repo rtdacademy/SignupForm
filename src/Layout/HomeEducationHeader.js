@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  ChevronDown, 
-  UserPlus, 
-  AlertTriangle, 
-  UserCheck, 
-  Globe, 
-  ToggleLeft, 
+import {
+  ChevronDown,
+  UserPlus,
+  AlertTriangle,
+  UserCheck,
+  Globe,
+  ToggleLeft,
   ToggleRight,
   Menu,
   LogOut,
@@ -20,7 +20,8 @@ import {
   ClipboardCheck,
   Home as HomeIcon,
   Zap,
-  Camera
+  Camera,
+  FileText
 } from 'lucide-react';
 import { getAllFacilitators } from '../config/facilitators';
 import { useAuth } from '../context/AuthContext';
@@ -105,11 +106,12 @@ function HomeEducationHeader({
   
   // Determine current page
   const isOnRegistrarDashboard = location.pathname === '/registrar';
+  const isOnCourseStatusDashboard = location.pathname === '/course-status-dashboard';
   const isOnFamilyDashboard = location.pathname === '/home-education-staff';
-  
-  // On registrar dashboard, we don't need the families toggle
-  const showFamiliesToggle = !isOnRegistrarDashboard;
-  const showImpersonation = !isOnRegistrarDashboard && (isAdmin || user?.email === 'kyle@rtdacademy.com');
+
+  // On registrar or course status dashboards, we don't need the families toggle
+  const showFamiliesToggle = !isOnRegistrarDashboard && !isOnCourseStatusDashboard;
+  const showImpersonation = !isOnRegistrarDashboard && !isOnCourseStatusDashboard && (isAdmin || user?.email === 'kyle@rtdacademy.com');
 
   const getUserDisplayName = () => {
     if (user) {
@@ -197,6 +199,16 @@ function HomeEducationHeader({
                 <ClipboardCheck className="w-4 h-4 text-blue-600" />
                 <span className="text-sm text-blue-700 font-medium">
                   All Families: {stats.totalFamilies}
+                </span>
+              </div>
+            )}
+
+            {/* Course Status Dashboard Info - Only shown on course status page */}
+            {isOnCourseStatusDashboard && (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg">
+                <FileText className="w-4 h-4 text-purple-600" />
+                <span className="text-sm text-purple-700 font-medium">
+                  Course Status Management
                 </span>
               </div>
             )}
@@ -294,7 +306,7 @@ function HomeEducationHeader({
                     </DropdownMenuItem>
                     
                     {/* Dynamic Dashboard Navigation - Changes based on current page */}
-                    {isOnRegistrarDashboard ? (
+                    {!isOnFamilyDashboard && (
                       <DropdownMenuItem onClick={() => navigate('/home-education-staff')}>
                         <div className="flex items-center space-x-3 w-full">
                           <HomeIcon className="h-4 w-4 text-gray-500" />
@@ -304,13 +316,27 @@ function HomeEducationHeader({
                           </div>
                         </div>
                       </DropdownMenuItem>
-                    ) : (
+                    )}
+
+                    {!isOnRegistrarDashboard && (
                       <DropdownMenuItem onClick={() => navigate('/registrar')}>
                         <div className="flex items-center space-x-3 w-full">
                           <ClipboardCheck className="h-4 w-4 text-gray-500" />
                           <div className="flex flex-col items-start">
                             <span className="text-sm font-semibold">Registrar Dashboard</span>
                             <span className="text-xs text-gray-500">PASI Registration Management</span>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    )}
+
+                    {!isOnCourseStatusDashboard && (
+                      <DropdownMenuItem onClick={() => navigate('/course-status-dashboard')}>
+                        <div className="flex items-center space-x-3 w-full">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm font-semibold">Course Status Dashboard</span>
+                            <span className="text-xs text-gray-500">PASI Course Management</span>
                           </div>
                         </div>
                       </DropdownMenuItem>
